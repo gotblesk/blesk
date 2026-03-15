@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Unbounded:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #08060f;
+  --accent: #c8ff00;
+  --text: rgba(255, 255, 255, 0.85);
+  --text-muted: rgba(255, 255, 255, 0.25);
+  --online: #4ade80;
+  --danger: #ef4444;
+
+  --font-ui: 'Unbounded', sans-serif;
+  --font-brand: 'Syne', sans-serif;
+  --font-logo: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button, input, a, textarea, select {
+  -webkit-app-region: no-drag;
+  font-family: inherit;
+  outline: none;
+}
+
+.app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Кастомный скроллбар */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Main screen reveal after auth */
+.main-reveal {
+  animation: mainReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes mainReveal {
+  from {
+    opacity: 0;
+    transform: scale(1.03);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}

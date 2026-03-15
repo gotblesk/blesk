@@ -1,0 +1,256 @@
+/* === Vibe Meter Panel === */
+
+.vibe-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vibe-panel--open {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.vibe-panel__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              backdrop-filter 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              -webkit-backdrop-filter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vibe-panel--open .vibe-panel__backdrop {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.vibe-panel__body {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.vibe-panel--open .vibe-panel__body {
+  transform: translateX(0);
+}
+
+/* Header */
+.vibe-panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.vibe-panel__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.vibe-panel__online {
+  font-size: 11px;
+  color: #4ade80;
+  font-weight: 500;
+}
+
+/* Vibe meter bar */
+.vibe-panel__meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(200, 255, 0, 0.03);
+  border: 1px solid rgba(200, 255, 0, 0.06);
+  margin-bottom: 16px;
+}
+
+.vibe-panel__meter-emoji {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.vibe-panel__meter-info {
+  flex: 1;
+}
+
+.vibe-panel__meter-label {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.vibe-panel__meter-bar-wrap {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.vibe-panel__meter-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vibe-panel__meter-pct {
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Friends list */
+.vibe-panel__list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.vibe-panel__list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.vibe-panel__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.vibe-panel__list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+}
+
+/* Vibe card */
+.vibe-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 3px solid;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.vibe-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateX(-2px);
+}
+
+.vibe-card__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+  position: relative;
+  transition: box-shadow 0.3s;
+}
+
+.vibe-card__online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  border: 2px solid rgba(8, 6, 15, 0.8);
+}
+
+.vibe-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.vibe-card__name {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vibe-card__activity {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 2px;
+}
+
+/* Energy bars */
+.vibe-card__energy {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.vibe-card__energy-bar {
+  width: 3px;
+  border-radius: 2px 2px 0 0;
+  animation: vibeBarPulse 2s ease-in-out infinite;
+  min-height: 4px;
+}
+
+@keyframes vibeBarPulse {
+  0%, 100% { opacity: 0.5; transform: scaleY(0.7); }
+  50% { opacity: 1; transform: scaleY(1); }
+}
+
+/* Empty */
+.vibe-panel__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.vibe-panel__empty-icon {
+  font-size: 40px;
+  opacity: 0.3;
+}
+
+.vibe-panel__empty-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Hint */
+.vibe-panel__hint {
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.12);
+  padding: 8px 0 0;
+}

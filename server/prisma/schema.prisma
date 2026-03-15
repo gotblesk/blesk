@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  tag          String   // #1234
+  phone        String?  @unique
+  passwordHash String   @map("password_hash")
+  publicKey    String?  @map("public_key")
+  avatar       String?
+  bio          String?
+  status       String?  @default("offline")
+  bleskCoins   Int      @default(0) @map("blesk_coins")
+  hue          Int      @default(0) // 0-360, цвет аватара
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  sentMessages           Message[]
+  ownedRooms             Room[]            @relation("RoomOwner")
+  participations         RoomParticipant[]
+  notifications          Notification[]    @relation("UserNotifications")
+  sentNotifications      Notification[]    @relation("NotificationSender")
+  sentFriendRequests     FriendRequest[]   @relation("FriendRequestSender")
+  receivedFriendRequests FriendRequest[]   @relation("FriendRequestReceiver")
+
+  @@map("users")
+}
+
+model Room {
+  id       String    @id @default(uuid())
+  name     String
+  type     String    @default("chat") // chat, channel, voice
+  ownerId  String    @map("owner_id")
+  owner    User      @relation("RoomOwner", fields: [ownerId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  messages     Message[]
+  participants RoomParticipant[]
+
+  @@map("rooms")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  roomId    String   @map("room_id")
+  room      Room     @relation(fields: [roomId], references: [id])
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  text      String
+  encrypted Boolean  @default(false)
+  type      String   @default("text") // text, media, system
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([roomId, createdAt])
+  @@map("messages")
+}
+
+model RoomParticipant {
+  id         String   @id @default(uuid())
+  roomId     String   @map("room_id")
+  userId     String   @map("user_id")
+  joinedAt   DateTime @default(now()) @map("joined_at")
+  lastReadAt DateTime @default(now()) @map("last_read_at")
+  room       Room     @relation(fields: [roomId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+  @@map("room_participants")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  type       String   // mention, message, friend_request, friend_accepted, system
+  title      String
+  body       String   @default("")
+  fromUserId String?  @map("from_user_id")
+  roomId     String?  @map("room_id")
+  isRead     Boolean  @default(false) @map("is_read")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User  @relation("UserNotifications", fields: [userId], references: [id])
+  fromUser User? @relation("NotificationSender", fields: [fromUserId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model FriendRequest {
+  id         String   @id @default(uuid())
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  status     String   @default("pending") // pending, accepted, declined
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sender   User @relation("FriendRequestSender", fields: [senderId], references: [id])
+  receiver User @relation("FriendRequestReceiver", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+  @@map("friend_requests")
+}
+
+model Feedback {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  type       String   // bug, suggestion, question
+  text       String
+  appVersion String   @map("app_version")
+  osInfo     String   @map("os_info")
+  status     String   @default("new") // new, reviewed, resolved
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("feedback")
+}

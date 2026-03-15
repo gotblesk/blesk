@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    overflow: hidden;
+    -webkit-app-region: drag;
+    user-select: none;
+  }
+
+  .splash {
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+    background: rgba(8, 6, 15, 0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Specular highlight */
+  .splash::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+    z-index: 3;
+  }
+
+  /* Animated orbs */
+  .orbs {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.4;
+    animation: float 8s ease-in-out infinite;
+  }
+
+  .orb--green {
+    width: 200px;
+    height: 200px;
+    background: #c8ff00;
+    top: -40px;
+    right: -40px;
+  }
+
+  .orb--cyan {
+    width: 160px;
+    height: 160px;
+    background: #00d4ff;
+    bottom: 60px;
+    left: -30px;
+    animation-delay: -3s;
+  }
+
+  .orb--pink {
+    width: 120px;
+    height: 120px;
+    background: #ff006a;
+    bottom: -20px;
+    right: 20px;
+    animation-delay: -5s;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(15px, -20px) scale(1.05); }
+    66% { transform: translate(-10px, 15px) scale(0.95); }
+  }
+
+  /* Glass overlay */
+  .glass-overlay {
+    position: absolute;
+    inset: 0;
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    background: rgba(8, 6, 15, 0.3);
+    z-index: 1;
+  }
+
+  /* Content */
+  .content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 40px;
+  }
+
+  /* Logo "bl" */
+  .logo {
+    font-size: 80px;
+    font-weight: 800;
+    letter-spacing: -4px;
+    color: #fff;
+    position: relative;
+    margin-top: auto;
+    margin-bottom: 14px;
+    text-shadow: 0 0 40px rgba(200, 255, 0, 0.3);
+    animation: logoAppear 0.8s ease-out;
+  }
+
+  .logo::after {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    background: linear-gradient(135deg, rgba(200,255,0,0.15), transparent 60%);
+    border-radius: 20px;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+    z-index: -1;
+  }
+
+  .logo .accent {
+    color: #c8ff00;
+  }
+
+  @keyframes logoAppear {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  /* Brand name */
+  .brand {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 1px;
+    text-transform: lowercase;
+    margin-top: auto;
+    margin-bottom: auto;
+    animation: fadeIn 1s ease-out 0.3s both;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Status area */
+  .status-area {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    animation: fadeIn 1s ease-out 0.6s both;
+  }
+
+  .progress-bar {
+    width: 180px;
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #c8ff00, #a0cc00);
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(200, 255, 0, 0.4);
+    transition: width 0.5s ease;
+  }
+
+  .status-text {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    transition: opacity 0.3s;
+    min-height: 16px;
+  }
+
+  .version {
+    font-size: 9px;
+    color: rgba(255,255,255,0.1);
+    margin-top: 4px;
+  }
+
+  /* Fade out animation for transition */
+  .splash.fade-out {
+    animation: splashFadeOut 0.4s ease-in forwards;
+  }
+
+  @keyframes splashFadeOut {
+    to { opacity: 0; transform: scale(1.02); }
+  }
+
+  /* Expand-out: сплеш плавно масштабируется вверх и исчезает */
+  .splash.expand-out {
+    animation: splashExpandOut 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .splash.expand-out .content {
+    animation: contentFadeUp 0.4s ease-in forwards;
+  }
+
+  @keyframes splashExpandOut {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+      border-radius: 20px;
+    }
+    60% {
+      transform: scale(1.15);
+      opacity: 0.7;
+      border-radius: 14px;
+    }
+    100% {
+      transform: scale(1.3);
+      opacity: 0;
+      border-radius: 8px;
+    }
+  }
+
+  @keyframes contentFadeUp {
+    0% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px) scale(1.05);
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="splash" id="splash">
+    <div class="orbs">
+      <div class="orb orb--green"></div>
+      <div class="orb orb--cyan"></div>
+      <div class="orb orb--pink"></div>
+    </div>
+    <div class="glass-overlay"></div>
+
+    <div class="content">
+      <div class="logo">b<span class="accent">l</span></div>
+      <div class="brand">blesk</div>
+
+      <div class="status-area">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress"></div>
+        </div>
+        <div class="status-text" id="status">Запуск...</div>
+        <div class="version">v0.1.0-alpha</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const progressEl = document.getElementById('progress');
+
+    const steps = [
+      { text: 'Запуск...', progress: 10 },
+      { text: 'Подключение к серверу...', progress: 30 },
+      { text: 'Загрузка профиля...', progress: 55 },
+      { text: 'Подготовка интерфейса...', progress: 80 },
+      { text: 'Почти готово...', progress: 95 },
+    ];
+
+    // Юмористические статусы (редкий шанс)
+    const funnyStatuses = [
+      'Полируем интерфейс...',
+      'Настраиваем блеск...',
+      'Прогреваем пиксели...',
+      'Загружаем уют...',
+    ];
+
+    let currentStep = 0;
+
+    function updateStatus() {
+      if (currentStep >= steps.length) return;
+
+      const step = steps[currentStep];
+
+      // 10% шанс юмористического статуса на шагах 2-4
+      let text = step.text;
+      if (currentStep >= 1 && currentStep <= 3 && Math.random() < 0.1) {
+        text = funnyStatuses[Math.floor(Math.random() * funnyStatuses.length)];
+      }
+
+      statusEl.style.opacity = 0;
+      setTimeout(() => {
+        statusEl.textContent = text;
+        statusEl.style.opacity = 1;
+        progressEl.style.width = step.progress + '%';
+      }, 200);
+
+      currentStep++;
+    }
+
+    // Стартовый шаг
+    updateStatus();
+
+    // Обновлять каждые 600ms
+    const interval = setInterval(() => {
+      if (currentStep >= steps.length) {
+        clearInterval(interval);
+        progressEl.style.width = '100%';
+        // Сообщаем Electron что загрузка завершена
+        if (window.splashApi) {
+          window.splashApi.ready();
+        }
+        return;
+      }
+      updateStatus();
+    }, 600);
+  </script>
+</body>
+</html>

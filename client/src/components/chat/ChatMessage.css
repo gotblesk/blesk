@@ -1,0 +1,109 @@
+.chat-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 55%;
+  animation: msgAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes msgAppear {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-message--own {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-message--other {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+/* Glass Minimal bubbles */
+.chat-message__bubble {
+  padding: 8px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+  position: relative;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.12s ease;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.chat-message__bubble:hover {
+  transform: translateY(-1px);
+}
+
+/* OWN — glass с акцентным оттенком */
+.chat-message--own .chat-message__bubble {
+  background: rgba(200, 255, 0, 0.12);
+  border: 1px solid rgba(200, 255, 0, 0.15);
+  color: #fff;
+}
+
+/* Specular highlight — тонкий блик сверху */
+.chat-message--own .chat-message__bubble::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200, 255, 0, 0.12), transparent);
+  border-radius: 1px;
+}
+
+/* OTHER — нейтральное стекло */
+.chat-message--other .chat-message__bubble {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.97);
+}
+
+.chat-message--other .chat-message__bubble::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  border-radius: 1px;
+}
+
+/* === Группировка скруглений === */
+
+/* OWN */
+.chat-message--own.chat-message--solo .chat-message__bubble { border-radius: 14px; }
+.chat-message--own.chat-message--first .chat-message__bubble { border-radius: 14px 14px 4px 14px; }
+.chat-message--own.chat-message--mid .chat-message__bubble { border-radius: 14px 4px 4px 14px; }
+.chat-message--own.chat-message--last .chat-message__bubble { border-radius: 14px 4px 14px 14px; }
+
+/* OTHER */
+.chat-message--other.chat-message--solo .chat-message__bubble { border-radius: 14px; }
+.chat-message--other.chat-message--first .chat-message__bubble { border-radius: 14px 14px 14px 4px; }
+.chat-message--other.chat-message--mid .chat-message__bubble { border-radius: 4px 14px 14px 4px; }
+.chat-message--other.chat-message--last .chat-message__bubble { border-radius: 4px 14px 14px 14px; }
+
+/* Pending (sending) */
+.chat-message--pending {
+  opacity: 0.5;
+}
+
+/* Time — только у последнего в группе */
+.chat-message__time {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.1);
+  margin-top: 3px;
+  padding: 0 4px;
+}

@@ -1,0 +1,332 @@
+/* ═══════════════════════════════════════════
+   Feedback Screen — glass модалка
+   ═══════════════════════════════════════════ */
+
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 6, 15, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: aboutOverlayIn 0.3s ease;
+}
+
+.feedback-card {
+  position: relative;
+  width: 380px;
+  border-radius: 24px;
+  background: rgba(20, 18, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 0 40px rgba(200, 255, 0, 0.03);
+  overflow: hidden;
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  animation: aboutCardIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Блик */
+.feedback-card__shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  border-radius: 24px 24px 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Кнопка закрытия */
+.feedback-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  z-index: 2;
+}
+
+.feedback-close:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+/* ═══════════════════════════════════════════
+   Хедер
+   ═══════════════════════════════════════════ */
+
+.feedback-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.feedback-header__icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.feedback-header__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.feedback-header__sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════
+   Тип (pill-кнопки)
+   ═══════════════════════════════════════════ */
+
+.feedback-types {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.feedback-type {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-ui);
+}
+
+.feedback-type:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.feedback-type--active {
+  background: rgba(200, 255, 0, 0.1);
+  border-color: rgba(200, 255, 0, 0.25);
+  color: var(--accent);
+}
+
+.feedback-type__emoji {
+  font-size: 14px;
+}
+
+/* ═══════════════════════════════════════════
+   Textarea
+   ═══════════════════════════════════════════ */
+
+.feedback-field {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.feedback-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font-ui);
+  resize: vertical;
+  min-height: 100px;
+  max-height: 250px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.feedback-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.feedback-textarea:focus {
+  border-color: rgba(200, 255, 0, 0.3);
+  box-shadow: 0 0 0 2px rgba(200, 255, 0, 0.06);
+}
+
+.feedback-field__counter {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 9px;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════
+   Мета-инфо (автосбор)
+   ═══════════════════════════════════════════ */
+
+.feedback-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.feedback-meta__item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.feedback-meta__label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.feedback-meta__value {
+  font-size: 10px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* Ошибка */
+.feedback-error {
+  font-size: 11px;
+  color: var(--danger);
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* ═══════════════════════════════════════════
+   Кнопка отправки
+   ═══════════════════════════════════════════ */
+
+.feedback-submit {
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: none;
+  background: rgba(200, 255, 0, 0.15);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-ui);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feedback-submit:hover {
+  background: rgba(200, 255, 0, 0.25);
+  box-shadow: 0 0 20px rgba(200, 255, 0, 0.08);
+}
+
+.feedback-submit:active {
+  transform: scale(0.98);
+}
+
+.feedback-submit--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.feedback-submit--disabled:hover {
+  background: rgba(200, 255, 0, 0.15);
+  box-shadow: none;
+}
+
+/* Спиннер */
+.feedback-submit__spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(200, 255, 0, 0.2);
+  border-top-color: var(--accent);
+  animation: feedbackSpin 0.6s linear infinite;
+}
+
+@keyframes feedbackSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════
+   Успех
+   ═══════════════════════════════════════════ */
+
+.feedback-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  gap: 10px;
+}
+
+.feedback-success__icon {
+  font-size: 44px;
+  animation: successBounce 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes successBounce {
+  from { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  to { transform: scale(1); }
+}
+
+.feedback-success__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.feedback-success__text {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.feedback-success__btn {
+  margin-top: 8px;
+  padding: 10px 32px;
+  border-radius: 12px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: var(--font-ui);
+}
+
+.feedback-success__btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}

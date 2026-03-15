@@ -1,0 +1,484 @@
+/* ═══════════════════════════════════════════
+   Кнопка-колокольчик
+   ═══════════════════════════════════════════ */
+.bell-trigger {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.2s;
+  -webkit-app-region: no-drag;
+}
+
+.bell-trigger:hover {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 16px rgba(200, 255, 0, 0.08);
+}
+
+.bell-trigger--active {
+  background: rgba(200, 255, 0, 0.1);
+  border-color: rgba(200, 255, 0, 0.2);
+  box-shadow: 0 0 20px rgba(200, 255, 0, 0.1);
+}
+
+/* Shake */
+.bell-trigger--shake {
+  animation: bellShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes bellShake {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-8deg); }
+  75% { transform: rotate(4deg); }
+  90% { transform: rotate(-2deg); }
+}
+
+/* Glow-пульс при непрочитанных */
+.bell-trigger--has-unread {
+  animation: bellGlow 2.5s ease-in-out infinite;
+}
+
+.bell-trigger--shake.bell-trigger--has-unread {
+  animation: bellShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97),
+             bellGlow 2.5s ease-in-out infinite 0.6s;
+}
+
+@keyframes bellGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200, 255, 0, 0); }
+  50% { box-shadow: 0 0 12px 2px rgba(200, 255, 0, 0.15); }
+}
+
+/* Бейдж */
+.bell-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: bellBadgeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 2px solid var(--bg);
+}
+
+@keyframes bellBadgeIn {
+  0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+  60% { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════
+   Окно уведомлений
+   Анимация: scale() от transform-origin (позиция колокольчика)
+   ═══════════════════════════════════════════ */
+.bell-window {
+  position: fixed;
+  z-index: 160;
+  border-radius: 24px;
+  background: rgba(14, 12, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  box-shadow:
+    0 20px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 0 60px rgba(200, 255, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  /* Начальное состояние — свёрнуто */
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* entering: начальные стили (scale 0), нужно для CSS transition */
+.bell-window--entering {
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease;
+}
+
+/* open: финальное состояние */
+.bell-window--open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+  transition:
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease;
+}
+
+/* leaving: обратная анимация */
+.bell-window--leaving {
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.28s cubic-bezier(0.4, 0, 0.7, 0.2),
+    opacity 0.2s ease;
+}
+
+/* Specular highlight */
+.bell-window__shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  border-radius: 24px 24px 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Кнопка закрытия */
+.bell-window__close {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.bell-window__close:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+/* ═══════════════════════════════════════════
+   Хедер (drag zone)
+   ═══════════════════════════════════════════ */
+.bell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.bell-header:active {
+  cursor: grabbing;
+}
+
+.bell-header__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bell-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bell-header__read-all {
+  border: none;
+  background: rgba(200, 255, 0, 0.08);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 8px;
+  transition: background 0.15s;
+  font-family: var(--font-ui);
+}
+
+.bell-header__read-all:hover {
+  background: rgba(200, 255, 0, 0.15);
+}
+
+/* ═══════════════════════════════════════════
+   Контент — fade in после scale
+   ═══════════════════════════════════════════ */
+.bell-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease 0.12s, transform 0.2s ease 0.12s;
+}
+
+.bell-content--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Табы */
+.bell-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+}
+
+.bell-tab {
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-ui);
+}
+
+.bell-tab--active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.bell-tab:hover:not(.bell-tab--active) {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Список */
+.bell-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px 8px;
+}
+
+/* ═══════════════════════════════════════════
+   Элемент уведомления
+   ═══════════════════════════════════════════ */
+.bell-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+  position: relative;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: bellItemIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.bell-item:nth-child(1) { animation-delay: 0.05s; }
+.bell-item:nth-child(2) { animation-delay: 0.08s; }
+.bell-item:nth-child(3) { animation-delay: 0.11s; }
+.bell-item:nth-child(4) { animation-delay: 0.14s; }
+.bell-item:nth-child(5) { animation-delay: 0.17s; }
+.bell-item:nth-child(6) { animation-delay: 0.20s; }
+.bell-item:nth-child(7) { animation-delay: 0.23s; }
+.bell-item:nth-child(8) { animation-delay: 0.26s; }
+
+@keyframes bellItemIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bell-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(0) scale(1.01);
+}
+
+.bell-item:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.bell-item--unread {
+  background: rgba(200, 255, 0, 0.03);
+  border-left: 2px solid rgba(200, 255, 0, 0.3);
+}
+
+.bell-item--unread:hover {
+  background: rgba(200, 255, 0, 0.06);
+}
+
+/* Аватар */
+.bell-item__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #000;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.bell-item:hover .bell-item__avatar {
+  transform: scale(1.05);
+}
+
+.bell-item__avatar--system {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Контент */
+.bell-item__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.bell-item__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bell-item__body {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bell-item__time {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Точка непрочитанного */
+.bell-item__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  margin-top: 8px;
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200, 255, 0, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(200, 255, 0, 0); }
+}
+
+/* Кнопки действий */
+.bell-item__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.bell-item__action {
+  padding: 5px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-ui);
+}
+
+.bell-item__action--accept {
+  background: rgba(200, 255, 0, 0.15);
+  color: var(--accent);
+}
+
+.bell-item__action--accept:hover {
+  background: rgba(200, 255, 0, 0.25);
+  transform: scale(1.03);
+}
+
+.bell-item__action--decline {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+
+.bell-item__action--decline:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Пустое состояние */
+.bell-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 10px;
+}
+
+.bell-empty__icon {
+  font-size: 40px;
+  opacity: 0.3;
+  animation: emptyFloat 3s ease-in-out infinite;
+}
+
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.bell-empty__text {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ═══════════════════════════════════════════
+   Resize edges
+   ═══════════════════════════════════════════ */
+.bell-resize {
+  position: absolute;
+  z-index: 10;
+}
+
+.bell-resize--n { top: -4px; left: 12px; right: 12px; height: 8px; cursor: n-resize; }
+.bell-resize--s { bottom: -4px; left: 12px; right: 12px; height: 8px; cursor: s-resize; }
+.bell-resize--e { right: -4px; top: 12px; bottom: 12px; width: 8px; cursor: e-resize; }
+.bell-resize--w { left: -4px; top: 12px; bottom: 12px; width: 8px; cursor: w-resize; }
+
+.bell-resize--ne { top: -4px; right: -4px; width: 16px; height: 16px; cursor: ne-resize; }
+.bell-resize--nw { top: -4px; left: -4px; width: 16px; height: 16px; cursor: nw-resize; }
+.bell-resize--se { bottom: -4px; right: -4px; width: 16px; height: 16px; cursor: se-resize; }
+.bell-resize--sw { bottom: -4px; left: -4px; width: 16px; height: 16px; cursor: sw-resize; }
