@@ -130,6 +130,20 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
+    // Проверяем дружбу
+    const friendship = await prisma.friendRequest.findFirst({
+      where: {
+        status: 'accepted',
+        OR: [
+          { senderId: req.userId, receiverId: participantId },
+          { senderId: participantId, receiverId: req.userId },
+        ],
+      },
+    });
+    if (!friendship) {
+      return res.status(403).json({ error: 'Можно писать только друзьям' });
+    }
+
     // Проверяем нет ли уже чата
     const existing = await prisma.room.findFirst({
       where: {

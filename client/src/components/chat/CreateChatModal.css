@@ -81,6 +81,17 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.create-chat-modal__online {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--online);
+  margin-left: 2px;
 }
 
 .create-chat-modal__tag {

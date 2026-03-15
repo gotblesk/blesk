@@ -9,6 +9,7 @@ import OrbitPanel from '../panels/OrbitPanel';
 import VibeMeter from '../panels/VibeMeter';
 import AboutScreen from '../settings/AboutScreen';
 import FeedbackScreen from '../settings/FeedbackScreen';
+import SettingsScreen from '../settings/SettingsScreen';
 import { useSocket } from '../../hooks/useSocket';
 import { useChatStore } from '../../store/chatStore';
 import useWindowManager from '../../hooks/useWindowManager';
@@ -172,6 +173,10 @@ export default function MainScreen({ user, onLogout }) {
             <div className="placeholder-title">Друзья</div>
             <div className="placeholder-sub">Скоро</div>
           </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsScreen onBack={() => setActiveTab('chats')} />
         )}
       </div>
 

@@ -213,4 +213,32 @@ router.post('/requests/:id/decline', authenticate, async (req, res) => {
   }
 });
 
+// Список друзей
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const requests = await prisma.friendRequest.findMany({
+      where: {
+        status: 'accepted',
+        OR: [
+          { senderId: req.userId },
+          { receiverId: req.userId },
+        ],
+      },
+      include: {
+        sender: { select: { id: true, username: true, tag: true, hue: true, avatar: true, status: true } },
+        receiver: { select: { id: true, username: true, tag: true, hue: true, avatar: true, status: true } },
+      },
+    });
+
+    const friends = requests.map((r) =>
+      r.senderId === req.userId ? r.receiver : r.sender
+    );
+
+    res.json(friends);
+  } catch (err) {
+    console.error('GET /api/friends error:', err);
+    res.status(500).json({ error: 'Ошибка загрузки друзей' });
+  }
+});
+
 module.exports = router;
