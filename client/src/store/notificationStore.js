@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import API_URL from '../config';
 
 export const useNotificationStore = create((set, get) => ({
   notifications: [],
@@ -12,7 +11,7 @@ export const useNotificationStore = create((set, get) => ({
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const res = await fetch(`${API}/api/notifications`, {
+      const res = await fetch(`${API_URL}/api/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return;
@@ -39,7 +38,7 @@ export const useNotificationStore = create((set, get) => ({
   markAsRead: async (id) => {
     try {
       const token = localStorage.getItem('token');
-      await fetch(`${API}/api/notifications/${id}/read`, {
+      await fetch(`${API_URL}/api/notifications/${id}/read`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -58,7 +57,7 @@ export const useNotificationStore = create((set, get) => ({
   markAllAsRead: async () => {
     try {
       const token = localStorage.getItem('token');
-      await fetch(`${API}/api/notifications/read-all`, {
+      await fetch(`${API_URL}/api/notifications/read-all`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -75,7 +74,7 @@ export const useNotificationStore = create((set, get) => ({
   removeNotification: async (id) => {
     try {
       const token = localStorage.getItem('token');
-      await fetch(`${API}/api/notifications/${id}`, {
+      await fetch(`${API_URL}/api/notifications/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

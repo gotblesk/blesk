@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import TitleBar from './components/ui/TitleBar';
 import AuthScreen from './components/auth/AuthScreen';
 import MainScreen from './components/main/MainScreen';
+import API_URL from './config';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -25,7 +26,7 @@ export default function App() {
       return;
     }
 
-    fetch('http://localhost:3000/api/auth/me', {
+    fetch(`${API_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => (res.ok ? res.json() : Promise.reject()))

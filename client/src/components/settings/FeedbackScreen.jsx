@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import API_URL from '../../config';
 import './FeedbackScreen.css';
 
 const TYPES = [
@@ -8,7 +9,6 @@ const TYPES = [
 ];
 
 const VERSION = 'v0.1.0-alpha';
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function FeedbackScreen({ open, onClose }) {
   const [type, setType] = useState('bug');
@@ -47,7 +47,7 @@ export default function FeedbackScreen({ open, onClose }) {
       const token = localStorage.getItem('token');
       const osInfo = navigator.userAgent;
 
-      const res = await fetch(`${API}/api/feedback`, {
+      const res = await fetch(`${API_URL}/api/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

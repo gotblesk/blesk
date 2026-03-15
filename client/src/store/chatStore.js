@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-
-const API = 'http://localhost:3000';
+import API_URL from '../config';
 
 function getHeaders() {
   return {
@@ -18,7 +17,7 @@ export const useChatStore = create((set, get) => ({
 
   loadChats: async () => {
     try {
-      const res = await fetch(`${API}/api/chats`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/chats`, { headers: getHeaders() });
       if (!res.ok) throw new Error();
       const chats = await res.json();
       set({ chats });
@@ -34,7 +33,7 @@ export const useChatStore = create((set, get) => ({
     if (messages[chatId]) return;
 
     try {
-      const res = await fetch(`${API}/api/chats/${chatId}/messages`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`, { headers: getHeaders() });
       if (!res.ok) throw new Error();
       const msgs = await res.json();
       set((state) => ({
@@ -119,7 +118,7 @@ export const useChatStore = create((set, get) => ({
 
   markAsRead: async (chatId) => {
     try {
-      await fetch(`${API}/api/chats/${chatId}/read`, {
+      await fetch(`${API_URL}/api/chats/${chatId}/read`, {
         method: 'POST',
         headers: getHeaders(),
       });

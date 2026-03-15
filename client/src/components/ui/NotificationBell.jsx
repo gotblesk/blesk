@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNotificationStore } from '../../store/notificationStore';
+import API_URL from '../../config';
 import './NotificationBell.css';
 
 const TABS = [
@@ -281,12 +282,11 @@ export default function NotificationBell({ onOpenChat }) {
     e.stopPropagation();
     try {
       const token = localStorage.getItem('token');
-      const API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const res = await fetch(`${API}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${token}` } });
       const requests = await res.json();
       const request = requests.find((r) => r.senderId === notification.fromUserId);
       if (request) {
-        const acceptRes = await fetch(`${API}/api/friends/requests/${request.id}/accept`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+        const acceptRes = await fetch(`${API_URL}/api/friends/requests/${request.id}/accept`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
         const data = await acceptRes.json();
         if (data.ok && data.roomId && onOpenChat) { onOpenChat(data.roomId, null); handleClose(); }
       }
@@ -298,12 +298,11 @@ export default function NotificationBell({ onOpenChat }) {
     e.stopPropagation();
     try {
       const token = localStorage.getItem('token');
-      const API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const res = await fetch(`${API}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${token}` } });
       const requests = await res.json();
       const request = requests.find((r) => r.senderId === notification.fromUserId);
       if (request) {
-        await fetch(`${API}/api/friends/requests/${request.id}/decline`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+        await fetch(`${API_URL}/api/friends/requests/${request.id}/decline`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
       }
       markAsRead(notification.id);
     } catch (err) { console.error('Decline friend error:', err); }

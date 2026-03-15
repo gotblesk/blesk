@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useChatStore } from '../store/chatStore';
 import { useNotificationStore } from '../store/notificationStore';
+import API_URL from '../config';
 
 export function useSocket() {
   const socketRef = useRef(null);
@@ -12,7 +13,7 @@ export function useSocket() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const socket = io('http://localhost:3000', {
+    const socket = io(API_URL, {
       auth: { token },
       reconnection: true,
       reconnectionDelay: 1000,

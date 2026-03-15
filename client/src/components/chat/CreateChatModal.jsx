@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import Glass from '../ui/Glass';
+import API_URL from '../../config';
 import './CreateChatModal.css';
-
-const API = 'http://localhost:3000';
 
 export default function CreateChatModal({ onClose, onCreated }) {
   const [friends, setFriends] = useState([]);
@@ -19,7 +18,7 @@ export default function CreateChatModal({ onClose, onCreated }) {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API}/api/friends`, {
+        const res = await fetch(`${API_URL}/api/friends`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
         if (res.ok) setFriends(await res.json());
@@ -33,7 +32,7 @@ export default function CreateChatModal({ onClose, onCreated }) {
 
   const handleSelect = async (userId) => {
     try {
-      const res = await fetch(`${API}/api/chats`, {
+      const res = await fetch(`${API_URL}/api/chats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

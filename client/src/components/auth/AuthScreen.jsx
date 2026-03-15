@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Glass from '../ui/Glass';
+import API_URL from '../../config';
 import './AuthScreen.css';
 
 export default function AuthScreen({ onLogin, collapsing }) {
@@ -85,7 +86,7 @@ export default function AuthScreen({ onLogin, collapsing }) {
     setLoading(true);
     try {
       const endpoint = tab === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const res = await fetch(`http://localhost:3000${endpoint}`, {
+      const res = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
