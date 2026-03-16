@@ -109,13 +109,14 @@ export default function NotificationBell({ onOpenChat }) {
     prevCountRef.current = unreadCount;
   }, [unreadCount]);
 
-  // Escape закрывает
+  // Escape закрывает (через ref чтобы избежать temporal dead zone)
+  const handleCloseRef = useRef(null);
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e) => { if (e.key === 'Escape') handleClose(); };
+    const handler = (e) => { if (e.key === 'Escape') handleCloseRef.current?.(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, handleClose]);
+  }, [isOpen]);
 
   // Клик вне окна закрывает
   useEffect(() => {
@@ -178,7 +179,7 @@ export default function NotificationBell({ onOpenChat }) {
     return () => clearTimeout(t);
   }, [animClass]);
 
-  // Закрытие
+  // Закрытие (+ обновляем ref для Escape handler)
   const handleClose = useCallback(() => {
     if (!isOpen) return;
 
@@ -193,6 +194,7 @@ export default function NotificationBell({ onOpenChat }) {
       closingTimerRef.current = null;
     }, 300);
   }, [isOpen, calcOrigin, winPos]);
+  handleCloseRef.current = handleClose;
 
   // Клик по колокольчику — toggle
   const handleBellClick = useCallback(() => {
