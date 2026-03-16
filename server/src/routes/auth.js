@@ -375,6 +375,7 @@ router.get('/me', async (req, res) => {
         bio: user.bio,
         hue: user.hue,
         status: user.status,
+        customStatus: user.customStatus,
         bleskCoins: user.bleskCoins,
         email: user.email,
         emailVerified: user.emailVerified,

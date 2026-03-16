@@ -1,4 +1,3 @@
-import Glass from '../ui/Glass';
 import './ChatCard.css';
 
 function GroupAvatar({ participants }) {
@@ -18,7 +17,7 @@ function GroupAvatar({ participants }) {
   );
 }
 
-export default function ChatCard({ chat, isOnline, isOpen, onClick, cardRef }) {
+export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, cardRef }) {
   const isGroup = chat.type === 'group';
   const user = chat.otherUser;
   const hue = user?.hue || 0;
@@ -41,49 +40,51 @@ export default function ChatCard({ chat, isOnline, isOpen, onClick, cardRef }) {
   const displayName = isGroup ? chat.name : (user?.username || chat.name);
 
   return (
-    <Glass
-      depth={2}
-      radius={16}
-      hover
-      className={`chat-card ${isOpen ? 'chat-card--open' : ''}`}
+    <div
+      className={`chat-row ${isOpen ? 'chat-row--open' : ''}`}
       onClick={onClick}
       ref={cardRef}
     >
-      <div className="chat-card__avatar-wrap">
+      <div className="chat-row__avatar-wrap">
         {isGroup ? (
           <GroupAvatar participants={chat.participants} />
         ) : (
           <div
-            className="chat-card__avatar"
+            className="chat-row__avatar"
             style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))` }}
-          />
+          >
+            {(user?.username || '?')[0].toUpperCase()}
+          </div>
         )}
-        {!isGroup && isOnline && <div className="chat-card__online" />}
+        {!isGroup && isOnline && userStatus !== 'invisible' && (
+          <div className={`chat-row__online ${userStatus === 'dnd' ? 'chat-row__online--dnd' : ''}`} />
+        )}
       </div>
 
-      <div className="chat-card__name">{displayName}</div>
-
-      {isGroup && chat.memberCount != null && (
-        <div className="chat-card__members">{chat.memberCount} уч.</div>
-      )}
-
-      {chat.lastMessage && (
-        <div className="chat-card__preview">
-          {isGroup && chat.lastMessage.username && (
-            <span className="chat-card__preview-author">{chat.lastMessage.username}: </span>
+      <div className="chat-row__info">
+        <div className="chat-row__name">{displayName}</div>
+        <div className="chat-row__preview">
+          {chat.lastMessage ? (
+            <>
+              {isGroup && chat.lastMessage.username && (
+                <span className="chat-row__author">{chat.lastMessage.username}: </span>
+              )}
+              {chat.lastMessage.text}
+            </>
+          ) : (
+            <span className="chat-row__empty-msg">Нет сообщений</span>
           )}
-          {chat.lastMessage.text}
         </div>
-      )}
+      </div>
 
-      <div className="chat-card__meta">
+      <div className="chat-row__meta">
         {chat.lastMessage && (
-          <span className="chat-card__time">{formatTime(chat.lastMessage.createdAt)}</span>
+          <span className="chat-row__time">{formatTime(chat.lastMessage.createdAt)}</span>
         )}
         {chat.unreadCount > 0 && (
-          <span className="chat-card__badge">{chat.unreadCount}</span>
+          <span className="chat-row__badge">{chat.unreadCount}</span>
         )}
       </div>
-    </Glass>
+    </div>
   );
 }

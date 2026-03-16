@@ -70,7 +70,7 @@ export default function AboutScreen({ open, onClose }) {
             onClick={handleLogoClick}
             title={logoClicks > 5 ? `${10 - logoClicks}...` : undefined}
           >
-            <img className="about-logo__img" src="/blesk.png" alt="blesk" />
+            <img className="about-logo__img" src="./blesk.png" alt="blesk" />
             {easterEgg && (
               <div className="about-logo__sparks">
                 {Array.from({ length: 12 }).map((_, i) => (

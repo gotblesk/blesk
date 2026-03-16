@@ -5,7 +5,7 @@ import CreateChatModal from './CreateChatModal';
 import './ChatHub.css';
 
 export default function ChatHub({ onOpenChat, visible, openChatIds = [] }) {
-  const { chats, loadChats, onlineUsers } = useChatStore();
+  const { chats, loadChats, onlineUsers, userStatuses } = useChatStore();
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const cardRefs = useRef({});
@@ -55,6 +55,7 @@ export default function ChatHub({ onOpenChat, visible, openChatIds = [] }) {
               key={chat.id}
               chat={chat}
               isOnline={chat.otherUser ? onlineUsers.includes(chat.otherUser.id) : false}
+              userStatus={chat.otherUser ? userStatuses[chat.otherUser.id] : null}
               isOpen={openChatIds.includes(chat.id)}
               onClick={() => handleOpenChat(chat.id)}
               cardRef={getCardRef(chat.id)}

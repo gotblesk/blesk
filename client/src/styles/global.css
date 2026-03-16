@@ -37,9 +37,9 @@
   --danger: #dc2626;
 
   --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
   --glass-hover: rgba(255, 255, 255, 0.7);
-  --glass-shadow: rgba(0, 0, 0, 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.06);
 
   --scrollbar-thumb: rgba(0, 0, 0, 0.12);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.22);
@@ -123,14 +123,14 @@ button, input, a, textarea, select {
 
 /* Окно чата */
 [data-theme="light"] .chat-view {
-  background: rgba(240, 238, 245, 0.88);
-  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(240, 238, 245, 0.92);
+  border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
 }
 
 [data-theme="light"] .chat-view--focused {
   border-color: rgba(122, 184, 0, 0.3);
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
 }
 
 /* Сообщения */
@@ -157,7 +157,7 @@ button, input, a, textarea, select {
 /* Nav shelf */
 [data-theme="light"] .nav-shelf {
   background: rgba(255, 255, 255, 0.6);
-  border-color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.06);
 }
 
 /* Анимированный фон в светлой теме — приглушённые orbs */
@@ -218,7 +218,7 @@ button, input, a, textarea, select {
 /* Chat hub */
 [data-theme="light"] .chat-card {
   background: rgba(255, 255, 255, 0.5);
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(0, 0, 0, 0.06);
 }
 
 [data-theme="light"] .chat-card:hover {
@@ -235,9 +235,9 @@ button, input, a, textarea, select {
 
 /* Spotlight Profile — меню пользователя */
 [data-theme="light"] .spotlight-card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
 }
 
@@ -366,7 +366,7 @@ button, input, a, textarea, select {
 
 [data-theme="light"] .voice-room-card {
   background: rgba(255, 255, 255, 0.55);
-  border-color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.06);
 }
 
 [data-theme="light"] .voice-room-card:hover {
@@ -405,8 +405,9 @@ button, input, a, textarea, select {
 
 /* About screen */
 [data-theme="light"] .about-card {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="light"] .about-title {
@@ -431,8 +432,9 @@ button, input, a, textarea, select {
 
 /* Profile screen */
 [data-theme="light"] .profile-card {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="light"] .profile-username {
@@ -459,8 +461,9 @@ button, input, a, textarea, select {
 
 /* Status editor */
 [data-theme="light"] .status-card {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="light"] .status-title {
@@ -545,8 +548,9 @@ button, input, a, textarea, select {
 
 /* Voice controls */
 [data-theme="light"] .voice-controls {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
 }
 
 [data-theme="light"] .voice-controls__room {
@@ -681,8 +685,9 @@ button, input, a, textarea, select {
 }
 
 [data-theme="light"] .auth-card {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="light"] .auth-card__highlight {
@@ -691,4 +696,674 @@ button, input, a, textarea, select {
 
 [data-theme="light"] .auth-btn--primary {
   color: var(--accent-text);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Светлая тема v2 — полное покрытие всех компонентов
+   Принцип: видимые границы, контрастный текст, тёмные тени
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── NotificationBell ─── */
+
+[data-theme="light"] .bell-trigger {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .bell-trigger:hover {
+  background: rgba(0, 0, 0, 0.07);
+  box-shadow: 0 0 16px rgba(122, 184, 0, 0.1);
+}
+
+[data-theme="light"] .bell-trigger--active {
+  background: rgba(122, 184, 0, 0.1);
+  border-color: rgba(122, 184, 0, 0.25);
+  box-shadow: 0 0 20px rgba(122, 184, 0, 0.1);
+}
+
+[data-theme="light"] .bell-window {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 20px 80px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.04) inset;
+}
+
+[data-theme="light"] .bell-window__shine {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+}
+
+[data-theme="light"] .bell-window__close {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .bell-window__close:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger);
+}
+
+[data-theme="light"] .bell-header {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .bell-header__read-all {
+  background: rgba(122, 184, 0, 0.1);
+}
+
+[data-theme="light"] .bell-header__read-all:hover {
+  background: rgba(122, 184, 0, 0.18);
+}
+
+[data-theme="light"] .bell-tabs {
+  border-bottom-color: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .bell-tab--active {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(26, 26, 46, 0.9);
+}
+
+[data-theme="light"] .bell-tab:hover:not(.bell-tab--active) {
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(26, 26, 46, 0.6);
+}
+
+[data-theme="light"] .bell-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .bell-item--unread {
+  background: rgba(122, 184, 0, 0.05);
+  border-left-color: rgba(122, 184, 0, 0.4);
+}
+
+[data-theme="light"] .bell-item--unread:hover {
+  background: rgba(122, 184, 0, 0.08);
+}
+
+[data-theme="light"] .bell-item__avatar--system {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .bell-item__delete {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(26, 26, 46, 0.3);
+}
+
+[data-theme="light"] .bell-item__delete:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger);
+}
+
+[data-theme="light"] .bell-item__action--decline {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(26, 26, 46, 0.5);
+}
+
+[data-theme="light"] .bell-item__action--decline:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .bell-item__action--accept {
+  background: rgba(122, 184, 0, 0.15);
+}
+
+/* ─── ChatInput (reply preview) ─── */
+
+[data-theme="light"] .chat-input__reply-preview {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .chat-input__reply-bar {
+  background: rgba(122, 184, 0, 0.5);
+}
+
+[data-theme="light"] .chat-input__reply-author {
+  color: rgba(122, 184, 0, 0.8);
+}
+
+[data-theme="light"] .chat-input__reply-text {
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .chat-input__reply-cancel {
+  color: rgba(26, 26, 46, 0.3);
+}
+
+[data-theme="light"] .chat-input__reply-cancel:hover {
+  color: rgba(26, 26, 46, 0.6);
+}
+
+[data-theme="light"] .chat-input__field:focus {
+  border-color: rgba(122, 184, 0, 0.25);
+  background: rgba(122, 184, 0, 0.04);
+}
+
+/* ─── ChatMessage (дополнительно) ─── */
+
+[data-theme="light"] .chat-message--other .chat-message__bubble {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
+  color: rgba(26, 26, 46, 0.9);
+}
+
+[data-theme="light"] .chat-message--own .chat-message__bubble {
+  background: rgba(122, 184, 0, 0.12);
+  border-color: rgba(122, 184, 0, 0.18);
+  color: rgba(26, 26, 46, 0.9);
+}
+
+[data-theme="light"] .chat-message__system {
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .chat-message__reply-quote {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .chat-message__reply-bar {
+  background: rgba(122, 184, 0, 0.5);
+}
+
+[data-theme="light"] .chat-message__reply-author {
+  color: rgba(122, 184, 0, 0.8);
+}
+
+[data-theme="light"] .chat-message__reply-text {
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .chat-message__action-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .chat-message__action-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 26, 46, 0.7);
+}
+
+[data-theme="light"] .chat-message--pinned .chat-message__bubble {
+  border-left-color: rgba(122, 184, 0, 0.5);
+}
+
+/* ─── ChatHub (кнопка добавления) ─── */
+
+[data-theme="light"] .chat-hub__add {
+  border-color: rgba(122, 184, 0, 0.15);
+  background: rgba(122, 184, 0, 0.08);
+}
+
+[data-theme="light"] .chat-hub__add:hover {
+  background: rgba(122, 184, 0, 0.15);
+}
+
+[data-theme="light"] .chat-hub__search:focus {
+  border-color: rgba(122, 184, 0, 0.25);
+  background: rgba(122, 184, 0, 0.04);
+}
+
+/* ─── ChatHeader ─── */
+
+[data-theme="light"] .chat-header__avatar {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .chat-header__group-circle {
+  border-color: rgba(240, 238, 245, 0.8);
+}
+
+[data-theme="light"] .chat-header__btn {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+/* ─── CreateChatModal ─── */
+
+[data-theme="light"] .create-chat-modal__input {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 26, 46, 0.9);
+}
+
+[data-theme="light"] .create-chat-modal__input::placeholder {
+  color: rgba(26, 26, 46, 0.3);
+}
+
+[data-theme="light"] .create-chat-modal__input:focus {
+  border-color: rgba(122, 184, 0, 0.3);
+}
+
+[data-theme="light"] .create-chat-modal__mode-toggle {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .create-chat-modal__mode-pill {
+  color: rgba(26, 26, 46, 0.35);
+}
+
+[data-theme="light"] .create-chat-modal__mode-pill:hover {
+  color: rgba(26, 26, 46, 0.6);
+}
+
+[data-theme="light"] .create-chat-modal__mode-pill--active {
+  background: rgba(122, 184, 0, 0.12);
+  color: var(--accent);
+}
+
+[data-theme="light"] .create-chat-modal__checkbox {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .create-chat-modal__user:hover {
+  background: rgba(122, 184, 0, 0.06);
+}
+
+[data-theme="light"] .create-chat-modal__user--selected {
+  background: rgba(122, 184, 0, 0.04);
+}
+
+[data-theme="light"] .create-chat-overlay {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* ─── VoiceRoomList ─── */
+
+[data-theme="light"] .voice-list__title {
+  color: rgba(26, 26, 46, 0.9);
+}
+
+[data-theme="light"] .voice-list__create-input {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 26, 46, 0.9);
+}
+
+[data-theme="light"] .voice-list__create-input::placeholder {
+  color: rgba(26, 26, 46, 0.3);
+}
+
+[data-theme="light"] .voice-list__create-input:focus {
+  border-color: rgba(122, 184, 0, 0.3);
+}
+
+[data-theme="light"] .voice-list__empty-text {
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .voice-list__empty-hint {
+  color: rgba(26, 26, 46, 0.25);
+}
+
+[data-theme="light"] .voice-card__name {
+  color: rgba(26, 26, 46, 0.85);
+}
+
+[data-theme="light"] .voice-card__meta {
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .voice-card__mini-av {
+  border-color: rgba(240, 238, 245, 0.95);
+}
+
+[data-theme="light"] .voice-card__mini-av--more {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 26, 46, 0.5);
+}
+
+/* ─── VoiceRoom (участники) ─── */
+
+[data-theme="light"] .voice-room__title {
+  color: rgba(26, 26, 46, 0.85);
+}
+
+[data-theme="light"] .voice-room__empty {
+  color: rgba(26, 26, 46, 0.25);
+}
+
+[data-theme="light"] .voice-participant__name {
+  color: rgba(26, 26, 46, 0.65);
+}
+
+[data-theme="light"] .voice-participant__level {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* ─── VoiceControls (полная панель) ─── */
+
+[data-theme="light"] .voice-controls__room-name {
+  color: rgba(26, 26, 46, 0.85);
+}
+
+[data-theme="light"] .voice-controls__room-count {
+  color: rgba(26, 26, 46, 0.35);
+}
+
+[data-theme="light"] .voice-controls__btn--on {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(26, 26, 46, 0.6);
+}
+
+[data-theme="light"] .voice-controls__btn--on:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 26, 46, 0.8);
+}
+
+[data-theme="light"] .voice-controls__mini-av {
+  border-color: rgba(240, 238, 245, 0.95);
+}
+
+/* ─── VoiceSettings (дополнительно к имеющимся) ─── */
+
+[data-theme="light"] .voice-settings__level-bar {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .voice-settings__toggle {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .voice-settings__toggle--on {
+  background: rgba(122, 184, 0, 0.45);
+}
+
+/* ─── CallBanner ─── */
+
+[data-theme="light"] .call-banner__meta {
+  color: rgba(26, 26, 46, 0.45);
+}
+
+/* ─── IncomingCallOverlay ─── */
+
+[data-theme="light"] .incoming-call-overlay__backdrop {
+  background: rgba(240, 238, 245, 0.85);
+}
+
+[data-theme="light"] .incoming-call-overlay__card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .incoming-call-overlay__name {
+  color: rgba(26, 26, 46, 0.9);
+}
+
+[data-theme="light"] .incoming-call-overlay__label {
+  color: rgba(26, 26, 46, 0.45);
+}
+
+/* ─── FeedbackScreen ─── */
+
+[data-theme="light"] .feedback-overlay {
+  background: rgba(240, 238, 245, 0.7);
+}
+
+[data-theme="light"] .feedback-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .feedback-card__shine {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+}
+
+[data-theme="light"] .feedback-close {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .feedback-close:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger);
+}
+
+[data-theme="light"] .feedback-type {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .feedback-type:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .feedback-type--active {
+  background: rgba(122, 184, 0, 0.1);
+  border-color: rgba(122, 184, 0, 0.25);
+}
+
+[data-theme="light"] .feedback-textarea {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 26, 46, 0.9);
+}
+
+[data-theme="light"] .feedback-textarea:focus {
+  border-color: rgba(122, 184, 0, 0.3);
+}
+
+[data-theme="light"] .feedback-meta__item {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .feedback-success__btn {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .feedback-success__btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .feedback-history__item {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+/* ─── AboutScreen ─── */
+
+[data-theme="light"] .about-overlay {
+  background: rgba(240, 238, 245, 0.7);
+}
+
+[data-theme="light"] .about-card__shine {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+}
+
+[data-theme="light"] .about-close {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .about-close:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger);
+}
+
+[data-theme="light"] .about-sep {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .about-info__row {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .about-link {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .about-link:hover {
+  background: rgba(122, 184, 0, 0.06);
+  border-color: rgba(122, 184, 0, 0.15);
+}
+
+[data-theme="light"] .about-logo-progress__dot {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* ─── ProfileScreen ─── */
+
+[data-theme="light"] .profile-overlay {
+  background: rgba(240, 238, 245, 0.7);
+}
+
+[data-theme="light"] .profile-card__shine {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+}
+
+[data-theme="light"] .profile-close {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(26, 26, 46, 0.35);
+}
+
+[data-theme="light"] .profile-close:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger);
+}
+
+[data-theme="light"] .profile-sep {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .profile-field__counter {
+  color: rgba(26, 26, 46, 0.25);
+}
+
+/* ─── SettingsScreen ─── */
+
+[data-theme="light"] .settings-nav-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .settings-nav-item--active {
+  background: rgba(122, 184, 0, 0.08);
+}
+
+[data-theme="light"] .setting-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* ─── SpotlightProfile / UserPill ─── */
+
+[data-theme="light"] .user-pill {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .user-pill:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="light"] .spotlight-overlay {
+  background: rgba(240, 238, 245, 0.7);
+}
+
+[data-theme="light"] .spotlight-header {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .spotlight-avatar__dot {
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .spotlight-item__icon {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .spotlight-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .spotlight-item--danger:hover {
+  background: rgba(220, 38, 38, 0.06);
+}
+
+[data-theme="light"] .spotlight-footer {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+/* ─── Titlebar ─── */
+
+[data-theme="light"] .titlebar__btn {
+  color: rgba(26, 26, 46, 0.35);
+}
+
+[data-theme="light"] .titlebar__btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(26, 26, 46, 0.7);
+}
+
+[data-theme="light"] .titlebar__btn--close:hover {
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+}
+
+/* ─── NavShelf ─── */
+
+[data-theme="light"] .nav-shelf__glass {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .nav-shelf__indicator {
+  box-shadow: 0 0 12px rgba(122, 184, 0, 0.25), 0 0 24px rgba(122, 184, 0, 0.08);
+}
+
+/* ─── UserProfileModal ─── */
+
+[data-theme="light"] .upm-overlay {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .upm-close {
+  color: rgba(26, 26, 46, 0.4);
+}
+
+[data-theme="light"] .upm-close:hover {
+  color: rgba(26, 26, 46, 0.8);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .upm-spinner {
+  border-color: rgba(0, 0, 0, 0.08);
+  border-top-color: var(--accent);
+}
+
+/* ─── ChatView (блик, pull-indicator) ─── */
+
+[data-theme="light"] .chat-view::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, transparent 100%);
+}
+
+[data-theme="light"] .chat-view__pull-indicator {
+  background: rgba(122, 184, 0, 0.4);
+}
+
+/* ─── Auth (дополнительно) ─── */
+
+[data-theme="light"] .auth-strength__track {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .auth-verify__back:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .auth-input-wrap::after {
+  background: linear-gradient(135deg,
+    rgba(0, 0, 0, 0.06),
+    rgba(0, 0, 0, 0.02),
+    rgba(0, 0, 0, 0.04)
+  ) border-box;
+}
+
+[data-theme="light"] .auth-input-wrap:focus-within::after {
+  background: linear-gradient(135deg,
+    rgba(122, 184, 0, 0.3),
+    rgba(122, 184, 0, 0.05),
+    rgba(122, 184, 0, 0.2)
+  ) border-box;
 }

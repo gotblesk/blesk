@@ -47,7 +47,7 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .settings-nav-item {
@@ -98,7 +98,7 @@
 .settings-group {
   display: flex;
   flex-direction: column;
-  padding: 4px 0;
+  padding: 6px 0;
 }
 
 .setting-row {
@@ -118,7 +118,7 @@
 .setting-row__info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .setting-row__label {
@@ -171,7 +171,7 @@
 /* Переключатель темы */
 .setting-theme-switcher {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .setting-theme-btn {

@@ -64,6 +64,9 @@
       "deleteAppDataOnUninstall": false
     },
     "asar": true,
-    "compression": "maximum"
+    "compression": "maximum",
+    "extraResources": [
+      { "from": "public/icon.ico", "to": "icon.ico" }
+    ]
   }
 }

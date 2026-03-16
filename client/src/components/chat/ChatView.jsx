@@ -28,7 +28,7 @@ export default function ChatView({
   activeCall,
   onJoinCall,
 }) {
-  const { messages, chats, onlineUsers, typingUsers, openChat, markAsRead } = useChatStore();
+  const { messages, chats, onlineUsers, userStatuses, typingUsers, openChat, markAsRead } = useChatStore();
   const showTyping = useSettingsStore((s) => s.showTyping);
   const compactMessages = useSettingsStore((s) => s.compactMessages);
   const chatMessages = messages[chatId] || [];
@@ -333,6 +333,7 @@ export default function ChatView({
         <ChatHeader
           chat={chat}
           isOnline={isOnline}
+          userStatus={chat.otherUser ? userStatuses[chat.otherUser.id] : null}
           typingUsernames={typingInChat.length ? ['печатает'] : []}
           onCall={onCall}
           onMembers={chat.type === 'group' ? () => setMembersOpen(true) : undefined}

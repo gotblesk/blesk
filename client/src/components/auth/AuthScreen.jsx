@@ -19,6 +19,12 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
   const indicatorRef = useRef(null);
   const tabsRef = useRef(null);
 
+  // Видимость паролей
+  const [showLoginPw, setShowLoginPw] = useState(false);
+  const [showRegConfirmPw, setShowRegConfirmPw] = useState(false);
+  const [showForgotNewPw, setShowForgotNewPw] = useState(false);
+  const [showForgotConfirmPw, setShowForgotConfirmPw] = useState(false);
+
   // Для экрана восстановления пароля
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'code' | 'newpass'
@@ -298,6 +304,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
         triggerShake();
         return;
       }
+      setForgotError('');
       setForgotStep('code');
       setForgotCodeDigits(['', '', '', '', '', '']);
     } catch {
@@ -404,6 +411,27 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     setEmail('');
   };
 
+  const EyeToggle = ({ visible, onToggle }) => (
+    <button
+      type="button"
+      className="auth-eye-toggle"
+      onClick={onToggle}
+      tabIndex={-1}
+    >
+      {visible ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      )}
+    </button>
+  );
+
   // Маскировка email
   const maskedEmail = verifyEmail
     ? verifyEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + '•'.repeat(b.length) + c)
@@ -414,7 +442,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       {/* Бренд-интро */}
       {phase !== 'form' && phase !== 'verify' && phase !== 'forgot' && (
         <div className={`brand-intro ${phase === 'exiting' ? 'brand-intro--exit' : ''}`}>
-          <img className="brand-intro__logo-img" src="/blesk.png" alt="blesk" />
+          <img className="brand-intro__logo-img" src="./blesk.png" alt="blesk" />
           <div className="brand-intro__tagline">Твой блеск. Твои правила.</div>
         </div>
       )}
@@ -431,7 +459,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             <div className="auth-card__highlight" />
 
             <div className="auth-logo">
-              <img className="auth-logo__img" src="/blesk.png" alt="blesk" />
+              <img className="auth-logo__img" src="./blesk.png" alt="blesk" />
             </div>
             <div className="auth-tagline">Твой блеск. Твои правила.</div>
 
@@ -489,11 +517,12 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <div className="auth-input-wrap">
                   <input
                     className="auth-input"
-                    type="password"
+                    type={showLoginPw ? 'text' : 'password'}
                     placeholder={tab === 'register' ? 'Минимум 8 символов' : '••••••••'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+                  <EyeToggle visible={showLoginPw} onToggle={() => setShowLoginPw(!showLoginPw)} />
                 </div>
                 {tab === 'register' && password.length > 0 && (
                   <div className="auth-strength">
@@ -522,11 +551,12 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                   <div className="auth-input-wrap">
                     <input
                       className="auth-input"
-                      type="password"
+                      type={showRegConfirmPw ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                     />
+                    <EyeToggle visible={showRegConfirmPw} onToggle={() => setShowRegConfirmPw(!showRegConfirmPw)} />
                   </div>
                 </div>
               )}
@@ -582,7 +612,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             <div className="auth-card__highlight" />
 
             <div className="auth-logo">
-              <img className="auth-logo__img" src="/blesk.png" alt="blesk" />
+              <img className="auth-logo__img" src="./blesk.png" alt="blesk" />
             </div>
 
             <div className="auth-verify">
@@ -661,7 +691,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             <div className="auth-card__highlight" />
 
             <div className="auth-logo">
-              <img className="auth-logo__img" src="/blesk.png" alt="blesk" />
+              <img className="auth-logo__img" src="./blesk.png" alt="blesk" />
             </div>
 
             <div className="auth-verify">
@@ -724,7 +754,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
               {!forgotSuccess && forgotStep === 'code' && (
                 <>
                   <div className="auth-verify__subtitle">
-                    Код отправлен на <span className="auth-verify__email">{forgotEmail}</span>
+                    Если этот email зарегистрирован, мы отправили код на <span className="auth-verify__email">{forgotEmail}</span>
                   </div>
 
                   <div className="auth-code-inputs">
@@ -770,12 +800,13 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                       <div className="auth-input-wrap">
                         <input
                           className="auth-input"
-                          type="password"
+                          type={showForgotNewPw ? 'text' : 'password'}
                           placeholder="Минимум 8 символов"
                           value={forgotNewPassword}
                           onChange={(e) => setForgotNewPassword(e.target.value)}
                           autoFocus
                         />
+                        <EyeToggle visible={showForgotNewPw} onToggle={() => setShowForgotNewPw(!showForgotNewPw)} />
                       </div>
                     </div>
 
@@ -784,11 +815,12 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                       <div className="auth-input-wrap">
                         <input
                           className="auth-input"
-                          type="password"
+                          type={showForgotConfirmPw ? 'text' : 'password'}
                           placeholder="••••••••"
                           value={forgotConfirm}
                           onChange={(e) => setForgotConfirm(e.target.value)}
                         />
+                        <EyeToggle visible={showForgotConfirmPw} onToggle={() => setShowForgotConfirmPw(!showForgotConfirmPw)} />
                       </div>
                     </div>
 

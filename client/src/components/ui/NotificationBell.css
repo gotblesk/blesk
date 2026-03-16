@@ -205,7 +205,7 @@
 .bell-header__actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .bell-header__read-all {
@@ -215,7 +215,7 @@
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: 8px;
   transition: background 0.15s;
   font-family: var(--font-ui);
@@ -262,8 +262,8 @@
 /* Табы */
 .bell-tabs {
   display: flex;
-  gap: 4px;
-  padding: 10px 16px;
+  gap: 6px;
+  padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
 }
@@ -295,7 +295,7 @@
 .bell-list {
   flex: 1;
   overflow-y: auto;
-  padding: 6px 8px 8px;
+  padding: 8px 10px 10px;
 }
 
 /* ═══════════════════════════════════════════
@@ -402,6 +402,35 @@
   margin-top: 4px;
 }
 
+/* Кнопка удаления */
+.bell-item__delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.bell-item:hover .bell-item__delete {
+  opacity: 1;
+}
+
+.bell-item__delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
 /* Точка непрочитанного */
 .bell-item__dot {
   width: 8px;
@@ -426,7 +455,7 @@
 }
 
 .bell-item__action {
-  padding: 5px 14px;
+  padding: 7px 14px;
   border-radius: 8px;
   border: none;
   font-size: 11px;
