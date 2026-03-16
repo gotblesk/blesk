@@ -1,7 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
-
+const prisma = require('../db');
 // Активные звонки: chatId → { callerId, callerSocketId, startedAt, participants: Set<userId>, timeout }
 const activeCalls = new Map();
 
@@ -82,6 +79,8 @@ function callHandler(io, socket) {
         participants: new Set(),
         timeout: null,
       };
+      // Звонящий сразу становится участником
+      call.participants.add(userId);
       activeCalls.set(chatId, call);
 
       // Данные для входящего звонка
@@ -139,15 +138,21 @@ function callHandler(io, socket) {
         return socket.emit('call:error', { chatId, error: 'Звонок не найден' });
       }
 
+      // Проверить что пользователь участник чата
+      const participant = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId: chatId, userId } },
+      });
+      if (!participant) {
+        return socket.emit('call:error', { chatId, error: 'Вы не участник этого чата' });
+      }
+
       // Добавить в участники
       call.participants.add(userId);
 
-      // Для личных чатов — сбросить таймаут при первом принятии
-      if (call.timeout && call.participants.size === 1) {
+      // Сбросить таймаут при первом принятии (звонящий уже в participants)
+      if (call.timeout && call.participants.size === 2) {
         clearTimeout(call.timeout);
         call.timeout = null;
-        // Добавить и звонящего в участники
-        call.participants.add(call.callerId);
       }
 
       // Уведомить всех в чате
@@ -173,6 +178,12 @@ function callHandler(io, socket) {
     try {
       const call = activeCalls.get(chatId);
       if (!call) return;
+
+      // Проверить что пользователь участник чата
+      const participant = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId: chatId, userId } },
+      });
+      if (!participant) return;
 
       const chatInfo = await getChatInfo(chatId);
 

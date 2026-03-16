@@ -19,6 +19,18 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
   const indicatorRef = useRef(null);
   const tabsRef = useRef(null);
 
+  // Для экрана восстановления пароля
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'code' | 'newpass'
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirm, setForgotConfirm] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotCodeDigits, setForgotCodeDigits] = useState(['', '', '', '', '', '']);
+  const forgotCodeRefs = useRef([]);
+
   // Для экрана верификации
   const [verifyEmail, setVerifyEmail] = useState(pendingVerification?.user?.email || '');
   const [verifyToken, setVerifyToken] = useState(pendingVerification?.token || '');
@@ -260,6 +272,130 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     }
   };
 
+  // Восстановление пароля — отправка кода
+  const handleForgotSend = async () => {
+    if (!forgotEmail) {
+      setForgotError('Введите email');
+      triggerShake();
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail)) {
+      setForgotError('Некорректный email');
+      triggerShake();
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError('');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setForgotError(data.error || 'Ошибка');
+        triggerShake();
+        return;
+      }
+      setForgotStep('code');
+      setForgotCodeDigits(['', '', '', '', '', '']);
+    } catch {
+      setForgotError('Не удалось подключиться к серверу');
+      triggerShake();
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  // Восстановление пароля — ввод кода (просто сохраняем и переходим к newpass)
+  const handleForgotCodeInput = (index, value) => {
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, '').slice(0, 6).split('');
+      const newCode = [...forgotCodeDigits];
+      digits.forEach((d, i) => {
+        if (index + i < 6) newCode[index + i] = d;
+      });
+      setForgotCodeDigits(newCode);
+      const nextIdx = Math.min(index + digits.length, 5);
+      forgotCodeRefs.current[nextIdx]?.focus();
+      if (newCode.every((d) => d !== '')) {
+        setForgotCode(newCode.join(''));
+        setForgotStep('newpass');
+      }
+      return;
+    }
+    const digit = value.replace(/\D/g, '');
+    const newCode = [...forgotCodeDigits];
+    newCode[index] = digit;
+    setForgotCodeDigits(newCode);
+    if (digit && index < 5) {
+      forgotCodeRefs.current[index + 1]?.focus();
+    }
+    if (newCode.every((d) => d !== '')) {
+      setForgotCode(newCode.join(''));
+      setForgotStep('newpass');
+    }
+  };
+
+  const handleForgotCodeKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !forgotCodeDigits[index] && index > 0) {
+      forgotCodeRefs.current[index - 1]?.focus();
+    }
+  };
+
+  // Восстановление пароля — сброс
+  const handleForgotReset = async (e) => {
+    e.preventDefault();
+    if (forgotNewPassword.length < 8) {
+      setForgotError('Пароль — минимум 8 символов');
+      triggerShake();
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirm) {
+      setForgotError('Пароли не совпадают');
+      triggerShake();
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError('');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: forgotEmail,
+          code: forgotCode,
+          newPassword: forgotNewPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setForgotError(data.error || 'Ошибка');
+        triggerShake();
+        return;
+      }
+      setForgotSuccess(true);
+      setTimeout(() => {
+        setPhase('form');
+        setTab('login');
+        setForgotEmail('');
+        setForgotStep('email');
+        setForgotCode('');
+        setForgotNewPassword('');
+        setForgotConfirm('');
+        setForgotError('');
+        setForgotSuccess(false);
+        setForgotCodeDigits(['', '', '', '', '', '']);
+      }, 2000);
+    } catch {
+      setForgotError('Не удалось подключиться к серверу');
+      triggerShake();
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const switchTab = (newTab) => {
     setTab(newTab);
     setError('');
@@ -276,7 +412,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
   return (
     <div className={`auth-screen ${collapsing ? 'auth-screen--collapsing' : ''}`}>
       {/* Бренд-интро */}
-      {phase !== 'form' && phase !== 'verify' && (
+      {phase !== 'form' && phase !== 'verify' && phase !== 'forgot' && (
         <div className={`brand-intro ${phase === 'exiting' ? 'brand-intro--exit' : ''}`}>
           <img className="brand-intro__logo-img" src="/blesk.png" alt="blesk" />
           <div className="brand-intro__tagline">Твой блеск. Твои правила.</div>
@@ -409,6 +545,25 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
               >
                 {loading ? '...' : tab === 'login' ? 'Войти' : 'Создать аккаунт'}
               </button>
+
+              {tab === 'login' && (
+                <div
+                  className="auth-forgot-link"
+                  onClick={() => {
+                    setForgotEmail('');
+                    setForgotStep('email');
+                    setForgotCode('');
+                    setForgotNewPassword('');
+                    setForgotConfirm('');
+                    setForgotError('');
+                    setForgotSuccess(false);
+                    setForgotCodeDigits(['', '', '', '', '', '']);
+                    setPhase('forgot');
+                  }}
+                >
+                  Забыли пароль?
+                </div>
+              )}
             </form>
 
             <div className="auth-footer">blesk v{appVersion}</div>
@@ -476,6 +631,204 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                   ? `Отправить повторно (${resendTimer}с)`
                   : 'Отправить код повторно'}
               </button>
+
+              <button
+                className="auth-verify__back"
+                onClick={() => {
+                  setPhase('form');
+                  setCodeDigits(['', '', '', '', '', '']);
+                  setVerifyError('');
+                  setResendTimer(60);
+                }}
+              >
+                ← Назад к входу
+              </button>
+            </div>
+
+            <div className="auth-footer">blesk v{appVersion}</div>
+          </Glass>
+        </div>
+      )}
+
+      {/* Экран восстановления пароля */}
+      {phase === 'forgot' && (
+        <div className="auth-container">
+          <Glass
+            depth={3}
+            radius={28}
+            className={`auth-card auth-card--verify ${shaking ? 'auth-card--shake' : ''}`}
+          >
+            <div className="auth-card__highlight" />
+
+            <div className="auth-logo">
+              <img className="auth-logo__img" src="/blesk.png" alt="blesk" />
+            </div>
+
+            <div className="auth-verify">
+              <div className="auth-verify__icon">🔑</div>
+              <div className="auth-verify__title">Восстановление пароля</div>
+
+              {forgotSuccess && (
+                <div className="auth-forgot__success">
+                  Пароль успешно изменён! Перенаправляем...
+                </div>
+              )}
+
+              {!forgotSuccess && forgotStep === 'email' && (
+                <>
+                  <div className="auth-verify__subtitle">
+                    Введите email, привязанный к аккаунту
+                  </div>
+
+                  <form
+                    className="auth-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleForgotSend();
+                    }}
+                    style={{ width: '100%' }}
+                  >
+                    <div className="auth-field">
+                      <label className="auth-label">Email</label>
+                      <div className="auth-input-wrap">
+                        <input
+                          className="auth-input"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          autoComplete="off"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    {forgotError && (
+                      <div className="auth-error">
+                        <span className="auth-error__icon">!</span>
+                        {forgotError}
+                      </div>
+                    )}
+
+                    <button
+                      className="auth-btn"
+                      type="submit"
+                      disabled={forgotLoading}
+                    >
+                      {forgotLoading ? '...' : 'Отправить код'}
+                    </button>
+                  </form>
+                </>
+              )}
+
+              {!forgotSuccess && forgotStep === 'code' && (
+                <>
+                  <div className="auth-verify__subtitle">
+                    Код отправлен на <span className="auth-verify__email">{forgotEmail}</span>
+                  </div>
+
+                  <div className="auth-code-inputs">
+                    {forgotCodeDigits.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => (forgotCodeRefs.current[i] = el)}
+                        className="auth-code-input"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={digit}
+                        onChange={(e) => handleForgotCodeInput(i, e.target.value)}
+                        onKeyDown={(e) => handleForgotCodeKeyDown(i, e)}
+                        onFocus={(e) => e.target.select()}
+                        autoFocus={i === 0}
+                      />
+                    ))}
+                  </div>
+
+                  {forgotError && (
+                    <div className="auth-error" style={{ marginTop: 12 }}>
+                      <span className="auth-error__icon">!</span>
+                      {forgotError}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {!forgotSuccess && forgotStep === 'newpass' && (
+                <>
+                  <div className="auth-verify__subtitle">
+                    Придумайте новый пароль
+                  </div>
+
+                  <form
+                    className="auth-form"
+                    onSubmit={handleForgotReset}
+                    style={{ width: '100%' }}
+                  >
+                    <div className="auth-field">
+                      <label className="auth-label">Новый пароль</label>
+                      <div className="auth-input-wrap">
+                        <input
+                          className="auth-input"
+                          type="password"
+                          placeholder="Минимум 8 символов"
+                          value={forgotNewPassword}
+                          onChange={(e) => setForgotNewPassword(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <div className="auth-field">
+                      <label className="auth-label">Повторите пароль</label>
+                      <div className="auth-input-wrap">
+                        <input
+                          className="auth-input"
+                          type="password"
+                          placeholder="••••••••"
+                          value={forgotConfirm}
+                          onChange={(e) => setForgotConfirm(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {forgotError && (
+                      <div className="auth-error">
+                        <span className="auth-error__icon">!</span>
+                        {forgotError}
+                      </div>
+                    )}
+
+                    <button
+                      className="auth-btn"
+                      type="submit"
+                      disabled={forgotLoading}
+                    >
+                      {forgotLoading ? '...' : 'Сменить пароль'}
+                    </button>
+                  </form>
+                </>
+              )}
+
+              {!forgotSuccess && (
+                <button
+                  className="auth-verify__back"
+                  onClick={() => {
+                    if (forgotStep === 'code') {
+                      setForgotStep('email');
+                      setForgotError('');
+                    } else if (forgotStep === 'newpass') {
+                      setForgotStep('code');
+                      setForgotCodeDigits(['', '', '', '', '', '']);
+                      setForgotError('');
+                    } else {
+                      setPhase('form');
+                    }
+                  }}
+                >
+                  ← Назад
+                </button>
+              )}
             </div>
 
             <div className="auth-footer">blesk v{appVersion}</div>

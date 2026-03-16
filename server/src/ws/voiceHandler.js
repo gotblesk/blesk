@@ -1,11 +1,41 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { createRouter, createWebRtcTransport } = require('../services/mediasoup');
-
-const prisma = new PrismaClient();
-
 // In-memory хранилище голосовых комнат
 // roomId → { router, peers: Map<userId, PeerData> }
 const voiceRooms = new Map();
+
+// Rate limiter для текстовых сообщений в голосовых комнатах
+// userId → [timestamps]
+const voiceChatRateLimits = new Map();
+const VOICE_CHAT_RATE_WINDOW = 3000; // 3 секунды
+const VOICE_CHAT_RATE_MAX = 5; // 5 сообщений
+
+function isVoiceChatRateLimited(uid) {
+  const now = Date.now();
+  let timestamps = voiceChatRateLimits.get(uid);
+  if (!timestamps) {
+    timestamps = [];
+    voiceChatRateLimits.set(uid, timestamps);
+  }
+  // Убрать старые
+  while (timestamps.length > 0 && now - timestamps[0] > VOICE_CHAT_RATE_WINDOW) {
+    timestamps.shift();
+  }
+  if (timestamps.length >= VOICE_CHAT_RATE_MAX) {
+    return true;
+  }
+  timestamps.push(now);
+  return false;
+}
+
+// Чистка Map раз в минуту чтобы не утекала память
+setInterval(() => {
+  const now = Date.now();
+  for (const [uid, ts] of voiceChatRateLimits) {
+    while (ts.length > 0 && now - ts[0] > VOICE_CHAT_RATE_WINDOW) ts.shift();
+    if (ts.length === 0) voiceChatRateLimits.delete(uid);
+  }
+}, 60000);
 
 // PeerData = { socketId, username, hue, muted, deafened, transports: Map, producers: Map, consumers: Map }
 
@@ -77,6 +107,17 @@ function voiceHandler(io, socket) {
         const dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
         if (!dbRoom || dbRoom.type !== 'voice') {
           return callback?.({ error: 'Комната не найдена' });
+        }
+
+        // Проверить что пользователь — владелец или приглашён
+        const isOwner = dbRoom.ownerId === userId;
+        if (!isOwner) {
+          const invite = await prisma.voiceRoomInvite.findUnique({
+            where: { roomId_userId: { roomId, userId } },
+          }).catch(() => null);
+          if (!invite) {
+            return callback?.({ error: 'Вы не приглашены в эту комнату' });
+          }
         }
       }
 
@@ -150,6 +191,8 @@ function voiceHandler(io, socket) {
       }
 
       const { transport, params } = await createWebRtcTransport(room.router);
+      // Сохранить направление транспорта (send/recv) в appData
+      transport.appData.direction = direction || 'send';
       const peer = room.peers.get(userId);
       peer.transports.set(transport.id, transport);
 
@@ -233,16 +276,17 @@ function voiceHandler(io, socket) {
 
       const peer = room.peers.get(userId);
 
-      // Найти recv transport (последний созданный или с direction recv)
+      // Найти recv transport по направлению из appData
       let recvTransport = null;
       for (const t of peer.transports.values()) {
-        if (t.appData?.direction === 'recv' || peer.transports.size <= 2) {
+        if (t.appData?.direction === 'recv') {
           recvTransport = t;
+          break;
         }
       }
 
       if (!recvTransport) {
-        // Использовать любой доступный transport
+        // Фоллбэк: последний созданный транспорт
         recvTransport = Array.from(peer.transports.values()).pop();
       }
 
@@ -347,6 +391,12 @@ function voiceHandler(io, socket) {
   socket.on('voice:chat', ({ roomId, text }) => {
     if (!text || typeof text !== 'string' || text.trim().length === 0) return;
     if (text.length > 500) return; // Лимит длины сообщения
+
+    // Rate limiting — макс 5 сообщений за 3 секунды
+    if (isVoiceChatRateLimited(userId)) {
+      socket.emit('voice:chat:error', { error: 'Слишком быстро! Подождите немного.' });
+      return;
+    }
 
     const room = voiceRooms.get(roomId);
     if (!room || !room.peers.has(userId)) return;

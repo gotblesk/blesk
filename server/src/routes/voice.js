@@ -1,9 +1,8 @@
 const { Router } = require('express');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { voiceRooms, cleanupPeer } = require('../ws/voiceHandler');
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // Список голосовых комнат — только свои и те куда приглашён

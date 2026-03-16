@@ -55,7 +55,7 @@ app.use('/api/notifications', chatLimiter, notificationRoutes);
 app.use('/api/friends', chatLimiter, friendRoutes);
 app.use('/api/feedback', chatLimiter, feedbackRoutes);
 app.use('/api/voice', chatLimiter, voiceRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/admin', authLimiter, adminRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {
@@ -94,3 +94,12 @@ const PORT = process.env.PORT || 3000;
     console.log(`blesk server запущен на порту ${PORT}`);
   });
 })();
+
+// Глобальные обработчики ошибок — предотвращают падение сервера
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ Unhandled Rejection:', reason);
+});

@@ -21,8 +21,17 @@ export default function ChatInput({ onSend, onTypingStart, onTypingStop, replyTo
     };
   }, [onTypingStop]);
 
+  // Авто-ресайз textarea
+  const resizeTextarea = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  };
+
   const handleChange = (e) => {
     setText(e.target.value);
+    resizeTextarea();
 
     if (!typingRef.current && e.target.value) {
       typingRef.current = true;
@@ -41,6 +50,8 @@ export default function ChatInput({ onSend, onTypingStart, onTypingStop, replyTo
     if (!trimmed) return;
     onSend(trimmed);
     setText('');
+    // Сбросить высоту textarea
+    if (inputRef.current) inputRef.current.style.height = '';
     typingRef.current = false;
     onTypingStop?.();
     clearTimeout(typingTimeoutRef.current);
@@ -67,8 +78,8 @@ export default function ChatInput({ onSend, onTypingStart, onTypingStop, replyTo
               {replyTo.user?.username || replyTo.username || 'Сообщение'}
             </span>
             <span className="chat-input__reply-text">
-              {replyTo.text?.slice(0, 60)}
-              {replyTo.text?.length > 60 ? '...' : ''}
+              {replyTo.text?.slice(0, 60) || '[Сообщение]'}
+              {replyTo.text && replyTo.text.length > 60 ? '...' : ''}
             </span>
           </div>
           <button className="chat-input__reply-cancel" onClick={onCancelReply}>&times;</button>

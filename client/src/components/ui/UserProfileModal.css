@@ -148,7 +148,7 @@
 
 .upm-btn--outline {
   background: transparent;
-  color: #c8ff00;
+  color: var(--accent);
   border: 1.5px solid rgba(200, 255, 0, 0.4);
 }
 
@@ -169,7 +169,7 @@
   width: 28px;
   height: 28px;
   border: 3px solid rgba(255, 255, 255, 0.12);
-  border-top-color: #c8ff00;
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: upm-spin 0.7s linear infinite;
 }

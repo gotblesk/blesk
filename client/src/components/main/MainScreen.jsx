@@ -167,17 +167,20 @@ export default function MainScreen({ user, onLogout }) {
   }, [socketRef, joinCall, chats]);
 
   // Открыть чат из панели (Orbit/Vibe) — без morph
+  const windowsRef = useRef(windows);
+  windowsRef.current = windows;
+
   const handlePanelOpenChat = useCallback((chatId) => {
     setOrbitOpen(false);
     setVibeOpen(false);
     setTimeout(() => {
-      if (windows[chatId]) {
+      if (windowsRef.current[chatId]) {
         focusWindow(chatId);
       } else {
         openWindow(chatId, null);
       }
     }, 200);
-  }, [windows, focusWindow, openWindow]);
+  }, [focusWindow, openWindow]);
 
   return (
     <div className="main-screen">

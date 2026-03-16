@@ -17,7 +17,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #4ade80;
+  background: var(--online);
   animation: cb-pulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -33,7 +33,7 @@
 .call-banner__text {
   font-size: 13px;
   font-weight: 500;
-  color: #4ade80;
+  color: var(--online);
 }
 
 .call-banner__meta {
@@ -42,7 +42,7 @@
 }
 
 .call-banner__join {
-  background: #4ade80;
+  background: var(--online);
   color: var(--accent-text);
   border: none;
   padding: 5px 14px;

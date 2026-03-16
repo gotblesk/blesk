@@ -47,7 +47,7 @@
   cursor: pointer;
   transition: transform 0.15s;
   flex-shrink: 0;
-  animation: msgAppear 0.15s ease both;
+  animation: sendBtnAppear 0.15s ease both;
 }
 
 .chat-input__send:hover {
@@ -113,6 +113,11 @@
 
 .chat-input__reply-cancel:hover {
   color: rgba(255, 255, 255, 0.6);
+}
+
+@keyframes sendBtnAppear {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes replyIn {

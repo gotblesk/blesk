@@ -76,7 +76,7 @@
 
 .chat-view__close-btn:hover {
   background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  color: var(--danger);
 }
 
 /* FLIP Morph animation — clip-path относительно окна */

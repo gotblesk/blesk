@@ -1,9 +1,8 @@
 const { Router } = require('express');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // POST /api/feedback — создать обратную связь
 router.post('/', authenticate, async (req, res) => {

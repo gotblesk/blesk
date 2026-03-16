@@ -7,12 +7,24 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   const [hue, setHue] = useState(176);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Email verification
   const [emailCode, setEmailCode] = useState('');
   const [emailStep, setEmailStep] = useState('display'); // display | verify
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState('');
+
+  // Password change
+  const [pwStep, setPwStep] = useState('idle'); // idle | code | confirm
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwCode, setPwCode] = useState('');
+  const [pwEmail, setPwEmail] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState(false);
 
   // Загрузить текущие данные при открытии
   useEffect(() => {
@@ -23,6 +35,14 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
       setEmailStep('display');
       setEmailCode('');
       setEmailError('');
+      setPwStep('idle');
+      setPwCurrent('');
+      setPwNew('');
+      setPwConfirm('');
+      setPwCode('');
+      setPwEmail('');
+      setPwError('');
+      setPwSuccess(false);
     }
   }, [open, user]);
 
@@ -38,6 +58,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError('');
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/users/me`, {
@@ -54,9 +75,11 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
         onUserUpdate?.(updated);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
+      } else {
+        setSaveError('Не удалось сохранить');
       }
     } catch {
-      // тихий фейл
+      setSaveError('Нет подключения к серверу');
     } finally {
       setSaving(false);
     }
@@ -114,6 +137,75 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
       setEmailError('Ошибка верификации');
     } finally {
       setEmailSending(false);
+    }
+  };
+
+  // Запросить код для смены пароля
+  const handlePwRequest = async () => {
+    setPwError('');
+    setPwLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/auth/change-password/request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPwEmail(data.email || '');
+        setPwStep('code');
+      } else {
+        setPwError(data.error || 'Ошибка');
+      }
+    } catch {
+      setPwError('Не удалось отправить код');
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
+  // Подтвердить смену пароля
+  const handlePwConfirm = async () => {
+    setPwError('');
+    if (!pwCurrent) { setPwError('Введите текущий пароль'); return; }
+    if (pwNew.length < 8) { setPwError('Новый пароль — минимум 8 символов'); return; }
+    if (pwNew !== pwConfirm) { setPwError('Пароли не совпадают'); return; }
+    if (pwCode.length < 6) { setPwError('Введите код'); return; }
+
+    setPwLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/auth/change-password/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          code: pwCode,
+          currentPassword: pwCurrent,
+          newPassword: pwNew,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPwSuccess(true);
+        setPwStep('idle');
+        setPwCurrent('');
+        setPwNew('');
+        setPwConfirm('');
+        setPwCode('');
+        setTimeout(() => setPwSuccess(false), 3000);
+      } else {
+        setPwError(data.error || 'Ошибка');
+      }
+    } catch {
+      setPwError('Ошибка подключения');
+    } finally {
+      setPwLoading(false);
     }
   };
 
@@ -220,6 +312,90 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
           </div>
         </div>
 
+        {/* Смена пароля */}
+        <div className="profile-field">
+          <label className="profile-field__label">🔒 Пароль</label>
+
+          {pwStep === 'idle' && !pwSuccess && (
+            <button
+              className="profile-email-btn"
+              onClick={handlePwRequest}
+              disabled={pwLoading}
+              style={{ marginTop: 4 }}
+            >
+              {pwLoading ? '...' : 'Сменить пароль'}
+            </button>
+          )}
+
+          {pwSuccess && (
+            <div className="profile-pw-success">✓ Пароль изменён</div>
+          )}
+
+          {pwStep === 'code' && (
+            <div className="profile-pw-form">
+              <div className="profile-email-hint">
+                Код отправлен на {pwEmail}
+              </div>
+
+              <input
+                type="password"
+                className="profile-pw-input"
+                value={pwCurrent}
+                onChange={(e) => setPwCurrent(e.target.value)}
+                placeholder="Текущий пароль"
+              />
+              <input
+                type="password"
+                className="profile-pw-input"
+                value={pwNew}
+                onChange={(e) => setPwNew(e.target.value)}
+                placeholder="Новый пароль (мин. 8)"
+              />
+              <input
+                type="password"
+                className="profile-pw-input"
+                value={pwConfirm}
+                onChange={(e) => setPwConfirm(e.target.value)}
+                placeholder="Повторите новый"
+              />
+              <input
+                type="text"
+                className="profile-email-code-input"
+                value={pwCode}
+                onChange={(e) => setPwCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Код из email"
+                maxLength={6}
+                style={{ marginTop: 8 }}
+              />
+
+              {pwError && <div className="profile-email-error">{pwError}</div>}
+
+              <div className="profile-pw-actions">
+                <button
+                  className="profile-email-btn"
+                  onClick={handlePwConfirm}
+                  disabled={pwLoading}
+                >
+                  {pwLoading ? '...' : 'Подтвердить'}
+                </button>
+                <button
+                  className="profile-email-btn profile-email-btn--cancel"
+                  onClick={() => {
+                    setPwStep('idle');
+                    setPwError('');
+                    setPwCurrent('');
+                    setPwNew('');
+                    setPwConfirm('');
+                    setPwCode('');
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="profile-sep" />
 
         {/* Bio */}
@@ -258,6 +434,11 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
         </div>
 
         <div className="profile-sep" />
+
+        {/* Ошибка сохранения */}
+        {saveError && (
+          <div className="profile-save-error">{saveError}</div>
+        )}
 
         {/* Кнопка сохранения */}
         <button

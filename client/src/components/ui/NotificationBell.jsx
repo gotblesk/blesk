@@ -115,7 +115,7 @@ export default function NotificationBell({ onOpenChat }) {
     const handler = (e) => { if (e.key === 'Escape') handleClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   // Клик вне окна закрывает
   useEffect(() => {
@@ -318,6 +318,25 @@ export default function NotificationBell({ onOpenChat }) {
     finally { processingFriendRef.current.delete(notification.id); }
   }, [markAsRead]);
 
+  // Подтверждение очистки
+  const [confirmClear, setConfirmClear] = useState(false);
+  const confirmTimerRef = useRef(null);
+
+  const handleClearAll = useCallback(() => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      // Автосброс через 3 секунды
+      confirmTimerRef.current = setTimeout(() => setConfirmClear(false), 3000);
+      return;
+    }
+    clearTimeout(confirmTimerRef.current);
+    setConfirmClear(false);
+    clearAll();
+  }, [confirmClear, clearAll]);
+
+  // Cleanup таймера
+  useEffect(() => () => clearTimeout(confirmTimerRef.current), []);
+
   const bellClasses = [
     'bell-trigger',
     isOpen && 'bell-trigger--active',
@@ -370,8 +389,12 @@ export default function NotificationBell({ onOpenChat }) {
             <span className="bell-header__title">Уведомления</span>
             <div className="bell-header__actions">
               {notifications.length > 0 && (
-                <button className="bell-header__read-all" onClick={(e) => { e.stopPropagation(); clearAll(); }} title="Очистить все">
-                  🗑
+                <button
+                  className={`bell-header__read-all ${confirmClear ? 'bell-header__read-all--confirm' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); handleClearAll(); }}
+                  title={confirmClear ? 'Нажмите ещё раз для подтверждения' : 'Очистить все'}
+                >
+                  {confirmClear ? '❗ Точно?' : '🗑'}
                 </button>
               )}
               {unreadCount > 0 && (

@@ -199,7 +199,7 @@
 }
 
 .friends-card__status--online {
-  color: #4ade80;
+  color: var(--online);
 }
 
 .friends-card__status--offline {
@@ -246,7 +246,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #4ade80;
+  background: var(--online);
   border: 2px solid var(--bg);
   box-shadow: 0 0 6px rgba(74, 222, 128, 0.4);
 }
@@ -269,7 +269,7 @@
 /* Принять */
 .friends-action--accept {
   background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  color: var(--online);
   border: 1px solid rgba(74, 222, 128, 0.2);
   font-size: 15px;
   padding: 6px 12px;
@@ -283,7 +283,7 @@
 /* Отклонить */
 .friends-action--decline {
   background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  color: var(--danger);
   border: 1px solid rgba(239, 68, 68, 0.15);
   font-size: 15px;
   padding: 6px 12px;
@@ -321,7 +321,7 @@
 }
 
 .friends-badge--friend {
-  color: #4ade80;
+  color: var(--online);
   background: rgba(74, 222, 128, 0.08);
   border: 1px solid rgba(74, 222, 128, 0.12);
 }

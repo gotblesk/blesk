@@ -67,7 +67,7 @@
 }
 
 .voice-participant__avatar--speaking {
-  border-color: #4ade80;
+  border-color: var(--online);
 }
 
 .voice-participant__letter {
@@ -86,7 +86,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--danger);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -184,7 +184,7 @@
 .volume-popup__value {
   font-size: 11px;
   font-weight: 600;
-  color: #c8ff00;
+  color: var(--accent);
   min-width: 36px;
   text-align: right;
   flex-shrink: 0;

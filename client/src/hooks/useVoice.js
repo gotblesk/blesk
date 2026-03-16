@@ -193,9 +193,9 @@ export function useVoice(socketRef) {
     const socket = socketRef?.current;
     if (!socket) return;
 
-    // Если уже в комнате — сначала выйти
+    // Если уже в комнате — сначала выйти (через ref, чтобы избежать stale closure)
     if (currentRoomIdRef.current) {
-      leaveRoom();
+      leaveRoomRef.current();
     }
 
     try {
@@ -416,25 +416,30 @@ export function useVoice(socketRef) {
     socket.emit('voice:deafen', { roomId, deafened: isDeafened });
   }, [isDeafened, socketRef]);
 
-  // ═══ Socket-события от сервера ═══
+  // Refs для актуальных функций (против stale closure)
+  const leaveRoomRef = useRef(leaveRoom);
+  leaveRoomRef.current = leaveRoom;
+  const consumeProducerRef = useRef(consumeProducer);
+  consumeProducerRef.current = consumeProducer;
+
   useEffect(() => {
     const socket = socketRef?.current;
     if (!socket) return;
 
     const onUserJoined = ({ userId, username, hue }) => {
-      addParticipant(userId, { username, hue, muted: false, deafened: false });
+      useVoiceStore.getState().addParticipant(userId, { username, hue, muted: false, deafened: false });
     };
 
     const onUserLeft = ({ userId }) => {
-      removeParticipant(userId);
+      useVoiceStore.getState().removeParticipant(userId);
     };
 
     const onUserMuted = ({ userId, muted }) => {
-      updateParticipant(userId, { muted });
+      useVoiceStore.getState().updateParticipant(userId, { muted });
     };
 
     const onUserDeafened = ({ userId, deafened }) => {
-      updateParticipant(userId, { deafened });
+      useVoiceStore.getState().updateParticipant(userId, { deafened });
     };
 
     const onNewProducer = async ({ userId, producerId, kind }) => {
@@ -442,7 +447,7 @@ export function useVoice(socketRef) {
       const roomId = currentRoomIdRef.current;
       if (!roomId) return;
 
-      await consumeProducer(socket, roomId, producerId, deviceRef.current.rtpCapabilities, userId);
+      await consumeProducerRef.current(socket, roomId, producerId, deviceRef.current.rtpCapabilities, userId);
     };
 
     const onConsumerClosed = ({ consumerId }) => {
@@ -457,12 +462,19 @@ export function useVoice(socketRef) {
         audio.srcObject = null;
         audioElementsRef.current.delete(consumerId);
       }
+      // Закрыть GainNode контекст если был
+      const gainEntry = gainNodesRef.current.get(consumerId);
+      if (gainEntry) {
+        try { gainEntry.ctx.close(); } catch {}
+        gainNodesRef.current.delete(consumerId);
+      }
+      consumerUserMapRef.current.delete(consumerId);
     };
 
     // Комната удалена владельцем — выйти автоматически
     const onRoomDeleted = ({ roomId }) => {
       if (currentRoomIdRef.current === roomId) {
-        leaveRoom();
+        leaveRoomRef.current();
       }
     };
 
@@ -483,7 +495,7 @@ export function useVoice(socketRef) {
       socket.off('voice:consumerClosed', onConsumerClosed);
       socket.off('voice:room-deleted', onRoomDeleted);
     };
-  }, [socketRef, addParticipant, removeParticipant, updateParticipant, consumeProducer]);
+  }, [socketRef]); // минимальные зависимости — всё через refs и getState()
 
   // ═══ Звонки — обёртки над joinRoom/leaveRoom ═══
   const joinCall = useCallback(async (chatId, chatName) => {

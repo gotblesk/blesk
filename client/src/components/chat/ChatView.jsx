@@ -82,9 +82,20 @@ export default function ChatView({
     }
   }, [chatId, openChat, markAsRead]);
 
-  // Скролл к последнему сообщению
+  // Скролл к последнему сообщению (только если пользователь уже внизу)
+  const messagesContainerRef = useRef(null);
+  const isNearBottomRef = useRef(true);
+
+  const handleMessagesScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, []);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [chatMessages.length]);
 
   // Escape — закрыть только focused окно
@@ -341,7 +352,11 @@ export default function ChatView({
         <CallBanner activeCall={activeCall} onJoin={onJoinCall} />
       )}
 
-      <div className={`chat-view__messages ${compactMessages ? 'chat-view__messages--compact' : ''}`}>
+      <div
+        className={`chat-view__messages ${compactMessages ? 'chat-view__messages--compact' : ''}`}
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+      >
         {chatMessages.map((msg, idx) => {
           const isOwn = msg.userId === userId.current;
           const prev = chatMessages[idx - 1];

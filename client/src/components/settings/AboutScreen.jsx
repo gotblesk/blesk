@@ -19,12 +19,13 @@ export default function AboutScreen({ open, onClose }) {
     return () => window.removeEventListener('keydown', handler);
   }, [open, onClose]);
 
-  // Сброс при закрытии
+  // Сброс при закрытии + cleanup таймера
   useEffect(() => {
     if (!open) {
       setLogoClicks(0);
       setEasterEgg(false);
     }
+    return () => clearTimeout(clickTimerRef.current);
   }, [open]);
 
   // Пасхалка: 10 кликов на логотип

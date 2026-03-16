@@ -31,7 +31,10 @@ export const useSettingsStore = create((set, get) => ({
   toggle: (key) => {
     set((state) => {
       const next = { ...state, [key]: !state[key] };
-      localStorage.setItem('blesk-settings', JSON.stringify(next));
+      const dataKeys = Object.keys(DEFAULTS);
+      const data = {};
+      for (const k of dataKeys) data[k] = next[k];
+      localStorage.setItem('blesk-settings', JSON.stringify(data));
       return next;
     });
   },
@@ -40,7 +43,10 @@ export const useSettingsStore = create((set, get) => ({
   setValue: (key, value) => {
     set((state) => {
       const next = { ...state, [key]: value };
-      localStorage.setItem('blesk-settings', JSON.stringify(next));
+      const dataKeys = Object.keys(DEFAULTS);
+      const data = {};
+      for (const k of dataKeys) data[k] = next[k];
+      localStorage.setItem('blesk-settings', JSON.stringify(data));
       return next;
     });
   },

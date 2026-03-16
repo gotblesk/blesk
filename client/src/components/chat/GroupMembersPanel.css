@@ -120,7 +120,7 @@
 
 .group-members-panel__remove {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--danger);
   border: none;
   padding: 4px 10px;
   border-radius: 8px;
@@ -137,7 +137,7 @@
 .group-members-panel__leave {
   margin-top: 16px;
   background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  color: var(--danger);
   border: 1px solid rgba(239, 68, 68, 0.2);
   padding: 10px;
   border-radius: 12px;

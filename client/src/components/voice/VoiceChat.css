@@ -22,13 +22,13 @@
 .voice-chat-toggle:hover {
   background: rgba(200, 255, 0, 0.08);
   border-color: rgba(200, 255, 0, 0.2);
-  color: #c8ff00;
+  color: var(--accent);
 }
 
 .voice-chat-toggle--active {
   background: rgba(200, 255, 0, 0.12);
   border-color: rgba(200, 255, 0, 0.3);
-  color: #c8ff00;
+  color: var(--accent);
 }
 
 .voice-chat-toggle__badge {
@@ -38,7 +38,7 @@
   min-width: 18px;
   height: 18px;
   border-radius: 9px;
-  background: #ef4444;
+  background: var(--danger);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -217,7 +217,7 @@
   border-radius: 10px;
   border: none;
   background: rgba(200, 255, 0, 0.12);
-  color: #c8ff00;
+  color: var(--accent);
   font-size: 14px;
   cursor: pointer;
   display: flex;

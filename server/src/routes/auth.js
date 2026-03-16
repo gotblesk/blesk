@@ -1,13 +1,44 @@
 const { Router } = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { generateTokens, verifyRefreshToken } = require('../middleware/auth');
 const { generateCode, sendVerificationCode } = require('../services/email');
 
 const router = Router();
-const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'blesk-dev-secret-change-in-production';
+
+// Раздельные rate-limit Maps для email-кодов по эндпоинтам (email → timestamp)
+// Чтобы resend-code, forgot-password и change-password/request не мешали друг другу
+const resendCodeLimits = new Map();
+const forgotPasswordLimits = new Map();
+const changePasswordLimits = new Map();
+const EMAIL_CODE_COOLDOWN = 60000; // 60 секунд
+
+// Проверить rate limit для конкретного эндпоинта
+function isEmailCodeRateLimited(limitsMap, email) {
+  const lastTime = limitsMap.get(email);
+  if (lastTime && Date.now() - lastTime < EMAIL_CODE_COOLDOWN) {
+    const wait = Math.ceil((EMAIL_CODE_COOLDOWN - (Date.now() - lastTime)) / 1000);
+    return wait;
+  }
+  return 0;
+}
+
+// Записать время отправки кода
+function markEmailCodeSent(limitsMap, email) {
+  limitsMap.set(email, Date.now());
+}
+
+// Чистка rate-limit Maps раз в 5 минут
+setInterval(() => {
+  const now = Date.now();
+  for (const map of [resendCodeLimits, forgotPasswordLimits, changePasswordLimits]) {
+    for (const [email, ts] of map) {
+      if (now - ts > EMAIL_CODE_COOLDOWN) map.delete(email);
+    }
+  }
+}, 300000);
 
 // Генерация тега #0001–#9999
 function generateTag() {
@@ -25,9 +56,18 @@ async function generateUniqueTag(username) {
     });
     if (!existing) return tag;
   }
-  // Fallback: случайный 4-значный хеш
-  const fallback = '#' + String(Date.now() % 10000).padStart(4, '0');
-  return fallback;
+  // Фоллбэк: последовательный поиск свободного тега через БД
+  const existingTags = await prisma.user.findMany({
+    where: { username },
+    select: { tag: true },
+  });
+  const usedTags = new Set(existingTags.map((u) => u.tag));
+  for (let n = 1; n <= 9999; n++) {
+    const candidate = '#' + String(n).padStart(4, '0');
+    if (!usedTags.has(candidate)) return candidate;
+  }
+  // Все 9999 тегов заняты — невозможно создать пользователя с таким именем
+  throw new Error(`Все теги для username "${username}" заняты`);
 }
 
 // Валидация email
@@ -35,12 +75,14 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// Извлечь userId из Bearer token
+// Извлечь userId из Bearer token (только access, refresh не принимается)
 function getUserIdFromToken(req) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) return null;
   try {
     const payload = jwt.verify(header.slice(7), JWT_SECRET);
+    // Refresh токен не должен использоваться как access
+    if (payload.type === 'refresh') return null;
     return payload.userId;
   } catch {
     return null;
@@ -201,15 +243,10 @@ router.post('/resend-code', async (req, res) => {
       return res.json({ success: true, message: 'Email уже подтверждён' });
     }
 
-    // Rate limit: последний код отправлен менее 60 сек назад?
-    const lastCode = await prisma.emailCode.findFirst({
-      where: { email: user.email },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (lastCode && Date.now() - lastCode.createdAt.getTime() < 60000) {
-      const wait = Math.ceil((60000 - (Date.now() - lastCode.createdAt.getTime())) / 1000);
-      return res.status(429).json({ error: `Подождите ${wait} сек.` });
+    // Rate limit: раздельный для resend-code (не мешает forgot-password и change-password)
+    const waitSec = isEmailCodeRateLimited(resendCodeLimits, user.email);
+    if (waitSec > 0) {
+      return res.status(429).json({ error: `Подождите ${waitSec} сек.` });
     }
 
     const code = generateCode();
@@ -220,6 +257,8 @@ router.post('/resend-code', async (req, res) => {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       },
     });
+
+    markEmailCodeSent(resendCodeLimits, user.email);
 
     const sent = await sendVerificationCode(user.email, code);
     if (!sent) {
@@ -244,6 +283,9 @@ router.post('/login', async (req, res) => {
 
     const user = await prisma.user.findUnique({ where: { username } });
     if (!user) {
+      // Константное время ответа — bcrypt на фиктивном хеше, чтобы атакующий
+      // не мог определить существование пользователя по времени ответа
+      await bcrypt.compare(password, '$2b$12$invalidhashpaddingtomakeitsamelengthasbcrypt');
       return res.status(401).json({ error: 'Неверное имя или пароль' });
     }
 
@@ -341,6 +383,195 @@ router.get('/me', async (req, res) => {
     });
   } catch (err) {
     console.error('Ошибка получения профиля:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// ═══ Восстановление пароля ═══
+
+// POST /api/auth/forgot-password — отправить код сброса на email
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ error: 'Введите корректный email' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    // Всегда отвечаем успехом — чтобы не раскрывать наличие аккаунта
+    if (!user) {
+      return res.json({ success: true });
+    }
+
+    // Rate limit: раздельный для forgot-password (не мешает resend-code и change-password)
+    const waitSec = isEmailCodeRateLimited(forgotPasswordLimits, email);
+    if (waitSec > 0) {
+      return res.status(429).json({ error: 'Подождите перед повторной отправкой' });
+    }
+
+    const code = generateCode();
+    await prisma.emailCode.create({
+      data: {
+        email,
+        code,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    markEmailCodeSent(forgotPasswordLimits, email);
+
+    await sendVerificationCode(email, code);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('forgot-password error:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// POST /api/auth/reset-password — проверить код и сменить пароль
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: 'Заполните все поля' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Пароль: минимум 8 символов' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(400).json({ error: 'Неверный код' });
+    }
+
+    // Проверить код
+    const emailCode = await prisma.emailCode.findFirst({
+      where: {
+        email,
+        code: code.trim(),
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!emailCode) {
+      return res.status(400).json({ error: 'Неверный или просроченный код' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash },
+      }),
+      prisma.emailCode.update({
+        where: { id: emailCode.id },
+        data: { used: true },
+      }),
+    ]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('reset-password error:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// ═══ Смена пароля в профиле ═══
+
+// POST /api/auth/change-password — запросить код для смены пароля
+router.post('/change-password/request', async (req, res) => {
+  try {
+    const userId = getUserIdFromToken(req);
+    if (!userId) return res.status(401).json({ error: 'Требуется авторизация' });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.email) {
+      return res.status(400).json({ error: 'Email не привязан' });
+    }
+
+    // Rate limit: раздельный для change-password (не мешает resend-code и forgot-password)
+    const waitSec = isEmailCodeRateLimited(changePasswordLimits, user.email);
+    if (waitSec > 0) {
+      return res.status(429).json({ error: `Подождите ${waitSec} сек.` });
+    }
+
+    const code = generateCode();
+    await prisma.emailCode.create({
+      data: {
+        email: user.email,
+        code,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    markEmailCodeSent(changePasswordLimits, user.email);
+
+    await sendVerificationCode(user.email, code);
+    res.json({ success: true, email: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') });
+  } catch (err) {
+    console.error('change-password/request error:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// POST /api/auth/change-password/confirm — подтвердить код и сменить пароль
+router.post('/change-password/confirm', async (req, res) => {
+  try {
+    const userId = getUserIdFromToken(req);
+    if (!userId) return res.status(401).json({ error: 'Требуется авторизация' });
+
+    const { code, currentPassword, newPassword } = req.body;
+    if (!code || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Заполните все поля' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Новый пароль: минимум 8 символов' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    // Проверить текущий пароль
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      return res.status(400).json({ error: 'Неверный текущий пароль' });
+    }
+
+    // Проверить код
+    const emailCode = await prisma.emailCode.findFirst({
+      where: {
+        email: user.email,
+        code: code.trim(),
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!emailCode) {
+      return res.status(400).json({ error: 'Неверный или просроченный код' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      }),
+      prisma.emailCode.update({
+        where: { id: emailCode.id },
+        data: { used: true },
+      }),
+    ]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('change-password/confirm error:', err);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });

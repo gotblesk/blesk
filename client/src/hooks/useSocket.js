@@ -9,15 +9,15 @@ import API_URL from '../config';
 
 export function useSocket() {
   const socketRef = useRef(null);
-  const { receiveMessage, setUserOnline, setUserOffline, setUserStatus, setTyping, confirmMessage, loadChats } =
-    useChatStore();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
+    const { showOnline } = useSettingsStore.getState();
+
     const socket = io(API_URL, {
-      auth: { token },
+      auth: { token, showOnline },
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: Infinity,
@@ -30,9 +30,9 @@ export function useSocket() {
     // ═══ Сообщения ═══
     socket.on('message:new', (msg) => {
       if (msg.userId === userId && msg.tempId) {
-        confirmMessage(msg.tempId, msg);
+        useChatStore.getState().confirmMessage(msg.tempId, msg);
       } else {
-        receiveMessage(msg);
+        useChatStore.getState().receiveMessage(msg);
 
         // Уведомления и звуки для входящих сообщений
         const s = useSettingsStore.getState();
@@ -54,15 +54,15 @@ export function useSocket() {
     });
 
     // ═══ Онлайн/офлайн/статус ═══
-    socket.on('user:online', ({ userId: uid, status }) => setUserOnline(uid, status));
-    socket.on('user:offline', ({ userId: uid }) => setUserOffline(uid));
+    socket.on('user:online', ({ userId: uid, status }) => useChatStore.getState().setUserOnline(uid, status));
+    socket.on('user:offline', ({ userId: uid }) => useChatStore.getState().setUserOffline(uid));
     socket.on('user:statusChange', ({ userId: uid, status, customStatus }) => {
-      setUserStatus(uid, status, customStatus);
+      useChatStore.getState().setUserStatus(uid, status, customStatus);
     });
 
     // ═══ Набор текста ═══
-    socket.on('typing:start', ({ chatId, userId: uid }) => setTyping(chatId, uid, true));
-    socket.on('typing:stop', ({ chatId, userId: uid }) => setTyping(chatId, uid, false));
+    socket.on('typing:start', ({ chatId, userId: uid }) => useChatStore.getState().setTyping(chatId, uid, true));
+    socket.on('typing:stop', ({ chatId, userId: uid }) => useChatStore.getState().setTyping(chatId, uid, false));
 
     // ═══ Уведомления ═══
     socket.on('notification:new', (notification) => {
@@ -114,14 +114,14 @@ export function useSocket() {
     });
 
     // ═══ Групповые события ═══
-    socket.on('group:member-added', () => loadChats());
+    socket.on('group:member-added', () => useChatStore.getState().loadChats());
     socket.on('group:member-removed', ({ userId: uid }) => {
       if (uid === userId) {
         // Нас удалили — перезагрузить
       }
-      loadChats();
+      useChatStore.getState().loadChats();
     });
-    socket.on('group:updated', () => loadChats());
+    socket.on('group:updated', () => useChatStore.getState().loadChats());
 
     // ═══ Закреплённые сообщения ═══
     socket.on('message:pinned', ({ messageId, chatId, pinned }) => {
@@ -145,7 +145,7 @@ export function useSocket() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [receiveMessage, setUserOnline, setUserOffline, setUserStatus, setTyping, confirmMessage, loadChats]);
+  }, []);
 
   return socketRef;
 }

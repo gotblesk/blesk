@@ -43,11 +43,11 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
 
   const debouncedQuery = useDebounce(searchQuery, 300);
 
-  const token = localStorage.getItem('token');
-  const headers = {
+  // Всегда свежий токен (не кешировать в замыкании)
+  const getHeaders = () => ({
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
+    Authorization: `Bearer ${localStorage.getItem('token')}`,
+  });
 
   // Позиция индикатора табов
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
   // Загрузка друзей
   const loadFriends = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/friends`, { headers });
+      const res = await fetch(`${API_URL}/api/friends`, { headers: getHeaders() });
       if (res.ok) {
         const data = await res.json();
         setFriends(data);
@@ -77,7 +77,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
   // Загрузка входящих заявок
   const loadPending = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers });
+      const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: getHeaders() });
       if (res.ok) {
         const data = await res.json();
         setPending(data);
@@ -89,15 +89,27 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
 
   // При смене таба — загружаем данные
   useEffect(() => {
+    let isCancelled = false;
+
     setError('');
-    if (tab === 'friends') loadFriends();
-    if (tab === 'requests') loadPending();
+    if (tab === 'friends') {
+      loadFriends().catch(() => { if (!isCancelled) setError('Не удалось загрузить друзей'); });
+    }
+    if (tab === 'requests') {
+      loadPending().catch(() => { if (!isCancelled) setError('Не удалось загрузить заявки'); });
+    }
+
+    return () => { isCancelled = true; };
   }, [tab]);
 
   // Загружаем заявки при монтировании (для badge)
   useEffect(() => {
-    loadPending();
-    loadFriends();
+    let isCancelled = false;
+
+    loadPending().catch(() => { if (!isCancelled) setError('Не удалось загрузить заявки'); });
+    loadFriends().catch(() => { if (!isCancelled) setError('Не удалось загрузить друзей'); });
+
+    return () => { isCancelled = true; };
   }, []);
 
   // Поиск пользователей
@@ -111,7 +123,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     let cancelled = false;
     setLoading(true);
 
-    fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(debouncedQuery)}`, { headers })
+    fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(debouncedQuery)}`, { headers: getHeaders() })
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled) setSearchResults(data);
@@ -131,7 +143,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     try {
       const res = await fetch(`${API_URL}/api/friends/request`, {
         method: 'POST',
-        headers,
+        headers: getHeaders(),
         body: JSON.stringify({ userId }),
       });
       if (res.ok) {
@@ -150,7 +162,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     try {
       const res = await fetch(`${API_URL}/api/friends/requests/${requestId}/accept`, {
         method: 'POST',
-        headers,
+        headers: getHeaders(),
       });
       if (res.ok) {
         setPending((prev) => prev.filter((r) => r.id !== requestId));
@@ -166,7 +178,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     try {
       const res = await fetch(`${API_URL}/api/friends/requests/${requestId}/decline`, {
         method: 'POST',
-        headers,
+        headers: getHeaders(),
       });
       if (res.ok) {
         setPending((prev) => prev.filter((r) => r.id !== requestId));

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import Glass from '../ui/Glass';
 import './VibeMeter.css';
@@ -47,6 +47,16 @@ export default function VibeMeter({ open, onClose, onOpenChat }) {
   const vibe = getVibeData(avgEnergy);
 
   const getHue = (user) => user.hue ?? (user.username?.charCodeAt(0) * 37) % 360;
+
+  // Стабильные высоты баров (не меняются при ре-рендере)
+  const barHeightsRef = useRef({});
+  const getBarHeight = (chatId, index) => {
+    const key = `${chatId}-${index}`;
+    if (!barHeightsRef.current[key]) {
+      barHeightsRef.current[key] = 6 + Math.random() * 12;
+    }
+    return barHeightsRef.current[key];
+  };
 
   // Количество баров в энерго-индикаторе
   const energyBars = (energy) => {
@@ -135,7 +145,7 @@ export default function VibeMeter({ open, onClose, onOpenChat }) {
                         style={{
                           background: energyColor(friend.energy),
                           animationDelay: `${i * 0.15}s`,
-                          height: `${6 + Math.random() * 12}px`,
+                          height: `${getBarHeight(friend.chatId, i)}px`,
                         }}
                       />
                     ))}

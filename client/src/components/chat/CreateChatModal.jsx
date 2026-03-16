@@ -172,7 +172,7 @@ export default function CreateChatModal({ onClose, onCreated }) {
         {/* Список друзей */}
         <div className="create-chat-modal__results">
           {loading && <div className="create-chat-modal__loading">Загрузка...</div>}
-          {error && <div className="create-chat-modal__empty" style={{ color: '#ef4444' }}>{error}</div>}
+          {error && <div className="create-chat-modal__empty" style={{ color: 'var(--danger)' }}>{error}</div>}
           {filtered.map((user) => (
             <div
               key={user.id}

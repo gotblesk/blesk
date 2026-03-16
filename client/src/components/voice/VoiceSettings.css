@@ -108,7 +108,7 @@
 .voice-settings__test-btn--active {
   background: rgba(200, 255, 0, 0.1);
   border-color: rgba(200, 255, 0, 0.2);
-  color: #c8ff00;
+  color: var(--accent);
 }
 
 .voice-settings__level-bar {
@@ -122,7 +122,7 @@
 .voice-settings__level-fill {
   height: 100%;
   border-radius: 3px;
-  background: #4ade80;
+  background: var(--online);
   transition: width 0.1s linear;
 }
 

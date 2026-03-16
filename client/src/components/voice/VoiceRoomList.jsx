@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useVoiceStore } from '../../store/voiceStore';
 import Glass from '../ui/Glass';
 import API_URL from '../../config';
@@ -16,6 +16,9 @@ export default function VoiceRoomList({ onJoinRoom }) {
   const [friendsLoading, setFriendsLoading] = useState(false);
 
   const currentUserId = useMemo(getCurrentUserId, []);
+  const deleteTimerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(deleteTimerRef.current), []);
 
   useEffect(() => {
     loadRooms();
@@ -59,7 +62,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
       setDeleting(null);
     } else {
       setDeleting(roomId);
-      setTimeout(() => setDeleting((prev) => (prev === roomId ? null : prev)), 3000);
+      deleteTimerRef.current = setTimeout(() => setDeleting((prev) => (prev === roomId ? null : prev)), 3000);
     }
   };
 

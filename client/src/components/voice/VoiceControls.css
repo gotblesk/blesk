@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   height: 56px;
-  z-index: 150;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -38,7 +38,7 @@
 }
 
 .voice-controls__info:hover .voice-controls__room-name {
-  color: #c8ff00;
+  color: var(--accent);
 }
 
 /* Сигнал */
@@ -60,7 +60,7 @@
 .voice-controls__bar {
   width: 3px;
   border-radius: 1px;
-  background: #4ade80;
+  background: var(--online);
 }
 
 .voice-controls__bar--1 { height: 5px; }
@@ -147,7 +147,7 @@
 
 .voice-controls__btn--off {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .voice-controls__btn--off:hover {
@@ -156,10 +156,10 @@
 
 .voice-controls__btn--disconnect {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .voice-controls__btn--disconnect:hover {
-  background: #ef4444;
+  background: var(--danger);
   color: #fff;
 }

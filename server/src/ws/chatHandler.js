@@ -1,9 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
-
+const prisma = require('../db');
 // Rate limiter: макс 5 сообщений за 3 секунды на пользователя
 const messageRateLimits = new Map(); // userId → [timestamps]
+// Таймауты набора текста: `${userId}:${chatId}` → timeoutId
+const typingTimeouts = new Map();
 const RATE_LIMIT_WINDOW = 3000; // 3 секунды
 const RATE_LIMIT_MAX = 5; // 5 сообщений
 
@@ -54,11 +53,20 @@ function chatHandler(io, socket) {
     });
 
     const savedStatus = user?.status || 'online';
+    // Клиент может отключить видимость онлайна (showOnline: false → невидимка)
+    const showOnline = socket.handshake?.auth?.showOnline !== false;
 
-    // Если невидимка — не оповещать других и не менять статус
-    if (savedStatus === 'invisible') {
-      // Сохранить что сокет активен, но не светить это
+    // Если невидимка (по статусу или настройке showOnline) — не оповещать
+    if (savedStatus === 'invisible' || !showOnline) {
       socket.userStatus = 'invisible';
+
+      // Если showOnline выключен — обновить статус в БД на invisible
+      if (!showOnline && savedStatus !== 'invisible') {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { status: 'invisible' },
+        });
+      }
     } else {
       // Установить онлайн или восстановить DND
       const newStatus = savedStatus === 'dnd' ? 'dnd' : 'online';
@@ -84,6 +92,9 @@ function chatHandler(io, socket) {
       return;
     }
 
+    // Сообщение отправлено — сбросить таймаут набора текста
+    clearTypingTimeout(chatId);
+
     try {
       // Проверяем что пользователь участник чата
       const participant = await prisma.roomParticipant.findUnique({
@@ -99,9 +110,15 @@ function chatHandler(io, socket) {
         type: 'text',
       };
 
-      // Ответ на сообщение
+      // Ответ на сообщение — проверить что оно из того же чата
       if (replyToId) {
-        msgData.replyToId = replyToId;
+        const replyMsg = await prisma.message.findUnique({
+          where: { id: replyToId },
+          select: { roomId: true },
+        });
+        if (replyMsg && replyMsg.roomId === chatId) {
+          msgData.replyToId = replyToId;
+        }
       }
 
       const message = await prisma.message.create({
@@ -181,17 +198,47 @@ function chatHandler(io, socket) {
     }
   });
 
-  // Typing indicators
+  // Очистить таймаут набора текста для конкретного чата
+  function clearTypingTimeout(chatId) {
+    const key = `${userId}:${chatId}`;
+    const existing = typingTimeouts.get(key);
+    if (existing) {
+      clearTimeout(existing);
+      typingTimeouts.delete(key);
+    }
+  }
+
+  // Typing indicators — только если пользователь в этой Socket.io комнате
   socket.on('typing:start', ({ chatId }) => {
+    if (!chatId || !socket.rooms.has(chatId)) return;
     socket.to(chatId).emit('typing:start', { chatId, userId });
+
+    // Серверный таймаут: если через 5 сек нет typing:stop или нового сообщения —
+    // автоматически отправить typing:stop
+    clearTypingTimeout(chatId);
+    const key = `${userId}:${chatId}`;
+    typingTimeouts.set(key, setTimeout(() => {
+      typingTimeouts.delete(key);
+      socket.to(chatId).emit('typing:stop', { chatId, userId });
+    }, 5000));
   });
 
   socket.on('typing:stop', ({ chatId }) => {
+    if (!chatId || !socket.rooms.has(chatId)) return;
+    clearTypingTimeout(chatId);
     socket.to(chatId).emit('typing:stop', { chatId, userId });
   });
 
   // Disconnect
   socket.on('disconnect', async () => {
+    // Очистить все таймауты набора текста для этого пользователя
+    for (const [key, timeoutId] of typingTimeouts) {
+      if (key.startsWith(`${userId}:`)) {
+        clearTimeout(timeoutId);
+        typingTimeouts.delete(key);
+      }
+    }
+
     // Если невидимка — не оповещать об офлайне (для других и так не был виден)
     if (socket.userStatus !== 'invisible') {
       socket.broadcast.emit('user:offline', { userId });

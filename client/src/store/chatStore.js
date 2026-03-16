@@ -13,11 +13,16 @@ export const useChatStore = create((set, get) => ({
   chats: [],
   activeChats: new Set(),
   messages: {},
+  loadingChats: new Set(),
+  loadingChatList: false,
   onlineUsers: [],
   userStatuses: {}, // { [userId]: 'online' | 'dnd' | 'invisible' }
   typingUsers: {},
 
   loadChats: async () => {
+    // Защита от параллельных вызовов
+    if (get().loadingChatList) return;
+    set({ loadingChatList: true });
     try {
       const res = await fetch(`${API_URL}/api/chats`, { headers: getHeaders() });
       if (!res.ok) throw new Error();
@@ -25,14 +30,18 @@ export const useChatStore = create((set, get) => ({
       set({ chats });
     } catch (err) {
       console.error('Ошибка загрузки чатов:', err);
+    } finally {
+      set({ loadingChatList: false });
     }
   },
 
   openChat: async (chatId) => {
     set((state) => ({ activeChats: new Set([...state.activeChats, chatId]) }));
 
-    const { messages } = get();
-    if (messages[chatId]) return;
+    const { messages, loadingChats } = get();
+    if (messages[chatId] || loadingChats.has(chatId)) return;
+
+    set((state) => ({ loadingChats: new Set([...state.loadingChats, chatId]) }));
 
     try {
       const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`, { headers: getHeaders() });
@@ -43,6 +52,12 @@ export const useChatStore = create((set, get) => ({
       }));
     } catch (err) {
       console.error('Ошибка загрузки сообщений:', err);
+    } finally {
+      set((state) => {
+        const next = new Set(state.loadingChats);
+        next.delete(chatId);
+        return { loadingChats: next };
+      });
     }
   },
 
@@ -89,11 +104,21 @@ export const useChatStore = create((set, get) => ({
   },
 
   // Пометить сообщение как ошибочное (убрать из списка)
-  failMessage: (tempId) => {
+  // chatId — если передан, ищем только в этом чате (оптимизация)
+  failMessage: (tempId, chatId) => {
     set((state) => {
+      if (chatId && state.messages[chatId]) {
+        return {
+          messages: {
+            ...state.messages,
+            [chatId]: state.messages[chatId].filter((m) => m.tempId !== tempId),
+          },
+        };
+      }
+      // Fallback: поиск по всем чатам
       const newMessages = {};
-      for (const [chatId, msgs] of Object.entries(state.messages)) {
-        newMessages[chatId] = msgs.filter((m) => m.tempId !== tempId);
+      for (const [cid, msgs] of Object.entries(state.messages)) {
+        newMessages[cid] = msgs.filter((m) => m.tempId !== tempId);
       }
       return { messages: newMessages };
     });
@@ -119,6 +144,13 @@ export const useChatStore = create((set, get) => ({
             }
           : c
       );
+
+      // Сортируем чаты: новые сообщения наверху
+      chats.sort((a, b) => {
+        const tA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+        const tB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+        return tB - tA;
+      });
 
       return {
         messages: { ...state.messages, [chatId]: [...existing, message] },

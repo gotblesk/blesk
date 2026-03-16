@@ -225,6 +225,22 @@
   background: rgba(200, 255, 0, 0.15);
 }
 
+.bell-header__read-all--confirm {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+  animation: confirmPulse 0.4s ease;
+}
+
+.bell-header__read-all--confirm:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+@keyframes confirmPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
 /* ═══════════════════════════════════════════
    Контент — fade in после scale
    ═══════════════════════════════════════════ */
