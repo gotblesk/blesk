@@ -18,6 +18,9 @@
   --scrollbar-thumb: rgba(255, 255, 255, 0.1);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
 
+  /* Текст на акцентных кнопках */
+  --accent-text: #08060f;
+
   --font-ui: 'Unbounded', sans-serif;
   --font-brand: 'Syne', sans-serif;
   --font-logo: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
@@ -27,6 +30,7 @@
 [data-theme="light"] {
   --bg: #f0eef5;
   --accent: #7ab800;
+  --accent-text: #1a1a2e;
   --text: rgba(26, 26, 46, 0.9);
   --text-muted: rgba(26, 26, 46, 0.4);
   --online: #22c55e;

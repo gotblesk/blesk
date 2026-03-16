@@ -220,8 +220,18 @@ export default function ChatView({
     resizeRef.current.active = false;
   }, []);
 
+  // Антиспам: клиентский кулдаун — макс 5 сообщений за 3 секунды
+  const sendTimestampsRef = useRef([]);
+
   // Отправка сообщения
   const handleSend = (text) => {
+    const now = Date.now();
+    const ts = sendTimestampsRef.current;
+    // Убрать старые
+    while (ts.length > 0 && now - ts[0] > 3000) ts.shift();
+    if (ts.length >= 5) return; // Заблокировать на клиенте
+    ts.push(now);
+
     const tempId = crypto.randomUUID();
     useChatStore.getState().sendMessage(chatId, text, tempId);
     const payload = { chatId, text, tempId };

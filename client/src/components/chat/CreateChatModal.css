@@ -183,13 +183,13 @@
   justify-content: center;
   flex-shrink: 0;
   font-size: 11px;
-  color: #08060f;
+  color: var(--accent-text);
   transition: all 0.2s;
 }
 
 .create-chat-modal__checkbox--checked {
-  background: #c8ff00;
-  border-color: #c8ff00;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .create-chat-modal__user--selected {
@@ -203,8 +203,8 @@
   margin-top: 12px;
   border: none;
   border-radius: 12px;
-  background: #c8ff00;
-  color: #08060f;
+  background: var(--accent);
+  color: var(--accent-text);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;

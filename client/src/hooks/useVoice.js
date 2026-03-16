@@ -17,6 +17,7 @@ export function useVoice(socketRef) {
   const audioContextRef = useRef(null);
   const vadIntervalRef = useRef(null);
   const audioElementsRef = useRef(new Map());
+  const gainNodesRef = useRef(new Map()); // consumerId → { ctx, gain }
   const consumerUserMapRef = useRef(new Map()); // consumerId → userId
 
   const {
@@ -85,6 +86,45 @@ export function useVoice(socketRef) {
     }, VAD_INTERVAL);
   }, [setAudioLevel, updateParticipant]);
 
+  // ═══ Применить громкость к аудио (поддерживает >100% через GainNode) ═══
+  const applyVolume = useCallback((audio, consumerId, vol) => {
+    try {
+      const clamped = Math.max(0, Math.min(200, Number(vol) || 100));
+      if (clamped <= 100) {
+        // 0-100% — стандартный volume (0.0 — 1.0)
+        audio.volume = clamped / 100;
+        // Убрать GainNode если был
+        const existing = gainNodesRef.current.get(consumerId);
+        if (existing) {
+          existing.gain.gain.value = 1;
+        }
+      } else {
+        // >100% — volume на макс, усиление через GainNode
+        audio.volume = 1;
+        let entry = gainNodesRef.current.get(consumerId);
+        if (!entry && audio.srcObject) {
+          try {
+            const ctx = new AudioContext();
+            const source = ctx.createMediaStreamSource(audio.srcObject);
+            const gain = ctx.createGain();
+            source.connect(gain);
+            gain.connect(ctx.destination);
+            entry = { ctx, gain };
+            gainNodesRef.current.set(consumerId, entry);
+          } catch {
+            return; // AudioContext не доступен
+          }
+        }
+        if (entry) {
+          entry.gain.gain.value = clamped / 100; // 1.0 — 2.0
+        }
+      }
+    } catch {
+      // Безопасный fallback
+      try { audio.volume = 1; } catch {}
+    }
+  }, []);
+
   // ═══ Воспроизвести remote audio ═══
   const playRemoteAudio = useCallback((consumerId, track) => {
     const stream = new MediaStream([track]);
@@ -129,12 +169,14 @@ export function useVoice(socketRef) {
         if (producerUserId) consumerUserMapRef.current.set(consumerId, producerUserId);
         playRemoteAudio(consumerId, consumer.track);
 
-        // Применить сохранённую громкость
+        // Применить сохранённую громкость (через GainNode для >100%)
         if (producerUserId) {
           const vol = useVoiceStore.getState().userVolumes[producerUserId];
           if (vol !== undefined) {
             const audio = audioElementsRef.current.get(consumerId);
-            if (audio) audio.volume = Math.min(2, vol / 100);
+            if (audio) {
+              applyVolume(audio, consumerId, vol);
+            }
           }
         }
 
@@ -304,6 +346,12 @@ export function useVoice(socketRef) {
     }
     audioElementsRef.current.clear();
 
+    // Закрыть GainNode контексты
+    for (const entry of gainNodesRef.current.values()) {
+      try { entry.ctx.close(); } catch {}
+    }
+    gainNodesRef.current.clear();
+
     // Закрыть transports
     if (sendTransportRef.current) {
       sendTransportRef.current.close();
@@ -324,9 +372,9 @@ export function useVoice(socketRef) {
       const vol = userVolumes[uid];
       if (vol === undefined) continue;
       const audio = audioElementsRef.current.get(consumerId);
-      if (audio) audio.volume = Math.min(2, vol / 100);
+      if (audio) applyVolume(audio, consumerId, vol);
     }
-  }, [userVolumes]);
+  }, [userVolumes, applyVolume]);
 
   // ═══ Реакция на мут/деафен ═══
   useEffect(() => {

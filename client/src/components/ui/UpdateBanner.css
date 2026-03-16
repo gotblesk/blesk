@@ -62,7 +62,7 @@
 .update-banner__progress-bar {
   height: 100%;
   border-radius: 2px;
-  background: #c8ff00;
+  background: var(--accent);
   transition: width 0.3s ease;
 }
 
@@ -84,8 +84,8 @@
 }
 
 .update-banner__btn--install {
-  background: #c8ff00;
-  color: #08060f;
+  background: var(--accent);
+  color: var(--accent-text);
 }
 
 .update-banner__btn--install:hover {
