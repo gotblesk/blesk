@@ -2,6 +2,38 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+// Rate limiter: макс 5 сообщений за 3 секунды на пользователя
+const messageRateLimits = new Map(); // userId → [timestamps]
+const RATE_LIMIT_WINDOW = 3000; // 3 секунды
+const RATE_LIMIT_MAX = 5; // 5 сообщений
+
+function isRateLimited(uid) {
+  const now = Date.now();
+  let timestamps = messageRateLimits.get(uid);
+  if (!timestamps) {
+    timestamps = [];
+    messageRateLimits.set(uid, timestamps);
+  }
+  // Убрать старые
+  while (timestamps.length > 0 && now - timestamps[0] > RATE_LIMIT_WINDOW) {
+    timestamps.shift();
+  }
+  if (timestamps.length >= RATE_LIMIT_MAX) {
+    return true;
+  }
+  timestamps.push(now);
+  return false;
+}
+
+// Чистка Map раз в минуту чтобы не утекала память
+setInterval(() => {
+  const now = Date.now();
+  for (const [uid, ts] of messageRateLimits) {
+    while (ts.length > 0 && now - ts[0] > RATE_LIMIT_WINDOW) ts.shift();
+    if (ts.length === 0) messageRateLimits.delete(uid);
+  }
+}, 60000);
+
 function chatHandler(io, socket) {
   const userId = socket.userId;
 
@@ -45,6 +77,12 @@ function chatHandler(io, socket) {
   socket.on('message:send', async ({ chatId, text, tempId, replyToId }) => {
     if (!chatId || !text?.trim()) return;
     if (text.length > 4000) return; // Лимит длины сообщения
+
+    // Rate limiting — макс 5 сообщений за 3 секунды
+    if (isRateLimited(userId)) {
+      socket.emit('message:error', { tempId, error: 'Слишком быстро! Подождите немного.' });
+      return;
+    }
 
     try {
       // Проверяем что пользователь участник чата

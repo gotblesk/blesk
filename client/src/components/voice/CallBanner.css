@@ -43,7 +43,7 @@
 
 .call-banner__join {
   background: #4ade80;
-  color: #08060f;
+  color: var(--accent-text);
   border: none;
   padding: 5px 14px;
   border-radius: 12px;

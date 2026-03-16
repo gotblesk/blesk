@@ -93,7 +93,7 @@
   padding: 0 5px;
   border-radius: 9px;
   background: var(--accent);
-  color: var(--bg);
+  color: var(--accent-text);
   font-size: 10px;
   font-weight: 700;
   display: inline-flex;

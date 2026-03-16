@@ -91,7 +91,7 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  border: 2px solid #08060f;
+  border: 2px solid var(--bg);
 }
 
 .voice-participant__deafen-icon {
@@ -208,7 +208,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #c8ff00;
+  background: var(--accent);
   border: none;
   cursor: pointer;
   box-shadow: 0 0 6px rgba(200, 255, 0, 0.4);
@@ -224,7 +224,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #c8ff00;
+  background: var(--accent);
   border: none;
   cursor: pointer;
   box-shadow: 0 0 6px rgba(200, 255, 0, 0.4);

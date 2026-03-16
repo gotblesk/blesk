@@ -166,8 +166,8 @@
 }
 
 .status-btn--save {
-  background: #c8ff00;
-  color: #08060f;
+  background: var(--accent);
+  color: var(--accent-text);
 }
 
 .status-btn--save:hover {

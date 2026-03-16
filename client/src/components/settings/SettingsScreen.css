@@ -193,11 +193,11 @@
 
 .setting-theme-btn--active {
   background: var(--accent);
-  color: #08060f;
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
 .setting-theme-btn--active:hover {
   background: var(--accent);
-  color: #08060f;
+  color: var(--accent-text);
 }

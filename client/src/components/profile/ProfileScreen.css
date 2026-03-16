@@ -244,8 +244,8 @@
   padding: 12px;
   border-radius: 12px;
   border: none;
-  background: #c8ff00;
-  color: #08060f;
+  background: var(--accent);
+  color: var(--accent-text);
   font-size: 14px;
   font-weight: 600;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
