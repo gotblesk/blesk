@@ -199,7 +199,12 @@ function setupAutoUpdater() {
 
   autoUpdater.on('download-progress', (progress) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update:progress', Math.round(progress.percent));
+      mainWindow.webContents.send('update:progress', {
+        percent: Math.round(progress.percent),
+        speed: progress.bytesPerSecond || 0,
+        transferred: progress.transferred || 0,
+        total: progress.total || 0,
+      });
     }
   });
 

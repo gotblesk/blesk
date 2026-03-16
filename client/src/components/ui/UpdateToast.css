@@ -50,6 +50,30 @@
   text-overflow: ellipsis;
 }
 
+/* Мета-информация: скорость + процент */
+.update-toast__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.update-toast__speed {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.update-toast__percent {
+  font-variant-numeric: tabular-nums;
+}
+
+.update-toast__size {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
 /* Прогресс-бар */
 .update-toast__bar {
   height: 3px;

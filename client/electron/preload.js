@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld('blesk', {
     },
     onProgress: (callback) => {
       ipcRenderer.removeAllListeners('update:progress');
-      ipcRenderer.on('update:progress', (_, percent) => callback(percent));
+      ipcRenderer.on('update:progress', (_, data) => callback(data));
     },
     onDownloaded: (callback) => {
       ipcRenderer.removeAllListeners('update:downloaded');

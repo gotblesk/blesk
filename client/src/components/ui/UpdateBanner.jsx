@@ -4,6 +4,9 @@ import './UpdateBanner.css';
 export default function UpdateBanner({ socketRef }) {
   const [updateInfo, setUpdateInfo] = useState(null); // { version, changelog, source }
   const [downloadProgress, setDownloadProgress] = useState(null); // 0-100 или null
+  const [downloadSpeed, setDownloadSpeed] = useState(0);
+  const [transferred, setTransferred] = useState(0);
+  const [total, setTotal] = useState(0);
   const [downloaded, setDownloaded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
@@ -16,8 +19,15 @@ export default function UpdateBanner({ socketRef }) {
       setDismissed(false);
     });
 
-    window.blesk.update.onProgress((percent) => {
-      setDownloadProgress(percent);
+    window.blesk.update.onProgress((data) => {
+      if (typeof data === 'number') {
+        setDownloadProgress(data);
+      } else {
+        setDownloadProgress(data.percent || 0);
+        setDownloadSpeed(data.speed || 0);
+        setTransferred(data.transferred || 0);
+        setTotal(data.total || 0);
+      }
     });
 
     window.blesk.update.onDownloaded(() => {
@@ -50,6 +60,13 @@ export default function UpdateBanner({ socketRef }) {
     setDismissed(true);
   };
 
+  const formatSpeed = (bps) => {
+    if (!bps || bps <= 0) return '';
+    if (bps >= 1048576) return `${(bps / 1048576).toFixed(1)} МБ/с`;
+    if (bps >= 1024) return `${(bps / 1024).toFixed(0)} КБ/с`;
+    return `${bps} Б/с`;
+  };
+
   if (!updateInfo || dismissed) return null;
 
   return (
@@ -77,7 +94,12 @@ export default function UpdateBanner({ socketRef }) {
             Установить
           </button>
         ) : downloadProgress !== null ? (
-          <span className="update-banner__downloading">{downloadProgress}%</span>
+          <span className="update-banner__downloading">
+            {downloadProgress}%
+            {downloadSpeed > 0 && (
+              <span className="update-banner__speed"> · {formatSpeed(downloadSpeed)}</span>
+            )}
+          </span>
         ) : null}
         <button className="update-banner__close" onClick={handleDismiss}>✕</button>
       </div>
