@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import API_URL from '../../config';
+import AvatarCropModal from './AvatarCropModal';
 import './ProfileScreen.css';
 
 export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
@@ -18,6 +19,11 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   const [showPwCurrent, setShowPwCurrent] = useState(false);
   const [showPwNew, setShowPwNew] = useState(false);
   const [showPwConfirm, setShowPwConfirm] = useState(false);
+
+  // Avatar upload
+  const fileInputRef = useRef(null);
+  const [cropImage, setCropImage] = useState(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   // Password change
   const [pwStep, setPwStep] = useState('idle'); // idle | code | confirm
@@ -215,6 +221,48 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
     }
   };
 
+  // Обработка выбора файла для аватара
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveError('Файл слишком большой (макс. 5 МБ)');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setSaveError('Формат не поддерживается (JPG, PNG, WebP)');
+      return;
+    }
+    setCropImage(URL.createObjectURL(file));
+    e.target.value = '';
+  };
+
+  // Загрузить обрезанный аватар
+  const handleAvatarSave = async (blob) => {
+    setAvatarUploading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('avatar', blob, 'avatar.jpg');
+      const res = await fetch(`${API_URL}/api/users/me/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onUserUpdate?.({ avatar: data.avatar });
+        setCropImage(null);
+      } else {
+        setSaveError('Ошибка загрузки аватара');
+      }
+    } catch {
+      setSaveError('Нет подключения к серверу');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   if (!open) return null;
 
   const initial = (user?.username || 'U')[0].toUpperCase();
@@ -236,12 +284,38 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
         <div className="profile-avatar-area">
           <div
             className="profile-avatar"
-            style={{ background: `hsl(${hue}, 70%, 50%)` }}
+            style={user?.avatar ? {} : { background: `hsl(${hue}, 70%, 50%)` }}
+            onClick={() => fileInputRef.current?.click()}
           >
-            <span className="profile-avatar__letter">{initial}</span>
+            {user?.avatar ? (
+              <img
+                src={`${API_URL}/uploads/avatars/${user.avatar}?t=${Date.now()}`}
+                className="profile-avatar__img"
+                alt=""
+              />
+            ) : (
+              <span className="profile-avatar__letter">{initial}</span>
+            )}
             <div className="profile-avatar__glow" style={{ background: `hsl(${hue}, 70%, 50%)` }} />
+            <div className="profile-avatar__camera">📷</div>
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
         </div>
+
+        {/* Модальное окно кропа */}
+        {cropImage && (
+          <AvatarCropModal
+            imageSrc={cropImage}
+            onClose={() => setCropImage(null)}
+            onSave={handleAvatarSave}
+          />
+        )}
 
         {/* Имя и тег */}
         <div className="profile-username">{user?.username}</div>

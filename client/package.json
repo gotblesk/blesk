@@ -17,6 +17,7 @@
     "mediasoup-client": "^3.18.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-easy-crop": "^5.5.6",
     "react-router-dom": "^7.1.0",
     "socket.io-client": "^4.8.0",
     "tweetnacl": "^1.0.3",
@@ -66,7 +67,10 @@
     "asar": true,
     "compression": "maximum",
     "extraResources": [
-      { "from": "public/icon.ico", "to": "icon.ico" }
+      {
+        "from": "public/icon.ico",
+        "to": "icon.ico"
+      }
     ]
   }
 }
