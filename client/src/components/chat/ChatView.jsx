@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback, Fragment } from 'react';
 import { useChatStore } from '../../store/chatStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import ChatHeader from './ChatHeader';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import CallBanner from '../voice/CallBanner';
 import GroupMembersPanel from './GroupMembersPanel';
 import { MIN_WIDTH, MIN_HEIGHT } from '../../hooks/useWindowManager';
+import { getCurrentUserId } from '../../utils/auth';
 import './ChatView.css';
 
 // Resize edges
@@ -27,6 +29,8 @@ export default function ChatView({
   onJoinCall,
 }) {
   const { messages, chats, onlineUsers, typingUsers, openChat, markAsRead } = useChatStore();
+  const showTyping = useSettingsStore((s) => s.showTyping);
+  const compactMessages = useSettingsStore((s) => s.compactMessages);
   const chatMessages = messages[chatId] || [];
   const chat = chats.find((c) => c.id === chatId);
   const messagesEndRef = useRef(null);
@@ -61,10 +65,7 @@ export default function ChatView({
   });
 
   // Текущий userId
-  const userId = useRef(null);
-  try {
-    userId.current = JSON.parse(atob(localStorage.getItem('token').split('.')[1])).userId;
-  } catch {}
+  const userId = useRef(getCurrentUserId());
 
   // Анимация закрытия → потом реальное удаление
   const animateClose = useCallback(() => {
@@ -232,10 +233,13 @@ export default function ChatView({
   };
 
   const handleTypingStart = () => {
+    // Если индикатор набора отключён в настройках приватности — не отправляем
+    if (!showTyping) return;
     socketRef.current?.emit('typing:start', { chatId });
   };
 
   const handleTypingStop = () => {
+    if (!showTyping) return;
     socketRef.current?.emit('typing:stop', { chatId });
   };
 
@@ -327,7 +331,7 @@ export default function ChatView({
         <CallBanner activeCall={activeCall} onJoin={onJoinCall} />
       )}
 
-      <div className="chat-view__messages">
+      <div className={`chat-view__messages ${compactMessages ? 'chat-view__messages--compact' : ''}`}>
         {chatMessages.map((msg, idx) => {
           const isOwn = msg.userId === userId.current;
           const prev = chatMessages[idx - 1];

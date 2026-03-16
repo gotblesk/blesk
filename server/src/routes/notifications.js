@@ -70,6 +70,19 @@ router.post('/read-all', authenticate, async (req, res) => {
   }
 });
 
+// Очистить все уведомления пользователя
+router.delete('/clear', authenticate, async (req, res) => {
+  try {
+    await prisma.notification.deleteMany({
+      where: { userId: req.userId },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /api/notifications/clear error:', err);
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
 // Удалить одно
 router.delete('/:id', authenticate, async (req, res) => {
   try {

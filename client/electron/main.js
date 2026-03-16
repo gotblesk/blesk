@@ -27,7 +27,7 @@ function createSplashWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    icon: path.join(__dirname, '../public/icon.png'),
+    icon: path.join(__dirname, '../public/icon.ico'),
     title: 'blesk',
     show: false,
   });
@@ -53,7 +53,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    icon: path.join(__dirname, '../public/icon.png'),
+    icon: path.join(__dirname, '../public/icon.ico'),
     title: 'blesk',
     show: false,
   });
@@ -182,6 +182,7 @@ function setupAutoUpdater() {
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = true;
 
   autoUpdater.on('update-available', (info) => {
     console.log('Доступно обновление:', info.version);

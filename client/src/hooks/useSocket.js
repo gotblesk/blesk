@@ -3,11 +3,13 @@ import { io } from 'socket.io-client';
 import { useChatStore } from '../store/chatStore';
 import { useCallStore } from '../store/callStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { getCurrentUserId } from '../utils/auth';
 import API_URL from '../config';
 
 export function useSocket() {
   const socketRef = useRef(null);
-  const { receiveMessage, setUserOnline, setUserOffline, setTyping, confirmMessage, loadChats } =
+  const { receiveMessage, setUserOnline, setUserOffline, setUserStatus, setTyping, confirmMessage, loadChats } =
     useChatStore();
 
   useEffect(() => {
@@ -23,10 +25,7 @@ export function useSocket() {
 
     socketRef.current = socket;
 
-    let userId;
-    try {
-      userId = JSON.parse(atob(token.split('.')[1])).userId;
-    } catch {}
+    const userId = getCurrentUserId();
 
     // ═══ Сообщения ═══
     socket.on('message:new', (msg) => {
@@ -34,16 +33,32 @@ export function useSocket() {
         confirmMessage(msg.tempId, msg);
       } else {
         receiveMessage(msg);
+
+        // Уведомления и звуки для входящих сообщений
+        const s = useSettingsStore.getState();
+        if (s.notifications && s.notifMessages && document.hidden) {
+          try {
+            new Notification(msg.user?.username || 'blesk', {
+              body: msg.text?.slice(0, 100) || 'Новое сообщение',
+              silent: !s.sounds,
+            });
+          } catch { /* Notification API недоступен */ }
+        }
       }
     });
 
     socket.on('message:error', ({ tempId, error }) => {
       console.error('Message error:', tempId, error);
+      // Убрать неотправленное сообщение из UI
+      useChatStore.getState().failMessage(tempId);
     });
 
-    // ═══ Онлайн/офлайн ═══
-    socket.on('user:online', ({ userId: uid }) => setUserOnline(uid));
+    // ═══ Онлайн/офлайн/статус ═══
+    socket.on('user:online', ({ userId: uid, status }) => setUserOnline(uid, status));
     socket.on('user:offline', ({ userId: uid }) => setUserOffline(uid));
+    socket.on('user:statusChange', ({ userId: uid, status, customStatus }) => {
+      setUserStatus(uid, status, customStatus);
+    });
 
     // ═══ Набор текста ═══
     socket.on('typing:start', ({ chatId, userId: uid }) => setTyping(chatId, uid, true));
@@ -130,7 +145,7 @@ export function useSocket() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [receiveMessage, setUserOnline, setUserOffline, setTyping, confirmMessage, loadChats]);
+  }, [receiveMessage, setUserOnline, setUserOffline, setUserStatus, setTyping, confirmMessage, loadChats]);
 
   return socketRef;
 }

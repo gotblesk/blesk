@@ -99,20 +99,23 @@ export default function VoiceSettings() {
     };
   }, []);
 
-  // Сохранить настройки в store
+  // Сохранить настройки в store + localStorage
   const handleDeviceChange = (deviceId) => {
     setSelectedDevice(deviceId);
     useVoiceStore.setState({ inputDeviceId: deviceId || null });
+    localStorage.setItem('blesk-input-device', deviceId || '');
   };
 
   const handleNoiseChange = (val) => {
     setNoise(val);
     useVoiceStore.setState({ noiseSuppression: val });
+    localStorage.setItem('blesk-noise-suppression', String(val));
   };
 
   const handleEchoChange = (val) => {
     setEcho(val);
     useVoiceStore.setState({ echoCancellation: val });
+    localStorage.setItem('blesk-echo-cancellation', String(val));
   };
 
   return (

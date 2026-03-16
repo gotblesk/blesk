@@ -39,6 +39,47 @@
   border-color: rgba(200, 255, 0, 0.3);
 }
 
+/* Стили для dropdown option в тёмной теме */
+.voice-settings__select option {
+  background: #1a1725;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 8px;
+}
+
+/* Светлая тема */
+[data-theme="light"] .voice-settings__select {
+  background: rgba(255, 255, 255, 0.6);
+  color: rgba(26, 26, 46, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .voice-settings__select option {
+  background: #f0eef5;
+  color: rgba(26, 26, 46, 0.9);
+}
+
+[data-theme="light"] .voice-settings__label {
+  color: rgba(26, 26, 46, 0.5);
+}
+
+[data-theme="light"] .voice-settings__toggle-row {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .voice-settings__toggle-text {
+  color: rgba(26, 26, 46, 0.7);
+}
+
+[data-theme="light"] .voice-settings__test-btn {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(26, 26, 46, 0.7);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .voice-settings__test-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 /* Тест микрофона */
 .voice-settings__test {
   display: flex;

@@ -70,6 +70,21 @@ export const useNotificationStore = create((set, get) => ({
     }
   },
 
+  // Очистить все уведомления
+  clearAll: async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/notifications/clear`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      set({ notifications: [], unreadCount: 0 });
+    } catch (err) {
+      // Если endpoint не существует — просто очищаем локально
+      set({ notifications: [], unreadCount: 0 });
+    }
+  },
+
   // Удалить уведомление
   removeNotification: async (id) => {
     try {

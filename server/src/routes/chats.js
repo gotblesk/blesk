@@ -512,7 +512,7 @@ router.post('/:id/messages/:msgId/pin', authenticate, async (req, res) => {
 
     const io = req.app.locals.io;
     if (io) {
-      io.to(roomId).emit(newPinned ? 'message:pinned' : 'message:unpinned', { roomId, messageId: msgId });
+      io.to(roomId).emit('message:pinned', { chatId: roomId, messageId: msgId, pinned: newPinned });
     }
 
     res.json({ ok: true, pinned: newPinned });

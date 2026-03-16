@@ -94,6 +94,7 @@ export default function NotificationBell({ onOpenChat }) {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    clearAll,
   } = useNotificationStore();
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
@@ -278,8 +279,13 @@ export default function NotificationBell({ onOpenChat }) {
     }
   }, [markAsRead, onOpenChat, handleClose]);
 
+  // Предотвращаем двойные клики на accept/decline
+  const processingFriendRef = useRef(new Set());
+
   const handleAcceptFriend = useCallback(async (notification, e) => {
     e.stopPropagation();
+    if (processingFriendRef.current.has(notification.id)) return;
+    processingFriendRef.current.add(notification.id);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${token}` } });
@@ -292,10 +298,13 @@ export default function NotificationBell({ onOpenChat }) {
       }
       markAsRead(notification.id);
     } catch (err) { console.error('Accept friend error:', err); }
+    finally { processingFriendRef.current.delete(notification.id); }
   }, [markAsRead, onOpenChat, handleClose]);
 
   const handleDeclineFriend = useCallback(async (notification, e) => {
     e.stopPropagation();
+    if (processingFriendRef.current.has(notification.id)) return;
+    processingFriendRef.current.add(notification.id);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${token}` } });
@@ -306,6 +315,7 @@ export default function NotificationBell({ onOpenChat }) {
       }
       markAsRead(notification.id);
     } catch (err) { console.error('Decline friend error:', err); }
+    finally { processingFriendRef.current.delete(notification.id); }
   }, [markAsRead]);
 
   const bellClasses = [
@@ -359,6 +369,11 @@ export default function NotificationBell({ onOpenChat }) {
           >
             <span className="bell-header__title">Уведомления</span>
             <div className="bell-header__actions">
+              {notifications.length > 0 && (
+                <button className="bell-header__read-all" onClick={(e) => { e.stopPropagation(); clearAll(); }} title="Очистить все">
+                  🗑
+                </button>
+              )}
               {unreadCount > 0 && (
                 <button className="bell-header__read-all" onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}>
                   ✓ Все

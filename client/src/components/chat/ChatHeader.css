@@ -139,6 +139,7 @@
   align-items: center;
   gap: 4px;
   margin-left: auto;
+  margin-right: 36px; /* Место для кнопки закрытия */
 }
 
 .chat-header__btn {

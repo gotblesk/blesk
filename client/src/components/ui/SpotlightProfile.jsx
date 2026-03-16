@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
+import useAppVersion from '../../hooks/useAppVersion';
+import { useSettingsStore } from '../../store/settingsStore';
 import './SpotlightProfile.css';
 
 export default function SpotlightProfile({ user, onNavigate, onLogout }) {
+  const appVersion = useAppVersion();
+  const currentTheme = useSettingsStore((s) => s.theme);
   const [open, setOpen] = useState(false);
 
   // Закрытие по Escape
@@ -60,8 +64,15 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
             <div className="spotlight-name">{user?.username}</div>
             <div className="spotlight-tag">{user?.tag}</div>
             <div className="spotlight-status">
-              <div className="spotlight-status__dot" />
-              В сети
+              <div
+                className="spotlight-status__dot"
+                style={{
+                  background: user?.status === 'dnd' ? '#ef4444'
+                    : user?.status === 'invisible' ? '#6b7280'
+                    : '#4ade80',
+                }}
+              />
+              {user?.customStatus || (user?.status === 'dnd' ? 'Не беспокоить' : user?.status === 'invisible' ? 'Невидимка' : 'В сети')}
             </div>
           </div>
 
@@ -83,10 +94,10 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               style={{ transitionDelay: '0.13s' }}
               onClick={() => handleAction('status')}
             >
-              <div className="spotlight-item__icon">🟢</div>
+              <div className="spotlight-item__icon">{user?.status === 'dnd' ? '🔴' : user?.status === 'invisible' ? '⚫' : '🟢'}</div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">Изменить статус</div>
-                <div className="spotlight-item__hint">В сети</div>
+                <div className="spotlight-item__hint">{user?.customStatus || (user?.status === 'dnd' ? 'Не беспокоить' : user?.status === 'invisible' ? 'Невидимка' : 'В сети')}</div>
               </div>
             </button>
 
@@ -111,7 +122,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               <div className="spotlight-item__icon">🎨</div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">Тема</div>
-                <div className="spotlight-item__hint">Тёмная</div>
+                <div className="spotlight-item__hint">{currentTheme === 'light' ? 'Светлая' : 'Тёмная'}</div>
               </div>
             </button>
 
@@ -152,7 +163,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
             </button>
           </div>
 
-          <div className="spotlight-footer">blesk v0.1.0-alpha</div>
+          <div className="spotlight-footer">blesk v{appVersion}</div>
         </div>
       </div>
     </>

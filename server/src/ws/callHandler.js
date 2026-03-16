@@ -228,10 +228,15 @@ function callHandler(io, socket) {
 
   // ═══ Отключение сокета — cleanup звонков ═══
   socket.on('disconnect', () => {
+    // Собрать chatId-ы в массив, чтобы не мутировать Map во время итерации
+    const chatIds = [];
     for (const [chatId, call] of activeCalls) {
       if (call.participants.has(userId) || call.callerId === userId) {
-        handleCallEnd(io, socket, userId, chatId);
+        chatIds.push(chatId);
       }
+    }
+    for (const chatId of chatIds) {
+      handleCallEnd(io, socket, userId, chatId);
     }
   });
 }

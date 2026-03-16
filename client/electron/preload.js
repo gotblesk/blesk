@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 // Безопасный мост между renderer и main process
+// Используем removeAllListeners перед подпиской — предотвращает накопление
+
 contextBridge.exposeInMainWorld('blesk', {
   // Управление окном
   window: {
@@ -12,6 +14,9 @@ contextBridge.exposeInMainWorld('blesk', {
     dragging: (screenX, screenY) => ipcRenderer.send('window:dragging', screenX, screenY),
     stopDrag: () => ipcRenderer.send('window:stop-drag'),
     onMaximizeChange: (callback) => {
+      // Очистить старые слушатели перед подпиской
+      ipcRenderer.removeAllListeners('window:maximized');
+      ipcRenderer.removeAllListeners('window:unmaximized');
       ipcRenderer.on('window:maximized', () => callback(true));
       ipcRenderer.on('window:unmaximized', () => callback(false));
     },
@@ -22,9 +27,18 @@ contextBridge.exposeInMainWorld('blesk', {
 
   // Обновления
   update: {
-    onAvailable: (callback) => ipcRenderer.on('update:available', (_, version) => callback(version)),
-    onProgress: (callback) => ipcRenderer.on('update:progress', (_, percent) => callback(percent)),
-    onDownloaded: (callback) => ipcRenderer.on('update:downloaded', () => callback()),
+    onAvailable: (callback) => {
+      ipcRenderer.removeAllListeners('update:available');
+      ipcRenderer.on('update:available', (_, version) => callback(version));
+    },
+    onProgress: (callback) => {
+      ipcRenderer.removeAllListeners('update:progress');
+      ipcRenderer.on('update:progress', (_, percent) => callback(percent));
+    },
+    onDownloaded: (callback) => {
+      ipcRenderer.removeAllListeners('update:downloaded');
+      ipcRenderer.on('update:downloaded', () => callback());
+    },
     install: () => ipcRenderer.send('update:install'),
   },
 

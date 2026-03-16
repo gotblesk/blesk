@@ -61,10 +61,18 @@ function voiceHandler(io, socket) {
   // ═══ Войти в голосовую комнату ═══
   socket.on('voice:join', async ({ roomId }, callback) => {
     try {
-      // Для звонков (call:chatId) — пропустить проверку БД
+      // Для звонков (call:chatId) — проверить что пользователь участник чата
       const isCall = roomId.startsWith('call:');
 
-      if (!isCall) {
+      if (isCall) {
+        const chatId = roomId.slice(5); // убрать 'call:'
+        const participant = await prisma.roomParticipant.findUnique({
+          where: { roomId_userId: { roomId: chatId, userId } },
+        });
+        if (!participant) {
+          return callback?.({ error: 'Вы не участник этого чата' });
+        }
+      } else {
         // Проверить что комната существует и это voice
         const dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
         if (!dbRoom || dbRoom.type !== 'voice') {
@@ -335,6 +343,28 @@ function voiceHandler(io, socket) {
     socket.to(`voice:${roomId}`).emit('voice:user-deafened', { userId, deafened });
   });
 
+  // ═══ Текстовый чат в голосовой комнате ═══
+  socket.on('voice:chat', ({ roomId, text }) => {
+    if (!text || typeof text !== 'string' || text.trim().length === 0) return;
+    if (text.length > 500) return; // Лимит длины сообщения
+
+    const room = voiceRooms.get(roomId);
+    if (!room || !room.peers.has(userId)) return;
+
+    const peer = room.peers.get(userId);
+    const message = {
+      id: `vc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      userId,
+      username: peer.username,
+      hue: peer.hue,
+      text: text.trim(),
+      timestamp: Date.now(),
+    };
+
+    // Отправить всем в комнате включая отправителя
+    io.to(`voice:${roomId}`).emit('voice:chat:message', { roomId, message });
+  });
+
   // ═══ Выйти из голосовой комнаты ═══
   socket.on('voice:leave', ({ roomId }) => {
     leaveRoom(io, socket, userId, roomId);
@@ -368,4 +398,4 @@ function leaveRoom(io, socket, userId, roomId) {
 }
 
 // Экспорт voiceRooms для REST API
-module.exports = { voiceHandler, voiceRooms };
+module.exports = { voiceHandler, voiceRooms, cleanupPeer };

@@ -12,15 +12,18 @@ import FeedbackScreen from '../settings/FeedbackScreen';
 import SettingsScreen from '../settings/SettingsScreen';
 import ProfileScreen from '../profile/ProfileScreen';
 import StatusEditor from '../profile/StatusEditor';
+import FriendsScreen from '../friends/FriendsScreen';
 import VoiceRoomList from '../voice/VoiceRoomList';
 import VoiceRoom from '../voice/VoiceRoom';
 import VoiceControls from '../voice/VoiceControls';
 import IncomingCallOverlay from '../voice/IncomingCallOverlay';
+import UpdateBanner from '../ui/UpdateBanner';
 import { useSocket } from '../../hooks/useSocket';
 import { useVoice } from '../../hooks/useVoice';
 import { useChatStore } from '../../store/chatStore';
 import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import useWindowManager from '../../hooks/useWindowManager';
 import './MainScreen.css';
 
@@ -38,8 +41,21 @@ export default function MainScreen({ user, onLogout }) {
   const [statusOpen, setStatusOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(user);
   const [voiceExpanded, setVoiceExpanded] = useState(false);
+  const theme = useSettingsStore((s) => s.theme);
   const socketRef = useSocket();
   const { joinRoom, leaveRoom, joinCall, leaveCall } = useVoice(socketRef);
+
+  // Применить тему при загрузке и смене
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // Запросить разрешение на уведомления
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
   const { chats } = useChatStore();
   const voiceRoomId = useVoiceStore((s) => s.currentRoomId);
   const incomingCall = useCallStore((s) => s.incomingCall);
@@ -191,6 +207,10 @@ export default function MainScreen({ user, onLogout }) {
             if (action === 'feedback') setFeedbackOpen(true);
             if (action === 'profile') setProfileOpen(true);
             if (action === 'status') setStatusOpen(true);
+            if (action === 'theme') {
+              const next = useSettingsStore.getState().theme === 'dark' ? 'light' : 'dark';
+              useSettingsStore.getState().setValue('theme', next);
+            }
           }}
         />
       </div>
@@ -208,7 +228,7 @@ export default function MainScreen({ user, onLogout }) {
 
         {activeTab === 'voice' && (
           voiceRoomId && voiceExpanded ? (
-            <VoiceRoom />
+            <VoiceRoom socketRef={socketRef} />
           ) : (
             <VoiceRoomList
               onJoinRoom={(roomId, roomName) => {
@@ -228,11 +248,7 @@ export default function MainScreen({ user, onLogout }) {
         )}
 
         {activeTab === 'friends' && (
-          <div className="main-content__center section-enter">
-            <div className="placeholder-icon">👥</div>
-            <div className="placeholder-title">Друзья</div>
-            <div className="placeholder-sub">Скоро</div>
-          </div>
+          <FriendsScreen onBack={() => setActiveTab('chats')} onOpenChat={handleOpenChat} />
         )}
 
         {activeTab === 'settings' && (
@@ -296,6 +312,9 @@ export default function MainScreen({ user, onLogout }) {
           onDecline={handleDeclineCall}
         />
       )}
+
+      {/* Баннер обновления */}
+      <UpdateBanner socketRef={socketRef} />
 
       {/* Голосовая панель — видна на всех табах */}
       {voiceRoomId && (

@@ -28,6 +28,45 @@ router.get('/search', authenticate, async (req, res) => {
   }
 });
 
+// Профиль пользователя по id
+router.get('/:id', authenticate, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        username: true,
+        tag: true,
+        hue: true,
+        avatar: true,
+        bio: true,
+        status: true,
+        customStatus: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    // Проверить дружбу
+    const friendship = await prisma.friendRequest.findFirst({
+      where: {
+        status: 'accepted',
+        OR: [
+          { senderId: req.userId, receiverId: req.params.id },
+          { senderId: req.params.id, receiverId: req.userId },
+        ],
+      },
+    });
+
+    res.json({ ...user, isFriend: !!friendship });
+  } catch {
+    res.status(500).json({ error: 'Ошибка получения профиля' });
+  }
+});
+
 // Обновление профиля
 router.put('/me', authenticate, async (req, res) => {
   try {
@@ -39,7 +78,7 @@ router.put('/me', authenticate, async (req, res) => {
       if (typeof bio !== 'string' || bio.length > 200) {
         return res.status(400).json({ error: 'Bio должно быть до 200 символов' });
       }
-      data.bio = bio;
+      data.bio = bio.replace(/[<>]/g, '');
     }
 
     if (status !== undefined) {
@@ -54,7 +93,8 @@ router.put('/me', authenticate, async (req, res) => {
       if (typeof customStatus !== 'string' || customStatus.length > 50) {
         return res.status(400).json({ error: 'Кастомный статус до 50 символов' });
       }
-      data.customStatus = customStatus;
+      // Санитизация HTML-символов
+      data.customStatus = customStatus.replace(/[<>]/g, '');
     }
 
     if (hue !== undefined) {
@@ -89,11 +129,26 @@ router.put('/me', authenticate, async (req, res) => {
     if (data.status) {
       const io = req.app.locals.io;
       if (io) {
-        io.emit('user:statusChange', {
-          userId: req.userId,
-          status: data.status,
-          customStatus: data.customStatus || user.customStatus,
-        });
+        // Обновить userStatus на сокете
+        for (const [, s] of io.sockets.sockets) {
+          if (s.userId === req.userId) {
+            s.userStatus = data.status;
+          }
+        }
+
+        if (data.status === 'invisible') {
+          // При переключении на невидимку — показать всем что ушёл в офлайн
+          io.emit('user:offline', { userId: req.userId });
+        } else {
+          // Для DND и online — показать статус
+          io.emit('user:statusChange', {
+            userId: req.userId,
+            status: data.status,
+            customStatus: data.customStatus || user.customStatus,
+          });
+          // Если был invisible → стал online/dnd — показать как вошёл
+          io.emit('user:online', { userId: req.userId, status: data.status });
+        }
       }
     }
 

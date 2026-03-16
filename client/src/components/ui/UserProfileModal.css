@@ -1,0 +1,196 @@
+/* ===== Overlay ===== */
+.upm-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  animation: upm-fade-in 0.2s ease;
+}
+
+/* ===== Card ===== */
+.upm-card {
+  position: relative;
+  width: 340px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: upm-scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ===== Close button ===== */
+.upm-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.upm-close:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ===== Avatar ===== */
+.upm-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+/* ===== Name + tag ===== */
+.upm-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+}
+
+.upm-tag {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.35);
+  margin-left: 2px;
+}
+
+/* ===== Status row ===== */
+.upm-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.upm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.upm-custom-status {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ===== Bio ===== */
+.upm-bio {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  margin: 0;
+  line-height: 1.45;
+  max-width: 280px;
+  word-break: break-word;
+}
+
+/* ===== Date ===== */
+.upm-date {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* ===== Actions ===== */
+.upm-actions {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.upm-btn {
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  border: none;
+}
+
+.upm-btn:active {
+  transform: scale(0.97);
+}
+
+.upm-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.upm-btn--primary {
+  background: #c8ff00;
+  color: #08060f;
+}
+
+.upm-btn--primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.upm-btn--outline {
+  background: transparent;
+  color: #c8ff00;
+  border: 1.5px solid rgba(200, 255, 0, 0.4);
+}
+
+.upm-btn--outline:hover:not(:disabled) {
+  border-color: #c8ff00;
+  background: rgba(200, 255, 0, 0.06);
+}
+
+/* ===== Loading ===== */
+.upm-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+}
+
+.upm-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #c8ff00;
+  border-radius: 50%;
+  animation: upm-spin 0.7s linear infinite;
+}
+
+/* ===== Animations ===== */
+@keyframes upm-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes upm-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes upm-spin {
+  to { transform: rotate(360deg); }
+}

@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import Glass from '../ui/Glass';
+import UserProfileModal from '../ui/UserProfileModal';
 import API_URL from '../../config';
+import { getCurrentUserId } from '../../utils/auth';
 import './GroupMembersPanel.css';
 
 export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMember, socketRef }) {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  // id пользователя для модалки профиля
+  const [profileUserId, setProfileUserId] = useState(null);
 
   const loadMembers = async () => {
     try {
@@ -33,10 +37,8 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
   };
 
   const handleLeave = async () => {
-    let userId;
-    try {
-      userId = JSON.parse(atob(localStorage.getItem('token').split('.')[1])).userId;
-    } catch { return; }
+    const userId = getCurrentUserId();
+    if (!userId) return;
 
     try {
       const res = await fetch(`${API_URL}/api/chats/${chatId}/members/${userId}`, {
@@ -66,29 +68,31 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
           <div className="group-members-panel__list">
             {members.map((m) => {
               const hue = m.user?.hue ?? 0;
-              const isMe = (() => {
-                try {
-                  return JSON.parse(atob(localStorage.getItem('token').split('.')[1])).userId === m.userId;
-                } catch { return false; }
-              })();
+              const isMe = getCurrentUserId() === m.userId;
 
               return (
                 <div key={m.userId} className="group-members-panel__member">
+                  {/* Клик по аватару/имени открывает профиль участника */}
                   <div
-                    className="group-members-panel__avatar"
-                    style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))` }}
+                    style={{ display: 'contents', cursor: 'pointer' }}
+                    onClick={() => setProfileUserId(m.userId)}
                   >
-                    {(m.user?.username || '?')[0].toUpperCase()}
-                  </div>
-                  <div className="group-members-panel__info">
-                    <span className="group-members-panel__name">
-                      {m.user?.username || 'Неизвестный'}
-                      {m.role === 'owner' && <span className="group-members-panel__crown">👑</span>}
-                      {isMe && <span className="group-members-panel__you"> (вы)</span>}
-                    </span>
-                    <span className="group-members-panel__role">
-                      {m.role === 'owner' ? 'Владелец' : m.role === 'admin' ? 'Админ' : 'Участник'}
-                    </span>
+                    <div
+                      className="group-members-panel__avatar"
+                      style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))` }}
+                    >
+                      {(m.user?.username || '?')[0].toUpperCase()}
+                    </div>
+                    <div className="group-members-panel__info">
+                      <span className="group-members-panel__name">
+                        {m.user?.username || 'Неизвестный'}
+                        {m.role === 'owner' && <span className="group-members-panel__crown">👑</span>}
+                        {isMe && <span className="group-members-panel__you"> (вы)</span>}
+                      </span>
+                      <span className="group-members-panel__role">
+                        {m.role === 'owner' ? 'Владелец' : m.role === 'admin' ? 'Админ' : 'Участник'}
+                      </span>
+                    </div>
                   </div>
                   {isOwner && m.role !== 'owner' && !isMe && (
                     <button
@@ -110,6 +114,13 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
           </button>
         )}
       </Glass>
+
+      {/* Модалка профиля участника */}
+      <UserProfileModal
+        userId={profileUserId}
+        open={!!profileUserId}
+        onClose={() => setProfileUserId(null)}
+      />
     </div>
   );
 }

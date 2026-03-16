@@ -42,10 +42,11 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/feedback — список (для будущей админки)
+// GET /api/feedback — только свои отзывы (для пользователя)
 router.get('/', authenticate, async (req, res) => {
   try {
     const feedbacks = await prisma.feedback.findMany({
+      where: { userId: req.userId },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
