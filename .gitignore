@@ -11,3 +11,6 @@ client/release/
 # Dev database
 server/prisma/dev.db
 server/prisma/dev.db-journal
+CLAUDE.md
+.claude/
+.superpowers/
