@@ -4,6 +4,12 @@ const path = require('path');
 
 const isDev = !app.isPackaged;
 
+// Имя приложения (в диспетчере задач, заголовке и т.д.)
+app.name = 'blesk';
+if (process.platform === 'win32') {
+  app.setAppUserModelId('fun.blesk.app');
+}
+
 let splashWindow;
 let mainWindow;
 
