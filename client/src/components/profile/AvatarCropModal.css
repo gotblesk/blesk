@@ -1,0 +1,202 @@
+.avatar-crop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 6, 15, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: avatarCropIn 0.3s ease;
+}
+
+@keyframes avatarCropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.avatar-crop-card {
+  position: relative;
+  width: 380px;
+  border-radius: 24px;
+  background: rgba(20, 18, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  overflow: hidden;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: avatarCropCardIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes avatarCropCardIn {
+  from {
+    transform: scale(0.88) translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.avatar-crop-card__shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  border-radius: 24px 24px 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.avatar-crop__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+
+.avatar-crop__area {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Переопределение стилей react-easy-crop */
+.avatar-crop__area .reactEasyCrop_Container {
+  border-radius: 16px;
+}
+
+.avatar-crop__zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.avatar-crop__zoom-label {
+  font-size: 14px;
+}
+
+.avatar-crop__zoom-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+.avatar-crop__zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.avatar-crop__zoom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.avatar-crop__zoom-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  min-width: 32px;
+  text-align: right;
+}
+
+.avatar-crop__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.avatar-crop__btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.avatar-crop__btn--cancel {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.avatar-crop__btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.avatar-crop__btn--save {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.avatar-crop__btn--save:hover {
+  opacity: 0.85;
+}
+
+.avatar-crop__btn--save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .avatar-crop-overlay {
+  background: rgba(200, 200, 210, 0.5);
+}
+
+[data-theme="light"] .avatar-crop-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .avatar-crop__title {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .avatar-crop__area {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .avatar-crop__zoom-slider {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .avatar-crop__zoom-value {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .avatar-crop__btn--cancel {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .avatar-crop__btn--cancel:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.7);
+}

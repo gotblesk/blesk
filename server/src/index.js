@@ -17,10 +17,15 @@ const io = new Server(httpServer, {
   },
 });
 
+const path = require('path');
+
 // Middleware
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
 app.use(express.json({ limit: '10mb' }));
+
+// Статика — аватары и загрузки
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Rate limiting — раздельные лимиты
 const authLimiter = rateLimit({
