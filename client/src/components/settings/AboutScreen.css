@@ -134,11 +134,11 @@
   75% { transform: rotate(3deg); }
 }
 
-.about-logo__text {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--accent);
-  letter-spacing: -1px;
+.about-logo__img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(200, 255, 0, 0.2));
 }
 
 /* Пасхалка — party mode */

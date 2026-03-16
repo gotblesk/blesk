@@ -116,32 +116,18 @@
     padding: 40px;
   }
 
-  /* Logo "bl" */
+  /* Logo */
   .logo {
-    font-size: 80px;
-    font-weight: 800;
-    letter-spacing: -4px;
-    color: #fff;
-    position: relative;
     margin-top: auto;
     margin-bottom: 14px;
-    text-shadow: 0 0 40px rgba(200, 255, 0, 0.3);
     animation: logoAppear 0.8s ease-out;
   }
 
-  .logo::after {
-    content: '';
-    position: absolute;
-    inset: -20px;
-    background: linear-gradient(135deg, rgba(200,255,0,0.15), transparent 60%);
-    border-radius: 20px;
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.06);
-    z-index: -1;
-  }
-
-  .logo .accent {
-    color: #c8ff00;
+  .logo img {
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 30px rgba(200, 255, 0, 0.25));
   }
 
   @keyframes logoAppear {
@@ -266,7 +252,7 @@
     <div class="glass-overlay"></div>
 
     <div class="content">
-      <div class="logo">b<span class="accent">l</span></div>
+      <div class="logo"><img src="../public/blesk.png" alt="blesk" /></div>
       <div class="brand">blesk</div>
 
       <div class="status-area">

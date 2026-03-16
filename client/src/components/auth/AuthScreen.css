@@ -33,38 +33,18 @@
   pointer-events: none;
 }
 
-.brand-intro__logo {
-  font-family: var(--font-logo);
-  font-size: 72px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -4px;
+.brand-intro__logo-img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 40px rgba(200, 255, 0, 0.2));
   opacity: 0;
   animation: brandLogoIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
-  text-shadow: 0 0 60px rgba(200, 255, 0, 0.15);
 }
-.brand-intro__logo span { color: var(--accent); }
 
 @keyframes brandLogoIn {
   from { opacity: 0; transform: scale(0.7); filter: blur(12px); }
   to { opacity: 1; transform: scale(1); filter: blur(0); }
-}
-
-.brand-intro__name {
-  font-family: 'Syne', sans-serif;
-  font-size: 32px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: 6px;
-  margin-top: -4px;
-  opacity: 0;
-  animation: brandNameIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.7s forwards;
-}
-.brand-intro__name span { color: var(--accent); }
-
-@keyframes brandNameIn {
-  from { opacity: 0; transform: translateY(10px); filter: blur(6px); }
-  to { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
 
 .brand-intro__tagline {
@@ -154,24 +134,12 @@
   gap: 0;
 }
 
-.auth-logo__icon {
-  font-family: var(--font-logo);
-  font-size: 44px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -2px;
+.auth-logo__img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 20px rgba(200, 255, 0, 0.15));
 }
-.auth-logo__icon span { color: var(--accent); }
-
-.auth-logo__name {
-  font-family: 'Syne', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 4px;
-  margin-top: -6px;
-}
-.auth-logo__name span { color: var(--accent); }
 
 .auth-tagline {
   text-align: center;

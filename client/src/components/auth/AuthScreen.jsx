@@ -278,12 +278,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       {/* Бренд-интро */}
       {phase !== 'form' && phase !== 'verify' && (
         <div className={`brand-intro ${phase === 'exiting' ? 'brand-intro--exit' : ''}`}>
-          <div className="brand-intro__logo">
-            b<span>l</span>
-          </div>
-          <div className="brand-intro__name">
-            ble<span>sk</span>
-          </div>
+          <img className="brand-intro__logo-img" src="/blesk.png" alt="blesk" />
           <div className="brand-intro__tagline">Твой блеск. Твои правила.</div>
         </div>
       )}
@@ -300,12 +295,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             <div className="auth-card__highlight" />
 
             <div className="auth-logo">
-              <span className="auth-logo__icon">
-                b<span>l</span>
-              </span>
-              <span className="auth-logo__name">
-                ble<span>sk</span>
-              </span>
+              <img className="auth-logo__img" src="/blesk.png" alt="blesk" />
             </div>
             <div className="auth-tagline">Твой блеск. Твои правила.</div>
 
@@ -437,12 +427,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             <div className="auth-card__highlight" />
 
             <div className="auth-logo">
-              <span className="auth-logo__icon">
-                b<span>l</span>
-              </span>
-              <span className="auth-logo__name">
-                ble<span>sk</span>
-              </span>
+              <img className="auth-logo__img" src="/blesk.png" alt="blesk" />
             </div>
 
             <div className="auth-verify">
