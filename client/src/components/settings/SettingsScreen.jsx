@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Glass from '../ui/Glass';
 import VoiceSettings from '../voice/VoiceSettings';
+import { useSettingsStore } from '../../store/settingsStore';
 import './SettingsScreen.css';
 
 const SECTIONS = [
@@ -14,30 +15,14 @@ const SECTIONS = [
 export default function SettingsScreen({ onBack }) {
   const [section, setSection] = useState('general');
 
-  // Загружаем настройки из localStorage
-  const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem('blesk-settings');
-    return saved ? JSON.parse(saved) : {
-      sounds: true,
-      notifications: true,
-      notifMessages: true,
-      notifFriends: true,
-      notifMentions: true,
-      showOnline: true,
-      showTyping: true,
-      theme: 'dark',
-      animatedBg: true,
-      compactMessages: false,
-    };
-  });
+  const settings = useSettingsStore();
+  const { toggle, setValue } = settings;
 
-  // Сохраняем при изменении
-  useEffect(() => {
-    localStorage.setItem('blesk-settings', JSON.stringify(settings));
-  }, [settings]);
-
-  const toggle = (key) => {
-    setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  // Переключатель темы
+  const handleThemeChange = (theme) => {
+    setValue('theme', theme);
+    // Применить тему к document
+    document.documentElement.setAttribute('data-theme', theme);
   };
 
   return (
@@ -158,9 +143,22 @@ export default function SettingsScreen({ onBack }) {
                 <div className="setting-row">
                   <div className="setting-row__info">
                     <div className="setting-row__label">Тема</div>
-                    <div className="setting-row__hint">Пока только тёмная</div>
+                    <div className="setting-row__hint">Внешний вид приложения</div>
                   </div>
-                  <div className="setting-row__value">Тёмная</div>
+                  <div className="setting-theme-switcher">
+                    <button
+                      className={`setting-theme-btn ${settings.theme === 'dark' ? 'setting-theme-btn--active' : ''}`}
+                      onClick={() => handleThemeChange('dark')}
+                    >
+                      Тёмная
+                    </button>
+                    <button
+                      className={`setting-theme-btn ${settings.theme === 'light' ? 'setting-theme-btn--active' : ''}`}
+                      onClick={() => handleThemeChange('light')}
+                    >
+                      Светлая
+                    </button>
+                  </div>
                 </div>
                 <SettingToggle
                   label="Компактные сообщения"

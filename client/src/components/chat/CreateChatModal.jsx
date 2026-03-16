@@ -11,6 +11,7 @@ export default function CreateChatModal({ onClose, onCreated }) {
   const [selected, setSelected] = useState([]);  // id выбранных друзей
   const [groupName, setGroupName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -26,7 +27,10 @@ export default function CreateChatModal({ onClose, onCreated }) {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
         if (res.ok) setFriends(await res.json());
-      } catch {} finally { setLoading(false); }
+        else setError('Не удалось загрузить друзей');
+      } catch {
+        setError('Нет соединения с сервером');
+      } finally { setLoading(false); }
     })();
   }, []);
 
@@ -168,6 +172,7 @@ export default function CreateChatModal({ onClose, onCreated }) {
         {/* Список друзей */}
         <div className="create-chat-modal__results">
           {loading && <div className="create-chat-modal__loading">Загрузка...</div>}
+          {error && <div className="create-chat-modal__empty" style={{ color: '#ef4444' }}>{error}</div>}
           {filtered.map((user) => (
             <div
               key={user.id}

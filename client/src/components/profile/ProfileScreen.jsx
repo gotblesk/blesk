@@ -8,12 +8,21 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Email verification
+  const [emailCode, setEmailCode] = useState('');
+  const [emailStep, setEmailStep] = useState('display'); // display | verify
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
   // Загрузить текущие данные при открытии
   useEffect(() => {
     if (open && user) {
       setBio(user.bio || '');
       setHue(user.hue ?? 176);
       setSaved(false);
+      setEmailStep('display');
+      setEmailCode('');
+      setEmailError('');
     }
   }, [open, user]);
 
@@ -53,6 +62,61 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
     }
   };
 
+  // Отправить код подтверждения на email
+  const handleSendEmailCode = async () => {
+    setEmailError('');
+    setEmailSending(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/auth/resend-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEmailStep('verify');
+      } else {
+        setEmailError(data.error || 'Ошибка');
+      }
+    } catch {
+      setEmailError('Не удалось отправить код');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  // Верифицировать email
+  const handleVerifyEmail = async () => {
+    setEmailError('');
+    setEmailSending(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/auth/verify-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code: emailCode }),
+      });
+      const data = await res.json();
+      if (res.ok || data.success) {
+        onUserUpdate?.({ emailVerified: true });
+        setEmailStep('display');
+        setEmailCode('');
+      } else {
+        setEmailError(data.error || 'Неверный код');
+      }
+    } catch {
+      setEmailError('Ошибка верификации');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   if (!open) return null;
 
   const initial = (user?.username || 'U')[0].toUpperCase();
@@ -83,6 +147,78 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
         {/* Имя и тег */}
         <div className="profile-username">{user?.username}</div>
         <div className="profile-tag">{user?.tag}</div>
+
+        <div className="profile-sep" />
+
+        {/* Email */}
+        <div className="profile-field">
+          <label className="profile-field__label">📧 Email</label>
+          {emailStep === 'display' && (
+            <div className="profile-email-row">
+              <span className="profile-email-value">
+                {user?.email || 'Не указан'}
+              </span>
+              {user?.email && !user?.emailVerified && (
+                <button
+                  className="profile-email-btn"
+                  onClick={handleSendEmailCode}
+                  disabled={emailSending}
+                >
+                  {emailSending ? '...' : 'Подтвердить'}
+                </button>
+              )}
+              {user?.email && user?.emailVerified && (
+                <span className="profile-email-verified">✓ Подтверждён</span>
+              )}
+            </div>
+          )}
+
+          {emailStep === 'verify' && (
+            <div className="profile-email-verify">
+              <div className="profile-email-hint">
+                Код отправлен на {user?.email}
+              </div>
+              <div className="profile-email-code-row">
+                <input
+                  type="text"
+                  className="profile-email-code-input"
+                  value={emailCode}
+                  onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Код..."
+                  maxLength={6}
+                  autoFocus
+                />
+                <button
+                  className="profile-email-btn"
+                  onClick={handleVerifyEmail}
+                  disabled={emailSending || emailCode.length < 4}
+                >
+                  {emailSending ? '...' : 'ОК'}
+                </button>
+                <button
+                  className="profile-email-btn profile-email-btn--cancel"
+                  onClick={() => { setEmailStep('display'); setEmailCode(''); setEmailError(''); }}
+                >
+                  ✕
+                </button>
+              </div>
+              {emailError && <div className="profile-email-error">{emailError}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Телефон (пока только отображение) */}
+        <div className="profile-field">
+          <label className="profile-field__label">📱 Телефон</label>
+          <div className="profile-email-row">
+            <span className="profile-email-value">
+              {user?.phone || 'Не привязан'}
+            </span>
+            {!user?.phone && (
+              <span className="profile-email-hint-text">Скоро</span>
+            )}
+          </div>
+        </div>
 
         <div className="profile-sep" />
 

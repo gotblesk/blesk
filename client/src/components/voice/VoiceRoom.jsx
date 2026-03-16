@@ -1,8 +1,50 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useVoiceStore } from '../../store/voiceStore';
+import UserProfileModal from '../ui/UserProfileModal';
+import VoiceChat from './VoiceChat';
+import { getCurrentUserId } from '../../utils/auth';
 import './VoiceRoom.css';
 
-export default function VoiceRoom() {
-  const { currentRoomName, participants, audioLevels } = useVoiceStore();
+export default function VoiceRoom({ socketRef }) {
+  const { currentRoomId, currentRoomName, participants, audioLevels, userVolumes, setUserVolume } =
+    useVoiceStore();
+
+  const [volumePopup, setVolumePopup] = useState(null); // userId открытого попапа
+  const [profileUserId, setProfileUserId] = useState(null); // для модалки профиля
+  const popupRef = useRef(null);
+  const participantRefs = useRef({});
+  const currentUserId = useRef(getCurrentUserId());
+
+  // Клик по участнику — открыть/закрыть попап громкости
+  const handleParticipantClick = useCallback(
+    (userId) => {
+      // Нельзя менять громкость себе
+      if (userId === currentUserId.current) return;
+      setVolumePopup((prev) => (prev === userId ? null : userId));
+    },
+    []
+  );
+
+  // Закрыть попап при клике за его пределами
+  useEffect(() => {
+    if (!volumePopup) return;
+
+    const handleClickOutside = (e) => {
+      const popupEl = popupRef.current;
+      const participantEl = participantRefs.current[volumePopup];
+      if (
+        popupEl &&
+        !popupEl.contains(e.target) &&
+        participantEl &&
+        !participantEl.contains(e.target)
+      ) {
+        setVolumePopup(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [volumePopup]);
 
   const participantList = Object.entries(participants);
 
@@ -14,9 +56,36 @@ export default function VoiceRoom() {
         {participantList.map(([userId, peer]) => {
           const level = audioLevels[userId] || 0;
           const isSpeaking = peer.speaking && !peer.muted;
+          const isSelf = userId === currentUserId.current;
+          const volume = userVolumes[userId] ?? 100;
 
           return (
-            <div key={userId} className="voice-participant">
+            <div
+              key={userId}
+              className={`voice-participant ${!isSelf ? 'voice-participant--clickable' : ''}`}
+              ref={(el) => { participantRefs.current[userId] = el; }}
+              onClick={() => handleParticipantClick(userId)}
+              onDoubleClick={() => { if (!isSelf) setProfileUserId(userId); }}
+            >
+              {/* Попап громкости */}
+              {volumePopup === userId && (
+                <div className="volume-popup" ref={popupRef}>
+                  <div className="volume-popup__name">{peer.username}</div>
+                  <div className="volume-popup__slider-row">
+                    <input
+                      type="range"
+                      className="volume-popup__slider"
+                      min={0}
+                      max={200}
+                      value={volume}
+                      onChange={(e) => setUserVolume(userId, Number(e.target.value))}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span className="volume-popup__value">{volume}%</span>
+                  </div>
+                </div>
+              )}
+
               <div
                 className={`voice-participant__avatar ${isSpeaking ? 'voice-participant__avatar--speaking' : ''}`}
                 style={{
@@ -75,6 +144,18 @@ export default function VoiceRoom() {
           <div className="voice-room__empty">Ожидание участников...</div>
         )}
       </div>
+
+      {/* Модалка профиля по двойному клику */}
+      <UserProfileModal
+        userId={profileUserId}
+        open={!!profileUserId}
+        onClose={() => setProfileUserId(null)}
+      />
+
+      {/* Чат голосовой комнаты */}
+      {currentRoomId && socketRef && (
+        <VoiceChat roomId={currentRoomId} socketRef={socketRef} />
+      )}
     </div>
   );
 }

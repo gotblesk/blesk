@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET || 'blesk-dev-secret-change-in-production';
 
 function socketAuth(socket, next) {
   const token = socket.handshake.auth?.token;

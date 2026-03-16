@@ -266,3 +266,125 @@
   background: rgba(74, 222, 128, 0.15);
   color: #4ade80;
 }
+
+/* ═══ Email и телефон ═══ */
+.profile-email-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-email-value {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  flex: 1;
+}
+
+.profile-email-verified {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+
+.profile-email-btn {
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(200, 255, 0, 0.2);
+  background: rgba(200, 255, 0, 0.08);
+  color: #c8ff00;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.profile-email-btn:hover {
+  background: rgba(200, 255, 0, 0.15);
+}
+
+.profile-email-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.profile-email-btn--cancel {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: rgba(239, 68, 68, 0.7);
+}
+
+.profile-email-btn--cancel:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.profile-email-verify {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-email-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.profile-email-hint-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.2);
+  font-style: italic;
+}
+
+.profile-email-code-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.profile-email-code-input {
+  width: 100px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: monospace;
+  text-align: center;
+  letter-spacing: 2px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.profile-email-code-input:focus {
+  border-color: rgba(200, 255, 0, 0.3);
+}
+
+.profile-email-error {
+  font-size: 11px;
+  color: #ef4444;
+}
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .profile-email-value {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .profile-email-hint {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .profile-email-hint-text {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .profile-email-code-input {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.85);
+}

@@ -3,6 +3,9 @@
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .voice-list__header {
@@ -92,6 +95,13 @@
 .voice-list__create-submit:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.voice-list__error {
+  width: 100%;
+  font-size: 12px;
+  color: var(--danger);
+  padding: 6px 0 0;
 }
 
 /* Пустое состояние */
@@ -230,4 +240,278 @@
 
 .voice-card__join:hover {
   background: rgba(200, 255, 0, 0.15);
+}
+
+/* Бейдж владельца */
+.voice-card__owner-badge {
+  font-size: 9px;
+  font-weight: 600;
+  color: #c8ff00;
+  background: rgba(200, 255, 0, 0.1);
+  border: 1px solid rgba(200, 255, 0, 0.2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Кнопка удаления */
+.voice-card__delete {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.06);
+  color: rgba(239, 68, 68, 0.6);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.voice-card__delete:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.voice-card__delete--confirm {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  animation: deleteShake 0.3s ease;
+}
+
+@keyframes deleteShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* Wrapper для карточки + панель приглашений */
+.voice-card-wrapper {
+  position: relative;
+}
+
+/* Ошибка сверху */
+.voice-list__error--top {
+  width: 100%;
+  font-size: 12px;
+  color: var(--danger);
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+/* Счётчик приглашённых */
+.voice-card__invited-count {
+  color: rgba(200, 255, 0, 0.5);
+}
+
+/* Кнопки владельца */
+.voice-card__owner-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.voice-card__invite-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(200, 255, 0, 0.15);
+  background: rgba(200, 255, 0, 0.06);
+  color: rgba(200, 255, 0, 0.6);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.voice-card__invite-btn:hover {
+  background: rgba(200, 255, 0, 0.12);
+  color: #c8ff00;
+}
+
+/* ═══ Панель приглашений ═══ */
+.voice-invite-panel {
+  margin-top: 4px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(20, 18, 32, 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  animation: invitePanelIn 0.2s ease;
+}
+
+@keyframes invitePanelIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.voice-invite-panel__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 10px;
+}
+
+.voice-invite-panel__section {
+  margin-bottom: 10px;
+}
+
+.voice-invite-panel__subtitle {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.voice-invite-panel__user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.voice-invite-panel__av {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.voice-invite-panel__name {
+  flex: 1;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-invite-panel__add {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid rgba(200, 255, 0, 0.2);
+  background: rgba(200, 255, 0, 0.08);
+  color: #c8ff00;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.voice-invite-panel__add:hover {
+  background: rgba(200, 255, 0, 0.15);
+}
+
+.voice-invite-panel__invited {
+  font-size: 12px;
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.voice-invite-panel__kick {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.06);
+  color: rgba(239, 68, 68, 0.6);
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.voice-invite-panel__kick:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.voice-invite-panel__loading,
+.voice-invite-panel__empty {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 8px 0;
+}
+
+.voice-invite-panel__close {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 6px;
+}
+
+.voice-invite-panel__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .voice-invite-panel {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .voice-invite-panel__title {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .voice-invite-panel__subtitle {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .voice-invite-panel__name {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .voice-invite-panel__loading,
+[data-theme="light"] .voice-invite-panel__empty {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .voice-invite-panel__close {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .voice-invite-panel__close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .voice-list__error--top {
+  background: rgba(239, 68, 68, 0.05);
 }

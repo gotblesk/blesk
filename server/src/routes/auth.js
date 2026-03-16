@@ -11,7 +11,23 @@ const JWT_SECRET = process.env.JWT_SECRET || 'blesk-dev-secret-change-in-product
 
 // Генерация тега #0001–#9999
 function generateTag() {
-  return '#' + String(Math.floor(1000 + Math.random() * 9000));
+  const num = Math.floor(1 + Math.random() * 9999); // 1-9999
+  return '#' + String(num).padStart(4, '0');
+}
+
+// Генерация уникального тега для пользователя
+async function generateUniqueTag(username) {
+  const maxAttempts = 20;
+  for (let i = 0; i < maxAttempts; i++) {
+    const tag = generateTag();
+    const existing = await prisma.user.findFirst({
+      where: { username, tag },
+    });
+    if (!existing) return tag;
+  }
+  // Fallback: случайный 4-значный хеш
+  const fallback = '#' + String(Date.now() % 10000).padStart(4, '0');
+  return fallback;
 }
 
 // Валидация email
@@ -72,7 +88,7 @@ router.post('/register', async (req, res) => {
     const user = await prisma.user.create({
       data: {
         username,
-        tag: generateTag(),
+        tag: await generateUniqueTag(username),
         passwordHash,
         email,
         emailVerified: false,

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Device } from 'mediasoup-client';
 import { useVoiceStore } from '../store/voiceStore';
+import { getCurrentUserId } from '../utils/auth';
 
 // Voice Activity Detection — порог громкости
 const VAD_THRESHOLD = 15;
@@ -16,6 +17,7 @@ export function useVoice(socketRef) {
   const audioContextRef = useRef(null);
   const vadIntervalRef = useRef(null);
   const audioElementsRef = useRef(new Map());
+  const consumerUserMapRef = useRef(new Map()); // consumerId → userId
 
   const {
     currentRoomId,
@@ -24,6 +26,7 @@ export function useVoice(socketRef) {
     noiseSuppression,
     echoCancellation,
     inputDeviceId,
+    userVolumes,
     setCurrentRoom,
     clearCurrentRoom,
     addParticipant,
@@ -34,6 +37,12 @@ export function useVoice(socketRef) {
 
   const currentRoomIdRef = useRef(currentRoomId);
   currentRoomIdRef.current = currentRoomId;
+
+  // Refs для актуальных значений мута/деафена (против stale closure)
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+  const isDeafenedRef = useRef(isDeafened);
+  isDeafenedRef.current = isDeafened;
 
   // ═══ Захват микрофона ═══
   const getLocalStream = useCallback(async () => {
@@ -92,7 +101,7 @@ export function useVoice(socketRef) {
   }, []);
 
   // ═══ Создать consumer для remote producer ═══
-  const consumeProducer = useCallback(async (socket, roomId, producerId, rtpCapabilities) => {
+  const consumeProducer = useCallback(async (socket, roomId, producerId, rtpCapabilities, producerUserId) => {
     if (!recvTransportRef.current) return;
 
     return new Promise((resolve) => {
@@ -117,7 +126,17 @@ export function useVoice(socketRef) {
         });
 
         consumersRef.current.set(consumerId, consumer);
+        if (producerUserId) consumerUserMapRef.current.set(consumerId, producerUserId);
         playRemoteAudio(consumerId, consumer.track);
+
+        // Применить сохранённую громкость
+        if (producerUserId) {
+          const vol = useVoiceStore.getState().userVolumes[producerUserId];
+          if (vol !== undefined) {
+            const audio = audioElementsRef.current.get(consumerId);
+            if (audio) audio.volume = Math.min(2, vol / 100);
+          }
+        }
 
         // Resume на сервере
         socket.emit('voice:resume', { roomId, consumerId }, () => {});
@@ -131,6 +150,11 @@ export function useVoice(socketRef) {
   const joinRoom = useCallback(async (roomId, roomName) => {
     const socket = socketRef?.current;
     if (!socket) return;
+
+    // Если уже в комнате — сначала выйти
+    if (currentRoomIdRef.current) {
+      leaveRoom();
+    }
 
     try {
       // Захватить микрофон
@@ -199,9 +223,8 @@ export function useVoice(socketRef) {
           producerRef.current = producer;
 
           // VAD для локального пользователя
-          const token = localStorage.getItem('token');
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          startVAD(stream, payload.userId);
+          const myUserId = getCurrentUserId();
+          if (myUserId) startVAD(stream, myUserId);
         });
 
         // Создать Recv Transport
@@ -225,7 +248,7 @@ export function useVoice(socketRef) {
           // Consume существующих producers
           for (const peer of peers) {
             for (const producerId of peer.producers) {
-              await consumeProducer(socket, roomId, producerId, device.rtpCapabilities);
+              await consumeProducer(socket, roomId, producerId, device.rtpCapabilities, peer.userId);
             }
           }
         });
@@ -295,6 +318,16 @@ export function useVoice(socketRef) {
     clearCurrentRoom();
   }, [socketRef, clearCurrentRoom]);
 
+  // ═══ Применить громкость пользователей к аудио элементам ═══
+  useEffect(() => {
+    for (const [consumerId, uid] of consumerUserMapRef.current) {
+      const vol = userVolumes[uid];
+      if (vol === undefined) continue;
+      const audio = audioElementsRef.current.get(consumerId);
+      if (audio) audio.volume = Math.min(2, vol / 100);
+    }
+  }, [userVolumes]);
+
   // ═══ Реакция на мут/деафен ═══
   useEffect(() => {
     const socket = socketRef?.current;
@@ -361,7 +394,7 @@ export function useVoice(socketRef) {
       const roomId = currentRoomIdRef.current;
       if (!roomId) return;
 
-      await consumeProducer(socket, roomId, producerId, deviceRef.current.rtpCapabilities);
+      await consumeProducer(socket, roomId, producerId, deviceRef.current.rtpCapabilities, userId);
     };
 
     const onConsumerClosed = ({ consumerId }) => {
@@ -378,12 +411,20 @@ export function useVoice(socketRef) {
       }
     };
 
+    // Комната удалена владельцем — выйти автоматически
+    const onRoomDeleted = ({ roomId }) => {
+      if (currentRoomIdRef.current === roomId) {
+        leaveRoom();
+      }
+    };
+
     socket.on('voice:user-joined', onUserJoined);
     socket.on('voice:user-left', onUserLeft);
     socket.on('voice:user-muted', onUserMuted);
     socket.on('voice:user-deafened', onUserDeafened);
     socket.on('voice:newProducer', onNewProducer);
     socket.on('voice:consumerClosed', onConsumerClosed);
+    socket.on('voice:room-deleted', onRoomDeleted);
 
     return () => {
       socket.off('voice:user-joined', onUserJoined);
@@ -392,6 +433,7 @@ export function useVoice(socketRef) {
       socket.off('voice:user-deafened', onUserDeafened);
       socket.off('voice:newProducer', onNewProducer);
       socket.off('voice:consumerClosed', onConsumerClosed);
+      socket.off('voice:room-deleted', onRoomDeleted);
     };
   }, [socketRef, addParticipant, removeParticipant, updateParticipant, consumeProducer]);
 

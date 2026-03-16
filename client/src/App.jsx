@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import TitleBar from './components/ui/TitleBar';
 import AuthScreen from './components/auth/AuthScreen';
 import MainScreen from './components/main/MainScreen';
+import UpdateToast from './components/ui/UpdateToast';
 import API_URL from './config';
 
 export default function App() {
@@ -19,38 +20,80 @@ export default function App() {
     });
   }, []);
 
-  // Авто-логин: проверяем сохранённый токен
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setChecking(false);
-      return;
-    }
+  // Попытка обновить токен через refresh token
+  async function tryRefreshToken() {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) return null;
 
-    fetch(`${API_URL}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data) => {
-        // Если email есть, но не подтверждён — показать верификацию
+    try {
+      const res = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('token', data.token);
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        return data.token;
+      }
+    } catch {}
+    return null;
+  }
+
+  // Авто-логин: проверяем сохранённый токен, при неудаче пробуем refresh
+  useEffect(() => {
+    async function checkAuth() {
+      let token = localStorage.getItem('token');
+      if (!token) {
+        // Попробуем refresh даже без access token
+        token = await tryRefreshToken();
+        if (!token) { setChecking(false); return; }
+      }
+
+      let res = await fetch(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => null);
+
+      // Если токен истёк — пробуем обновить
+      if (!res || !res.ok) {
+        const newToken = await tryRefreshToken();
+        if (newToken) {
+          res = await fetch(`${API_URL}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${newToken}` },
+          }).catch(() => null);
+        }
+      }
+
+      if (res && res.ok) {
+        const data = await res.json();
         if (data.user.email && data.user.emailVerified === false) {
           setNeedsVerify({
             user: data.user,
-            token,
+            token: localStorage.getItem('token'),
             refreshToken: localStorage.getItem('refreshToken'),
           });
-          setChecking(false);
-          return;
+        } else {
+          setUser(data.user);
         }
-        setUser(data.user);
-        setChecking(false);
-      })
-      .catch(() => {
+      } else {
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
-        setChecking(false);
-      });
+      }
+      setChecking(false);
+    }
+
+    checkAuth();
   }, []);
+
+  // Автоматическое обновление токена каждые 12 минут (JWT живёт 15 мин)
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(async () => {
+      await tryRefreshToken();
+    }, 12 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleLogin = (data) => {
     localStorage.setItem('token', data.token);
@@ -84,6 +127,7 @@ export default function App() {
     return (
       <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
         <TitleBar />
+        <UpdateToast />
       </div>
     );
   }
@@ -103,6 +147,7 @@ export default function App() {
             }
           }}
         />
+        <UpdateToast />
       </div>
     );
   }
@@ -113,6 +158,7 @@ export default function App() {
       <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <MainScreen user={user} onLogout={handleLogout} />
       </div>
+      <UpdateToast />
     </div>
   );
 }

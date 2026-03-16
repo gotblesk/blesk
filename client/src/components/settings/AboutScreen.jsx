@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import useAppVersion from '../../hooks/useAppVersion';
 import './AboutScreen.css';
-
-const VERSION = 'v0.1.0-alpha';
 const SLOGAN = 'Твой блеск. Твои правила.';
 
 export default function AboutScreen({ open, onClose }) {
+  const VERSION = 'v' + useAppVersion();
   const [logoClicks, setLogoClicks] = useState(0);
   const [easterEgg, setEasterEgg] = useState(false);
   const clickTimerRef = useRef(null);
@@ -138,12 +138,12 @@ export default function AboutScreen({ open, onClose }) {
         {/* Ссылка GitHub */}
         <a
           className="about-link"
-          href="https://github.com/blesk-app"
+          href="https://github.com/gotblesk/blesk"
           target="_blank"
           rel="noopener noreferrer"
         >
           <span className="about-link__icon">🔗</span>
-          <span className="about-link__text">github.com/blesk-app</span>
+          <span className="about-link__text">github.com/gotblesk/blesk</span>
           <span className="about-link__arrow">→</span>
         </a>
 

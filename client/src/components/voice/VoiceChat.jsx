@@ -1,0 +1,134 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import './VoiceChat.css';
+
+export default function VoiceChat({ roomId, socketRef }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+  const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const listRef = useRef(null);
+
+  // Слушаем сообщения
+  useEffect(() => {
+    const socket = socketRef?.current;
+    if (!socket) return;
+
+    const handler = ({ roomId: rid, message }) => {
+      if (rid !== roomId) return;
+      setMessages((prev) => [...prev, message]);
+      // Если чат закрыт — увеличить непрочитанные
+      if (!open) {
+        setUnread((prev) => prev + 1);
+      }
+    };
+
+    socket.on('voice:chat:message', handler);
+    return () => socket.off('voice:chat:message', handler);
+  }, [roomId, socketRef, open]);
+
+  // Автоскролл
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  // Сбросить непрочитанные при открытии
+  useEffect(() => {
+    if (open) setUnread(0);
+  }, [open]);
+
+  // Очистить сообщения при смене комнаты
+  useEffect(() => {
+    setMessages([]);
+    setUnread(0);
+  }, [roomId]);
+
+  const handleSend = useCallback(() => {
+    if (!text.trim()) return;
+    const socket = socketRef?.current;
+    if (!socket) return;
+
+    socket.emit('voice:chat', { roomId, text: text.trim() });
+    setText('');
+  }, [text, roomId, socketRef]);
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const formatTime = (ts) => {
+    const d = new Date(ts);
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <>
+      {/* Кнопка-тоггл */}
+      <button
+        className={`voice-chat-toggle ${open ? 'voice-chat-toggle--active' : ''}`}
+        onClick={() => setOpen(!open)}
+        title="Чат комнаты"
+      >
+        💬
+        {unread > 0 && <span className="voice-chat-toggle__badge">{unread}</span>}
+      </button>
+
+      {/* Панель чата */}
+      {open && (
+        <div className="voice-chat">
+          <div className="voice-chat__header">
+            <span>Чат комнаты</span>
+            <button className="voice-chat__close" onClick={() => setOpen(false)}>✕</button>
+          </div>
+
+          <div className="voice-chat__messages" ref={listRef}>
+            {messages.length === 0 && (
+              <div className="voice-chat__empty">Напишите первое сообщение</div>
+            )}
+            {messages.map((msg) => (
+              <div key={msg.id} className="voice-chat__msg">
+                <div
+                  className="voice-chat__msg-av"
+                  style={{ background: `hsl(${msg.hue || 176}, 70%, 50%)` }}
+                >
+                  {msg.username[0].toUpperCase()}
+                </div>
+                <div className="voice-chat__msg-body">
+                  <div className="voice-chat__msg-header">
+                    <span className="voice-chat__msg-name" style={{ color: `hsl(${msg.hue || 176}, 70%, 65%)` }}>
+                      {msg.username}
+                    </span>
+                    <span className="voice-chat__msg-time">{formatTime(msg.timestamp)}</span>
+                  </div>
+                  <div className="voice-chat__msg-text">{msg.text}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="voice-chat__input-row">
+            <input
+              className="voice-chat__input"
+              value={text}
+              onChange={(e) => setText(e.target.value.slice(0, 500))}
+              onKeyDown={handleKeyDown}
+              placeholder="Сообщение..."
+              maxLength={500}
+            />
+            <button
+              className="voice-chat__send"
+              onClick={handleSend}
+              disabled={!text.trim()}
+            >
+              ➤
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

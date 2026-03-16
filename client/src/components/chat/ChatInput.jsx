@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import './ChatInput.css';
 
 export default function ChatInput({ onSend, onTypingStart, onTypingStop, replyTo, onCancelReply }) {
@@ -6,6 +6,20 @@ export default function ChatInput({ onSend, onTypingStart, onTypingStop, replyTo
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Очистить typing timeout при unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      if (typingRef.current) {
+        onTypingStop?.();
+        typingRef.current = false;
+      }
+    };
+  }, [onTypingStop]);
 
   const handleChange = (e) => {
     setText(e.target.value);

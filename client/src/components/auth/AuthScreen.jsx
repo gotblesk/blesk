@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Glass from '../ui/Glass';
+import useAppVersion from '../../hooks/useAppVersion';
 import API_URL from '../../config';
 import './AuthScreen.css';
 
 export default function AuthScreen({ onLogin, collapsing, pendingVerification, onVerified }) {
+  const appVersion = useAppVersion();
   const [phase, setPhase] = useState(pendingVerification ? 'verify' : 'intro');
   const [tab, setTab] = useState('login');
   const [username, setUsername] = useState('');
@@ -419,7 +421,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
               </button>
             </form>
 
-            <div className="auth-footer">blesk v0.1.0-alpha</div>
+            <div className="auth-footer">blesk v{appVersion}</div>
           </Glass>
         </div>
       )}
@@ -491,7 +493,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
               </button>
             </div>
 
-            <div className="auth-footer">blesk v0.1.0-alpha</div>
+            <div className="auth-footer">blesk v{appVersion}</div>
           </Glass>
         </div>
       )}

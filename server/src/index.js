@@ -46,6 +46,7 @@ const notificationRoutes = require('./routes/notifications');
 const friendRoutes = require('./routes/friends');
 const feedbackRoutes = require('./routes/feedback');
 const voiceRoutes = require('./routes/voice');
+const adminRoutes = require('./routes/admin');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/chats', chatLimiter, chatRoutes);
@@ -54,6 +55,7 @@ app.use('/api/notifications', chatLimiter, notificationRoutes);
 app.use('/api/friends', chatLimiter, friendRoutes);
 app.use('/api/feedback', chatLimiter, feedbackRoutes);
 app.use('/api/voice', chatLimiter, voiceRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {

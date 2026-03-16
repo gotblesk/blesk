@@ -12,7 +12,16 @@ if (process.env.SMTP_HOST) {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
   });
+
+  // Проверить SMTP при старте
+  transporter.verify()
+    .then(() => console.log('✅ SMTP подключён:', process.env.SMTP_HOST))
+    .catch((err) => console.error('❌ SMTP ошибка подключения:', err.message));
+} else {
+  console.warn('⚠️ SMTP не настроен (SMTP_HOST отсутствует) — коды логируются в консоль');
 }
 
 // Генерация 6-значного кода

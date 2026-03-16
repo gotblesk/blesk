@@ -153,6 +153,16 @@
   gap: 2px;
 }
 
+/* Компактный режим сообщений */
+.chat-view__messages--compact {
+  padding: 8px 16px;
+  gap: 0;
+}
+
+.chat-view__messages--compact .chat-view__group-gap {
+  height: 4px;
+}
+
 /* Отступ между группами разных отправителей */
 .chat-view__group-gap {
   height: 12px;

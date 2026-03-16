@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import useAppVersion from '../../hooks/useAppVersion';
 import API_URL from '../../config';
 import './FeedbackScreen.css';
 
@@ -8,9 +9,8 @@ const TYPES = [
   { id: 'question', emoji: '❓', label: 'Вопрос' },
 ];
 
-const VERSION = 'v0.1.0-alpha';
-
 export default function FeedbackScreen({ open, onClose }) {
+  const VERSION = 'v' + useAppVersion();
   const [type, setType] = useState('bug');
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);

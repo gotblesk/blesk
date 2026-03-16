@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getCurrentUserId } from '../utils/auth';
 import API_URL from '../config';
 
 function getHeaders() {
@@ -13,6 +14,7 @@ export const useChatStore = create((set, get) => ({
   activeChats: new Set(),
   messages: {},
   onlineUsers: [],
+  userStatuses: {}, // { [userId]: 'online' | 'dnd' | 'invisible' }
   typingUsers: {},
 
   loadChats: async () => {
@@ -53,10 +55,8 @@ export const useChatStore = create((set, get) => ({
   },
 
   sendMessage: (chatId, text, tempId) => {
-    let userId;
-    try {
-      userId = JSON.parse(atob(localStorage.getItem('token').split('.')[1])).userId;
-    } catch { return; }
+    const userId = getCurrentUserId();
+    if (!userId) return;
 
     const tempMsg = {
       id: tempId,
@@ -86,6 +86,17 @@ export const useChatStore = create((set, get) => ({
         ),
       },
     }));
+  },
+
+  // Пометить сообщение как ошибочное (убрать из списка)
+  failMessage: (tempId) => {
+    set((state) => {
+      const newMessages = {};
+      for (const [chatId, msgs] of Object.entries(state.messages)) {
+        newMessages[chatId] = msgs.filter((m) => m.tempId !== tempId);
+      }
+      return { messages: newMessages };
+    });
   },
 
   receiveMessage: (message) => {
@@ -128,17 +139,28 @@ export const useChatStore = create((set, get) => ({
     } catch {}
   },
 
-  setUserOnline: (userId) => {
+  setUserOnline: (userId, status) => {
     set((state) => ({
       onlineUsers: state.onlineUsers.includes(userId)
         ? state.onlineUsers
         : [...state.onlineUsers, userId],
+      userStatuses: { ...state.userStatuses, [userId]: status || 'online' },
     }));
   },
 
   setUserOffline: (userId) => {
+    set((state) => {
+      const { [userId]: _, ...rest } = state.userStatuses;
+      return {
+        onlineUsers: state.onlineUsers.filter((id) => id !== userId),
+        userStatuses: rest,
+      };
+    });
+  },
+
+  setUserStatus: (userId, status, customStatus) => {
     set((state) => ({
-      onlineUsers: state.onlineUsers.filter((id) => id !== userId),
+      userStatuses: { ...state.userStatuses, [userId]: status },
     }));
   },
 

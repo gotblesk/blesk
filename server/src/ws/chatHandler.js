@@ -15,19 +15,36 @@ function chatHandler(io, socket) {
       socket.join(p.roomId);
     }
 
-    // Уведомить что пользователь онлайн
-    socket.broadcast.emit('user:online', { userId });
-
-    // Обновить статус в БД
-    await prisma.user.update({
+    // Загрузить текущий статус пользователя из БД
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-      data: { status: 'online' },
+      select: { status: true },
     });
+
+    const savedStatus = user?.status || 'online';
+
+    // Если невидимка — не оповещать других и не менять статус
+    if (savedStatus === 'invisible') {
+      // Сохранить что сокет активен, но не светить это
+      socket.userStatus = 'invisible';
+    } else {
+      // Установить онлайн или восстановить DND
+      const newStatus = savedStatus === 'dnd' ? 'dnd' : 'online';
+      socket.userStatus = newStatus;
+
+      socket.broadcast.emit('user:online', { userId, status: newStatus });
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { status: newStatus },
+      });
+    }
   }
 
   // Отправка сообщения
   socket.on('message:send', async ({ chatId, text, tempId, replyToId }) => {
     if (!chatId || !text?.trim()) return;
+    if (text.length > 4000) return; // Лимит длины сообщения
 
     try {
       // Проверяем что пользователь участник чата
@@ -137,12 +154,21 @@ function chatHandler(io, socket) {
 
   // Disconnect
   socket.on('disconnect', async () => {
-    socket.broadcast.emit('user:offline', { userId });
+    // Если невидимка — не оповещать об офлайне (для других и так не был виден)
+    if (socket.userStatus !== 'invisible') {
+      socket.broadcast.emit('user:offline', { userId });
+    }
     try {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { status: 'offline' },
-      });
+      // Сохраняем offline только если не invisible/dnd (чтобы сохранить статус при переподключении)
+      const savedStatus = socket.userStatus;
+      if (savedStatus === 'invisible' || savedStatus === 'dnd') {
+        // Оставить как было — не менять на offline
+      } else {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { status: 'offline' },
+        });
+      }
     } catch {}
   });
 
