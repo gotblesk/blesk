@@ -16,6 +16,8 @@ export default function FeedbackScreen({ open, onClose }) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [myFeedback, setMyFeedback] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Escape закрывает
   useEffect(() => {
@@ -36,6 +38,26 @@ export default function FeedbackScreen({ open, onClose }) {
       setError('');
     }
   }, [open]);
+
+  const loadMyFeedback = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/feedback`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMyFeedback(data.feedbacks || []);
+      }
+    } catch {}
+  };
+
+  const handleToggleHistory = () => {
+    if (!showHistory) {
+      loadMyFeedback();
+    }
+    setShowHistory((prev) => !prev);
+  };
 
   const handleSubmit = useCallback(async () => {
     if (!text.trim() || sending) return;
@@ -165,6 +187,40 @@ export default function FeedbackScreen({ open, onClose }) {
                 'Отправить'
               )}
             </button>
+
+            <button
+              className="feedback-history__toggle"
+              onClick={handleToggleHistory}
+            >
+              {showHistory ? 'Скрыть обращения' : 'Мои обращения'}
+            </button>
+
+            {showHistory && (
+              <div className="feedback-history">
+                {myFeedback.length === 0 ? (
+                  <div className="feedback-history__item">
+                    <div className="feedback-history__text">Нет обращений</div>
+                  </div>
+                ) : (
+                  myFeedback.map((fb) => {
+                    const typeInfo = TYPES.find((t) => t.id === fb.type);
+                    return (
+                      <div key={fb.id} className="feedback-history__item">
+                        <div className="feedback-history__type">
+                          {typeInfo ? typeInfo.emoji : '📝'}{' '}
+                          {typeInfo ? typeInfo.label : fb.type}
+                        </div>
+                        <div className="feedback-history__text">{fb.text}</div>
+                        <div className="feedback-history__meta">
+                          {new Date(fb.createdAt).toLocaleDateString('ru-RU')}{' '}
+                          {fb.status && `· ${fb.status}`}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </>
         ) : (
           <div className="feedback-success">

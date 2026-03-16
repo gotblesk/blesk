@@ -95,6 +95,7 @@ export default function NotificationBell({ onOpenChat }) {
     markAsRead,
     markAllAsRead,
     clearAll,
+    removeNotification,
   } = useNotificationStore();
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
@@ -455,6 +456,16 @@ export default function NotificationBell({ onOpenChat }) {
                       )}
                       <div className="bell-item__time">{timeAgo(n.createdAt)}</div>
                     </div>
+                    <button
+                      className="bell-item__delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeNotification(n.id);
+                      }}
+                      title="Удалить"
+                    >
+                      ✕
+                    </button>
                     {!n.isRead && <div className="bell-item__dot" />}
                   </div>
                 ))

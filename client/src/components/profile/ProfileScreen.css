@@ -29,7 +29,7 @@
     0 0 0 1px rgba(255, 255, 255, 0.04) inset,
     0 0 40px rgba(200, 255, 0, 0.03);
   overflow: hidden;
-  padding: 28px 24px 20px;
+  padding: 28px 24px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -145,8 +145,8 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 .profile-field__label {
@@ -159,7 +159,7 @@
 
 .profile-field__textarea {
   width: 100%;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
@@ -186,56 +186,32 @@
   text-align: right;
 }
 
-/* Hue слайдер */
-.profile-hue {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.profile-hue__slider {
-  flex: 1;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  border-radius: 3px;
-  background: linear-gradient(to right,
-    hsl(0, 70%, 50%),
-    hsl(60, 70%, 50%),
-    hsl(120, 70%, 50%),
-    hsl(180, 70%, 50%),
-    hsl(240, 70%, 50%),
-    hsl(300, 70%, 50%),
-    hsl(360, 70%, 50%)
-  );
-  outline: none;
+/* Ссылка «Сменить пароль» */
+.profile-pw-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+  font-family: inherit;
+  transition: opacity 0.15s;
+  opacity: 0.7;
 }
 
-.profile-hue__slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: hsl(var(--hue, 180), 70%, 50%);
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  cursor: pointer;
-  transition: transform 0.15s;
+.profile-pw-link:hover {
+  opacity: 1;
 }
 
-.profile-hue__slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
+.profile-pw-link:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
-.profile-hue__preview {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  transition: background 0.15s;
-  flex-shrink: 0;
+[data-theme="light"] .profile-pw-link {
+  color: var(--accent);
 }
 
 /* Кнопка сохранения */
@@ -352,7 +328,7 @@
 
 .profile-email-code-row {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -412,7 +388,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   color: rgba(255, 255, 255, 0.85);
   font-size: 13px;
   outline: none;
@@ -425,6 +401,42 @@
 
 .profile-pw-input::placeholder {
   color: rgba(255, 255, 255, 0.25);
+}
+
+.profile-pw-input-wrap {
+  position: relative;
+}
+
+.profile-pw-input-wrap .profile-pw-input {
+  width: 100%;
+  padding-right: 36px;
+}
+
+.profile-eye-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.profile-eye-toggle:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .profile-eye-toggle {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .profile-eye-toggle:hover {
+  color: rgba(0, 0, 0, 0.5);
 }
 
 .profile-pw-actions {

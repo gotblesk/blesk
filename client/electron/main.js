@@ -3,6 +3,9 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
 const isDev = !app.isPackaged;
+const iconPath = isDev
+  ? path.join(__dirname, '../public/icon.ico')
+  : path.join(process.resourcesPath, 'icon.ico');
 
 // Имя приложения (в диспетчере задач, заголовке и т.д.)
 app.name = 'blesk';
@@ -33,7 +36,7 @@ function createSplashWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    icon: path.join(__dirname, '../public/icon.ico'),
+    icon: iconPath,
     title: 'blesk',
     show: false,
   });
@@ -59,7 +62,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    icon: path.join(__dirname, '../public/icon.ico'),
+    icon: iconPath,
     title: 'blesk',
     show: false,
   });

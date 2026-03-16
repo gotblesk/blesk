@@ -4,7 +4,6 @@ import './ProfileScreen.css';
 
 export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   const [bio, setBio] = useState('');
-  const [hue, setHue] = useState(176);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -14,6 +13,11 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   const [emailStep, setEmailStep] = useState('display'); // display | verify
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState('');
+
+  // Password visibility
+  const [showPwCurrent, setShowPwCurrent] = useState(false);
+  const [showPwNew, setShowPwNew] = useState(false);
+  const [showPwConfirm, setShowPwConfirm] = useState(false);
 
   // Password change
   const [pwStep, setPwStep] = useState('idle'); // idle | code | confirm
@@ -30,7 +34,6 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   useEffect(() => {
     if (open && user) {
       setBio(user.bio || '');
-      setHue(user.hue ?? 176);
       setSaved(false);
       setEmailStep('display');
       setEmailCode('');
@@ -43,6 +46,9 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
       setPwEmail('');
       setPwError('');
       setPwSuccess(false);
+      setShowPwCurrent(false);
+      setShowPwNew(false);
+      setShowPwConfirm(false);
     }
   }, [open, user]);
 
@@ -67,7 +73,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ bio, hue }),
+        body: JSON.stringify({ bio }),
       });
 
       if (res.ok) {
@@ -212,6 +218,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   if (!open) return null;
 
   const initial = (user?.username || 'U')[0].toUpperCase();
+  const hue = user?.hue ?? (((user?.username?.charCodeAt(0) || 0) * 37) % 360);
 
   return (
     <div className="profile-overlay" onClick={onClose}>
@@ -318,12 +325,11 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
           {pwStep === 'idle' && !pwSuccess && (
             <button
-              className="profile-email-btn"
+              className="profile-pw-link"
               onClick={handlePwRequest}
               disabled={pwLoading}
-              style={{ marginTop: 4 }}
             >
-              {pwLoading ? '...' : 'Сменить пароль'}
+              {pwLoading ? '...' : 'Сменить пароль →'}
             </button>
           )}
 
@@ -337,27 +343,87 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                 Код отправлен на {pwEmail}
               </div>
 
-              <input
-                type="password"
-                className="profile-pw-input"
-                value={pwCurrent}
-                onChange={(e) => setPwCurrent(e.target.value)}
-                placeholder="Текущий пароль"
-              />
-              <input
-                type="password"
-                className="profile-pw-input"
-                value={pwNew}
-                onChange={(e) => setPwNew(e.target.value)}
-                placeholder="Новый пароль (мин. 8)"
-              />
-              <input
-                type="password"
-                className="profile-pw-input"
-                value={pwConfirm}
-                onChange={(e) => setPwConfirm(e.target.value)}
-                placeholder="Повторите новый"
-              />
+              <div className="profile-pw-input-wrap">
+                <input
+                  type={showPwCurrent ? 'text' : 'password'}
+                  className="profile-pw-input"
+                  value={pwCurrent}
+                  onChange={(e) => setPwCurrent(e.target.value)}
+                  placeholder="Текущий пароль"
+                />
+                <button
+                  type="button"
+                  className="profile-eye-toggle"
+                  onClick={() => setShowPwCurrent(!showPwCurrent)}
+                  tabIndex={-1}
+                >
+                  {showPwCurrent ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <div className="profile-pw-input-wrap">
+                <input
+                  type={showPwNew ? 'text' : 'password'}
+                  className="profile-pw-input"
+                  value={pwNew}
+                  onChange={(e) => setPwNew(e.target.value)}
+                  placeholder="Новый пароль (мин. 8)"
+                />
+                <button
+                  type="button"
+                  className="profile-eye-toggle"
+                  onClick={() => setShowPwNew(!showPwNew)}
+                  tabIndex={-1}
+                >
+                  {showPwNew ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <div className="profile-pw-input-wrap">
+                <input
+                  type={showPwConfirm ? 'text' : 'password'}
+                  className="profile-pw-input"
+                  value={pwConfirm}
+                  onChange={(e) => setPwConfirm(e.target.value)}
+                  placeholder="Повторите новый"
+                />
+                <button
+                  type="button"
+                  className="profile-eye-toggle"
+                  onClick={() => setShowPwConfirm(!showPwConfirm)}
+                  tabIndex={-1}
+                >
+                  {showPwConfirm ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
               <input
                 type="text"
                 className="profile-email-code-input"
@@ -409,28 +475,6 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
             rows={3}
           />
           <div className="profile-field__counter">{bio.length}/200</div>
-        </div>
-
-        {/* Hue слайдер */}
-        <div className="profile-field">
-          <label className="profile-field__label">Цвет профиля</label>
-          <div className="profile-hue">
-            <input
-              type="range"
-              min="0"
-              max="360"
-              value={hue}
-              onChange={(e) => setHue(Number(e.target.value))}
-              className="profile-hue__slider"
-              style={{
-                '--hue': hue,
-              }}
-            />
-            <div
-              className="profile-hue__preview"
-              style={{ background: `hsl(${hue}, 70%, 50%)` }}
-            />
-          </div>
         </div>
 
         <div className="profile-sep" />

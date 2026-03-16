@@ -40,7 +40,14 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
           >
             {initial}
           </div>
-          <div className="user-pill__dot" />
+          {user?.status !== 'invisible' && (
+            <div
+              className="user-pill__dot"
+              style={{
+                background: user?.status === 'dnd' ? 'var(--danger)' : 'var(--online)',
+              }}
+            />
+          )}
         </div>
         <span className="user-pill__name">{user?.username || 'user'}</span>
       </div>

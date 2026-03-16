@@ -6,7 +6,7 @@ import { getCurrentUserId } from '../../utils/auth';
 import './VoiceRoomList.css';
 
 export default function VoiceRoomList({ onJoinRoom }) {
-  const { rooms, loading, loadRooms, createRoom, deleteRoom, inviteToRoom, kickFromRoom } = useVoiceStore();
+  const { rooms, loading, loadRooms, createRoom, deleteRoom, inviteToRoom, kickFromRoom, currentRoomId } = useVoiceStore();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [error, setError] = useState('');
@@ -156,26 +156,28 @@ export default function VoiceRoomList({ onJoinRoom }) {
                 hover
                 className="voice-card"
               >
-                <div className="voice-card__icon">🎙</div>
-                <div className="voice-card__info">
-                  <div className="voice-card__name">
-                    {room.name}
-                    {isOwner && <span className="voice-card__owner-badge">мой</span>}
-                  </div>
-                  <div className="voice-card__meta">
-                    {room.participantCount > 0 ? (
-                      <>
-                        <span className="voice-card__live" />
-                        {room.participantCount} {room.participantCount === 1 ? 'участник' : 'участников'}
-                      </>
-                    ) : (
-                      'Пусто'
-                    )}
-                    {room.invited && room.invited.length > 0 && (
-                      <span className="voice-card__invited-count">
-                        · {room.invited.length} приглашён{room.invited.length === 1 ? '' : 'о'}
-                      </span>
-                    )}
+                <div className="voice-card__top">
+                  <div className="voice-card__icon">🎙</div>
+                  <div className="voice-card__info">
+                    <div className="voice-card__name">
+                      {room.name}
+                      {isOwner && <span className="voice-card__owner-badge">мой</span>}
+                    </div>
+                    <div className="voice-card__meta">
+                      {room.participantCount > 0 ? (
+                        <>
+                          <span className="voice-card__live" />
+                          {room.participantCount} {room.participantCount === 1 ? 'участник' : 'участников'}
+                        </>
+                      ) : (
+                        'Пусто'
+                      )}
+                      {room.invited && room.invited.length > 0 && (
+                        <span className="voice-card__invited-count">
+                          · {room.invited.length} приглашён{room.invited.length === 1 ? '' : 'о'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -200,31 +202,37 @@ export default function VoiceRoomList({ onJoinRoom }) {
                   </div>
                 )}
 
-                {isOwner && (
-                  <div className="voice-card__owner-actions" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      className="voice-card__invite-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setInviting(showInvitePanel ? null : room.id);
-                      }}
-                      title="Пригласить друга"
-                    >
-                      👥
-                    </button>
-                    <button
-                      className={`voice-card__delete ${deleting === room.id ? 'voice-card__delete--confirm' : ''}`}
-                      onClick={(e) => handleDelete(e, room.id)}
-                      title={deleting === room.id ? 'Нажми ещё раз' : 'Удалить'}
-                    >
-                      {deleting === room.id ? '✓' : '🗑'}
-                    </button>
-                  </div>
-                )}
+                <div className="voice-card__bottom">
+                  {isOwner && (
+                    <div className="voice-card__owner-actions" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="voice-card__invite-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInviting(showInvitePanel ? null : room.id);
+                        }}
+                        title="Пригласить друга"
+                      >
+                        👥
+                      </button>
+                      <button
+                        className={`voice-card__delete ${deleting === room.id ? 'voice-card__delete--confirm' : ''}`}
+                        onClick={(e) => handleDelete(e, room.id)}
+                        title={deleting === room.id ? 'Нажми ещё раз' : 'Удалить'}
+                      >
+                        {deleting === room.id ? '✓' : '🗑'}
+                      </button>
+                    </div>
+                  )}
 
-                <button className="voice-card__join" onClick={(e) => { e.stopPropagation(); onJoinRoom?.(room.id, room.name); }}>
-                  Войти
-                </button>
+                  {room.id === currentRoomId ? (
+                    <span className="voice-card__here">Вы здесь</span>
+                  ) : (
+                    <button className="voice-card__join" onClick={(e) => { e.stopPropagation(); onJoinRoom?.(room.id, room.name); }}>
+                      Войти
+                    </button>
+                  )}
+                </div>
               </Glass>
 
               {/* Панель приглашений */}

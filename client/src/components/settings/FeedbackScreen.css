@@ -198,7 +198,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
 }
@@ -219,7 +219,7 @@
   font-size: 11px;
   color: var(--danger);
   margin-bottom: 10px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 8px;
   background: rgba(239, 68, 68, 0.08);
 }
@@ -329,4 +329,58 @@
 
 .feedback-success__btn:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* ═══════════════════════════════════════════
+   История обращений
+   ═══════════════════════════════════════════ */
+
+.feedback-history {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feedback-history__toggle {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  align-self: flex-start;
+  padding: 0;
+  margin-top: 12px;
+  font-family: var(--font-ui);
+}
+
+.feedback-history__toggle:hover {
+  opacity: 0.8;
+}
+
+.feedback-history__item {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.feedback-history__type {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.feedback-history__text {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.feedback-history__meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 6px;
 }

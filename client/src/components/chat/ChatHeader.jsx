@@ -17,7 +17,7 @@ function GroupHeaderAvatar({ participants }) {
   );
 }
 
-export default function ChatHeader({ chat, isOnline, typingUsernames, onCall, onMembers }) {
+export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames, onCall, onMembers }) {
   const isGroup = chat.type === 'group';
   const user = chat.otherUser;
   const hue = user?.hue ?? (((user?.username?.charCodeAt(0) || 0) * 37) % 360);
@@ -28,7 +28,9 @@ export default function ChatHeader({ chat, isOnline, typingUsernames, onCall, on
   } else if (isGroup) {
     statusText = `${chat.memberCount ?? 0} участников`;
   } else {
-    statusText = isOnline ? 'онлайн' : 'офлайн';
+    statusText = isOnline
+      ? (userStatus === 'dnd' ? 'не беспокоить' : 'онлайн')
+      : 'офлайн';
   }
 
   const displayName = isGroup ? chat.name : (user?.username || chat.name);
@@ -51,7 +53,11 @@ export default function ChatHeader({ chat, isOnline, typingUsernames, onCall, on
           }}
         >
           {user?.username?.[0]?.toUpperCase() || '?'}
-          {isOnline && <div className="chat-header__online-dot" />}
+          {isOnline && userStatus !== 'invisible' && (
+            <div
+              className={`chat-header__online-dot ${userStatus === 'dnd' ? 'chat-header__online-dot--dnd' : ''}`}
+            />
+          )}
         </div>
       )}
 

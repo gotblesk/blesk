@@ -111,7 +111,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 0;
-  gap: 8px;
+  gap: 10px;
 }
 
 .voice-list__empty-icon {
@@ -134,22 +134,28 @@
 .voice-list__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 /* Карточка комнаты */
 .voice-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 12px;
-  padding: 16px !important;
+  padding: 18px 20px !important;
   cursor: pointer;
 }
 
+.voice-card__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .voice-card__icon {
-  font-size: 24px;
-  width: 44px;
-  height: 44px;
+  font-size: 22px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -178,7 +184,14 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 2px;
+  margin-top: 3px;
+}
+
+.voice-card__bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .voice-card__live {
@@ -240,6 +253,16 @@
 
 .voice-card__join:hover {
   background: rgba(200, 255, 0, 0.15);
+}
+
+.voice-card__here {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: rgba(200, 255, 0, 0.08);
+  border: 1px solid rgba(200, 255, 0, 0.15);
 }
 
 /* Бейдж владельца */
@@ -317,7 +340,7 @@
 /* Кнопки владельца */
 .voice-card__owner-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -382,7 +405,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 0;
+  padding: 8px 0;
 }
 
 .voice-invite-panel__av {

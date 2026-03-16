@@ -291,6 +291,40 @@
   box-shadow: 0 0 30px rgba(200, 255, 0, 0.04) inset;
 }
 
+/* ===== EYE TOGGLE (password visibility) ===== */
+.auth-eye-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+  z-index: 2;
+}
+
+.auth-eye-toggle:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .auth-eye-toggle {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .auth-eye-toggle:hover {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.auth-input-wrap:has(.auth-eye-toggle) .auth-input {
+  padding-right: 40px;
+}
+
 /* ===== PASSWORD STRENGTH ===== */
 .auth-strength {
   display: flex;
