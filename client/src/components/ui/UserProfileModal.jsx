@@ -92,10 +92,12 @@ export default function UserProfileModal({
             <div
               className="upm-avatar"
               style={{
-                background: `hsl(${user.hue ?? 0}, 70%, 50%)`,
+                background: user.avatar ? 'none' : `hsl(${user.hue ?? 0}, 70%, 50%)`,
               }}
             >
-              {(user.username?.[0] || '?').toUpperCase()}
+              {user.avatar
+                ? <img src={`${API_URL}/uploads/avatars/${user.avatar}`} alt="" />
+                : (user.username?.[0] || '?').toUpperCase()}
             </div>
 
             <div className="upm-name">

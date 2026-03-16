@@ -60,6 +60,13 @@
   flex-shrink: 0;
 }
 
+.upm-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 /* ===== Name + tag ===== */
 .upm-name {
   font-size: 20px;

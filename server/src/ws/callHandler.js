@@ -105,7 +105,7 @@ function callHandler(io, socket) {
       // Таймаут 30 секунд — если никто не принял
       call.timeout = setTimeout(() => {
         const activeCall = activeCalls.get(chatId);
-        if (!activeCall || activeCall.participants.size > 0) return;
+        if (!activeCall || activeCall.participants.size > 1) return;
 
         // Уведомить звонящего о пропущенном
         const callerSocket = findUserSocket(io, activeCall.callerId);

@@ -19,6 +19,7 @@ export function useVoice(socketRef) {
   const audioElementsRef = useRef(new Map());
   const gainNodesRef = useRef(new Map()); // consumerId → { ctx, gain }
   const consumerUserMapRef = useRef(new Map()); // consumerId → userId
+  const pendingProducersRef = useRef([]); // Очередь для продюсеров до готовности recvTransport
 
   const {
     currentRoomId,
@@ -293,6 +294,14 @@ export function useVoice(socketRef) {
               await consumeProducer(socket, roomId, producerId, device.rtpCapabilities, peer.userId);
             }
           }
+
+          // Обработать буферизированные newProducer события (race condition при звонках)
+          if (pendingProducersRef.current.length > 0) {
+            for (const pending of pendingProducersRef.current) {
+              await consumeProducer(socket, roomId, pending.producerId, device.rtpCapabilities, pending.userId);
+            }
+            pendingProducersRef.current = [];
+          }
         });
       });
     } catch (err) {
@@ -363,6 +372,7 @@ export function useVoice(socketRef) {
     }
 
     deviceRef.current = null;
+    pendingProducersRef.current = [];
     clearCurrentRoom();
   }, [socketRef, clearCurrentRoom]);
 
@@ -443,9 +453,14 @@ export function useVoice(socketRef) {
     };
 
     const onNewProducer = async ({ userId, producerId, kind }) => {
-      if (!deviceRef.current || !recvTransportRef.current) return;
       const roomId = currentRoomIdRef.current;
       if (!roomId) return;
+
+      // Если recvTransport ещё не готов — буферим (race condition при звонках)
+      if (!deviceRef.current || !recvTransportRef.current) {
+        pendingProducersRef.current.push({ userId, producerId, kind });
+        return;
+      }
 
       await consumeProducerRef.current(socket, roomId, producerId, deviceRef.current.rtpCapabilities, userId);
     };

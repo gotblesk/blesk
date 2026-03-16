@@ -1,8 +1,24 @@
 const { Router } = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 
 const router = Router();
+
+// Настройка multer для загрузки аватаров
+const avatarDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
+if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
+
+const avatarUpload = multer({
+  dest: avatarDir,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
 
 // Поиск пользователей по username
 router.get('/search', authenticate, async (req, res) => {
@@ -63,6 +79,36 @@ router.get('/:id', authenticate, async (req, res) => {
     res.json({ ...user, isFriend: !!friendship });
   } catch {
     res.status(500).json({ error: 'Ошибка получения профиля' });
+  }
+});
+
+// Загрузка аватара
+router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Файл не загружен или формат не поддерживается' });
+
+    const ext = req.file.mimetype === 'image/png' ? '.png' : '.jpg';
+    const filename = req.userId + ext;
+    const finalPath = path.join(avatarDir, filename);
+
+    // Удалить старый аватар если был другого формата
+    const otherExt = ext === '.png' ? '.jpg' : '.png';
+    const otherPath = path.join(avatarDir, req.userId + otherExt);
+    if (fs.existsSync(otherPath)) fs.unlinkSync(otherPath);
+
+    // Переместить загруженный файл
+    fs.renameSync(req.file.path, finalPath);
+
+    await prisma.user.update({
+      where: { id: req.userId },
+      data: { avatar: filename },
+    });
+
+    res.json({ avatar: filename });
+  } catch (err) {
+    // Очистить временный файл при ошибке
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: 'Ошибка загрузки аватара' });
   }
 });
 
