@@ -1,3 +1,4 @@
+import API_URL from '../../config';
 import './ChatCard.css';
 
 function GroupAvatar({ participants }) {
@@ -51,9 +52,11 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
         ) : (
           <div
             className="chat-row__avatar"
-            style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))` }}
+            style={{ background: user?.avatar ? 'none' : `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))` }}
           >
-            {(user?.username || '?')[0].toUpperCase()}
+            {user?.avatar
+              ? <img src={`${API_URL}/uploads/avatars/${user.avatar}`} alt="" />
+              : (user?.username || '?')[0].toUpperCase()}
           </div>
         )}
         {!isGroup && isOnline && userStatus !== 'invisible' && (
