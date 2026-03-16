@@ -1,0 +1,165 @@
+.voice-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: rgba(14, 12, 22, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: voiceControlsIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes voiceControlsIn {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Левая часть — инфо */
+.voice-controls__info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-controls__info:hover .voice-controls__room-name {
+  color: #c8ff00;
+}
+
+/* Сигнал */
+.voice-controls__signal {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voice-controls__signal-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+
+.voice-controls__bar {
+  width: 3px;
+  border-radius: 1px;
+  background: #4ade80;
+}
+
+.voice-controls__bar--1 { height: 5px; }
+.voice-controls__bar--2 { height: 9px; }
+.voice-controls__bar--3 { height: 14px; }
+
+/* Информация о комнате */
+.voice-controls__room {
+  min-width: 0;
+}
+
+.voice-controls__room-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  transition: color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-controls__room-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Мини-аватары */
+.voice-controls__avatars {
+  display: flex;
+  margin-left: auto;
+  margin-right: 12px;
+}
+
+.voice-controls__mini-av {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  border: 2px solid rgba(14, 12, 22, 0.95);
+  margin-left: -6px;
+  transition: box-shadow 0.2s;
+}
+
+.voice-controls__mini-av:first-child {
+  margin-left: 0;
+}
+
+.voice-controls__mini-av--speaking {
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* Кнопки */
+.voice-controls__buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.voice-controls__btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.voice-controls__btn--on {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.voice-controls__btn--on:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.voice-controls__btn--off {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.voice-controls__btn--off:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.voice-controls__btn--disconnect {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.voice-controls__btn--disconnect:hover {
+  background: #ef4444;
+  color: #fff;
+}

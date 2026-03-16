@@ -17,6 +17,7 @@ model User {
   avatar       String?
   bio          String?
   status       String?  @default("offline")
+  customStatus String?  @map("custom_status")
   bleskCoins   Int      @default(0) @map("blesk_coins")
   hue          Int      @default(0) // 0-360, цвет аватара
   createdAt    DateTime @default(now()) @map("created_at")

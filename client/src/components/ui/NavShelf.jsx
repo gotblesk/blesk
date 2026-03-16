@@ -3,6 +3,7 @@ import './NavShelf.css';
 
 const TABS = [
   { id: 'chats', icon: '💬', label: 'Чаты' },
+  { id: 'voice', icon: '🎙', label: 'Голос' },
   { id: 'channels', icon: '📢', label: 'Каналы' },
   { id: 'friends', icon: '👥', label: 'Друзья' },
 ];

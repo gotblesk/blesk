@@ -10,8 +10,15 @@ import VibeMeter from '../panels/VibeMeter';
 import AboutScreen from '../settings/AboutScreen';
 import FeedbackScreen from '../settings/FeedbackScreen';
 import SettingsScreen from '../settings/SettingsScreen';
+import ProfileScreen from '../profile/ProfileScreen';
+import StatusEditor from '../profile/StatusEditor';
+import VoiceRoomList from '../voice/VoiceRoomList';
+import VoiceRoom from '../voice/VoiceRoom';
+import VoiceControls from '../voice/VoiceControls';
 import { useSocket } from '../../hooks/useSocket';
+import { useVoice } from '../../hooks/useVoice';
 import { useChatStore } from '../../store/chatStore';
+import { useVoiceStore } from '../../store/voiceStore';
 import useWindowManager from '../../hooks/useWindowManager';
 import './MainScreen.css';
 
@@ -25,8 +32,14 @@ export default function MainScreen({ user, onLogout }) {
   const [vibeOpen, setVibeOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(user);
+  const [voiceExpanded, setVoiceExpanded] = useState(false);
   const socketRef = useSocket();
+  const { joinRoom, leaveRoom } = useVoice(socketRef);
   const { chats } = useChatStore();
+  const voiceRoomId = useVoiceStore((s) => s.currentRoomId);
 
   // Менеджер окон чатов
   const {
@@ -138,12 +151,14 @@ export default function MainScreen({ user, onLogout }) {
         />
         <NotificationBell onOpenChat={handleOpenChat} />
         <SpotlightProfile
-          user={user}
+          user={currentUser}
           onLogout={onLogout}
           onNavigate={(action) => {
             if (action === 'settings') setActiveTab('settings');
             if (action === 'about') setAboutOpen(true);
             if (action === 'feedback') setFeedbackOpen(true);
+            if (action === 'profile') setProfileOpen(true);
+            if (action === 'status') setStatusOpen(true);
           }}
         />
       </div>
@@ -157,6 +172,19 @@ export default function MainScreen({ user, onLogout }) {
               openChatIds={openChatIds}
             />
           </div>
+        )}
+
+        {activeTab === 'voice' && (
+          voiceRoomId && voiceExpanded ? (
+            <VoiceRoom />
+          ) : (
+            <VoiceRoomList
+              onJoinRoom={(roomId, roomName) => {
+                joinRoom(roomId, roomName);
+                setVoiceExpanded(true);
+              }}
+            />
+          )
         )}
 
         {activeTab === 'channels' && (
@@ -212,6 +240,32 @@ export default function MainScreen({ user, onLogout }) {
       {/* Модалки */}
       <AboutScreen open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <FeedbackScreen open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+      <ProfileScreen
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        user={currentUser}
+        onUserUpdate={(updated) => setCurrentUser(prev => ({ ...prev, ...updated }))}
+      />
+      <StatusEditor
+        open={statusOpen}
+        onClose={() => setStatusOpen(false)}
+        user={currentUser}
+        onUserUpdate={(updated) => setCurrentUser(prev => ({ ...prev, ...updated }))}
+      />
+
+      {/* Голосовая панель — видна на всех табах */}
+      {voiceRoomId && (
+        <VoiceControls
+          onLeave={() => {
+            leaveRoom();
+            setVoiceExpanded(false);
+          }}
+          onExpand={() => {
+            setActiveTab('voice');
+            setVoiceExpanded(true);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import Glass from '../ui/Glass';
+import VoiceSettings from '../voice/VoiceSettings';
 import './SettingsScreen.css';
 
 const SECTIONS = [
   { id: 'general', icon: '⚙️', label: 'Общие' },
+  { id: 'voice', icon: '🎙', label: 'Голос и видео' },
   { id: 'notifications', icon: '🔔', label: 'Уведомления' },
   { id: 'privacy', icon: '🔒', label: 'Приватность' },
   { id: 'appearance', icon: '🎨', label: 'Оформление' },
@@ -81,6 +83,15 @@ export default function SettingsScreen({ onBack }) {
                   value={settings.animatedBg}
                   onChange={() => toggle('animatedBg')}
                 />
+              </Glass>
+            </div>
+          )}
+
+          {section === 'voice' && (
+            <div className="settings-section">
+              <div className="settings-section__title">Голос и видео</div>
+              <Glass depth={1} radius={14} className="settings-group">
+                <VoiceSettings />
               </Glass>
             </div>
           )}

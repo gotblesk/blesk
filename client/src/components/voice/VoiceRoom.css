@@ -1,0 +1,120 @@
+.voice-room {
+  padding: 24px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.voice-room__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  margin-bottom: 32px;
+  letter-spacing: -0.3px;
+}
+
+.voice-room__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 20px;
+  justify-items: center;
+}
+
+.voice-room__empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.25);
+  padding: 40px 0;
+}
+
+/* Участник */
+.voice-participant {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: participantIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes participantIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.voice-participant__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: box-shadow 0.2s;
+  border: 2px solid transparent;
+}
+
+.voice-participant__avatar--speaking {
+  border-color: #4ade80;
+}
+
+.voice-participant__letter {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Иконки мута/деафен */
+.voice-participant__mute-icon,
+.voice-participant__deafen-icon {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border: 2px solid #08060f;
+}
+
+.voice-participant__deafen-icon {
+  background: #f59e0b;
+}
+
+.voice-participant__name {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 80px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Индикатор громкости */
+.voice-participant__level {
+  width: 48px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.voice-participant__level-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.1s linear, background 0.2s;
+}

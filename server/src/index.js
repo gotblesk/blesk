@@ -45,6 +45,7 @@ const userRoutes = require('./routes/users');
 const notificationRoutes = require('./routes/notifications');
 const friendRoutes = require('./routes/friends');
 const feedbackRoutes = require('./routes/feedback');
+const voiceRoutes = require('./routes/voice');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/chats', chatLimiter, chatRoutes);
@@ -52,24 +53,40 @@ app.use('/api/users', chatLimiter, userRoutes);
 app.use('/api/notifications', chatLimiter, notificationRoutes);
 app.use('/api/friends', chatLimiter, friendRoutes);
 app.use('/api/feedback', chatLimiter, feedbackRoutes);
+app.use('/api/voice', chatLimiter, voiceRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', version: '0.1.0-alpha' });
 });
 
-// WebSocket — авторизация + обработчик чата
+// WebSocket — авторизация + обработчики
 const { socketAuth } = require('./ws/authMiddleware');
 const { chatHandler } = require('./ws/chatHandler');
+const { voiceHandler } = require('./ws/voiceHandler');
+const { createWorkers } = require('./services/mediasoup');
 
 io.use(socketAuth);
 
 io.on('connection', (socket) => {
   console.log(`🟢 ${socket.userId} подключился`);
   chatHandler(io, socket);
+  voiceHandler(io, socket);
 });
 
+// Запуск сервера с mediasoup
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => {
-  console.log(`blesk server запущен на порту ${PORT}`);
-});
+
+(async () => {
+  try {
+    await createWorkers();
+    console.log('mediasoup Workers запущены');
+  } catch (err) {
+    console.error('mediasoup не удалось запустить:', err.message);
+    console.log('Голосовые комнаты будут недоступны');
+  }
+
+  httpServer.listen(PORT, () => {
+    console.log(`blesk server запущен на порту ${PORT}`);
+  });
+})();
