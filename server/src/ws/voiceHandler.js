@@ -61,10 +61,15 @@ function voiceHandler(io, socket) {
   // ═══ Войти в голосовую комнату ═══
   socket.on('voice:join', async ({ roomId }, callback) => {
     try {
-      // Проверить что комната существует и это voice
-      const dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
-      if (!dbRoom || dbRoom.type !== 'voice') {
-        return callback?.({ error: 'Комната не найдена' });
+      // Для звонков (call:chatId) — пропустить проверку БД
+      const isCall = roomId.startsWith('call:');
+
+      if (!isCall) {
+        // Проверить что комната существует и это voice
+        const dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
+        if (!dbRoom || dbRoom.type !== 'voice') {
+          return callback?.({ error: 'Комната не найдена' });
+        }
       }
 
       // Получить данные пользователя

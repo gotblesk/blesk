@@ -10,6 +10,7 @@ export default function App() {
   const [pendingUser, setPendingUser] = useState(null);
   const [checking, setChecking] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [needsVerify, setNeedsVerify] = useState(null); // { user, token, refreshToken }
 
   // Слушаем maximize/unmaximize от Electron
   useEffect(() => {
@@ -31,6 +32,16 @@ export default function App() {
     })
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data) => {
+        // Если email есть, но не подтверждён — показать верификацию
+        if (data.user.email && data.user.emailVerified === false) {
+          setNeedsVerify({
+            user: data.user,
+            token,
+            refreshToken: localStorage.getItem('refreshToken'),
+          });
+          setChecking(false);
+          return;
+        }
         setUser(data.user);
         setChecking(false);
       })
@@ -84,6 +95,13 @@ export default function App() {
         <AuthScreen
           onLogin={handleLogin}
           collapsing={transition === 'collapsing'}
+          pendingVerification={needsVerify}
+          onVerified={() => {
+            if (needsVerify) {
+              setUser({ ...needsVerify.user, emailVerified: true });
+              setNeedsVerify(null);
+            }
+          }}
         />
       </div>
     );

@@ -15,10 +15,12 @@ import StatusEditor from '../profile/StatusEditor';
 import VoiceRoomList from '../voice/VoiceRoomList';
 import VoiceRoom from '../voice/VoiceRoom';
 import VoiceControls from '../voice/VoiceControls';
+import IncomingCallOverlay from '../voice/IncomingCallOverlay';
 import { useSocket } from '../../hooks/useSocket';
 import { useVoice } from '../../hooks/useVoice';
 import { useChatStore } from '../../store/chatStore';
 import { useVoiceStore } from '../../store/voiceStore';
+import { useCallStore } from '../../store/callStore';
 import useWindowManager from '../../hooks/useWindowManager';
 import './MainScreen.css';
 
@@ -37,9 +39,11 @@ export default function MainScreen({ user, onLogout }) {
   const [currentUser, setCurrentUser] = useState(user);
   const [voiceExpanded, setVoiceExpanded] = useState(false);
   const socketRef = useSocket();
-  const { joinRoom, leaveRoom } = useVoice(socketRef);
+  const { joinRoom, leaveRoom, joinCall, leaveCall } = useVoice(socketRef);
   const { chats } = useChatStore();
   const voiceRoomId = useVoiceStore((s) => s.currentRoomId);
+  const incomingCall = useCallStore((s) => s.incomingCall);
+  const activeCall = useCallStore((s) => s.activeCall);
 
   // Менеджер окон чатов
   const {
@@ -117,6 +121,34 @@ export default function MainScreen({ user, onLogout }) {
     closeWindow(chatId);
     useChatStore.getState().closeChat(chatId);
   }, [closeWindow]);
+
+  // ═══ Звонки ═══
+  const handleAcceptCall = useCallback(() => {
+    const call = useCallStore.getState().incomingCall;
+    if (!call) return;
+    useCallStore.getState().acceptCall();
+    const socket = socketRef.current;
+    if (socket) socket.emit('call:accept', { chatId: call.chatId });
+    joinCall(call.chatId, call.chatName || call.callerName);
+  }, [socketRef, joinCall]);
+
+  const handleDeclineCall = useCallback(() => {
+    const call = useCallStore.getState().incomingCall;
+    if (!call) return;
+    const socket = socketRef.current;
+    if (socket) socket.emit('call:decline', { chatId: call.chatId });
+    useCallStore.getState().clearIncomingCall();
+  }, [socketRef]);
+
+  const handleInitiateCall = useCallback((chatId) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    useCallStore.getState().initiateCall(chatId);
+    socket.emit('call:initiate', { chatId });
+    // Звонящий сразу подключается к голосу
+    const chat = chats.find((c) => c.id === chatId);
+    joinCall(chatId, chat?.name || chat?.otherUser?.username || 'Звонок');
+  }, [socketRef, joinCall, chats]);
 
   // Открыть чат из панели (Orbit/Vibe) — без morph
   const handlePanelOpenChat = useCallback((chatId) => {
@@ -222,6 +254,9 @@ export default function MainScreen({ user, onLogout }) {
           onResize={(x, y, w, h) => resizeWindow(win.chatId, x, y, w, h)}
           onMorphEnd={() => clearMorph(win.chatId)}
           socketRef={socketRef}
+          onCall={() => handleInitiateCall(win.chatId)}
+          activeCall={activeCall?.chatId === win.chatId ? activeCall : null}
+          onJoinCall={() => joinCall(win.chatId)}
         />
       ))}
 
@@ -253,16 +288,33 @@ export default function MainScreen({ user, onLogout }) {
         onUserUpdate={(updated) => setCurrentUser(prev => ({ ...prev, ...updated }))}
       />
 
+      {/* Входящий звонок — оверлей */}
+      {incomingCall && (
+        <IncomingCallOverlay
+          call={incomingCall}
+          onAccept={handleAcceptCall}
+          onDecline={handleDeclineCall}
+        />
+      )}
+
       {/* Голосовая панель — видна на всех табах */}
       {voiceRoomId && (
         <VoiceControls
           onLeave={() => {
-            leaveRoom();
+            // Если в звонке — завершить звонок
+            if (activeCall) {
+              leaveCall(activeCall.chatId);
+              useCallStore.getState().clearActiveCall();
+            } else {
+              leaveRoom();
+            }
             setVoiceExpanded(false);
           }}
           onExpand={() => {
-            setActiveTab('voice');
-            setVoiceExpanded(true);
+            if (!activeCall) {
+              setActiveTab('voice');
+              setVoiceExpanded(true);
+            }
           }}
         />
       )}

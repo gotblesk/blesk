@@ -20,6 +20,14 @@ contextBridge.exposeInMainWorld('blesk', {
   // Версия приложения
   getVersion: () => ipcRenderer.invoke('app:version'),
 
+  // Обновления
+  update: {
+    onAvailable: (callback) => ipcRenderer.on('update:available', (_, version) => callback(version)),
+    onProgress: (callback) => ipcRenderer.on('update:progress', (_, percent) => callback(percent)),
+    onDownloaded: (callback) => ipcRenderer.on('update:downloaded', () => callback()),
+    install: () => ipcRenderer.send('update:install'),
+  },
+
   // Платформа
   platform: process.platform,
 });

@@ -152,4 +152,25 @@ export const useChatStore = create((set, get) => ({
       },
     }));
   },
+
+  // ═══ Управление чатами ═══
+  addChat: (chat) => {
+    set((state) => {
+      if (state.chats.some((c) => c.id === chat.id)) return state;
+      return { chats: [chat, ...state.chats] };
+    });
+  },
+
+  updateChat: (chatId, updates) => {
+    set((state) => ({
+      chats: state.chats.map((c) => (c.id === chatId ? { ...c, ...updates } : c)),
+    }));
+  },
+
+  removeChat: (chatId) => {
+    set((state) => ({
+      chats: state.chats.filter((c) => c.id !== chatId),
+      activeChats: new Set([...state.activeChats].filter((id) => id !== chatId)),
+    }));
+  },
 }));

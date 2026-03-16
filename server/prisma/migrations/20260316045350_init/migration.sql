@@ -20,6 +20,7 @@ CREATE TABLE "rooms" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "type" TEXT NOT NULL DEFAULT 'chat',
+    "avatar" TEXT,
     "owner_id" TEXT NOT NULL,
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "rooms_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
@@ -33,9 +34,12 @@ CREATE TABLE "messages" (
     "text" TEXT NOT NULL,
     "encrypted" BOOLEAN NOT NULL DEFAULT false,
     "type" TEXT NOT NULL DEFAULT 'text',
+    "pinned" BOOLEAN NOT NULL DEFAULT false,
+    "reply_to_id" TEXT,
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "messages_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "messages_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "messages_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "messages_reply_to_id_fkey" FOREIGN KEY ("reply_to_id") REFERENCES "messages" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -43,6 +47,7 @@ CREATE TABLE "room_participants" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "room_id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'member',
     "joined_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "last_read_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "room_participants_room_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,

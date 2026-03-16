@@ -1,9 +1,14 @@
 .chat-input {
   display: flex;
+  flex-direction: column;
+  padding: 8px 16px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chat-input__row {
+  display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .chat-input__field {
@@ -51,4 +56,66 @@
 
 .chat-input__send:active {
   transform: scale(0.95);
+}
+
+/* Reply preview */
+.chat-input__reply-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  animation: replyIn 0.2s ease;
+}
+
+.chat-input__reply-bar {
+  width: 2px;
+  height: 28px;
+  border-radius: 1px;
+  background: rgba(200, 255, 0, 0.5);
+  flex-shrink: 0;
+}
+
+.chat-input__reply-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.chat-input__reply-author {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(200, 255, 0, 0.7);
+}
+
+.chat-input__reply-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-input__reply-cancel {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.chat-input__reply-cancel:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+@keyframes replyIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }

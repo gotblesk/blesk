@@ -64,6 +64,7 @@ app.get('/api/health', (req, res) => {
 const { socketAuth } = require('./ws/authMiddleware');
 const { chatHandler } = require('./ws/chatHandler');
 const { voiceHandler } = require('./ws/voiceHandler');
+const { callHandler } = require('./ws/callHandler');
 const { createWorkers } = require('./services/mediasoup');
 
 io.use(socketAuth);
@@ -72,6 +73,7 @@ io.on('connection', (socket) => {
   console.log(`🟢 ${socket.userId} подключился`);
   chatHandler(io, socket);
   voiceHandler(io, socket);
+  callHandler(io, socket);
 });
 
 // Запуск сервера с mediasoup

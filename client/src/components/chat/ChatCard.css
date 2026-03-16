@@ -73,6 +73,50 @@
   color: rgba(255, 255, 255, 0.2);
 }
 
+/* Групповой аватар — стопка из 3 цветных кругов */
+.chat-card__group-avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+
+.chat-card__group-circle {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(8, 6, 15, 0.6);
+}
+
+.chat-card__group-circle--0 {
+  top: 0;
+  left: 4px;
+  z-index: 3;
+}
+
+.chat-card__group-circle--1 {
+  top: 6px;
+  right: 2px;
+  z-index: 2;
+}
+
+.chat-card__group-circle--2 {
+  bottom: 0;
+  left: 10px;
+  z-index: 1;
+}
+
+.chat-card__members {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: -2px;
+}
+
+.chat-card__preview-author {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .chat-card__badge {
   min-width: 18px;
   height: 18px;

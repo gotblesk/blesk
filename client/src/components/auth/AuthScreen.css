@@ -417,6 +417,111 @@
   animation: none;
 }
 
+/* ===== VERIFY EMAIL SCREEN ===== */
+.auth-card--verify {
+  width: 400px;
+  padding: 36px 32px 28px;
+}
+
+.auth-verify {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 0;
+}
+
+.auth-verify__icon {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 4px;
+  opacity: 0.9;
+}
+
+.auth-verify__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.auth-verify__subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.auth-verify__email {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 6-digit code inputs */
+.auth-code-inputs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.auth-code-input {
+  width: 48px;
+  height: 56px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  caret-color: var(--accent);
+  transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+}
+
+.auth-code-input:focus {
+  border-color: rgba(200, 255, 0, 0.3);
+  background: rgba(200, 255, 0, 0.04);
+  box-shadow: 0 0 20px rgba(200, 255, 0, 0.08);
+}
+
+.auth-code-input:disabled {
+  opacity: 0.4;
+}
+
+.auth-verify__loading {
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 8px;
+  animation: typingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes typingPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.auth-verify__resend {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 10px;
+  transition: background 0.2s, opacity 0.2s;
+  margin-top: 8px;
+}
+
+.auth-verify__resend:hover:not(:disabled) {
+  background: rgba(200, 255, 0, 0.08);
+}
+
+.auth-verify__resend--disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
 /* ===== FOOTER ===== */
 .auth-footer {
   text-align: center;

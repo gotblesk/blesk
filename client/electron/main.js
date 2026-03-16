@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
 const isDev = !app.isPackaged;
@@ -175,7 +176,51 @@ ipcMain.on('window:stop-drag', () => {
 
 ipcMain.handle('app:version', () => app.getVersion());
 
-app.whenReady().then(createSplashWindow);
+// --- Автообновления ---
+function setupAutoUpdater() {
+  if (isDev) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('Доступно обновление:', info.version);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:available', info.version);
+    }
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:progress', Math.round(progress.percent));
+    }
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    console.log('Обновление загружено, установится при перезапуске');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:downloaded');
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('Ошибка обновления:', err.message);
+  });
+
+  // Проверяем обновления через 5 сек после старта, потом каждый час
+  setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000);
+  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 60 * 60 * 1000);
+}
+
+// Renderer может запросить установку обновления
+ipcMain.on('update:install', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+app.whenReady().then(() => {
+  createSplashWindow();
+  setupAutoUpdater();
+});
 
 app.on('window-all-closed', () => {
   app.quit();

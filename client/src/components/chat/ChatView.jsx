@@ -3,6 +3,8 @@ import { useChatStore } from '../../store/chatStore';
 import ChatHeader from './ChatHeader';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import CallBanner from '../voice/CallBanner';
+import GroupMembersPanel from './GroupMembersPanel';
 import { MIN_WIDTH, MIN_HEIGHT } from '../../hooks/useWindowManager';
 import './ChatView.css';
 
@@ -20,12 +22,17 @@ export default function ChatView({
   onResize,
   onMorphEnd,
   socketRef,
+  onCall,
+  activeCall,
+  onJoinCall,
 }) {
   const { messages, chats, onlineUsers, typingUsers, openChat, markAsRead } = useChatStore();
   const chatMessages = messages[chatId] || [];
   const chat = chats.find((c) => c.id === chatId);
   const messagesEndRef = useRef(null);
   const viewRef = useRef(null);
+  const [replyTo, setReplyTo] = useState(null);
+  const [membersOpen, setMembersOpen] = useState(false);
 
   // Drag/pull state
   const dragRef = useRef({
@@ -216,7 +223,12 @@ export default function ChatView({
   const handleSend = (text) => {
     const tempId = crypto.randomUUID();
     useChatStore.getState().sendMessage(chatId, text, tempId);
-    socketRef.current?.emit('message:send', { chatId, text, tempId });
+    const payload = { chatId, text, tempId };
+    if (replyTo) {
+      payload.replyToId = replyTo.id;
+    }
+    socketRef.current?.emit('message:send', payload);
+    setReplyTo(null);
   };
 
   const handleTypingStart = () => {
@@ -297,6 +309,8 @@ export default function ChatView({
           chat={chat}
           isOnline={isOnline}
           typingUsernames={typingInChat.length ? ['печатает'] : []}
+          onCall={onCall}
+          onMembers={chat.type === 'group' ? () => setMembersOpen(true) : undefined}
         />
         {/* Кнопка закрытия */}
         <button
@@ -307,6 +321,11 @@ export default function ChatView({
           ×
         </button>
       </div>
+
+      {/* Баннер звонка */}
+      {activeCall && (
+        <CallBanner activeCall={activeCall} onJoin={onJoinCall} />
+      )}
 
       <div className="chat-view__messages">
         {chatMessages.map((msg, idx) => {
@@ -332,6 +351,7 @@ export default function ChatView({
                 isOwn={isOwn}
                 groupPosition={groupPosition}
                 showTime={showTime}
+                onReply={() => setReplyTo(msg)}
               />
             </Fragment>
           );
@@ -343,6 +363,8 @@ export default function ChatView({
         onSend={handleSend}
         onTypingStart={handleTypingStart}
         onTypingStop={handleTypingStop}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
       />
 
       {/* Resize хендлы — 8 зон по краям и углам */}
@@ -355,6 +377,16 @@ export default function ChatView({
           onPointerUp={handleResizePointerUp}
         />
       ))}
+
+      {/* Панель участников группы */}
+      {membersOpen && (
+        <GroupMembersPanel
+          chatId={chatId}
+          isOwner={chat.type === 'group' && chat.ownerId === userId.current}
+          onClose={() => setMembersOpen(false)}
+          socketRef={socketRef}
+        />
+      )}
     </div>
   );
 }

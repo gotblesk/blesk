@@ -21,7 +21,6 @@ router.get('/', authenticate, async (req, res) => {
               },
             },
             participants: {
-              where: { userId: { not: req.userId } },
               include: {
                 user: { select: { id: true, username: true, hue: true, status: true, avatar: true } },
               },
@@ -32,36 +31,60 @@ router.get('/', authenticate, async (req, res) => {
     });
 
     const chats = await Promise.all(
-      participations.map(async (p) => {
-        const unreadCount = await prisma.message.count({
-          where: {
-            roomId: p.roomId,
-            createdAt: { gt: p.lastReadAt },
-            userId: { not: req.userId },
-          },
-        });
+      participations
+        .filter((p) => p.room.type === 'chat' || p.room.type === 'group')
+        .map(async (p) => {
+          const unreadCount = await prisma.message.count({
+            where: {
+              roomId: p.roomId,
+              createdAt: { gt: p.lastReadAt },
+              userId: { not: req.userId },
+            },
+          });
 
-        const lastMessage = p.room.messages[0] || null;
-        const otherUser = p.room.participants[0]?.user || null;
+          const lastMessage = p.room.messages[0] || null;
 
-        return {
-          id: p.room.id,
-          name: p.room.name,
-          type: p.room.type,
-          otherUser,
-          lastMessage: lastMessage
-            ? {
-                text: lastMessage.text,
-                username: lastMessage.user.username,
-                createdAt: lastMessage.createdAt,
-              }
-            : null,
-          unreadCount,
-        };
-      })
+          // Для личного чата — другой участник
+          // Для группы — все участники
+          const otherParticipants = p.room.participants.filter(
+            (pp) => pp.userId !== req.userId
+          );
+
+          const base = {
+            id: p.room.id,
+            name: p.room.name,
+            type: p.room.type,
+            avatar: p.room.avatar,
+            lastMessage: lastMessage
+              ? {
+                  text: lastMessage.text,
+                  username: lastMessage.user.username,
+                  createdAt: lastMessage.createdAt,
+                }
+              : null,
+            unreadCount,
+          };
+
+          if (p.room.type === 'group') {
+            return {
+              ...base,
+              ownerId: p.room.ownerId,
+              memberCount: p.room.participants.length,
+              participants: p.room.participants.map((pp) => ({
+                ...pp.user,
+                role: pp.role,
+              })),
+            };
+          }
+
+          // Личный чат
+          return {
+            ...base,
+            otherUser: otherParticipants[0]?.user || null,
+          };
+        })
     );
 
-    // Сортировка по времени последнего сообщения
     chats.sort((a, b) => {
       const aTime = a.lastMessage?.createdAt || 0;
       const bTime = b.lastMessage?.createdAt || 0;
@@ -81,7 +104,6 @@ router.get('/:id/messages', authenticate, async (req, res) => {
     const { id } = req.params;
     const { before, limit = 50 } = req.query;
 
-    // Проверяем участие
     const participant = await prisma.roomParticipant.findUnique({
       where: { roomId_userId: { roomId: id, userId: req.userId } },
     });
@@ -103,6 +125,11 @@ router.get('/:id/messages', authenticate, async (req, res) => {
       take: Math.min(parseInt(limit), 100),
       include: {
         user: { select: { id: true, username: true, hue: true } },
+        replyTo: {
+          include: {
+            user: { select: { id: true, username: true } },
+          },
+        },
       },
     });
 
@@ -113,11 +140,82 @@ router.get('/:id/messages', authenticate, async (req, res) => {
   }
 });
 
-// Создать чат (1-on-1)
+// Создать чат (личный или групповой)
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { participantId } = req.body;
+    const { participantId, participantIds, name } = req.body;
 
+    // --- Групповой чат ---
+    if (participantIds && Array.isArray(participantIds)) {
+      if (participantIds.length < 1) {
+        return res.status(400).json({ error: 'Добавьте хотя бы одного участника' });
+      }
+      if (!name || name.trim().length === 0 || name.trim().length > 50) {
+        return res.status(400).json({ error: 'Название группы: 1-50 символов' });
+      }
+
+      // Проверяем что все — друзья
+      for (const pid of participantIds) {
+        const friendship = await prisma.friendRequest.findFirst({
+          where: {
+            status: 'accepted',
+            OR: [
+              { senderId: req.userId, receiverId: pid },
+              { senderId: pid, receiverId: req.userId },
+            ],
+          },
+        });
+        if (!friendship) {
+          return res.status(403).json({ error: 'Все участники должны быть друзьями' });
+        }
+      }
+
+      const allIds = [req.userId, ...participantIds];
+
+      const room = await prisma.room.create({
+        data: {
+          name: name.trim(),
+          type: 'group',
+          ownerId: req.userId,
+          participants: {
+            create: allIds.map((uid) => ({
+              userId: uid,
+              role: uid === req.userId ? 'owner' : 'member',
+            })),
+          },
+        },
+        include: {
+          participants: {
+            include: {
+              user: { select: { id: true, username: true, hue: true, status: true, avatar: true } },
+            },
+          },
+        },
+      });
+
+      // Присоединяем сокеты участников к комнате
+      const io = req.app.locals.io;
+      if (io) {
+        for (const [, s] of io.sockets.sockets) {
+          if (allIds.includes(s.userId)) {
+            s.join(room.id);
+          }
+        }
+      }
+
+      return res.status(201).json({
+        id: room.id,
+        name: room.name,
+        type: 'group',
+        memberCount: allIds.length,
+        participants: room.participants.map((p) => ({
+          ...p.user,
+          role: p.role,
+        })),
+      });
+    }
+
+    // --- Личный чат (как раньше) ---
     if (!participantId) {
       return res.status(400).json({ error: 'Укажите участника' });
     }
@@ -130,7 +228,6 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
-    // Проверяем дружбу
     const friendship = await prisma.friendRequest.findFirst({
       where: {
         status: 'accepted',
@@ -144,7 +241,6 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'Можно писать только друзьям' });
     }
 
-    // Проверяем нет ли уже чата
     const existing = await prisma.room.findFirst({
       where: {
         type: 'chat',
@@ -159,7 +255,6 @@ router.post('/', authenticate, async (req, res) => {
       return res.json({ id: existing.id, existing: true });
     }
 
-    // Имя создателя для уведомления
     const creator = await prisma.user.findUnique({
       where: { id: req.userId },
       select: { id: true, username: true, hue: true, avatar: true },
@@ -172,14 +267,13 @@ router.post('/', authenticate, async (req, res) => {
         ownerId: req.userId,
         participants: {
           create: [
-            { userId: req.userId },
-            { userId: participantId },
+            { userId: req.userId, role: 'owner' },
+            { userId: participantId, role: 'member' },
           ],
         },
       },
     });
 
-    // Системное уведомление другому участнику
     try {
       const notification = await prisma.notification.create({
         data: {
@@ -209,6 +303,221 @@ router.post('/', authenticate, async (req, res) => {
   } catch (err) {
     console.error('POST /api/chats error:', err);
     res.status(500).json({ error: 'Ошибка создания чата' });
+  }
+});
+
+// Список участников группы
+router.get('/:id/members', authenticate, async (req, res) => {
+  try {
+    const participant = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId: req.params.id, userId: req.userId } },
+    });
+    if (!participant) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
+
+    const members = await prisma.roomParticipant.findMany({
+      where: { roomId: req.params.id },
+      include: {
+        user: { select: { id: true, username: true, tag: true, hue: true, status: true, avatar: true } },
+      },
+    });
+
+    res.json(members.map((m) => ({ userId: m.userId, user: m.user, role: m.role })));
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+// Добавить участника в группу (owner/admin)
+router.post('/:id/members', authenticate, async (req, res) => {
+  try {
+    const { userId: newUserId } = req.body;
+    const roomId = req.params.id;
+
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room || room.type !== 'group') {
+      return res.status(404).json({ error: 'Группа не найдена' });
+    }
+
+    // Проверяем что запрашивающий — owner или admin
+    const requester = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId: req.userId } },
+    });
+    if (!requester || (requester.role !== 'owner' && requester.role !== 'admin')) {
+      return res.status(403).json({ error: 'Нет прав' });
+    }
+
+    // Проверяем дружбу
+    const friendship = await prisma.friendRequest.findFirst({
+      where: {
+        status: 'accepted',
+        OR: [
+          { senderId: req.userId, receiverId: newUserId },
+          { senderId: newUserId, receiverId: req.userId },
+        ],
+      },
+    });
+    if (!friendship) {
+      return res.status(403).json({ error: 'Можно добавлять только друзей' });
+    }
+
+    // Проверяем не в группе ли уже
+    const existing = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId: newUserId } },
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Уже в группе' });
+    }
+
+    await prisma.roomParticipant.create({
+      data: { roomId, userId: newUserId, role: 'member' },
+    });
+
+    const newUser = await prisma.user.findUnique({
+      where: { id: newUserId },
+      select: { id: true, username: true, hue: true, status: true, avatar: true },
+    });
+
+    // Socket: оповестить группу
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(roomId).emit('group:member-added', { roomId, user: { ...newUser, role: 'member' } });
+      // Присоединить сокет нового участника
+      for (const [, s] of io.sockets.sockets) {
+        if (s.userId === newUserId) {
+          s.join(roomId);
+        }
+      }
+    }
+
+    res.json({ ok: true, user: newUser });
+  } catch (err) {
+    console.error('POST members error:', err);
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+// Удалить участника / выйти из группы
+router.delete('/:id/members/:userId', authenticate, async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const targetUserId = req.params.userId;
+    const isSelf = targetUserId === req.userId;
+
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room || room.type !== 'group') {
+      return res.status(404).json({ error: 'Группа не найдена' });
+    }
+
+    if (!isSelf) {
+      // Удаление другого — только owner/admin
+      const requester = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId, userId: req.userId } },
+      });
+      if (!requester || (requester.role !== 'owner' && requester.role !== 'admin')) {
+        return res.status(403).json({ error: 'Нет прав' });
+      }
+
+      // Нельзя удалить owner'а
+      const target = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId, userId: targetUserId } },
+      });
+      if (target && target.role === 'owner') {
+        return res.status(403).json({ error: 'Нельзя удалить создателя группы' });
+      }
+    }
+
+    await prisma.roomParticipant.delete({
+      where: { roomId_userId: { roomId, userId: targetUserId } },
+    });
+
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(roomId).emit('group:member-removed', { roomId, userId: targetUserId, selfLeave: isSelf });
+      // Отключить сокет от комнаты
+      for (const [, s] of io.sockets.sockets) {
+        if (s.userId === targetUserId) {
+          s.leave(roomId);
+        }
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+// Обновить группу (name, avatar) — owner/admin
+router.patch('/:id', authenticate, async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const { name, avatar } = req.body;
+
+    const requester = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId: req.userId } },
+    });
+    if (!requester || (requester.role !== 'owner' && requester.role !== 'admin')) {
+      return res.status(403).json({ error: 'Нет прав' });
+    }
+
+    const data = {};
+    if (name && name.trim().length > 0 && name.trim().length <= 50) {
+      data.name = name.trim();
+    }
+    if (avatar !== undefined) {
+      data.avatar = avatar;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'Нечего обновлять' });
+    }
+
+    await prisma.room.update({ where: { id: roomId }, data });
+
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(roomId).emit('group:updated', { roomId, ...data });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+// Закрепить/открепить сообщение
+router.post('/:id/messages/:msgId/pin', authenticate, async (req, res) => {
+  try {
+    const { id: roomId, msgId } = req.params;
+
+    const requester = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId: req.userId } },
+    });
+    if (!requester) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
+
+    const message = await prisma.message.findUnique({ where: { id: msgId } });
+    if (!message || message.roomId !== roomId) {
+      return res.status(404).json({ error: 'Сообщение не найдено' });
+    }
+
+    const newPinned = !message.pinned;
+    await prisma.message.update({
+      where: { id: msgId },
+      data: { pinned: newPinned },
+    });
+
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(roomId).emit(newPinned ? 'message:pinned' : 'message:unpinned', { roomId, messageId: msgId });
+    }
+
+    res.json({ ok: true, pinned: newPinned });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка' });
   }
 });
 

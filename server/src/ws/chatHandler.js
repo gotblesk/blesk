@@ -26,7 +26,7 @@ function chatHandler(io, socket) {
   }
 
   // Отправка сообщения
-  socket.on('message:send', async ({ chatId, text, tempId }) => {
+  socket.on('message:send', async ({ chatId, text, tempId, replyToId }) => {
     if (!chatId || !text?.trim()) return;
 
     try {
@@ -37,15 +37,29 @@ function chatHandler(io, socket) {
       if (!participant) return;
 
       // Сохраняем в БД
+      const msgData = {
+        roomId: chatId,
+        userId,
+        text: text.trim(),
+        type: 'text',
+      };
+
+      // Ответ на сообщение
+      if (replyToId) {
+        msgData.replyToId = replyToId;
+      }
+
       const message = await prisma.message.create({
-        data: {
-          roomId: chatId,
-          userId,
-          text: text.trim(),
-          type: 'text',
-        },
+        data: msgData,
         include: {
           user: { select: { id: true, username: true, hue: true } },
+          replyTo: {
+            select: {
+              id: true,
+              text: true,
+              user: { select: { username: true } },
+            },
+          },
         },
       });
 
@@ -59,6 +73,7 @@ function chatHandler(io, socket) {
         hue: message.user.hue,
         text: message.text,
         createdAt: message.createdAt,
+        replyTo: message.replyTo || null,
       });
 
       // Проверяем упоминания (@username)

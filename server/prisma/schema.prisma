@@ -19,6 +19,8 @@ model User {
   status       String?  @default("offline")
   customStatus String?  @map("custom_status")
   bleskCoins   Int      @default(0) @map("blesk_coins")
+  email         String?  @unique
+  emailVerified Boolean  @default(false) @map("email_verified")
   hue          Int      @default(0) // 0-360, цвет аватара
   createdAt    DateTime @default(now()) @map("created_at")
 
@@ -36,7 +38,8 @@ model User {
 model Room {
   id       String    @id @default(uuid())
   name     String
-  type     String    @default("chat") // chat, channel, voice
+  type     String    @default("chat") // chat, group, channel, voice
+  avatar   String?
   ownerId  String    @map("owner_id")
   owner    User      @relation("RoomOwner", fields: [ownerId], references: [id])
   createdAt DateTime @default(now()) @map("created_at")
@@ -56,6 +59,10 @@ model Message {
   text      String
   encrypted Boolean  @default(false)
   type      String   @default("text") // text, media, system
+  pinned    Boolean  @default(false)
+  replyToId String?  @map("reply_to_id")
+  replyTo   Message? @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies   Message[] @relation("MessageReplies")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([roomId, createdAt])
@@ -66,6 +73,7 @@ model RoomParticipant {
   id         String   @id @default(uuid())
   roomId     String   @map("room_id")
   userId     String   @map("user_id")
+  role       String   @default("member") // owner, admin, member
   joinedAt   DateTime @default(now()) @map("joined_at")
   lastReadAt DateTime @default(now()) @map("last_read_at")
   room       Room     @relation(fields: [roomId], references: [id])
@@ -106,6 +114,18 @@ model FriendRequest {
 
   @@unique([senderId, receiverId])
   @@map("friend_requests")
+}
+
+model EmailCode {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, code])
+  @@map("email_codes")
 }
 
 model Feedback {

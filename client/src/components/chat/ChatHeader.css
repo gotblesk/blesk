@@ -98,3 +98,64 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* Групповой аватар в шапке */
+.chat-header__group-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.chat-header__group-circle {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(8, 6, 15, 0.6);
+}
+
+.chat-header__group-circle--0 {
+  top: 0;
+  left: 2px;
+  z-index: 3;
+}
+
+.chat-header__group-circle--1 {
+  top: 4px;
+  right: 0;
+  z-index: 2;
+}
+
+.chat-header__group-circle--2 {
+  bottom: 0;
+  left: 7px;
+  z-index: 1;
+}
+
+/* Кнопки действий */
+.chat-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.chat-header__btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.chat-header__btn:hover {
+  background: rgba(200, 255, 0, 0.12);
+  color: var(--accent);
+}

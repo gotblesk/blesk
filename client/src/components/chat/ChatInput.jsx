@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
 import './ChatInput.css';
 
-export default function ChatInput({ onSend, onTypingStart, onTypingStop }) {
+export default function ChatInput({ onSend, onTypingStart, onTypingStop, replyTo, onCancelReply }) {
   const [text, setText] = useState('');
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef(null);
+  const inputRef = useRef(null);
 
   const handleChange = (e) => {
     setText(e.target.value);
@@ -36,23 +37,46 @@ export default function ChatInput({ onSend, onTypingStart, onTypingStop }) {
       e.preventDefault();
       handleSend();
     }
+    if (e.key === 'Escape' && replyTo) {
+      onCancelReply?.();
+    }
   };
 
   return (
     <div className="chat-input">
-      <textarea
-        className="chat-input__field"
-        placeholder="Написать сообщение..."
-        value={text}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        rows={1}
-      />
-      {text.trim() && (
-        <button className="chat-input__send" onClick={handleSend}>
-          &rarr;
-        </button>
+      {/* Превью ответа */}
+      {replyTo && (
+        <div className="chat-input__reply-preview">
+          <div className="chat-input__reply-bar" />
+          <div className="chat-input__reply-info">
+            <span className="chat-input__reply-author">
+              {replyTo.user?.username || replyTo.username || 'Сообщение'}
+            </span>
+            <span className="chat-input__reply-text">
+              {replyTo.text?.slice(0, 60)}
+              {replyTo.text?.length > 60 ? '...' : ''}
+            </span>
+          </div>
+          <button className="chat-input__reply-cancel" onClick={onCancelReply}>&times;</button>
+        </div>
       )}
+
+      <div className="chat-input__row">
+        <textarea
+          ref={inputRef}
+          className="chat-input__field"
+          placeholder="Написать сообщение..."
+          value={text}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          rows={1}
+        />
+        {text.trim() && (
+          <button className="chat-input__send" onClick={handleSend}>
+            &rarr;
+          </button>
+        )}
+      </div>
     </div>
   );
 }

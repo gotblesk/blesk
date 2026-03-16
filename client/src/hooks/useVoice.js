@@ -395,5 +395,19 @@ export function useVoice(socketRef) {
     };
   }, [socketRef, addParticipant, removeParticipant, updateParticipant, consumeProducer]);
 
-  return { joinRoom, leaveRoom };
+  // ═══ Звонки — обёртки над joinRoom/leaveRoom ═══
+  const joinCall = useCallback(async (chatId, chatName) => {
+    const voiceRoomId = 'call:' + chatId;
+    await joinRoom(voiceRoomId, chatName || 'Звонок');
+  }, [joinRoom]);
+
+  const leaveCall = useCallback((chatId) => {
+    const socket = socketRef?.current;
+    if (socket && chatId) {
+      socket.emit('call:end', { chatId });
+    }
+    leaveRoom();
+  }, [socketRef, leaveRoom]);
+
+  return { joinRoom, leaveRoom, joinCall, leaveCall };
 }

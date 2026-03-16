@@ -1,23 +1,49 @@
 const { Router } = require('express');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { generateTokens, verifyRefreshToken } = require('../middleware/auth');
+const { generateCode, sendVerificationCode } = require('../services/email');
 
 const router = Router();
 const prisma = new PrismaClient();
+const JWT_SECRET = process.env.JWT_SECRET || 'blesk-dev-secret-change-in-production';
 
 // Генерация тега #0001–#9999
 function generateTag() {
   return '#' + String(Math.floor(1000 + Math.random() * 9000));
 }
 
+// Валидация email
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// Извлечь userId из Bearer token
+function getUserIdFromToken(req) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) return null;
+  try {
+    const payload = jwt.verify(header.slice(7), JWT_SECRET);
+    return payload.userId;
+  } catch {
+    return null;
+  }
+}
+
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, email } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Имя пользователя и пароль обязательны' });
+    }
+    if (!email) {
+      return res.status(400).json({ error: 'Email обязателен' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Некорректный email' });
     }
     if (username.length < 3 || username.length > 24) {
       return res.status(400).json({ error: 'Имя пользователя: 3–24 символа' });
@@ -29,9 +55,15 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Только латиница, цифры и _' });
     }
 
-    const existing = await prisma.user.findUnique({ where: { username } });
-    if (existing) {
+    // Проверка уникальности username и email
+    const existingUser = await prisma.user.findUnique({ where: { username } });
+    if (existingUser) {
       return res.status(409).json({ error: 'Это имя уже занято' });
+    }
+
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
+      return res.status(409).json({ error: 'Этот email уже используется' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -42,9 +74,22 @@ router.post('/register', async (req, res) => {
         username,
         tag: generateTag(),
         passwordHash,
+        email,
+        emailVerified: false,
         hue,
       },
     });
+
+    // Создать и отправить код верификации
+    const code = generateCode();
+    await prisma.emailCode.create({
+      data: {
+        email,
+        code,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 минут
+      },
+    });
+    await sendVerificationCode(email, code);
 
     const tokens = generateTokens(user.id);
 
@@ -56,11 +101,118 @@ router.post('/register', async (req, res) => {
         avatar: user.avatar,
         hue: user.hue,
         status: user.status,
+        email: user.email,
+        emailVerified: user.emailVerified,
       },
       ...tokens,
     });
   } catch (err) {
     console.error('Ошибка регистрации:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// POST /api/auth/verify-email
+router.post('/verify-email', async (req, res) => {
+  try {
+    const userId = getUserIdFromToken(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Требуется авторизация' });
+    }
+
+    const { code } = req.body;
+    if (!code) {
+      return res.status(400).json({ error: 'Введите код' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.email) {
+      return res.status(400).json({ error: 'Email не найден' });
+    }
+
+    if (user.emailVerified) {
+      return res.json({ success: true, message: 'Email уже подтверждён' });
+    }
+
+    // Ищем актуальный код
+    const emailCode = await prisma.emailCode.findFirst({
+      where: {
+        email: user.email,
+        code: code.trim(),
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!emailCode) {
+      return res.status(400).json({ error: 'Неверный или просроченный код' });
+    }
+
+    // Подтвердить email и пометить код
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { emailVerified: true },
+      }),
+      prisma.emailCode.update({
+        where: { id: emailCode.id },
+        data: { used: true },
+      }),
+    ]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка верификации email:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// POST /api/auth/resend-code
+router.post('/resend-code', async (req, res) => {
+  try {
+    const userId = getUserIdFromToken(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Требуется авторизация' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.email) {
+      return res.status(400).json({ error: 'Email не найден' });
+    }
+
+    if (user.emailVerified) {
+      return res.json({ success: true, message: 'Email уже подтверждён' });
+    }
+
+    // Rate limit: последний код отправлен менее 60 сек назад?
+    const lastCode = await prisma.emailCode.findFirst({
+      where: { email: user.email },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (lastCode && Date.now() - lastCode.createdAt.getTime() < 60000) {
+      const wait = Math.ceil((60000 - (Date.now() - lastCode.createdAt.getTime())) / 1000);
+      return res.status(429).json({ error: `Подождите ${wait} сек.` });
+    }
+
+    const code = generateCode();
+    await prisma.emailCode.create({
+      data: {
+        email: user.email,
+        code,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    const sent = await sendVerificationCode(user.email, code);
+    if (!sent) {
+      return res.status(500).json({ error: 'Не удалось отправить письмо' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка повторной отправки:', err);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -106,6 +258,8 @@ router.post('/login', async (req, res) => {
         avatar: user.avatar,
         hue: user.hue,
         status: user.status,
+        email: user.email,
+        emailVerified: user.emailVerified,
       },
       ...tokens,
     });
@@ -141,26 +295,15 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-// GET /api/auth/me — текущий пользователь
+// GET /api/auth/me
 router.get('/me', async (req, res) => {
   try {
-    const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
+    const userId = getUserIdFromToken(req);
+    if (!userId) {
       return res.status(401).json({ error: 'Требуется авторизация' });
     }
 
-    const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'blesk-dev-secret-change-in-production';
-    const token = header.slice(7);
-
-    let payload;
-    try {
-      payload = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return res.status(401).json({ error: 'Недействительный токен' });
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
@@ -175,6 +318,8 @@ router.get('/me', async (req, res) => {
         hue: user.hue,
         status: user.status,
         bleskCoins: user.bleskCoins,
+        email: user.email,
+        emailVerified: user.emailVerified,
         createdAt: user.createdAt,
       },
     });

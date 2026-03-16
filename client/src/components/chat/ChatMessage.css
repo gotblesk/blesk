@@ -3,6 +3,7 @@
   flex-direction: column;
   max-width: 55%;
   animation: msgAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  position: relative;
 }
 
 @keyframes msgAppear {
@@ -106,4 +107,103 @@
   color: rgba(255, 255, 255, 0.1);
   margin-top: 3px;
   padding: 0 4px;
+}
+
+/* Системные сообщения */
+.chat-message__system {
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+}
+
+/* Иконка закрепа */
+.chat-message__pin-icon {
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+.chat-message--pinned .chat-message__bubble {
+  border-left: 2px solid rgba(200, 255, 0, 0.4);
+}
+
+/* Цитата ответа */
+.chat-message__reply-quote {
+  display: flex;
+  gap: 6px;
+  padding: 4px 8px;
+  margin-bottom: 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  max-width: 100%;
+  cursor: pointer;
+}
+
+.chat-message__reply-bar {
+  width: 2px;
+  border-radius: 1px;
+  background: rgba(200, 255, 0, 0.5);
+  flex-shrink: 0;
+}
+
+.chat-message__reply-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chat-message__reply-author {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(200, 255, 0, 0.7);
+}
+
+.chat-message__reply-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Кнопка ответа */
+.chat-message__actions {
+  position: absolute;
+  top: 0;
+  display: flex;
+  gap: 2px;
+  animation: msgActionsIn 0.15s ease;
+}
+
+.chat-message--own .chat-message__actions {
+  left: -28px;
+}
+
+.chat-message--other .chat-message__actions {
+  right: -28px;
+}
+
+.chat-message__action-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chat-message__action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+@keyframes msgActionsIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
 }

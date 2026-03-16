@@ -1,0 +1,68 @@
+.call-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(74, 222, 128, 0.12);
+  border-bottom: 1px solid rgba(74, 222, 128, 0.2);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.call-banner:hover {
+  background: rgba(74, 222, 128, 0.18);
+}
+
+.call-banner__indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: cb-pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.call-banner__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.call-banner__text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4ade80;
+}
+
+.call-banner__meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.call-banner__join {
+  background: #4ade80;
+  color: #08060f;
+  border: none;
+  padding: 5px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.call-banner__join:hover {
+  transform: scale(1.05);
+}
+
+.call-banner__join:active {
+  transform: scale(0.95);
+}
+
+@keyframes cb-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

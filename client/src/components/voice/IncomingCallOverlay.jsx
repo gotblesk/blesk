@@ -1,0 +1,59 @@
+import { useEffect, useRef } from 'react';
+import './IncomingCallOverlay.css';
+
+export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
+  const timerRef = useRef(null);
+
+  // Авто-dismiss через 30 сек
+  useEffect(() => {
+    timerRef.current = setTimeout(() => {
+      onDecline?.();
+    }, 30000);
+    return () => clearTimeout(timerRef.current);
+  }, [onDecline]);
+
+  if (!call) return null;
+
+  const hue = call.callerHue || 0;
+  const isGroup = call.type === 'group';
+  const displayName = isGroup ? call.chatName : call.callerName;
+
+  return (
+    <div className="incoming-call-overlay">
+      <div className="incoming-call-overlay__backdrop" />
+
+      <div className="incoming-call-overlay__card">
+        {/* Аватар с пульсацией */}
+        <div className="incoming-call-overlay__avatar-wrap">
+          <div className="incoming-call-overlay__pulse" style={{ background: `hsla(${hue}, 70%, 50%, 0.3)` }} />
+          <div className="incoming-call-overlay__pulse incoming-call-overlay__pulse--delayed" style={{ background: `hsla(${hue}, 70%, 50%, 0.2)` }} />
+          <div
+            className="incoming-call-overlay__avatar"
+            style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))` }}
+          >
+            {(call.callerName || '?')[0].toUpperCase()}
+          </div>
+        </div>
+
+        <div className="incoming-call-overlay__name">{displayName}</div>
+        <div className="incoming-call-overlay__label">
+          {isGroup ? 'Групповой звонок' : 'Входящий звонок'}
+        </div>
+
+        <div className="incoming-call-overlay__actions">
+          <button className="incoming-call-overlay__btn incoming-call-overlay__btn--decline" onClick={onDecline}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />
+              <line x1="23" y1="1" x2="1" y2="23" />
+            </svg>
+          </button>
+          <button className="incoming-call-overlay__btn incoming-call-overlay__btn--accept" onClick={onAccept}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
