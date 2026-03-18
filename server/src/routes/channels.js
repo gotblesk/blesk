@@ -281,18 +281,20 @@ router.post('/:id/subscribe', async (req, res) => {
       return res.status(404).json({ error: 'Канал не найден' });
     }
 
-    // Upsert подписки
-    await prisma.channelSubscriber.upsert({
+    // Проверить нет ли уже подписки
+    const existing = await prisma.channelSubscriber.findUnique({
       where: { channelId_userId: { channelId: id, userId } },
-      create: { channelId: id, userId },
-      update: {}, // уже подписан — ничего не меняем
     });
 
-    // Инкрементировать счётчик (безопасный upsert не даст дублей)
-    await prisma.channelMeta.update({
-      where: { roomId: id },
-      data: { subscriberCount: { increment: 1 } },
-    });
+    if (!existing) {
+      await prisma.channelSubscriber.create({
+        data: { channelId: id, userId },
+      });
+      await prisma.channelMeta.update({
+        where: { roomId: id },
+        data: { subscriberCount: { increment: 1 } },
+      });
+    }
 
     // Присоединить активные сокеты пользователя к комнате канала
     const io = req.app.locals.io;
