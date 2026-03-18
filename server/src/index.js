@@ -24,8 +24,12 @@ app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
 app.use(express.json({ limit: '10mb' }));
 
-// Статика — аватары и загрузки
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Статика — аватары и загрузки (разрешаем cross-origin для Electron)
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+}, express.static(path.join(__dirname, '..', 'uploads')));
 
 // Rate limiting — раздельные лимиты
 const authLimiter = rateLimit({

@@ -45,6 +45,7 @@
       "owner": "gotblesk",
       "repo": "blesk"
     },
+    "executableName": "blesk",
     "win": {
       "target": [
         "nsis"
@@ -65,8 +66,12 @@
       "deleteAppDataOnUninstall": false
     },
     "files": [
-      "dist/index.html",
-      "dist/assets/**/*",
+      "dist/**/*",
+      "!dist/win-unpacked",
+      "!dist/win-unpacked/**/*",
+      "!dist/*.exe",
+      "!dist/*.blockmap",
+      "!dist/builder-debug.yml",
       "electron/**/*",
       "node_modules/**/*",
       "package.json"
