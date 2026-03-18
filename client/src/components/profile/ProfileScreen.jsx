@@ -256,9 +256,11 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
         onUserUpdate?.({ avatar: data.avatar });
         setCropImage(null);
       } else {
+        setCropImage(null);
         setSaveError('Ошибка загрузки аватара');
       }
     } catch {
+      setCropImage(null);
       setSaveError('Нет подключения к серверу');
     } finally {
       setAvatarUploading(false);
