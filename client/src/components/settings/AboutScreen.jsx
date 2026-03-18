@@ -70,7 +70,8 @@ export default function AboutScreen({ open, onClose }) {
             onClick={handleLogoClick}
             title={logoClicks > 5 ? `${10 - logoClicks}...` : undefined}
           >
-            <img className="about-logo__img" src="./blesk.png" alt="blesk" />
+            <img className="about-logo__img" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex'); }} />
+            <span className="about-logo__fallback" style={{ display: 'none' }}>bl</span>
             {easterEgg && (
               <div className="about-logo__sparks">
                 {Array.from({ length: 12 }).map((_, i) => (

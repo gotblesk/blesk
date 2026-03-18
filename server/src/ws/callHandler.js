@@ -46,6 +46,7 @@ function callHandler(io, socket) {
 
   // ═══ Инициировать звонок ═══
   socket.on('call:initiate', async ({ chatId }) => {
+    if (!chatId || typeof chatId !== 'string') return socket.emit('call:error', { error: 'Некорректный chatId' });
     try {
       // Проверить что пользователь участник комнаты
       const participant = await prisma.roomParticipant.findUnique({
@@ -132,6 +133,7 @@ function callHandler(io, socket) {
 
   // ═══ Принять звонок ═══
   socket.on('call:accept', async ({ chatId }) => {
+    if (!chatId || typeof chatId !== 'string') return socket.emit('call:error', { error: 'Некорректный chatId' });
     try {
       const call = activeCalls.get(chatId);
       if (!call) {
@@ -175,6 +177,7 @@ function callHandler(io, socket) {
 
   // ═══ Отклонить звонок ═══
   socket.on('call:decline', async ({ chatId }) => {
+    if (!chatId || typeof chatId !== 'string') return socket.emit('call:error', { error: 'Некорректный chatId' });
     try {
       const call = activeCalls.get(chatId);
       if (!call) return;
@@ -208,11 +211,13 @@ function callHandler(io, socket) {
 
   // ═══ Завершить звонок (выйти) ═══
   socket.on('call:end', async ({ chatId }) => {
+    if (!chatId || typeof chatId !== 'string') return socket.emit('call:error', { error: 'Некорректный chatId' });
     handleCallEnd(io, socket, userId, chatId);
   });
 
   // ═══ Отменить звонок (до принятия) ═══
   socket.on('call:cancel', async ({ chatId }) => {
+    if (!chatId || typeof chatId !== 'string') return socket.emit('call:error', { error: 'Некорректный chatId' });
     try {
       const call = activeCalls.get(chatId);
       if (!call) return;
@@ -247,7 +252,12 @@ function callHandler(io, socket) {
       }
     }
     for (const chatId of chatIds) {
-      handleCallEnd(io, socket, userId, chatId);
+      try {
+        handleCallEnd(io, socket, userId, chatId);
+      } catch (err) {
+        console.error('disconnect cleanup error:', err);
+        activeCalls.delete(chatId);
+      }
     }
   });
 }

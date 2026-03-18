@@ -3,6 +3,7 @@ import { useVoiceStore } from '../../store/voiceStore';
 import Glass from '../ui/Glass';
 import API_URL from '../../config';
 import { getCurrentUserId } from '../../utils/auth';
+import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceRoomList.css';
 
 export default function VoiceRoomList({ onJoinRoom }) {
@@ -188,7 +189,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                       <div
                         key={p.userId}
                         className="voice-card__mini-av"
-                        style={{ background: `hsl(${p.hue || 176}, 70%, 50%)` }}
+                        style={{ background: getAvatarColor(getAvatarHue(p)) }}
                         title={p.username}
                       >
                         {p.username[0].toUpperCase()}
@@ -248,7 +249,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                         <div key={inv.userId} className="voice-invite-panel__user">
                           <div
                             className="voice-invite-panel__av"
-                            style={{ background: `hsl(${inv.hue || 176}, 70%, 50%)` }}
+                            style={{ background: getAvatarColor(getAvatarHue(inv)) }}
                           >
                             {inv.username[0].toUpperCase()}
                           </div>
@@ -278,7 +279,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                         <div key={friend.id} className="voice-invite-panel__user">
                           <div
                             className="voice-invite-panel__av"
-                            style={{ background: `hsl(${friend.hue || 176}, 70%, 50%)` }}
+                            style={{ background: getAvatarColor(getAvatarHue(friend)) }}
                           >
                             {friend.username[0].toUpperCase()}
                           </div>

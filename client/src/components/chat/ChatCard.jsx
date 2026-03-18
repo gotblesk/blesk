@@ -1,8 +1,9 @@
-import API_URL from '../../config';
+import Avatar from '../ui/Avatar';
+import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
 import './ChatCard.css';
 
 function GroupAvatar({ participants }) {
-  const hues = (participants || []).slice(0, 3).map((p) => p.hue ?? 0);
+  const hues = (participants || []).slice(0, 3).map((p) => getAvatarHue(p));
   while (hues.length < 3) hues.push(hues.length * 120);
 
   return (
@@ -11,7 +12,7 @@ function GroupAvatar({ participants }) {
         <div
           key={i}
           className={`chat-card__group-circle chat-card__group-circle--${i}`}
-          style={{ background: `linear-gradient(135deg, hsl(${h}, 70%, 50%), hsl(${h + 40}, 70%, 60%))` }}
+          style={{ background: getAvatarGradient(h) }}
         />
       ))}
     </div>
@@ -21,7 +22,6 @@ function GroupAvatar({ participants }) {
 export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, cardRef }) {
   const isGroup = chat.type === 'group';
   const user = chat.otherUser;
-  const hue = user?.hue || 0;
 
   const formatTime = (dateStr) => {
     if (!dateStr) return '';
@@ -50,17 +50,7 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
         {isGroup ? (
           <GroupAvatar participants={chat.participants} />
         ) : (
-          <div
-            className="chat-row__avatar"
-            style={{ background: user?.avatar ? 'none' : `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))` }}
-          >
-            {user?.avatar
-              ? <img src={`${API_URL}/uploads/avatars/${user.avatar}`} alt="" />
-              : (user?.username || '?')[0].toUpperCase()}
-          </div>
-        )}
-        {!isGroup && isOnline && userStatus !== 'invisible' && (
-          <div className={`chat-row__online ${userStatus === 'dnd' ? 'chat-row__online--dnd' : ''}`} />
+          <Avatar user={user} size="md" showOnline isOnline={isOnline} userStatus={userStatus} />
         )}
       </div>
 

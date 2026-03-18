@@ -1,0 +1,49 @@
+import { useState } from 'react';
+import API_URL from '../../config';
+import { getAvatarHue, getAvatarGradient, getInitial } from '../../utils/avatar';
+import './Avatar.css';
+
+// Единый компонент аватарки для всего приложения
+// Решает: broken image fallback, консистентные цвета, onError обработка
+export default function Avatar({
+  user,
+  size = 'md',        // sm (24), md (36), lg (48), xl (80)
+  showOnline = false,
+  isOnline = false,
+  userStatus,          // online | dnd | invisible
+  className = '',
+  onClick,
+  children,            // для camera overlay и т.д.
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  const hue = getAvatarHue(user);
+  const initial = getInitial(user);
+  const hasAvatar = user?.avatar && !imgError;
+
+  const statusDot = showOnline && (isOnline || userStatus === 'dnd');
+  const dotClass = userStatus === 'dnd' ? 'avatar__dot--dnd' : 'avatar__dot--online';
+
+  return (
+    <div
+      className={`avatar avatar--${size} ${className}`}
+      style={hasAvatar ? undefined : { background: getAvatarGradient(hue) }}
+      onClick={onClick}
+    >
+      {hasAvatar ? (
+        <img
+          className="avatar__img"
+          src={`${API_URL}/uploads/avatars/${user.avatar}`}
+          alt=""
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <span className="avatar__letter">{initial}</span>
+      )}
+
+      {statusDot && <span className={`avatar__dot ${dotClass}`} />}
+
+      {children}
+    </div>
+  );
+}

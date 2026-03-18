@@ -3,6 +3,7 @@ import Glass from '../ui/Glass';
 import UserProfileModal from '../ui/UserProfileModal';
 import API_URL from '../../config';
 import { getCurrentUserId } from '../../utils/auth';
+import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
 import './GroupMembersPanel.css';
 
 export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMember, socketRef }) {
@@ -67,7 +68,7 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
         ) : (
           <div className="group-members-panel__list">
             {members.map((m) => {
-              const hue = m.user?.hue ?? 0;
+              const hue = getAvatarHue(m.user);
               const isMe = getCurrentUserId() === m.userId;
 
               return (
@@ -79,7 +80,7 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
                   >
                     <div
                       className="group-members-panel__avatar"
-                      style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))` }}
+                      style={{ background: getAvatarGradient(hue) }}
                     >
                       {(m.user?.username || '?')[0].toUpperCase()}
                     </div>
