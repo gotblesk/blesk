@@ -1,5 +1,6 @@
 import Avatar from '../ui/Avatar';
 import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
+import { formatLastSeen } from '../../utils/time';
 import './ChatHeader.css';
 
 function GroupHeaderAvatar({ participants }) {
@@ -29,9 +30,13 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
   } else if (isGroup) {
     statusText = `${chat.memberCount ?? 0} участников`;
   } else {
-    statusText = isOnline
-      ? (userStatus === 'dnd' ? 'не беспокоить' : 'онлайн')
-      : 'офлайн';
+    if (isOnline) {
+      statusText = userStatus === 'dnd' ? 'не беспокоить' : 'онлайн';
+    } else if (user?.lastSeenAt) {
+      statusText = `был(а) ${formatLastSeen(user.lastSeenAt)}`;
+    } else {
+      statusText = 'офлайн';
+    }
   }
 
   const displayName = isGroup ? chat.name : (user?.username || chat.name);

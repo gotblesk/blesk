@@ -57,12 +57,19 @@ router.get('/:id', authenticate, async (req, res) => {
         bio: true,
         status: true,
         customStatus: true,
+        lastSeenAt: true,
+        showLastSeen: true,
         createdAt: true,
       },
     });
 
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    // Скрыть lastSeenAt если пользователь отключил показ и это не свой профиль
+    if (user.showLastSeen === false && req.userId !== user.id) {
+      user.lastSeenAt = null;
     }
 
     // Проверить дружбу
@@ -115,7 +122,7 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
 // Обновление профиля
 router.put('/me', authenticate, async (req, res) => {
   try {
-    const { bio, status, customStatus, hue } = req.body;
+    const { bio, status, customStatus, hue, showLastSeen } = req.body;
     const data = {};
 
     // Валидация полей
@@ -148,6 +155,13 @@ router.put('/me', authenticate, async (req, res) => {
         return res.status(400).json({ error: 'Hue должен быть от 0 до 360' });
       }
       data.hue = h;
+    }
+
+    if (showLastSeen !== undefined) {
+      if (typeof showLastSeen !== 'boolean') {
+        return res.status(400).json({ error: 'showLastSeen должен быть boolean' });
+      }
+      data.showLastSeen = showLastSeen;
     }
 
     if (Object.keys(data).length === 0) {

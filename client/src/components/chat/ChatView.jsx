@@ -119,7 +119,7 @@ export default function ChatView({
   // === Drag / Pull-down на хедере ===
   const handleHeaderPointerDown = useCallback((e) => {
     // Игнорировать клик на кнопку закрытия
-    if (e.target.closest('.chat-view__close-btn')) return;
+    if (e.target.closest('.chat-view__close-btn') || e.target.closest('.chat-header__btn') || e.target.closest('.chat-header__actions')) return;
 
     onFocus();
     dragRef.current = {
