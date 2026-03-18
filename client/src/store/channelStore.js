@@ -29,8 +29,8 @@ export const useChannelStore = create((set, get) => ({
         headers: getHeaders(),
       });
       if (!res.ok) throw new Error();
-      const channels = await res.json();
-      set({ channels });
+      const data = await res.json();
+      set({ channels: data.channels ?? data ?? [] });
     } catch (err) {
       console.error('Ошибка загрузки каналов:', err);
     } finally {
@@ -45,8 +45,8 @@ export const useChannelStore = create((set, get) => ({
         headers: getHeaders(),
       });
       if (!res.ok) throw new Error();
-      const myChannels = await res.json();
-      set({ myChannels });
+      const data = await res.json();
+      set({ myChannels: [...(data.owned ?? []), ...(data.subscribed ?? [])] });
     } catch (err) {
       console.error('Ошибка загрузки моих каналов:', err);
     }
@@ -59,9 +59,9 @@ export const useChannelStore = create((set, get) => ({
         headers: getHeaders(),
       });
       if (!res.ok) throw new Error();
-      const posts = await res.json();
+      const data = await res.json();
       set((state) => ({
-        posts: { ...state.posts, [channelId]: posts },
+        posts: { ...state.posts, [channelId]: data.posts ?? data ?? [] },
       }));
     } catch (err) {
       console.error('Ошибка загрузки постов:', err);

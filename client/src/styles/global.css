@@ -736,6 +736,7 @@ button, input, a, textarea, select {
 [data-theme="light"] .bell-trigger {
   background: rgba(0, 0, 0, 0.04);
   border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 26, 46, 0.55);
 }
 
 [data-theme="light"] .bell-trigger:hover {
