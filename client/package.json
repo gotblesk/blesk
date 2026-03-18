@@ -64,6 +64,13 @@
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false
     },
+    "files": [
+      "dist/index.html",
+      "dist/assets/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
     "asar": true,
     "compression": "maximum",
     "extraResources": [
