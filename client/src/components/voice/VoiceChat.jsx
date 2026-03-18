@@ -9,8 +9,10 @@ export default function VoiceChat({ roomId, socketRef }) {
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const listRef = useRef(null);
+  const openRef = useRef(open);
+  openRef.current = open;
 
-  // Слушаем сообщения
+  // Слушаем сообщения (ref вместо open в deps — нет потери сообщений)
   useEffect(() => {
     const socket = socketRef?.current;
     if (!socket) return;
@@ -18,15 +20,14 @@ export default function VoiceChat({ roomId, socketRef }) {
     const handler = ({ roomId: rid, message }) => {
       if (rid !== roomId) return;
       setMessages((prev) => [...prev, message]);
-      // Если чат закрыт — увеличить непрочитанные
-      if (!open) {
+      if (!openRef.current) {
         setUnread((prev) => prev + 1);
       }
     };
 
     socket.on('voice:chat:message', handler);
     return () => socket.off('voice:chat:message', handler);
-  }, [roomId, socketRef, open]);
+  }, [roomId, socketRef]);
 
   // Автоскролл
   useEffect(() => {

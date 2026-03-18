@@ -138,16 +138,20 @@ router.post('/register', async (req, res) => {
       },
     });
 
-    // Создать и отправить код верификации
-    const code = generateCode();
-    await prisma.emailCode.create({
-      data: {
-        email,
-        code,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 минут
-      },
-    });
-    await sendVerificationCode(email, code);
+    // Rate limit на отправку email при регистрации (защита от спама)
+    const regWait = isEmailCodeRateLimited(resendCodeLimits, email);
+    if (regWait === 0) {
+      const code = generateCode();
+      await prisma.emailCode.create({
+        data: {
+          email,
+          code,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 минут
+        },
+      });
+      markEmailCodeSent(resendCodeLimits, email);
+      await sendVerificationCode(email, code);
+    }
 
     const tokens = generateTokens(user.id);
 

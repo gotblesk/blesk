@@ -1,7 +1,14 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 // Безопасный мост между renderer и main process
-// Используем removeAllListeners перед подпиской — предотвращает накопление
+// Используем off() для конкретных хэндлеров вместо removeAllListeners
+
+// Храним ссылки на текущие хэндлеры для корректной отписки
+let _maxHandler = null;
+let _unMaxHandler = null;
+let _updateAvailHandler = null;
+let _updateProgressHandler = null;
+let _updateDownloadedHandler = null;
 
 contextBridge.exposeInMainWorld('blesk', {
   // Управление окном
@@ -14,11 +21,13 @@ contextBridge.exposeInMainWorld('blesk', {
     dragging: (screenX, screenY) => ipcRenderer.send('window:dragging', screenX, screenY),
     stopDrag: () => ipcRenderer.send('window:stop-drag'),
     onMaximizeChange: (callback) => {
-      // Очистить старые слушатели перед подпиской
-      ipcRenderer.removeAllListeners('window:maximized');
-      ipcRenderer.removeAllListeners('window:unmaximized');
-      ipcRenderer.on('window:maximized', () => callback(true));
-      ipcRenderer.on('window:unmaximized', () => callback(false));
+      // Снять предыдущие хэндлеры (не трогая чужие)
+      if (_maxHandler) ipcRenderer.off('window:maximized', _maxHandler);
+      if (_unMaxHandler) ipcRenderer.off('window:unmaximized', _unMaxHandler);
+      _maxHandler = () => callback(true);
+      _unMaxHandler = () => callback(false);
+      ipcRenderer.on('window:maximized', _maxHandler);
+      ipcRenderer.on('window:unmaximized', _unMaxHandler);
     },
   },
 
@@ -28,16 +37,19 @@ contextBridge.exposeInMainWorld('blesk', {
   // Обновления
   update: {
     onAvailable: (callback) => {
-      ipcRenderer.removeAllListeners('update:available');
-      ipcRenderer.on('update:available', (_, version) => callback(version));
+      if (_updateAvailHandler) ipcRenderer.off('update:available', _updateAvailHandler);
+      _updateAvailHandler = (_, version) => callback(version);
+      ipcRenderer.on('update:available', _updateAvailHandler);
     },
     onProgress: (callback) => {
-      ipcRenderer.removeAllListeners('update:progress');
-      ipcRenderer.on('update:progress', (_, data) => callback(data));
+      if (_updateProgressHandler) ipcRenderer.off('update:progress', _updateProgressHandler);
+      _updateProgressHandler = (_, data) => callback(data);
+      ipcRenderer.on('update:progress', _updateProgressHandler);
     },
     onDownloaded: (callback) => {
-      ipcRenderer.removeAllListeners('update:downloaded');
-      ipcRenderer.on('update:downloaded', () => callback());
+      if (_updateDownloadedHandler) ipcRenderer.off('update:downloaded', _updateDownloadedHandler);
+      _updateDownloadedHandler = () => callback();
+      ipcRenderer.on('update:downloaded', _updateDownloadedHandler);
     },
     install: () => ipcRenderer.send('update:install'),
   },

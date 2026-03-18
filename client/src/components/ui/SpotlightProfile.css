@@ -137,6 +137,10 @@
   border: 2.5px solid rgba(20, 18, 30, 0.95);
 }
 
+[data-theme="light"] .spotlight-avatar__dot {
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
 .spotlight-name {
   font-size: 16px;
   font-weight: 700;

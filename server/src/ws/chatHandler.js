@@ -166,6 +166,13 @@ function chatHandler(io, socket) {
       }
 
       if (mentionedUsernames.size > 0) {
+        // Ограничить уведомления только участниками чата (не утекать за пределы)
+        const chatParticipants = await prisma.roomParticipant.findMany({
+          where: { roomId: chatId },
+          select: { userId: true },
+        });
+        const participantIdSet = new Set(chatParticipants.map((p) => p.userId));
+
         const mentionedUsers = await prisma.user.findMany({
           where: {
             username: { in: [...mentionedUsernames] },
@@ -173,13 +180,15 @@ function chatHandler(io, socket) {
           },
           select: { id: true },
         });
+        // Фильтруем: только участники чата
+        const filteredMentions = mentionedUsers.filter((u) => participantIdSet.has(u.id));
 
         const room = await prisma.room.findUnique({
           where: { id: chatId },
           select: { name: true },
         });
 
-        for (const mentioned of mentionedUsers) {
+        for (const mentioned of filteredMentions) {
           const notification = await prisma.notification.create({
             data: {
               userId: mentioned.id,

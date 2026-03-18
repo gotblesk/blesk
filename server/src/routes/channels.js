@@ -329,11 +329,8 @@ router.delete('/:id/subscribe', async (req, res) => {
     });
 
     if (deleted.count > 0) {
-      // Декрементировать счётчик
-      await prisma.channelMeta.update({
-        where: { roomId: id },
-        data: { subscriberCount: { decrement: 1 } },
-      });
+      // Декрементировать счётчик (не ниже 0)
+      await prisma.$executeRaw`UPDATE "ChannelMeta" SET "subscriberCount" = MAX("subscriberCount" - 1, 0) WHERE "roomId" = ${id}`;
 
       // Отключить сокеты пользователя от комнаты канала
       const io = req.app.locals.io;
@@ -390,7 +387,10 @@ router.get('/:id/posts', async (req, res) => {
     // Запрос постов с курсором
     const where = { roomId: id };
     if (before) {
-      where.createdAt = { lt: new Date(before) };
+      const d = new Date(before);
+      if (!isNaN(d.getTime())) {
+        where.createdAt = { lt: d };
+      }
     }
 
     const posts = await prisma.message.findMany({

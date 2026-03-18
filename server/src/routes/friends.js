@@ -34,6 +34,40 @@ router.post('/request', authenticate, async (req, res) => {
       if (existing.status === 'pending') {
         return res.status(400).json({ error: 'Заявка уже отправлена' });
       }
+      if (existing.status === 'declined') {
+        // Разрешить повторную отправку — обновить существующую запись
+        await prisma.friendRequest.update({
+          where: { id: existing.id },
+          data: { status: 'pending', senderId: req.userId, receiverId: targetId },
+        });
+
+        const sender = await prisma.user.findUnique({
+          where: { id: req.userId },
+          select: { id: true, username: true, hue: true, avatar: true },
+        });
+
+        const notification = await prisma.notification.create({
+          data: {
+            userId: targetId,
+            type: 'friend_request',
+            title: `${sender.username} хочет дружить`,
+            body: 'Заявка в друзья',
+            fromUserId: req.userId,
+          },
+          include: {
+            fromUser: { select: { id: true, username: true, hue: true, avatar: true } },
+          },
+        });
+
+        const io = req.app.locals.io;
+        if (io) {
+          for (const [, s] of io.sockets.sockets) {
+            if (s.userId === targetId) s.emit('notification:new', notification);
+          }
+        }
+
+        return res.status(201).json({ id: existing.id, status: 'pending' });
+      }
     }
 
     // Имя отправителя для уведомления

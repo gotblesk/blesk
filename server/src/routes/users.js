@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
+const { validateFile } = require('../services/fileValidator');
 
 const router = Router();
 
@@ -95,14 +96,26 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
   try {
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен или формат не поддерживается' });
 
-    const ext = req.file.mimetype === 'image/png' ? '.png' : '.jpg';
+    // Валидация magic bytes (защита от подмены Content-Type)
+    const validation = await validateFile(req.file.path, req.file.originalname, req.file.mimetype, req.file.size);
+    if (!validation.ok || !validation.mime.startsWith('image/')) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Недопустимый формат изображения' });
+    }
+
+    // Расширение из реального MIME, а не из user input
+    const MIME_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+    const ext = MIME_EXT[validation.mime] || '.jpg';
     const filename = req.userId + ext;
     const finalPath = path.join(avatarDir, filename);
 
-    // Удалить старый аватар если был другого формата
-    const otherExt = ext === '.png' ? '.jpg' : '.png';
-    const otherPath = path.join(avatarDir, req.userId + otherExt);
-    if (fs.existsSync(otherPath)) fs.unlinkSync(otherPath);
+    // Удалить старые аватары других форматов
+    for (const e of ['.jpg', '.png', '.webp']) {
+      if (e !== ext) {
+        const old = path.join(avatarDir, req.userId + e);
+        if (fs.existsSync(old)) fs.unlinkSync(old);
+      }
+    }
 
     // Переместить загруженный файл
     fs.renameSync(req.file.path, finalPath);

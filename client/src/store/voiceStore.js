@@ -243,8 +243,17 @@ export const useVoiceStore = create((set, get) => ({
     set({ currentRoomId: roomId, currentRoomName: roomName, participants: {} });
   },
 
-  // Выйти из комнаты (UI state)
+  // Выйти из комнаты (UI state + освобождение ресурсов)
   clearCurrentRoom: () => {
+    // Остановить все удалённые видеопотоки перед обнулением
+    const state = get();
+    if (state.localCameraStream) {
+      state.localCameraStream.getTracks().forEach((t) => t.stop());
+    }
+    for (const streams of Object.values(state.videoStreams)) {
+      if (streams.camera) streams.camera.getTracks().forEach((t) => t.stop());
+      if (streams.screen) streams.screen.getTracks().forEach((t) => t.stop());
+    }
     set({
       currentRoomId: null,
       currentRoomName: null,

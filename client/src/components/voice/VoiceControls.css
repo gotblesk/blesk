@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   height: 56px;
-  z-index: 1000;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -191,6 +191,7 @@
 }
 
 [data-theme="light"] .voice-controls__btn--active {
-  background: rgba(200, 255, 0, 0.2);
-  border-color: rgba(200, 255, 0, 0.35);
+  background: rgba(74, 140, 0, 0.15);
+  border-color: rgba(74, 140, 0, 0.3);
+  color: var(--accent);
 }

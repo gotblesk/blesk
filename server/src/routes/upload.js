@@ -45,8 +45,15 @@ router.post('/channels/:channelId/upload', authenticate, upload.single('file'), 
       return res.status(400).json({ error: validation.error });
     }
 
-    // Переименовать в uuid
-    const ext = path.extname(req.file.originalname).toLowerCase() || '.bin';
+    // Расширение из реального MIME, а не из user input
+    const MIME_EXT = {
+      'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
+      'video/mp4': '.mp4', 'video/webm': '.webm', 'audio/mpeg': '.mp3', 'audio/ogg': '.ogg',
+      'application/pdf': '.pdf', 'application/zip': '.zip', 'text/plain': '.txt',
+      'application/msword': '.doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    };
+    const ext = MIME_EXT[validation.mime] || '.bin';
     const storedName = `${crypto.randomUUID()}${ext}`;
     const finalPath = path.join(attachDir, storedName);
     fs.renameSync(req.file.path, finalPath);
@@ -145,8 +152,15 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
       return res.status(400).json({ error: validation.error });
     }
 
-    // Переименовать в uuid
-    const ext = path.extname(req.file.originalname).toLowerCase() || '.bin';
+    // Расширение из реального MIME, а не из user input
+    const MIME_EXT = {
+      'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
+      'video/mp4': '.mp4', 'video/webm': '.webm', 'audio/mpeg': '.mp3', 'audio/ogg': '.ogg',
+      'application/pdf': '.pdf', 'application/zip': '.zip', 'text/plain': '.txt',
+      'application/msword': '.doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    };
+    const ext = MIME_EXT[validation.mime] || '.bin';
     const storedName = `${crypto.randomUUID()}${ext}`;
     const finalPath = path.join(attachDir, storedName);
     fs.renameSync(req.file.path, finalPath);

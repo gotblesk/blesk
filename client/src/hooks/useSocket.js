@@ -28,7 +28,8 @@ export function useSocket() {
     socketRef.current = socket;
 
     // При ошибке подключения — обновить токен и переподключиться
-    socket.on('connect_error', async (err) => {
+    socket.on('connect_error', (err) => {
+      console.error('Socket connection error:', err.message);
       const freshToken = localStorage.getItem('token');
       if (freshToken && freshToken !== socket.auth.token) {
         socket.auth.token = freshToken;
@@ -170,10 +171,6 @@ export function useSocket() {
           messages: { ...state.messages, [chatId]: updated },
         });
       }
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err.message);
     });
 
     return () => {

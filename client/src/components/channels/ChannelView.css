@@ -181,6 +181,14 @@
   color: var(--text-muted);
 }
 
+.channel-view__input-bar:focus-within {
+  border-top: 1px solid rgba(200, 255, 0, 0.12);
+}
+
+[data-theme="light"] .channel-view__input-bar:focus-within {
+  border-top-color: rgba(74, 140, 0, 0.15);
+}
+
 .channel-view__send {
   width: 34px;
   height: 34px;

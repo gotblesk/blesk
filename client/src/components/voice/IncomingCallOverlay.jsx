@@ -5,14 +5,16 @@ import './IncomingCallOverlay.css';
 
 export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
   const timerRef = useRef(null);
+  const onDeclineRef = useRef(onDecline);
+  onDeclineRef.current = onDecline;
 
-  // Авто-dismiss через 30 сек
+  // Авто-dismiss через 30 сек (ref — таймер не перезапускается при смене колбэка)
   useEffect(() => {
     timerRef.current = setTimeout(() => {
-      onDecline?.();
+      onDeclineRef.current?.();
     }, 30000);
     return () => clearTimeout(timerRef.current);
-  }, [onDecline]);
+  }, []);
 
   if (!call) return null;
 
