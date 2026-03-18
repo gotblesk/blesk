@@ -18,11 +18,14 @@ export default function SettingsScreen({ onBack }) {
   const settings = useSettingsStore();
   const { toggle, setValue } = settings;
 
-  // Переключатель темы
+  // Переключатель темы с плавной анимацией
   const handleThemeChange = (theme) => {
+    document.documentElement.classList.add('theme-transitioning');
     setValue('theme', theme);
-    // Применить тему к document
     document.documentElement.setAttribute('data-theme', theme);
+    setTimeout(() => {
+      document.documentElement.classList.remove('theme-transitioning');
+    }, 600);
   };
 
   return (
@@ -130,6 +133,23 @@ export default function SettingsScreen({ onBack }) {
                   hint="Другие видят когда вы печатаете"
                   value={settings.showTyping}
                   onChange={() => toggle('showTyping')}
+                />
+                <SettingToggle
+                  label="Время последнего визита"
+                  hint="Другие видят когда вы были в сети"
+                  value={settings.showLastSeen}
+                  onChange={() => {
+                    const next = !settings.showLastSeen;
+                    toggle('showLastSeen');
+                    fetch('/api/users/me', {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${localStorage.getItem('blesk-token')}`,
+                      },
+                      body: JSON.stringify({ showLastSeen: next }),
+                    }).catch(() => {});
+                  }}
                 />
               </Glass>
             </div>

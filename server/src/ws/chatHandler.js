@@ -251,7 +251,7 @@ function chatHandler(io, socket) {
       } else {
         await prisma.user.update({
           where: { id: userId },
-          data: { status: 'offline' },
+          data: { status: 'offline', lastSeenAt: new Date() },
         });
       }
     } catch {}
