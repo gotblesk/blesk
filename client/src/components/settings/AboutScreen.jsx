@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ExternalLink, Heart } from 'lucide-react';
 import useAppVersion from '../../hooks/useAppVersion';
 import './AboutScreen.css';
 const SLOGAN = 'Твой блеск. Твои правила.';
@@ -144,13 +145,13 @@ export default function AboutScreen({ open, onClose }) {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <span className="about-link__icon">🔗</span>
+          <span className="about-link__icon"><ExternalLink size={14} strokeWidth={1.5} /></span>
           <span className="about-link__text">github.com/gotblesk/blesk</span>
           <span className="about-link__arrow">→</span>
         </a>
 
         <div className="about-footer">
-          Сделано с 💚 и бессонными ночами
+          Сделано с <Heart size={14} strokeWidth={1.5} fill="currentColor" style={{ color: '#4ade80', verticalAlign: 'middle', margin: '0 2px' }} /> и бессонными ночами
         </div>
       </div>
     </div>

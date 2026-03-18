@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { User, Settings as SettingsIcon, Palette, FileText, Info, LogOut } from 'lucide-react';
 import useAppVersion from '../../hooks/useAppVersion';
 import { useSettingsStore } from '../../store/settingsStore';
 import Avatar from './Avatar';
@@ -76,7 +77,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               style={{ transitionDelay: '0.1s' }}
               onClick={() => handleAction('profile')}
             >
-              <div className="spotlight-item__icon">👤</div>
+              <div className="spotlight-item__icon"><User size={16} strokeWidth={1.5} /></div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">Мой профиль</div>
                 <div className="spotlight-item__hint">Аватар, био, теги</div>
@@ -88,7 +89,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               style={{ transitionDelay: '0.13s' }}
               onClick={() => handleAction('status')}
             >
-              <div className="spotlight-item__icon">{user?.status === 'dnd' ? '🔴' : user?.status === 'invisible' ? '⚫' : '🟢'}</div>
+              <div className="spotlight-item__icon"><div style={{ width: 10, height: 10, borderRadius: '50%', background: user?.status === 'dnd' ? '#ef4444' : user?.status === 'invisible' ? '#6b7280' : '#4ade80' }} /></div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">Изменить статус</div>
                 <div className="spotlight-item__hint">{user?.customStatus || (user?.status === 'dnd' ? 'Не беспокоить' : user?.status === 'invisible' ? 'Невидимка' : 'В сети')}</div>
@@ -102,7 +103,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               style={{ transitionDelay: '0.16s' }}
               onClick={() => handleAction('settings')}
             >
-              <div className="spotlight-item__icon">⚙️</div>
+              <div className="spotlight-item__icon"><SettingsIcon size={16} strokeWidth={1.5} /></div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">Настройки</div>
               </div>
@@ -113,7 +114,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               style={{ transitionDelay: '0.19s' }}
               onClick={() => handleAction('theme')}
             >
-              <div className="spotlight-item__icon">🎨</div>
+              <div className="spotlight-item__icon"><Palette size={16} strokeWidth={1.5} /></div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">Тема</div>
                 <div className="spotlight-item__hint">{currentTheme === 'light' ? 'Светлая' : 'Тёмная'}</div>
@@ -125,7 +126,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               style={{ transitionDelay: '0.22s' }}
               onClick={() => handleAction('feedback')}
             >
-              <div className="spotlight-item__icon">📝</div>
+              <div className="spotlight-item__icon"><FileText size={16} strokeWidth={1.5} /></div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">Обратная связь</div>
                 <div className="spotlight-item__hint">Баг, идея, вопрос</div>
@@ -137,7 +138,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               style={{ transitionDelay: '0.25s' }}
               onClick={() => handleAction('about')}
             >
-              <div className="spotlight-item__icon">ℹ️</div>
+              <div className="spotlight-item__icon"><Info size={16} strokeWidth={1.5} /></div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">О программе</div>
               </div>
@@ -150,7 +151,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               style={{ transitionDelay: '0.28s' }}
               onClick={() => handleAction('logout')}
             >
-              <div className="spotlight-item__icon">🚪</div>
+              <div className="spotlight-item__icon"><LogOut size={16} strokeWidth={1.5} /></div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">Выйти</div>
               </div>

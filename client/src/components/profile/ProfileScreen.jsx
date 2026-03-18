@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Mail, Smartphone, Lock, Camera } from 'lucide-react';
 import API_URL from '../../config';
 import Avatar from '../ui/Avatar';
 import AvatarCropModal from './AvatarCropModal';
@@ -281,7 +282,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
         {/* Аватар */}
         <div className="profile-avatar-area">
           <Avatar user={user} size="xl" className="profile-avatar" onClick={() => fileInputRef.current?.click()}>
-            <div className="profile-avatar__camera">📷</div>
+            <div className="profile-avatar__camera"><Camera size={20} strokeWidth={1.5} /></div>
           </Avatar>
           <input
             ref={fileInputRef}
@@ -309,7 +310,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
         {/* Email */}
         <div className="profile-field">
-          <label className="profile-field__label">📧 Email</label>
+          <label className="profile-field__label"><Mail size={14} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Email</label>
           {emailStep === 'display' && (
             <div className="profile-email-row">
               <span className="profile-email-value">
@@ -366,7 +367,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
         {/* Телефон (пока только отображение) */}
         <div className="profile-field">
-          <label className="profile-field__label">📱 Телефон</label>
+          <label className="profile-field__label"><Smartphone size={14} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Телефон</label>
           <div className="profile-email-row">
             <span className="profile-email-value">
               {user?.phone || 'Не привязан'}
@@ -379,7 +380,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
         {/* Смена пароля */}
         <div className="profile-field">
-          <label className="profile-field__label">🔒 Пароль</label>
+          <label className="profile-field__label"><Lock size={14} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Пароль</label>
 
           {pwStep === 'idle' && !pwSuccess && (
             <button

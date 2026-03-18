@@ -1,15 +1,16 @@
 import { useState } from 'react';
+import { Settings as SettingsIcon, Mic, Bell, Lock, Palette } from 'lucide-react';
 import Glass from '../ui/Glass';
 import VoiceSettings from '../voice/VoiceSettings';
 import { useSettingsStore } from '../../store/settingsStore';
 import './SettingsScreen.css';
 
 const SECTIONS = [
-  { id: 'general', icon: '⚙️', label: 'Общие' },
-  { id: 'voice', icon: '🎙', label: 'Голос и видео' },
-  { id: 'notifications', icon: '🔔', label: 'Уведомления' },
-  { id: 'privacy', icon: '🔒', label: 'Приватность' },
-  { id: 'appearance', icon: '🎨', label: 'Оформление' },
+  { id: 'general', icon: <SettingsIcon size={16} strokeWidth={1.5} />, label: 'Общие' },
+  { id: 'voice', icon: <Mic size={16} strokeWidth={1.5} />, label: 'Голос и видео' },
+  { id: 'notifications', icon: <Bell size={16} strokeWidth={1.5} />, label: 'Уведомления' },
+  { id: 'privacy', icon: <Lock size={16} strokeWidth={1.5} />, label: 'Приватность' },
+  { id: 'appearance', icon: <Palette size={16} strokeWidth={1.5} />, label: 'Оформление' },
 ];
 
 export default function SettingsScreen({ onBack }) {

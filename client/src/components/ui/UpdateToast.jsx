@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Download, Sparkles } from 'lucide-react';
 import './UpdateToast.css';
 
 // Форматирование размера файла
@@ -60,7 +61,7 @@ export default function UpdateToast() {
   return (
     <div className={`update-toast update-toast--${state}`}>
       <div className="update-toast__icon">
-        {state === 'downloading' ? '⬇' : '✨'}
+        {state === 'downloading' ? <Download size={18} strokeWidth={1.5} /> : <Sparkles size={18} strokeWidth={1.5} />}
       </div>
 
       <div className="update-toast__content">
