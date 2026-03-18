@@ -604,7 +604,8 @@ button, input, a, textarea, select {
 }
 
 [data-theme="light"] .nav-tab--active {
-  color: var(--accent);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Placeholder screens (Каналы, etc) */
