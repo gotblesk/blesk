@@ -3,9 +3,9 @@ import { Device } from 'mediasoup-client';
 import { useVoiceStore } from '../store/voiceStore';
 import { getCurrentUserId } from '../utils/auth';
 
-// Voice Activity Detection — порог громкости
-const VAD_THRESHOLD = 15;
+// Voice Activity Detection
 const VAD_INTERVAL = 100;
+const QUALITY_CHECK_INTERVAL = 5000;
 
 export function useVoice(socketRef) {
   const deviceRef = useRef(null);
@@ -20,6 +20,13 @@ export function useVoice(socketRef) {
   const gainNodesRef = useRef(new Map()); // consumerId → { ctx, gain }
   const consumerUserMapRef = useRef(new Map()); // consumerId → userId
   const pendingProducersRef = useRef([]); // Очередь для продюсеров до готовности recvTransport
+  const qualityIntervalRef = useRef(null); // Интервал проверки качества соединения
+
+  // Видео refs
+  const cameraProducerRef = useRef(null);
+  const screenProducerRef = useRef(null);
+  const localCameraStreamRef = useRef(null);
+  const localScreenStreamRef = useRef(null);
 
   const {
     currentRoomId,
@@ -28,6 +35,7 @@ export function useVoice(socketRef) {
     noiseSuppression,
     echoCancellation,
     inputDeviceId,
+    outputDeviceId,
     userVolumes,
     setCurrentRoom,
     clearCurrentRoom,
@@ -35,6 +43,7 @@ export function useVoice(socketRef) {
     removeParticipant,
     updateParticipant,
     setAudioLevel,
+    setConnectionQuality,
   } = useVoiceStore();
 
   const currentRoomIdRef = useRef(currentRoomId);
@@ -82,7 +91,8 @@ export function useVoice(socketRef) {
       const level = Math.min(100, Math.round(avg * 1.5));
       setAudioLevel(userId, level);
 
-      const speaking = avg > VAD_THRESHOLD;
+      const threshold = useVoiceStore.getState().vadThreshold;
+      const speaking = avg > threshold;
       updateParticipant(userId, { speaking });
     }, VAD_INTERVAL);
   }, [setAudioLevel, updateParticipant]);
@@ -138,11 +148,18 @@ export function useVoice(socketRef) {
     }
 
     audio.srcObject = stream;
+
+    // Установить устройство вывода если поддерживается
+    const outDeviceId = useVoiceStore.getState().outputDeviceId;
+    if (outDeviceId && outDeviceId !== 'default' && typeof audio.setSinkId === 'function') {
+      audio.setSinkId(outDeviceId).catch(() => {});
+    }
+
     audio.play().catch(() => {});
   }, []);
 
   // ═══ Создать consumer для remote producer ═══
-  const consumeProducer = useCallback(async (socket, roomId, producerId, rtpCapabilities, producerUserId) => {
+  const consumeProducer = useCallback(async (socket, roomId, producerId, rtpCapabilities, producerUserId, producerType) => {
     if (!recvTransportRef.current) return;
 
     return new Promise((resolve) => {
@@ -159,35 +176,103 @@ export function useVoice(socketRef) {
 
         const { consumerId, kind, rtpParameters } = response;
 
-        const consumer = await recvTransportRef.current.consume({
-          id: consumerId,
-          producerId,
-          kind,
-          rtpParameters,
-        });
+        try {
+          const consumer = await recvTransportRef.current.consume({
+            id: consumerId,
+            producerId,
+            kind,
+            rtpParameters,
+          });
 
-        consumersRef.current.set(consumerId, consumer);
-        if (producerUserId) consumerUserMapRef.current.set(consumerId, producerUserId);
-        playRemoteAudio(consumerId, consumer.track);
+          consumersRef.current.set(consumerId, consumer);
+          if (producerUserId) consumerUserMapRef.current.set(consumerId, producerUserId);
 
-        // Применить сохранённую громкость (через GainNode для >100%)
-        if (producerUserId) {
-          const vol = useVoiceStore.getState().userVolumes[producerUserId];
-          if (vol !== undefined) {
-            const audio = audioElementsRef.current.get(consumerId);
-            if (audio) {
-              applyVolume(audio, consumerId, vol);
+          if (consumer.kind === 'video') {
+            // Видео — сохранить стрим в store
+            const stream = new MediaStream([consumer.track]);
+            useVoiceStore.getState().setVideoStream(producerUserId, producerType || 'camera', stream);
+          } else {
+            // Аудио — воспроизвести как раньше
+            playRemoteAudio(consumerId, consumer.track);
+
+            // Применить сохранённую громкость (через GainNode для >100%)
+            if (producerUserId) {
+              const vol = useVoiceStore.getState().userVolumes[producerUserId];
+              if (vol !== undefined) {
+                const audio = audioElementsRef.current.get(consumerId);
+                if (audio) {
+                  applyVolume(audio, consumerId, vol);
+                }
+              }
             }
           }
+
+          // Resume на сервере
+          socket.emit('voice:resume', { roomId, consumerId }, () => {});
+
+          resolve(consumer);
+        } catch (err) {
+          console.error('consumeProducer error:', err);
+          resolve(null);
         }
-
-        // Resume на сервере
-        socket.emit('voice:resume', { roomId, consumerId }, () => {});
-
-        resolve(consumer);
       });
     });
-  }, [playRemoteAudio]);
+  }, [playRemoteAudio, applyVolume]);
+
+  // ═══ Мониторинг качества соединения ═══
+  const startQualityMonitor = useCallback(() => {
+    if (qualityIntervalRef.current) clearInterval(qualityIntervalRef.current);
+
+    qualityIntervalRef.current = setInterval(async () => {
+      const transport = sendTransportRef.current;
+      if (!transport) return;
+
+      try {
+        const stats = await transport.getStats();
+        let rtt = 0;
+        let fractionLost = 0;
+        let found = false;
+
+        stats.forEach((report) => {
+          // candidate-pair с roundTripTime
+          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+            rtt = (report.currentRoundTripTime || 0) * 1000; // секунды → мс
+            found = true;
+          }
+          // outbound-rtp для потерь
+          if (report.type === 'outbound-rtp' && report.kind === 'audio') {
+            // Для outbound используем retransmittedPacketsSent / packetsSent как proxy
+            if (report.fractionLost !== undefined) {
+              fractionLost = report.fractionLost * 100;
+            }
+          }
+          // remote-inbound-rtp (более точные данные о потерях и RTT)
+          if (report.type === 'remote-inbound-rtp') {
+            if (report.roundTripTime !== undefined) {
+              rtt = report.roundTripTime * 1000;
+              found = true;
+            }
+            if (report.fractionLost !== undefined) {
+              fractionLost = report.fractionLost * 100;
+            }
+          }
+        });
+
+        if (!found) return;
+
+        let quality = 'good';
+        if (rtt > 250 || fractionLost > 5) {
+          quality = 'poor';
+        } else if (rtt > 100 || fractionLost > 2) {
+          quality = 'fair';
+        }
+
+        useVoiceStore.getState().setConnectionQuality(quality);
+      } catch {
+        // Stats недоступны
+      }
+    }, QUALITY_CHECK_INTERVAL);
+  }, []);
 
   // ═══ Войти в голосовую комнату ═══
   const joinRoom = useCallback(async (roomId, roomName) => {
@@ -248,12 +333,13 @@ export function useVoice(socketRef) {
             });
           });
 
-          sendTransport.on('produce', ({ kind, rtpParameters }, callback, errback) => {
+          sendTransport.on('produce', ({ kind, rtpParameters, appData }, callback, errback) => {
             socket.emit('voice:produce', {
               roomId,
               transportId: sendTransport.id,
               kind,
               rtpParameters,
+              appData: appData || {},
             }, (r) => {
               if (r.error) errback(new Error(r.error));
               else callback({ id: r.producerId });
@@ -268,6 +354,9 @@ export function useVoice(socketRef) {
           // VAD для локального пользователя
           const myUserId = getCurrentUserId();
           if (myUserId) startVAD(stream, myUserId);
+
+          // Мониторинг качества соединения
+          startQualityMonitor();
         });
 
         // Создать Recv Transport
@@ -288,17 +377,19 @@ export function useVoice(socketRef) {
             });
           });
 
-          // Consume существующих producers
+          // Consume существующих producers (каждый — объект { producerId, producerType })
           for (const peer of peers) {
-            for (const producerId of peer.producers) {
-              await consumeProducer(socket, roomId, producerId, device.rtpCapabilities, peer.userId);
+            for (const p of peer.producers) {
+              const pId = typeof p === 'string' ? p : p.producerId;
+              const pType = typeof p === 'string' ? 'audio' : (p.producerType || 'audio');
+              await consumeProducer(socket, roomId, pId, device.rtpCapabilities, peer.userId, pType);
             }
           }
 
           // Обработать буферизированные newProducer события (race condition при звонках)
           if (pendingProducersRef.current.length > 0) {
             for (const pending of pendingProducersRef.current) {
-              await consumeProducer(socket, roomId, pending.producerId, device.rtpCapabilities, pending.userId);
+              await consumeProducer(socket, roomId, pending.producerId, device.rtpCapabilities, pending.userId, pending.producerType);
             }
             pendingProducersRef.current = [];
           }
@@ -307,7 +398,7 @@ export function useVoice(socketRef) {
     } catch (err) {
       console.error('joinRoom error:', err);
     }
-  }, [socketRef, getLocalStream, setCurrentRoom, addParticipant, startVAD, consumeProducer]);
+  }, [socketRef, getLocalStream, setCurrentRoom, addParticipant, startVAD, consumeProducer, startQualityMonitor]);
 
   // ═══ Выйти из комнаты ═══
   const leaveRoom = useCallback(() => {
@@ -324,6 +415,12 @@ export function useVoice(socketRef) {
       vadIntervalRef.current = null;
     }
 
+    // Остановить мониторинг качества
+    if (qualityIntervalRef.current) {
+      clearInterval(qualityIntervalRef.current);
+      qualityIntervalRef.current = null;
+    }
+
     // Закрыть audio context
     if (audioContextRef.current) {
       audioContextRef.current.close();
@@ -336,10 +433,28 @@ export function useVoice(socketRef) {
       localStreamRef.current = null;
     }
 
-    // Закрыть producer
+    // Закрыть аудио producer
     if (producerRef.current) {
       producerRef.current.close();
       producerRef.current = null;
+    }
+
+    // Закрыть видео producers и стримы
+    if (cameraProducerRef.current) {
+      cameraProducerRef.current.close();
+      cameraProducerRef.current = null;
+    }
+    if (screenProducerRef.current) {
+      screenProducerRef.current.close();
+      screenProducerRef.current = null;
+    }
+    if (localCameraStreamRef.current) {
+      localCameraStreamRef.current.getTracks().forEach((t) => t.stop());
+      localCameraStreamRef.current = null;
+    }
+    if (localScreenStreamRef.current) {
+      localScreenStreamRef.current.getTracks().forEach((t) => t.stop());
+      localScreenStreamRef.current = null;
     }
 
     // Закрыть consumers
@@ -385,6 +500,15 @@ export function useVoice(socketRef) {
       if (audio) applyVolume(audio, consumerId, vol);
     }
   }, [userVolumes, applyVolume]);
+
+  // ═══ Обновить устройство вывода на всех аудио элементах ═══
+  useEffect(() => {
+    for (const audio of audioElementsRef.current.values()) {
+      if (typeof audio.setSinkId === 'function') {
+        audio.setSinkId(outputDeviceId || 'default').catch(() => {});
+      }
+    }
+  }, [outputDeviceId]);
 
   // ═══ Реакция на мут/деафен ═══
   useEffect(() => {
@@ -452,17 +576,17 @@ export function useVoice(socketRef) {
       useVoiceStore.getState().updateParticipant(userId, { deafened });
     };
 
-    const onNewProducer = async ({ userId, producerId, kind }) => {
+    const onNewProducer = async ({ userId, producerId, kind, producerType }) => {
       const roomId = currentRoomIdRef.current;
       if (!roomId) return;
 
       // Если recvTransport ещё не готов — буферим (race condition при звонках)
       if (!deviceRef.current || !recvTransportRef.current) {
-        pendingProducersRef.current.push({ userId, producerId, kind });
+        pendingProducersRef.current.push({ userId, producerId, kind, producerType });
         return;
       }
 
-      await consumeProducerRef.current(socket, roomId, producerId, deviceRef.current.rtpCapabilities, userId);
+      await consumeProducerRef.current(socket, roomId, producerId, deviceRef.current.rtpCapabilities, userId, producerType);
     };
 
     const onConsumerClosed = ({ consumerId }) => {
@@ -512,6 +636,101 @@ export function useVoice(socketRef) {
     };
   }, [socketRef]); // минимальные зависимости — всё через refs и getState()
 
+  // ═══ Видео: камера ═══
+  const enableCamera = useCallback(async () => {
+    try {
+      if (!sendTransportRef.current) return;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720, frameRate: 30 },
+      });
+      localCameraStreamRef.current = stream;
+      useVoiceStore.getState().setLocalCameraStream(stream);
+      const track = stream.getVideoTracks()[0];
+      const producer = await sendTransportRef.current.produce({
+        track,
+        appData: { type: 'camera' },
+        codecOptions: { videoGoogleStartBitrate: 1000 },
+      });
+      cameraProducerRef.current = producer;
+      useVoiceStore.getState().setCameraOn(true);
+    } catch (err) {
+      console.error('enableCamera error:', err);
+    }
+  }, []);
+
+  const disableCamera = useCallback(() => {
+    try {
+      if (cameraProducerRef.current) {
+        cameraProducerRef.current.close();
+        cameraProducerRef.current = null;
+      }
+      if (localCameraStreamRef.current) {
+        localCameraStreamRef.current.getTracks().forEach((t) => t.stop());
+        localCameraStreamRef.current = null;
+      }
+      useVoiceStore.getState().setLocalCameraStream(null);
+      useVoiceStore.getState().setCameraOn(false);
+    } catch (err) {
+      console.error('disableCamera error:', err);
+    }
+  }, []);
+
+  // ═══ Видео: демонстрация экрана ═══
+  const enableScreenShare = useCallback(async () => {
+    try {
+      if (!sendTransportRef.current) return;
+      let stream;
+      if (window.blesk?.screen?.getSources) {
+        // Electron — получить источники через preload bridge
+        const sources = await window.blesk.screen.getSources();
+        if (!sources || !sources.length) return;
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: sources[0].id,
+            },
+          },
+        });
+      } else {
+        // Браузер — стандартный getDisplayMedia
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      }
+      localScreenStreamRef.current = stream;
+      const track = stream.getVideoTracks()[0];
+      track.onended = () => disableScreenShareRef.current();
+      const producer = await sendTransportRef.current.produce({
+        track,
+        appData: { type: 'screen' },
+      });
+      screenProducerRef.current = producer;
+      useVoiceStore.getState().setScreenShareOn(true);
+    } catch (err) {
+      console.error('enableScreenShare error:', err);
+    }
+  }, []);
+
+  const disableScreenShare = useCallback(() => {
+    try {
+      if (screenProducerRef.current) {
+        screenProducerRef.current.close();
+        screenProducerRef.current = null;
+      }
+      if (localScreenStreamRef.current) {
+        localScreenStreamRef.current.getTracks().forEach((t) => t.stop());
+        localScreenStreamRef.current = null;
+      }
+      useVoiceStore.getState().setScreenShareOn(false);
+    } catch (err) {
+      console.error('disableScreenShare error:', err);
+    }
+  }, []);
+
+  // Ref для disableScreenShare (используется в track.onended)
+  const disableScreenShareRef = useRef(disableScreenShare);
+  disableScreenShareRef.current = disableScreenShare;
+
   // ═══ Звонки — обёртки над joinRoom/leaveRoom ═══
   const joinCall = useCallback(async (chatId, chatName) => {
     const voiceRoomId = 'call:' + chatId;
@@ -526,5 +745,5 @@ export function useVoice(socketRef) {
     leaveRoom();
   }, [socketRef, leaveRoom]);
 
-  return { joinRoom, leaveRoom, joinCall, leaveCall };
+  return { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare };
 }

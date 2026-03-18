@@ -17,6 +17,8 @@ import VoiceRoomList from '../voice/VoiceRoomList';
 import VoiceRoom from '../voice/VoiceRoom';
 import VoiceControls from '../voice/VoiceControls';
 import IncomingCallOverlay from '../voice/IncomingCallOverlay';
+import ChannelBrowser from '../channels/ChannelBrowser';
+import ChannelView from '../channels/ChannelView';
 import UpdateBanner from '../ui/UpdateBanner';
 import { useSocket } from '../../hooks/useSocket';
 import { useVoice } from '../../hooks/useVoice';
@@ -41,9 +43,10 @@ export default function MainScreen({ user, onLogout }) {
   const [statusOpen, setStatusOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(user);
   const [voiceExpanded, setVoiceExpanded] = useState(false);
+  const [activeChannelId, setActiveChannelId] = useState(null);
   const theme = useSettingsStore((s) => s.theme);
   const socketRef = useSocket();
-  const { joinRoom, leaveRoom, joinCall, leaveCall } = useVoice(socketRef);
+  const { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare } = useVoice(socketRef);
 
   // Применить тему при загрузке и смене
   useEffect(() => {
@@ -58,6 +61,8 @@ export default function MainScreen({ user, onLogout }) {
   }, []);
   const { chats } = useChatStore();
   const voiceRoomId = useVoiceStore((s) => s.currentRoomId);
+  const cameraOn = useVoiceStore((s) => s.cameraOn);
+  const screenShareOn = useVoiceStore((s) => s.screenShareOn);
   const incomingCall = useCallStore((s) => s.incomingCall);
   const activeCall = useCallStore((s) => s.activeCall);
 
@@ -243,11 +248,9 @@ export default function MainScreen({ user, onLogout }) {
         )}
 
         {activeTab === 'channels' && (
-          <div className="main-content__center section-enter">
-            <div className="placeholder-icon">📢</div>
-            <div className="placeholder-title">Каналы</div>
-            <div className="placeholder-sub">Скоро</div>
-          </div>
+          activeChannelId
+            ? <ChannelView channelId={activeChannelId} onBack={() => setActiveChannelId(null)} user={currentUser} socketRef={socketRef} />
+            : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />
         )}
 
         {activeTab === 'friends' && (
@@ -338,6 +341,10 @@ export default function MainScreen({ user, onLogout }) {
               setVoiceExpanded(true);
             }
           }}
+          cameraOn={cameraOn}
+          screenShareOn={screenShareOn}
+          onCameraToggle={() => cameraOn ? disableCamera() : enableCamera()}
+          onScreenShareToggle={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
         />
       )}
     </div>

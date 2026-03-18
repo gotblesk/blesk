@@ -1,11 +1,12 @@
 import { useRef, useEffect, useState } from 'react';
+import { MessageCircle, Mic, Megaphone, Users } from 'lucide-react';
 import './NavShelf.css';
 
 const TABS = [
-  { id: 'chats', icon: '💬', label: 'Чаты' },
-  { id: 'voice', icon: '🎙', label: 'Голос' },
-  { id: 'channels', icon: '📢', label: 'Каналы' },
-  { id: 'friends', icon: '👥', label: 'Друзья' },
+  { id: 'chats', icon: <MessageCircle size={16} strokeWidth={1.5} />, label: 'Чаты' },
+  { id: 'voice', icon: <Mic size={16} strokeWidth={1.5} />, label: 'Голос' },
+  { id: 'channels', icon: <Megaphone size={16} strokeWidth={1.5} />, label: 'Каналы' },
+  { id: 'friends', icon: <Users size={16} strokeWidth={1.5} />, label: 'Друзья' },
 ];
 
 export default function NavShelf({ activeTab, onTabChange, unread = {} }) {

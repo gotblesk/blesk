@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { User, Zap, UserCheck, MessageCircle, Bell, BellOff, Trash2, Check, X, AlertTriangle } from 'lucide-react';
 import { useNotificationStore } from '../../store/notificationStore';
 import API_URL from '../../config';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
@@ -7,8 +8,8 @@ import './NotificationBell.css';
 const TABS = [
   { id: 'all', label: 'Все' },
   { id: 'mention', label: '@' },
-  { id: 'friend', label: '👤' },
-  { id: 'system', label: '⚡' },
+  { id: 'friend', label: <User size={14} strokeWidth={1.5} /> },
+  { id: 'system', label: <Zap size={14} strokeWidth={1.5} /> },
 ];
 
 const MIN_W = 320;
@@ -24,11 +25,11 @@ const EDGES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
 function typeIcon(type) {
   switch (type) {
     case 'mention': return '@';
-    case 'friend_request': return '👤';
-    case 'friend_accepted': return '🤝';
-    case 'system': return '⚡';
-    case 'message': return '💬';
-    default: return '🔔';
+    case 'friend_request': return <User size={14} strokeWidth={1.5} />;
+    case 'friend_accepted': return <UserCheck size={14} strokeWidth={1.5} />;
+    case 'system': return <Zap size={14} strokeWidth={1.5} />;
+    case 'message': return <MessageCircle size={14} strokeWidth={1.5} />;
+    default: return <Bell size={14} strokeWidth={1.5} />;
   }
 }
 
@@ -351,7 +352,7 @@ export default function NotificationBell({ onOpenChat }) {
   return (
     <>
       <button ref={bellRef} className={bellClasses} onClick={handleBellClick}>
-        🔔
+        <Bell size={18} strokeWidth={1.5} />
         {unreadCount > 0 && (
           <span className="bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
         )}
@@ -398,16 +399,16 @@ export default function NotificationBell({ onOpenChat }) {
                   onClick={(e) => { e.stopPropagation(); handleClearAll(); }}
                   title={confirmClear ? 'Нажмите ещё раз для подтверждения' : 'Очистить все'}
                 >
-                  {confirmClear ? '❗ Точно?' : '🗑'}
+                  {confirmClear ? <><AlertTriangle size={14} strokeWidth={1.5} /> Точно?</> : <Trash2 size={14} strokeWidth={1.5} />}
                 </button>
               )}
               {unreadCount > 0 && (
                 <button className="bell-header__read-all" onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}>
-                  ✓ Все
+                  <Check size={14} strokeWidth={2} /> Все
                 </button>
               )}
               <button className="bell-window__close" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
-                ✕
+                <X size={14} strokeWidth={2} />
               </button>
             </div>
           </div>
@@ -429,7 +430,7 @@ export default function NotificationBell({ onOpenChat }) {
             <div className="bell-list">
               {filtered.length === 0 ? (
                 <div className="bell-empty">
-                  <div className="bell-empty__icon">🔕</div>
+                  <div className="bell-empty__icon"><BellOff size={18} strokeWidth={1.5} /></div>
                   <div className="bell-empty__text">Нет уведомлений</div>
                 </div>
               ) : (
@@ -465,7 +466,7 @@ export default function NotificationBell({ onOpenChat }) {
                       }}
                       title="Удалить"
                     >
-                      ✕
+                      <X size={14} strokeWidth={2} />
                     </button>
                     {!n.isRead && <div className="bell-item__dot" />}
                   </div>

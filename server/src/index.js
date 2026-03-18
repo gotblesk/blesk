@@ -44,6 +44,12 @@ const chatLimiter = rateLimit({
   message: { error: 'Слишком много запросов. Попробуйте позже.' },
 });
 
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Слишком много загрузок.' },
+});
+
 // Передать io в роуты через app.locals
 app.locals.io = io;
 
@@ -56,8 +62,12 @@ const friendRoutes = require('./routes/friends');
 const feedbackRoutes = require('./routes/feedback');
 const voiceRoutes = require('./routes/voice');
 const adminRoutes = require('./routes/admin');
+const uploadRoutes = require('./routes/upload');
+const channelRoutes = require('./routes/channels');
 
 app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/channels', chatLimiter, channelRoutes);
+app.use('/api/chats', uploadLimiter, uploadRoutes);
 app.use('/api/chats', chatLimiter, chatRoutes);
 app.use('/api/users', chatLimiter, userRoutes);
 app.use('/api/notifications', chatLimiter, notificationRoutes);

@@ -34,6 +34,13 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--online);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.call-banner__video-icon {
+  flex-shrink: 0;
 }
 
 .call-banner__meta {
@@ -65,4 +72,18 @@
 @keyframes cb-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+/* Светлая тема */
+[data-theme="light"] .call-banner {
+  background: rgba(74, 222, 128, 0.08);
+  border-bottom-color: rgba(74, 222, 128, 0.15);
+}
+
+[data-theme="light"] .call-banner:hover {
+  background: rgba(74, 222, 128, 0.14);
+}
+
+[data-theme="light"] .call-banner__meta {
+  color: rgba(0, 0, 0, 0.4);
 }

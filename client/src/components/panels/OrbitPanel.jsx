@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { Orbit } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import Glass from '../ui/Glass';
 import './OrbitPanel.css';
@@ -166,7 +167,7 @@ export default function OrbitPanel({ open, onClose, onOpenChat }) {
           </div>
         ) : (
           <div className="orbit-panel__empty">
-            <div className="orbit-panel__empty-icon">🌌</div>
+            <div className="orbit-panel__empty-icon"><Orbit size={32} strokeWidth={1.5} /></div>
             <div className="orbit-panel__empty-text">Орбита пуста</div>
             <div className="orbit-panel__empty-sub">Начните чат, чтобы добавить друзей</div>
           </div>
@@ -198,7 +199,7 @@ export default function OrbitPanel({ open, onClose, onOpenChat }) {
               <div>
                 <div className="orbit-peek__name">{peekChat.user.username}</div>
                 <div className="orbit-peek__status">
-                  {peekChat.isOnline ? '🟢 онлайн' : '⚫ офлайн'}
+                  {peekChat.isOnline ? <><span style={{width:8,height:8,borderRadius:'50%',background:'#4ade80',display:'inline-block',marginRight:4}} /> онлайн</> : <><span style={{width:8,height:8,borderRadius:'50%',background:'#6b7280',display:'inline-block',marginRight:4}} /> офлайн</>}
                 </div>
               </div>
             </div>

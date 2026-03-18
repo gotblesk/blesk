@@ -172,3 +172,108 @@
 .voice-settings__toggle--on .voice-settings__toggle-knob {
   transform: translateX(18px);
 }
+
+/* VAD — слайдер чувствительности */
+.voice-settings__vad {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.voice-settings__vad-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.voice-settings__slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  cursor: pointer;
+}
+
+.voice-settings__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent, #c8ff00);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.voice-settings__slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent, #c8ff00);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.voice-settings__vad-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  min-width: 24px;
+  text-align: right;
+}
+
+/* Визуальный индикатор уровня с линией порога */
+.voice-settings__vad-meter {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: visible;
+}
+
+.voice-settings__vad-meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--online, #4ade80);
+  transition: width 0.1s linear;
+}
+
+.voice-settings__vad-threshold-line {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--accent, #c8ff00);
+  opacity: 0.7;
+  pointer-events: none;
+  transition: left 0.15s;
+}
+
+.voice-settings__hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  line-height: 1.4;
+}
+
+/* Светлая тема — дополнения */
+[data-theme="light"] .voice-settings__slider {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .voice-settings__vad-value {
+  color: rgba(26, 26, 46, 0.5);
+}
+
+[data-theme="light"] .voice-settings__vad-meter {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .voice-settings__hint {
+  color: rgba(26, 26, 46, 0.4);
+}

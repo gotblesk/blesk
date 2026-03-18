@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ExternalLink, Heart } from 'lucide-react';
+import { ExternalLink, Heart, X, PartyPopper } from 'lucide-react';
 import useAppVersion from '../../hooks/useAppVersion';
 import './AboutScreen.css';
 const SLOGAN = 'Твой блеск. Твои правила.';
@@ -59,7 +59,7 @@ export default function AboutScreen({ open, onClose }) {
 
         {/* Кнопка закрытия */}
         <button className="about-close" onClick={onClose}>
-          <span>✕</span>
+          <X size={18} strokeWidth={2} />
         </button>
 
         {/* Логотип */}
@@ -111,7 +111,7 @@ export default function AboutScreen({ open, onClose }) {
 
         {easterEgg && (
           <div className="about-easter">
-            <div className="about-easter__emoji">🎉</div>
+            <div className="about-easter__emoji"><PartyPopper size={32} strokeWidth={1.5} /></div>
             <div className="about-easter__text">
               Ты нашёл секрет! Ты — настоящий блеск.
             </div>

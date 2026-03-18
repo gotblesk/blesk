@@ -159,8 +159,11 @@ function voiceHandler(io, socket) {
             hue: peerData.hue,
             muted: peerData.muted,
             deafened: peerData.deafened,
-            // Producer IDs для создания consumers
-            producers: Array.from(peerData.producers.keys()),
+            // Producer IDs + типы для создания consumers
+            producers: Array.from(peerData.producers.entries()).map(([id, p]) => ({
+              producerId: id,
+              producerType: p.appData.type || 'audio',
+            })),
           });
         }
       }
@@ -225,8 +228,8 @@ function voiceHandler(io, socket) {
     }
   });
 
-  // ═══ Начать отправку аудио (produce) ═══
-  socket.on('voice:produce', async ({ roomId, transportId, kind, rtpParameters }, callback) => {
+  // ═══ Начать отправку аудио/видео (produce) ═══
+  socket.on('voice:produce', async ({ roomId, transportId, kind, rtpParameters, appData }, callback) => {
     try {
       const room = voiceRooms.get(roomId);
       if (!room || !room.peers.has(userId)) {
@@ -239,7 +242,7 @@ function voiceHandler(io, socket) {
         return callback?.({ error: 'Транспорт не найден' });
       }
 
-      const producer = await transport.produce({ kind, rtpParameters });
+      const producer = await transport.produce({ kind, rtpParameters, appData: appData || {} });
       peer.producers.set(producer.id, producer);
 
       producer.on('transportclose', () => {
@@ -254,6 +257,7 @@ function voiceHandler(io, socket) {
         userId,
         producerId: producer.id,
         kind,
+        producerType: producer.appData.type || 'audio',
       });
     } catch (err) {
       console.error('voice:produce error:', err);
@@ -355,12 +359,14 @@ function voiceHandler(io, socket) {
     const peer = room.peers.get(userId);
     peer.muted = muted;
 
-    // Пауза/возобновление всех producers
+    // Пауза/возобновление только аудио producers (не видео)
     for (const producer of peer.producers.values()) {
-      if (muted) {
-        producer.pause();
-      } else {
-        producer.resume();
+      if (producer.kind === 'audio') {
+        if (muted) {
+          producer.pause();
+        } else {
+          producer.resume();
+        }
       }
     }
 

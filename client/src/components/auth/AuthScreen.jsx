@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Mail, KeyRound } from 'lucide-react';
 import Glass from '../ui/Glass';
 import useAppVersion from '../../hooks/useAppVersion';
 import API_URL from '../../config';
@@ -616,7 +617,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             </div>
 
             <div className="auth-verify">
-              <div className="auth-verify__icon">✉</div>
+              <div className="auth-verify__icon"><Mail size={32} strokeWidth={1.5} /></div>
               <div className="auth-verify__title">Подтвердите email</div>
               <div className="auth-verify__subtitle">
                 Код отправлен на <span className="auth-verify__email">{maskedEmail}</span>
@@ -695,7 +696,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             </div>
 
             <div className="auth-verify">
-              <div className="auth-verify__icon">🔑</div>
+              <div className="auth-verify__icon"><KeyRound size={32} strokeWidth={1.5} /></div>
               <div className="auth-verify__title">Восстановление пароля</div>
 
               {forgotSuccess && (

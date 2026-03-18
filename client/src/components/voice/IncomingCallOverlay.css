@@ -67,6 +67,35 @@
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.incoming-call-overlay__video-icon {
+  color: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+[data-theme="light"] .incoming-call-overlay__backdrop {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme="light"] .incoming-call-overlay__card {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .incoming-call-overlay__name {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .incoming-call-overlay__label {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .incoming-call-overlay__video-icon {
+  color: rgba(0, 0, 0, 0.5);
 }
 
 .incoming-call-overlay__label {

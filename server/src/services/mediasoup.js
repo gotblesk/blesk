@@ -6,13 +6,29 @@ const numWorkers = Math.min(os.cpus().length, parseInt(process.env.MEDIASOUP_WOR
 const workers = [];
 let nextWorkerIdx = 0;
 
-// Кодеки для голоса — opus (стандарт WebRTC)
+// Кодеки для голоса и видео
 const mediaCodecs = [
   {
     kind: 'audio',
     mimeType: 'audio/opus',
     clockRate: 48000,
     channels: 2,
+  },
+  {
+    kind: 'video',
+    mimeType: 'video/VP8',
+    clockRate: 90000,
+    parameters: {},
+  },
+  {
+    kind: 'video',
+    mimeType: 'video/H264',
+    clockRate: 90000,
+    parameters: {
+      'packetization-mode': 1,
+      'profile-level-id': '42e01f',
+      'level-asymmetry-allowed': 1,
+    },
   },
 ];
 
@@ -31,7 +47,7 @@ function getTransportOptions() {
     enableUdp: true,
     enableTcp: true,
     preferUdp: true,
-    initialAvailableOutgoingBitrate: 600000,
+    initialAvailableOutgoingBitrate: 2500000,
   };
 }
 

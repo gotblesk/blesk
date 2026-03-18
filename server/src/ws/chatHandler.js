@@ -46,6 +46,13 @@ function chatHandler(io, socket) {
       socket.join(p.roomId);
     }
 
+    // Присоединить к каналам на которые подписан
+    const subs = await prisma.channelSubscriber.findMany({
+      where: { userId },
+      select: { channelId: true },
+    });
+    for (const s of subs) socket.join(s.channelId);
+
     // Загрузить текущий статус пользователя из БД
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -82,7 +89,7 @@ function chatHandler(io, socket) {
   }
 
   // Отправка сообщения
-  socket.on('message:send', async ({ chatId, text, tempId, replyToId }) => {
+  socket.on('message:send', async ({ chatId, text, tempId, replyToId, encrypted }) => {
     if (!chatId || !text?.trim()) return;
     if (text.length > 4000) return; // Лимит длины сообщения
 
@@ -108,6 +115,7 @@ function chatHandler(io, socket) {
         userId,
         text: text.trim(),
         type: 'text',
+        encrypted: encrypted === true,
       };
 
       // Ответ на сообщение — проверить что оно из того же чата
@@ -144,6 +152,7 @@ function chatHandler(io, socket) {
         username: message.user.username,
         hue: message.user.hue,
         text: message.text,
+        encrypted: message.encrypted,
         createdAt: message.createdAt,
         replyTo: message.replyTo || null,
       });
@@ -227,6 +236,68 @@ function chatHandler(io, socket) {
     if (!chatId || !socket.rooms.has(chatId)) return;
     clearTypingTimeout(chatId);
     socket.to(chatId).emit('typing:stop', { chatId, userId });
+  });
+
+  // Публикация поста в канал через сокет (текстовый)
+  socket.on('channel:post', async ({ channelId, text, tempId }) => {
+    if (!channelId || !text?.trim()) return;
+    if (text.length > 4000) return;
+
+    if (isRateLimited(userId)) {
+      socket.emit('message:error', { tempId, error: 'Слишком быстро! Подождите немного.' });
+      return;
+    }
+
+    try {
+      // Проверить права (owner или admin)
+      const participant = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId: channelId, userId } },
+      });
+
+      if (!participant || !['owner', 'admin'].includes(participant.role)) {
+        socket.emit('message:error', { tempId, error: 'Нет прав на публикацию' });
+        return;
+      }
+
+      // Создать сообщение и инкрементировать счётчик
+      const [message] = await prisma.$transaction([
+        prisma.message.create({
+          data: {
+            roomId: channelId,
+            userId,
+            text: text.trim(),
+            type: 'text',
+          },
+          include: {
+            user: { select: { id: true, username: true, hue: true, avatar: true } },
+            attachments: true,
+          },
+        }),
+        prisma.channelMeta.update({
+          where: { roomId: channelId },
+          data: { postCount: { increment: 1 } },
+        }),
+      ]);
+
+      // Отправить всем подписчикам
+      io.to(channelId).emit('message:new', {
+        id: message.id,
+        tempId,
+        chatId: channelId,
+        userId: message.userId,
+        username: message.user.username,
+        hue: message.user.hue,
+        avatar: message.user.avatar,
+        text: message.text,
+        type: message.type,
+        attachments: message.attachments,
+        createdAt: message.createdAt,
+        isChannel: true,
+      });
+    } catch (err) {
+      console.error('channel:post error:', err);
+      socket.emit('message:error', { tempId, error: 'Не удалось опубликовать пост' });
+    }
   });
 
   // Disconnect

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
+import { Video, Phone } from 'lucide-react';
 import './IncomingCallOverlay.css';
 
 export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
@@ -36,9 +37,20 @@ export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
           </div>
         </div>
 
-        <div className="incoming-call-overlay__name">{displayName}</div>
+        <div className="incoming-call-overlay__name">
+          {call.videoEnabled && (
+            <Video size={18} strokeWidth={1.5} className="incoming-call-overlay__video-icon" />
+          )}
+          {!call.videoEnabled && (
+            <Phone size={18} strokeWidth={1.5} className="incoming-call-overlay__video-icon" />
+          )}
+          {displayName}
+        </div>
         <div className="incoming-call-overlay__label">
-          {isGroup ? 'Групповой звонок' : 'Входящий звонок'}
+          {call.videoEnabled
+            ? (isGroup ? 'Групповой видеозвонок' : 'Входящий видеозвонок')
+            : (isGroup ? 'Групповой звонок' : 'Входящий звонок')
+          }
         </div>
 
         <div className="incoming-call-overlay__actions">

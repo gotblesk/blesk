@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Rocket, X } from 'lucide-react';
 import './UpdateBanner.css';
 
 export default function UpdateBanner({ socketRef }) {
@@ -71,7 +72,7 @@ export default function UpdateBanner({ socketRef }) {
 
   return (
     <div className="update-banner">
-      <div className="update-banner__icon">🚀</div>
+      <div className="update-banner__icon"><Rocket size={18} strokeWidth={1.5} /></div>
       <div className="update-banner__text">
         <span className="update-banner__title">
           Доступно обновление {updateInfo.version}
@@ -101,7 +102,7 @@ export default function UpdateBanner({ socketRef }) {
             )}
           </span>
         ) : null}
-        <button className="update-banner__close" onClick={handleDismiss}>✕</button>
+        <button className="update-banner__close" onClick={handleDismiss}><X size={16} strokeWidth={2} /></button>
       </div>
     </div>
   );

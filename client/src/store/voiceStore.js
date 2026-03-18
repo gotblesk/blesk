@@ -17,12 +17,65 @@ export const useVoiceStore = create((set, get) => ({
   inputDeviceId: (() => {
     try { return localStorage.getItem('blesk-input-device') || null; } catch { return null; }
   })(),
+  outputDeviceId: (() => {
+    try { return localStorage.getItem('blesk-output-device') || 'default'; } catch { return 'default'; }
+  })(),
   noiseSuppression: (() => {
     try { const v = localStorage.getItem('blesk-noise-suppression'); return v === null ? true : v === 'true'; } catch { return true; }
   })(),
   echoCancellation: (() => {
     try { const v = localStorage.getItem('blesk-echo-cancellation'); return v === null ? true : v === 'true'; } catch { return true; }
   })(),
+
+  // Порог VAD (чувствительность микрофона, 0-100)
+  vadThreshold: (() => {
+    try { const v = localStorage.getItem('blesk-vad-threshold'); return v === null ? 15 : Number(v); } catch { return 15; }
+  })(),
+
+  // Качество соединения: 'good' | 'fair' | 'poor' | null
+  connectionQuality: null,
+
+  // Видео-состояние
+  cameraOn: false,
+  screenShareOn: false,
+  localCameraStream: null,
+  // { [userId]: { camera: MediaStream | null, screen: MediaStream | null } }
+  videoStreams: {},
+
+  // Включить/выключить камеру
+  setCameraOn: (on) => set({ cameraOn: on }),
+  setScreenShareOn: (on) => set({ screenShareOn: on }),
+  setLocalCameraStream: (stream) => set({ localCameraStream: stream }),
+
+  // Установить видеопоток удалённого участника
+  setVideoStream: (userId, type, stream) => {
+    set((state) => {
+      const existing = state.videoStreams[userId] || {};
+      return {
+        videoStreams: {
+          ...state.videoStreams,
+          [userId]: { ...existing, [type]: stream },
+        },
+      };
+    });
+  },
+
+  // Убрать видеопоток
+  removeVideoStream: (userId, type) => {
+    set((state) => {
+      const existing = state.videoStreams[userId];
+      if (!existing) return state;
+      const updated = { ...existing, [type]: null };
+      if (!updated.camera && !updated.screen) {
+        const { [userId]: _, ...rest } = state.videoStreams;
+        return { videoStreams: rest };
+      }
+      return { videoStreams: { ...state.videoStreams, [userId]: updated } };
+    });
+  },
+
+  // Очистить все видеопотоки
+  clearVideoStreams: () => set({ videoStreams: {}, localCameraStream: null, cameraOn: false, screenShareOn: false }),
 
   // Уровни звука для визуализации
   audioLevels: {},
@@ -44,6 +97,25 @@ export const useVoiceStore = create((set, get) => ({
       localStorage.setItem('blesk-user-volumes', JSON.stringify(updated));
       return { userVolumes: updated };
     });
+  },
+
+  // Установить устройство вывода звука
+  setOutputDevice: (deviceId) => {
+    const id = deviceId || 'default';
+    set({ outputDeviceId: id });
+    localStorage.setItem('blesk-output-device', id);
+  },
+
+  // Установить порог VAD
+  setVadThreshold: (value) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(value)));
+    set({ vadThreshold: clamped });
+    localStorage.setItem('blesk-vad-threshold', String(clamped));
+  },
+
+  // Установить качество соединения
+  setConnectionQuality: (quality) => {
+    set({ connectionQuality: quality });
   },
 
   // Список доступных голосовых комнат
@@ -180,6 +252,11 @@ export const useVoiceStore = create((set, get) => ({
       isMuted: false,
       isDeafened: false,
       audioLevels: {},
+      connectionQuality: null,
+      cameraOn: false,
+      screenShareOn: false,
+      localCameraStream: null,
+      videoStreams: {},
     });
   },
 

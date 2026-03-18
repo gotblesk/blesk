@@ -13,6 +13,7 @@ const DEFAULTS = {
   theme: 'dark',
   animatedBg: true,
   compactMessages: false,
+  e2eEnabled: true,
 };
 
 // Загрузить из localStorage
@@ -67,6 +68,7 @@ export const useSettingsStore = create((set, get) => ({
       theme: s.theme,
       animatedBg: s.animatedBg,
       compactMessages: s.compactMessages,
+      e2eEnabled: s.e2eEnabled,
     };
   },
 }));

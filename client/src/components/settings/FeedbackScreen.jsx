@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Bug, Lightbulb, HelpCircle, FileText, CheckCircle, X } from 'lucide-react';
 import useAppVersion from '../../hooks/useAppVersion';
 import API_URL from '../../config';
 import './FeedbackScreen.css';
 
 const TYPES = [
-  { id: 'bug', emoji: '🐛', label: 'Баг' },
-  { id: 'suggestion', emoji: '💡', label: 'Предложение' },
-  { id: 'question', emoji: '❓', label: 'Вопрос' },
+  { id: 'bug', emoji: <Bug size={16} strokeWidth={1.5} />, label: 'Баг' },
+  { id: 'suggestion', emoji: <Lightbulb size={16} strokeWidth={1.5} />, label: 'Предложение' },
+  { id: 'question', emoji: <HelpCircle size={16} strokeWidth={1.5} />, label: 'Вопрос' },
 ];
 
 export default function FeedbackScreen({ open, onClose }) {
@@ -107,13 +108,13 @@ export default function FeedbackScreen({ open, onClose }) {
         <div className="feedback-card__shine" />
 
         <button className="feedback-close" onClick={onClose}>
-          <span>✕</span>
+          <X size={18} strokeWidth={2} />
         </button>
 
         {!sent ? (
           <>
             <div className="feedback-header">
-              <div className="feedback-header__icon">📝</div>
+              <div className="feedback-header__icon"><FileText size={18} strokeWidth={1.5} /></div>
               <div className="feedback-header__title">Обратная связь</div>
               <div className="feedback-header__sub">
                 Помоги нам стать лучше
@@ -207,7 +208,7 @@ export default function FeedbackScreen({ open, onClose }) {
                     return (
                       <div key={fb.id} className="feedback-history__item">
                         <div className="feedback-history__type">
-                          {typeInfo ? typeInfo.emoji : '📝'}{' '}
+                          {typeInfo ? typeInfo.emoji : <FileText size={16} strokeWidth={1.5} />}{' '}
                           {typeInfo ? typeInfo.label : fb.type}
                         </div>
                         <div className="feedback-history__text">{fb.text}</div>
@@ -224,7 +225,7 @@ export default function FeedbackScreen({ open, onClose }) {
           </>
         ) : (
           <div className="feedback-success">
-            <div className="feedback-success__icon">✅</div>
+            <div className="feedback-success__icon"><CheckCircle size={32} strokeWidth={1.5} /></div>
             <div className="feedback-success__title">Отправлено!</div>
             <div className="feedback-success__text">
               Спасибо за обратную связь. Мы обязательно прочитаем.

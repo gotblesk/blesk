@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getCurrentUserId } from '../utils/auth';
+import { decryptMessage, fetchPublicKey } from '../utils/cryptoService';
 import API_URL from '../config';
 
 function getHeaders() {
@@ -47,6 +48,34 @@ export const useChatStore = create((set, get) => ({
       const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`, { headers: getHeaders() });
       if (!res.ok) throw new Error();
       const msgs = await res.json();
+
+      // Расшифровать E2E сообщения из истории
+      // Для личного чата shared key одинаковый в обе стороны,
+      // но нужен публичный ключ собеседника (не свой)
+      const myId = getCurrentUserId();
+      const hasEncrypted = msgs.some((m) => m.encrypted);
+      let otherPubKey = null;
+
+      if (hasEncrypted) {
+        // Найти ID собеседника из сообщений
+        const otherUserId = msgs.find((m) => m.userId !== myId)?.userId;
+        if (otherUserId) {
+          otherPubKey = await fetchPublicKey(otherUserId);
+        }
+      }
+
+      for (const msg of msgs) {
+        if (msg.encrypted && otherPubKey) {
+          try {
+            const plain = await decryptMessage(msg.text, otherPubKey, chatId);
+            if (plain) msg.text = plain;
+            else msg.text = 'Не удалось расшифровать';
+          } catch {
+            msg.text = 'Ошибка расшифровки';
+          }
+        }
+      }
+
       set((state) => ({
         messages: { ...state.messages, [chatId]: msgs },
       }));
@@ -131,12 +160,22 @@ export const useChatStore = create((set, get) => ({
 
       if (existing.some((m) => m.id === message.id)) return state;
 
+      // Превью для медиа-сообщений
+      let previewText = message.text;
+      if (!previewText && message.type === 'media' && message.attachments?.length) {
+        const a = message.attachments[0];
+        if (a.mimeType?.startsWith('image/')) previewText = 'Фото';
+        else if (a.mimeType?.startsWith('video/')) previewText = 'Видео';
+        else if (a.mimeType?.startsWith('audio/')) previewText = 'Аудио';
+        else previewText = a.filename || 'Файл';
+      }
+
       const chats = state.chats.map((c) =>
         c.id === chatId
           ? {
               ...c,
               lastMessage: {
-                text: message.text,
+                text: previewText,
                 username: message.username,
                 createdAt: message.createdAt,
               },
