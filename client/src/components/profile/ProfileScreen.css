@@ -399,8 +399,8 @@
 }
 
 [data-theme="light"] .profile-email-code-input {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
   color: rgba(0, 0, 0, 0.85);
 }
 
@@ -480,8 +480,8 @@
 }
 
 [data-theme="light"] .profile-pw-input {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
   color: rgba(0, 0, 0, 0.85);
 }
 
@@ -490,5 +490,5 @@
 }
 
 [data-theme="light"] .profile-pw-input:focus {
-  border-color: rgba(200, 255, 0, 0.5);
+  border-color: rgba(74, 140, 0, 0.5);
 }

@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Chat Concepts v2</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    min-height: 100vh;
+  }
+
+  .page-title {
+    text-align: center;
+    padding: 40px 20px 6px;
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #c8ff00, #a0e800);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .page-sub {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 40px;
+  }
+
+  .concepts {
+    display: flex;
+    gap: 40px;
+    padding: 0 40px 60px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  .concepts::-webkit-scrollbar { display: none; }
+
+  .concept {
+    min-width: 380px;
+    max-width: 380px;
+    scroll-snap-align: center;
+    flex-shrink: 0;
+  }
+
+  .concept__label {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .concept__desc {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 16px;
+    line-height: 1.5;
+    padding: 0 20px;
+  }
+
+  .phone {
+    width: 380px;
+    height: 700px;
+    border-radius: 32px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  /* Shared grip */
+  .grip {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.07);
+    z-index: 5;
+  }
+
+  /* ====================================================
+     CONCEPT A: DEPTH LAYERS
+     Сообщения на разных "слоях глубины".
+     Свои — ближе (чётче, крупнее), чужие — дальше (мягче).
+     Эффект заглядывания через стекло.
+     ==================================================== */
+  .ca-bg {
+    background: #09071a;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ca-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 16px 12px;
+    position: relative;
+    z-index: 3;
+  }
+  .ca-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+    position: relative;
+  }
+  .ca-avatar-ring {
+    position: absolute; inset: -3px; border-radius: 50%;
+    border: 1.5px solid rgba(74,222,128,0.3);
+  }
+  .ca-name { font-size: 14px; font-weight: 600; }
+  .ca-status { font-size: 10px; color: #4ade80; }
+
+  .ca-messages {
+    flex: 1;
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+    overflow: hidden;
+    /* Subtle depth perspective */
+    perspective: 800px;
+  }
+
+  .ca-msg {
+    display: flex; flex-direction: column; max-width: 72%;
+  }
+  .ca-msg--own { align-self: flex-end; align-items: flex-end; }
+  .ca-msg--other { align-self: flex-start; align-items: flex-start; }
+
+  .ca-bubble {
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  /* OWN: Ближний слой — чёткий, с глубокой тенью, слегка "парит" */
+  .ca-msg--own .ca-bubble {
+    background: rgba(200,255,0,0.09);
+    border: 1px solid rgba(200,255,0,0.08);
+    border-radius: 18px 18px 4px 18px;
+    color: rgba(255,255,255,0.92);
+    box-shadow:
+      0 4px 20px rgba(0,0,0,0.3),
+      0 1px 0 rgba(200,255,0,0.06) inset;
+    transform: translateZ(20px);
+    position: relative;
+  }
+  /* Тонкий отблеск сверху — как стекло ближнего плана */
+  .ca-msg--own .ca-bubble::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,255,0,0.15), transparent);
+  }
+
+  /* OTHER: Дальний слой — приглушённый, размытые края тени */
+  .ca-msg--other .ca-bubble {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.03);
+    border-radius: 18px 18px 18px 4px;
+    color: rgba(255,255,255,0.6);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: translateZ(-10px) scale(0.97);
+    filter: blur(0.2px);
+    position: relative;
+  }
+
+  .ca-time {
+    font-size: 9px; color: rgba(255,255,255,0.1);
+    margin-top: 3px; padding: 0 6px;
+  }
+
+  /* Разделитель глубины — тонкая "плоскость" между слоями */
+  .ca-depth-line {
+    width: 60%;
+    height: 1px;
+    margin: 4px auto;
+    background: linear-gradient(90deg, transparent, rgba(200,255,0,0.04), transparent);
+  }
+
+  .ca-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    position: relative; z-index: 3;
+  }
+  .ca-input-field {
+    flex: 1; padding: 10px 14px; border-radius: 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15); font-size: 13px;
+  }
+  .ca-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent, #c8ff00); color: #08060f;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 12px rgba(200,255,0,0.2);
+  }
+
+
+  /* ====================================================
+     CONCEPT B: LIQUID MERCURY
+     Сообщения как капли ртути — органические формы.
+     Последовательные от одного человека "сливаются".
+     Металлический отблеск.
+     ==================================================== */
+  .cb-bg {
+    background: #0a0a14;
+    display: flex; flex-direction: column;
+  }
+
+  .cb-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 16px 12px;
+    position: relative;
+  }
+  .cb-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+  }
+  .cb-online {
+    position: absolute; left: 40px; top: 38px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80; border: 2px solid #0a0a14;
+  }
+  .cb-name { font-size: 14px; font-weight: 600; }
+  .cb-status { font-size: 10px; color: #4ade80; }
+
+  .cb-messages {
+    flex: 1;
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 3px;
+    overflow: hidden;
+  }
+
+  .cb-msg {
+    display: flex; flex-direction: column; max-width: 72%;
+  }
+  .cb-msg--own { align-self: flex-end; align-items: flex-end; }
+  .cb-msg--other { align-self: flex-start; align-items: flex-start; }
+
+  .cb-bubble {
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+    position: relative;
+  }
+
+  /* OWN — mercury green blob */
+  .cb-msg--own .cb-bubble {
+    background: linear-gradient(160deg, rgba(200,255,0,0.1) 0%, rgba(200,255,0,0.05) 100%);
+    color: rgba(255,255,255,0.9);
+    border: none;
+    /* Органическая форма — неправильные радиусы */
+    border-radius: 22px 20px 6px 18px;
+    box-shadow: 0 2px 12px rgba(200,255,0,0.06);
+  }
+  /* Металлический блик */
+  .cb-msg--own .cb-bubble::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 15%; right: 30%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,255,0,0.2), transparent);
+    border-radius: 50%;
+  }
+
+  /* Слитые сообщения — общая форма без зазора */
+  .cb-msg--own + .cb-msg--own .cb-bubble {
+    border-radius: 18px 8px 6px 18px;
+    margin-top: -1px;
+  }
+  .cb-msg--own + .cb-msg--own .cb-bubble::after {
+    display: none;
+  }
+
+  /* OTHER — mercury white blob */
+  .cb-msg--other .cb-bubble {
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.75);
+    border: none;
+    border-radius: 20px 22px 18px 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .cb-msg--other .cb-bubble::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 25%; right: 15%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    border-radius: 50%;
+  }
+  .cb-msg--other + .cb-msg--other .cb-bubble {
+    border-radius: 8px 18px 18px 6px;
+    margin-top: -1px;
+  }
+  .cb-msg--other + .cb-msg--other .cb-bubble::after {
+    display: none;
+  }
+
+  .cb-time {
+    font-size: 9px; color: rgba(255,255,255,0.08);
+    margin-top: 3px; padding: 0 6px;
+  }
+  /* Скрыть время у слитых */
+  .cb-msg--own + .cb-msg--own .cb-time-hide,
+  .cb-msg--other + .cb-msg--other .cb-time-hide {
+    display: none;
+  }
+
+  .cb-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+  }
+  .cb-input-field {
+    flex: 1; padding: 10px 14px;
+    border-radius: 20px 20px 20px 8px;
+    background: rgba(255,255,255,0.03);
+    border: none;
+    color: rgba(255,255,255,0.15); font-size: 13px;
+  }
+  .cb-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #c8ff00; color: #08060f;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ====================================================
+     CONCEPT C: EMBER (УГОЛЬКИ)
+     Свежие сообщения "тлеют" ярче.
+     По мере старения — затухают.
+     Живой чат, чувствуется время.
+     ==================================================== */
+  .cc-bg {
+    background: #0b0810;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+
+  /* Тлеющие частицы фон */
+  .cc-particles {
+    position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  }
+  .cc-particle {
+    position: absolute;
+    width: 2px; height: 2px;
+    border-radius: 50%;
+    background: rgba(200,255,0,0.3);
+    animation: ccFloat 8s ease-in-out infinite;
+  }
+  .cc-particle:nth-child(1) { left: 10%; top: 30%; animation-delay: 0s; }
+  .cc-particle:nth-child(2) { left: 80%; top: 50%; animation-delay: -2s; }
+  .cc-particle:nth-child(3) { left: 50%; top: 70%; animation-delay: -4s; }
+  .cc-particle:nth-child(4) { left: 30%; top: 85%; animation-delay: -6s; }
+  .cc-particle:nth-child(5) { left: 70%; top: 20%; animation-delay: -1s; }
+
+  @keyframes ccFloat {
+    0%, 100% { opacity: 0; transform: translateY(0); }
+    20% { opacity: 0.6; }
+    80% { opacity: 0.3; }
+    100% { transform: translateY(-40px); opacity: 0; }
+  }
+
+  .cc-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 16px 12px;
+    position: relative; z-index: 2;
+  }
+  .cc-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+    position: relative;
+  }
+  .cc-avatar::after {
+    content: '';
+    position: absolute; inset: -4px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,107,157,0.15) 0%, transparent 70%);
+  }
+  .cc-name { font-size: 14px; font-weight: 600; }
+  .cc-status { font-size: 10px; color: #4ade80; }
+
+  .cc-messages {
+    flex: 1;
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 6px;
+    overflow: hidden;
+    position: relative; z-index: 2;
+  }
+
+  .cc-msg {
+    display: flex; flex-direction: column; max-width: 72%;
+  }
+  .cc-msg--own { align-self: flex-end; align-items: flex-end; }
+  .cc-msg--other { align-self: flex-start; align-items: flex-start; }
+
+  .cc-bubble {
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+    position: relative;
+    border-radius: 16px;
+  }
+
+  /* "Жар" — чем новее, тем ярче.
+     Используем CSS-переменную --heat для контроля. */
+
+  /* OWN */
+  .cc-msg--own .cc-bubble {
+    background: rgba(200,255,0, var(--heat-bg, 0.08));
+    border: 1px solid rgba(200,255,0, var(--heat-border, 0.06));
+    border-radius: 16px 16px 4px 16px;
+    color: rgba(255,255,255, var(--heat-text, 0.85));
+    box-shadow: 0 0 calc(var(--heat-glow, 0) * 1px) rgba(200,255,0, var(--heat-glow-a, 0));
+    transition: box-shadow 2s, background 2s, border-color 2s;
+  }
+
+  /* OTHER */
+  .cc-msg--other .cc-bubble {
+    background: rgba(255,255,255, var(--heat-bg, 0.03));
+    border: 1px solid rgba(255,255,255, var(--heat-border, 0.03));
+    border-radius: 16px 16px 16px 4px;
+    color: rgba(255,255,255, var(--heat-text, 0.7));
+    transition: background 2s, border-color 2s;
+  }
+
+  /* Свежее сообщение — тлеющая подсветка */
+  .cc-msg--hot .cc-bubble {
+    --heat-bg: 0.14;
+    --heat-border: 0.15;
+    --heat-text: 0.95;
+    --heat-glow: 20;
+    --heat-glow-a: 0.15;
+  }
+  .cc-msg--warm .cc-bubble {
+    --heat-bg: 0.1;
+    --heat-border: 0.08;
+    --heat-text: 0.9;
+    --heat-glow: 8;
+    --heat-glow-a: 0.08;
+  }
+  /* Старые = дефолт (тусклые) */
+
+  /* Тлеющая точка на свежих */
+  .cc-msg--hot::after {
+    content: '';
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #c8ff00;
+    box-shadow: 0 0 8px rgba(200,255,0,0.4);
+    margin-top: 2px;
+    animation: ccEmber 2s ease-in-out infinite;
+  }
+  .cc-msg--own.cc-msg--hot::after {
+    align-self: flex-end;
+    margin-right: 8px;
+  }
+  .cc-msg--other.cc-msg--hot::after {
+    align-self: flex-start;
+    margin-left: 8px;
+  }
+
+  @keyframes ccEmber {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .cc-time {
+    font-size: 9px; color: rgba(255,255,255,0.1);
+    margin-top: 2px; padding: 0 6px;
+  }
+
+  .cc-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    position: relative; z-index: 2;
+  }
+  .cc-input-field {
+    flex: 1; padding: 10px 14px; border-radius: 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15); font-size: 13px;
+  }
+  .cc-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #c8ff00; color: #08060f;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 16px rgba(200,255,0,0.2);
+  }
+
+
+  /* ====================================================
+     CONCEPT D: DIMENSIONAL RIFT (РАЗЛОМ)
+     Центральная "трещина" разделяет два потока.
+     Свои справа от разлома, чужие — слева.
+     Разлом мерцает.
+     ==================================================== */
+  .cd-bg {
+    background: #080610;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+
+  .cd-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 16px 12px;
+    position: relative; z-index: 3;
+  }
+  .cd-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+  }
+  .cd-online-dot {
+    position: absolute; left: 40px; top: 38px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80; border: 2px solid #080610;
+  }
+  .cd-name { font-size: 14px; font-weight: 600; }
+  .cd-status { font-size: 10px; color: #4ade80; }
+
+  .cd-messages {
+    flex: 1;
+    padding: 12px 0;
+    display: flex; flex-direction: column; gap: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Центральный разлом */
+  .cd-rift {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 50%;
+    width: 2px;
+    margin-left: -1px;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      rgba(200,255,0,0.08) 15%,
+      rgba(200,255,0,0.03) 50%,
+      rgba(200,255,0,0.08) 85%,
+      transparent 100%
+    );
+    z-index: 1;
+  }
+  .cd-rift::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 20px;
+    margin-left: -9px;
+    background: linear-gradient(90deg,
+      transparent,
+      rgba(200,255,0,0.02),
+      transparent
+    );
+    animation: cdRiftPulse 4s ease-in-out infinite;
+  }
+
+  @keyframes cdRiftPulse {
+    0%, 100% { opacity: 0.5; width: 20px; margin-left: -9px; }
+    50% { opacity: 1; width: 40px; margin-left: -19px; }
+  }
+
+  .cd-msg {
+    display: flex; flex-direction: column;
+    max-width: 46%;
+    position: relative;
+    z-index: 2;
+    padding: 0 16px;
+  }
+  .cd-msg--own {
+    align-self: flex-end;
+    align-items: flex-end;
+  }
+  .cd-msg--other {
+    align-self: flex-start;
+    align-items: flex-start;
+  }
+
+  .cd-bubble {
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+    position: relative;
+  }
+
+  /* OWN — правая сторона разлома */
+  .cd-msg--own .cd-bubble {
+    background: rgba(200,255,0,0.07);
+    border: 1px solid rgba(200,255,0,0.06);
+    border-radius: 14px 14px 4px 14px;
+    color: rgba(255,255,255,0.9);
+  }
+  /* Линия к разлому */
+  .cd-msg--own::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 50%;
+    width: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(200,255,0,0.12), transparent);
+  }
+
+  /* OTHER — левая сторона разлома */
+  .cd-msg--other .cd-bubble {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.03);
+    border-radius: 14px 14px 14px 4px;
+    color: rgba(255,255,255,0.75);
+  }
+  .cd-msg--other::after {
+    content: '';
+    position: absolute;
+    right: -20px;
+    top: 50%;
+    width: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06));
+  }
+
+  /* Точка "входа" на разломе */
+  .cd-msg--own .cd-dot,
+  .cd-msg--other .cd-dot {
+    position: absolute;
+    top: 50%;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    margin-top: -2px;
+  }
+  .cd-msg--own .cd-dot {
+    left: -22px;
+    background: rgba(200,255,0,0.3);
+    box-shadow: 0 0 6px rgba(200,255,0,0.2);
+  }
+  .cd-msg--other .cd-dot {
+    right: -22px;
+    background: rgba(255,255,255,0.15);
+  }
+
+  .cd-time {
+    font-size: 9px; color: rgba(255,255,255,0.08);
+    margin-top: 2px; padding: 0 6px;
+  }
+
+  .cd-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    position: relative; z-index: 3;
+  }
+  .cd-input-field {
+    flex: 1; padding: 10px 14px; border-radius: 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15); font-size: 13px;
+  }
+  .cd-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #c8ff00; color: #08060f;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+
+  /* ====== VOTE ====== */
+  .vote-section {
+    display: flex; gap: 16px; justify-content: center; padding: 40px 20px;
+    flex-wrap: wrap;
+  }
+  .vote-btn {
+    padding: 14px 24px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.25s;
+    font-family: inherit;
+  }
+  .vote-btn:hover {
+    background: rgba(200,255,0,0.08);
+    border-color: rgba(200,255,0,0.15);
+    color: #c8ff00;
+    transform: translateY(-2px);
+  }
+  .vote-btn--active {
+    background: rgba(200,255,0,0.12) !important;
+    border-color: rgba(200,255,0,0.25) !important;
+    color: #c8ff00 !important;
+    box-shadow: 0 4px 20px rgba(200,255,0,0.12);
+  }
+
+  .mix-hint {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.15);
+    padding: 0 20px 40px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">Дизайн чата v2 — 4 новых</div>
+<div class="page-sub">Совершенно другой подход — ни у кого такого нет</div>
+
+<div class="concepts">
+
+  <!-- CONCEPT A: DEPTH LAYERS -->
+  <div class="concept">
+    <div class="concept__label">A. Depth Layers</div>
+    <div class="concept__desc">Свои сообщения «парят» ближе к тебе — чёткие, с глубокой тенью.<br>Чужие — на дальнем плане, приглушённые. Эффект глубины без перегруза.</div>
+    <div class="phone ca-bg">
+      <div class="grip"></div>
+      <div class="ca-header">
+        <div class="ca-avatar">К<div class="ca-avatar-ring"></div></div>
+        <div><div class="ca-name">Катя</div><div class="ca-status">онлайн</div></div>
+      </div>
+      <div class="ca-messages">
+        <div class="ca-msg ca-msg--other">
+          <div class="ca-bubble">Привет! Как дела? 👋</div>
+          <div class="ca-time">14:32</div>
+        </div>
+        <div class="ca-msg ca-msg--own">
+          <div class="ca-bubble">Привет! Всё отлично, работаю над blesk</div>
+          <div class="ca-time">14:33</div>
+        </div>
+        <div class="ca-depth-line"></div>
+        <div class="ca-msg ca-msg--other">
+          <div class="ca-bubble">О круто! Когда можно попробовать?</div>
+          <div class="ca-time">14:33</div>
+        </div>
+        <div class="ca-msg ca-msg--own">
+          <div class="ca-bubble">Скоро, уже почти готов MVP 🚀</div>
+          <div class="ca-time">14:34</div>
+        </div>
+        <div class="ca-depth-line"></div>
+        <div class="ca-msg ca-msg--other">
+          <div class="ca-bubble">Класс, жду! А дизайн реально красивый получается</div>
+          <div class="ca-time">14:35</div>
+        </div>
+        <div class="ca-msg ca-msg--own">
+          <div class="ca-bubble">Спасибо! Старался сделать уникально</div>
+          <div class="ca-time">14:35</div>
+        </div>
+        <div class="ca-msg ca-msg--other">
+          <div class="ca-bubble">Кстати а голосовые уже есть?</div>
+          <div class="ca-time">14:36</div>
+        </div>
+      </div>
+      <div class="ca-input">
+        <div class="ca-input-field">Написать сообщение...</div>
+        <div class="ca-send">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT B: LIQUID MERCURY -->
+  <div class="concept">
+    <div class="concept__label">B. Liquid Mercury</div>
+    <div class="concept__desc">Сообщения как капли ртути — органические формы.<br>Подряд от одного человека «сливаются» в единый поток. Металлический блик сверху.</div>
+    <div class="phone cb-bg">
+      <div class="grip"></div>
+      <div class="cb-header">
+        <div class="cb-avatar">К</div>
+        <div class="cb-online"></div>
+        <div><div class="cb-name">Катя</div><div class="cb-status">онлайн</div></div>
+      </div>
+      <div class="cb-messages">
+        <div class="cb-msg cb-msg--other">
+          <div class="cb-bubble">Привет!</div>
+        </div>
+        <div class="cb-msg cb-msg--other">
+          <div class="cb-bubble">Как дела? 👋</div>
+        </div>
+        <div class="cb-msg cb-msg--other">
+          <div class="cb-bubble">Давно не писала, соскучилась</div>
+          <div class="cb-time">14:32</div>
+        </div>
+        <div class="cb-msg cb-msg--own">
+          <div class="cb-bubble">Привет! Всё отлично</div>
+        </div>
+        <div class="cb-msg cb-msg--own">
+          <div class="cb-bubble">Работаю над blesk, почти готов MVP 🚀</div>
+          <div class="cb-time">14:33</div>
+        </div>
+        <div class="cb-msg cb-msg--other">
+          <div class="cb-bubble">О круто! Когда можно попробовать?</div>
+          <div class="cb-time">14:33</div>
+        </div>
+        <div class="cb-msg cb-msg--own">
+          <div class="cb-bubble">Скоро!</div>
+        </div>
+        <div class="cb-msg cb-msg--own">
+          <div class="cb-bubble">Думаю через пару недель первая версия будет</div>
+          <div class="cb-time">14:34</div>
+        </div>
+        <div class="cb-msg cb-msg--other">
+          <div class="cb-bubble">Класс, жду! Дизайн реально красивый</div>
+          <div class="cb-time">14:35</div>
+        </div>
+        <div class="cb-msg cb-msg--own">
+          <div class="cb-bubble">Спасибо ❤️</div>
+          <div class="cb-time">14:35</div>
+        </div>
+      </div>
+      <div class="cb-input">
+        <div class="cb-input-field">Написать сообщение...</div>
+        <div class="cb-send">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT C: EMBER -->
+  <div class="concept">
+    <div class="concept__label">C. Ember</div>
+    <div class="concept__desc">Свежие сообщения «тлеют» — ярче, с подсветкой и точкой-угольком.<br>Старые постепенно затухают. Живой чат, чувствуется время.</div>
+    <div class="phone cc-bg">
+      <div class="grip"></div>
+      <div class="cc-particles">
+        <div class="cc-particle"></div>
+        <div class="cc-particle"></div>
+        <div class="cc-particle"></div>
+        <div class="cc-particle"></div>
+        <div class="cc-particle"></div>
+      </div>
+      <div class="cc-header">
+        <div class="cc-avatar">К</div>
+        <div><div class="cc-name">Катя</div><div class="cc-status">онлайн</div></div>
+      </div>
+      <div class="cc-messages">
+        <div class="cc-msg cc-msg--other">
+          <div class="cc-bubble">Привет! Как дела? 👋</div>
+          <div class="cc-time">14:32</div>
+        </div>
+        <div class="cc-msg cc-msg--own">
+          <div class="cc-bubble">Привет! Всё отлично, работаю над blesk</div>
+          <div class="cc-time">14:33</div>
+        </div>
+        <div class="cc-msg cc-msg--other">
+          <div class="cc-bubble">О круто! Когда можно попробовать?</div>
+          <div class="cc-time">14:33</div>
+        </div>
+        <div class="cc-msg cc-msg--own cc-msg--warm">
+          <div class="cc-bubble">Скоро, уже почти готов MVP 🚀</div>
+          <div class="cc-time">14:34</div>
+        </div>
+        <div class="cc-msg cc-msg--other cc-msg--warm">
+          <div class="cc-bubble">Класс, жду! Дизайн красивый получается</div>
+          <div class="cc-time">14:35</div>
+        </div>
+        <div class="cc-msg cc-msg--own cc-msg--hot">
+          <div class="cc-bubble">Спасибо! Старался сделать уникально</div>
+          <div class="cc-time">14:35</div>
+        </div>
+        <div class="cc-msg cc-msg--other cc-msg--hot">
+          <div class="cc-bubble">Кстати а голосовые уже есть?</div>
+          <div class="cc-time">14:36</div>
+        </div>
+      </div>
+      <div class="cc-input">
+        <div class="cc-input-field">Написать сообщение...</div>
+        <div class="cc-send">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT D: DIMENSIONAL RIFT -->
+  <div class="concept">
+    <div class="concept__label">D. Rift</div>
+    <div class="concept__desc">Центральная «трещина» разделяет два потока. Твои справа, чужие слева.<br>Линии и точки тянутся к разлому. Как два измерения общаются.</div>
+    <div class="phone cd-bg">
+      <div class="grip"></div>
+      <div class="cd-header">
+        <div class="cd-avatar">К</div>
+        <div class="cd-online-dot"></div>
+        <div><div class="cd-name">Катя</div><div class="cd-status">онлайн</div></div>
+      </div>
+      <div class="cd-messages">
+        <div class="cd-rift"></div>
+        <div class="cd-msg cd-msg--other">
+          <div class="cd-bubble">Привет! Как дела? 👋</div>
+          <div class="cd-dot"></div>
+          <div class="cd-time">14:32</div>
+        </div>
+        <div class="cd-msg cd-msg--own">
+          <div class="cd-bubble">Привет! Всё отлично</div>
+          <div class="cd-dot"></div>
+          <div class="cd-time">14:33</div>
+        </div>
+        <div class="cd-msg cd-msg--other">
+          <div class="cd-bubble">Когда можно попробовать blesk?</div>
+          <div class="cd-dot"></div>
+          <div class="cd-time">14:33</div>
+        </div>
+        <div class="cd-msg cd-msg--own">
+          <div class="cd-bubble">Скоро, почти готов MVP 🚀</div>
+          <div class="cd-dot"></div>
+          <div class="cd-time">14:34</div>
+        </div>
+        <div class="cd-msg cd-msg--other">
+          <div class="cd-bubble">Класс! Дизайн красивый</div>
+          <div class="cd-dot"></div>
+          <div class="cd-time">14:35</div>
+        </div>
+        <div class="cd-msg cd-msg--own">
+          <div class="cd-bubble">Спасибо!</div>
+          <div class="cd-dot"></div>
+          <div class="cd-time">14:35</div>
+        </div>
+        <div class="cd-msg cd-msg--other">
+          <div class="cd-bubble">Голосовые уже есть?</div>
+          <div class="cd-dot"></div>
+          <div class="cd-time">14:36</div>
+        </div>
+      </div>
+      <div class="cd-input">
+        <div class="cd-input-field">Написать сообщение...</div>
+        <div class="cd-send">→</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="vote-section">
+  <button class="vote-btn" onclick="vote(this)">A. Depth Layers</button>
+  <button class="vote-btn" onclick="vote(this)">B. Liquid Mercury</button>
+  <button class="vote-btn" onclick="vote(this)">C. Ember</button>
+  <button class="vote-btn" onclick="vote(this)">D. Rift</button>
+</div>
+
+<div class="mix-hint">Можно миксовать элементы из разных концептов</div>
+
+<script>
+function vote(btn) {
+  document.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('vote-btn--active'));
+  btn.classList.add('vote-btn--active');
+}
+</script>
+</body>
+</html>

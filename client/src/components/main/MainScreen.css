@@ -149,3 +149,40 @@
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .swipe-hint--left {
+  background: linear-gradient(180deg,
+    transparent 20%,
+    rgba(74, 140, 0, 0.08) 35%,
+    rgba(74, 140, 0, 0.2) 50%,
+    rgba(74, 140, 0, 0.08) 65%,
+    transparent 80%
+  );
+}
+
+[data-theme="light"] .swipe-hint--left::after {
+  border-color: rgba(74, 140, 0, 0.3);
+}
+
+[data-theme="light"] .swipe-hint--right {
+  background: linear-gradient(180deg,
+    transparent 20%,
+    rgba(100, 70, 200, 0.08) 35%,
+    rgba(100, 70, 200, 0.2) 50%,
+    rgba(100, 70, 200, 0.08) 65%,
+    transparent 80%
+  );
+}
+
+[data-theme="light"] .swipe-hint--right::after {
+  border-color: rgba(100, 70, 200, 0.3);
+}
+
+[data-theme="light"] .placeholder-title {
+  color: rgba(26, 26, 46, 0.6);
+}
+
+[data-theme="light"] .placeholder-sub {
+  color: rgba(26, 26, 46, 0.45);
+}

@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Chat Concepts v3</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    min-height: 100vh;
+  }
+
+  .page-title {
+    text-align: center;
+    padding: 40px 20px 6px;
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #c8ff00, #a0e800);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .page-sub {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 40px;
+    line-height: 1.5;
+  }
+
+  .concepts {
+    display: flex;
+    gap: 40px;
+    padding: 0 40px 60px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .concept {
+    width: 380px;
+    flex-shrink: 0;
+  }
+
+  .concept__label {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .concept__desc {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 16px;
+    line-height: 1.5;
+    padding: 0 10px;
+  }
+  .concept__unique {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(200,255,0,0.4);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .phone {
+    width: 380px;
+    height: 700px;
+    border-radius: 32px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .grip {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.07);
+    z-index: 5;
+  }
+
+  /* ====================================================
+     CONCEPT A: ACCENT EDGE
+     Чистые пузыри как в Telegram, но с фирменными штрихами:
+     — Тонкая акцентная полоска сбоку на своих сообщениях
+     — Группировка: подряд от одного — скруглённые по-разному
+     — Время появляется только у последнего в группе
+     — Hover: мягкий lift + появляется время
+     ==================================================== */
+  .ca { background: #09071a; display: flex; flex-direction: column; }
+
+  .ca-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .ca-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+    position: relative;
+  }
+  .ca-online {
+    position: absolute; bottom: -1px; right: -1px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #4ade80; border: 2px solid #09071a;
+  }
+  .ca-name { font-size: 14px; font-weight: 600; }
+  .ca-status { font-size: 10px; color: #4ade80; }
+
+  .ca-messages {
+    flex: 1; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 2px;
+    overflow: hidden;
+  }
+
+  /* Группировка: отступ между разными отправителями */
+  .ca-gap { height: 10px; }
+
+  .ca-msg {
+    display: flex; flex-direction: column; max-width: 70%;
+    position: relative;
+  }
+  .ca-msg--own { align-self: flex-end; }
+  .ca-msg--other { align-self: flex-start; }
+
+  .ca-bubble {
+    padding: 8px 12px;
+    font-size: 13px;
+    line-height: 1.45;
+    word-break: break-word;
+    position: relative;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ca-bubble:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  /* === OWN messages === */
+  .ca-msg--own .ca-bubble {
+    background: rgba(200,255,0,0.07);
+    color: rgba(255,255,255,0.9);
+    border: none;
+  }
+  /* Акцентная полоска справа — фишка blesk */
+  .ca-msg--own .ca-bubble::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 4px; bottom: 4px;
+    width: 2.5px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, rgba(200,255,0,0.5), rgba(200,255,0,0.15));
+  }
+
+  /* Группировка скруглений — свои */
+  .ca-msg--own.ca-first .ca-bubble { border-radius: 16px 16px 4px 16px; }
+  .ca-msg--own.ca-mid .ca-bubble { border-radius: 16px 4px 4px 16px; }
+  .ca-msg--own.ca-last .ca-bubble { border-radius: 16px 4px 16px 16px; }
+  .ca-msg--own.ca-solo .ca-bubble { border-radius: 16px 16px 4px 16px; }
+
+  /* === OTHER messages === */
+  .ca-msg--other .ca-bubble {
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.8);
+    border: none;
+  }
+  .ca-msg--other .ca-bubble::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 4px; bottom: 4px;
+    width: 2.5px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03));
+  }
+
+  /* Группировка скруглений — чужие */
+  .ca-msg--other.ca-first .ca-bubble { border-radius: 16px 16px 16px 4px; }
+  .ca-msg--other.ca-mid .ca-bubble { border-radius: 4px 16px 16px 4px; }
+  .ca-msg--other.ca-last .ca-bubble { border-radius: 4px 16px 16px 16px; }
+  .ca-msg--other.ca-solo .ca-bubble { border-radius: 16px 16px 16px 4px; }
+
+  .ca-time {
+    font-size: 9px; color: rgba(255,255,255,0.1);
+    margin-top: 3px; padding: 0 6px;
+    text-align: right;
+  }
+  .ca-msg--other .ca-time { text-align: left; }
+
+  .ca-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+  }
+  .ca-input-field {
+    flex: 1; padding: 10px 14px; border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15); font-size: 13px;
+  }
+  .ca-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #c8ff00; color: #08060f;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ====================================================
+     CONCEPT B: STREAM
+     Без пузырей. Как Discord но горизонтально компактнее.
+     Аватар слева, сообщения справа.
+     Фишки:
+     — Акцентная точка у своих сообщений
+     — Группировка: аватар показан только у первого
+     — Hover: подсветка строки + время
+     — Читается быстро как лента
+     ==================================================== */
+  .cb { background: #09071a; display: flex; flex-direction: column; }
+
+  .cb-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .cb-avatar-h {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+    position: relative;
+  }
+  .cb-online-h {
+    position: absolute; bottom: -1px; right: -1px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #4ade80; border: 2px solid #09071a;
+  }
+  .cb-name-h { font-size: 14px; font-weight: 600; }
+  .cb-status-h { font-size: 10px; color: #4ade80; }
+
+  .cb-messages {
+    flex: 1; padding: 8px 0;
+    display: flex; flex-direction: column; gap: 1px;
+    overflow: hidden;
+  }
+
+  .cb-group {
+    display: flex; gap: 10px;
+    padding: 6px 16px 2px;
+  }
+  .cb-group + .cb-group { margin-top: 8px; }
+
+  .cb-avatar-col {
+    width: 32px; flex-shrink: 0; padding-top: 2px;
+  }
+  .cb-avatar-sm {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px; color: white;
+  }
+
+  .cb-content { flex: 1; min-width: 0; }
+
+  .cb-sender-row {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-bottom: 2px;
+  }
+  .cb-sender-name {
+    font-size: 13px; font-weight: 600;
+  }
+  .cb-sender-name--own { color: #c8ff00; }
+  .cb-sender-name--other { color: #c44dff; }
+  .cb-sender-time {
+    font-size: 10px; color: rgba(255,255,255,0.1);
+  }
+
+  .cb-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.8);
+    padding: 1px 0;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+
+  .cb-row {
+    padding: 2px 16px 2px 58px;
+    transition: background 0.15s;
+    border-radius: 0;
+  }
+  .cb-row:hover {
+    background: rgba(255,255,255,0.02);
+  }
+  .cb-row .cb-text {
+    font-size: 13px; line-height: 1.5;
+    color: rgba(255,255,255,0.8);
+  }
+
+  /* Акцентная точка для своих */
+  .cb-group--own .cb-sender-name::before {
+    content: '';
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #c8ff00;
+    margin-right: 6px;
+    vertical-align: middle;
+    box-shadow: 0 0 6px rgba(200,255,0,0.3);
+  }
+
+  /* Date separator */
+  .cb-date {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.1);
+    padding: 8px 0;
+  }
+
+  .cb-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+  }
+  .cb-input-field {
+    flex: 1; padding: 10px 14px; border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15); font-size: 13px;
+  }
+  .cb-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #c8ff00; color: #08060f;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+
+  /* ====================================================
+     CONCEPT C: GLOW BUBBLES
+     Пузыри как в Telegram, но каждое сообщение
+     имеет тонкий glow аватарного цвета собеседника.
+     Свои — glow акцентного цвета.
+     Чужие — glow цвета их аватара.
+     + Группировка + плавные анимации
+     ==================================================== */
+  .cc { background: #09071a; display: flex; flex-direction: column; }
+
+  .cc-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .cc-avatar-h {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: white;
+    position: relative;
+  }
+  .cc-online-h {
+    position: absolute; bottom: -1px; right: -1px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #4ade80; border: 2px solid #09071a;
+  }
+  .cc-name-h { font-size: 14px; font-weight: 600; }
+  .cc-status-h { font-size: 10px; color: #4ade80; }
+
+  .cc-messages {
+    flex: 1; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 2px;
+    overflow: hidden;
+  }
+
+  .cc-gap { height: 10px; }
+
+  .cc-msg {
+    display: flex; flex-direction: column; max-width: 70%;
+    position: relative;
+  }
+  .cc-msg--own { align-self: flex-end; }
+  .cc-msg--other { align-self: flex-start; }
+
+  .cc-bubble {
+    padding: 8px 12px;
+    font-size: 13px;
+    line-height: 1.45;
+    word-break: break-word;
+    transition: transform 0.15s ease;
+  }
+  .cc-bubble:hover {
+    transform: translateY(-1px);
+  }
+
+  /* OWN — accent glow */
+  .cc-msg--own .cc-bubble {
+    background: rgba(200,255,0,0.06);
+    color: rgba(255,255,255,0.9);
+    box-shadow: 0 0 20px rgba(200,255,0,0.04), 0 2px 8px rgba(0,0,0,0.15);
+    border: 1px solid rgba(200,255,0,0.05);
+  }
+  .cc-msg--own .cc-bubble:hover {
+    box-shadow: 0 0 28px rgba(200,255,0,0.08), 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  /* OTHER — avatar color glow (pink-purple for Катя) */
+  .cc-msg--other .cc-bubble {
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.8);
+    box-shadow: 0 0 20px rgba(196,77,255,0.04), 0 2px 8px rgba(0,0,0,0.12);
+    border: 1px solid rgba(196,77,255,0.04);
+  }
+  .cc-msg--other .cc-bubble:hover {
+    box-shadow: 0 0 28px rgba(196,77,255,0.08), 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  /* Группировка */
+  .cc-msg--own.cc-first .cc-bubble { border-radius: 16px 16px 4px 16px; }
+  .cc-msg--own.cc-mid .cc-bubble { border-radius: 16px 4px 4px 16px; }
+  .cc-msg--own.cc-last .cc-bubble { border-radius: 16px 4px 16px 16px; }
+  .cc-msg--own.cc-solo .cc-bubble { border-radius: 16px 16px 4px 16px; }
+
+  .cc-msg--other.cc-first .cc-bubble { border-radius: 16px 16px 16px 4px; }
+  .cc-msg--other.cc-mid .cc-bubble { border-radius: 4px 16px 16px 4px; }
+  .cc-msg--other.cc-last .cc-bubble { border-radius: 4px 16px 16px 16px; }
+  .cc-msg--other.cc-solo .cc-bubble { border-radius: 16px 16px 16px 4px; }
+
+  .cc-time {
+    font-size: 9px; color: rgba(255,255,255,0.1);
+    margin-top: 3px; padding: 0 6px;
+    text-align: right;
+  }
+  .cc-msg--other .cc-time { text-align: left; }
+
+  .cc-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+  }
+  .cc-input-field {
+    flex: 1; padding: 10px 14px; border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15); font-size: 13px;
+  }
+  .cc-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #c8ff00; color: #08060f;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+
+  /* ====== VOTE ====== */
+  .vote-section {
+    display: flex; gap: 16px; justify-content: center; padding: 40px 20px 20px;
+    flex-wrap: wrap;
+  }
+  .vote-btn {
+    padding: 14px 24px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.25s;
+    font-family: inherit;
+  }
+  .vote-btn:hover {
+    background: rgba(200,255,0,0.08);
+    border-color: rgba(200,255,0,0.15);
+    color: #c8ff00;
+    transform: translateY(-2px);
+  }
+  .vote-btn--active {
+    background: rgba(200,255,0,0.12) !important;
+    border-color: rgba(200,255,0,0.25) !important;
+    color: #c8ff00 !important;
+    box-shadow: 0 4px 20px rgba(200,255,0,0.12);
+  }
+
+  .mix-hint {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.15);
+    padding: 0 20px 40px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">Дизайн чата v3</div>
+<div class="page-sub">Чистота Telegram + компактность Discord + уникальность blesk</div>
+
+<div class="concepts">
+
+  <!-- CONCEPT A: ACCENT EDGE -->
+  <div class="concept">
+    <div class="concept__label">A. Accent Edge</div>
+    <div class="concept__desc">Чистые пузыри, но с фирменной акцентной полоской сбоку. Группировка сообщений (скруглённые по-разному). Hover: сообщение слегка поднимается.</div>
+    <div class="concept__unique">УНИКАЛЬНОСТЬ: акцентная полоска-градиент • группировка скруглений • micro-lift hover</div>
+    <div class="phone ca">
+      <div class="grip"></div>
+      <div class="ca-header">
+        <div class="ca-avatar">К<div class="ca-online"></div></div>
+        <div><div class="ca-name">Катя</div><div class="ca-status">онлайн</div></div>
+      </div>
+      <div class="ca-messages">
+        <div class="ca-msg ca-msg--other ca-solo">
+          <div class="ca-bubble">Привет! Как дела? 👋</div>
+          <div class="ca-time">14:32</div>
+        </div>
+        <div class="ca-gap"></div>
+        <div class="ca-msg ca-msg--own ca-first">
+          <div class="ca-bubble">Привет!</div>
+        </div>
+        <div class="ca-msg ca-msg--own ca-last">
+          <div class="ca-bubble">Всё отлично, работаю над blesk</div>
+          <div class="ca-time">14:33</div>
+        </div>
+        <div class="ca-gap"></div>
+        <div class="ca-msg ca-msg--other ca-first">
+          <div class="ca-bubble">О круто!</div>
+        </div>
+        <div class="ca-msg ca-msg--other ca-last">
+          <div class="ca-bubble">Когда можно попробовать?</div>
+          <div class="ca-time">14:33</div>
+        </div>
+        <div class="ca-gap"></div>
+        <div class="ca-msg ca-msg--own ca-solo">
+          <div class="ca-bubble">Скоро, уже почти готов MVP 🚀</div>
+          <div class="ca-time">14:34</div>
+        </div>
+        <div class="ca-gap"></div>
+        <div class="ca-msg ca-msg--other ca-solo">
+          <div class="ca-bubble">Класс, жду! Дизайн реально красивый</div>
+          <div class="ca-time">14:35</div>
+        </div>
+        <div class="ca-gap"></div>
+        <div class="ca-msg ca-msg--own ca-first">
+          <div class="ca-bubble">Спасибо!</div>
+        </div>
+        <div class="ca-msg ca-msg--own ca-last">
+          <div class="ca-bubble">Старался сделать уникально ✨</div>
+          <div class="ca-time">14:35</div>
+        </div>
+        <div class="ca-gap"></div>
+        <div class="ca-msg ca-msg--other ca-solo">
+          <div class="ca-bubble">Кстати а голосовые уже есть?</div>
+          <div class="ca-time">14:36</div>
+        </div>
+      </div>
+      <div class="ca-input">
+        <div class="ca-input-field">Написать сообщение...</div>
+        <div class="ca-send">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT B: STREAM -->
+  <div class="concept">
+    <div class="concept__label">B. Stream</div>
+    <div class="concept__desc">Без пузырей. Компактная лента как в Discord, но чище. Аватар + ник + сообщения. Группировка: аватар только у первого. Hover — подсветка строки.</div>
+    <div class="concept__unique">УНИКАЛЬНОСТЬ: акцентная точка у своих • цветные ники • hover-подсветка строки • компактность</div>
+    <div class="phone cb">
+      <div class="grip"></div>
+      <div class="cb-header">
+        <div class="cb-avatar-h">К<div class="cb-online-h"></div></div>
+        <div><div class="cb-name-h">Катя</div><div class="cb-status-h">онлайн</div></div>
+      </div>
+      <div class="cb-messages">
+        <div class="cb-date">Сегодня</div>
+
+        <div class="cb-group">
+          <div class="cb-avatar-col">
+            <div class="cb-avatar-sm" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К</div>
+          </div>
+          <div class="cb-content">
+            <div class="cb-sender-row">
+              <span class="cb-sender-name cb-sender-name--other">Катя</span>
+              <span class="cb-sender-time">14:32</span>
+            </div>
+            <div class="cb-text">Привет! Как дела? 👋</div>
+          </div>
+        </div>
+
+        <div class="cb-group cb-group--own">
+          <div class="cb-avatar-col">
+            <div class="cb-avatar-sm" style="background: linear-gradient(135deg, hsl(120,70%,50%), hsl(160,70%,60%));">Е</div>
+          </div>
+          <div class="cb-content">
+            <div class="cb-sender-row">
+              <span class="cb-sender-name cb-sender-name--own">Егор</span>
+              <span class="cb-sender-time">14:33</span>
+            </div>
+            <div class="cb-text">Привет! Всё отлично</div>
+          </div>
+        </div>
+        <div class="cb-row">
+          <div class="cb-text">Работаю над blesk, почти MVP 🚀</div>
+        </div>
+
+        <div class="cb-group">
+          <div class="cb-avatar-col">
+            <div class="cb-avatar-sm" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К</div>
+          </div>
+          <div class="cb-content">
+            <div class="cb-sender-row">
+              <span class="cb-sender-name cb-sender-name--other">Катя</span>
+              <span class="cb-sender-time">14:33</span>
+            </div>
+            <div class="cb-text">О круто! Когда можно попробовать?</div>
+          </div>
+        </div>
+
+        <div class="cb-group cb-group--own">
+          <div class="cb-avatar-col">
+            <div class="cb-avatar-sm" style="background: linear-gradient(135deg, hsl(120,70%,50%), hsl(160,70%,60%));">Е</div>
+          </div>
+          <div class="cb-content">
+            <div class="cb-sender-row">
+              <span class="cb-sender-name cb-sender-name--own">Егор</span>
+              <span class="cb-sender-time">14:34</span>
+            </div>
+            <div class="cb-text">Скоро! Думаю через пару недель</div>
+          </div>
+        </div>
+
+        <div class="cb-group">
+          <div class="cb-avatar-col">
+            <div class="cb-avatar-sm" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К</div>
+          </div>
+          <div class="cb-content">
+            <div class="cb-sender-row">
+              <span class="cb-sender-name cb-sender-name--other">Катя</span>
+              <span class="cb-sender-time">14:35</span>
+            </div>
+            <div class="cb-text">Класс, жду! Дизайн красивый получается</div>
+          </div>
+        </div>
+
+        <div class="cb-group cb-group--own">
+          <div class="cb-avatar-col">
+            <div class="cb-avatar-sm" style="background: linear-gradient(135deg, hsl(120,70%,50%), hsl(160,70%,60%));">Е</div>
+          </div>
+          <div class="cb-content">
+            <div class="cb-sender-row">
+              <span class="cb-sender-name cb-sender-name--own">Егор</span>
+              <span class="cb-sender-time">14:35</span>
+            </div>
+            <div class="cb-text">Спасибо! Старался ✨</div>
+          </div>
+        </div>
+
+        <div class="cb-group">
+          <div class="cb-avatar-col">
+            <div class="cb-avatar-sm" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К</div>
+          </div>
+          <div class="cb-content">
+            <div class="cb-sender-row">
+              <span class="cb-sender-name cb-sender-name--other">Катя</span>
+              <span class="cb-sender-time">14:36</span>
+            </div>
+            <div class="cb-text">Кстати а голосовые уже есть?</div>
+          </div>
+        </div>
+      </div>
+      <div class="cb-input">
+        <div class="cb-input-field">Написать сообщение...</div>
+        <div class="cb-send">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT C: GLOW BUBBLES -->
+  <div class="concept">
+    <div class="concept__label">C. Glow Bubbles</div>
+    <div class="concept__desc">Пузыри с тонким glow в цвете собеседника. Свои — зелёное свечение, чужие — в цвете их аватара. Группировка. Hover: glow усиливается.</div>
+    <div class="concept__unique">УНИКАЛЬНОСТЬ: цветной glow от аватара • живое свечение при hover • каждый чат визуально разный</div>
+    <div class="phone cc">
+      <div class="grip"></div>
+      <div class="cc-header">
+        <div class="cc-avatar-h">К<div class="cc-online-h"></div></div>
+        <div><div class="cc-name-h">Катя</div><div class="cc-status-h">онлайн</div></div>
+      </div>
+      <div class="cc-messages">
+        <div class="cc-msg cc-msg--other cc-solo">
+          <div class="cc-bubble">Привет! Как дела? 👋</div>
+          <div class="cc-time">14:32</div>
+        </div>
+        <div class="cc-gap"></div>
+        <div class="cc-msg cc-msg--own cc-first">
+          <div class="cc-bubble">Привет!</div>
+        </div>
+        <div class="cc-msg cc-msg--own cc-last">
+          <div class="cc-bubble">Всё отлично, работаю над blesk</div>
+          <div class="cc-time">14:33</div>
+        </div>
+        <div class="cc-gap"></div>
+        <div class="cc-msg cc-msg--other cc-first">
+          <div class="cc-bubble">О круто!</div>
+        </div>
+        <div class="cc-msg cc-msg--other cc-last">
+          <div class="cc-bubble">Когда можно попробовать?</div>
+          <div class="cc-time">14:33</div>
+        </div>
+        <div class="cc-gap"></div>
+        <div class="cc-msg cc-msg--own cc-solo">
+          <div class="cc-bubble">Скоро, уже почти готов MVP 🚀</div>
+          <div class="cc-time">14:34</div>
+        </div>
+        <div class="cc-gap"></div>
+        <div class="cc-msg cc-msg--other cc-solo">
+          <div class="cc-bubble">Класс, жду! Дизайн реально красивый</div>
+          <div class="cc-time">14:35</div>
+        </div>
+        <div class="cc-gap"></div>
+        <div class="cc-msg cc-msg--own cc-first">
+          <div class="cc-bubble">Спасибо!</div>
+        </div>
+        <div class="cc-msg cc-msg--own cc-last">
+          <div class="cc-bubble">Старался сделать уникально ✨</div>
+          <div class="cc-time">14:35</div>
+        </div>
+        <div class="cc-gap"></div>
+        <div class="cc-msg cc-msg--other cc-solo">
+          <div class="cc-bubble">Кстати а голосовые уже есть?</div>
+          <div class="cc-time">14:36</div>
+        </div>
+      </div>
+      <div class="cc-input">
+        <div class="cc-input-field">Написать сообщение...</div>
+        <div class="cc-send">→</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="vote-section">
+  <button class="vote-btn" onclick="vote(this)">A. Accent Edge</button>
+  <button class="vote-btn" onclick="vote(this)">B. Stream</button>
+  <button class="vote-btn" onclick="vote(this)">C. Glow Bubbles</button>
+</div>
+
+<div class="mix-hint">Можно миксовать: например группировка из A + glow из C + компактность из B</div>
+
+<script>
+function vote(btn) {
+  document.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('vote-btn--active'));
+  btn.classList.add('vote-btn--active');
+}
+</script>
+</body>
+</html>

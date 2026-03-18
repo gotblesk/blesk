@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Навигация в чате</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#08060f; color:#fff; font-family:-apple-system,SF Pro Display,Helvetica Neue,sans-serif; padding:32px; min-height:100vh; }
+  h1 { font-size:24px; font-weight:700; margin-bottom:6px; }
+  .subtitle { font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:32px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; max-width:1000px; margin:0 auto; }
+  .option { border:1px solid rgba(255,255,255,0.06); border-radius:16px; overflow:hidden; cursor:pointer; transition:border-color 0.3s, box-shadow 0.3s; }
+  .option:hover { border-color:rgba(200,255,0,0.2); }
+  .option.selected { border-color:rgba(200,255,0,0.5); box-shadow:0 0 30px rgba(200,255,0,0.1); }
+  .option-label { display:flex; align-items:center; gap:10px; padding:14px 16px; background:rgba(255,255,255,0.02); }
+  .option-letter { width:26px; height:26px; border-radius:50%; background:rgba(200,255,0,0.1); color:#c8ff00; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+  .option h3 { font-size:14px; font-weight:600; }
+  .option p.desc { font-size:11px; color:rgba(255,255,255,0.4); padding:0 16px 12px; line-height:1.4; }
+  .mockup { padding:12px; }
+  .mock-frame { height:260px; border-radius:10px; overflow:hidden; background:rgba(255,255,255,0.03); position:relative; }
+
+  /* Shared chat styles */
+  .chat-header { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .chat-avatar { width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg, #c8ff00, #4ade80); flex-shrink:0; }
+  .chat-name { font-size:12px; font-weight:600; }
+  .chat-status { font-size:9px; color:#4ade80; }
+  .chat-messages { flex:1; display:flex; flex-direction:column; justify-content:flex-end; gap:5px; padding:8px 12px; }
+  .msg-in { align-self:flex-start; background:rgba(255,255,255,0.05); border-radius:12px 12px 12px 4px; padding:7px 10px; max-width:65%; font-size:10px; color:rgba(255,255,255,0.8); }
+  .msg-out { align-self:flex-end; background:rgba(200,255,0,0.12); border-radius:12px 12px 4px 12px; padding:7px 10px; max-width:65%; font-size:10px; color:rgba(255,255,255,0.85); }
+  .chat-input { margin:0 12px 10px; background:rgba(255,255,255,0.04); border-radius:12px; padding:8px 12px; font-size:10px; color:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.05); }
+
+  /* Back button */
+  .back-btn { width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; font-size:14px; color:rgba(255,255,255,0.5); flex-shrink:0; }
+
+  /* NavShelf mini */
+  .nav-mini { display:flex; gap:4px; padding:4px; margin:8px 12px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid rgba(255,255,255,0.05); }
+  .nav-pill { flex:1; text-align:center; padding:6px 0; font-size:9px; color:rgba(255,255,255,0.3); border-radius:7px; font-weight:600; }
+  .nav-pill.active { color:#c8ff00; background:rgba(200,255,0,0.08); border:1px solid rgba(200,255,0,0.12); }
+
+  /* Hamburger overlay */
+  .overlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(8,6,15,0.7); backdrop-filter:blur(6px); z-index:5; }
+  .overlay-panel { position:absolute; top:0; left:0; width:240px; height:100%; background:rgba(20,18,30,0.95); backdrop-filter:blur(20px); border-right:1px solid rgba(255,255,255,0.06); z-index:6; padding:10px; }
+  .overlay-item { display:flex; align-items:center; gap:8px; padding:8px; border-radius:8px; }
+  .overlay-item.active { background:rgba(200,255,0,0.06); border:1px solid rgba(200,255,0,0.1); }
+  .overlay-avatar { width:32px; height:32px; border-radius:50%; flex-shrink:0; }
+
+  /* Swipe indicator */
+  .swipe-hint { position:absolute; left:0; top:50%; transform:translateY(-50%); width:4px; height:40px; border-radius:0 4px 4px 0; background:rgba(200,255,0,0.3); }
+</style>
+</head>
+<body>
+<h1>Как вернуться из чата к карточкам?</h1>
+<p class="subtitle">Выбери способ навигации между хабом карточек и открытым чатом</p>
+
+<div class="grid">
+
+  <!-- A: Back arrow -->
+  <div class="option" onclick="select(this)">
+    <div class="option-label">
+      <div class="option-letter">A</div>
+      <h3>Стрелка назад ←</h3>
+    </div>
+    <div class="mockup">
+      <div class="mock-frame" style="display:flex; flex-direction:column;">
+        <div class="chat-header">
+          <div class="back-btn">←</div>
+          <div class="chat-avatar"></div>
+          <div><div class="chat-name">Катя</div><div class="chat-status">онлайн</div></div>
+        </div>
+        <div class="chat-messages">
+          <div class="msg-in">Привет! Как дела?</div>
+          <div class="msg-out">Хорошо, работаю над blesk</div>
+          <div class="msg-in">Круто! Давно не виделись</div>
+        </div>
+        <div class="chat-input">Написать сообщение...</div>
+      </div>
+    </div>
+    <p class="desc">Кнопка ← в шапке чата. Нажал — анимация перехода обратно к карточкам. Простая, понятная навигация. Стекло "сворачивается" обратно в карточку.</p>
+  </div>
+
+  <!-- B: Swipe -->
+  <div class="option" onclick="select(this)">
+    <div class="option-label">
+      <div class="option-letter">B</div>
+      <h3>Свайп вправо</h3>
+    </div>
+    <div class="mockup">
+      <div class="mock-frame" style="display:flex; flex-direction:column; transform:translateX(30px); opacity:0.9;">
+        <div class="swipe-hint"></div>
+        <div class="chat-header">
+          <div class="chat-avatar"></div>
+          <div><div class="chat-name">Катя</div><div class="chat-status">онлайн</div></div>
+        </div>
+        <div class="chat-messages">
+          <div class="msg-in">Привет! Как дела?</div>
+          <div class="msg-out">Хорошо, работаю над blesk</div>
+          <div class="msg-in">Круто!</div>
+        </div>
+        <div class="chat-input">Написать сообщение...</div>
+        <!-- Cards peeking behind -->
+        <div style="position:absolute; top:0; left:0; width:30px; height:100%; background:rgba(8,6,15,0.8); z-index:-1; display:flex; align-items:center; justify-content:center;">
+          <div style="width:8px; height:8px; border-radius:50%; background:rgba(200,255,0,0.3);"></div>
+        </div>
+      </div>
+    </div>
+    <p class="desc">Потянул чат вправо — он уезжает, карточки появляются из-под него. Жест как на мобильном. Чат "отодвигается" как стеклянная панель. Нет кнопки — чистый интерфейс.</p>
+  </div>
+
+  <!-- C: Tab toggle -->
+  <div class="option" onclick="select(this)">
+    <div class="option-label">
+      <div class="option-letter">C</div>
+      <h3>Таб "Чаты" как toggle</h3>
+    </div>
+    <div class="mockup">
+      <div class="mock-frame" style="display:flex; flex-direction:column;">
+        <div class="nav-mini">
+          <div class="nav-pill active" style="position:relative;">💬 Чаты<div style="position:absolute; top:-6px; right:-4px; font-size:7px; color:rgba(200,255,0,0.6);">← нажми</div></div>
+          <div class="nav-pill">📢 Каналы</div>
+          <div class="nav-pill">👥 Друзья</div>
+        </div>
+        <div class="chat-header" style="border-top:1px solid rgba(255,255,255,0.03);">
+          <div class="chat-avatar"></div>
+          <div><div class="chat-name">Катя</div><div class="chat-status">онлайн</div></div>
+        </div>
+        <div class="chat-messages">
+          <div class="msg-in">Привет! Как дела?</div>
+          <div class="msg-out">Хорошо, работаю над blesk</div>
+          <div class="msg-in">Круто! Давно не виделись</div>
+        </div>
+        <div class="chat-input">Написать сообщение...</div>
+      </div>
+    </div>
+    <p class="desc">Таб "Чаты" в верхней NavShelf работает как toggle: первый клик — хаб карточек, второй клик (когда в чате) — обратно к карточкам. NavShelf всегда на месте, навигация через неё.</p>
+  </div>
+
+  <!-- D: Hamburger overlay -->
+  <div class="option" onclick="select(this)">
+    <div class="option-label">
+      <div class="option-letter">D</div>
+      <h3>Кнопка ☰ с overlay</h3>
+    </div>
+    <div class="mockup">
+      <div class="mock-frame" style="display:flex; flex-direction:column;">
+        <div class="overlay"></div>
+        <div class="overlay-panel">
+          <div style="font-size:9px; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; padding:4px;">Чаты</div>
+          <div class="overlay-item active">
+            <div class="overlay-avatar" style="background:linear-gradient(135deg, #c8ff00, #4ade80);"></div>
+            <div><div style="font-size:11px; font-weight:600;">Катя</div><div style="font-size:9px; color:rgba(255,255,255,0.3);">Привет! Как дела?</div></div>
+          </div>
+          <div class="overlay-item">
+            <div class="overlay-avatar" style="background:linear-gradient(135deg, #ff6b6b, #ffa07a);"></div>
+            <div><div style="font-size:11px; font-weight:600;">Дима</div><div style="font-size:9px; color:rgba(255,255,255,0.3);">Окей, до завтра</div></div>
+          </div>
+          <div class="overlay-item">
+            <div class="overlay-avatar" style="background:linear-gradient(135deg, #6b9dff, #a78bfa);"></div>
+            <div><div style="font-size:11px; font-weight:600;">Команда</div><div style="font-size:9px; color:rgba(255,255,255,0.3);">Егор: Обновил</div></div>
+          </div>
+        </div>
+        <div class="chat-header">
+          <div class="back-btn">☰</div>
+          <div class="chat-avatar"></div>
+          <div><div class="chat-name">Катя</div><div class="chat-status">онлайн</div></div>
+        </div>
+        <div class="chat-messages">
+          <div class="msg-in">Привет!</div>
+          <div class="msg-out">Работаю над blesk</div>
+        </div>
+        <div class="chat-input">Написать...</div>
+      </div>
+    </div>
+    <p class="desc">Кнопка ☰ в шапке чата открывает glass-панель поверх чата со списком всех чатов. Можно быстро переключиться на другой чат без возврата к хабу. Overlay с blur-фоном.</p>
+  </div>
+
+</div>
+
+<script>
+function select(el) {
+  document.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+</script>
+</body>
+</html>

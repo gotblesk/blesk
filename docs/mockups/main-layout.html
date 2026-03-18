@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Лейаут главного экрана</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#08060f; color:#fff; font-family:-apple-system,SF Pro Display,Helvetica Neue,sans-serif; padding:32px; min-height:100vh; }
+  h1 { font-size:24px; font-weight:700; margin-bottom:6px; }
+  .subtitle { font-size:13px; color:rgba(255,255,255,0.4); margin-bottom:32px; }
+  .options { display:flex; flex-direction:column; gap:28px; max-width:900px; margin:0 auto; }
+  .option { border:1px solid rgba(255,255,255,0.06); border-radius:16px; overflow:hidden; cursor:pointer; transition:border-color 0.3s, box-shadow 0.3s; }
+  .option:hover { border-color:rgba(200,255,0,0.2); }
+  .option.selected { border-color:rgba(200,255,0,0.5); box-shadow:0 0 30px rgba(200,255,0,0.1); }
+  .option-label { display:flex; align-items:center; gap:12px; padding:16px 20px; background:rgba(255,255,255,0.02); }
+  .option-letter { width:28px; height:28px; border-radius:50%; background:rgba(200,255,0,0.1); color:#c8ff00; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+  .option h3 { font-size:15px; font-weight:600; }
+  .option p { font-size:12px; color:rgba(255,255,255,0.4); margin-top:2px; }
+  .mockup { padding:16px; }
+</style>
+</head>
+<body>
+<h1>Лейаут экрана чатов</h1>
+<p class="subtitle">Как организовать список чатов и область сообщений?</p>
+
+<div class="options">
+
+  <!-- A -->
+  <div class="option" onclick="select(this)">
+    <div class="option-label">
+      <div class="option-letter">A</div>
+      <div><h3>Постоянная панель чатов</h3><p>Список чатов слева всегда виден. Классика как Telegram Desktop — быстрое переключение между чатами.</p></div>
+    </div>
+    <div class="mockup">
+      <div style="display:flex; height:300px; gap:1px; border-radius:12px; overflow:hidden; background:rgba(255,255,255,0.05);">
+        <div style="width:260px; background:rgba(255,255,255,0.03); padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size:10px; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Чаты</div>
+          <div style="background:rgba(255,255,255,0.04); border-radius:10px; padding:8px 12px; font-size:11px; color:rgba(255,255,255,0.2);">Поиск...</div>
+          <div style="background:rgba(200,255,0,0.06); border:1px solid rgba(200,255,0,0.1); border-radius:10px; padding:10px; display:flex; gap:10px; align-items:center;">
+            <div style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, #c8ff00, #4ade80); flex-shrink:0;"></div>
+            <div style="flex:1; overflow:hidden;">
+              <div style="font-size:12px; color:#fff; font-weight:600;">Катя</div>
+              <div style="font-size:10px; color:rgba(255,255,255,0.3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Привет! Как дела? Давно не...</div>
+            </div>
+            <div style="font-size:9px; color:rgba(255,255,255,0.2);">14:32</div>
+          </div>
+          <div style="border-radius:10px; padding:10px; display:flex; gap:10px; align-items:center;">
+            <div style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, #ff6b6b, #ffa07a); flex-shrink:0;"></div>
+            <div style="flex:1;"><div style="font-size:12px; color:#fff; font-weight:600;">Дима</div><div style="font-size:10px; color:rgba(255,255,255,0.3);">Окей, до завтра</div></div>
+            <div style="font-size:9px; color:rgba(255,255,255,0.2);">12:10</div>
+          </div>
+          <div style="border-radius:10px; padding:10px; display:flex; gap:10px; align-items:center;">
+            <div style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, #6b9dff, #a78bfa); flex-shrink:0;"></div>
+            <div style="flex:1;"><div style="font-size:12px; color:#fff; font-weight:600;">Команда blesk</div><div style="font-size:10px; color:rgba(255,255,255,0.3);">Егор: Обновил дизайн</div></div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+              <div style="font-size:9px; color:rgba(255,255,255,0.2);">вчера</div>
+              <div style="width:16px; height:16px; border-radius:50%; background:#c8ff00; font-size:9px; color:#08060f; display:flex; align-items:center; justify-content:center; font-weight:700;">3</div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1; background:rgba(255,255,255,0.02); padding:12px; display:flex; flex-direction:column;">
+          <div style="display:flex; align-items:center; gap:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.05); margin-bottom:auto;">
+            <div style="width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg, #c8ff00, #4ade80);"></div>
+            <div><div style="font-size:12px; color:#fff; font-weight:600;">Катя</div><div style="font-size:9px; color:#4ade80;">онлайн</div></div>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; gap:6px; padding:10px 0;">
+            <div style="align-self:flex-start; background:rgba(255,255,255,0.05); border-radius:14px 14px 14px 4px; padding:8px 12px; max-width:70%; font-size:11px; color:rgba(255,255,255,0.8);">Привет! Как дела?</div>
+            <div style="align-self:flex-end; background:rgba(200,255,0,0.12); border-radius:14px 14px 4px 14px; padding:8px 12px; max-width:70%; font-size:11px; color:rgba(255,255,255,0.85);">Хорошо, работаю над blesk</div>
+            <div style="align-self:flex-start; background:rgba(255,255,255,0.05); border-radius:14px 14px 14px 4px; padding:8px 12px; max-width:70%; font-size:11px; color:rgba(255,255,255,0.8);">Круто! Давно не виделись</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.04); border-radius:14px; padding:10px 14px; font-size:11px; color:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.05);">Написать сообщение...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div class="option" onclick="select(this)">
+    <div class="option-label">
+      <div class="option-letter">B</div>
+      <div><h3>Полноэкранный чат + выезжающий список</h3><p>Чат на всю ширину. Список чатов выезжает по кнопке ☰ как overlay. Больше пространства для сообщений.</p></div>
+    </div>
+    <div class="mockup">
+      <div style="height:300px; border-radius:12px; overflow:hidden; background:rgba(255,255,255,0.03); position:relative;">
+        <div style="height:100%; padding:12px; display:flex; flex-direction:column;">
+          <div style="display:flex; align-items:center; gap:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div style="width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer;">☰</div>
+            <div style="width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg, #c8ff00, #4ade80);"></div>
+            <div><div style="font-size:12px; color:#fff; font-weight:600;">Катя</div><div style="font-size:9px; color:#4ade80;">онлайн</div></div>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; gap:6px; padding:10px 40px;">
+            <div style="align-self:flex-start; background:rgba(255,255,255,0.05); border-radius:14px 14px 14px 4px; padding:8px 12px; max-width:50%; font-size:11px; color:rgba(255,255,255,0.8);">Привет! Как дела?</div>
+            <div style="align-self:flex-end; background:rgba(200,255,0,0.12); border-radius:14px 14px 4px 14px; padding:8px 12px; max-width:50%; font-size:11px; color:rgba(255,255,255,0.85);">Хорошо, работаю над blesk</div>
+            <div style="align-self:flex-start; background:rgba(255,255,255,0.05); border-radius:14px 14px 14px 4px; padding:8px 12px; max-width:50%; font-size:11px; color:rgba(255,255,255,0.8);">Круто! Давно не виделись</div>
+            <div style="align-self:flex-end; background:rgba(200,255,0,0.12); border-radius:14px 14px 4px 14px; padding:8px 12px; max-width:50%; font-size:11px; color:rgba(255,255,255,0.85);">Да, надо встретиться!</div>
+          </div>
+          <div style="margin:0 40px; background:rgba(255,255,255,0.04); border-radius:14px; padding:10px 14px; font-size:11px; color:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.05);">Написать сообщение...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C -->
+  <div class="option" onclick="select(this)">
+    <div class="option-label">
+      <div class="option-letter">C</div>
+      <div><h3>Карточки чатов (Hub)</h3><p>Чаты как сетка карточек. Нажал на карточку — открылся полноэкранный чат. Необычный, современный подход.</p></div>
+    </div>
+    <div class="mockup">
+      <div style="height:300px; border-radius:12px; overflow:hidden; background:rgba(255,255,255,0.03); padding:16px;">
+        <div style="font-size:10px; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">Недавние чаты</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+          <div style="background:rgba(200,255,0,0.06); border:1px solid rgba(200,255,0,0.1); border-radius:12px; padding:16px; text-align:center;">
+            <div style="width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, #c8ff00, #4ade80); margin:0 auto 8px;"></div>
+            <div style="font-size:12px; color:#fff; font-weight:600;">Катя</div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.3); margin-top:3px;">Привет! Как дела?</div>
+            <div style="font-size:9px; color:rgba(255,255,255,0.2); margin-top:4px;">14:32</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:16px; text-align:center;">
+            <div style="width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, #ff6b6b, #ffa07a); margin:0 auto 8px;"></div>
+            <div style="font-size:12px; color:#fff; font-weight:600;">Дима</div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.3); margin-top:3px;">Окей, до завтра</div>
+            <div style="font-size:9px; color:rgba(255,255,255,0.2); margin-top:4px;">12:10</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:16px; text-align:center; position:relative;">
+            <div style="position:absolute; top:8px; right:8px; width:18px; height:18px; border-radius:50%; background:#c8ff00; font-size:9px; color:#08060f; display:flex; align-items:center; justify-content:center; font-weight:700;">3</div>
+            <div style="width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, #6b9dff, #a78bfa); margin:0 auto 8px;"></div>
+            <div style="font-size:12px; color:#fff; font-weight:600;">Команда</div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.3); margin-top:3px;">Егор: Обновил дизайн</div>
+            <div style="font-size:9px; color:rgba(255,255,255,0.2); margin-top:4px;">вчера</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:16px; text-align:center;">
+            <div style="width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, #f59e0b, #ef4444); margin:0 auto 8px;"></div>
+            <div style="font-size:12px; color:#fff; font-weight:600;">Алекс</div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.3); margin-top:3px;">Созвон в 18:00</div>
+            <div style="font-size:9px; color:rgba(255,255,255,0.2); margin-top:4px;">вчера</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:16px; text-align:center;">
+            <div style="width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, #ec4899, #8b5cf6); margin:0 auto 8px;"></div>
+            <div style="font-size:12px; color:#fff; font-weight:600;">Маша</div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.3); margin-top:3px;">Спасибо!</div>
+            <div style="font-size:9px; color:rgba(255,255,255,0.2); margin-top:4px;">2 дня</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.08); border-radius:12px; padding:16px; text-align:center; display:flex; align-items:center; justify-content:center;">
+            <div style="font-size:24px; color:rgba(255,255,255,0.15);">+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function select(el) {
+  document.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+</script>
+</body>
+</html>

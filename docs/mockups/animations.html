@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Идеи анимаций и навигации</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #08060f;
+    --accent: #c8ff00;
+    --text: rgba(255, 255, 255, 0.85);
+    --text-muted: rgba(255, 255, 255, 0.25);
+    --online: #4ade80;
+    --danger: #ef4444;
+    --font-ui: 'Unbounded', sans-serif;
+    --font-brand: 'Syne', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-ui);
+    background: var(--bg);
+    color: var(--text);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 30px 80px;
+  }
+
+  h1 {
+    font-family: var(--font-brand);
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    color: var(--accent);
+  }
+
+  h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 50px 0 8px;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 40px;
+  }
+
+  .desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .demo-box {
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 40px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .demo-box--tall {
+    min-height: 400px;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  /* ==========================================
+     ИДЕЯ 1: Magnetic Navigation Shelf
+     Таб "притягивается" к курсору, активный
+     таб имеет glow-эффект
+     ========================================== */
+
+  .mag-shelf {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    position: relative;
+  }
+
+  .mag-shelf__indicator {
+    position: absolute;
+    height: calc(100% - 8px);
+    border-radius: 12px;
+    background: var(--accent);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 0;
+    box-shadow: 0 0 20px rgba(200, 255, 0, 0.3), 0 0 40px rgba(200, 255, 0, 0.1);
+  }
+
+  .mag-tab {
+    padding: 8px 20px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: color 0.3s, transform 0.2s;
+    white-space: nowrap;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mag-tab:hover {
+    transform: translateY(-1px);
+  }
+
+  .mag-tab--active {
+    color: #000;
+    font-weight: 600;
+  }
+
+  /* ==========================================
+     ИДЕЯ 2: Profile — Expanding Card
+     Вместо dropdown — карточка расширяется
+     из пилла в полноценное меню
+     ========================================== */
+
+  .expand-pill-wrap {
+    position: relative;
+    perspective: 800px;
+  }
+
+  .expand-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    cursor: pointer;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .expand-pill.expanded {
+    padding: 12px;
+    border-radius: 18px;
+    width: 240px;
+    background: rgba(20, 18, 30, 0.95);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(200, 255, 0, 0.05);
+  }
+
+  .expand-pill__avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #000;
+    flex-shrink: 0;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+  }
+
+  .expand-pill.expanded .expand-pill__avatar {
+    width: 42px;
+    height: 42px;
+    font-size: 16px;
+  }
+
+  .expand-pill__status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--online);
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    border: 2px solid var(--bg);
+    transition: all 0.3s;
+  }
+
+  .expand-pill.expanded .expand-pill__status-dot {
+    width: 10px;
+    height: 10px;
+    border-width: 2px;
+  }
+
+  .expand-pill__name {
+    font-size: 11px;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .expand-pill.expanded .expand-pill__name {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .expand-pill__tag {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: none;
+  }
+
+  .expand-pill.expanded .expand-pill__tag {
+    display: block;
+  }
+
+  .expand-pill__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .expand-pill__menu {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s, margin-top 0.3s;
+    opacity: 0;
+    margin-top: 0;
+  }
+
+  .expand-pill.expanded .expand-pill__menu {
+    max-height: 300px;
+    opacity: 1;
+    margin-top: 12px;
+  }
+
+  .expand-pill__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: all 0.15s;
+    transform: translateX(-8px);
+    opacity: 0;
+  }
+
+  .expand-pill.expanded .expand-pill__item {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  .expand-pill.expanded .expand-pill__item:nth-child(1) { transition-delay: 0.05s; }
+  .expand-pill.expanded .expand-pill__item:nth-child(2) { transition-delay: 0.08s; }
+  .expand-pill.expanded .expand-pill__item:nth-child(3) { transition-delay: 0.11s; }
+  .expand-pill.expanded .expand-pill__item:nth-child(4) { transition-delay: 0.14s; }
+  .expand-pill.expanded .expand-pill__item:nth-child(5) { transition-delay: 0.17s; }
+  .expand-pill.expanded .expand-pill__item:nth-child(6) { transition-delay: 0.20s; }
+
+  .expand-pill__item:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .expand-pill__item--danger { color: var(--danger); }
+  .expand-pill__item--danger:hover { background: rgba(239, 68, 68, 0.1); }
+  .expand-pill__sep {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 4px 0;
+  }
+
+  /* ==========================================
+     ИДЕЯ 3: Hover Glow + Ripple на кнопках
+     ========================================== */
+
+  .glow-btn {
+    padding: 10px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 12px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+
+  .glow-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: radial-gradient(circle, rgba(200, 255, 0, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.5s, height 0.5s;
+  }
+
+  .glow-btn:hover::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  .glow-btn:hover {
+    border-color: rgba(200, 255, 0, 0.3);
+    box-shadow: 0 0 20px rgba(200, 255, 0, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .glow-btn:active {
+    transform: scale(0.97);
+  }
+
+  .glow-btn--accent {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .glow-btn--accent::before {
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+  }
+
+  .glow-btn--accent:hover {
+    box-shadow: 0 0 30px rgba(200, 255, 0, 0.3), 0 8px 20px rgba(200, 255, 0, 0.15);
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  /* ==========================================
+     ИДЕЯ 4: Chat item — Slide-in + Stagger
+     Элементы чата появляются каскадно
+     ========================================== */
+
+  .stagger-list {
+    width: 300px;
+  }
+
+  .stagger-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0;
+    transform: translateX(-20px);
+    animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .stagger-item:nth-child(1) { animation-delay: 0s; }
+  .stagger-item:nth-child(2) { animation-delay: 0.06s; }
+  .stagger-item:nth-child(3) { animation-delay: 0.12s; }
+  .stagger-item:nth-child(4) { animation-delay: 0.18s; }
+  .stagger-item:nth-child(5) { animation-delay: 0.24s; }
+
+  @keyframes slideIn {
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .stagger-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .stagger-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #000;
+    flex-shrink: 0;
+  }
+
+  .stagger-info { flex: 1; min-width: 0; }
+  .stagger-name { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+  .stagger-last { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ==========================================
+     ИДЕЯ 5: Message appear animation
+     Сообщения плавно появляются снизу
+     ========================================== */
+
+  .msg-demo {
+    width: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .msg-bubble {
+    display: flex;
+    gap: 10px;
+    max-width: 80%;
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+    animation: msgAppear 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .msg-bubble:nth-child(1) { animation-delay: 0s; }
+  .msg-bubble:nth-child(2) { animation-delay: 0.3s; }
+  .msg-bubble:nth-child(3) { animation-delay: 0.6s; align-self: flex-end; flex-direction: row-reverse; }
+  .msg-bubble:nth-child(4) { animation-delay: 0.9s; }
+
+  @keyframes msgAppear {
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .msg-av {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #000;
+    flex-shrink: 0;
+  }
+
+  .msg-text {
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .msg-bubble:nth-child(3) .msg-text {
+    background: rgba(200, 255, 0, 0.1);
+    border-color: rgba(200, 255, 0, 0.15);
+  }
+
+  /* ==========================================
+     ИДЕЯ 6: Page Transition — Morph
+     Переход между разделами с морфингом
+     ========================================== */
+
+  .morph-demo {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .morph-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .morph-tab {
+    padding: 8px 20px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: all 0.2s;
+  }
+  .morph-tab--active {
+    background: var(--accent);
+    color: #000;
+    font-weight: 600;
+  }
+
+  .morph-content {
+    width: 500px;
+    height: 180px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .morph-page {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .morph-page--exit {
+    opacity: 0;
+    transform: scale(0.92) translateY(-10px);
+    filter: blur(4px);
+  }
+
+  .morph-page--enter {
+    opacity: 0;
+    transform: scale(1.05) translateY(10px);
+    filter: blur(4px);
+  }
+
+  .morph-page__icon {
+    font-size: 36px;
+    margin-bottom: 4px;
+  }
+
+  .morph-page__title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .morph-page__sub {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* ==========================================
+     ИДЕЯ 7: Typing indicator
+     ========================================== */
+
+  .typing {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    width: fit-content;
+  }
+
+  .typing__dots {
+    display: flex;
+    gap: 3px;
+  }
+
+  .typing__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.3;
+    animation: typingDot 1.4s ease-in-out infinite;
+  }
+
+  .typing__dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing__dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typingDot {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-4px); }
+  }
+
+  /* ==========================================
+     ИДЕЯ 8: Notification toast
+     ========================================== */
+
+  .toast-demo {
+    position: relative;
+    width: 100%;
+    height: 60px;
+  }
+
+  .toast {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 14px;
+    background: rgba(20, 18, 30, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(30px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    animation: toastIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+               toastOut 0.4s cubic-bezier(0.7, 0, 0.3, 1) 3s forwards;
+  }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(30px) scale(0.9); }
+    to { opacity: 1; transform: translateX(0) scale(1); }
+  }
+
+  @keyframes toastOut {
+    to { opacity: 0; transform: translateX(30px) scale(0.9); }
+  }
+
+  .toast__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #000;
+  }
+
+  .toast__name { font-size: 11px; font-weight: 600; }
+  .toast__text { font-size: 10px; color: var(--text-muted); }
+
+  /* Replay button */
+  .replay-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .replay-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+  }
+
+  /* ==========================================
+     ИДЕЯ 9: Online pulse
+     ========================================== */
+
+  .pulse-demo {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+  }
+
+  .pulse-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: #000;
+    position: relative;
+  }
+
+  .pulse-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--online);
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    border: 2.5px solid var(--bg);
+  }
+
+  .pulse-dot::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--online);
+    animation: pulse 2s ease-out infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+
+  .pulse-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  .pulse-avatar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* DND dot */
+  .pulse-dot--dnd {
+    background: var(--danger);
+  }
+  .pulse-dot--dnd::after {
+    border-color: var(--danger);
+  }
+
+  /* Idle dot */
+  .pulse-dot--idle {
+    background: #f59e0b;
+  }
+  .pulse-dot--idle::after {
+    display: none;
+  }
+
+  /* Offline */
+  .pulse-dot--offline {
+    background: transparent;
+    border-color: var(--text-muted);
+  }
+  .pulse-dot--offline::after {
+    display: none;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>blesk animations</h1>
+  <div class="subtitle">Идеи для анимаций и интерактивности. Кликай и наводи.</div>
+
+  <!-- 1. Magnetic Nav -->
+  <h2>1. Навигация — Скользящий индикатор</h2>
+  <div class="desc">Активный таб подсвечивается зелёным с glow-эффектом. Индикатор плавно скользит между табами. При ховере таб слегка приподнимается.</div>
+  <div class="demo-box">
+    <div class="mag-shelf" id="magShelf">
+      <div class="mag-shelf__indicator" id="magIndicator"></div>
+      <button class="mag-tab mag-tab--active" data-idx="0" onclick="setMagTab(this)">💬 Чаты</button>
+      <button class="mag-tab" data-idx="1" onclick="setMagTab(this)">📢 Каналы</button>
+      <button class="mag-tab" data-idx="2" onclick="setMagTab(this)">👥 Друзья</button>
+    </div>
+  </div>
+
+  <!-- 2. Expanding Profile -->
+  <h2>2. Профиль — Расширяющаяся карточка</h2>
+  <div class="desc">Вместо обычного dropdown — пилл плавно расширяется в карточку с меню. Аватар увеличивается, пункты меню появляются каскадно с задержкой. Нажми на пилл.</div>
+  <div class="demo-box">
+    <div class="expand-pill-wrap">
+      <div class="expand-pill" id="expandPill" onclick="this.classList.toggle('expanded')">
+        <div class="expand-pill__header">
+          <div class="expand-pill__avatar" style="background: hsl(176, 70%, 50%)">
+            E
+            <div class="expand-pill__status-dot"></div>
+          </div>
+          <div>
+            <div class="expand-pill__name">gotblesk</div>
+            <div class="expand-pill__tag">#7822</div>
+          </div>
+        </div>
+        <div class="expand-pill__menu">
+          <button class="expand-pill__item" onclick="event.stopPropagation()">👤 Мой профиль</button>
+          <button class="expand-pill__item" onclick="event.stopPropagation()">🟢 Статус</button>
+          <div class="expand-pill__sep"></div>
+          <button class="expand-pill__item" onclick="event.stopPropagation()">⚙️ Настройки</button>
+          <button class="expand-pill__item" onclick="event.stopPropagation()">🎨 Тема</button>
+          <button class="expand-pill__item" onclick="event.stopPropagation()">ℹ️ О программе</button>
+          <div class="expand-pill__sep"></div>
+          <button class="expand-pill__item expand-pill__item--danger" onclick="event.stopPropagation()">🚪 Выйти</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Glow buttons -->
+  <h2>3. Кнопки — Hover Glow + Ripple</h2>
+  <div class="desc">При наведении кнопка подсвечивается изнутри радиальным градиентом. Зелёная кнопка получает glow-тень. Наведи курсор.</div>
+  <div class="demo-box">
+    <div class="btn-row">
+      <button class="glow-btn">Отмена</button>
+      <button class="glow-btn glow-btn--accent">Отправить</button>
+      <button class="glow-btn">Настройки</button>
+    </div>
+  </div>
+
+  <!-- 4. Chat list stagger -->
+  <h2>4. Список чатов — Каскадное появление</h2>
+  <div class="desc">При переключении раздела элементы списка появляются каскадно — каждый с небольшой задержкой, скользя слева. Нажми "Повторить".</div>
+  <div class="demo-box" style="position: relative;">
+    <button class="replay-btn" onclick="replayStagger()">↻</button>
+    <div class="stagger-list" id="staggerList">
+      <div class="stagger-item">
+        <div class="stagger-avatar" style="background: hsl(220, 70%, 55%)">А</div>
+        <div class="stagger-info"><div class="stagger-name">Алекс</div><div class="stagger-last">Привет! Как дела?</div></div>
+      </div>
+      <div class="stagger-item">
+        <div class="stagger-avatar" style="background: hsl(340, 70%, 55%)">М</div>
+        <div class="stagger-info"><div class="stagger-name">Маша</div><div class="stagger-last">Скинула файл, посмотри</div></div>
+      </div>
+      <div class="stagger-item">
+        <div class="stagger-avatar" style="background: hsl(120, 60%, 45%)">Д</div>
+        <div class="stagger-info"><div class="stagger-name">Дизайнеры</div><div class="stagger-last">Катя: Обновила макет</div></div>
+      </div>
+      <div class="stagger-item">
+        <div class="stagger-avatar" style="background: hsl(30, 70%, 50%)">И</div>
+        <div class="stagger-info"><div class="stagger-name">Игорь</div><div class="stagger-last">Ок, договорились</div></div>
+      </div>
+      <div class="stagger-item">
+        <div class="stagger-avatar" style="background: hsl(270, 60%, 55%)">К</div>
+        <div class="stagger-info"><div class="stagger-name">Команда blesk</div><div class="stagger-last">Егор: Запуск через неделю!</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Message animation -->
+  <h2>5. Сообщения — Появление снизу</h2>
+  <div class="desc">Новые сообщения мягко появляются снизу с лёгким scale-эффектом. Нажми "Повторить".</div>
+  <div class="demo-box" style="position: relative;">
+    <button class="replay-btn" onclick="replayMessages()">↻</button>
+    <div class="msg-demo" id="msgDemo">
+      <div class="msg-bubble">
+        <div class="msg-av" style="background: hsl(220, 70%, 55%)">А</div>
+        <div class="msg-text">Привет! Как дела с проектом?</div>
+      </div>
+      <div class="msg-bubble">
+        <div class="msg-av" style="background: hsl(220, 70%, 55%)">А</div>
+        <div class="msg-text">Покажешь дизайн когда будет готово?</div>
+      </div>
+      <div class="msg-bubble">
+        <div class="msg-av" style="background: hsl(176, 70%, 50%)">E</div>
+        <div class="msg-text">Да конечно! Уже почти готово 🔥</div>
+      </div>
+      <div class="msg-bubble">
+        <div class="msg-av" style="background: hsl(220, 70%, 55%)">А</div>
+        <div class="msg-text">Круто, жду!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Page transition -->
+  <h2>6. Переходы между разделами — Blur Morph</h2>
+  <div class="desc">При переключении таба контент уменьшается и размывается, новый — появляется из увеличения. Нажимай на табы.</div>
+  <div class="demo-box demo-box--tall" style="padding-top: 20px;">
+    <div class="morph-tabs">
+      <button class="morph-tab morph-tab--active" onclick="morphTo(this, '💬', 'Чаты', '12 активных диалогов')">Чаты</button>
+      <button class="morph-tab" onclick="morphTo(this, '📢', 'Каналы', '3 подписки')">Каналы</button>
+      <button class="morph-tab" onclick="morphTo(this, '👥', 'Друзья', '8 онлайн')">Друзья</button>
+    </div>
+    <div class="morph-content">
+      <div class="morph-page" id="morphPage">
+        <div class="morph-page__icon">💬</div>
+        <div class="morph-page__title">Чаты</div>
+        <div class="morph-page__sub">12 активных диалогов</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Typing indicator -->
+  <h2>7. Индикатор набора текста</h2>
+  <div class="desc">Три точки с пульсирующей анимацией — каждая прыгает с задержкой.</div>
+  <div class="demo-box">
+    <div class="typing">
+      <div class="typing__dots">
+        <div class="typing__dot"></div>
+        <div class="typing__dot"></div>
+        <div class="typing__dot"></div>
+      </div>
+      Алекс печатает...
+    </div>
+  </div>
+
+  <!-- 8. Toast notification -->
+  <h2>8. Уведомления — Toast</h2>
+  <div class="desc">Уведомление влетает справа с пружинистой анимацией, через 3 сек уходит обратно. Нажми "Повторить".</div>
+  <div class="demo-box" style="position: relative; min-height: 80px;">
+    <button class="replay-btn" onclick="replayToast()">↻</button>
+    <div class="toast-demo" id="toastDemo">
+      <div class="toast" id="toast">
+        <div class="toast__avatar" style="background: hsl(220, 70%, 55%)">А</div>
+        <div>
+          <div class="toast__name">Алекс</div>
+          <div class="toast__text">Привет! Как дела?</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. Online statuses -->
+  <h2>9. Статусы онлайн — Пульсация</h2>
+  <div class="desc">Зелёная точка "В сети" пульсирует — кольцо расходится и исчезает. Остальные статусы без пульса.</div>
+  <div class="demo-box">
+    <div class="pulse-demo">
+      <div class="pulse-avatar-wrap">
+        <div class="pulse-avatar" style="background: hsl(176, 70%, 50%)">E</div>
+        <div class="pulse-dot"></div>
+        <div class="pulse-label">В сети</div>
+      </div>
+      <div class="pulse-avatar-wrap">
+        <div class="pulse-avatar" style="background: hsl(220, 70%, 55%)">А</div>
+        <div class="pulse-dot pulse-dot--idle"></div>
+        <div class="pulse-label">Неактивен</div>
+      </div>
+      <div class="pulse-avatar-wrap">
+        <div class="pulse-avatar" style="background: hsl(340, 70%, 55%)">М</div>
+        <div class="pulse-dot pulse-dot--dnd"></div>
+        <div class="pulse-label">Не беспокоить</div>
+      </div>
+      <div class="pulse-avatar-wrap">
+        <div class="pulse-avatar" style="background: hsl(30, 70%, 50%)">И</div>
+        <div class="pulse-dot pulse-dot--offline"></div>
+        <div class="pulse-label">Не в сети</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // 1. Magnetic nav
+  function setMagTab(btn) {
+    document.querySelectorAll('.mag-tab').forEach(t => t.classList.remove('mag-tab--active'));
+    btn.classList.add('mag-tab--active');
+    updateIndicator();
+  }
+
+  function updateIndicator() {
+    const active = document.querySelector('.mag-tab--active');
+    const shelf = document.getElementById('magShelf');
+    const ind = document.getElementById('magIndicator');
+    if (!active || !shelf || !ind) return;
+    const sr = shelf.getBoundingClientRect();
+    const ar = active.getBoundingClientRect();
+    ind.style.left = (ar.left - sr.left) + 'px';
+    ind.style.width = ar.width + 'px';
+    ind.style.top = '4px';
+  }
+  setTimeout(updateIndicator, 100);
+
+  // 4. Stagger replay
+  function replayStagger() {
+    const list = document.getElementById('staggerList');
+    const items = list.querySelectorAll('.stagger-item');
+    items.forEach(item => {
+      item.style.animation = 'none';
+      item.offsetHeight;
+      item.style.animation = '';
+    });
+  }
+
+  // 5. Messages replay
+  function replayMessages() {
+    const demo = document.getElementById('msgDemo');
+    const msgs = demo.querySelectorAll('.msg-bubble');
+    msgs.forEach(m => {
+      m.style.animation = 'none';
+      m.offsetHeight;
+      m.style.animation = '';
+    });
+  }
+
+  // 6. Morph transition
+  function morphTo(btn, icon, title, sub) {
+    document.querySelectorAll('.morph-tab').forEach(t => t.classList.remove('morph-tab--active'));
+    btn.classList.add('morph-tab--active');
+
+    const page = document.getElementById('morphPage');
+    page.classList.add('morph-page--exit');
+
+    setTimeout(() => {
+      page.innerHTML = `
+        <div class="morph-page__icon">${icon}</div>
+        <div class="morph-page__title">${title}</div>
+        <div class="morph-page__sub">${sub}</div>
+      `;
+      page.classList.remove('morph-page--exit');
+      page.classList.add('morph-page--enter');
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          page.classList.remove('morph-page--enter');
+        });
+      });
+    }, 300);
+  }
+
+  // 8. Toast replay
+  function replayToast() {
+    const demo = document.getElementById('toastDemo');
+    demo.innerHTML = '';
+    setTimeout(() => {
+      demo.innerHTML = `
+        <div class="toast">
+          <div class="toast__avatar" style="background: hsl(220, 70%, 55%)">А</div>
+          <div>
+            <div class="toast__name">Алекс</div>
+            <div class="toast__text">Привет! Как дела?</div>
+          </div>
+        </div>
+      `;
+    }, 50);
+  }
+</script>
+</body>
+</html>

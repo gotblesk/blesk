@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Chat Design Concepts</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .page-title {
+    text-align: center;
+    padding: 40px 20px 10px;
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #c8ff00, #a0e800);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .page-sub {
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 40px;
+  }
+
+  .concepts {
+    display: flex;
+    gap: 32px;
+    padding: 0 32px 60px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+
+  .concept {
+    min-width: 380px;
+    max-width: 380px;
+    scroll-snap-align: center;
+    flex-shrink: 0;
+  }
+
+  .concept__label {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .concept__desc {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 16px;
+    line-height: 1.4;
+  }
+
+  .phone {
+    width: 380px;
+    height: 680px;
+    border-radius: 32px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* ====== CONCEPT 1: NEON THREAD ====== */
+  .c1-bg {
+    background: linear-gradient(170deg, #0a0812 0%, #0d0b18 100%);
+  }
+
+  .c1-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid rgba(200,255,0,0.06);
+    position: relative;
+  }
+  .c1-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 16px; right: 16px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,255,0,0.15), transparent);
+  }
+  .c1-grip {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+  }
+  .c1-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: white;
+    position: relative;
+  }
+  .c1-online-dot {
+    position: absolute; bottom: 0; right: 0; width: 10px; height: 10px;
+    border-radius: 50%; background: #4ade80; border: 2px solid #0a0812;
+  }
+  .c1-name { font-size: 14px; font-weight: 600; }
+  .c1-status { font-size: 10px; color: #4ade80; }
+
+  .c1-messages {
+    flex: 1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 520px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Neon thread line connecting messages */
+  .c1-messages::before {
+    content: '';
+    position: absolute;
+    left: 28px;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      rgba(200,255,0,0.06) 10%,
+      rgba(200,255,0,0.03) 50%,
+      rgba(200,255,0,0.06) 90%,
+      transparent 100%
+    );
+  }
+
+  .c1-msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 75%;
+    position: relative;
+    animation: c1Appear 0.4s ease both;
+  }
+  .c1-msg--own { align-self: flex-end; align-items: flex-end; }
+  .c1-msg--other { align-self: flex-start; align-items: flex-start; padding-left: 20px; }
+
+  /* Neon dot on thread for other's messages */
+  .c1-msg--other::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 12px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(200,255,0,0.2);
+    box-shadow: 0 0 8px rgba(200,255,0,0.15);
+  }
+
+  .c1-bubble {
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.45;
+    border-radius: 16px;
+    position: relative;
+  }
+  .c1-msg--own .c1-bubble {
+    background: linear-gradient(135deg, rgba(200,255,0,0.12), rgba(200,255,0,0.06));
+    border: 1px solid rgba(200,255,0,0.1);
+    border-radius: 16px 16px 4px 16px;
+    color: rgba(255,255,255,0.9);
+  }
+  /* Own message neon glow edge */
+  .c1-msg--own .c1-bubble::after {
+    content: '';
+    position: absolute;
+    right: -1px; top: 20%; bottom: 20%;
+    width: 2px;
+    border-radius: 1px;
+    background: rgba(200,255,0,0.25);
+    box-shadow: 0 0 6px rgba(200,255,0,0.2);
+  }
+
+  .c1-msg--other .c1-bubble {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 16px 16px 16px 4px;
+    color: rgba(255,255,255,0.8);
+  }
+
+  .c1-time {
+    font-size: 9px;
+    color: rgba(255,255,255,0.12);
+    margin-top: 3px;
+    padding: 0 6px;
+  }
+
+  .c1-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+  }
+  .c1-input-field {
+    flex: 1; padding: 10px 14px; border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15);
+    font-size: 13px;
+  }
+  .c1-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(200,255,0,0.15);
+    border: 1px solid rgba(200,255,0,0.2);
+    color: #c8ff00;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  @keyframes c1Appear {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ====== CONCEPT 2: AURORA FLOW ====== */
+  .c2-bg {
+    background: #0a0812;
+    position: relative;
+  }
+  /* Subtle aurora behind messages */
+  .c2-aurora {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .c2-aurora-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.06;
+    animation: auroraMove 12s ease-in-out infinite alternate;
+  }
+  .c2-aurora-blob:nth-child(1) {
+    width: 200px; height: 200px;
+    background: #c8ff00;
+    top: 20%; left: -30%;
+  }
+  .c2-aurora-blob:nth-child(2) {
+    width: 180px; height: 180px;
+    background: #8b5cf6;
+    top: 50%; right: -20%;
+    animation-delay: -4s;
+  }
+  .c2-aurora-blob:nth-child(3) {
+    width: 160px; height: 160px;
+    background: #06b6d4;
+    bottom: 10%; left: 20%;
+    animation-delay: -8s;
+  }
+
+  @keyframes auroraMove {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(40px, -30px) scale(1.3); }
+  }
+
+  .c2-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 16px 12px;
+    position: relative; z-index: 2;
+    background: rgba(10,8,18,0.6);
+    backdrop-filter: blur(12px);
+  }
+  .c2-grip {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+  }
+  .c2-avatar {
+    width: 38px; height: 38px; border-radius: 14px;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: white;
+    position: relative;
+  }
+  .c2-online-ring {
+    position: absolute; inset: -3px; border-radius: 17px;
+    border: 2px solid rgba(74,222,128,0.4);
+    animation: c2Ring 2s ease-in-out infinite;
+  }
+  @keyframes c2Ring {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+  }
+  .c2-name { font-size: 14px; font-weight: 600; }
+  .c2-status { font-size: 10px; color: #4ade80; }
+
+  .c2-messages {
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 8px;
+    height: 520px; overflow: hidden;
+    position: relative; z-index: 2;
+  }
+
+  .c2-msg {
+    display: flex; flex-direction: column; max-width: 72%;
+    animation: c2MsgIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .c2-msg--own { align-self: flex-end; align-items: flex-end; }
+  .c2-msg--other { align-self: flex-start; align-items: flex-start; }
+
+  .c2-bubble {
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    position: relative;
+  }
+
+  /* Own: gradient accent edge + soft background */
+  .c2-msg--own .c2-bubble {
+    background: rgba(200,255,0,0.06);
+    border-radius: 18px 18px 4px 18px;
+    color: rgba(255,255,255,0.9);
+    border: none;
+    /* Left accent gradient strip */
+    border-right: 2px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+  .c2-msg--own .c2-bubble::before {
+    content: '';
+    position: absolute;
+    right: 0; top: 6px; bottom: 6px; width: 2px;
+    border-radius: 1px;
+    background: linear-gradient(180deg, #c8ff00, rgba(200,255,0,0.2));
+  }
+
+  /* Other: minimal, just text with subtle left bar */
+  .c2-msg--other .c2-bubble {
+    background: transparent;
+    border-radius: 4px;
+    color: rgba(255,255,255,0.75);
+    padding-left: 12px;
+    border-left: 2px solid rgba(255,255,255,0.06);
+  }
+
+  .c2-time {
+    font-size: 9px; color: rgba(255,255,255,0.1);
+    margin-top: 3px; padding: 0 6px;
+  }
+
+  /* Date separator */
+  .c2-date {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.12);
+    padding: 8px 0;
+    position: relative;
+  }
+  .c2-date::before, .c2-date::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    height: 1px;
+    width: 60px;
+    background: rgba(255,255,255,0.04);
+  }
+  .c2-date::before { right: calc(50% + 50px); }
+  .c2-date::after { left: calc(50% + 50px); }
+
+  .c2-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    position: relative; z-index: 2;
+  }
+  .c2-input-field {
+    flex: 1; padding: 10px 14px; border-radius: 20px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15);
+    font-size: 13px;
+  }
+  .c2-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #c8ff00, #a0d000);
+    color: #08060f; font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  @keyframes c2MsgIn {
+    from { opacity: 0; transform: translateX(-12px) scale(0.97); }
+    to { opacity: 1; transform: translateX(0) scale(1); }
+  }
+  .c2-msg--own { animation-name: c2MsgInOwn; }
+  @keyframes c2MsgInOwn {
+    from { opacity: 0; transform: translateX(12px) scale(0.97); }
+    to { opacity: 1; transform: translateX(0) scale(1); }
+  }
+
+  /* ====== CONCEPT 3: TERMINAL CHAT ====== */
+  .c3-bg {
+    background: #050508;
+    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .c3-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 16px 10px;
+    border-bottom: 1px solid rgba(200,255,0,0.06);
+    position: relative;
+  }
+  .c3-grip {
+    position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 2px;
+    background: rgba(200,255,0,0.1);
+  }
+  .c3-header-tag {
+    font-size: 10px;
+    color: rgba(200,255,0,0.5);
+    font-weight: 500;
+  }
+  .c3-header-user {
+    font-size: 14px;
+    font-weight: 600;
+    color: #c8ff00;
+  }
+  .c3-header-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 8px rgba(74,222,128,0.4);
+    animation: c3Blink 2s ease-in-out infinite;
+  }
+  @keyframes c3Blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .c3-messages {
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 6px;
+    height: 530px; overflow: hidden;
+    position: relative;
+  }
+
+  /* Scanline effect */
+  .c3-messages::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 2px,
+      rgba(200,255,0,0.008) 2px,
+      rgba(200,255,0,0.008) 4px
+    );
+    pointer-events: none;
+  }
+
+  .c3-msg {
+    font-size: 12px;
+    line-height: 1.5;
+    animation: c3Type 0.3s ease both;
+  }
+
+  .c3-msg--own {
+    color: rgba(200,255,0,0.8);
+    padding-left: 0;
+  }
+  .c3-msg--own::before {
+    content: '> ';
+    color: rgba(200,255,0,0.4);
+  }
+
+  .c3-msg--other {
+    color: rgba(255,255,255,0.6);
+    padding-left: 0;
+  }
+  .c3-msg--other .c3-sender {
+    color: #c44dff;
+    font-weight: 600;
+  }
+  .c3-msg--other .c3-sender::after {
+    content: ': ';
+    color: rgba(255,255,255,0.15);
+  }
+
+  .c3-msg-time {
+    color: rgba(255,255,255,0.08);
+    font-size: 10px;
+    margin-left: 8px;
+  }
+
+  .c3-sys {
+    font-size: 10px;
+    color: rgba(255,255,255,0.1);
+    padding: 4px 0;
+    font-style: italic;
+  }
+
+  .c3-input {
+    display: flex; align-items: center; gap: 0;
+    padding: 10px 16px;
+    border-top: 1px solid rgba(200,255,0,0.04);
+  }
+  .c3-prompt {
+    color: rgba(200,255,0,0.4);
+    font-size: 13px;
+    margin-right: 6px;
+    font-family: inherit;
+  }
+  .c3-input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: rgba(200,255,0,0.2);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+  }
+  .c3-cursor {
+    width: 7px; height: 15px;
+    background: rgba(200,255,0,0.5);
+    animation: c3Blink 1s step-end infinite;
+  }
+
+  @keyframes c3Type {
+    from { opacity: 0; transform: translateX(-4px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ====== CONCEPT 4: GRAVITY CARDS ====== */
+  .c4-bg {
+    background: #0a0812;
+  }
+
+  .c4-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 16px 12px;
+    position: relative;
+  }
+  .c4-grip {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+  }
+  .c4-avatar {
+    width: 38px; height: 38px; border-radius: 12px;
+    background: linear-gradient(135deg, #ff6b9d, #c44dff);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: white;
+    box-shadow: 0 4px 16px rgba(196,77,255,0.2);
+  }
+  .c4-name { font-size: 14px; font-weight: 600; }
+  .c4-status { font-size: 10px; color: #4ade80; }
+
+  .c4-messages {
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    height: 520px; overflow: hidden;
+  }
+
+  .c4-msg {
+    display: flex; flex-direction: column; max-width: 70%;
+    animation: c4Float 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .c4-msg--own { align-self: flex-end; align-items: flex-end; }
+  .c4-msg--other { align-self: flex-start; align-items: flex-start; }
+
+  .c4-card {
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    border-radius: 20px;
+    position: relative;
+    transition: transform 0.2s;
+  }
+  .c4-card:hover {
+    transform: translateY(-2px) scale(1.01);
+  }
+
+  /* Own: solid accent card with depth shadow */
+  .c4-msg--own .c4-card {
+    background: linear-gradient(135deg, rgba(200,255,0,0.15), rgba(200,255,0,0.08));
+    color: rgba(255,255,255,0.92);
+    border: none;
+    box-shadow:
+      0 2px 8px rgba(200,255,0,0.08),
+      0 8px 24px rgba(0,0,0,0.2),
+      inset 0 1px 0 rgba(200,255,0,0.1);
+    border-radius: 20px 20px 6px 20px;
+  }
+
+  /* Other: frosted card */
+  .c4-msg--other .c4-card {
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.8);
+    box-shadow:
+      0 2px 8px rgba(0,0,0,0.15),
+      0 8px 24px rgba(0,0,0,0.1),
+      inset 0 1px 0 rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.03);
+    border-radius: 20px 20px 20px 6px;
+    backdrop-filter: blur(8px);
+  }
+
+  /* Stacked visual: tiny shadow copies */
+  .c4-msg--own .c4-card::after {
+    content: '';
+    position: absolute;
+    inset: 3px 3px -3px 3px;
+    border-radius: inherit;
+    background: rgba(200,255,0,0.04);
+    z-index: -1;
+    transform: translateY(4px);
+  }
+
+  .c4-time {
+    font-size: 9px; color: rgba(255,255,255,0.1);
+    margin-top: 4px; padding: 0 8px;
+  }
+
+  /* Reactions */
+  .c4-reactions {
+    display: flex; gap: 4px; margin-top: 4px;
+  }
+  .c4-reaction {
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.04);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .c4-input {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+  }
+  .c4-input-field {
+    flex: 1; padding: 12px 16px; border-radius: 20px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15);
+    font-size: 13px;
+  }
+  .c4-send {
+    width: 40px; height: 40px; border-radius: 14px;
+    background: linear-gradient(135deg, #c8ff00, #a0d000);
+    color: #08060f; font-weight: 700; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(200,255,0,0.2);
+  }
+
+  @keyframes c4Float {
+    from { opacity: 0; transform: translateY(16px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Vote buttons */
+  .vote-section {
+    display: flex; gap: 16px; justify-content: center; padding: 40px 20px;
+    flex-wrap: wrap;
+  }
+  .vote-btn {
+    padding: 14px 28px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .vote-btn:hover {
+    background: rgba(200,255,0,0.1);
+    border-color: rgba(200,255,0,0.2);
+    color: #c8ff00;
+    transform: translateY(-2px);
+  }
+  .vote-btn--active {
+    background: rgba(200,255,0,0.15) !important;
+    border-color: rgba(200,255,0,0.3) !important;
+    color: #c8ff00 !important;
+    box-shadow: 0 4px 20px rgba(200,255,0,0.15);
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">Дизайн чата — 4 концепта</div>
+<div class="page-sub">Выбери стиль который нравится больше всего</div>
+
+<div class="concepts">
+
+  <!-- CONCEPT 1: NEON THREAD -->
+  <div class="concept">
+    <div class="concept__label">1. Neon Thread</div>
+    <div class="concept__desc">Неоновая нить связывает сообщения • Светящийся акцент на своих сообщениях • Минимализм + лёгкие свечения</div>
+    <div class="phone c1-bg">
+      <div class="c1-header">
+        <div class="c1-grip"></div>
+        <div class="c1-avatar">К<div class="c1-online-dot"></div></div>
+        <div><div class="c1-name">Катя</div><div class="c1-status">онлайн</div></div>
+      </div>
+      <div class="c1-messages">
+        <div class="c1-msg c1-msg--other" style="animation-delay: 0.1s">
+          <div class="c1-bubble">Привет! Как дела? 👋</div>
+          <div class="c1-time">14:32</div>
+        </div>
+        <div class="c1-msg c1-msg--own" style="animation-delay: 0.2s">
+          <div class="c1-bubble">Привет! Всё отлично, работаю над blesk</div>
+          <div class="c1-time">14:33</div>
+        </div>
+        <div class="c1-msg c1-msg--other" style="animation-delay: 0.3s">
+          <div class="c1-bubble">О круто! Когда можно попробовать?</div>
+          <div class="c1-time">14:33</div>
+        </div>
+        <div class="c1-msg c1-msg--own" style="animation-delay: 0.4s">
+          <div class="c1-bubble">Скоро, уже почти готов MVP 🚀</div>
+          <div class="c1-time">14:34</div>
+        </div>
+        <div class="c1-msg c1-msg--other" style="animation-delay: 0.5s">
+          <div class="c1-bubble">Класс, жду! А дизайн реально красивый получается</div>
+          <div class="c1-time">14:35</div>
+        </div>
+        <div class="c1-msg c1-msg--own" style="animation-delay: 0.6s">
+          <div class="c1-bubble">Спасибо! Старался сделать уникально</div>
+          <div class="c1-time">14:35</div>
+        </div>
+        <div class="c1-msg c1-msg--other" style="animation-delay: 0.7s">
+          <div class="c1-bubble">Кстати а голосовые уже есть?</div>
+          <div class="c1-time">14:36</div>
+        </div>
+      </div>
+      <div class="c1-input">
+        <div class="c1-input-field">Написать сообщение...</div>
+        <div class="c1-send">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 2: AURORA FLOW -->
+  <div class="concept">
+    <div class="concept__label">2. Aurora Flow</div>
+    <div class="concept__desc">Живой фон с полярным сиянием • Свои сообщения с акцентной полосой справа • Чужие — чистый текст с минимальной линией</div>
+    <div class="phone c2-bg">
+      <div class="c2-aurora">
+        <div class="c2-aurora-blob"></div>
+        <div class="c2-aurora-blob"></div>
+        <div class="c2-aurora-blob"></div>
+      </div>
+      <div class="c2-header">
+        <div class="c2-grip"></div>
+        <div class="c2-avatar">К<div class="c2-online-ring"></div></div>
+        <div><div class="c2-name">Катя</div><div class="c2-status">онлайн</div></div>
+      </div>
+      <div class="c2-messages">
+        <div class="c2-date">Сегодня</div>
+        <div class="c2-msg c2-msg--other" style="animation-delay: 0.1s">
+          <div class="c2-bubble">Привет! Как дела? 👋</div>
+          <div class="c2-time">14:32</div>
+        </div>
+        <div class="c2-msg c2-msg--own" style="animation-delay: 0.2s">
+          <div class="c2-bubble">Привет! Всё отлично, работаю над blesk</div>
+          <div class="c2-time">14:33</div>
+        </div>
+        <div class="c2-msg c2-msg--other" style="animation-delay: 0.3s">
+          <div class="c2-bubble">О круто! Когда можно попробовать?</div>
+          <div class="c2-time">14:33</div>
+        </div>
+        <div class="c2-msg c2-msg--own" style="animation-delay: 0.4s">
+          <div class="c2-bubble">Скоро, уже почти готов MVP 🚀</div>
+          <div class="c2-time">14:34</div>
+        </div>
+        <div class="c2-msg c2-msg--other" style="animation-delay: 0.5s">
+          <div class="c2-bubble">Класс, жду! А дизайн реально красивый получается</div>
+          <div class="c2-time">14:35</div>
+        </div>
+        <div class="c2-msg c2-msg--own" style="animation-delay: 0.6s">
+          <div class="c2-bubble">Спасибо! Старался сделать уникально</div>
+          <div class="c2-time">14:35</div>
+        </div>
+        <div class="c2-msg c2-msg--other" style="animation-delay: 0.7s">
+          <div class="c2-bubble">Кстати а голосовые уже есть?</div>
+          <div class="c2-time">14:36</div>
+        </div>
+      </div>
+      <div class="c2-input">
+        <div class="c2-input-field">Написать сообщение...</div>
+        <div class="c2-send">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 3: TERMINAL CHAT -->
+  <div class="concept">
+    <div class="concept__label">3. Terminal Chat</div>
+    <div class="concept__desc">Хакерский терминальный стиль • Моноширинный шрифт • Scanline-эффект • Свои сообщения зелёные, чужие серые</div>
+    <div class="phone c3-bg">
+      <div class="c3-header">
+        <div class="c3-grip"></div>
+        <div class="c3-header-dot"></div>
+        <div>
+          <div class="c3-header-tag">@channel</div>
+          <div class="c3-header-user">katya</div>
+        </div>
+      </div>
+      <div class="c3-messages">
+        <div class="c3-sys">--- session started ---</div>
+        <div class="c3-msg c3-msg--other" style="animation-delay: 0.1s">
+          <span class="c3-sender">katya</span>Привет! Как дела? 👋<span class="c3-msg-time">14:32</span>
+        </div>
+        <div class="c3-msg c3-msg--own" style="animation-delay: 0.2s">
+          Привет! Всё отлично, работаю над blesk<span class="c3-msg-time">14:33</span>
+        </div>
+        <div class="c3-msg c3-msg--other" style="animation-delay: 0.3s">
+          <span class="c3-sender">katya</span>О круто! Когда можно попробовать?<span class="c3-msg-time">14:33</span>
+        </div>
+        <div class="c3-msg c3-msg--own" style="animation-delay: 0.4s">
+          Скоро, уже почти готов MVP 🚀<span class="c3-msg-time">14:34</span>
+        </div>
+        <div class="c3-msg c3-msg--other" style="animation-delay: 0.5s">
+          <span class="c3-sender">katya</span>Класс, жду! А дизайн реально красивый<span class="c3-msg-time">14:35</span>
+        </div>
+        <div class="c3-msg c3-msg--own" style="animation-delay: 0.6s">
+          Спасибо! Старался сделать уникально<span class="c3-msg-time">14:35</span>
+        </div>
+        <div class="c3-msg c3-msg--other" style="animation-delay: 0.7s">
+          <span class="c3-sender">katya</span>Кстати а голосовые уже есть?<span class="c3-msg-time">14:36</span>
+        </div>
+        <div class="c3-sys">--- katya is typing... ---</div>
+      </div>
+      <div class="c3-input">
+        <span class="c3-prompt">blesk&gt;</span>
+        <div class="c3-input-field">_</div>
+        <div class="c3-cursor"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 4: GRAVITY CARDS -->
+  <div class="concept">
+    <div class="concept__label">4. Gravity Cards</div>
+    <div class="concept__desc">Объёмные карточки с тенями • Эффект левитации при наведении • Мягкие формы • Реакции на сообщения</div>
+    <div class="phone c4-bg">
+      <div class="c4-header">
+        <div class="c4-grip"></div>
+        <div class="c4-avatar">К</div>
+        <div><div class="c4-name">Катя</div><div class="c4-status">онлайн</div></div>
+      </div>
+      <div class="c4-messages">
+        <div class="c4-msg c4-msg--other" style="animation-delay: 0.1s">
+          <div class="c4-card">Привет! Как дела? 👋</div>
+          <div class="c4-time">14:32</div>
+        </div>
+        <div class="c4-msg c4-msg--own" style="animation-delay: 0.2s">
+          <div class="c4-card">Привет! Всё отлично, работаю над blesk</div>
+          <div class="c4-time">14:33</div>
+        </div>
+        <div class="c4-msg c4-msg--other" style="animation-delay: 0.3s">
+          <div class="c4-card">О круто! Когда можно попробовать?</div>
+          <div class="c4-reactions">
+            <span class="c4-reaction">🔥 2</span>
+          </div>
+          <div class="c4-time">14:33</div>
+        </div>
+        <div class="c4-msg c4-msg--own" style="animation-delay: 0.4s">
+          <div class="c4-card">Скоро, уже почти готов MVP 🚀</div>
+          <div class="c4-reactions">
+            <span class="c4-reaction">🚀 1</span>
+            <span class="c4-reaction">❤️ 1</span>
+          </div>
+          <div class="c4-time">14:34</div>
+        </div>
+        <div class="c4-msg c4-msg--other" style="animation-delay: 0.5s">
+          <div class="c4-card">Класс, жду! А дизайн реально красивый получается</div>
+          <div class="c4-time">14:35</div>
+        </div>
+        <div class="c4-msg c4-msg--own" style="animation-delay: 0.6s">
+          <div class="c4-card">Спасибо! Старался сделать уникально</div>
+          <div class="c4-time">14:35</div>
+        </div>
+        <div class="c4-msg c4-msg--other" style="animation-delay: 0.7s">
+          <div class="c4-card">Кстати а голосовые уже есть?</div>
+          <div class="c4-time">14:36</div>
+        </div>
+      </div>
+      <div class="c4-input">
+        <div class="c4-input-field">Написать сообщение...</div>
+        <div class="c4-send">→</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="vote-section">
+  <button class="vote-btn" onclick="vote(this, 1)">1. Neon Thread</button>
+  <button class="vote-btn" onclick="vote(this, 2)">2. Aurora Flow</button>
+  <button class="vote-btn" onclick="vote(this, 3)">3. Terminal Chat</button>
+  <button class="vote-btn" onclick="vote(this, 4)">4. Gravity Cards</button>
+</div>
+
+<script>
+function vote(btn, n) {
+  document.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('vote-btn--active'));
+  btn.classList.add('vote-btn--active');
+}
+</script>
+</body>
+</html>

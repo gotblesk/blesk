@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Профильное меню: варианты</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #08060f;
+    --accent: #c8ff00;
+    --text: rgba(255, 255, 255, 0.85);
+    --text-muted: rgba(255, 255, 255, 0.25);
+    --online: #4ade80;
+    --danger: #ef4444;
+    --font-ui: 'Unbounded', sans-serif;
+    --font-brand: 'Syne', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-ui);
+    background: var(--bg);
+    color: var(--text);
+    overflow-y: auto;
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 30px 80px;
+  }
+
+  h1 {
+    font-family: var(--font-brand);
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    color: var(--accent);
+  }
+
+  h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 50px 0 8px;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 40px;
+  }
+
+  .desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .demo-box {
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 60px 40px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 420px;
+    position: relative;
+  }
+
+  /* Shared pill */
+  .pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+  }
+  .pill:hover { background: rgba(255,255,255,0.1); }
+
+  .pill__av {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #000;
+    background: hsl(176, 70%, 50%);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .pill__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--online);
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    border: 2px solid var(--bg);
+  }
+
+  .pill__name {
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* ==========================================
+     ВАРИАНТ A: Orbital / Radial Menu
+     Пункты разлетаются полукругом из аватара
+     ========================================== */
+
+  .orbital-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .orbital-pill {
+    position: relative;
+    z-index: 10;
+  }
+
+  .orbital-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .orbital-item {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    background: rgba(20, 18, 30, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(30px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+  }
+
+  .orbital-item:hover {
+    background: rgba(30, 28, 45, 0.98);
+    border-color: rgba(200, 255, 0, 0.2);
+    transform: translate(-50%, -50%) scale(1.05) !important;
+  }
+
+  .orbital-item--danger { color: var(--danger); }
+  .orbital-item--danger:hover { border-color: rgba(239, 68, 68, 0.3); }
+
+  .orbital-wrap.open .orbital-item {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .orbital-item__icon { font-size: 14px; }
+
+  /* Backdrop */
+  .orbital-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: none;
+  }
+  .orbital-wrap.open .orbital-backdrop { display: block; }
+
+  /* Item positions — fan out downward */
+  .orbital-wrap.open .orbital-item:nth-child(1) { transform: translate(-50%, -50%) translate(-140px, 30px) scale(1); transition-delay: 0s; }
+  .orbital-wrap.open .orbital-item:nth-child(2) { transform: translate(-50%, -50%) translate(-100px, 90px) scale(1); transition-delay: 0.03s; }
+  .orbital-wrap.open .orbital-item:nth-child(3) { transform: translate(-50%, -50%) translate(-30px, 120px) scale(1); transition-delay: 0.06s; }
+  .orbital-wrap.open .orbital-item:nth-child(4) { transform: translate(-50%, -50%) translate(50px, 120px) scale(1); transition-delay: 0.09s; }
+  .orbital-wrap.open .orbital-item:nth-child(5) { transform: translate(-50%, -50%) translate(120px, 90px) scale(1); transition-delay: 0.12s; }
+  .orbital-wrap.open .orbital-item:nth-child(6) { transform: translate(-50%, -50%) translate(155px, 30px) scale(1); transition-delay: 0.15s; }
+
+  /* Glow on pill when open */
+  .orbital-wrap.open .pill {
+    box-shadow: 0 0 20px rgba(200, 255, 0, 0.15), 0 0 40px rgba(200, 255, 0, 0.05);
+    border-color: rgba(200, 255, 0, 0.2);
+  }
+
+  /* ==========================================
+     ВАРИАНТ B: Command Palette / Spotlight
+     Центрированная карточка с blur-фоном
+     ========================================== */
+
+  .spotlight-wrap {
+    position: relative;
+  }
+
+  .spotlight-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 6, 15, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .spotlight-wrap.open .spotlight-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .spotlight-card {
+    width: 320px;
+    border-radius: 20px;
+    background: rgba(20, 18, 30, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(40px);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 40px rgba(200, 255, 0, 0.03);
+    overflow: hidden;
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .spotlight-wrap.open .spotlight-card {
+    transform: scale(1) translateY(0);
+  }
+
+  .spotlight-header {
+    padding: 24px 24px 16px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .spotlight-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 600;
+    color: #000;
+    background: hsl(176, 70%, 50%);
+    margin-bottom: 10px;
+    position: relative;
+    box-shadow: 0 0 20px rgba(45, 212, 191, 0.3);
+  }
+
+  .spotlight-avatar__dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--online);
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    border: 2.5px solid rgba(20, 18, 30, 0.95);
+  }
+
+  .spotlight-name {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  .spotlight-tag {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .spotlight-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(74, 222, 128, 0.1);
+    color: var(--online);
+    font-size: 10px;
+    font-weight: 500;
+    margin-top: 10px;
+  }
+
+  .spotlight-status__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--online);
+  }
+
+  .spotlight-menu {
+    padding: 8px;
+  }
+
+  .spotlight-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: all 0.15s;
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  .spotlight-wrap.open .spotlight-item {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .spotlight-wrap.open .spotlight-item:nth-child(1) { transition-delay: 0.1s; }
+  .spotlight-wrap.open .spotlight-item:nth-child(2) { transition-delay: 0.13s; }
+  .spotlight-wrap.open .spotlight-item:nth-child(3) { transition-delay: 0.16s; }
+  .spotlight-wrap.open .spotlight-item:nth-child(4) { transition-delay: 0.19s; }
+  .spotlight-wrap.open .spotlight-item:nth-child(5) { transition-delay: 0.22s; }
+  .spotlight-wrap.open .spotlight-item:nth-child(6) { transition-delay: 0.25s; }
+
+  .spotlight-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .spotlight-item--danger { color: var(--danger); }
+  .spotlight-item--danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+  .spotlight-item__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .spotlight-item__info { flex: 1; }
+  .spotlight-item__label { font-weight: 500; }
+  .spotlight-item__hint { font-size: 9px; color: var(--text-muted); margin-top: 1px; }
+
+  .spotlight-sep {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 4px 8px;
+  }
+
+  .spotlight-footer {
+    padding: 10px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    text-align: center;
+    font-size: 9px;
+    color: var(--text-muted);
+  }
+
+  /* ==========================================
+     ВАРИАНТ C: Side Panel (Glass Drawer)
+     Панель выезжает справа
+     ========================================== */
+
+  .drawer-wrap {
+    position: relative;
+    width: 100%;
+    height: 350px;
+    overflow: hidden;
+    border-radius: 16px;
+    background: rgba(8, 6, 15, 0.5);
+  }
+
+  .drawer-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 12px 16px;
+  }
+
+  .drawer-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 260px;
+    height: 100%;
+    background: rgba(16, 14, 25, 0.97);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    transform: translateX(100%);
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+    box-shadow: -20px 0 60px rgba(0,0,0,0.4);
+  }
+
+  .drawer-wrap.open .drawer-panel {
+    transform: translateX(0);
+  }
+
+  .drawer-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 6, 15, 0.5);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .drawer-wrap.open .drawer-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .drawer-header {
+    padding: 20px 20px 16px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .drawer-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 600;
+    color: #000;
+    background: hsl(176, 70%, 50%);
+    margin-bottom: 8px;
+  }
+
+  .drawer-name {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .drawer-tag {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .drawer-coins {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(200, 255, 0, 0.08);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+
+  .drawer-menu {
+    flex: 1;
+    padding: 8px;
+    overflow-y: auto;
+  }
+
+  .drawer-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: all 0.15s;
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  .drawer-wrap.open .drawer-item {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .drawer-wrap.open .drawer-item:nth-child(1) { transition-delay: 0.1s; }
+  .drawer-wrap.open .drawer-item:nth-child(2) { transition-delay: 0.13s; }
+  .drawer-wrap.open .drawer-item:nth-child(3) { transition-delay: 0.16s; }
+  .drawer-wrap.open .drawer-item:nth-child(4) { transition-delay: 0.19s; }
+  .drawer-wrap.open .drawer-item:nth-child(5) { transition-delay: 0.22s; }
+  .drawer-wrap.open .drawer-item:nth-child(6) { transition-delay: 0.25s; }
+  .drawer-wrap.open .drawer-item:nth-child(7) { transition-delay: 0.28s; }
+
+  .drawer-item:hover { background: rgba(255, 255, 255, 0.06); }
+  .drawer-item--danger { color: var(--danger); }
+  .drawer-item--danger:hover { background: rgba(239, 68, 68, 0.1); }
+  .drawer-item__icon { font-size: 14px; width: 20px; text-align: center; }
+
+  .drawer-sep {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 4px 8px;
+  }
+
+  .drawer-footer {
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 9px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  /* Fake content behind drawer */
+  .drawer-fake {
+    position: absolute;
+    top: 56px;
+    left: 20px;
+    right: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .drawer-fake__line {
+    height: 12px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+  }
+  .drawer-fake__line:nth-child(1) { width: 70%; }
+  .drawer-fake__line:nth-child(2) { width: 90%; }
+  .drawer-fake__line:nth-child(3) { width: 50%; }
+  .drawer-fake__line:nth-child(4) { width: 80%; }
+  .drawer-fake__line:nth-child(5) { width: 65%; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>blesk profile menu</h1>
+  <div class="subtitle">3 варианта профильного меню. Кликай на пилл gotblesk.</div>
+
+  <!-- ВАРИАНТ A: Orbital -->
+  <h2>A. Orbital — Элементы разлетаются полукругом</h2>
+  <div class="desc">Пункты меню вылетают из аватара веером. Каждый элемент — отдельная "планета" вокруг пилла. Пилл подсвечивается зелёным glow. Необычно, запоминается, но занимает больше места.</div>
+  <div class="demo-box">
+    <div class="orbital-wrap" id="orbitalWrap">
+      <div class="orbital-backdrop" onclick="document.getElementById('orbitalWrap').classList.remove('open')"></div>
+      <div class="orbital-pill pill" onclick="document.getElementById('orbitalWrap').classList.toggle('open')">
+        <div class="pill__av">E<div class="pill__dot"></div></div>
+        <span class="pill__name">gotblesk</span>
+      </div>
+      <div class="orbital-ring">
+        <div class="orbital-item" onclick="event.stopPropagation()">
+          <span class="orbital-item__icon">👤</span> Профиль
+        </div>
+        <div class="orbital-item" onclick="event.stopPropagation()">
+          <span class="orbital-item__icon">🟢</span> Статус
+        </div>
+        <div class="orbital-item" onclick="event.stopPropagation()">
+          <span class="orbital-item__icon">⚙️</span> Настройки
+        </div>
+        <div class="orbital-item" onclick="event.stopPropagation()">
+          <span class="orbital-item__icon">🎨</span> Тема
+        </div>
+        <div class="orbital-item" onclick="event.stopPropagation()">
+          <span class="orbital-item__icon">ℹ️</span> О blesk
+        </div>
+        <div class="orbital-item orbital-item--danger" onclick="event.stopPropagation()">
+          <span class="orbital-item__icon">🚪</span> Выйти
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ВАРИАНТ B: Spotlight -->
+  <h2>B. Spotlight — Центральная карточка с blur-фоном</h2>
+  <div class="desc">Весь экран слегка размывается, по центру появляется карточка профиля с увеличенным аватаром, статусом и меню. Как Spotlight на Mac или Command Palette. Чувствуется как "персональное пространство".</div>
+  <div class="demo-box">
+    <div class="spotlight-wrap" id="spotlightWrap">
+      <div class="pill" onclick="document.getElementById('spotlightWrap').classList.toggle('open')">
+        <div class="pill__av">E<div class="pill__dot"></div></div>
+        <span class="pill__name">gotblesk</span>
+      </div>
+      <div class="spotlight-overlay" onclick="document.getElementById('spotlightWrap').classList.remove('open')">
+        <div class="spotlight-card" onclick="event.stopPropagation()">
+          <div class="spotlight-header">
+            <div class="spotlight-avatar">
+              E
+              <div class="spotlight-avatar__dot"></div>
+            </div>
+            <div class="spotlight-name">gotblesk</div>
+            <div class="spotlight-tag">#7822</div>
+            <div class="spotlight-status">
+              <div class="spotlight-status__dot"></div>
+              В сети
+            </div>
+          </div>
+          <div class="spotlight-menu">
+            <button class="spotlight-item">
+              <div class="spotlight-item__icon">👤</div>
+              <div class="spotlight-item__info">
+                <div class="spotlight-item__label">Мой профиль</div>
+                <div class="spotlight-item__hint">Аватар, био, теги</div>
+              </div>
+            </button>
+            <button class="spotlight-item">
+              <div class="spotlight-item__icon">🟢</div>
+              <div class="spotlight-item__info">
+                <div class="spotlight-item__label">Изменить статус</div>
+                <div class="spotlight-item__hint">В сети</div>
+              </div>
+            </button>
+            <div class="spotlight-sep"></div>
+            <button class="spotlight-item">
+              <div class="spotlight-item__icon">⚙️</div>
+              <div class="spotlight-item__info">
+                <div class="spotlight-item__label">Настройки</div>
+              </div>
+            </button>
+            <button class="spotlight-item">
+              <div class="spotlight-item__icon">🎨</div>
+              <div class="spotlight-item__info">
+                <div class="spotlight-item__label">Тема</div>
+                <div class="spotlight-item__hint">Тёмная</div>
+              </div>
+            </button>
+            <button class="spotlight-item">
+              <div class="spotlight-item__icon">ℹ️</div>
+              <div class="spotlight-item__info">
+                <div class="spotlight-item__label">О программе</div>
+              </div>
+            </button>
+            <div class="spotlight-sep"></div>
+            <button class="spotlight-item spotlight-item--danger">
+              <div class="spotlight-item__icon">🚪</div>
+              <div class="spotlight-item__info">
+                <div class="spotlight-item__label">Выйти</div>
+              </div>
+            </button>
+          </div>
+          <div class="spotlight-footer">blesk v0.1.0-alpha</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ВАРИАНТ C: Side Panel -->
+  <h2>C. Glass Drawer — Панель выезжает справа</h2>
+  <div class="desc">Стеклянная панель выезжает справа, затемняя основной контент. Профиль сверху, меню ниже, баланс монет. Контент сдвигается / затемняется. Как в мобильных приложениях, но с glass-эффектом.</div>
+  <div class="demo-box" style="padding: 0; overflow: hidden; border-radius: 16px;">
+    <div class="drawer-wrap" id="drawerWrap">
+      <div class="drawer-topbar">
+        <div class="pill" onclick="document.getElementById('drawerWrap').classList.toggle('open')">
+          <div class="pill__av">E<div class="pill__dot"></div></div>
+          <span class="pill__name">gotblesk</span>
+        </div>
+      </div>
+
+      <div class="drawer-fake">
+        <div class="drawer-fake__line"></div>
+        <div class="drawer-fake__line"></div>
+        <div class="drawer-fake__line"></div>
+        <div class="drawer-fake__line"></div>
+        <div class="drawer-fake__line"></div>
+      </div>
+
+      <div class="drawer-scrim" onclick="document.getElementById('drawerWrap').classList.remove('open')"></div>
+
+      <div class="drawer-panel">
+        <div class="drawer-header">
+          <div class="drawer-avatar">E</div>
+          <div class="drawer-name">gotblesk</div>
+          <div class="drawer-tag">#7822</div>
+          <div class="drawer-coins">🪙 1 250 монет</div>
+        </div>
+        <div class="drawer-menu">
+          <button class="drawer-item">
+            <span class="drawer-item__icon">👤</span> Мой профиль
+          </button>
+          <button class="drawer-item">
+            <span class="drawer-item__icon">🟢</span> Статус
+          </button>
+          <div class="drawer-sep"></div>
+          <button class="drawer-item">
+            <span class="drawer-item__icon">⚙️</span> Настройки
+          </button>
+          <button class="drawer-item">
+            <span class="drawer-item__icon">🎨</span> Тема
+          </button>
+          <button class="drawer-item">
+            <span class="drawer-item__icon">🪙</span> Магазин
+          </button>
+          <button class="drawer-item">
+            <span class="drawer-item__icon">ℹ️</span> О программе
+          </button>
+          <div class="drawer-sep"></div>
+          <button class="drawer-item drawer-item--danger">
+            <span class="drawer-item__icon">🚪</span> Выйти
+          </button>
+        </div>
+        <div class="drawer-footer">blesk v0.1.0-alpha</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
