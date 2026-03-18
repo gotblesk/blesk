@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceChat.css';
 
 export default function VoiceChat({ roomId, socketRef }) {
@@ -93,13 +94,13 @@ export default function VoiceChat({ roomId, socketRef }) {
               <div key={msg.id} className="voice-chat__msg">
                 <div
                   className="voice-chat__msg-av"
-                  style={{ background: `hsl(${msg.hue || 176}, 70%, 50%)` }}
+                  style={{ background: getAvatarColor(getAvatarHue(msg)) }}
                 >
                   {msg.username[0].toUpperCase()}
                 </div>
                 <div className="voice-chat__msg-body">
                   <div className="voice-chat__msg-header">
-                    <span className="voice-chat__msg-name" style={{ color: `hsl(${msg.hue || 176}, 70%, 65%)` }}>
+                    <span className="voice-chat__msg-name" style={{ color: `hsl(${getAvatarHue(msg)}, 70%, 65%)` }}>
                       {msg.username}
                     </span>
                     <span className="voice-chat__msg-time">{formatTime(msg.timestamp)}</span>

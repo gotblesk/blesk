@@ -1,8 +1,9 @@
-import API_URL from '../../config';
+import Avatar from '../ui/Avatar';
+import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
 import './ChatHeader.css';
 
 function GroupHeaderAvatar({ participants }) {
-  const hues = (participants || []).slice(0, 3).map((p) => p.hue ?? 0);
+  const hues = (participants || []).slice(0, 3).map((p) => getAvatarHue(p));
   while (hues.length < 3) hues.push(hues.length * 120);
 
   return (
@@ -11,7 +12,7 @@ function GroupHeaderAvatar({ participants }) {
         <div
           key={i}
           className={`chat-header__group-circle chat-header__group-circle--${i}`}
-          style={{ background: `linear-gradient(135deg, hsl(${h}, 70%, 50%), hsl(${h + 40}, 70%, 60%))` }}
+          style={{ background: getAvatarGradient(h) }}
         />
       ))}
     </div>
@@ -21,7 +22,6 @@ function GroupHeaderAvatar({ participants }) {
 export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames, onCall, onMembers }) {
   const isGroup = chat.type === 'group';
   const user = chat.otherUser;
-  const hue = user?.hue ?? (((user?.username?.charCodeAt(0) || 0) * 37) % 360);
 
   let statusText;
   if (typingUsernames?.length) {
@@ -46,22 +46,7 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
       {isGroup ? (
         <GroupHeaderAvatar participants={chat.participants} />
       ) : (
-        <div
-          className="chat-header__avatar"
-          style={{
-            background: user?.avatar ? 'none' : `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))`,
-            boxShadow: isOnline ? `0 0 12px hsla(${hue}, 70%, 50%, 0.3)` : 'none',
-          }}
-        >
-          {user?.avatar
-            ? <img src={`${API_URL}/uploads/avatars/${user.avatar}`} alt="" />
-            : (user?.username?.[0]?.toUpperCase() || '?')}
-          {isOnline && userStatus !== 'invisible' && (
-            <div
-              className={`chat-header__online-dot ${userStatus === 'dnd' ? 'chat-header__online-dot--dnd' : ''}`}
-            />
-          )}
-        </div>
+        <Avatar user={user} size="md" showOnline isOnline={isOnline} userStatus={userStatus} />
       )}
 
       <div className="chat-header__info">

@@ -3,6 +3,7 @@ import { useVoiceStore } from '../../store/voiceStore';
 import UserProfileModal from '../ui/UserProfileModal';
 import VoiceChat from './VoiceChat';
 import { getCurrentUserId } from '../../utils/auth';
+import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceRoom.css';
 
 export default function VoiceRoom({ socketRef }) {
@@ -89,9 +90,9 @@ export default function VoiceRoom({ socketRef }) {
               <div
                 className={`voice-participant__avatar ${isSpeaking ? 'voice-participant__avatar--speaking' : ''}`}
                 style={{
-                  background: `hsl(${peer.hue || 176}, 70%, 50%)`,
+                  background: getAvatarColor(getAvatarHue(peer)),
                   boxShadow: isSpeaking
-                    ? `0 0 ${12 + level * 0.3}px hsl(${peer.hue || 176}, 70%, 50%)`
+                    ? `0 0 ${12 + level * 0.3}px ${getAvatarColor(getAvatarHue(peer))}`
                     : 'none',
                 }}
               >

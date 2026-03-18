@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Glass from '../ui/Glass';
 import UserProfileModal from '../ui/UserProfileModal';
 import API_URL from '../../config';
+import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './FriendsScreen.css';
 
 // Хук для дебаунса поискового запроса
@@ -17,7 +18,8 @@ function useDebounce(value, delay) {
 // Аватар на основе hue пользователя
 function UserAvatar({ username, hue, online }) {
   const letter = username ? username[0].toUpperCase() : '?';
-  const bg = `hsl(${hue ?? 180}, 70%, 50%)`;
+  const computedHue = getAvatarHue({ username, hue });
+  const bg = getAvatarColor(computedHue);
 
   return (
     <div className="friends-avatar" style={{ background: bg }}>

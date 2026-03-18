@@ -442,7 +442,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       {/* Бренд-интро */}
       {phase !== 'form' && phase !== 'verify' && phase !== 'forgot' && (
         <div className={`brand-intro ${phase === 'exiting' ? 'brand-intro--exit' : ''}`}>
-          <img className="brand-intro__logo-img" src="./blesk.png" alt="blesk" />
+          <img className="brand-intro__logo-img" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
           <div className="brand-intro__tagline">Твой блеск. Твои правила.</div>
         </div>
       )}
@@ -459,7 +459,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             <div className="auth-card__highlight" />
 
             <div className="auth-logo">
-              <img className="auth-logo__img" src="./blesk.png" alt="blesk" />
+              <img className="auth-logo__img" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
             <div className="auth-tagline">Твой блеск. Твои правила.</div>
 
@@ -612,7 +612,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             <div className="auth-card__highlight" />
 
             <div className="auth-logo">
-              <img className="auth-logo__img" src="./blesk.png" alt="blesk" />
+              <img className="auth-logo__img" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
 
             <div className="auth-verify">
@@ -691,7 +691,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
             <div className="auth-card__highlight" />
 
             <div className="auth-logo">
-              <img className="auth-logo__img" src="./blesk.png" alt="blesk" />
+              <img className="auth-logo__img" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
 
             <div className="auth-verify">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import API_URL from '../../config';
+import Avatar from '../ui/Avatar';
 import AvatarCropModal from './AvatarCropModal';
 import './ProfileScreen.css';
 
@@ -265,9 +266,6 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
   if (!open) return null;
 
-  const initial = (user?.username || 'U')[0].toUpperCase();
-  const hue = user?.hue ?? (((user?.username?.charCodeAt(0) || 0) * 37) % 360);
-
   return (
     <div className="profile-overlay" onClick={onClose}>
       <div
@@ -282,23 +280,9 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
         {/* Аватар */}
         <div className="profile-avatar-area">
-          <div
-            className="profile-avatar"
-            style={user?.avatar ? {} : { background: `hsl(${hue}, 70%, 50%)` }}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {user?.avatar ? (
-              <img
-                src={`${API_URL}/uploads/avatars/${user.avatar}?t=${Date.now()}`}
-                className="profile-avatar__img"
-                alt=""
-              />
-            ) : (
-              <span className="profile-avatar__letter">{initial}</span>
-            )}
-            <div className="profile-avatar__glow" style={{ background: `hsl(${hue}, 70%, 50%)` }} />
+          <Avatar user={user} size="xl" className="profile-avatar" onClick={() => fileInputRef.current?.click()}>
             <div className="profile-avatar__camera">📷</div>
-          </div>
+          </Avatar>
           <input
             ref={fileInputRef}
             type="file"

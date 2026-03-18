@@ -1,0 +1,56 @@
+/* Единый компонент аватарки */
+
+.avatar {
+  position: relative;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  cursor: default;
+}
+
+/* Размеры */
+.avatar--sm { width: 24px; height: 24px; font-size: 11px; }
+.avatar--md { width: 36px; height: 36px; font-size: 15px; }
+.avatar--lg { width: 48px; height: 48px; font-size: 20px; }
+.avatar--xl { width: 80px; height: 80px; font-size: 32px; }
+
+/* Картинка аватара */
+.avatar__img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Буква-фоллбэк */
+.avatar__letter {
+  color: #fff;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  user-select: none;
+  line-height: 1;
+}
+
+/* Точка статуса */
+.avatar__dot {
+  position: absolute;
+  border: 2px solid var(--bg, #08060f);
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.avatar--sm .avatar__dot { width: 8px; height: 8px; bottom: -1px; right: -1px; }
+.avatar--md .avatar__dot { width: 10px; height: 10px; bottom: 0; right: 0; }
+.avatar--lg .avatar__dot { width: 12px; height: 12px; bottom: 0; right: 0; }
+.avatar--xl .avatar__dot { width: 14px; height: 14px; bottom: 2px; right: 2px; }
+
+.avatar__dot--online { background: var(--online, #4ade80); }
+.avatar__dot--dnd { background: var(--danger, #ef4444); }
+
+/* Светлая тема: border вокруг точки */
+[data-theme="light"] .avatar__dot {
+  border-color: var(--bg, #f0eef5);
+}

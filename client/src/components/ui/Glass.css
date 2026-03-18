@@ -64,38 +64,51 @@
   box-shadow: 0 8px 32px var(--glass-shadow), 0 0 20px rgba(200, 255, 0, 0.05);
 }
 
-/* Светлая тема — стекло более плотное */
+/* ═══ Светлая тема — solid white + тени для контраста (iOS-стиль) ═══ */
 [data-theme="light"] .glass {
   border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 [data-theme="light"] .glass--depth-0 {
-  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 [data-theme="light"] .glass--depth-1 {
-  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(0, 0, 0, 0.07);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.03);
 }
 
 [data-theme="light"] .glass--depth-2 {
-  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 [data-theme="light"] .glass--depth-3 {
-  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.94);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow:
-    0 0 40px rgba(122, 184, 0, 0.05),
-    0 16px 48px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
 [data-theme="light"] .glass::before {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  background: none;
 }
 
 [data-theme="light"] .glass--hover:hover {
   border-color: rgba(122, 184, 0, 0.4);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 0 20px rgba(122, 184, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 0 16px rgba(122, 184, 0, 0.08);
 }

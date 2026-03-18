@@ -1,4 +1,5 @@
 import { useVoiceStore } from '../../store/voiceStore';
+import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceControls.css';
 
 export default function VoiceControls({ onLeave, onExpand }) {
@@ -37,7 +38,7 @@ export default function VoiceControls({ onLeave, onExpand }) {
             <div
               key={userId}
               className={`voice-controls__mini-av ${peer.speaking ? 'voice-controls__mini-av--speaking' : ''}`}
-              style={{ background: `hsl(${peer.hue || 176}, 70%, 50%)` }}
+              style={{ background: getAvatarColor(getAvatarHue(peer)) }}
             >
               {(peer.username || 'U')[0].toUpperCase()}
             </div>

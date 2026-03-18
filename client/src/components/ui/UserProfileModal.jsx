@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Glass from './Glass';
+import Avatar from './Avatar';
 import API_URL from '../../config';
 import './UserProfileModal.css';
 
@@ -89,16 +90,7 @@ export default function UserProfileModal({
 
         {!loading && user && (
           <>
-            <div
-              className="upm-avatar"
-              style={{
-                background: user.avatar ? 'none' : `hsl(${user.hue ?? 0}, 70%, 50%)`,
-              }}
-            >
-              {user.avatar
-                ? <img src={`${API_URL}/uploads/avatars/${user.avatar}`} alt="" />
-                : (user.username?.[0] || '?').toUpperCase()}
-            </div>
+            <Avatar user={user} size="xl" className="upm-avatar" />
 
             <div className="upm-name">
               {user.username}

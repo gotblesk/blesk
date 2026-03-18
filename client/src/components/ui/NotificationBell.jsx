@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNotificationStore } from '../../store/notificationStore';
 import API_URL from '../../config';
+import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './NotificationBell.css';
 
 const TABS = [
@@ -439,7 +440,7 @@ export default function NotificationBell({ onOpenChat }) {
                     onClick={() => handleItemClick(n)}
                   >
                     {n.fromUser ? (
-                      <div className="bell-item__avatar" style={{ background: `hsl(${n.fromUser.hue || 0}, 70%, 50%)` }}>
+                      <div className="bell-item__avatar" style={{ background: getAvatarColor(getAvatarHue(n.fromUser)) }}>
                         {(n.fromUser.username || '?')[0].toUpperCase()}
                       </div>
                     ) : (

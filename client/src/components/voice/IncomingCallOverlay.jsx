@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
 import './IncomingCallOverlay.css';
 
 export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
@@ -14,7 +15,7 @@ export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
 
   if (!call) return null;
 
-  const hue = call.callerHue || 0;
+  const hue = getAvatarHue({ hue: call.callerHue, username: call.callerName });
   const isGroup = call.type === 'group';
   const displayName = isGroup ? call.chatName : call.callerName;
 
@@ -29,7 +30,7 @@ export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
           <div className="incoming-call-overlay__pulse incoming-call-overlay__pulse--delayed" style={{ background: `hsla(${hue}, 70%, 50%, 0.2)` }} />
           <div
             className="incoming-call-overlay__avatar"
-            style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 40}, 70%, 60%))` }}
+            style={{ background: getAvatarGradient(hue) }}
           >
             {(call.callerName || '?')[0].toUpperCase()}
           </div>

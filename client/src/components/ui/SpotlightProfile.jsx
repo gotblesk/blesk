@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import useAppVersion from '../../hooks/useAppVersion';
 import { useSettingsStore } from '../../store/settingsStore';
-import API_URL from '../../config';
+import Avatar from './Avatar';
 import './SpotlightProfile.css';
 
 export default function SpotlightProfile({ user, onNavigate, onLogout }) {
@@ -19,9 +19,6 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
     return () => window.removeEventListener('keydown', handler);
   }, [open]);
 
-  const hue = user?.hue || 176;
-  const initial = (user?.username || 'U')[0].toUpperCase();
-
   const handleAction = (action) => {
     setOpen(false);
     if (action === 'logout') {
@@ -35,14 +32,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
     <>
       <div className="user-pill" onClick={() => setOpen(true)}>
         <div className="user-pill__av-wrap">
-          <div
-            className="user-pill__av"
-            style={{ background: user?.avatar ? 'none' : `hsl(${hue}, 70%, 50%)` }}
-          >
-            {user?.avatar
-              ? <img src={`${API_URL}/uploads/avatars/${user.avatar}`} alt="" />
-              : initial}
-          </div>
+          <Avatar user={user} size="sm" />
           {user?.status !== 'invisible' && (
             <div
               className="user-pill__dot"
@@ -64,15 +54,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="spotlight-header">
-            <div
-              className="spotlight-avatar"
-              style={{ background: user?.avatar ? 'none' : `hsl(${hue}, 70%, 50%)` }}
-            >
-              {user?.avatar
-                ? <img src={`${API_URL}/uploads/avatars/${user.avatar}`} alt="" />
-                : initial}
-              <div className="spotlight-avatar__dot" />
-            </div>
+            <Avatar user={user} size="xl" className="spotlight-avatar" />
             <div className="spotlight-name">{user?.username}</div>
             <div className="spotlight-tag">{user?.tag}</div>
             <div className="spotlight-status">
