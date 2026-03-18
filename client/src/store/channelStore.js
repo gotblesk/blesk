@@ -61,7 +61,7 @@ export const useChannelStore = create((set, get) => ({
       if (!res.ok) throw new Error();
       const data = await res.json();
       set((state) => ({
-        posts: { ...state.posts, [channelId]: data.posts ?? data ?? [] },
+        posts: { ...state.posts, [channelId]: (data.posts ?? data ?? []).reverse() },
       }));
     } catch (err) {
       console.error('Ошибка загрузки постов:', err);

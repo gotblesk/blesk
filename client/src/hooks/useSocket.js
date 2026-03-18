@@ -27,6 +27,15 @@ export function useSocket() {
 
     socketRef.current = socket;
 
+    // При ошибке подключения — обновить токен и переподключиться
+    socket.on('connect_error', async (err) => {
+      const freshToken = localStorage.getItem('token');
+      if (freshToken && freshToken !== socket.auth.token) {
+        socket.auth.token = freshToken;
+        socket.connect();
+      }
+    });
+
     const userId = getCurrentUserId();
 
     // ═══ Сообщения ═══

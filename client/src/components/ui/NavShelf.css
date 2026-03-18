@@ -57,6 +57,12 @@
 .nav-tab__icon {
   font-size: 14px;
   line-height: 1;
+  display: flex;
+  opacity: 0.7;
+}
+
+.nav-tab--active .nav-tab__icon {
+  opacity: 1;
 }
 
 .nav-tab__badge {

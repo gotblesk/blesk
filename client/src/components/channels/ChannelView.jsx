@@ -13,12 +13,12 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
   const feedRef = useRef(null);
   const fileRef = useRef(null);
 
-  const { posts, loadPosts, myChannels } = useChannelStore();
+  const { posts, loadPosts, myChannels, channels } = useChannelStore();
   const channelPosts = posts[channelId] || [];
 
   const userId = getCurrentUserId();
   const channel = myChannels.find((c) => c.id === channelId) ||
-    useChannelStore.getState().channels.find((c) => c.id === channelId);
+    channels.find((c) => c.id === channelId);
 
   const isOwner = channel?.ownerId === userId;
 
@@ -48,6 +48,10 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         body: JSON.stringify({ text: trimmed }),
       });
       if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (data.message) {
+        useChannelStore.getState().receivePost(data.message);
+      }
       setText('');
     } catch (err) {
       console.error('Ошибка отправки поста:', err);
