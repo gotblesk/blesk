@@ -1,0 +1,13 @@
+.attach-preview { display: flex; gap: 8px; padding: 8px 12px; overflow-x: auto; }
+.attach-preview__item { position: relative; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); min-width: 120px; max-width: 200px; }
+.attach-preview__thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
+.attach-preview__icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); background: rgba(255,255,255,0.04); border-radius: 6px; }
+.attach-preview__info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.attach-preview__name { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attach-preview__size { font-size: 10px; color: var(--text-muted); }
+.attach-preview__remove { position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; border-radius: 50%; background: rgba(239,68,68,0.8); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity 0.15s; }
+.attach-preview__item:hover .attach-preview__remove { opacity: 1; }
+.attach-preview__progress { position: absolute; bottom: 0; left: 0; height: 2px; background: var(--accent); border-radius: 0 0 10px 10px; transition: width 0.2s; }
+
+[data-theme="light"] .attach-preview__item { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); }
+[data-theme="light"] .attach-preview__icon { background: rgba(0,0,0,0.04); }

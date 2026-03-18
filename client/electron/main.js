@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, desktopCapturer, safeStorage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
+const fs = require('fs');
 
 const isDev = !app.isPackaged;
 const iconPath = isDev
@@ -184,6 +185,53 @@ ipcMain.on('window:stop-drag', () => {
 });
 
 ipcMain.handle('app:version', () => app.getVersion());
+
+// ═══ E2E шифрование — безопасное хранение приватного ключа ═══
+const keyPath = path.join(app.getPath('userData'), 'blesk.key');
+
+ipcMain.handle('crypto:saveSecretKey', (_, b64Key) => {
+  try {
+    const encrypted = safeStorage.encryptString(b64Key);
+    fs.writeFileSync(keyPath, encrypted);
+    return true;
+  } catch (err) {
+    console.error('crypto:saveSecretKey error:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('crypto:getSecretKey', () => {
+  try {
+    if (!fs.existsSync(keyPath)) return null;
+    const encrypted = fs.readFileSync(keyPath);
+    return safeStorage.decryptString(encrypted);
+  } catch (err) {
+    console.error('crypto:getSecretKey error:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('crypto:hasSecretKey', () => {
+  return fs.existsSync(keyPath);
+});
+
+// Получить список экранов и окон для демонстрации экрана
+ipcMain.handle('screen:getSources', async () => {
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen', 'window'],
+      thumbnailSize: { width: 300, height: 200 },
+    });
+    return sources.map((s) => ({
+      id: s.id,
+      name: s.name,
+      thumbnail: s.thumbnail.toDataURL(),
+    }));
+  } catch (err) {
+    console.error('screen:getSources error:', err);
+    return [];
+  }
+});
 
 // --- Автообновления ---
 function setupAutoUpdater() {

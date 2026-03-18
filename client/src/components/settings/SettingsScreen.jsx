@@ -136,6 +136,12 @@ export default function SettingsScreen({ onBack }) {
                   onChange={() => toggle('showTyping')}
                 />
                 <SettingToggle
+                  label="Сквозное шифрование"
+                  hint="Личные сообщения шифруются на устройстве"
+                  value={settings.e2eEnabled}
+                  onChange={() => toggle('e2eEnabled')}
+                />
+                <SettingToggle
                   label="Время последнего визита"
                   hint="Другие видят когда вы были в сети"
                   value={settings.showLastSeen}

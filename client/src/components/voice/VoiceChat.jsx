@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { MessageCircle, X, Send } from 'lucide-react';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceChat.css';
 
@@ -74,7 +75,7 @@ export default function VoiceChat({ roomId, socketRef }) {
         onClick={() => setOpen(!open)}
         title="Чат комнаты"
       >
-        💬
+        <MessageCircle size={16} strokeWidth={1.5} />
         {unread > 0 && <span className="voice-chat-toggle__badge">{unread}</span>}
       </button>
 
@@ -83,7 +84,7 @@ export default function VoiceChat({ roomId, socketRef }) {
         <div className="voice-chat">
           <div className="voice-chat__header">
             <span>Чат комнаты</span>
-            <button className="voice-chat__close" onClick={() => setOpen(false)}>✕</button>
+            <button className="voice-chat__close" onClick={() => setOpen(false)}><X size={16} strokeWidth={2} /></button>
           </div>
 
           <div className="voice-chat__messages" ref={listRef}>
@@ -125,7 +126,7 @@ export default function VoiceChat({ roomId, socketRef }) {
               onClick={handleSend}
               disabled={!text.trim()}
             >
-              ➤
+              <Send size={16} strokeWidth={1.5} />
             </button>
           </div>
         </div>

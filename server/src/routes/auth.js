@@ -379,6 +379,7 @@ router.get('/me', async (req, res) => {
         bleskCoins: user.bleskCoins,
         email: user.email,
         emailVerified: user.emailVerified,
+        publicKey: user.publicKey,
         createdAt: user.createdAt,
       },
     });
@@ -574,6 +575,27 @@ router.post('/change-password/confirm', async (req, res) => {
   } catch (err) {
     console.error('change-password/confirm error:', err);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// POST /api/auth/keys — сохранить публичный ключ E2E шифрования
+router.post('/keys', async (req, res) => {
+  try {
+    const userId = getUserIdFromToken(req);
+    if (!userId) return res.status(401).json({ error: 'Требуется авторизация' });
+
+    const { publicKey } = req.body;
+    if (!publicKey || typeof publicKey !== 'string' || publicKey.length > 100) {
+      return res.status(400).json({ error: 'Некорректный ключ' });
+    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { publicKey },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('keys error:', err);
+    res.status(500).json({ error: 'Ошибка сохранения ключа' });
   }
 });
 

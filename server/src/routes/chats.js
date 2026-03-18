@@ -56,9 +56,10 @@ router.get('/', authenticate, async (req, res) => {
             avatar: p.room.avatar,
             lastMessage: lastMessage
               ? {
-                  text: lastMessage.text,
+                  text: lastMessage.encrypted ? 'Зашифрованное сообщение' : lastMessage.text,
                   username: lastMessage.user.username,
                   createdAt: lastMessage.createdAt,
+                  encrypted: lastMessage.encrypted || false,
                 }
               : null,
             unreadCount,
@@ -129,6 +130,7 @@ router.get('/:id/messages', authenticate, async (req, res) => {
             user: { select: { id: true, username: true } },
           },
         },
+        attachments: true,
       },
     });
 

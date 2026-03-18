@@ -1,0 +1,232 @@
+.channel-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+}
+
+/* Шапка */
+.channel-view__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+
+.channel-view__back {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.channel-view__back:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.channel-view__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.channel-view__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.channel-view__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channel-view__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.channel-view__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.channel-view__sub-btn {
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--accent);
+  color: var(--accent-text);
+  transition: background 0.2s, transform 0.15s;
+}
+
+.channel-view__sub-btn:hover {
+  transform: scale(1.04);
+}
+
+.channel-view__sub-btn--active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.channel-view__sub-btn--active:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.channel-view__settings {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.channel-view__settings:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+/* Лента */
+.channel-view__feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 4px;
+}
+
+.channel-view__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Ввод */
+.channel-view__input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.channel-view__attach {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+
+.channel-view__attach:hover {
+  color: var(--accent);
+}
+
+.channel-view__textarea {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  resize: none;
+  min-height: 20px;
+  max-height: 100px;
+  line-height: 1.4;
+}
+
+.channel-view__textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.channel-view__send {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+
+.channel-view__send:hover {
+  transform: scale(1.06);
+}
+
+.channel-view__send:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+}
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .channel-view__back {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .channel-view__back:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .channel-view__sub-btn--active {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .channel-view__sub-btn--active:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+[data-theme="light"] .channel-view__settings {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .channel-view__settings:hover {
+  background: rgba(0, 0, 0, 0.08);
+}

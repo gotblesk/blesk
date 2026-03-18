@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mail, Smartphone, Lock, Camera } from 'lucide-react';
+import { Mail, Smartphone, Lock, Camera, X, Check } from 'lucide-react';
 import API_URL from '../../config';
 import Avatar from '../ui/Avatar';
 import AvatarCropModal from './AvatarCropModal';
@@ -276,7 +276,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
         <div className="profile-card__shine" />
 
         <button className="profile-close" onClick={onClose}>
-          <span>✕</span>
+          <X size={16} strokeWidth={2} />
         </button>
 
         {/* Аватар */}
@@ -326,7 +326,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                 </button>
               )}
               {user?.email && user?.emailVerified && (
-                <span className="profile-email-verified">✓ Подтверждён</span>
+                <span className="profile-email-verified"><Check size={14} strokeWidth={2} /> Подтверждён</span>
               )}
             </div>
           )}
@@ -357,7 +357,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                   className="profile-email-btn profile-email-btn--cancel"
                   onClick={() => { setEmailStep('display'); setEmailCode(''); setEmailError(''); }}
                 >
-                  ✕
+                  <X size={14} strokeWidth={2} />
                 </button>
               </div>
               {emailError && <div className="profile-email-error">{emailError}</div>}
@@ -393,7 +393,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
           )}
 
           {pwSuccess && (
-            <div className="profile-pw-success">✓ Пароль изменён</div>
+            <div className="profile-pw-success"><Check size={14} strokeWidth={2} /> Пароль изменён</div>
           )}
 
           {pwStep === 'code' && (
@@ -549,7 +549,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
           onClick={handleSave}
           disabled={saving}
         >
-          {saving ? 'Сохраняю...' : saved ? '✓ Сохранено' : 'Сохранить'}
+          {saving ? 'Сохраняю...' : saved ? <><Check size={14} strokeWidth={2} /> Сохранено</> : 'Сохранить'}
         </button>
       </div>
     </div>

@@ -5,14 +5,21 @@ import './VoiceSettings.css';
 export default function VoiceSettings() {
   const {
     inputDeviceId,
+    outputDeviceId,
     noiseSuppression,
     echoCancellation,
+    vadThreshold,
+    setOutputDevice,
+    setVadThreshold,
   } = useVoiceStore();
 
   const [devices, setDevices] = useState([]);
+  const [outputDevices, setOutputDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(inputDeviceId || '');
+  const [selectedOutput, setSelectedOutput] = useState(outputDeviceId || 'default');
   const [noise, setNoise] = useState(noiseSuppression);
   const [echo, setEcho] = useState(echoCancellation);
+  const [localVadThreshold, setLocalVadThreshold] = useState(vadThreshold);
   const [testing, setTesting] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const streamRef = useRef(null);
@@ -28,7 +35,9 @@ export default function VoiceSettings() {
 
         const allDevices = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = allDevices.filter((d) => d.kind === 'audioinput');
+        const audioOutputs = allDevices.filter((d) => d.kind === 'audiooutput');
         setDevices(audioInputs);
+        setOutputDevices(audioOutputs);
       } catch {
         // Нет доступа к микрофону
       }
@@ -118,6 +127,17 @@ export default function VoiceSettings() {
     localStorage.setItem('blesk-echo-cancellation', String(val));
   };
 
+  const handleOutputChange = (deviceId) => {
+    setSelectedOutput(deviceId);
+    setOutputDevice(deviceId);
+  };
+
+  const handleVadChange = (val) => {
+    const num = Number(val);
+    setLocalVadThreshold(num);
+    setVadThreshold(num);
+  };
+
   return (
     <div className="voice-settings">
       {/* Выбор микрофона */}
@@ -132,6 +152,30 @@ export default function VoiceSettings() {
           {devices.map((d) => (
             <option key={d.deviceId} value={d.deviceId}>
               {d.label || `Микрофон ${d.deviceId.slice(0, 8)}`}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Выбор устройства вывода */}
+      <div className="voice-settings__group">
+        <label className="voice-settings__label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6, verticalAlign: -2 }}>
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+          </svg>
+          Устройство вывода
+        </label>
+        <select
+          className="voice-settings__select"
+          value={selectedOutput}
+          onChange={(e) => handleOutputChange(e.target.value)}
+        >
+          <option value="default">По умолчанию</option>
+          {outputDevices.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label || `Динамик ${d.deviceId.slice(0, 8)}`}
             </option>
           ))}
         </select>
@@ -153,6 +197,37 @@ export default function VoiceSettings() {
               style={{ width: `${micLevel}%` }}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Чувствительность микрофона (VAD) */}
+      <div className="voice-settings__group">
+        <label className="voice-settings__label">Чувствительность микрофона</label>
+        <div className="voice-settings__vad">
+          <div className="voice-settings__vad-slider-row">
+            <input
+              type="range"
+              className="voice-settings__slider"
+              min="0"
+              max="100"
+              value={localVadThreshold}
+              onChange={(e) => handleVadChange(e.target.value)}
+            />
+            <span className="voice-settings__vad-value">{localVadThreshold}</span>
+          </div>
+          <div className="voice-settings__vad-meter">
+            <div
+              className="voice-settings__vad-meter-fill"
+              style={{ width: `${micLevel}%` }}
+            />
+            <div
+              className="voice-settings__vad-threshold-line"
+              style={{ left: `${localVadThreshold}%` }}
+            />
+          </div>
+          <span className="voice-settings__hint">
+            Выше = микрофон активируется при более тихом голосе
+          </span>
         </div>
       </div>
 

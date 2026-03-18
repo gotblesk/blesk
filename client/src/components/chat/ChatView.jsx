@@ -4,10 +4,13 @@ import { useSettingsStore } from '../../store/settingsStore';
 import ChatHeader from './ChatHeader';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import ImageLightbox from './ImageLightbox';
 import CallBanner from '../voice/CallBanner';
 import GroupMembersPanel from './GroupMembersPanel';
 import { MIN_WIDTH, MIN_HEIGHT } from '../../hooks/useWindowManager';
 import { getCurrentUserId } from '../../utils/auth';
+import uploadFile from '../../utils/uploadFile';
+import { encryptMessage, fetchPublicKey } from '../../utils/cryptoService';
 import './ChatView.css';
 
 // Resize edges
@@ -37,6 +40,7 @@ export default function ChatView({
   const viewRef = useRef(null);
   const [replyTo, setReplyTo] = useState(null);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
 
   // Drag/pull state
   const dragRef = useRef({
@@ -234,8 +238,8 @@ export default function ChatView({
   // Антиспам: клиентский кулдаун — макс 5 сообщений за 3 секунды
   const sendTimestampsRef = useRef([]);
 
-  // Отправка сообщения
-  const handleSend = (text) => {
+  // Отправка сообщения (с E2E шифрованием для личных чатов)
+  const handleSend = async (text) => {
     const now = Date.now();
     const ts = sendTimestampsRef.current;
     // Убрать старые
@@ -245,13 +249,49 @@ export default function ChatView({
 
     const tempId = crypto.randomUUID();
     useChatStore.getState().sendMessage(chatId, text, tempId);
+
     const payload = { chatId, text, tempId };
     if (replyTo) {
       payload.replyToId = replyTo.id;
     }
+
+    // E2E шифрование — только для личных чатов (type === 'chat')
+    const { e2eEnabled } = useSettingsStore.getState();
+    if (e2eEnabled && chat?.type === 'chat' && chat?.otherUser?.id) {
+      try {
+        const otherPubKey = await fetchPublicKey(chat.otherUser.id);
+        if (otherPubKey) {
+          const encrypted = await encryptMessage(text, otherPubKey, chatId);
+          if (encrypted) {
+            payload.text = encrypted;
+            payload.encrypted = true;
+          }
+        }
+      } catch (err) {
+        console.error('E2E encrypt error:', err);
+      }
+    }
+
     socketRef.current?.emit('message:send', payload);
     setReplyTo(null);
   };
+
+  // Отправка файлов
+  const handleSendFiles = useCallback(async (files, text) => {
+    for (const file of files) {
+      try {
+        await uploadFile(chatId, file, {
+          text: text || undefined,
+          replyToId: replyTo?.id,
+        });
+        // Текст отправляем только с первым файлом
+        text = undefined;
+      } catch (err) {
+        console.error('Ошибка загрузки файла:', err);
+      }
+    }
+    setReplyTo(null);
+  }, [chatId, replyTo]);
 
   const handleTypingStart = () => {
     // Если индикатор набора отключён в настройках приватности — не отправляем
@@ -382,6 +422,7 @@ export default function ChatView({
                 groupPosition={groupPosition}
                 showTime={showTime}
                 onReply={() => setReplyTo(msg)}
+                onImageClick={setLightboxSrc}
               />
             </Fragment>
           );
@@ -391,11 +432,16 @@ export default function ChatView({
 
       <ChatInput
         onSend={handleSend}
+        onSendFiles={handleSendFiles}
         onTypingStart={handleTypingStart}
         onTypingStop={handleTypingStop}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
       />
+
+      {lightboxSrc && (
+        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
 
       {/* Resize хендлы — 8 зон по краям и углам */}
       {EDGES.map((edge) => (

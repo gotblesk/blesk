@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Users, Inbox, Search, Check, X } from 'lucide-react';
 import Glass from '../ui/Glass';
 import UserProfileModal from '../ui/UserProfileModal';
 import API_URL from '../../config';
@@ -243,7 +244,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
           <div className="friends-list">
             {friends.length === 0 ? (
               <div className="friends-empty">
-                <div className="friends-empty__icon">👥</div>
+                <div className="friends-empty__icon"><Users size={32} strokeWidth={1.5} /></div>
                 <div className="friends-empty__text">Пока нет друзей</div>
                 <div className="friends-empty__hint">
                   Найди людей во вкладке «Поиск»
@@ -285,7 +286,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
           <div className="friends-list">
             {pending.length === 0 ? (
               <div className="friends-empty">
-                <div className="friends-empty__icon">📬</div>
+                <div className="friends-empty__icon"><Inbox size={32} strokeWidth={1.5} /></div>
                 <div className="friends-empty__text">Нет входящих заявок</div>
                 <div className="friends-empty__hint">
                   Когда кто-то добавит вас — заявка появится здесь
@@ -323,14 +324,14 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                       onClick={() => acceptRequest(req.id)}
                       title="Принять"
                     >
-                      ✓
+                      <Check size={16} strokeWidth={2} />
                     </button>
                     <button
                       className="friends-action friends-action--decline"
                       onClick={() => declineRequest(req.id)}
                       title="Отклонить"
                     >
-                      ✕
+                      <X size={16} strokeWidth={2} />
                     </button>
                   </div>
                 </Glass>
@@ -364,7 +365,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
 
               {debouncedQuery.length >= 2 && !loading && searchResults.length === 0 && (
                 <div className="friends-empty">
-                  <div className="friends-empty__icon">🔍</div>
+                  <div className="friends-empty__icon"><Search size={32} strokeWidth={1.5} /></div>
                   <div className="friends-empty__text">Никого не найдено</div>
                   <div className="friends-empty__hint">
                     Попробуйте другой запрос

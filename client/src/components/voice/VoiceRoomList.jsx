@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { Mic, Users, Trash2, Check, X } from 'lucide-react';
 import { useVoiceStore } from '../../store/voiceStore';
 import Glass from '../ui/Glass';
 import API_URL from '../../config';
@@ -103,7 +104,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
           className="voice-list__create-btn"
           onClick={() => setCreating(!creating)}
         >
-          {creating ? '✕' : '+'}
+          {creating ? <X size={16} strokeWidth={2} /> : '+'}
         </button>
       </div>
 
@@ -139,7 +140,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
 
       {!loading && rooms.length === 0 && (
         <div className="voice-list__empty">
-          <div className="voice-list__empty-icon">🎙</div>
+          <div className="voice-list__empty-icon"><Mic size={18} strokeWidth={1.5} /></div>
           <div className="voice-list__empty-text">Нет голосовых комнат</div>
           <div className="voice-list__empty-hint">Создай первую!</div>
         </div>
@@ -158,7 +159,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                 className="voice-card"
               >
                 <div className="voice-card__top">
-                  <div className="voice-card__icon">🎙</div>
+                  <div className="voice-card__icon"><Mic size={18} strokeWidth={1.5} /></div>
                   <div className="voice-card__info">
                     <div className="voice-card__name">
                       {room.name}
@@ -214,14 +215,14 @@ export default function VoiceRoomList({ onJoinRoom }) {
                         }}
                         title="Пригласить друга"
                       >
-                        👥
+                        <Users size={14} strokeWidth={1.5} />
                       </button>
                       <button
                         className={`voice-card__delete ${deleting === room.id ? 'voice-card__delete--confirm' : ''}`}
                         onClick={(e) => handleDelete(e, room.id)}
                         title={deleting === room.id ? 'Нажми ещё раз' : 'Удалить'}
                       >
-                        {deleting === room.id ? '✓' : '🗑'}
+                        {deleting === room.id ? <Check size={14} strokeWidth={2} /> : <Trash2 size={14} strokeWidth={1.5} />}
                       </button>
                     </div>
                   )}
@@ -259,7 +260,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                             onClick={(e) => handleKick(e, room.id, inv.userId)}
                             title="Убрать"
                           >
-                            ✕
+                            <X size={14} strokeWidth={2} />
                           </button>
                         </div>
                       ))}
@@ -285,7 +286,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                           </div>
                           <span className="voice-invite-panel__name">{friend.username}</span>
                           {alreadyInvited ? (
-                            <span className="voice-invite-panel__invited">✓</span>
+                            <span className="voice-invite-panel__invited"><Check size={14} strokeWidth={2} /></span>
                           ) : (
                             <button
                               className="voice-invite-panel__add"

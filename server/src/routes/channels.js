@@ -1,0 +1,527 @@
+const { Router } = require('express');
+const crypto = require('crypto');
+const prisma = require('../db');
+const { authenticate } = require('../middleware/auth');
+
+const router = Router();
+
+// Все эндпоинты требуют авторизации
+router.use(authenticate);
+
+// ─── GET /my — каналы пользователя (свои + подписки) ───
+// ВАЖНО: /my ПЕРЕД /:id чтобы "my" не матчился как :id
+router.get('/my', async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // Каналы где пользователь owner/admin (через RoomParticipant)
+    const ownedChannels = await prisma.room.findMany({
+      where: {
+        type: 'channel',
+        participants: { some: { userId, role: { in: ['owner', 'admin'] } } },
+      },
+      include: {
+        channelMeta: true,
+        owner: { select: { id: true, username: true, hue: true, avatar: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Каналы на которые подписан
+    const subscriptions = await prisma.channelSubscriber.findMany({
+      where: { userId },
+      include: {
+        channel: {
+          include: {
+            channelMeta: true,
+            owner: { select: { id: true, username: true, hue: true, avatar: true } },
+          },
+        },
+      },
+      orderBy: { subscribedAt: 'desc' },
+    });
+
+    const subscribedChannels = subscriptions.map((s) => s.channel);
+
+    // Убрать дубликаты (если owner и подписчик одновременно)
+    const seen = new Set(ownedChannels.map((c) => c.id));
+    const uniqueSubscribed = subscribedChannels.filter((c) => !seen.has(c.id));
+
+    res.json({
+      owned: ownedChannels,
+      subscribed: uniqueSubscribed,
+    });
+  } catch (err) {
+    console.error('GET /channels/my error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ─── GET / — обзор каналов (публичные) ───
+router.get('/', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { sort = 'popular', category, search, page = 1, limit = 20 } = req.query;
+    const take = Math.min(parseInt(limit) || 20, 50);
+    const skip = (Math.max(parseInt(page) || 1, 1) - 1) * take;
+
+    // Фильтры
+    const where = {
+      type: 'channel',
+      channelMeta: { isPublic: true },
+    };
+
+    if (category && category !== 'all') {
+      where.channelMeta.category = category;
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { channelMeta: { description: { contains: search } } },
+      ];
+    }
+
+    // Сортировка
+    let orderBy;
+    switch (sort) {
+      case 'growing':
+        // По подписчикам за последнюю неделю — упрощённо по subscriberCount
+        orderBy = { channelMeta: { subscriberCount: 'desc' } };
+        break;
+      case 'new':
+        orderBy = { createdAt: 'desc' };
+        break;
+      case 'popular':
+      default:
+        orderBy = { channelMeta: { subscriberCount: 'desc' } };
+        break;
+    }
+
+    const [channels, total] = await Promise.all([
+      prisma.room.findMany({
+        where,
+        include: {
+          channelMeta: true,
+          owner: { select: { id: true, username: true, hue: true, avatar: true } },
+        },
+        orderBy,
+        skip,
+        take,
+      }),
+      prisma.room.count({ where }),
+    ]);
+
+    // Проверить подписки текущего пользователя
+    const channelIds = channels.map((c) => c.id);
+    const userSubs = await prisma.channelSubscriber.findMany({
+      where: { userId, channelId: { in: channelIds } },
+      select: { channelId: true },
+    });
+    const subscribedSet = new Set(userSubs.map((s) => s.channelId));
+
+    const result = channels.map((ch) => ({
+      ...ch,
+      isSubscribed: subscribedSet.has(ch.id),
+    }));
+
+    res.json({
+      channels: result,
+      total,
+      page: parseInt(page) || 1,
+      totalPages: Math.ceil(total / take),
+    });
+  } catch (err) {
+    console.error('GET /channels error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ─── GET /:id — детали канала ───
+router.get('/:id', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    const channel = await prisma.room.findUnique({
+      where: { id },
+      include: {
+        channelMeta: true,
+        owner: { select: { id: true, username: true, hue: true, avatar: true } },
+      },
+    });
+
+    if (!channel || channel.type !== 'channel') {
+      return res.status(404).json({ error: 'Канал не найден' });
+    }
+
+    // Проверить подписку
+    const subscription = await prisma.channelSubscriber.findUnique({
+      where: { channelId_userId: { channelId: id, userId } },
+    });
+
+    res.json({
+      ...channel,
+      isSubscribed: !!subscription,
+      isOwner: channel.ownerId === userId,
+    });
+  } catch (err) {
+    console.error('GET /channels/:id error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ─── POST / — создать канал ───
+router.post('/', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { name, description, category } = req.body;
+
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'Название канала обязательно' });
+    }
+
+    if (name.trim().length > 64) {
+      return res.status(400).json({ error: 'Название слишком длинное (макс 64)' });
+    }
+
+    // Создать Room + ChannelMeta + RoomParticipant в транзакции
+    const result = await prisma.$transaction(async (tx) => {
+      const room = await tx.room.create({
+        data: {
+          name: name.trim(),
+          type: 'channel',
+          ownerId: userId,
+        },
+      });
+
+      const meta = await tx.channelMeta.create({
+        data: {
+          roomId: room.id,
+          description: description?.trim() || '',
+          category: category || 'other',
+        },
+      });
+
+      await tx.roomParticipant.create({
+        data: {
+          roomId: room.id,
+          userId,
+          role: 'owner',
+        },
+      });
+
+      return { ...room, channelMeta: meta };
+    });
+
+    res.status(201).json(result);
+  } catch (err) {
+    console.error('POST /channels error:', err);
+    res.status(500).json({ error: 'Ошибка создания канала' });
+  }
+});
+
+// ─── PATCH /:id — обновить канал (только owner) ───
+router.patch('/:id', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+    const { name, description, category } = req.body;
+
+    // Проверить владельца
+    const channel = await prisma.room.findUnique({ where: { id } });
+    if (!channel || channel.type !== 'channel') {
+      return res.status(404).json({ error: 'Канал не найден' });
+    }
+    if (channel.ownerId !== userId) {
+      return res.status(403).json({ error: 'Только владелец может редактировать канал' });
+    }
+
+    // Обновить Room и ChannelMeta
+    const updates = {};
+    const metaUpdates = {};
+
+    if (name?.trim()) {
+      if (name.trim().length > 64) {
+        return res.status(400).json({ error: 'Название слишком длинное (макс 64)' });
+      }
+      updates.name = name.trim();
+    }
+    if (description !== undefined) metaUpdates.description = description.trim();
+    if (category) metaUpdates.category = category;
+
+    const [updatedRoom, updatedMeta] = await prisma.$transaction([
+      Object.keys(updates).length > 0
+        ? prisma.room.update({ where: { id }, data: updates })
+        : prisma.room.findUnique({ where: { id } }),
+      Object.keys(metaUpdates).length > 0
+        ? prisma.channelMeta.update({ where: { roomId: id }, data: metaUpdates })
+        : prisma.channelMeta.findUnique({ where: { roomId: id } }),
+    ]);
+
+    res.json({ ...updatedRoom, channelMeta: updatedMeta });
+  } catch (err) {
+    console.error('PATCH /channels/:id error:', err);
+    res.status(500).json({ error: 'Ошибка обновления канала' });
+  }
+});
+
+// ─── POST /:id/subscribe — подписаться на канал ───
+router.post('/:id/subscribe', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    // Проверить что канал существует
+    const channel = await prisma.room.findUnique({
+      where: { id },
+      include: { channelMeta: true },
+    });
+    if (!channel || channel.type !== 'channel') {
+      return res.status(404).json({ error: 'Канал не найден' });
+    }
+
+    // Upsert подписки
+    await prisma.channelSubscriber.upsert({
+      where: { channelId_userId: { channelId: id, userId } },
+      create: { channelId: id, userId },
+      update: {}, // уже подписан — ничего не меняем
+    });
+
+    // Инкрементировать счётчик (безопасный upsert не даст дублей)
+    await prisma.channelMeta.update({
+      where: { roomId: id },
+      data: { subscriberCount: { increment: 1 } },
+    });
+
+    // Присоединить активные сокеты пользователя к комнате канала
+    const io = req.app.locals.io;
+    if (io) {
+      for (const [, s] of io.sockets.sockets) {
+        if (s.userId === userId) {
+          s.join(id);
+        }
+      }
+    }
+
+    res.json({ subscribed: true });
+  } catch (err) {
+    // Если подписка уже есть (unique constraint) — не ошибка
+    if (err.code === 'P2002') {
+      return res.json({ subscribed: true });
+    }
+    console.error('POST /channels/:id/subscribe error:', err);
+    res.status(500).json({ error: 'Ошибка подписки' });
+  }
+});
+
+// ─── DELETE /:id/subscribe — отписаться от канала ───
+router.delete('/:id/subscribe', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    // Удалить подписку
+    const deleted = await prisma.channelSubscriber.deleteMany({
+      where: { channelId: id, userId },
+    });
+
+    if (deleted.count > 0) {
+      // Декрементировать счётчик
+      await prisma.channelMeta.update({
+        where: { roomId: id },
+        data: { subscriberCount: { decrement: 1 } },
+      });
+
+      // Отключить сокеты пользователя от комнаты канала
+      const io = req.app.locals.io;
+      if (io) {
+        for (const [, s] of io.sockets.sockets) {
+          if (s.userId === userId) {
+            s.leave(id);
+          }
+        }
+      }
+    }
+
+    res.json({ subscribed: false });
+  } catch (err) {
+    console.error('DELETE /channels/:id/subscribe error:', err);
+    res.status(500).json({ error: 'Ошибка отписки' });
+  }
+});
+
+// ─── GET /:id/posts — посты канала (с пагинацией по курсору) ───
+router.get('/:id/posts', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+    const { before, limit = 30 } = req.query;
+    const take = Math.min(parseInt(limit) || 30, 50);
+
+    // Проверить доступ: публичный канал или подписчик
+    const channel = await prisma.room.findUnique({
+      where: { id },
+      include: { channelMeta: true },
+    });
+
+    if (!channel || channel.type !== 'channel') {
+      return res.status(404).json({ error: 'Канал не найден' });
+    }
+
+    if (!channel.channelMeta?.isPublic) {
+      // Приватный канал — проверить подписку или ownership
+      const hasAccess =
+        channel.ownerId === userId ||
+        (await prisma.channelSubscriber.findUnique({
+          where: { channelId_userId: { channelId: id, userId } },
+        })) ||
+        (await prisma.roomParticipant.findUnique({
+          where: { roomId_userId: { roomId: id, userId } },
+        }));
+
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Нет доступа к этому каналу' });
+      }
+    }
+
+    // Запрос постов с курсором
+    const where = { roomId: id };
+    if (before) {
+      where.createdAt = { lt: new Date(before) };
+    }
+
+    const posts = await prisma.message.findMany({
+      where,
+      include: {
+        user: { select: { id: true, username: true, hue: true, avatar: true } },
+        attachments: true,
+        replyTo: {
+          select: {
+            id: true,
+            text: true,
+            user: { select: { username: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+    });
+
+    res.json({ posts });
+  } catch (err) {
+    console.error('GET /channels/:id/posts error:', err);
+    res.status(500).json({ error: 'Ошибка загрузки постов' });
+  }
+});
+
+// ─── POST /:id/posts — создать пост (owner/admin) ───
+router.post('/:id/posts', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+    const { text } = req.body;
+
+    if (!text?.trim()) {
+      return res.status(400).json({ error: 'Текст поста обязателен' });
+    }
+
+    if (text.length > 4000) {
+      return res.status(400).json({ error: 'Текст слишком длинный (макс 4000)' });
+    }
+
+    // Проверить права (owner или admin)
+    const participant = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId: id, userId } },
+    });
+
+    if (!participant || !['owner', 'admin'].includes(participant.role)) {
+      return res.status(403).json({ error: 'Только владелец или админ может публиковать' });
+    }
+
+    // Создать сообщение и инкрементировать счётчик
+    const [message] = await prisma.$transaction([
+      prisma.message.create({
+        data: {
+          roomId: id,
+          userId,
+          text: text.trim(),
+          type: 'text',
+        },
+        include: {
+          user: { select: { id: true, username: true, hue: true, avatar: true } },
+          attachments: true,
+        },
+      }),
+      prisma.channelMeta.update({
+        where: { roomId: id },
+        data: { postCount: { increment: 1 } },
+      }),
+    ]);
+
+    // Отправить через сокет
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(id).emit('message:new', {
+        id: message.id,
+        chatId: id,
+        userId: message.userId,
+        username: message.user.username,
+        hue: message.user.hue,
+        avatar: message.user.avatar,
+        text: message.text,
+        type: message.type,
+        attachments: message.attachments,
+        createdAt: message.createdAt,
+        isChannel: true,
+      });
+    }
+
+    res.status(201).json({ message });
+  } catch (err) {
+    console.error('POST /channels/:id/posts error:', err);
+    res.status(500).json({ error: 'Ошибка публикации поста' });
+  }
+});
+
+// ─── DELETE /:id — удалить канал (только owner) ───
+router.delete('/:id', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    const channel = await prisma.room.findUnique({ where: { id } });
+    if (!channel || channel.type !== 'channel') {
+      return res.status(404).json({ error: 'Канал не найден' });
+    }
+    if (channel.ownerId !== userId) {
+      return res.status(403).json({ error: 'Только владелец может удалить канал' });
+    }
+
+    // Каскадное удаление: ChannelMeta и ChannelSubscriber удалятся через onDelete: Cascade
+    // Сообщения и участники тоже нужно удалить
+    await prisma.$transaction([
+      prisma.attachment.deleteMany({
+        where: { message: { roomId: id } },
+      }),
+      prisma.message.deleteMany({ where: { roomId: id } }),
+      prisma.roomParticipant.deleteMany({ where: { roomId: id } }),
+      prisma.channelSubscriber.deleteMany({ where: { channelId: id } }),
+      prisma.channelMeta.deleteMany({ where: { roomId: id } }),
+      prisma.room.delete({ where: { id } }),
+    ]);
+
+    // Уведомить сокеты
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(id).emit('channel:deleted', { channelId: id });
+    }
+
+    res.json({ deleted: true });
+  } catch (err) {
+    console.error('DELETE /channels/:id error:', err);
+    res.status(500).json({ error: 'Ошибка удаления канала' });
+  }
+});
+
+module.exports = router;

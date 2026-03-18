@@ -19,11 +19,13 @@
     "dotenv": "^16.4.0",
     "express": "^5.0.0",
     "express-rate-limit": "^7.5.0",
+    "file-type": "^16.5.4",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.0",
     "mediasoup": "^3.19.18",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.2",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.0"
   },
   "devDependencies": {

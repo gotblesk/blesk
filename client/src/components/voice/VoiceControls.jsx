@@ -1,13 +1,39 @@
 import { useVoiceStore } from '../../store/voiceStore';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
+import { Video, VideoOff, Monitor, MonitorOff } from 'lucide-react';
 import './VoiceControls.css';
 
-export default function VoiceControls({ onLeave, onExpand }) {
+// SVG-индикатор качества соединения (3 полоски)
+function SignalBars({ quality }) {
+  const colors = {
+    good: 'var(--online)',
+    fair: '#facc15',
+    poor: 'var(--danger)',
+  };
+  const color = colors[quality] || 'rgba(255,255,255,0.2)';
+  const activeBars = quality === 'good' ? 3 : quality === 'fair' ? 2 : quality === 'poor' ? 1 : 0;
+  const inactive = 'rgba(255,255,255,0.12)';
+
+  const labels = { good: 'хорошее', fair: 'среднее', poor: 'плохое' };
+  const title = quality ? `Соединение: ${labels[quality]}` : 'Соединение...';
+
+  return (
+    <svg width="16" height="14" viewBox="0 0 16 14" title={title}>
+      <title>{title}</title>
+      <rect x="1" y="10" width="3" height="4" rx="0.5" fill={activeBars >= 1 ? color : inactive} />
+      <rect x="6" y="6" width="3" height="8" rx="0.5" fill={activeBars >= 2 ? color : inactive} />
+      <rect x="11" y="1" width="3" height="13" rx="0.5" fill={activeBars >= 3 ? color : inactive} />
+    </svg>
+  );
+}
+
+export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShareOn, onCameraToggle, onScreenShareToggle }) {
   const {
     currentRoomName,
     participants,
     isMuted,
     isDeafened,
+    connectionQuality,
     toggleMute,
     toggleDeafen,
   } = useVoiceStore();
@@ -19,11 +45,7 @@ export default function VoiceControls({ onLeave, onExpand }) {
     <div className="voice-controls">
       <div className="voice-controls__info" onClick={onExpand}>
         <div className="voice-controls__signal">
-          <div className="voice-controls__signal-bars">
-            <div className="voice-controls__bar voice-controls__bar--1" />
-            <div className="voice-controls__bar voice-controls__bar--2" />
-            <div className="voice-controls__bar voice-controls__bar--3" />
-          </div>
+          <SignalBars quality={connectionQuality} />
         </div>
         <div className="voice-controls__room">
           <div className="voice-controls__room-name">{currentRoomName}</div>
@@ -89,6 +111,24 @@ export default function VoiceControls({ onLeave, onExpand }) {
               <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
             </svg>
           )}
+        </button>
+
+        {/* Камера */}
+        <button
+          className={`voice-controls__btn ${cameraOn ? 'voice-controls__btn--active' : 'voice-controls__btn--on'}`}
+          onClick={onCameraToggle}
+          title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
+        >
+          {cameraOn ? <Video size={18} strokeWidth={1.5} /> : <VideoOff size={18} strokeWidth={1.5} />}
+        </button>
+
+        {/* Показ экрана */}
+        <button
+          className={`voice-controls__btn ${screenShareOn ? 'voice-controls__btn--active' : 'voice-controls__btn--on'}`}
+          onClick={onScreenShareToggle}
+          title={screenShareOn ? 'Остановить показ экрана' : 'Показать экран'}
+        >
+          {screenShareOn ? <MonitorOff size={18} strokeWidth={1.5} /> : <Monitor size={18} strokeWidth={1.5} />}
         </button>
 
         {/* Отключиться */}

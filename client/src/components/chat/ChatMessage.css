@@ -109,6 +109,14 @@
   padding: 0 4px;
 }
 
+/* Иконка E2E шифрования */
+.chat-message__e2e {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 4px;
+  opacity: 0.4;
+}
+
 /* Системные сообщения */
 .chat-message__system {
   font-style: italic;

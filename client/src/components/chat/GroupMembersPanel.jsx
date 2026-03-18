@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Crown } from 'lucide-react';
 import Glass from '../ui/Glass';
 import UserProfileModal from '../ui/UserProfileModal';
 import API_URL from '../../config';
@@ -87,7 +88,7 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
                     <div className="group-members-panel__info">
                       <span className="group-members-panel__name">
                         {m.user?.username || 'Неизвестный'}
-                        {m.role === 'owner' && <span className="group-members-panel__crown">👑</span>}
+                        {m.role === 'owner' && <span className="group-members-panel__crown"><Crown size={12} strokeWidth={1.5} /></span>}
                         {isMe && <span className="group-members-panel__you"> (вы)</span>}
                       </span>
                       <span className="group-members-panel__role">

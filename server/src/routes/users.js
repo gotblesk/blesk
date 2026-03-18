@@ -57,6 +57,7 @@ router.get('/:id', authenticate, async (req, res) => {
         bio: true,
         status: true,
         customStatus: true,
+        publicKey: true,
         lastSeenAt: true,
         showLastSeen: true,
         createdAt: true,

@@ -33,6 +33,7 @@ model User {
   sentNotifications      Notification[]    @relation("NotificationSender")
   sentFriendRequests     FriendRequest[]   @relation("FriendRequestSender")
   receivedFriendRequests FriendRequest[]   @relation("FriendRequestReceiver")
+  channelSubscriptions   ChannelSubscriber[] @relation("UserSubscriptions")
 
   @@map("users")
 }
@@ -48,6 +49,8 @@ model Room {
 
   messages     Message[]
   participants RoomParticipant[]
+  channelMeta  ChannelMeta?
+  subscribers  ChannelSubscriber[] @relation("ChannelSubscribers")
 
   @@map("rooms")
 }
@@ -58,17 +61,36 @@ model Message {
   room      Room     @relation(fields: [roomId], references: [id])
   userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id])
-  text      String
+  text      String   @default("")
   encrypted Boolean  @default(false)
   type      String   @default("text") // text, media, system
   pinned    Boolean  @default(false)
   replyToId String?  @map("reply_to_id")
   replyTo   Message? @relation("MessageReplies", fields: [replyToId], references: [id])
   replies   Message[] @relation("MessageReplies")
+  attachments Attachment[]
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([roomId, createdAt])
   @@map("messages")
+}
+
+model Attachment {
+  id           String   @id @default(uuid())
+  messageId    String   @map("message_id")
+  message      Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  filename     String
+  storedName   String   @map("stored_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  url          String
+  thumbnailUrl String?  @map("thumbnail_url")
+  width        Int?
+  height       Int?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([messageId])
+  @@map("attachments")
 }
 
 model RoomParticipant {
@@ -143,4 +165,32 @@ model Feedback {
   @@index([userId])
   @@index([status])
   @@map("feedback")
+}
+
+model ChannelMeta {
+  id              String   @id @default(uuid())
+  roomId          String   @unique @map("room_id")
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  description     String   @default("")
+  category        String   @default("other")
+  isPublic        Boolean  @default(true) @map("is_public")
+  subscriberCount Int      @default(0) @map("subscriber_count")
+  postCount       Int      @default(0) @map("post_count")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("channel_meta")
+}
+
+model ChannelSubscriber {
+  id           String   @id @default(uuid())
+  channelId    String   @map("channel_id")
+  channel      Room     @relation("ChannelSubscribers", fields: [channelId], references: [id], onDelete: Cascade)
+  userId       String   @map("user_id")
+  user         User     @relation("UserSubscriptions", fields: [userId], references: [id])
+  subscribedAt DateTime @default(now()) @map("subscribed_at")
+
+  @@unique([channelId, userId])
+  @@index([channelId])
+  @@index([userId])
+  @@map("channel_subscribers")
 }

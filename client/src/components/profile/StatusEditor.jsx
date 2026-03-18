@@ -3,9 +3,9 @@ import API_URL from '../../config';
 import './StatusEditor.css';
 
 const PRESETS = [
-  { id: 'online', emoji: '🟢', label: 'В сети', color: '#4ade80' },
-  { id: 'dnd', emoji: '🔴', label: 'Не беспокоить', color: '#ef4444' },
-  { id: 'invisible', emoji: '⚫', label: 'Невидимка', color: '#6b7280' },
+  { id: 'online', color: '#4ade80', label: 'В сети' },
+  { id: 'dnd', color: '#ef4444', label: 'Не беспокоить' },
+  { id: 'invisible', color: '#6b7280', label: 'Невидимка' },
 ];
 
 export default function StatusEditor({ open, onClose, user, onUserUpdate }) {
@@ -76,7 +76,7 @@ export default function StatusEditor({ open, onClose, user, onUserUpdate }) {
               onClick={() => setSelected(p.id)}
               style={selected === p.id ? { borderColor: p.color } : undefined}
             >
-              <span className="status-preset__emoji">{p.emoji}</span>
+              <span className="status-preset__emoji"><div style={{width:10,height:10,borderRadius:'50%',background:p.color,display:'inline-block'}} /></span>
               <span className="status-preset__label">{p.label}</span>
             </button>
           ))}

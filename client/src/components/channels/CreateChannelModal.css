@@ -1,0 +1,206 @@
+.create-channel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.create-channel-modal {
+  width: 400px;
+  max-width: 90vw;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.create-channel-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.create-channel-modal__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.create-channel-modal__close {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.create-channel-modal__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.create-channel-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.create-channel-modal__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.create-channel-modal__input,
+.create-channel-modal__textarea {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.3s, background 0.3s;
+  resize: none;
+}
+
+.create-channel-modal__input:focus,
+.create-channel-modal__textarea:focus {
+  border-color: rgba(200, 255, 0, 0.2);
+  background: rgba(200, 255, 0, 0.03);
+}
+
+.create-channel-modal__input::placeholder,
+.create-channel-modal__textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.create-channel-modal__counter {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.create-channel-modal__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.create-channel-modal__cat {
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.create-channel-modal__cat:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.create-channel-modal__cat--active {
+  background: color-mix(in srgb, var(--cat-color) 15%, transparent);
+  color: var(--cat-color);
+  border-color: color-mix(in srgb, var(--cat-color) 30%, transparent);
+}
+
+.create-channel-modal__error {
+  font-size: 12px;
+  color: var(--danger);
+  padding: 4px 0;
+}
+
+.create-channel-modal__submit {
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.create-channel-modal__submit:hover {
+  transform: scale(1.02);
+}
+
+.create-channel-modal__submit:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+}
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .create-channel-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .create-channel-modal__close {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .create-channel-modal__close:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .create-channel-modal__input,
+[data-theme="light"] .create-channel-modal__textarea {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .create-channel-modal__input:focus,
+[data-theme="light"] .create-channel-modal__textarea:focus {
+  border-color: rgba(74, 140, 0, 0.3);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .create-channel-modal__cat {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .create-channel-modal__cat:hover {
+  background: rgba(255, 255, 255, 0.7);
+}

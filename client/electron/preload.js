@@ -42,6 +42,18 @@ contextBridge.exposeInMainWorld('blesk', {
     install: () => ipcRenderer.send('update:install'),
   },
 
+  // Демонстрация экрана (desktopCapturer)
+  screen: {
+    getSources: () => ipcRenderer.invoke('screen:getSources'),
+  },
+
+  // E2E шифрование — безопасное хранение ключей
+  crypto: {
+    saveSecretKey: (b64) => ipcRenderer.invoke('crypto:saveSecretKey', b64),
+    getSecretKey: () => ipcRenderer.invoke('crypto:getSecretKey'),
+    hasSecretKey: () => ipcRenderer.invoke('crypto:hasSecretKey'),
+  },
+
   // Платформа
   platform: process.platform,
 });

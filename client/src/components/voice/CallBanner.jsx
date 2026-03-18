@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Video } from 'lucide-react';
 import './CallBanner.css';
 
 export default function CallBanner({ activeCall, onJoin }) {
@@ -24,6 +25,7 @@ export default function CallBanner({ activeCall, onJoin }) {
       <div className="call-banner__indicator" />
       <div className="call-banner__info">
         <span className="call-banner__text">
+          {activeCall.videoEnabled && <Video size={14} strokeWidth={1.5} className="call-banner__video-icon" />}
           Звонок в процессе
         </span>
         <span className="call-banner__meta">

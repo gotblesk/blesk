@@ -3,6 +3,7 @@ import TitleBar from './components/ui/TitleBar';
 import AuthScreen from './components/auth/AuthScreen';
 import MainScreen from './components/main/MainScreen';
 import UpdateToast from './components/ui/UpdateToast';
+import { ensureKeyPair } from './utils/cryptoService';
 import API_URL from './config';
 
 export default function App() {
@@ -93,6 +94,12 @@ export default function App() {
       await tryRefreshToken();
     }, 12 * 60 * 1000);
     return () => clearInterval(interval);
+  }, [user]);
+
+  // Генерация E2E ключей при входе (если ещё нет)
+  useEffect(() => {
+    if (!user) return;
+    ensureKeyPair().catch((err) => console.error('E2E key generation error:', err));
   }, [user]);
 
   const handleLogin = (data) => {

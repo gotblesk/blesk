@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useChatStore } from '../store/chatStore';
+import { useChannelStore } from '../store/channelStore';
 import { useCallStore } from '../store/callStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { getCurrentUserId } from '../utils/auth';
+import { decryptMessage, fetchPublicKey } from '../utils/cryptoService';
 import API_URL from '../config';
 
 export function useSocket() {
@@ -28,7 +30,31 @@ export function useSocket() {
     const userId = getCurrentUserId();
 
     // ═══ Сообщения ═══
-    socket.on('message:new', (msg) => {
+    socket.on('message:new', async (msg) => {
+      // Посты каналов — в channelStore
+      if (msg.isChannel) {
+        useChannelStore.getState().receivePost(msg);
+        return;
+      }
+
+      // Расшифровать E2E сообщение от другого пользователя
+      if (msg.encrypted && msg.userId !== userId) {
+        try {
+          const senderPubKey = await fetchPublicKey(msg.userId);
+          if (senderPubKey) {
+            const plaintext = await decryptMessage(msg.text, senderPubKey, msg.chatId);
+            if (plaintext) {
+              msg.text = plaintext;
+            } else {
+              msg.text = 'Не удалось расшифровать';
+            }
+          }
+        } catch {
+          msg.text = 'Ошибка расшифровки';
+        }
+      }
+
+      // Свои зашифрованные сообщения — восстановить оригинальный текст из tempMsg
       if (msg.userId === userId && msg.tempId) {
         useChatStore.getState().confirmMessage(msg.tempId, msg);
       } else {
@@ -39,7 +65,7 @@ export function useSocket() {
         if (s.notifications && s.notifMessages && document.hidden) {
           try {
             new Notification(msg.user?.username || 'blesk', {
-              body: msg.text?.slice(0, 100) || 'Новое сообщение',
+              body: msg.encrypted ? 'Зашифрованное сообщение' : (msg.text?.slice(0, 100) || 'Новое сообщение'),
               silent: !s.sounds,
             });
           } catch { /* Notification API недоступен */ }

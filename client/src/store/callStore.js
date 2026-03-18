@@ -9,8 +9,8 @@ export const useCallStore = create((set, get) => ({
   incomingCall: null,
   // { chatId, callerId, callerName, callerHue, type: 'personal'|'group', chatName }
 
-  // Инициировать звонок
-  initiateCall: (chatId) => {
+  // Инициировать звонок (опционально с видео)
+  initiateCall: (chatId, options = {}) => {
     set({
       activeCall: {
         chatId,
@@ -19,6 +19,7 @@ export const useCallStore = create((set, get) => ({
         status: 'ringing',
         startedAt: Date.now(),
         participants: [],
+        videoEnabled: options.video || false,
       },
     });
   },
@@ -46,6 +47,7 @@ export const useCallStore = create((set, get) => ({
         status: 'active',
         startedAt: Date.now(),
         participants: [incomingCall.callerId],
+        videoEnabled: incomingCall.videoEnabled || false,
       },
       incomingCall: null,
     });
@@ -61,6 +63,7 @@ export const useCallStore = create((set, get) => ({
         status: data.status || 'active',
         startedAt: data.startedAt || Date.now(),
         participants: data.participants || [],
+        videoEnabled: data.videoEnabled || false,
       },
     });
   },

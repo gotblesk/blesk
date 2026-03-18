@@ -2,13 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useVoiceStore } from '../../store/voiceStore';
 import UserProfileModal from '../ui/UserProfileModal';
 import VoiceChat from './VoiceChat';
+import VideoGrid from './VideoGrid';
 import { getCurrentUserId } from '../../utils/auth';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceRoom.css';
 
 export default function VoiceRoom({ socketRef }) {
-  const { currentRoomId, currentRoomName, participants, audioLevels, userVolumes, setUserVolume } =
-    useVoiceStore();
+  const {
+    currentRoomId, currentRoomName, participants, audioLevels, userVolumes, setUserVolume,
+    videoStreams, localCameraStream,
+  } = useVoiceStore();
 
   const [volumePopup, setVolumePopup] = useState(null); // userId открытого попапа
   const [profileUserId, setProfileUserId] = useState(null); // для модалки профиля
@@ -48,10 +51,20 @@ export default function VoiceRoom({ socketRef }) {
   }, [volumePopup]);
 
   const participantList = Object.entries(participants);
+  const hasVideo = Object.keys(videoStreams).length > 0 || !!localCameraStream;
+
+  // Массив участников для VideoGrid
+  const peersArray = participantList.map(([userId, peer]) => ({
+    id: userId,
+    ...peer,
+  }));
 
   return (
     <div className="voice-room">
       <div className="voice-room__title">{currentRoomName || 'Голосовая комната'}</div>
+
+      {/* Видеосетка — показывается только при активном видео */}
+      {hasVideo && <VideoGrid participants={peersArray} />}
 
       <div className="voice-room__grid">
         {participantList.map(([userId, peer]) => {

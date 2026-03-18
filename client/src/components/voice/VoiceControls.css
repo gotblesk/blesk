@@ -50,22 +50,10 @@
   justify-content: center;
 }
 
-.voice-controls__signal-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 14px;
+/* Сигнал — SVG-индикатор качества */
+.voice-controls__signal svg {
+  display: block;
 }
-
-.voice-controls__bar {
-  width: 3px;
-  border-radius: 1px;
-  background: var(--online);
-}
-
-.voice-controls__bar--1 { height: 5px; }
-.voice-controls__bar--2 { height: 9px; }
-.voice-controls__bar--3 { height: 14px; }
 
 /* Информация о комнате */
 .voice-controls__room {
@@ -154,6 +142,16 @@
   background: rgba(239, 68, 68, 0.25);
 }
 
+.voice-controls__btn--active {
+  background: rgba(200, 255, 0, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(200, 255, 0, 0.25);
+}
+
+.voice-controls__btn--active:hover {
+  background: rgba(200, 255, 0, 0.25);
+}
+
 .voice-controls__btn--disconnect {
   background: rgba(239, 68, 68, 0.15);
   color: var(--danger);
@@ -162,4 +160,37 @@
 .voice-controls__btn--disconnect:hover {
   background: var(--danger);
   color: #fff;
+}
+
+/* Светлая тема */
+[data-theme="light"] .voice-controls {
+  background: rgba(255, 255, 255, 0.92);
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .voice-controls__room-name {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .voice-controls__room-count {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .voice-controls__mini-av {
+  border-color: rgba(255, 255, 255, 0.92);
+}
+
+[data-theme="light"] .voice-controls__btn--on {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .voice-controls__btn--on:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .voice-controls__btn--active {
+  background: rgba(200, 255, 0, 0.2);
+  border-color: rgba(200, 255, 0, 0.35);
 }

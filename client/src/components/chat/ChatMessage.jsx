@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { Pin, Lock } from 'lucide-react';
+import MediaMessage from './MediaMessage';
 import './ChatMessage.css';
 
-export default function ChatMessage({ message, isOwn, groupPosition, showTime, onReply }) {
+export default function ChatMessage({ message, isOwn, groupPosition, showTime, onReply, onImageClick }) {
   const [showActions, setShowActions] = useState(false);
 
   const time = new Date(message.createdAt).toLocaleTimeString('ru-RU', {
@@ -42,10 +44,18 @@ export default function ChatMessage({ message, isOwn, groupPosition, showTime, o
         ) : (
           message.text
         )}
-        {message.pinned && <span className="chat-message__pin-icon">📌</span>}
+        {message.pinned && <span className="chat-message__pin-icon"><Pin size={12} strokeWidth={1.5} /></span>}
+        {message.attachments?.length > 0 && (
+          <MediaMessage attachments={message.attachments} onImageClick={onImageClick} />
+        )}
       </div>
 
-      {showTime !== false && <div className="chat-message__time">{time}</div>}
+      {showTime !== false && (
+        <div className="chat-message__time">
+          {time}
+          {message.encrypted && <Lock size={10} strokeWidth={1.5} className="chat-message__e2e" title="Зашифровано" />}
+        </div>
+      )}
 
       {/* Кнопка ответа при hover */}
       {showActions && message.type !== 'system' && (
