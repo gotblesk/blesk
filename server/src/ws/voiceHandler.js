@@ -109,14 +109,14 @@ function voiceHandler(io, socket) {
           return callback?.({ error: 'Комната не найдена' });
         }
 
-        // Проверить что пользователь — владелец или приглашён
+        // Проверить что пользователь — владелец или участник
         const isOwner = dbRoom.ownerId === userId;
         if (!isOwner) {
-          const invite = await prisma.voiceRoomInvite.findUnique({
+          const member = await prisma.roomParticipant.findUnique({
             where: { roomId_userId: { roomId, userId } },
           }).catch(() => null);
-          if (!invite) {
-            return callback?.({ error: 'Вы не приглашены в эту комнату' });
+          if (!member) {
+            return callback?.({ error: 'Вы не участник этой комнаты' });
           }
         }
       }
