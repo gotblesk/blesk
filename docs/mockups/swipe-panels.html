@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Swipe Panels Concepts</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #08060f; color: rgba(255,255,255,0.85); font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif; padding: 24px; }
+  h1 { font-size: 22px; text-align: center; margin-bottom: 8px; }
+  .subtitle { text-align: center; color: rgba(255,255,255,0.4); font-size: 13px; margin-bottom: 32px; }
+
+  .concepts { display: flex; flex-direction: column; gap: 40px; max-width: 900px; margin: 0 auto; }
+
+  .concept { border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; padding: 24px; background: rgba(255,255,255,0.02); }
+  .concept:hover { border-color: rgba(200,255,0,0.15); }
+  .concept-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .concept-letter { width: 36px; height: 36px; border-radius: 10px; background: rgba(200,255,0,0.12); color: #c8ff00; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
+  .concept-title { font-size: 18px; font-weight: 700; }
+  .concept-desc { font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 20px; line-height: 1.5; }
+
+  /* Mock phone/desktop frame */
+  .mock-frame { display: flex; gap: 4px; height: 320px; border-radius: 12px; overflow: hidden; background: #0c0a14; position: relative; }
+
+  /* Panels */
+  .mock-left-panel { width: 260px; background: rgba(200,255,0,0.03); border-right: 1px solid rgba(255,255,255,0.05); padding: 16px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+  .mock-main { flex: 1; display: flex; flex-direction: column; position: relative; }
+  .mock-right-panel { width: 280px; background: rgba(140,100,255,0.03); border-left: 1px solid rgba(255,255,255,0.05); padding: 16px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+
+  /* Nav bar */
+  .mock-nav { display: flex; justify-content: center; gap: 6px; padding: 10px; }
+  .mock-pill { padding: 6px 14px; border-radius: 10px; font-size: 11px; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4); }
+  .mock-pill--active { background: rgba(200,255,0,0.15); color: #c8ff00; }
+
+  /* Cards grid */
+  .mock-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; flex: 1; }
+  .mock-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .mock-avatar { width: 28px; height: 28px; border-radius: 50%; }
+  .mock-name { font-size: 10px; font-weight: 600; }
+  .mock-preview { font-size: 8px; color: rgba(255,255,255,0.3); }
+
+  /* List items */
+  .mock-list-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); }
+  .mock-list-item:hover { background: rgba(255,255,255,0.04); }
+  .mock-list-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; }
+  .mock-list-info { flex: 1; }
+  .mock-list-name { font-size: 11px; font-weight: 600; }
+  .mock-list-sub { font-size: 9px; color: rgba(255,255,255,0.3); }
+  .mock-list-badge { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; }
+
+  /* Section headers in panels */
+  .panel-section { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.2); padding: 4px 10px; margin-top: 4px; }
+
+  /* Swipe indicator */
+  .swipe-indicator { position: absolute; top: 50%; width: 3px; height: 40px; border-radius: 3px; transform: translateY(-50%); }
+  .swipe-left { left: 0; background: rgba(200,255,0,0.3); }
+  .swipe-right { right: 0; background: rgba(140,100,255,0.3); }
+
+  /* Arrow labels */
+  .arrow-label { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10px; color: rgba(255,255,255,0.3); display: flex; align-items: center; gap: 4px; }
+  .arrow-left { left: -90px; }
+  .arrow-right { right: -90px; }
+
+  /* Activity feed items */
+  .mock-activity { display: flex; gap: 8px; padding: 6px 10px; border-radius: 8px; align-items: flex-start; }
+  .mock-activity-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .mock-activity-text { font-size: 10px; color: rgba(255,255,255,0.5); line-height: 1.4; }
+  .mock-activity-time { font-size: 8px; color: rgba(255,255,255,0.15); margin-top: 2px; }
+
+  /* Quick actions */
+  .mock-quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mock-quick-btn { padding: 10px 8px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); text-align: center; font-size: 10px; color: rgba(255,255,255,0.5); }
+  .mock-quick-btn-icon { font-size: 18px; margin-bottom: 4px; }
+
+  /* Concept C - Radial */
+  .mock-radial { position: relative; width: 200px; height: 200px; margin: 40px auto; }
+  .mock-radial-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 50px; height: 50px; border-radius: 50%; background: rgba(200,255,0,0.15); border: 2px solid rgba(200,255,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #c8ff00; }
+  .mock-radial-item { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .mock-radial-item:nth-child(2) { top: 0; left: 50%; transform: translateX(-50%); }
+  .mock-radial-item:nth-child(3) { top: 20%; right: 5%; }
+  .mock-radial-item:nth-child(4) { bottom: 20%; right: 5%; }
+  .mock-radial-item:nth-child(5) { bottom: 0; left: 50%; transform: translateX(-50%); }
+  .mock-radial-item:nth-child(6) { bottom: 20%; left: 5%; }
+  .mock-radial-item:nth-child(7) { top: 20%; left: 5%; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 600; }
+  .tag--rec { background: rgba(200,255,0,0.15); color: #c8ff00; }
+  .tag--unique { background: rgba(140,100,255,0.15); color: #b088ff; }
+</style>
+</head>
+<body>
+  <h1>Свайп-панели — 3 концепции</h1>
+  <p class="subtitle">Свайп влево ← и вправо → от краёв экрана открывает скрытые панели</p>
+
+  <div class="concepts">
+    <!-- Concept A -->
+    <div class="concept">
+      <div class="concept-header">
+        <div class="concept-letter">A</div>
+        <div class="concept-title">Люди + Активность <span class="tag tag--rec">Рекомендация</span></div>
+      </div>
+      <div class="concept-desc">
+        <b>← Левая панель:</b> Друзья (онлайн сверху), групповые чаты, быстрые действия<br>
+        <b>→ Правая панель:</b> Лента активности — кто написал, кто онлайн, обновления каналов
+      </div>
+      <div style="position: relative; padding: 0 100px;">
+        <div class="arrow-label arrow-left">← свайп</div>
+        <div class="arrow-label arrow-right">свайп →</div>
+        <div class="mock-frame">
+          <!-- Left panel -->
+          <div class="mock-left-panel">
+            <div class="panel-section">Онлайн — 3</div>
+            <div class="mock-list-item">
+              <div class="mock-list-avatar" style="background: linear-gradient(135deg, hsl(300,70%,50%), hsl(340,70%,60%));"></div>
+              <div class="mock-list-info">
+                <div class="mock-list-name">Катя</div>
+                <div class="mock-list-sub">онлайн</div>
+              </div>
+              <div class="mock-list-badge"></div>
+            </div>
+            <div class="mock-list-item">
+              <div class="mock-list-avatar" style="background: linear-gradient(135deg, hsl(200,70%,50%), hsl(240,70%,60%));"></div>
+              <div class="mock-list-info">
+                <div class="mock-list-name">Макс</div>
+                <div class="mock-list-sub">играет в CS2</div>
+              </div>
+              <div class="mock-list-badge"></div>
+            </div>
+            <div class="mock-list-item">
+              <div class="mock-list-avatar" style="background: linear-gradient(135deg, hsl(40,70%,50%), hsl(80,70%,60%));"></div>
+              <div class="mock-list-info">
+                <div class="mock-list-name">Даня</div>
+                <div class="mock-list-sub">слушает музыку</div>
+              </div>
+              <div class="mock-list-badge"></div>
+            </div>
+            <div class="panel-section">Группы</div>
+            <div class="mock-list-item">
+              <div class="mock-list-avatar" style="background: rgba(200,255,0,0.15); display:flex; align-items:center; justify-content:center; font-size:12px;">🎮</div>
+              <div class="mock-list-info">
+                <div class="mock-list-name">Игровая</div>
+                <div class="mock-list-sub">5 участников</div>
+              </div>
+            </div>
+            <div class="mock-list-item">
+              <div class="mock-list-avatar" style="background: rgba(140,100,255,0.15); display:flex; align-items:center; justify-content:center; font-size:12px;">💼</div>
+              <div class="mock-list-info">
+                <div class="mock-list-name">Работа</div>
+                <div class="mock-list-sub">3 участника</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main -->
+          <div class="mock-main">
+            <div class="swipe-indicator swipe-left"></div>
+            <div class="swipe-indicator swipe-right"></div>
+            <div class="mock-nav">
+              <div class="mock-pill mock-pill--active">💬 Чаты</div>
+              <div class="mock-pill">📢 Каналы</div>
+              <div class="mock-pill">👥 Друзья</div>
+            </div>
+            <div class="mock-grid">
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: linear-gradient(135deg, hsl(300,70%,50%), hsl(340,70%,60%));"></div>
+                <div class="mock-name">Катя</div>
+                <div class="mock-preview">привет!</div>
+              </div>
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: linear-gradient(135deg, hsl(200,70%,50%), hsl(240,70%,60%));"></div>
+                <div class="mock-name">Макс</div>
+                <div class="mock-preview">го в кс</div>
+              </div>
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: linear-gradient(135deg, hsl(40,70%,50%), hsl(80,70%,60%));"></div>
+                <div class="mock-name">Даня</div>
+                <div class="mock-preview">скинь трек</div>
+              </div>
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: rgba(200,255,0,0.15);"></div>
+                <div class="mock-name">Игровая</div>
+                <div class="mock-preview">кто играет?</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right panel -->
+          <div class="mock-right-panel">
+            <div class="panel-section">Сейчас</div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: #4ade80;"></div>
+              <div>
+                <div class="mock-activity-text"><b>Катя</b> только что вошла</div>
+                <div class="mock-activity-time">1 мин назад</div>
+              </div>
+            </div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: #c8ff00;"></div>
+              <div>
+                <div class="mock-activity-text"><b>Макс</b> написал в Игровая</div>
+                <div class="mock-activity-time">3 мин назад</div>
+              </div>
+            </div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: #818cf8;"></div>
+              <div>
+                <div class="mock-activity-text"><b>Даня</b> слушает "PHARAOH — Black Siemens"</div>
+                <div class="mock-activity-time">5 мин назад</div>
+              </div>
+            </div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: #f472b6;"></div>
+              <div>
+                <div class="mock-activity-text"><b>Лена</b> обновила аватар</div>
+                <div class="mock-activity-time">12 мин назад</div>
+              </div>
+            </div>
+            <div class="panel-section" style="margin-top: 8px;">Ранее</div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: rgba(255,255,255,0.15);"></div>
+              <div>
+                <div class="mock-activity-text"><b>Игровая</b> — 15 новых сообщений</div>
+                <div class="mock-activity-time">1ч назад</div>
+              </div>
+            </div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: rgba(255,255,255,0.15);"></div>
+              <div>
+                <div class="mock-activity-text"><b>Макс</b> получил тег "Спидраннер"</div>
+                <div class="mock-activity-time">2ч назад</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept B -->
+    <div class="concept">
+      <div class="concept-header">
+        <div class="concept-letter">B</div>
+        <div class="concept-title">Быстрый доступ + Профиль <span class="tag tag--unique">Уникально</span></div>
+      </div>
+      <div class="concept-desc">
+        <b>← Левая панель:</b> "Быстрый набор" — избранные люди + группы как виджеты с быстрыми действиями (написать, позвонить, посмотреть статус)<br>
+        <b>→ Правая панель:</b> Мини-профиль выбранного человека — аватар, статус, общие группы, общие теги, кнопка "написать"
+      </div>
+      <div style="position: relative; padding: 0 100px;">
+        <div class="arrow-label arrow-left">← свайп</div>
+        <div class="arrow-label arrow-right">свайп →</div>
+        <div class="mock-frame">
+          <!-- Left: Quick Dial -->
+          <div class="mock-left-panel" style="gap: 12px;">
+            <div class="panel-section">Избранные</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:54px;">
+                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, hsl(300,70%,50%), hsl(340,70%,60%));position:relative;">
+                  <div style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:#4ade80;border:2px solid #0c0a14;"></div>
+                </div>
+                <div style="font-size:9px;font-weight:600;">Катя</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:54px;">
+                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, hsl(200,70%,50%), hsl(240,70%,60%));"></div>
+                <div style="font-size:9px;font-weight:600;">Макс</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:54px;">
+                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, hsl(40,70%,50%), hsl(80,70%,60%));"></div>
+                <div style="font-size:9px;font-weight:600;">Даня</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:54px;">
+                <div style="width:40px;height:40px;border-radius:14px;background:rgba(255,255,255,0.05);border:1px dashed rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(255,255,255,0.2);">+</div>
+                <div style="font-size:9px;color:rgba(255,255,255,0.3);">добавить</div>
+              </div>
+            </div>
+            <div class="panel-section">Быстрые действия</div>
+            <div class="mock-quick-actions">
+              <div class="mock-quick-btn"><div class="mock-quick-btn-icon">🎮</div>Игровая</div>
+              <div class="mock-quick-btn"><div class="mock-quick-btn-icon">📞</div>Позвонить</div>
+              <div class="mock-quick-btn"><div class="mock-quick-btn-icon">🔍</div>Найти</div>
+              <div class="mock-quick-btn"><div class="mock-quick-btn-icon">⭐</div>Избранные</div>
+            </div>
+          </div>
+
+          <!-- Main -->
+          <div class="mock-main">
+            <div class="swipe-indicator swipe-left"></div>
+            <div class="swipe-indicator swipe-right"></div>
+            <div class="mock-nav">
+              <div class="mock-pill mock-pill--active">💬 Чаты</div>
+              <div class="mock-pill">📢 Каналы</div>
+              <div class="mock-pill">👥 Друзья</div>
+            </div>
+            <div class="mock-grid">
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: linear-gradient(135deg, hsl(300,70%,50%), hsl(340,70%,60%));"></div>
+                <div class="mock-name">Катя</div>
+                <div class="mock-preview">привет!</div>
+              </div>
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: linear-gradient(135deg, hsl(200,70%,50%), hsl(240,70%,60%));"></div>
+                <div class="mock-name">Макс</div>
+                <div class="mock-preview">го в кс</div>
+              </div>
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: linear-gradient(135deg, hsl(40,70%,50%), hsl(80,70%,60%));"></div>
+                <div class="mock-name">Даня</div>
+                <div class="mock-preview">скинь трек</div>
+              </div>
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: rgba(200,255,0,0.15);"></div>
+                <div class="mock-name">Игровая</div>
+                <div class="mock-preview">кто играет?</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Mini Profile -->
+          <div class="mock-right-panel" style="align-items: center; justify-content: center;">
+            <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg, hsl(300,70%,50%), hsl(340,70%,60%));margin-bottom:8px;"></div>
+            <div style="font-size:15px;font-weight:700;">Катя</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.3);">#4521</div>
+            <div style="font-size:10px;color:#4ade80;margin:4px 0 12px;">● онлайн</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.4);text-align:center;margin-bottom:12px;">дизайнер / люблю кофе ☕</div>
+            <div class="panel-section" style="align-self:stretch;">Общие группы</div>
+            <div class="mock-list-item" style="align-self:stretch;">
+              <div style="font-size:12px;">🎮</div>
+              <div class="mock-list-info"><div class="mock-list-name">Игровая</div></div>
+            </div>
+            <div class="panel-section" style="align-self:stretch;margin-top:6px;">Общие теги</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;align-self:stretch;padding:0 10px;">
+              <span style="padding:3px 8px;border-radius:6px;background:rgba(200,255,0,0.1);color:#c8ff00;font-size:9px;">Полуночник</span>
+              <span style="padding:3px 8px;border-radius:6px;background:rgba(140,100,255,0.1);color:#b088ff;font-size:9px;">Ранний</span>
+            </div>
+            <button style="margin-top:auto;padding:8px 24px;border-radius:10px;background:rgba(200,255,0,0.12);border:1px solid rgba(200,255,0,0.2);color:#c8ff00;font-size:12px;cursor:pointer;">Написать →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Concept C -->
+    <div class="concept">
+      <div class="concept-header">
+        <div class="concept-letter">C</div>
+        <div class="concept-title">Orbit — социальное пространство <span class="tag tag--unique">Самое уникальное</span></div>
+      </div>
+      <div class="concept-desc">
+        <b>← Левая панель:</b> "Орбита" — друзья расположены по кольцам. Внутреннее кольцо = близкие друзья (частое общение), внешнее = знакомые. Размер аватара = активность. Пульсация = онлайн.<br>
+        <b>→ Правая панель:</b> "Пульс" — живая лента: кто сейчас печатает, кто слушает музыку, кто в игре, кто только зашёл. Каждое событие = анимированная частица.
+      </div>
+      <div style="position: relative; padding: 0 100px;">
+        <div class="arrow-label arrow-left">← свайп</div>
+        <div class="arrow-label arrow-right">свайп →</div>
+        <div class="mock-frame">
+          <!-- Left: Orbit -->
+          <div class="mock-left-panel" style="align-items:center;justify-content:center;position:relative;">
+            <div class="panel-section" style="position:absolute;top:8px;left:10px;">Орбита</div>
+            <!-- Orbit rings -->
+            <div style="position:relative;width:220px;height:220px;">
+              <!-- Outer ring -->
+              <div style="position:absolute;inset:0;border:1px solid rgba(255,255,255,0.03);border-radius:50%;"></div>
+              <!-- Inner ring -->
+              <div style="position:absolute;inset:40px;border:1px solid rgba(255,255,255,0.06);border-radius:50%;"></div>
+              <!-- Center = you -->
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;background:rgba(200,255,0,0.2);border:2px solid rgba(200,255,0,0.4);display:flex;align-items:center;justify-content:center;font-size:10px;color:#c8ff00;font-weight:700;">Я</div>
+              <!-- Inner orbit friends (close) -->
+              <div style="position:absolute;top:18%;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;">
+                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg, hsl(300,70%,50%), hsl(340,70%,60%));box-shadow:0 0 12px rgba(300,70%,50%,0.3);animation:pulse 2s infinite;"></div>
+                <div style="font-size:8px;font-weight:600;margin-top:2px;">Катя</div>
+              </div>
+              <div style="position:absolute;top:35%;right:15%;display:flex;flex-direction:column;align-items:center;">
+                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, hsl(200,70%,50%), hsl(240,70%,60%));box-shadow:0 0 12px rgba(200,70%,50%,0.3);animation:pulse 2s infinite 0.5s;"></div>
+                <div style="font-size:8px;font-weight:600;margin-top:2px;">Макс</div>
+              </div>
+              <div style="position:absolute;bottom:30%;left:12%;display:flex;flex-direction:column;align-items:center;">
+                <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg, hsl(40,70%,50%), hsl(80,70%,60%));animation:pulse 2s infinite 1s;"></div>
+                <div style="font-size:8px;font-weight:600;margin-top:2px;">Даня</div>
+              </div>
+              <!-- Outer orbit (acquaintances) -->
+              <div style="position:absolute;top:5%;right:10%;display:flex;flex-direction:column;align-items:center;opacity:0.5;">
+                <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg, hsl(120,40%,40%), hsl(160,40%,50%));"></div>
+                <div style="font-size:7px;margin-top:2px;">Лена</div>
+              </div>
+              <div style="position:absolute;bottom:8%;right:20%;display:flex;flex-direction:column;align-items:center;opacity:0.4;">
+                <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg, hsl(0,40%,40%), hsl(30,40%,50%));"></div>
+                <div style="font-size:7px;margin-top:2px;">Игорь</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main -->
+          <div class="mock-main">
+            <div class="swipe-indicator swipe-left"></div>
+            <div class="swipe-indicator swipe-right"></div>
+            <div class="mock-nav">
+              <div class="mock-pill mock-pill--active">💬 Чаты</div>
+              <div class="mock-pill">📢 Каналы</div>
+              <div class="mock-pill">👥 Друзья</div>
+            </div>
+            <div class="mock-grid">
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: linear-gradient(135deg, hsl(300,70%,50%), hsl(340,70%,60%));"></div>
+                <div class="mock-name">Катя</div>
+                <div class="mock-preview">привет!</div>
+              </div>
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: linear-gradient(135deg, hsl(200,70%,50%), hsl(240,70%,60%));"></div>
+                <div class="mock-name">Макс</div>
+                <div class="mock-preview">го в кс</div>
+              </div>
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: linear-gradient(135deg, hsl(40,70%,50%), hsl(80,70%,60%));"></div>
+                <div class="mock-name">Даня</div>
+                <div class="mock-preview">скинь трек</div>
+              </div>
+              <div class="mock-card">
+                <div class="mock-avatar" style="background: rgba(200,255,0,0.15);"></div>
+                <div class="mock-name">Игровая</div>
+                <div class="mock-preview">кто играет?</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Pulse -->
+          <div class="mock-right-panel">
+            <div class="panel-section">Пульс — прямо сейчас</div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: #4ade80; animation: pulse 1.5s infinite;"></div>
+              <div>
+                <div class="mock-activity-text">✏️ <b>Катя</b> печатает в чате</div>
+                <div class="mock-activity-time">прямо сейчас</div>
+              </div>
+            </div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: #818cf8; animation: pulse 1.5s infinite 0.3s;"></div>
+              <div>
+                <div class="mock-activity-text">🎮 <b>Макс</b> играет в CS2</div>
+                <div class="mock-activity-time">15 мин</div>
+              </div>
+            </div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: #f472b6; animation: pulse 1.5s infinite 0.6s;"></div>
+              <div>
+                <div class="mock-activity-text">🎧 <b>Даня</b> слушает музыку</div>
+                <div class="mock-activity-time">5 мин</div>
+              </div>
+            </div>
+            <div class="mock-activity">
+              <div class="mock-activity-dot" style="background: #c8ff00;"></div>
+              <div>
+                <div class="mock-activity-text">⭐ <b>Лена</b> получила тег "Коллекционер"</div>
+                <div class="mock-activity-time">23 мин</div>
+              </div>
+            </div>
+            <div class="panel-section" style="margin-top:8px;">Тренды</div>
+            <div style="padding:6px 10px;font-size:10px;color:rgba(255,255,255,0.4);">
+              🔥 <b>Игровая</b> — самый активный чат сегодня<br>
+              <span style="font-size:9px;color:rgba(255,255,255,0.2);">47 сообщений за час</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</body>
+</html>

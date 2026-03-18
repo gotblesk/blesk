@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Terminal Auth (Full Concept)</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Unbounded:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #08060f;
+    --accent: #c8ff00;
+    --text: rgba(255, 255, 255, 0.85);
+    --text-muted: rgba(255, 255, 255, 0.25);
+    --online: #4ade80;
+    --danger: #ef4444;
+    --terminal-bg: rgba(10, 8, 18, 0.95);
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --font-brand: 'Syne', sans-serif;
+    --font-ui: 'Unbounded', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-ui);
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ===== ПОЛНОЭКРАННАЯ СЦЕНА ===== */
+  .scene {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Фоновые orbs */
+  .bg-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.08;
+    pointer-events: none;
+  }
+  .bg-orb--1 { width: 500px; height: 500px; background: var(--accent); top: -10%; left: 10%; animation: orbFloat1 8s ease-in-out infinite alternate; }
+  .bg-orb--2 { width: 400px; height: 400px; background: #00d4ff; bottom: -10%; right: 10%; animation: orbFloat2 10s ease-in-out infinite alternate; }
+  .bg-orb--3 { width: 300px; height: 300px; background: #ff006a; top: 50%; left: 50%; transform: translate(-50%, -50%); animation: orbFloat3 12s ease-in-out infinite alternate; }
+
+  @keyframes orbFloat1 { to { transform: translate(30px, 20px); opacity: 0.12; } }
+  @keyframes orbFloat2 { to { transform: translate(-20px, -30px); opacity: 0.1; } }
+  @keyframes orbFloat3 { to { transform: translate(20px, -20px) scale(1.1); } }
+
+  /* Scanlines overlay */
+  .scanlines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* Мерцающий фоновый шум */
+  .noise {
+    position: absolute;
+    inset: 0;
+    opacity: 0.02;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 99;
+  }
+
+  /* ===== ТЕРМИНАЛЬНАЯ КАРТА ===== */
+  .term-card {
+    width: 560px;
+    border-radius: 16px;
+    background: var(--terminal-bg);
+    border: 1px solid rgba(200, 255, 0, 0.06);
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.04),
+      0 20px 60px rgba(0, 0, 0, 0.6),
+      0 0 80px rgba(200, 255, 0, 0.03);
+    position: relative;
+    z-index: 10;
+    animation: cardAppear 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes cardAppear {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(20px);
+      filter: blur(4px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  /* Titlebar */
+  .term-titlebar {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    gap: 7px;
+  }
+
+  .term-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+  }
+  .term-dot--red { background: #ff5f57; }
+  .term-dot--yellow { background: #febc2e; }
+  .term-dot--green { background: #28c840; }
+
+  .term-title {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-right: 48px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Terminal body */
+  .term-body {
+    padding: 24px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.9;
+    min-height: 440px;
+    position: relative;
+  }
+
+  /* ASCII Art Logo */
+  .term-ascii {
+    color: var(--accent);
+    white-space: pre;
+    line-height: 1.15;
+    font-size: 11px;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: asciiGlow 0.6s ease 0.2s forwards;
+    text-shadow: 0 0 20px rgba(200, 255, 0, 0.3);
+  }
+
+  @keyframes asciiGlow {
+    0% { opacity: 0; filter: blur(3px); text-shadow: 0 0 40px rgba(200, 255, 0, 0.5); }
+    100% { opacity: 1; filter: blur(0); text-shadow: 0 0 20px rgba(200, 255, 0, 0.2); }
+  }
+
+  /* Lines */
+  .term-line {
+    opacity: 0;
+    animation: lineAppear 0.3s ease forwards;
+  }
+
+  @keyframes lineAppear {
+    from { opacity: 0; transform: translateX(-4px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .term-line:nth-child(2) { animation-delay: 0.8s; }
+  .term-line:nth-child(3) { animation-delay: 1.2s; }
+  .term-line:nth-child(4) { animation-delay: 1.5s; }
+  .term-line:nth-child(5) { animation-delay: 2.0s; }
+  .term-line:nth-child(6) { animation-delay: 2.5s; }
+  .term-line:nth-child(7) { animation-delay: 3.0s; }
+  .term-line:nth-child(8) { animation-delay: 3.3s; }
+  .term-line:nth-child(9) { animation-delay: 3.8s; }
+  .term-line:nth-child(10) { animation-delay: 4.1s; }
+
+  /* Цвета */
+  .t-accent { color: var(--accent); }
+  .t-muted { color: rgba(255, 255, 255, 0.2); font-style: italic; }
+  .t-success { color: var(--online); }
+  .t-info { color: #00d4ff; }
+  .t-error { color: var(--danger); }
+  .t-dim { color: rgba(255, 255, 255, 0.12); }
+  .t-white { color: rgba(255, 255, 255, 0.9); }
+  .t-brand { color: var(--accent); font-weight: 600; }
+
+  /* Разделитель */
+  .term-divider {
+    color: rgba(200, 255, 0, 0.1);
+    margin: 8px 0;
+    opacity: 0;
+    animation: lineAppear 0.3s ease forwards;
+  }
+
+  /* Прогресс бар загрузки */
+  .term-progress {
+    display: inline-flex;
+    gap: 1px;
+    margin-left: 4px;
+  }
+  .term-progress-block {
+    display: inline-block;
+    width: 8px;
+    height: 12px;
+    background: var(--accent);
+    opacity: 0;
+    animation: blockFill 0.1s ease forwards;
+  }
+  .term-progress-block:nth-child(1) { animation-delay: 2.1s; }
+  .term-progress-block:nth-child(2) { animation-delay: 2.15s; }
+  .term-progress-block:nth-child(3) { animation-delay: 2.2s; }
+  .term-progress-block:nth-child(4) { animation-delay: 2.25s; }
+  .term-progress-block:nth-child(5) { animation-delay: 2.3s; }
+  .term-progress-block:nth-child(6) { animation-delay: 2.35s; }
+  .term-progress-block:nth-child(7) { animation-delay: 2.4s; }
+  .term-progress-block:nth-child(8) { animation-delay: 2.45s; }
+  .term-progress-block:nth-child(9) { animation-delay: 2.5s; }
+  .term-progress-block:nth-child(10) { animation-delay: 2.55s; }
+  .term-progress-empty {
+    display: inline-block;
+    width: 8px;
+    height: 12px;
+    background: rgba(200, 255, 0, 0.08);
+  }
+
+  @keyframes blockFill {
+    to { opacity: 1; }
+  }
+
+  /* Секция ввода */
+  .term-auth-section {
+    margin-top: 12px;
+    opacity: 0;
+    animation: lineAppear 0.4s ease 4.5s forwards;
+  }
+
+  .term-input-row {
+    display: flex;
+    align-items: center;
+    margin-top: 6px;
+  }
+
+  .term-label {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .term-input {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    outline: none;
+    flex: 1;
+    caret-color: var(--accent);
+    padding: 0;
+    margin-left: 0;
+  }
+  .term-input::placeholder {
+    color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Курсор */
+  .term-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 15px;
+    background: var(--accent);
+    animation: cursorBlink 1s step-end infinite;
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    box-shadow: 0 0 8px rgba(200, 255, 0, 0.4);
+  }
+
+  @keyframes cursorBlink {
+    50% { opacity: 0; }
+  }
+
+  /* Кнопка входа (стилизована как команда) */
+  .term-submit-row {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .term-submit {
+    background: none;
+    border: 1px solid rgba(200, 255, 0, 0.2);
+    border-radius: 6px;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 1px;
+  }
+  .term-submit:hover {
+    background: rgba(200, 255, 0, 0.08);
+    border-color: rgba(200, 255, 0, 0.4);
+    box-shadow: 0 0 20px rgba(200, 255, 0, 0.15);
+  }
+
+  .term-submit-hint {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.12);
+  }
+
+  /* Переключатель register/login */
+  .term-switch {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .term-switch a {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+    transition: text-shadow 0.3s;
+  }
+  .term-switch a:hover {
+    text-shadow: 0 0 10px rgba(200, 255, 0, 0.4);
+  }
+
+  /* Версия внизу карточки */
+  .term-version {
+    position: absolute;
+    bottom: 16px;
+    right: 24px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.08);
+  }
+
+  /* ===== STATUS BAR (внизу экрана) ===== */
+  .status-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    background: rgba(200, 255, 0, 0.03);
+    border-top: 1px solid rgba(200, 255, 0, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(200, 255, 0, 0.25);
+    z-index: 50;
+    animation: lineAppear 0.5s ease 5s forwards;
+    opacity: 0;
+  }
+
+  .status-bar__left, .status-bar__right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--online);
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+    animation: dotPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes dotPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ===== КНОПКА REPLAY ===== */
+  .replay-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 8px 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    z-index: 200;
+    transition: all 0.3s;
+  }
+  .replay-btn:hover {
+    background: rgba(200, 255, 0, 0.06);
+    border-color: rgba(200, 255, 0, 0.2);
+    color: var(--accent);
+  }
+
+  /* ===== ФОНОВЫЕ МАТРИЧНЫЕ СИМВОЛЫ ===== */
+  .matrix-col {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: rgba(200, 255, 0, 0.04);
+    writing-mode: vertical-rl;
+    letter-spacing: 8px;
+    line-height: 1;
+    animation: matrixFall linear infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  @keyframes matrixFall {
+    0% { transform: translateY(-100%); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(100vh); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="scene" id="scene">
+  <!-- Фон -->
+  <div class="bg-orb bg-orb--1"></div>
+  <div class="bg-orb bg-orb--2"></div>
+  <div class="bg-orb bg-orb--3"></div>
+  <div class="scanlines"></div>
+  <div class="noise"></div>
+
+  <!-- Матричные колонки на фоне -->
+  <div class="matrix-col" style="left:5%; animation-duration:15s; animation-delay:0s;">01101001 11010010</div>
+  <div class="matrix-col" style="left:15%; animation-duration:18s; animation-delay:3s;">10110100 01001011</div>
+  <div class="matrix-col" style="left:25%; animation-duration:20s; animation-delay:1s;">00101110 11100101</div>
+  <div class="matrix-col" style="left:75%; animation-duration:16s; animation-delay:5s;">11001010 00110101</div>
+  <div class="matrix-col" style="left:85%; animation-duration:22s; animation-delay:2s;">01010011 10101100</div>
+  <div class="matrix-col" style="left:92%; animation-duration:19s; animation-delay:4s;">10011001 01100110</div>
+
+  <!-- Терминальная карта -->
+  <div class="term-card">
+    <div class="term-titlebar">
+      <div class="term-dot term-dot--red"></div>
+      <div class="term-dot term-dot--yellow"></div>
+      <div class="term-dot term-dot--green"></div>
+      <div class="term-title">blesk terminal — auth</div>
+    </div>
+
+    <div class="term-body" id="termBody">
+      <!-- ASCII Logo -->
+      <div class="term-ascii"> _     _               _
+| |__ | |  ___   ___  | | __
+| '_ \| | / _ \ / __| | |/ /
+| |_) | ||  __/ \__ \ |   &lt;
+|_.__/|_| \___| |___/ |_|\_\</div>
+
+      <!-- Системные сообщения -->
+      <div class="term-line"><span class="t-muted">// blesk v0.1.0-alpha — Твой блеск. Твои правила.</span></div>
+
+      <div class="term-divider" style="animation-delay:1.2s;">─────────────────────────────────────────────</div>
+
+      <div class="term-line"><span class="t-info">[sys]</span> <span class="t-white">Инициализация модулей...</span></div>
+      <div class="term-line"><span class="t-info">[sys]</span> <span class="t-white">Подключение к серверу</span> <span class="t-dim">eu-west.blesk.fun</span> <span class="t-success">● ONLINE</span></div>
+      <div class="term-line"><span class="t-info">[sys]</span> <span class="t-white">Шифрование</span> <span class="t-dim">E2E / AES-256</span> <span class="t-success">● READY</span></div>
+      <div class="term-line">
+        <span class="t-info">[sys]</span> <span class="t-white">Загрузка</span>
+        <div class="term-progress">
+          <span class="term-progress-block"></span><span class="term-progress-block"></span><span class="term-progress-block"></span><span class="term-progress-block"></span><span class="term-progress-block"></span><span class="term-progress-block"></span><span class="term-progress-block"></span><span class="term-progress-block"></span><span class="term-progress-block"></span><span class="term-progress-block"></span>
+        </div>
+        <span class="t-success" style="opacity:0;animation:lineAppear 0.2s ease 2.6s forwards;"> 100%</span>
+      </div>
+
+      <div class="term-line">&nbsp;</div>
+
+      <div class="term-line"><span class="t-brand">blesk</span> <span class="t-white">auth</span> <span class="t-dim">--mode login</span></div>
+
+      <!-- Секция ввода -->
+      <div class="term-auth-section">
+        <div class="term-input-row">
+          <span class="term-label">user → </span>
+          <input class="term-input" type="text" placeholder="введите имя..." id="usernameInput" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="term-input-row" style="margin-top: 8px;">
+          <span class="term-label">pass → </span>
+          <input class="term-input" type="password" placeholder="введите пароль..." id="passwordInput" autocomplete="off" />
+        </div>
+
+        <div class="term-submit-row">
+          <button class="term-submit" onclick="simulateLogin()">&gt; EXECUTE</button>
+          <span class="term-submit-hint">или Enter для входа</span>
+        </div>
+
+        <div class="term-switch">
+          <span class="t-dim">$</span> Нет аккаунта? <a onclick="switchMode()">blesk auth --mode register</a>
+        </div>
+      </div>
+
+      <div class="term-version">blesk.fun</div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="status-bar__left">
+      <div class="status-dot"></div>
+      <span>CONNECTED</span>
+      <span class="t-dim">|</span>
+      <span>eu-west.blesk.fun</span>
+    </div>
+    <div class="status-bar__right">
+      <span>E2E: ON</span>
+      <span class="t-dim">|</span>
+      <span>v0.1.0-alpha</span>
+    </div>
+  </div>
+</div>
+
+<button class="replay-btn" onclick="replay()">↻</button>
+
+<!-- ===== ACCESS GRANTED OVERLAY ===== -->
+<div id="accessOverlay" style="
+  position: fixed; inset: 0; z-index: 300;
+  display: none;
+  align-items: center; justify-content: center;
+  background: rgba(8, 6, 15, 0.95);
+  flex-direction: column; gap: 16px;
+">
+  <div id="accessText" style="
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 8px;
+    text-shadow: 0 0 40px rgba(200, 255, 0, 0.5), 0 0 80px rgba(200, 255, 0, 0.2);
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  ">ACCESS GRANTED</div>
+  <div id="accessSub" style="
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 3px;
+    opacity: 0;
+    transition: opacity 0.5s ease 0.4s;
+  ">Добро пожаловать в blesk</div>
+</div>
+
+<script>
+  // Фокус на первый инпут после анимации
+  setTimeout(() => {
+    const input = document.getElementById('usernameInput');
+    if (input) input.focus();
+  }, 5000);
+
+  // Enter для перехода между полями
+  document.getElementById('usernameInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      document.getElementById('passwordInput').focus();
+    }
+  });
+
+  document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      simulateLogin();
+    }
+  });
+
+  function simulateLogin() {
+    const user = document.getElementById('usernameInput').value || 'user';
+    const pass = document.getElementById('passwordInput').value;
+
+    // Добавляем строки "обработки" в терминал
+    const body = document.getElementById('termBody');
+    const section = document.querySelector('.term-auth-section');
+
+    // Скрыть кнопку и switch
+    const submitRow = document.querySelector('.term-submit-row');
+    const switchRow = document.querySelector('.term-switch');
+    submitRow.style.display = 'none';
+    switchRow.style.display = 'none';
+
+    // Добавить строки процесса
+    const lines = [
+      { html: `\n<span class="t-dim">$</span> <span class="t-brand">blesk</span> auth --execute`, delay: 200 },
+      { html: `<span class="t-info">[auth]</span> <span class="t-white">Проверка учётных данных для</span> <span class="t-accent">${user}</span>`, delay: 600 },
+      { html: `<span class="t-info">[auth]</span> <span class="t-white">Хеширование пароля...</span> <span class="t-success">OK</span>`, delay: 1000 },
+      { html: `<span class="t-info">[auth]</span> <span class="t-white">Генерация JWT токена...</span> <span class="t-success">OK</span>`, delay: 1400 },
+      { html: `<span class="t-info">[auth]</span> <span class="t-white">Установка E2E сессии...</span> <span class="t-success">OK</span>`, delay: 1800 },
+      { html: `<span class="t-success">[✓]</span> <span class="t-accent">Авторизация успешна</span>`, delay: 2300 },
+    ];
+
+    lines.forEach(({ html, delay }) => {
+      setTimeout(() => {
+        const div = document.createElement('div');
+        div.style.marginTop = '4px';
+        div.style.opacity = '0';
+        div.style.animation = 'lineAppear 0.3s ease forwards';
+        div.innerHTML = html;
+        section.appendChild(div);
+      }, delay);
+    });
+
+    // ACCESS GRANTED overlay
+    setTimeout(() => {
+      const overlay = document.getElementById('accessOverlay');
+      overlay.style.display = 'flex';
+      setTimeout(() => {
+        document.getElementById('accessText').style.opacity = '1';
+        document.getElementById('accessText').style.transform = 'scale(1)';
+        document.getElementById('accessSub').style.opacity = '1';
+      }, 100);
+    }, 3000);
+  }
+
+  function switchMode() {
+    // Переключение на режим регистрации (демо)
+    const labels = document.querySelectorAll('.term-label');
+    const lastLine = document.querySelectorAll('.term-line');
+    const authLine = lastLine[lastLine.length - 1];
+    if (authLine) {
+      authLine.innerHTML = '<span class="t-brand">blesk</span> <span class="t-white">auth</span> <span class="t-dim">--mode register</span>';
+    }
+
+    // Добавить третье поле
+    const section = document.querySelector('.term-auth-section');
+    const submitRow = document.querySelector('.term-submit-row');
+
+    const row = document.createElement('div');
+    row.className = 'term-input-row';
+    row.style.marginTop = '8px';
+    row.style.opacity = '0';
+    row.style.animation = 'lineAppear 0.3s ease forwards';
+    row.innerHTML = '<span class="term-label">confirm → </span><input class="term-input" type="password" placeholder="повторите пароль..." autocomplete="off" />';
+    section.insertBefore(row, submitRow);
+
+    // Обновить switch текст
+    const sw = document.querySelector('.term-switch');
+    sw.innerHTML = '<span class="t-dim">$</span> Уже есть аккаунт? <a onclick="replay()">blesk auth --mode login</a>';
+  }
+
+  function replay() {
+    // Скрыть overlay
+    const overlay = document.getElementById('accessOverlay');
+    overlay.style.display = 'none';
+    document.getElementById('accessText').style.opacity = '0';
+    document.getElementById('accessText').style.transform = 'scale(0.8)';
+    document.getElementById('accessSub').style.opacity = '0';
+
+    // Перезагрузить сцену
+    const scene = document.getElementById('scene');
+    const clone = scene.cloneNode(true);
+    scene.parentNode.replaceChild(clone, scene);
+    clone.id = 'scene';
+
+    // Переназначить события
+    setTimeout(() => {
+      const input = document.getElementById('usernameInput');
+      if (input) {
+        input.focus();
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') document.getElementById('passwordInput').focus();
+        });
+      }
+      const pass = document.getElementById('passwordInput');
+      if (pass) {
+        pass.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') simulateLogin();
+        });
+      }
+    }, 5000);
+  }
+</script>
+
+</body>
+</html>

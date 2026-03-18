@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Splash Screen — Font Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Space+Grotesk:wght@700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    height: 100vh;
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    overflow: hidden;
+    flex-wrap: wrap;
+    padding: 20px;
+  }
+
+  .label {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.3);
+    font-size: 13px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  .variant {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .variant-label {
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .splash {
+    width: 280px;
+    height: 400px;
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+    background: rgba(8, 6, 15, 0.85);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow:
+      0 0 80px rgba(200, 255, 0, 0.05),
+      0 25px 60px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.3s;
+    cursor: pointer;
+  }
+
+  .splash:hover {
+    border-color: rgba(200, 255, 0, 0.3);
+  }
+
+  .splash.selected {
+    border-color: #c8ff00;
+    box-shadow:
+      0 0 80px rgba(200, 255, 0, 0.15),
+      0 25px 60px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  .splash::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    z-index: 3;
+  }
+
+  .orbs {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(50px);
+    opacity: 0.35;
+    animation: float 8s ease-in-out infinite;
+  }
+
+  .orb-1 {
+    width: 160px; height: 160px;
+    background: #c8ff00;
+    top: -30px; right: -30px;
+  }
+
+  .orb-2 {
+    width: 130px; height: 130px;
+    background: #00d4ff;
+    bottom: 30px; left: -20px;
+    animation-delay: -3s;
+  }
+
+  .orb-3 {
+    width: 100px; height: 100px;
+    background: #ff006a;
+    bottom: -10px; right: 15px;
+    animation-delay: -5s;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(12px, -16px) scale(1.05); }
+    66% { transform: translate(-8px, 12px) scale(0.95); }
+  }
+
+  .glass-overlay {
+    position: absolute;
+    inset: 0;
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    background: rgba(8, 6, 15, 0.3);
+    z-index: 1;
+  }
+
+  .content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 32px;
+  }
+
+  .logo {
+    font-size: 72px;
+    font-weight: 800;
+    letter-spacing: -3px;
+    color: #fff;
+    position: relative;
+    margin-top: auto;
+    margin-bottom: 12px;
+    text-shadow: 0 0 40px rgba(200, 255, 0, 0.3);
+  }
+
+  .logo::after {
+    content: '';
+    position: absolute;
+    inset: -16px;
+    background: linear-gradient(135deg, rgba(200,255,0,0.15), transparent 60%);
+    border-radius: 18px;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+    z-index: -1;
+  }
+
+  .logo .accent { color: #c8ff00; }
+
+  /* Font variants — только для tagline "blesk", логотип "bl" остаётся системным */
+  .font-syne .tagline { font-family: 'Syne', sans-serif; font-weight: 700; }
+  .font-space .tagline { font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
+  .font-outfit .tagline { font-family: 'Outfit', sans-serif; font-weight: 700; }
+
+  .tagline {
+    font-size: 18px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 1px;
+    text-transform: lowercase;
+    margin-top: auto;
+    margin-bottom: auto;
+  }
+
+  .status-area {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .progress-bar {
+    width: 160px;
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #c8ff00, #a0cc00);
+    border-radius: 2px;
+    animation: loading 3s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(200, 255, 0, 0.4);
+  }
+
+  @keyframes loading {
+    0% { width: 0%; }
+    50% { width: 70%; }
+    100% { width: 100%; }
+  }
+
+  .status-text {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+  }
+
+  .version {
+    font-size: 9px;
+    color: rgba(255,255,255,0.1);
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="label">ВЫБЕРИ ШРИФТ — КЛИКНИ НА ПОНРАВИВШИЙСЯ</div>
+
+  <!-- Variant 1: Syne -->
+  <div class="variant">
+    <div class="variant-label">Syne</div>
+    <div class="splash font-syne" onclick="select(this)">
+      <div class="orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+      </div>
+      <div class="glass-overlay"></div>
+      <div class="content">
+        <div class="logo">b<span class="accent">l</span></div>
+        <div class="tagline">blesk</div>
+        <div class="status-area">
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <div class="status-text">Подключение к серверу...</div>
+          <div class="version">v0.1.0-alpha</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variant 2: Space Grotesk -->
+  <div class="variant">
+    <div class="variant-label">Space Grotesk</div>
+    <div class="splash font-space" onclick="select(this)">
+      <div class="orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+      </div>
+      <div class="glass-overlay"></div>
+      <div class="content">
+        <div class="logo">b<span class="accent">l</span></div>
+        <div class="tagline">blesk</div>
+        <div class="status-area">
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <div class="status-text">Подключение к серверу...</div>
+          <div class="version">v0.1.0-alpha</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variant 3: Outfit -->
+  <div class="variant">
+    <div class="variant-label">Outfit</div>
+    <div class="splash font-outfit" onclick="select(this)">
+      <div class="orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+      </div>
+      <div class="glass-overlay"></div>
+      <div class="content">
+        <div class="logo">b<span class="accent">l</span></div>
+        <div class="tagline">blesk</div>
+        <div class="status-area">
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <div class="status-text">Подключение к серверу...</div>
+          <div class="version">v0.1.0-alpha</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function select(el) {
+      document.querySelectorAll('.splash').forEach(s => s.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+  </script>
+</body>
+</html>

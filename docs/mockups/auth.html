@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Auth Font Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #08060f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    height: 100vh;
+    font-family: -apple-system, sans-serif;
+    overflow: hidden;
+    color: rgba(255,255,255,0.85);
+    padding: 20px;
+  }
+
+  .label {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.25);
+    font-size: 12px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  /* Orbs */
+  .orbs { position: fixed; inset: 0; overflow: hidden; z-index: 0; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.25; animation: float 8s ease-in-out infinite; }
+  .orb--green { width: 300px; height: 300px; background: #c8ff00; top: -80px; right: -60px; }
+  .orb--cyan { width: 250px; height: 250px; background: #00d4ff; bottom: 10%; left: -60px; animation-delay: -3s; }
+  .orb--pink { width: 200px; height: 200px; background: #ff006a; bottom: -40px; right: 15%; animation-delay: -5s; }
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(20px, -30px) scale(1.05); }
+    66% { transform: translate(-15px, 20px) scale(0.95); }
+  }
+
+  .variant {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .variant-label {
+    color: rgba(255,255,255,0.45);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Auth card */
+  .auth-card {
+    width: 260px;
+    backdrop-filter: blur(24px);
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.3s;
+  }
+
+  .auth-card:hover { border-color: rgba(200, 255, 0, 0.3); }
+  .auth-card.selected { border-color: #c8ff00; box-shadow: 0 0 60px rgba(200, 255, 0, 0.1), 0 16px 40px rgba(0,0,0,0.4); }
+
+  .auth-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 15%; right: 15%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  }
+
+  /* Font variants */
+  .font-unbounded { font-family: 'Unbounded', sans-serif; }
+  .font-geologica { font-family: 'Geologica', sans-serif; }
+  .font-manrope { font-family: 'Manrope', sans-serif; }
+
+  .tabs {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 18px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 8px;
+    color: rgba(255,255,255,0.35);
+    border: none;
+    background: none;
+    font-family: inherit;
+  }
+
+  .tab.active {
+    background: rgba(200, 255, 0, 0.15);
+    color: #c8ff00;
+  }
+
+  .form { display: flex; flex-direction: column; gap: 12px; }
+
+  .input-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    font-family: inherit;
+  }
+
+  .input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.85);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+  }
+
+  .input::placeholder { color: rgba(255,255,255,0.18); }
+
+  .btn {
+    width: 100%;
+    padding: 11px 0;
+    border-radius: 10px;
+    border: none;
+    background: #c8ff00;
+    color: #08060f;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="label">ВЫБЕРИ ШРИФТ ДЛЯ UI — КЛИКНИ НА ПОНРАВИВШИЙСЯ</div>
+
+  <div class="orbs">
+    <div class="orb orb--green"></div>
+    <div class="orb orb--cyan"></div>
+    <div class="orb orb--pink"></div>
+  </div>
+
+  <!-- Unbounded -->
+  <div class="variant">
+    <div class="variant-label">Unbounded</div>
+    <div class="auth-card font-unbounded" onclick="select(this)">
+      <div class="tabs">
+        <button class="tab active" style="font-family:inherit">Вход</button>
+        <button class="tab" style="font-family:inherit">Регистрация</button>
+      </div>
+      <div class="form">
+        <div>
+          <div class="input-label">Имя пользователя</div>
+          <input class="input" type="text" placeholder="username" style="font-family:inherit">
+        </div>
+        <div>
+          <div class="input-label">Пароль</div>
+          <input class="input" type="password" placeholder="••••••••" style="font-family:inherit">
+        </div>
+        <button class="btn" style="font-family:inherit">Войти</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Geologica -->
+  <div class="variant">
+    <div class="variant-label">Geologica</div>
+    <div class="auth-card font-geologica" onclick="select(this)">
+      <div class="tabs">
+        <button class="tab active" style="font-family:inherit">Вход</button>
+        <button class="tab" style="font-family:inherit">Регистрация</button>
+      </div>
+      <div class="form">
+        <div>
+          <div class="input-label">Имя пользователя</div>
+          <input class="input" type="text" placeholder="username" style="font-family:inherit">
+        </div>
+        <div>
+          <div class="input-label">Пароль</div>
+          <input class="input" type="password" placeholder="••••••••" style="font-family:inherit">
+        </div>
+        <button class="btn" style="font-family:inherit">Войти</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manrope -->
+  <div class="variant">
+    <div class="variant-label">Manrope</div>
+    <div class="auth-card font-manrope" onclick="select(this)">
+      <div class="tabs">
+        <button class="tab active" style="font-family:inherit">Вход</button>
+        <button class="tab" style="font-family:inherit">Регистрация</button>
+      </div>
+      <div class="form">
+        <div>
+          <div class="input-label">Имя пользователя</div>
+          <input class="input" type="text" placeholder="username" style="font-family:inherit">
+        </div>
+        <div>
+          <div class="input-label">Пароль</div>
+          <input class="input" type="password" placeholder="••••••••" style="font-family:inherit">
+        </div>
+        <button class="btn" style="font-family:inherit">Войти</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function select(el) {
+      document.querySelectorAll('.auth-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+  </script>
+</body>
+</html>

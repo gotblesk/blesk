@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Desktop Chat Concepts</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #08060f;
+    --accent: #c8ff00;
+    --text: rgba(255,255,255,0.85);
+    --text-muted: rgba(255,255,255,0.25);
+    --glass-bg: rgba(255,255,255,0.03);
+    --glass-border: rgba(255,255,255,0.06);
+    --glass-highlight: rgba(255,255,255,0.08);
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .page-header {
+    text-align: center;
+    padding: 30px 20px 8px;
+  }
+  .page-title {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #c8ff00, #a0e800);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+  }
+  .page-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.2);
+  }
+
+  /* Tab switcher */
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 20px 20px 24px;
+  }
+  .tab {
+    padding: 8px 20px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s;
+    font-family: inherit;
+  }
+  .tab:hover {
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.7);
+  }
+  .tab--active {
+    background: rgba(200,255,0,0.08);
+    border-color: rgba(200,255,0,0.15);
+    color: #c8ff00;
+  }
+
+  /* Desktop frame */
+  .desktop-frame {
+    width: 1100px;
+    height: 650px;
+    margin: 0 auto 40px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.04);
+    overflow: hidden;
+    position: relative;
+    display: none;
+  }
+  .desktop-frame--active { display: flex; }
+
+  /* Animated background orbs */
+  .bg-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    animation: orbFloat 20s ease-in-out infinite alternate;
+  }
+  .orb--1 { width: 300px; height: 300px; background: rgba(200,255,0,0.04); top: -10%; left: -5%; }
+  .orb--2 { width: 250px; height: 250px; background: rgba(120,80,255,0.04); bottom: -10%; right: -5%; animation-delay: -7s; }
+  .orb--3 { width: 200px; height: 200px; background: rgba(0,200,200,0.03); top: 50%; left: 40%; animation-delay: -14s; }
+
+  @keyframes orbFloat {
+    0% { transform: translate(0,0) scale(1); }
+    100% { transform: translate(30px,-20px) scale(1.2); }
+  }
+
+  /* ====================================================
+     SHARED: Chat area structure
+     ==================================================== */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+    background: transparent;
+  }
+
+  /* ====================================================
+     CONCEPT 1: GLASS MINIMAL
+     Чистый минимализм + liquid glass.
+     Сообщения без явных пузырей, просто текст с
+     тончайшей glass-подложкой. Много воздуха.
+     ==================================================== */
+
+  /* Sidebar for concept 1 */
+  .c1-sidebar {
+    width: 280px;
+    border-right: 1px solid rgba(255,255,255,0.03);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+    background: rgba(255,255,255,0.01);
+    backdrop-filter: blur(20px);
+  }
+  .c1-sidebar-title {
+    padding: 20px 20px 16px;
+    font-size: 16px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+  }
+  .c1-chat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .c1-chat-item:hover {
+    background: rgba(255,255,255,0.02);
+  }
+  .c1-chat-item--active {
+    background: rgba(200,255,0,0.03);
+    border-left-color: rgba(200,255,0,0.3);
+  }
+  .c1-chat-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: white; flex-shrink: 0;
+  }
+  .c1-chat-info { flex: 1; min-width: 0; }
+  .c1-chat-name { font-size: 13px; font-weight: 600; }
+  .c1-chat-preview { font-size: 11px; color: rgba(255,255,255,0.2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .c1-chat-meta { text-align: right; }
+  .c1-chat-time { font-size: 10px; color: rgba(255,255,255,0.12); }
+  .c1-chat-badge { display: inline-block; min-width: 16px; height: 16px; border-radius: 8px; background: var(--accent); color: var(--bg); font-size: 9px; font-weight: 700; text-align: center; line-height: 16px; margin-top: 4px; }
+
+  /* Header */
+  .c1-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.01);
+    backdrop-filter: blur(16px);
+  }
+  .c1-h-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px; color: white;
+    position: relative;
+  }
+  .c1-h-online {
+    position: absolute; bottom: -1px; right: -1px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80; border: 2px solid var(--bg);
+  }
+  .c1-h-name { font-size: 14px; font-weight: 600; }
+  .c1-h-status { font-size: 10px; color: #4ade80; }
+
+  /* Messages */
+  .c1-messages {
+    flex: 1;
+    padding: 20px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+  }
+
+  .c1-gap { height: 14px; }
+
+  .c1-msg {
+    max-width: 55%;
+    display: flex;
+    flex-direction: column;
+  }
+  .c1-msg--own { align-self: flex-end; align-items: flex-end; }
+  .c1-msg--other { align-self: flex-start; align-items: flex-start; }
+
+  .c1-bubble {
+    padding: 8px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    position: relative;
+    transition: transform 0.12s ease;
+  }
+  .c1-bubble:hover {
+    transform: translateY(-1px);
+  }
+
+  /* OWN — glass с акцентным оттенком */
+  .c1-msg--own .c1-bubble {
+    background: rgba(200,255,0,0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(200,255,0,0.06);
+    color: rgba(255,255,255,0.9);
+  }
+  /* Specular highlight — тонкий блик сверху */
+  .c1-msg--own .c1-bubble::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,255,0,0.12), transparent);
+    border-radius: 1px;
+  }
+
+  /* OTHER — нейтральное стекло */
+  .c1-msg--other .c1-bubble {
+    background: rgba(255,255,255,0.025);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.8);
+  }
+  .c1-msg--other .c1-bubble::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    border-radius: 1px;
+  }
+
+  /* Группировка */
+  .c1-msg--own.c1-first .c1-bubble { border-radius: 14px 14px 4px 14px; }
+  .c1-msg--own.c1-mid .c1-bubble { border-radius: 14px 4px 4px 14px; }
+  .c1-msg--own.c1-last .c1-bubble { border-radius: 14px 4px 14px 14px; }
+  .c1-msg--own.c1-solo .c1-bubble { border-radius: 14px; }
+
+  .c1-msg--other.c1-first .c1-bubble { border-radius: 14px 14px 14px 4px; }
+  .c1-msg--other.c1-mid .c1-bubble { border-radius: 4px 14px 14px 4px; }
+  .c1-msg--other.c1-last .c1-bubble { border-radius: 4px 14px 14px 14px; }
+  .c1-msg--other.c1-solo .c1-bubble { border-radius: 14px; }
+
+  .c1-time {
+    font-size: 9px; color: rgba(255,255,255,0.08);
+    margin-top: 3px; padding: 0 4px;
+  }
+
+  /* Input */
+  .c1-input {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 24px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.01);
+    backdrop-filter: blur(16px);
+  }
+  .c1-input-field {
+    flex: 1; padding: 10px 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15); font-size: 13px;
+    transition: border-color 0.2s;
+  }
+  .c1-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent); color: var(--bg);
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 12px rgba(200,255,0,0.15);
+    transition: transform 0.12s;
+    cursor: pointer; border: none;
+  }
+  .c1-send:hover { transform: scale(1.08); }
+
+
+  /* ====================================================
+     CONCEPT 2: FLOATING GLASS
+     Сообщения как стеклянные карточки, парящие
+     над фоном. Глубокие тени. Glass blur на каждом.
+     Больше «воздуха» между сообщениями.
+     ==================================================== */
+
+  .c2-sidebar {
+    width: 280px;
+    border-right: 1px solid rgba(255,255,255,0.03);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+    background: rgba(255,255,255,0.01);
+    backdrop-filter: blur(20px);
+  }
+  .c2-sidebar-title {
+    padding: 20px 20px 16px;
+    font-size: 16px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+  }
+  .c2-chat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .c2-chat-item:hover { background: rgba(255,255,255,0.02); }
+  .c2-chat-item--active {
+    background: rgba(200,255,0,0.03);
+    border-radius: 12px;
+    margin: 0 8px;
+    padding: 10px 12px;
+  }
+  .c2-chat-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: white; flex-shrink: 0;
+  }
+  .c2-chat-info { flex: 1; min-width: 0; }
+  .c2-chat-name { font-size: 13px; font-weight: 600; }
+  .c2-chat-preview { font-size: 11px; color: rgba(255,255,255,0.2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .c2-chat-meta { text-align: right; }
+  .c2-chat-time { font-size: 10px; color: rgba(255,255,255,0.12); }
+
+  .c2-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.015);
+    backdrop-filter: blur(16px);
+  }
+  .c2-h-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px; color: white;
+    position: relative;
+  }
+  .c2-h-online {
+    position: absolute; bottom: -1px; right: -1px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80; border: 2px solid var(--bg);
+  }
+  .c2-h-name { font-size: 14px; font-weight: 600; }
+  .c2-h-status { font-size: 10px; color: #4ade80; }
+
+  .c2-messages {
+    flex: 1;
+    padding: 24px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  .c2-msg {
+    max-width: 50%;
+    display: flex;
+    flex-direction: column;
+  }
+  .c2-msg--own { align-self: flex-end; align-items: flex-end; }
+  .c2-msg--other { align-self: flex-start; align-items: flex-start; }
+
+  .c2-bubble {
+    padding: 10px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    border-radius: 16px;
+    position: relative;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .c2-bubble:hover {
+    transform: translateY(-2px);
+  }
+
+  .c2-msg--own .c2-bubble {
+    background: rgba(200,255,0,0.06);
+    border: 1px solid rgba(200,255,0,0.08);
+    color: rgba(255,255,255,0.9);
+    box-shadow:
+      0 4px 20px rgba(0,0,0,0.2),
+      inset 0 1px 0 rgba(200,255,0,0.08);
+    border-radius: 16px 16px 4px 16px;
+  }
+  .c2-msg--own .c2-bubble:hover {
+    box-shadow:
+      0 8px 30px rgba(0,0,0,0.25),
+      0 0 20px rgba(200,255,0,0.05),
+      inset 0 1px 0 rgba(200,255,0,0.1);
+  }
+  /* Specular glass highlight */
+  .c2-msg--own .c2-bubble::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 40%;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(180deg, rgba(200,255,0,0.04) 0%, transparent 100%);
+    pointer-events: none;
+  }
+
+  .c2-msg--other .c2-bubble {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.8);
+    box-shadow:
+      0 4px 20px rgba(0,0,0,0.15),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    border-radius: 16px 16px 16px 4px;
+  }
+  .c2-msg--other .c2-bubble:hover {
+    box-shadow:
+      0 8px 30px rgba(0,0,0,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .c2-msg--other .c2-bubble::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 40%;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, transparent 100%);
+    pointer-events: none;
+  }
+
+  .c2-time {
+    font-size: 9px; color: rgba(255,255,255,0.08);
+    margin-top: 4px; padding: 0 6px;
+  }
+
+  .c2-input {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 24px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.01);
+    backdrop-filter: blur(16px);
+  }
+  .c2-input-field {
+    flex: 1; padding: 10px 16px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.15); font-size: 13px;
+  }
+  .c2-send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent); color: var(--bg);
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 12px rgba(200,255,0,0.15);
+    cursor: pointer; border: none;
+    transition: transform 0.12s;
+  }
+  .c2-send:hover { transform: scale(1.08); }
+
+  /* ====================================================
+     CONCEPT 3: ULTRA MINIMAL
+     Максимальный минимализм. Никаких рамок, теней, бликов.
+     Только текст, цвет и пространство.
+     Свои — акцентный текст. Чужие — белый.
+     Время только при hover.
+     ==================================================== */
+
+  .c3-sidebar {
+    width: 280px;
+    border-right: 1px solid rgba(255,255,255,0.02);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+  }
+  .c3-sidebar-title {
+    padding: 20px 20px 16px;
+    font-size: 16px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.5);
+  }
+  .c3-chat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .c3-chat-item:hover { background: rgba(255,255,255,0.015); }
+  .c3-chat-item--active {
+    background: rgba(200,255,0,0.02);
+  }
+  .c3-chat-item--active .c3-chat-name { color: var(--accent); }
+  .c3-chat-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px; color: white; flex-shrink: 0;
+  }
+  .c3-chat-info { flex: 1; min-width: 0; }
+  .c3-chat-name { font-size: 13px; font-weight: 600; transition: color 0.15s; }
+  .c3-chat-preview { font-size: 11px; color: rgba(255,255,255,0.15); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .c3-chat-time { font-size: 10px; color: rgba(255,255,255,0.08); }
+
+  .c3-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+  }
+  .c3-h-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 11px; color: white;
+  }
+  .c3-h-name { font-size: 14px; font-weight: 600; }
+  .c3-h-status { font-size: 10px; color: #4ade80; }
+
+  .c3-messages {
+    flex: 1;
+    padding: 24px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+  }
+  .c3-gap { height: 12px; }
+
+  .c3-msg {
+    max-width: 55%;
+    display: flex;
+    flex-direction: column;
+  }
+  .c3-msg--own { align-self: flex-end; align-items: flex-end; }
+  .c3-msg--other { align-self: flex-start; align-items: flex-start; }
+
+  .c3-text {
+    font-size: 13px;
+    line-height: 1.55;
+    padding: 6px 0;
+    position: relative;
+    transition: opacity 0.15s;
+  }
+  .c3-msg--own .c3-text {
+    color: rgba(200,255,0,0.85);
+    text-align: right;
+  }
+  .c3-msg--other .c3-text {
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* Тончайшая линия-разделитель между группами */
+  .c3-divider {
+    width: 40px;
+    height: 1px;
+    background: rgba(255,255,255,0.03);
+    margin: 4px 0;
+  }
+  .c3-msg--own .c3-divider { align-self: flex-end; }
+  .c3-msg--other .c3-divider { align-self: flex-start; }
+
+  .c3-time {
+    font-size: 9px;
+    color: rgba(255,255,255,0.06);
+    padding: 0 2px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .c3-msg:hover .c3-time { opacity: 1; }
+
+  .c3-input {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 24px;
+    border-top: 1px solid rgba(255,255,255,0.02);
+  }
+  .c3-input-field {
+    flex: 1; padding: 10px 16px;
+    border-radius: 10px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.15); font-size: 13px;
+  }
+  .c3-send {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent); color: var(--bg);
+    font-weight: 700; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border: none;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+  }
+  .c3-send:hover { opacity: 1; }
+
+  /* Info */
+  .concept-info {
+    text-align: center;
+    padding: 8px 20px 30px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .concept-info h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .concept-info p {
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    line-height: 1.5;
+  }
+  .concept-info .unique {
+    font-size: 10px;
+    color: rgba(200,255,0,0.35);
+    margin-top: 4px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="page-title">blesk — Дизайн чата (desktop)</div>
+  <div class="page-sub">Liquid Glass • Минимализм • Полноразмерные концепты</div>
+</div>
+
+<div class="tabs">
+  <button class="tab tab--active" onclick="show(0, this)">1. Glass Minimal</button>
+  <button class="tab" onclick="show(1, this)">2. Floating Glass</button>
+  <button class="tab" onclick="show(2, this)">3. Ultra Minimal</button>
+</div>
+
+<!-- CONCEPT 1: GLASS MINIMAL -->
+<div class="concept-info" id="info0">
+  <h3>Glass Minimal</h3>
+  <p>Liquid Glass пузыри с тончайшим блеском сверху. Backdrop-blur на каждом сообщении. Группировка. Много воздуха. Чисто и элегантно.</p>
+  <div class="unique">ФИШКИ: specular highlight • glass backdrop-blur • группировка скруглений • micro-lift hover</div>
+</div>
+<div class="desktop-frame desktop-frame--active" id="frame0">
+  <div class="bg-layer">
+    <div class="orb orb--1"></div>
+    <div class="orb orb--2"></div>
+    <div class="orb orb--3"></div>
+  </div>
+
+  <div class="c1-sidebar">
+    <div class="c1-sidebar-title">Чаты</div>
+    <div class="c1-chat-item c1-chat-item--active">
+      <div class="c1-chat-avatar" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К</div>
+      <div class="c1-chat-info">
+        <div class="c1-chat-name">Катя</div>
+        <div class="c1-chat-preview">Кстати а голосовые уже есть?</div>
+      </div>
+      <div class="c1-chat-meta">
+        <div class="c1-chat-time">14:36</div>
+      </div>
+    </div>
+    <div class="c1-chat-item">
+      <div class="c1-chat-avatar" style="background: linear-gradient(135deg, #4ade80, #22d3ee);">Д</div>
+      <div class="c1-chat-info">
+        <div class="c1-chat-name">Даня</div>
+        <div class="c1-chat-preview">Го в войс вечером?</div>
+      </div>
+      <div class="c1-chat-meta">
+        <div class="c1-chat-time">13:12</div>
+        <div class="c1-chat-badge">2</div>
+      </div>
+    </div>
+    <div class="c1-chat-item">
+      <div class="c1-chat-avatar" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">М</div>
+      <div class="c1-chat-info">
+        <div class="c1-chat-name">Макс</div>
+        <div class="c1-chat-preview">Скинь ссылку на репо</div>
+      </div>
+      <div class="c1-chat-meta">
+        <div class="c1-chat-time">вчера</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-area">
+    <div class="c1-header">
+      <div class="c1-h-avatar" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К<div class="c1-h-online"></div></div>
+      <div><div class="c1-h-name">Катя</div><div class="c1-h-status">онлайн</div></div>
+    </div>
+    <div class="c1-messages">
+      <div class="c1-msg c1-msg--other c1-solo">
+        <div class="c1-bubble">Привет! Как дела? 👋</div>
+        <div class="c1-time">14:32</div>
+      </div>
+      <div class="c1-gap"></div>
+      <div class="c1-msg c1-msg--own c1-first">
+        <div class="c1-bubble">Привет!</div>
+      </div>
+      <div class="c1-msg c1-msg--own c1-last">
+        <div class="c1-bubble">Всё отлично, работаю над blesk</div>
+        <div class="c1-time">14:33</div>
+      </div>
+      <div class="c1-gap"></div>
+      <div class="c1-msg c1-msg--other c1-first">
+        <div class="c1-bubble">О круто!</div>
+      </div>
+      <div class="c1-msg c1-msg--other c1-last">
+        <div class="c1-bubble">Когда можно попробовать?</div>
+        <div class="c1-time">14:33</div>
+      </div>
+      <div class="c1-gap"></div>
+      <div class="c1-msg c1-msg--own c1-solo">
+        <div class="c1-bubble">Скоро, уже почти готов MVP 🚀</div>
+        <div class="c1-time">14:34</div>
+      </div>
+      <div class="c1-gap"></div>
+      <div class="c1-msg c1-msg--other c1-solo">
+        <div class="c1-bubble">Класс, жду! Дизайн реально красивый получается</div>
+        <div class="c1-time">14:35</div>
+      </div>
+      <div class="c1-gap"></div>
+      <div class="c1-msg c1-msg--own c1-first">
+        <div class="c1-bubble">Спасибо!</div>
+      </div>
+      <div class="c1-msg c1-msg--own c1-last">
+        <div class="c1-bubble">Старался сделать уникально ✨</div>
+        <div class="c1-time">14:35</div>
+      </div>
+      <div class="c1-gap"></div>
+      <div class="c1-msg c1-msg--other c1-solo">
+        <div class="c1-bubble">Кстати а голосовые уже есть?</div>
+        <div class="c1-time">14:36</div>
+      </div>
+    </div>
+    <div class="c1-input">
+      <div class="c1-input-field">Написать сообщение...</div>
+      <button class="c1-send">→</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONCEPT 2: FLOATING GLASS -->
+<div class="concept-info" id="info1" style="display:none">
+  <h3>Floating Glass</h3>
+  <p>Стеклянные карточки, парящие над фоном с цветными orbs. Глубокие тени + glass blur + specular highlight (верхняя половина светлее). Hover поднимает карточку выше.</p>
+  <div class="unique">ФИШКИ: floating shadows • specular gradient • orb background • deep hover lift</div>
+</div>
+<div class="desktop-frame" id="frame1">
+  <div class="bg-layer">
+    <div class="orb orb--1"></div>
+    <div class="orb orb--2"></div>
+    <div class="orb orb--3"></div>
+  </div>
+
+  <div class="c2-sidebar">
+    <div class="c2-sidebar-title">Чаты</div>
+    <div class="c2-chat-item c2-chat-item--active">
+      <div class="c2-chat-avatar" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К</div>
+      <div class="c2-chat-info">
+        <div class="c2-chat-name">Катя</div>
+        <div class="c2-chat-preview">Кстати а голосовые уже есть?</div>
+      </div>
+      <div class="c2-chat-meta"><div class="c2-chat-time">14:36</div></div>
+    </div>
+    <div class="c2-chat-item">
+      <div class="c2-chat-avatar" style="background: linear-gradient(135deg, #4ade80, #22d3ee);">Д</div>
+      <div class="c2-chat-info">
+        <div class="c2-chat-name">Даня</div>
+        <div class="c2-chat-preview">Го в войс вечером?</div>
+      </div>
+      <div class="c2-chat-meta"><div class="c2-chat-time">13:12</div></div>
+    </div>
+    <div class="c2-chat-item">
+      <div class="c2-chat-avatar" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">М</div>
+      <div class="c2-chat-info">
+        <div class="c2-chat-name">Макс</div>
+        <div class="c2-chat-preview">Скинь ссылку на репо</div>
+      </div>
+      <div class="c2-chat-meta"><div class="c2-chat-time">вчера</div></div>
+    </div>
+  </div>
+
+  <div class="chat-area">
+    <div class="c2-header">
+      <div class="c2-h-avatar" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К<div class="c2-h-online"></div></div>
+      <div><div class="c2-h-name">Катя</div><div class="c2-h-status">онлайн</div></div>
+    </div>
+    <div class="c2-messages">
+      <div class="c2-msg c2-msg--other">
+        <div class="c2-bubble">Привет! Как дела? 👋</div>
+        <div class="c2-time">14:32</div>
+      </div>
+      <div class="c2-msg c2-msg--own">
+        <div class="c2-bubble">Привет! Всё отлично, работаю над blesk</div>
+        <div class="c2-time">14:33</div>
+      </div>
+      <div class="c2-msg c2-msg--other">
+        <div class="c2-bubble">О круто! Когда можно попробовать?</div>
+        <div class="c2-time">14:33</div>
+      </div>
+      <div class="c2-msg c2-msg--own">
+        <div class="c2-bubble">Скоро, уже почти готов MVP 🚀</div>
+        <div class="c2-time">14:34</div>
+      </div>
+      <div class="c2-msg c2-msg--other">
+        <div class="c2-bubble">Класс, жду! Дизайн реально красивый получается</div>
+        <div class="c2-time">14:35</div>
+      </div>
+      <div class="c2-msg c2-msg--own">
+        <div class="c2-bubble">Спасибо! Старался сделать уникально ✨</div>
+        <div class="c2-time">14:35</div>
+      </div>
+      <div class="c2-msg c2-msg--other">
+        <div class="c2-bubble">Кстати а голосовые уже есть?</div>
+        <div class="c2-time">14:36</div>
+      </div>
+    </div>
+    <div class="c2-input">
+      <div class="c2-input-field">Написать сообщение...</div>
+      <button class="c2-send">→</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONCEPT 3: ULTRA MINIMAL -->
+<div class="concept-info" id="info2" style="display:none">
+  <h3>Ultra Minimal</h3>
+  <p>Ноль пузырей. Ноль теней. Только текст и цвет. Свои сообщения — акцентным зелёным, чужие — белым. Время появляется при hover. Максимальный воздух. Дыхание.</p>
+  <div class="unique">ФИШКИ: zero-chrome • цветовое разделение • hover-время • абсолютный минимализм</div>
+</div>
+<div class="desktop-frame" id="frame2">
+  <div class="c3-sidebar">
+    <div class="c3-sidebar-title">Чаты</div>
+    <div class="c3-chat-item c3-chat-item--active">
+      <div class="c3-chat-avatar" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К</div>
+      <div class="c3-chat-info">
+        <div class="c3-chat-name">Катя</div>
+        <div class="c3-chat-preview">Кстати а голосовые уже есть?</div>
+      </div>
+      <div class="c3-chat-time">14:36</div>
+    </div>
+    <div class="c3-chat-item">
+      <div class="c3-chat-avatar" style="background: linear-gradient(135deg, #4ade80, #22d3ee);">Д</div>
+      <div class="c3-chat-info">
+        <div class="c3-chat-name">Даня</div>
+        <div class="c3-chat-preview">Го в войс вечером?</div>
+      </div>
+      <div class="c3-chat-time">13:12</div>
+    </div>
+    <div class="c3-chat-item">
+      <div class="c3-chat-avatar" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">М</div>
+      <div class="c3-chat-info">
+        <div class="c3-chat-name">Макс</div>
+        <div class="c3-chat-preview">Скинь ссылку на репо</div>
+      </div>
+      <div class="c3-chat-time">вчера</div>
+    </div>
+  </div>
+
+  <div class="chat-area">
+    <div class="c3-header">
+      <div class="c3-h-avatar" style="background: linear-gradient(135deg, #ff6b9d, #c44dff);">К</div>
+      <div><div class="c3-h-name">Катя</div><div class="c3-h-status">онлайн</div></div>
+    </div>
+    <div class="c3-messages">
+      <div class="c3-msg c3-msg--other">
+        <div class="c3-text">Привет! Как дела? 👋</div>
+        <div class="c3-time">14:32</div>
+      </div>
+      <div class="c3-gap"></div>
+      <div class="c3-msg c3-msg--own">
+        <div class="c3-text">Привет!</div>
+      </div>
+      <div class="c3-msg c3-msg--own">
+        <div class="c3-text">Всё отлично, работаю над blesk</div>
+        <div class="c3-time">14:33</div>
+      </div>
+      <div class="c3-gap"></div>
+      <div class="c3-msg c3-msg--other">
+        <div class="c3-text">О круто!</div>
+      </div>
+      <div class="c3-msg c3-msg--other">
+        <div class="c3-text">Когда можно попробовать?</div>
+        <div class="c3-time">14:33</div>
+      </div>
+      <div class="c3-gap"></div>
+      <div class="c3-msg c3-msg--own">
+        <div class="c3-text">Скоро, уже почти готов MVP 🚀</div>
+        <div class="c3-time">14:34</div>
+      </div>
+      <div class="c3-gap"></div>
+      <div class="c3-msg c3-msg--other">
+        <div class="c3-text">Класс, жду! Дизайн реально красивый получается</div>
+        <div class="c3-time">14:35</div>
+      </div>
+      <div class="c3-gap"></div>
+      <div class="c3-msg c3-msg--own">
+        <div class="c3-text">Спасибо!</div>
+      </div>
+      <div class="c3-msg c3-msg--own">
+        <div class="c3-text">Старался сделать уникально ✨</div>
+        <div class="c3-time">14:35</div>
+      </div>
+      <div class="c3-gap"></div>
+      <div class="c3-msg c3-msg--other">
+        <div class="c3-text">Кстати а голосовые уже есть?</div>
+        <div class="c3-time">14:36</div>
+      </div>
+    </div>
+    <div class="c3-input">
+      <div class="c3-input-field">Написать сообщение...</div>
+      <button class="c3-send">→</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(idx, btn) {
+  document.querySelectorAll('.desktop-frame').forEach((f,i) => {
+    f.classList.toggle('desktop-frame--active', i === idx);
+  });
+  document.querySelectorAll('.concept-info').forEach((info,i) => {
+    info.style.display = i === idx ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('tab--active'));
+  btn.classList.add('tab--active');
+}
+</script>
+</body>
+</html>
