@@ -252,12 +252,15 @@ function callHandler(io, socket) {
       }
     }
     for (const chatId of chatIds) {
-      try {
-        handleCallEnd(io, socket, userId, chatId);
-      } catch (err) {
-        console.error('disconnect cleanup error:', err);
-        activeCalls.delete(chatId);
-      }
+      // handleCallEnd — async, оборачиваем для корректного перехвата rejection
+      (async () => {
+        try {
+          await handleCallEnd(io, socket, userId, chatId);
+        } catch (err) {
+          console.error('disconnect cleanup error:', err);
+          activeCalls.delete(chatId);
+        }
+      })();
     }
   });
 }

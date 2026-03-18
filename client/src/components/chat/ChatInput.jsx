@@ -56,18 +56,16 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     // Лимит 10 МБ на файл (для обычных пользователей)
     const valid = arr.filter((f) => f.size <= 10 * 1024 * 1024);
     if (valid.length < arr.length) {
-      // Можно добавить уведомление о превышении размера
+      const rejected = arr.length - valid.length;
+      alert(`${rejected} файл(ов) отклонено: максимальный размер 10 МБ`);
     }
     setPendingFiles((prev) => [...prev, ...valid].slice(0, 10));
   }, []);
 
   const removeFile = useCallback((index) => {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
-    setUploadProgress((prev) => {
-      const next = { ...prev };
-      delete next[index];
-      return next;
-    });
+    // Сбрасываем весь прогресс при удалении — индексы сдвигаются
+    setUploadProgress({});
   }, []);
 
   const handleSend = () => {

@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const crypto = require('crypto');
 const prisma = require('../db');
 
 const router = Router();
@@ -12,7 +13,8 @@ function adminAuth(req, res, next) {
     return res.status(503).json({ error: 'ADMIN_SECRET не настроен на сервере' });
   }
   const secret = req.headers['x-admin-secret'];
-  if (!secret || secret !== ADMIN_SECRET) {
+  if (!secret || secret.length !== ADMIN_SECRET.length ||
+      !crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(ADMIN_SECRET))) {
     return res.status(403).json({ error: 'Доступ запрещён' });
   }
   next();

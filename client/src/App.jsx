@@ -3,7 +3,7 @@ import TitleBar from './components/ui/TitleBar';
 import AuthScreen from './components/auth/AuthScreen';
 import MainScreen from './components/main/MainScreen';
 import UpdateToast from './components/ui/UpdateToast';
-import { ensureKeyPair } from './utils/cryptoService';
+import { ensureKeyPair, clearCache } from './utils/cryptoService';
 import API_URL from './config';
 
 export default function App() {
@@ -91,7 +91,11 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(async () => {
-      await tryRefreshToken();
+      const newToken = await tryRefreshToken();
+      if (!newToken) {
+        // Refresh не удался — сессия истекла, разлогинить
+        handleLogout();
+      }
     }, 12 * 60 * 1000);
     return () => clearInterval(interval);
   }, [user]);
@@ -125,6 +129,7 @@ export default function App() {
 
   const handleLogout = () => {
     setUser(null);
+    clearCache(); // Очистить крипто-кэш предыдущего пользователя
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
   };

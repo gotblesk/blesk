@@ -411,6 +411,14 @@ router.delete('/:id/members/:userId', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Группа не найдена' });
     }
 
+    // Проверить что целевой участник существует
+    const target = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId: targetUserId } },
+    });
+    if (!target) {
+      return res.status(404).json({ error: 'Участник не найден в группе' });
+    }
+
     if (!isSelf) {
       // Удаление другого — только owner/admin
       const requester = await prisma.roomParticipant.findUnique({
@@ -421,10 +429,7 @@ router.delete('/:id/members/:userId', authenticate, async (req, res) => {
       }
 
       // Нельзя удалить owner'а
-      const target = await prisma.roomParticipant.findUnique({
-        where: { roomId_userId: { roomId, userId: targetUserId } },
-      });
-      if (target && target.role === 'owner') {
+      if (target.role === 'owner') {
         return res.status(403).json({ error: 'Нельзя удалить создателя группы' });
       }
     }
@@ -468,6 +473,9 @@ router.patch('/:id', authenticate, async (req, res) => {
       data.name = name.trim();
     }
     if (avatar !== undefined) {
+      if (avatar !== null && (typeof avatar !== 'string' || avatar.length > 500 || !/^\/uploads\//.test(avatar))) {
+        return res.status(400).json({ error: 'Некорректный путь аватара' });
+      }
       data.avatar = avatar;
     }
 

@@ -12,7 +12,6 @@
   box-shadow:
     0 8px 40px rgba(0, 0, 0, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.03) inset;
-  will-change: transform, opacity, filter;
   overflow: hidden;
 }
 
@@ -111,7 +110,6 @@
   to {
     transform: scale(0.85);
     opacity: 0;
-    filter: blur(8px);
   }
 }
 
@@ -124,7 +122,6 @@
   to {
     transform: translateY(100vh) scale(0.7);
     opacity: 0;
-    filter: blur(12px);
     border-radius: 32px;
   }
 }

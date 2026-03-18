@@ -428,10 +428,13 @@ function voiceHandler(io, socket) {
 
   // ═══ Отключение сокета — cleanup ═══
   socket.on('disconnect', () => {
+    // Собираем ID комнат в массив, чтобы не мутировать Map при итерации
+    const roomIds = [];
     for (const [roomId, room] of voiceRooms) {
-      if (room.peers.has(userId)) {
-        leaveRoom(io, socket, userId, roomId);
-      }
+      if (room.peers.has(userId)) roomIds.push(roomId);
+    }
+    for (const roomId of roomIds) {
+      leaveRoom(io, socket, userId, roomId);
     }
   });
 }

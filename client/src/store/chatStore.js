@@ -21,8 +21,8 @@ export const useChatStore = create((set, get) => ({
   typingUsers: {},
 
   loadChats: async () => {
-    // Защита от параллельных вызовов
-    if (get().loadingChatList) return;
+    // Защита от параллельных вызовов (всегда возвращаем Promise)
+    if (get().loadingChatList) return Promise.resolve();
     set({ loadingChatList: true });
     try {
       const res = await fetch(`${API_URL}/api/chats`, { headers: getHeaders() });
@@ -57,8 +57,12 @@ export const useChatStore = create((set, get) => ({
       let otherPubKey = null;
 
       if (hasEncrypted) {
-        // Найти ID собеседника из сообщений
-        const otherUserId = msgs.find((m) => m.userId !== myId)?.userId;
+        // Найти ID собеседника: сначала из сообщений, потом из списка чатов
+        let otherUserId = msgs.find((m) => m.userId !== myId)?.userId;
+        if (!otherUserId) {
+          const chat = get().chats.find((c) => c.id === chatId);
+          otherUserId = chat?.otherUser?.id;
+        }
         if (otherUserId) {
           otherPubKey = await fetchPublicKey(otherUserId);
         }

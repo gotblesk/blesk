@@ -83,6 +83,10 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         body: formData,
       });
       if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (data.message) {
+        useChannelStore.getState().receivePost(data.message);
+      }
     } catch (err) {
       console.error('Ошибка загрузки файла:', err);
     }

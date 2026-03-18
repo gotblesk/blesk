@@ -11,6 +11,10 @@ function socketAuth(socket, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
+    // Refresh token нельзя использовать для WebSocket авторизации
+    if (payload.type === 'refresh') {
+      return next(new Error('Нельзя использовать refresh token'));
+    }
     socket.userId = payload.userId;
     next();
   } catch {
