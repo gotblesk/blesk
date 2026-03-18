@@ -51,7 +51,7 @@
         "nsis"
       ],
       "icon": "public/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": true,
