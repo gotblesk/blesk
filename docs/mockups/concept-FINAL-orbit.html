@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Orbit Final Concept</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700&display=swap');
+  body { font-family: 'Unbounded', -apple-system, sans-serif; background: #08060f; color: rgba(255,255,255,0.85); overflow: hidden; height: 100vh; }
+  .app { display: flex; height: 100vh; position: relative; }
+
+  /* ═══ Animated orbs background ═══ */
+  .orbs { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.1; }
+  .orb--1 { width: 300px; height: 300px; background: #c8ff00; top: -80px; right: -60px; animation: ob 8s ease-in-out infinite; }
+  .orb--2 { width: 250px; height: 250px; background: #00d4ff; bottom: 10%; left: -60px; animation: ob 8s ease-in-out infinite -3s; }
+  .orb--3 { width: 200px; height: 200px; background: #ff006a; bottom: -40px; right: 15%; animation: ob 8s ease-in-out infinite -5s; }
+  @keyframes ob { 0%,100% { transform: translate(0,0); } 33% { transform: translate(20px,-30px); } 66% { transform: translate(-15px,20px); } }
+
+  /* ═══ Left icon dock ═══ */
+  .dock { width: 54px; display: flex; flex-direction: column; align-items: center; padding: 38px 0 14px; gap: 6px; border-right: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; z-index: 1; }
+  .dock__btn { width: 36px; height: 36px; border-radius: 11px; border: none; background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.3); cursor: pointer; font-size: 15px; transition: all 0.2s; position: relative; display: flex; align-items: center; justify-content: center; }
+  .dock__btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); transform: scale(1.08); }
+  .dock__btn--active { background: rgba(200,255,0,0.1); color: #c8ff00; }
+  .dock__btn--active::before { content: ''; position: absolute; left: -8px; width: 3px; height: 18px; border-radius: 2px; background: #c8ff00; }
+  .dock__spacer { flex: 1; }
+  .dock__badge { position: absolute; top: -2px; right: -2px; min-width: 14px; height: 14px; border-radius: 7px; background: #ef4444; color: #fff; font-size: 7px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #08060f; padding: 0 2px; }
+  .dock__av { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%)); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; cursor: pointer; color: #000; transition: transform 0.2s; }
+  .dock__av:hover { transform: scale(1.1); }
+
+  /* ═══ Sidebar — orbit + list ═══ */
+  .side { width: 310px; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; }
+
+  /* Search */
+  .side__search { margin: 10px 12px; padding: 8px 12px 8px 32px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.85); font-size: 11px; outline: none; font-family: inherit; position: relative; }
+  .side__search:focus { border-color: rgba(200,255,0,0.12); }
+  .side__search::placeholder { color: rgba(255,255,255,0.15); }
+  .side__search-wrap { position: relative; margin: 10px 12px; }
+  .side__search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.15); font-size: 12px; pointer-events: none; }
+  .side__search-wrap input { width: 100%; padding: 8px 12px 8px 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.85); font-size: 11px; outline: none; font-family: inherit; }
+  .side__search-wrap input:focus { border-color: rgba(200,255,0,0.12); }
+  .side__search-wrap input::placeholder { color: rgba(255,255,255,0.15); }
+
+  /* Orbit strip (horizontal) */
+  .orbit-strip { display: flex; align-items: center; gap: 6px; padding: 6px 12px; overflow-x: auto; flex-shrink: 0; scrollbar-width: none; }
+  .orbit-strip::-webkit-scrollbar { display: none; }
+  .os { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #fff; cursor: pointer; flex-shrink: 0; transition: all 0.25s cubic-bezier(0.16,1,0.3,1); border: 2px solid transparent; position: relative; }
+  .os:hover { transform: scale(1.12); border-color: rgba(200,255,0,0.25); }
+  .os--active { border-color: #c8ff00; box-shadow: 0 0 12px rgba(200,255,0,0.2); }
+  .os__dot { position: absolute; bottom: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; }
+  .os__typing { position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
+  .os__typing-dot { width: 3px; height: 3px; border-radius: 50%; background: #c8ff00; animation: tdot 1.4s ease-in-out infinite; }
+  .os__typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .os__typing-dot:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes tdot { 0%,60%,100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-3px); opacity: 1; } }
+  .os__voice-ring { position: absolute; inset: -3px; border-radius: 50%; border: 2px solid #4ade80; animation: vring 2s ease-in-out infinite; }
+  @keyframes vring { 0%,100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+  .os__name { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 8px; color: rgba(255,255,255,0.25); white-space: nowrap; display: none; }
+  .os:hover .os__name { display: block; }
+  .os-add { width: 42px; height: 42px; border-radius: 50%; border: 1px dashed rgba(255,255,255,0.08); background: none; color: rgba(255,255,255,0.15); cursor: pointer; font-size: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .os-add:hover { border-color: rgba(200,255,0,0.2); color: #c8ff00; }
+
+  /* Chat list */
+  .chatlist { flex: 1; overflow-y: auto; padding: 4px 8px; }
+  .chatlist::-webkit-scrollbar { width: 4px; }
+  .chatlist::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
+  .cl-label { font-size: 9px; color: rgba(255,255,255,0.15); text-transform: uppercase; letter-spacing: 1px; padding: 10px 8px 4px; font-weight: 600; }
+
+  .cl { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; cursor: pointer; transition: all 0.15s; }
+  .cl:hover { background: rgba(255,255,255,0.025); }
+  .cl--active { background: rgba(200,255,0,0.03); border: 1px solid rgba(200,255,0,0.06); }
+  .cl__av { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #fff; flex-shrink: 0; position: relative; }
+  .cl__av--group { border-radius: 10px; }
+  .cl__dot { position: absolute; bottom: 0; right: 0; width: 9px; height: 9px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; }
+  .cl__info { flex: 1; min-width: 0; }
+  .cl__name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cl__msg { font-size: 10px; color: rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .cl__meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .cl__time { font-size: 9px; color: rgba(255,255,255,0.12); }
+  .cl__badge { background: #c8ff00; color: #08060f; font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 6px; }
+
+  /* Voice room in list */
+  .cl--voice { border: 1px solid rgba(200,255,0,0.04); }
+  .cl--voice .cl__av { border-radius: 10px; background: rgba(200,255,0,0.06) !important; font-size: 14px; }
+  .cl--voice .cl__name { color: #c8ff00; }
+  .cl--voice .cl__msg { color: rgba(200,255,0,0.3); }
+
+  /* ═══ Chat panel ═══ */
+  .panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .panel__head { height: 52px; display: flex; align-items: center; padding: 0 20px; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; }
+  .panel__av { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; color: #fff; }
+  .panel__info { flex: 1; }
+  .panel__name { font-size: 13px; font-weight: 600; }
+  .panel__status { font-size: 10px; color: #4ade80; }
+  .panel__btn { width: 32px; height: 32px; border-radius: 10px; border: none; background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.3); cursor: pointer; font-size: 13px; transition: all 0.15s; }
+  .panel__btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); }
+  .panel__btn--green { background: rgba(74,222,128,0.06); color: rgba(74,222,128,0.6); }
+  .panel__btn--green:hover { background: rgba(74,222,128,0.12); color: #4ade80; }
+
+  .panel__body { flex: 1; overflow-y: auto; padding: 16px 24px; display: flex; flex-direction: column; gap: 3px; }
+  .panel__body::-webkit-scrollbar { width: 4px; }
+  .panel__body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.04); border-radius: 2px; }
+
+  .m { max-width: 55%; padding: 8px 14px; font-size: 12px; line-height: 1.55; border-radius: 16px; position: relative; }
+  .m--own { align-self: flex-end; background: rgba(200,255,0,0.07); border: 1px solid rgba(200,255,0,0.08); border-radius: 16px 16px 4px 16px; animation: mIn 0.3s cubic-bezier(0.16,1,0.3,1) both; transform-origin: bottom right; }
+  .m--in { align-self: flex-start; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); border-radius: 16px 16px 16px 4px; animation: mIn 0.3s cubic-bezier(0.16,1,0.3,1) both; transform-origin: bottom left; }
+  @keyframes mIn { from { opacity: 0; transform: scale(0.88) translateY(4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .m__time { font-size: 8px; color: rgba(255,255,255,0.15); margin-top: 2px; }
+  .m__edited { font-size: 9px; color: rgba(255,255,255,0.12); margin-left: 4px; }
+
+  /* Typing indicator */
+  .typing-bar { padding: 4px 24px; font-size: 10px; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px; height: 24px; }
+  .typing-dots { display: flex; gap: 3px; }
+  .typing-dots span { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.25); animation: tdot 1.4s ease-in-out infinite; }
+  .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+  .panel__input { display: flex; gap: 8px; padding: 10px 20px; border-top: 1px solid rgba(255,255,255,0.03); }
+  .panel__attach { width: 34px; height: 34px; border-radius: 10px; border: none; background: none; color: rgba(255,255,255,0.2); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .panel__attach:hover { color: rgba(255,255,255,0.5); }
+  .panel__field { flex: 1; padding: 9px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.85); font-size: 12px; outline: none; font-family: inherit; transition: border-color 0.2s; }
+  .panel__field:focus { border-color: rgba(200,255,0,0.1); }
+  .panel__field::placeholder { color: rgba(255,255,255,0.12); }
+  .panel__send { width: 34px; height: 34px; border-radius: 50%; border: none; background: #c8ff00; color: #08060f; font-weight: 700; cursor: pointer; font-size: 13px; transition: transform 0.15s; }
+  .panel__send:hover { transform: scale(1.08); }
+
+  /* ═══ Voice overlay ═══ */
+  .vo { position: fixed; inset: 0; z-index: 200; background: rgba(8,6,15,0.88); backdrop-filter: blur(24px); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
+  .vo--open { display: flex; animation: voIn 0.3s cubic-bezier(0.16,1,0.3,1); }
+  @keyframes voIn { from { opacity: 0; } to { opacity: 1; } }
+  .vo__close { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 10px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); cursor: pointer; font-size: 13px; }
+  .vo__title { font-size: 18px; font-weight: 700; }
+  .vo__sub { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: -16px; }
+  .vo__people { display: flex; gap: 28px; }
+  .vo__p { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .vo__pav { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 700; color: #fff; transition: box-shadow 0.3s; }
+  .vo__pav--talk { box-shadow: 0 0 0 4px rgba(74,222,128,0.25), 0 0 24px rgba(74,222,128,0.1); animation: speak 1.5s ease-in-out infinite; }
+  @keyframes speak { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+  .vo__pn { font-size: 13px; font-weight: 500; }
+  .vo__ps { font-size: 10px; color: rgba(255,255,255,0.25); }
+  .vo__btns { display: flex; gap: 10px; margin-top: 8px; }
+  .vo__b { width: 48px; height: 48px; border-radius: 14px; border: none; cursor: pointer; font-size: 17px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .vo__b--on { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); }
+  .vo__b--on:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+  .vo__b--off { background: rgba(239,68,68,0.12); color: #ef4444; }
+  .vo__b--end { background: #ef4444; color: #fff; border-radius: 50%; width: 54px; height: 54px; font-size: 18px; }
+  .vo__b--end:hover { background: #dc2626; transform: scale(1.05); }
+
+  /* Voice pill (minimized) */
+  .vpill { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); display: none; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 16px; background: rgba(14,12,22,0.95); border: 1px solid rgba(255,255,255,0.06); backdrop-filter: blur(20px); z-index: 100; cursor: pointer; transition: box-shadow 0.2s; }
+  .vpill:hover { box-shadow: 0 0 20px rgba(200,255,0,0.08); }
+  .vpill--vis { display: flex; }
+  .vpill__dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: vpd 2s infinite; }
+  @keyframes vpd { 0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); } 50% { box-shadow: 0 0 0 4px rgba(74,222,128,0); } }
+  .vpill__t { font-size: 11px; font-weight: 500; }
+  .vpill__avs { display: flex; margin-left: 4px; }
+  .vpill__mav { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; color: #fff; border: 2px solid rgba(14,12,22,0.95); margin-left: -4px; }
+  .vpill__btns { display: flex; gap: 4px; margin-left: 6px; }
+  .vpill__b { width: 24px; height: 24px; border-radius: 7px; border: none; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+  .vpill__b--mic { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); }
+  .vpill__b--end { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+  /* ═══ Empty state ═══ */
+  .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  .empty__icon { font-size: 40px; opacity: 0.15; animation: efloat 3s ease-in-out infinite; }
+  @keyframes efloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .empty__title { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.4); }
+  .empty__text { font-size: 11px; color: rgba(255,255,255,0.15); }
+  .empty__cta { padding: 8px 20px; border-radius: 10px; border: none; background: #c8ff00; color: #08060f; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: transform 0.15s; }
+  .empty__cta:hover { transform: scale(1.05); }
+</style>
+</head>
+<body>
+<div class="orbs"><div class="orb orb--1"></div><div class="orb orb--2"></div><div class="orb orb--3"></div></div>
+
+<div class="app">
+  <!-- Icon dock -->
+  <div class="dock">
+    <div class="dock__btn dock__btn--active" onclick="setMode('chats')" title="Чаты">💬</div>
+    <div class="dock__btn" onclick="setMode('channels')" title="Каналы">📢<div class="dock__badge">3</div></div>
+    <div class="dock__spacer"></div>
+    <div class="dock__btn" title="Уведомления">🔔<div class="dock__badge">2</div></div>
+    <div class="dock__btn" title="Настройки">⚙</div>
+    <div class="dock__av" title="Профиль">G</div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="side">
+    <div class="side__search-wrap">
+      <span class="side__search-icon">🔍</span>
+      <input placeholder="Поиск... Ctrl+K" />
+    </div>
+
+    <!-- Orbit strip — friends -->
+    <div class="orbit-strip">
+      <div class="os os--active" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))" onclick="selectChat('Vohog', this)">
+        V<div class="os__dot"></div>
+        <div class="os__name">Vohog</div>
+      </div>
+      <div class="os" style="background: linear-gradient(135deg, hsl(200,70%,55%), hsl(240,60%,45%))" onclick="selectChat('Den', this)">
+        D
+        <div class="os__name">Den</div>
+      </div>
+      <div class="os" style="background: linear-gradient(135deg, hsl(30,70%,55%), hsl(50,60%,45%))" onclick="selectChat('Alice', this)">
+        A<div class="os__dot"></div>
+        <!-- Typing indicator on orbit -->
+        <div class="os__typing"><div class="os__typing-dot"></div><div class="os__typing-dot"></div><div class="os__typing-dot"></div></div>
+        <div class="os__name">Alice</div>
+      </div>
+      <div class="os" style="background: linear-gradient(135deg, hsl(170,70%,55%), hsl(190,60%,45%))" onclick="selectChat('Mike', this)">
+        M
+        <!-- In voice indicator -->
+        <div class="os__voice-ring"></div>
+        <div class="os__name">Mike</div>
+      </div>
+      <div class="os" style="background: linear-gradient(135deg, hsl(60,70%,50%), hsl(80,60%,40%))" onclick="selectChat('Kate', this)">
+        K<div class="os__dot"></div>
+        <div class="os__name">Kate</div>
+      </div>
+      <div class="os" style="background: linear-gradient(135deg, hsl(350,70%,55%), hsl(10,60%,45%))" onclick="selectChat('Leo', this)">
+        L
+        <div class="os__name">Leo</div>
+      </div>
+      <button class="os-add" title="Найти друзей">+</button>
+    </div>
+
+    <!-- Chat list -->
+    <div class="chatlist">
+      <!-- Voice rooms section -->
+      <div class="cl-label">Голосовые</div>
+      <div class="cl cl--voice" onclick="openVoice()">
+        <div class="cl__av">🎤</div>
+        <div class="cl__info">
+          <div class="cl__name">gemoglobin</div>
+          <div class="cl__msg">gotblesk, Vohog</div>
+        </div>
+        <div class="cl__meta"><span style="font-size:9px; color:rgba(74,222,128,0.6)">2</span></div>
+      </div>
+
+      <div class="cl-label">Сообщения</div>
+      <div class="cl cl--active">
+        <div class="cl__av" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V<div class="cl__dot"></div></div>
+        <div class="cl__info">
+          <div class="cl__name">Vohog</div>
+          <div class="cl__msg">дарова</div>
+        </div>
+        <div class="cl__meta"><div class="cl__time">14м</div></div>
+      </div>
+      <div class="cl">
+        <div class="cl__av" style="background: linear-gradient(135deg, hsl(200,70%,55%), hsl(240,60%,45%))">D</div>
+        <div class="cl__info">
+          <div class="cl__name">Den</div>
+          <div class="cl__msg">Закончен эксперимент (7 сек)</div>
+        </div>
+        <div class="cl__meta"><div class="cl__time">1ч</div><div class="cl__badge">1</div></div>
+      </div>
+      <div class="cl">
+        <div class="cl__av cl__av--group" style="background: linear-gradient(135deg, hsl(80,70%,45%), hsl(120,60%,35%))">B</div>
+        <div class="cl__info">
+          <div class="cl__name">blesk team</div>
+          <div class="cl__msg">Егор: обнова на подходе</div>
+        </div>
+        <div class="cl__meta"><div class="cl__time">2ч</div></div>
+      </div>
+      <div class="cl">
+        <div class="cl__av" style="background: linear-gradient(135deg, hsl(30,70%,55%), hsl(50,60%,45%))">A<div class="cl__dot"></div></div>
+        <div class="cl__info">
+          <div class="cl__name">Alice</div>
+          <div class="cl__msg">пришли фото</div>
+        </div>
+        <div class="cl__meta"><div class="cl__time">3ч</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat panel -->
+  <div class="panel" id="chatPanel">
+    <div class="panel__head">
+      <div class="panel__av" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V</div>
+      <div class="panel__info">
+        <div class="panel__name" id="panelName">Vohog</div>
+        <div class="panel__status">в сети</div>
+      </div>
+      <button class="panel__btn panel__btn--green" onclick="openVoice()" title="Позвонить">📞</button>
+      <button class="panel__btn panel__btn--green" title="Видеозвонок">📹</button>
+      <button class="panel__btn" title="Поиск">🔍</button>
+      <button class="panel__btn" title="Информация">ℹ️</button>
+    </div>
+
+    <div class="panel__body">
+      <div class="m m--in">привет</div>
+      <div class="m m--in">как дела?</div>
+      <div class="m m--own">дарова</div>
+      <div class="m m--own">нормально, тестирую orbit</div>
+      <div class="m m--in">что за orbit?</div>
+      <div class="m m--own">новая навигация blesk — друзья на орбите вокруг тебя</div>
+      <div class="m m--own">голос — не таб, а overlay как в телефоне</div>
+      <div class="m m--in">звучит круто, когда релиз?</div>
+      <div class="m m--own">скоро 🔥<span class="m__edited">(ред.)</span></div>
+    </div>
+
+    <div class="typing-bar">
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+      Vohog печатает...
+    </div>
+
+    <div class="panel__input">
+      <button class="panel__attach" title="Прикрепить">📎</button>
+      <input class="panel__field" placeholder="Написать Vohog..." />
+      <button class="panel__send">→</button>
+    </div>
+  </div>
+</div>
+
+<!-- Voice overlay -->
+<div class="vo" id="vo">
+  <button class="vo__close" onclick="closeVoice()">—</button>
+  <div class="vo__title">gemoglobin</div>
+  <div class="vo__sub">Голосовая комната</div>
+  <div class="vo__people">
+    <div class="vo__p">
+      <div class="vo__pav vo__pav--talk" style="background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%))">G</div>
+      <div class="vo__pn">gotblesk</div>
+      <div class="vo__ps">говорит</div>
+    </div>
+    <div class="vo__p">
+      <div class="vo__pav" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V</div>
+      <div class="vo__pn">Vohog</div>
+      <div class="vo__ps">слушает</div>
+    </div>
+  </div>
+  <div class="vo__btns">
+    <button class="vo__b vo__b--on" title="Микрофон">🎤</button>
+    <button class="vo__b vo__b--on" title="Наушники">🎧</button>
+    <button class="vo__b vo__b--on" title="Камера">📹</button>
+    <button class="vo__b vo__b--on" title="Экран">🖥</button>
+    <button class="vo__b vo__b--end" onclick="disconnectVoice()" title="Выйти">✕</button>
+  </div>
+</div>
+
+<!-- Voice pill -->
+<div class="vpill" id="vpill" onclick="openVoice()">
+  <div class="vpill__dot"></div>
+  <div class="vpill__t">gemoglobin</div>
+  <div class="vpill__avs">
+    <div class="vpill__mav" style="background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%))">G</div>
+    <div class="vpill__mav" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V</div>
+  </div>
+  <div class="vpill__btns">
+    <button class="vpill__b vpill__b--mic">🎤</button>
+    <button class="vpill__b vpill__b--end" onclick="event.stopPropagation(); disconnectVoice()">✕</button>
+  </div>
+</div>
+
+<script>
+let inVoice = false;
+
+function selectChat(name, el) {
+  document.querySelectorAll('.os').forEach(o => o.classList.remove('os--active'));
+  el.classList.add('os--active');
+  document.getElementById('panelName').textContent = name;
+}
+
+function setMode(mode) {
+  document.querySelectorAll('.dock__btn').forEach(b => b.classList.remove('dock__btn--active'));
+  event.currentTarget.classList.add('dock__btn--active');
+}
+
+function openVoice() {
+  inVoice = true;
+  document.getElementById('vo').classList.add('vo--open');
+  document.getElementById('vpill').classList.remove('vpill--vis');
+}
+
+function closeVoice() {
+  document.getElementById('vo').classList.remove('vo--open');
+  if (inVoice) document.getElementById('vpill').classList.add('vpill--vis');
+}
+
+function disconnectVoice() {
+  inVoice = false;
+  document.getElementById('vpill').classList.remove('vpill--vis');
+  document.getElementById('vo').classList.remove('vo--open');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeVoice(); }
+});
+</script>
+</body>
+</html>

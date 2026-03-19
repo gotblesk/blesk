@@ -215,6 +215,18 @@
   color: rgba(255, 255, 255, 0.85);
 }
 
+.chat-message__action-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+}
+
+/* Метка редактирования */
+.chat-message__edited {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.25);
+  margin-left: 4px;
+}
+
 @keyframes msgActionsIn {
   from { opacity: 0; transform: scale(0.8); }
   to { opacity: 1; transform: scale(1); }

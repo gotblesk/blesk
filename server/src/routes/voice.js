@@ -82,7 +82,7 @@ router.post('/rooms', authenticate, async (req, res) => {
       where: { type: 'voice', ownerId: req.userId },
     });
     if (userRoomCount >= 3) {
-      return res.status(429).json({ error: 'Максимум 3 голосовые комнаты' });
+      return res.status(400).json({ error: 'Максимум 3 голосовые комнаты' });
     }
 
     const room = await prisma.room.create({

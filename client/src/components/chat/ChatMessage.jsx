@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Pin, Lock } from 'lucide-react';
+import { Pin, Lock, Pencil, Trash2 } from 'lucide-react';
 import MediaMessage from './MediaMessage';
 import './ChatMessage.css';
 
-export default function ChatMessage({ message, isOwn, groupPosition, showTime, onReply, onImageClick }) {
+export default function ChatMessage({ message, isOwn, groupPosition, showTime, onReply, onEdit, onDelete, onImageClick }) {
   const [showActions, setShowActions] = useState(false);
 
   const time = new Date(message.createdAt).toLocaleTimeString('ru-RU', {
@@ -44,6 +44,7 @@ export default function ChatMessage({ message, isOwn, groupPosition, showTime, o
         ) : (
           message.text
         )}
+        {message.editedAt && <span className="chat-message__edited">(ред.)</span>}
         {message.pinned && <span className="chat-message__pin-icon"><Pin size={12} strokeWidth={1.5} /></span>}
         {message.attachments?.length > 0 && (
           <MediaMessage attachments={message.attachments} onImageClick={onImageClick} />
@@ -57,7 +58,7 @@ export default function ChatMessage({ message, isOwn, groupPosition, showTime, o
         </div>
       )}
 
-      {/* Кнопка ответа при hover */}
+      {/* Действия при hover */}
       {showActions && message.type !== 'system' && (
         <div className="chat-message__actions">
           <button className="chat-message__action-btn" onClick={onReply} title="Ответить">
@@ -66,6 +67,16 @@ export default function ChatMessage({ message, isOwn, groupPosition, showTime, o
               <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
             </svg>
           </button>
+          {isOwn && message.type === 'text' && (
+            <button className="chat-message__action-btn" onClick={() => onEdit?.(message)} title="Редактировать">
+              <Pencil size={12} strokeWidth={1.5} />
+            </button>
+          )}
+          {(isOwn || message._canDelete) && (
+            <button className="chat-message__action-btn chat-message__action-btn--danger" onClick={() => onDelete?.(message)} title="Удалить">
+              <Trash2 size={12} strokeWidth={1.5} />
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -274,4 +274,32 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
+// Удалить из друзей
+router.delete('/:friendId', authenticate, async (req, res) => {
+  try {
+    const { friendId } = req.params;
+
+    const request = await prisma.friendRequest.findFirst({
+      where: {
+        status: 'accepted',
+        OR: [
+          { senderId: req.userId, receiverId: friendId },
+          { senderId: friendId, receiverId: req.userId },
+        ],
+      },
+    });
+
+    if (!request) {
+      return res.status(404).json({ error: 'Дружба не найдена' });
+    }
+
+    await prisma.friendRequest.delete({ where: { id: request.id } });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /api/friends/:friendId error:', err);
+    res.status(500).json({ error: 'Ошибка удаления из друзей' });
+  }
+});
+
 module.exports = router;

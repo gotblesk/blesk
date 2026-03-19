@@ -220,6 +220,53 @@ function chatHandler(io, socket) {
     }
   });
 
+  // Редактирование сообщения
+  socket.on('message:edit', async ({ messageId, chatId, text }) => {
+    if (!messageId || !chatId || !text?.trim()) return;
+    if (text.length > 4000) return;
+
+    try {
+      const message = await prisma.message.findUnique({ where: { id: messageId } });
+      if (!message || message.userId !== userId || message.roomId !== chatId) return;
+
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { text: text.trim() },
+      });
+
+      io.to(chatId).emit('message:edited', { messageId, chatId, text: text.trim(), editedAt: new Date() });
+    } catch (err) {
+      console.error('message:edit error:', err);
+    }
+  });
+
+  // Удаление сообщения
+  socket.on('message:delete', async ({ messageId, chatId }) => {
+    if (!messageId || !chatId) return;
+
+    try {
+      const message = await prisma.message.findUnique({ where: { id: messageId } });
+      if (!message || message.roomId !== chatId) return;
+
+      // Удалить может автор или admin/owner группы
+      const isAuthor = message.userId === userId;
+      if (!isAuthor) {
+        const participant = await prisma.roomParticipant.findUnique({
+          where: { roomId_userId: { roomId: chatId, userId } },
+        });
+        if (!participant || !['owner', 'admin'].includes(participant.role)) return;
+      }
+
+      // Удалить вложения
+      await prisma.attachment.deleteMany({ where: { messageId } });
+      await prisma.message.delete({ where: { id: messageId } });
+
+      io.to(chatId).emit('message:deleted', { messageId, chatId });
+    } catch (err) {
+      console.error('message:delete error:', err);
+    }
+  });
+
   // Очистить таймаут набора текста для конкретного чата
   function clearTypingTimeout(chatId) {
     const key = `${userId}:${chatId}`;

@@ -93,6 +93,33 @@ export function useSocket() {
       useChatStore.getState().failMessage(tempId);
     });
 
+    // ═══ Редактирование/удаление сообщений ═══
+    socket.on('message:edited', ({ messageId, chatId, text, editedAt }) => {
+      useChatStore.setState((state) => {
+        const msgs = state.messages[chatId];
+        if (!msgs) return state;
+        return {
+          messages: {
+            ...state.messages,
+            [chatId]: msgs.map((m) => m.id === messageId ? { ...m, text, editedAt } : m),
+          },
+        };
+      });
+    });
+
+    socket.on('message:deleted', ({ messageId, chatId }) => {
+      useChatStore.setState((state) => {
+        const msgs = state.messages[chatId];
+        if (!msgs) return state;
+        return {
+          messages: {
+            ...state.messages,
+            [chatId]: msgs.filter((m) => m.id !== messageId),
+          },
+        };
+      });
+    });
+
     // ═══ Онлайн/офлайн/статус ═══
     socket.on('user:online', ({ userId: uid, status }) => useChatStore.getState().setUserOnline(uid, status));
     socket.on('user:offline', ({ userId: uid }) => useChatStore.getState().setUserOffline(uid));

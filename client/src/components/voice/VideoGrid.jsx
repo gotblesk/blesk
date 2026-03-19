@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
+import { Maximize, Minimize } from 'lucide-react';
 import { useVoiceStore } from '../../store/voiceStore';
 import './VideoGrid.css';
 
@@ -69,6 +70,7 @@ export default function VideoGrid({ participants }) {
 
 function VideoTile({ stream, label, className = '' }) {
   const videoRef = useRef(null);
+  const tileRef = useRef(null);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -80,8 +82,18 @@ function VideoTile({ stream, label, className = '' }) {
     };
   }, [stream]);
 
+  const toggleFullscreen = useCallback(() => {
+    const el = tileRef.current;
+    if (!el) return;
+    if (document.fullscreenElement === el) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      el.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
   return (
-    <div className={`video-grid__tile ${className}`}>
+    <div ref={tileRef} className={`video-grid__tile ${className}`}>
       <video
         ref={videoRef}
         autoPlay
@@ -89,6 +101,9 @@ function VideoTile({ stream, label, className = '' }) {
         className="video-grid__video"
       />
       <span className="video-grid__label">{label}</span>
+      <button className="video-grid__fullscreen" onClick={toggleFullscreen} title="Полный экран">
+        <Maximize size={16} strokeWidth={1.5} />
+      </button>
     </div>
   );
 }

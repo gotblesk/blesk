@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Metaball / Blob Merge Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #08060f; color: #fff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 40px; overflow: hidden; }
+  h2 { font-size: 14px; color: rgba(255,255,255,0.3); letter-spacing: 2px; text-transform: uppercase; }
+
+  /* ═══ SVG Metaball Filter ═══ */
+  .meta-filter { position: absolute; width: 0; height: 0; }
+
+  /* ═══ Demo 1: Two blobs that merge on hover ═══ */
+  .demo1 { position: relative; width: 400px; height: 200px; display: flex; align-items: center; justify-content: center; }
+  .demo1__wrap { filter: url(#goo); display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+  .blob { width: 80px; height: 80px; border-radius: 50%; position: absolute; transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+  .blob--a { background: #c8ff00; left: 110px; }
+  .blob--b { background: #c8ff00; right: 110px; }
+  .demo1:hover .blob--a { left: 160px; }
+  .demo1:hover .blob--b { right: 160px; }
+
+  /* ═══ Demo 2: Orbit metaballs — friends merge when close ═══ */
+  .demo2 { position: relative; width: 500px; height: 300px; }
+  .demo2__wrap { filter: url(#goo2); width: 100%; height: 100%; position: relative; }
+  .orb-blob { width: 60px; height: 60px; border-radius: 50%; position: absolute; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; cursor: grab; transition: box-shadow 0.3s; z-index: 2; }
+  .orb-blob:hover { box-shadow: 0 0 30px currentColor; }
+  .orb-blob--center { width: 70px; height: 70px; background: #c8ff00; color: #000; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 24px; }
+  .orb-blob--1 { background: hsl(300, 70%, 55%); color: #fff; top: 30px; left: 100px; }
+  .orb-blob--2 { background: hsl(200, 70%, 55%); color: #fff; top: 20px; right: 100px; }
+  .orb-blob--3 { background: hsl(30, 70%, 55%); color: #fff; bottom: 30px; left: 80px; }
+  .orb-blob--4 { background: hsl(170, 70%, 50%); color: #fff; bottom: 20px; right: 90px; }
+  /* Draggable label */
+  .orb-blob span { position: absolute; bottom: -18px; font-size: 10px; color: rgba(255,255,255,0.3); font-weight: 400; pointer-events: none; }
+
+  /* ═══ Demo 3: Button merge — two buttons blob into one ═══ */
+  .demo3 { display: flex; gap: 0; align-items: center; }
+  .demo3__wrap { filter: url(#goo3); display: flex; align-items: center; gap: 4px; padding: 20px; }
+  .mbtn { padding: 14px 28px; border-radius: 50px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+  .mbtn--accept { background: #c8ff00; color: #08060f; }
+  .mbtn--decline { background: #ef4444; color: #fff; }
+  .demo3:hover .mbtn--accept { transform: translateX(8px); }
+  .demo3:hover .mbtn--decline { transform: translateX(-8px); }
+
+  /* ═══ Demo 4: Nav pills metaball transition ═══ */
+  .demo4 { position: relative; }
+  .demo4__wrap { filter: url(#goo4); display: flex; gap: 4px; padding: 6px; background: rgba(255,255,255,0.03); border-radius: 20px; }
+  .npill { padding: 10px 24px; border-radius: 16px; border: none; background: transparent; color: rgba(255,255,255,0.4); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1); position: relative; z-index: 1; }
+  .npill--active { background: #c8ff00; color: #08060f; font-weight: 600; }
+
+  /* Info */
+  .info { font-size: 11px; color: rgba(255,255,255,0.15); text-align: center; max-width: 500px; line-height: 1.6; }
+  .info b { color: rgba(255,255,255,0.4); }
+</style>
+</head>
+<body>
+
+<!-- SVG Filters for metaball effect -->
+<svg class="meta-filter">
+  <!-- Strong goo for demo 1 -->
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur" />
+      <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" result="goo" />
+      <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+    </filter>
+    <!-- Softer for orbit -->
+    <filter id="goo2">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+      <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
+      <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+    </filter>
+    <!-- Buttons -->
+    <filter id="goo3">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+      <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="goo" />
+      <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+    </filter>
+    <!-- Nav pills -->
+    <filter id="goo4">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+      <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -6" result="goo" />
+      <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+    </filter>
+  </defs>
+</svg>
+
+<h2>Metaball / Blob Merge — blesk demos</h2>
+
+<!-- Demo 1: Two blobs merge -->
+<div style="text-align:center">
+  <div style="font-size:11px; color:rgba(255,255,255,0.2); margin-bottom:8px">Наведи мышку — капли слипаются</div>
+  <div class="demo1">
+    <div class="demo1__wrap">
+      <div class="blob blob--a"></div>
+      <div class="blob blob--b"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Demo 2: Orbit metaballs (draggable) -->
+<div style="text-align:center">
+  <div style="font-size:11px; color:rgba(255,255,255,0.2); margin-bottom:8px">Перетаскивай друзей — они слипаются при сближении (feрроfluid)</div>
+  <div class="demo2">
+    <div class="demo2__wrap">
+      <div class="orb-blob orb-blob--center">G</div>
+      <div class="orb-blob orb-blob--1" id="d1">V<span>Vohog</span></div>
+      <div class="orb-blob orb-blob--2" id="d2">D<span>Den</span></div>
+      <div class="orb-blob orb-blob--3" id="d3">A<span>Alice</span></div>
+      <div class="orb-blob orb-blob--4" id="d4">M<span>Mike</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Demo 3: Buttons merge -->
+<div style="text-align:center">
+  <div style="font-size:11px; color:rgba(255,255,255,0.2); margin-bottom:8px">Кнопки при наведении слипаются</div>
+  <div class="demo3">
+    <div class="demo3__wrap">
+      <button class="mbtn mbtn--accept">Принять</button>
+      <button class="mbtn mbtn--decline">Отклонить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Demo 4: Nav pills -->
+<div style="text-align:center">
+  <div style="font-size:11px; color:rgba(255,255,255,0.2); margin-bottom:8px">Навигация — кликни на таб</div>
+  <div class="demo4">
+    <div class="demo4__wrap">
+      <button class="npill npill--active" onclick="switchPill(this)">Чаты</button>
+      <button class="npill" onclick="switchPill(this)">Каналы</button>
+      <button class="npill" onclick="switchPill(this)">Голос</button>
+    </div>
+  </div>
+</div>
+
+<div class="info">
+  <b>Metaball / Blob Merge</b> — SVG filter <code>feGaussianBlur</code> + <code>feColorMatrix</code> создаёт эффект "магнитной жидкости".<br>
+  Можно применить к: orbit друзей, навигации, кнопкам принять/отклонить, прелоадеру.
+</div>
+
+<script>
+// Draggable orbit blobs
+['d1','d2','d3','d4'].forEach(id => {
+  const el = document.getElementById(id);
+  let dragging = false, ox, oy;
+
+  el.addEventListener('pointerdown', e => {
+    dragging = true;
+    ox = e.clientX - el.offsetLeft;
+    oy = e.clientY - el.offsetTop;
+    el.style.cursor = 'grabbing';
+    el.style.zIndex = 10;
+    el.setPointerCapture(e.pointerId);
+  });
+
+  el.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const parent = el.parentElement.getBoundingClientRect();
+    const x = e.clientX - parent.left - 30;
+    const y = e.clientY - parent.top - 30;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+  });
+
+  el.addEventListener('pointerup', () => {
+    dragging = false;
+    el.style.cursor = 'grab';
+    el.style.zIndex = 2;
+  });
+});
+
+function switchPill(el) {
+  document.querySelectorAll('.npill').forEach(p => p.classList.remove('npill--active'));
+  el.classList.add('npill--active');
+}
+</script>
+</body>
+</html>

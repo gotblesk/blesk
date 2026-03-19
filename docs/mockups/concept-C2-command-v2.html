@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk concept C2 — Command Center v2 (голос = overlay)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); overflow: hidden; height: 100vh; }
+  .app { display: flex; flex-direction: column; height: 100vh; position: relative; }
+
+  .titlebar { height: 32px; background: rgba(14,12,22,0.95); display: flex; align-items: center; justify-content: center; flex-shrink: 0; -webkit-app-region: drag; }
+  .titlebar__text { font-size: 10px; color: rgba(255,255,255,0.15); letter-spacing: 2px; }
+
+  /* Minimal top bar — command input + 2 toggle + avatar */
+  .topbar { height: 48px; display: flex; align-items: center; padding: 0 16px; gap: 8px; flex-shrink: 0; }
+  .topbar__cmd { flex: 1; max-width: 400px; padding: 8px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.85); font-size: 12px; outline: none; font-family: inherit; cursor: pointer; }
+  .topbar__cmd::placeholder { color: rgba(255,255,255,0.2); }
+  .topbar__cmd:focus { border-color: rgba(200,255,0,0.15); cursor: text; }
+  .topbar__spacer { flex: 1; }
+
+  .topbar__toggle { padding: 6px 14px; border-radius: 10px; border: none; background: none; color: rgba(255,255,255,0.4); font-size: 11px; cursor: pointer; font-family: inherit; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+  .topbar__toggle:hover { color: rgba(255,255,255,0.7); }
+  .topbar__toggle--active { background: rgba(200,255,0,0.08); color: #c8ff00; }
+  .topbar__icon { width: 32px; height: 32px; border-radius: 10px; border: none; background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; position: relative; }
+  .topbar__badge { position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%; background: #ef4444; color: #fff; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; border: 2px solid #08060f; }
+  .topbar__av { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%)); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; color: #000; }
+
+  /* Main area — split view */
+  .main { flex: 1; display: flex; min-height: 0; }
+
+  /* List panel */
+  .list { width: 300px; border-right: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; flex-shrink: 0; }
+  .list__items { flex: 1; overflow-y: auto; padding: 8px; }
+  .item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; cursor: pointer; transition: background 0.12s; }
+  .item:hover { background: rgba(255,255,255,0.03); }
+  .item--active { background: rgba(200,255,0,0.04); }
+  .item__av { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #fff; flex-shrink: 0; position: relative; }
+  .item__dot { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; }
+  .item__info { flex: 1; min-width: 0; }
+  .item__name { font-size: 13px; font-weight: 500; }
+  .item__preview { font-size: 11px; color: rgba(255,255,255,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item__meta { text-align: right; flex-shrink: 0; }
+  .item__time { font-size: 10px; color: rgba(255,255,255,0.2); }
+  .item__badge { background: #c8ff00; color: #08060f; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 8px; }
+  .item__type { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.3); }
+
+  /* Voice rooms in list */
+  .item--voice .item__av { border-radius: 12px; background: rgba(200,255,0,0.08) !important; }
+  .item--voice .item__name { color: #c8ff00; }
+
+  /* Chat panel */
+  .chat { flex: 1; display: flex; flex-direction: column; }
+  .chat__header { height: 48px; display: flex; align-items: center; padding: 0 16px; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.04); flex-shrink: 0; }
+  .chat__name { font-size: 14px; font-weight: 600; }
+  .chat__status { font-size: 11px; color: #4ade80; }
+  .chat__spacer { flex: 1; }
+  .chat__btn { width: 32px; height: 32px; border-radius: 10px; border: none; background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.35); cursor: pointer; font-size: 14px; transition: all 0.15s; }
+  .chat__btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); }
+  .chat__btn--call { background: rgba(74,222,128,0.08); color: #4ade80; }
+  .chat__btn--call:hover { background: rgba(74,222,128,0.15); }
+
+  .chat__msgs { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 3px; }
+  .b { max-width: 55%; padding: 8px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; }
+  .b--own { align-self: flex-end; background: rgba(200,255,0,0.08); border: 1px solid rgba(200,255,0,0.1); border-radius: 14px 14px 4px 14px; }
+  .b--other { align-self: flex-start; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px 14px 14px 4px; }
+
+  .chat__input { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.04); }
+  .chat__field { flex: 1; padding: 10px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.85); font-size: 13px; outline: none; font-family: inherit; }
+  .chat__send { width: 36px; height: 36px; border-radius: 50%; border: none; background: #c8ff00; color: #08060f; font-weight: 700; cursor: pointer; }
+
+  /* ═══ Voice overlay (replaces voice tab) ═══ */
+  .voice-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(8,6,15,0.85); backdrop-filter: blur(20px); display: none; flex-direction: column; }
+  .voice-overlay--open { display: flex; }
+
+  .voice-overlay__header { height: 56px; display: flex; align-items: center; padding: 0 20px; gap: 12px; }
+  .voice-overlay__title { font-size: 16px; font-weight: 700; flex: 1; }
+  .voice-overlay__close { width: 32px; height: 32px; border-radius: 10px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); cursor: pointer; font-size: 14px; }
+
+  .voice-overlay__content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
+
+  .voice-overlay__participants { display: flex; gap: 20px; }
+  .voice-participant { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .voice-participant__av { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; transition: box-shadow 0.3s; }
+  .voice-participant__av--speaking { box-shadow: 0 0 0 3px rgba(74,222,128,0.4), 0 0 20px rgba(74,222,128,0.2); }
+  .voice-participant__name { font-size: 12px; font-weight: 500; }
+  .voice-participant__status { font-size: 10px; color: rgba(255,255,255,0.3); }
+
+  .voice-overlay__controls { display: flex; gap: 12px; }
+  .voice-ctrl { width: 48px; height: 48px; border-radius: 14px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; transition: all 0.15s; }
+  .voice-ctrl--on { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); }
+  .voice-ctrl--on:hover { background: rgba(255,255,255,0.1); }
+  .voice-ctrl--off { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .voice-ctrl--end { background: #ef4444; color: #fff; border-radius: 50%; width: 56px; height: 56px; }
+  .voice-ctrl--end:hover { background: #dc2626; }
+
+  /* Floating voice pill (when minimized) */
+  .voice-pill { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: none; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 16px; background: rgba(14,12,22,0.95); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(20px); z-index: 100; cursor: pointer; }
+  .voice-pill--visible { display: flex; }
+  .voice-pill__dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: vpulse 2s infinite; }
+  @keyframes vpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); } 50% { box-shadow: 0 0 0 4px rgba(74,222,128,0); } }
+  .voice-pill__text { font-size: 12px; font-weight: 500; }
+  .voice-pill__btn { width: 24px; height: 24px; border-radius: 6px; border: none; background: rgba(239,68,68,0.15); color: #ef4444; cursor: pointer; font-size: 10px; }
+
+  /* Animated bg */
+  .orbs { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.1; animation: of 8s ease-in-out infinite; }
+  .orb--1 { width: 300px; height: 300px; background: #c8ff00; top: -80px; right: -60px; }
+  .orb--2 { width: 250px; height: 250px; background: #00d4ff; bottom: 10%; left: -60px; animation-delay: -3s; }
+  @keyframes of { 0%,100% { transform: translate(0,0); } 33% { transform: translate(20px,-30px); } 66% { transform: translate(-15px,20px); } }
+</style>
+</head>
+<body>
+<div class="orbs"><div class="orb orb--1"></div><div class="orb orb--2"></div></div>
+
+<div class="app">
+  <div class="titlebar"><div class="titlebar__text">blesk</div></div>
+
+  <div class="topbar">
+    <input class="topbar__cmd" placeholder="Поиск... Ctrl+K" onclick="openPalette()" readonly />
+    <div class="topbar__spacer"></div>
+    <button class="topbar__toggle topbar__toggle--active" onclick="switchView('chats', this)">💬 Чаты</button>
+    <button class="topbar__toggle" onclick="switchView('channels', this)">📢 Каналы</button>
+    <button class="topbar__icon" title="Друзья" style="margin-left: 8px;">👥</button>
+    <button class="topbar__icon" title="Уведомления">🔔<div class="topbar__badge">2</div></button>
+    <button class="topbar__icon" title="Настройки">⚙</button>
+    <div class="topbar__av">G</div>
+  </div>
+
+  <div class="main">
+    <div class="list">
+      <div class="list__items">
+        <!-- Voice room in chat list -->
+        <div class="item item--voice" onclick="openVoice()">
+          <div class="item__av" style="background: rgba(200,255,0,0.08); color: #c8ff00;">🎤</div>
+          <div class="item__info">
+            <div class="item__name">gemoglobin</div>
+            <div class="item__preview">2 участника</div>
+          </div>
+          <div class="item__meta"><span class="item__type">голос</span></div>
+        </div>
+
+        <div class="item item--active">
+          <div class="item__av" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V<div class="item__dot"></div></div>
+          <div class="item__info">
+            <div class="item__name">Vohog</div>
+            <div class="item__preview">дарова</div>
+          </div>
+          <div class="item__meta"><div class="item__time">14м</div></div>
+        </div>
+        <div class="item">
+          <div class="item__av" style="background: linear-gradient(135deg, hsl(200,70%,55%), hsl(240,60%,45%))">D</div>
+          <div class="item__info">
+            <div class="item__name">Den</div>
+            <div class="item__preview">эксперимент (7 сек)</div>
+          </div>
+          <div class="item__meta"><div class="item__time">1ч</div><div class="item__badge">1</div></div>
+        </div>
+        <div class="item">
+          <div class="item__av" style="background: linear-gradient(135deg, hsl(80,70%,45%), hsl(120,60%,35%))">B</div>
+          <div class="item__info">
+            <div class="item__name">blesk team</div>
+            <div class="item__preview">обнова на подходе</div>
+          </div>
+          <div class="item__meta"><div class="item__time">2ч</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat">
+      <div class="chat__header">
+        <div class="chat__name">Vohog</div>
+        <div class="chat__status">в сети</div>
+        <div class="chat__spacer"></div>
+        <button class="chat__btn chat__btn--call" title="Позвонить" onclick="openVoice()">📞</button>
+        <button class="chat__btn chat__btn--call" title="Видеозвонок">📹</button>
+        <button class="chat__btn" title="Информация">ℹ️</button>
+      </div>
+      <div class="chat__msgs">
+        <div class="b b--other">привет!</div>
+        <div class="b b--other">как дела?</div>
+        <div class="b b--own">дарова</div>
+        <div class="b b--own">нормально, работаю над редизайном</div>
+        <div class="b b--other">какой вариант выбрал?</div>
+        <div class="b b--own">command center v2 — голос стал overlay</div>
+        <div class="b b--other">логично, не нужен отдельный таб</div>
+      </div>
+      <div class="chat__input">
+        <input class="chat__field" placeholder="Написать Vohog..." />
+        <button class="chat__send">→</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Voice overlay (full-screen when expanded) -->
+<div class="voice-overlay" id="voiceOverlay">
+  <div class="voice-overlay__header">
+    <div class="voice-overlay__title">gemoglobin</div>
+    <button class="voice-overlay__close" onclick="closeVoice()">✕</button>
+  </div>
+  <div class="voice-overlay__content">
+    <div class="voice-overlay__participants">
+      <div class="voice-participant">
+        <div class="voice-participant__av voice-participant__av--speaking" style="background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%))">G</div>
+        <div class="voice-participant__name">gotblesk</div>
+        <div class="voice-participant__status">говорит</div>
+      </div>
+      <div class="voice-participant">
+        <div class="voice-participant__av" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V</div>
+        <div class="voice-participant__name">Vohog</div>
+        <div class="voice-participant__status">слушает</div>
+      </div>
+    </div>
+    <div class="voice-overlay__controls">
+      <button class="voice-ctrl voice-ctrl--on" title="Микрофон">🎤</button>
+      <button class="voice-ctrl voice-ctrl--on" title="Наушники">🎧</button>
+      <button class="voice-ctrl voice-ctrl--on" title="Камера">📹</button>
+      <button class="voice-ctrl voice-ctrl--on" title="Экран">🖥</button>
+      <button class="voice-ctrl voice-ctrl--end" title="Выйти">✕</button>
+    </div>
+  </div>
+</div>
+
+<!-- Floating voice pill (when overlay minimized) -->
+<div class="voice-pill" id="voicePill" onclick="openVoice()">
+  <div class="voice-pill__dot"></div>
+  <div class="voice-pill__text">gemoglobin · 2</div>
+  <button class="voice-pill__btn" onclick="event.stopPropagation(); disconnectVoice()">✕</button>
+</div>
+
+<script>
+let inVoice = false;
+
+function switchView(view, btn) {
+  document.querySelectorAll('.topbar__toggle').forEach(t => t.classList.remove('topbar__toggle--active'));
+  btn.classList.add('topbar__toggle--active');
+}
+
+function openVoice() {
+  inVoice = true;
+  document.getElementById('voiceOverlay').classList.add('voice-overlay--open');
+  document.getElementById('voicePill').classList.remove('voice-pill--visible');
+}
+
+function closeVoice() {
+  document.getElementById('voiceOverlay').classList.remove('voice-overlay--open');
+  if (inVoice) document.getElementById('voicePill').classList.add('voice-pill--visible');
+}
+
+function disconnectVoice() {
+  inVoice = false;
+  document.getElementById('voicePill').classList.remove('voice-pill--visible');
+  document.getElementById('voiceOverlay').classList.remove('voice-overlay--open');
+}
+
+function openPalette() { /* would open command palette */ }
+</script>
+</body>
+</html>

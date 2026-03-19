@@ -3,6 +3,7 @@ import { Settings as SettingsIcon, Mic, Bell, Lock, Palette } from 'lucide-react
 import Glass from '../ui/Glass';
 import VoiceSettings from '../voice/VoiceSettings';
 import { useSettingsStore } from '../../store/settingsStore';
+import API_URL from '../../config';
 import './SettingsScreen.css';
 
 const SECTIONS = [
@@ -148,11 +149,11 @@ export default function SettingsScreen({ onBack }) {
                   onChange={() => {
                     const next = !settings.showLastSeen;
                     toggle('showLastSeen');
-                    fetch('/api/users/me', {
+                    fetch(`${API_URL}/api/users/me`, {
                       method: 'PUT',
                       headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${localStorage.getItem('blesk-token')}`,
+                        Authorization: `Bearer ${localStorage.getItem('token')}`,
                       },
                       body: JSON.stringify({ showLastSeen: next }),
                     }).catch(() => {});

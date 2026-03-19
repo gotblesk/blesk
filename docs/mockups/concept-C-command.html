@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk concept C — Command Center</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); overflow: hidden; height: 100vh; }
+  .app { display: flex; flex-direction: column; height: 100vh; position: relative; }
+
+  /* Minimal titlebar */
+  .titlebar { height: 32px; background: rgba(14,12,22,0.95); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .titlebar__text { font-size: 10px; color: rgba(255,255,255,0.15); letter-spacing: 2px; text-transform: uppercase; }
+
+  /* Main content — just the active view, nothing else */
+  .main { flex: 1; display: flex; min-height: 0; position: relative; }
+
+  /* Floating command bar — always visible at top center */
+  .cmdbar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 16px; background: rgba(18,16,28,0.9); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(20px); }
+  .cmdbar__input { width: 300px; padding: 8px 14px; border-radius: 10px; border: none; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.85); font-size: 13px; outline: none; font-family: inherit; }
+  .cmdbar__input::placeholder { color: rgba(255,255,255,0.25); }
+  .cmdbar__input:focus { background: rgba(255,255,255,0.06); }
+  .cmdbar__btn { width: 32px; height: 32px; border-radius: 10px; border: none; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4); cursor: pointer; font-size: 14px; transition: all 0.15s; }
+  .cmdbar__btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+  .cmdbar__btn--active { background: rgba(200,255,0,0.1); color: #c8ff00; }
+  .cmdbar__av { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%)); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; color: #000; }
+
+  /* Active view fills entire space */
+  .view { flex: 1; display: flex; padding-top: 60px; /* space for cmdbar */ }
+
+  /* Split chat view */
+  .chat-split { display: flex; flex: 1; }
+  .chat-list { width: 280px; border-right: 1px solid rgba(255,255,255,0.04); overflow-y: auto; padding: 8px; }
+  .chat-row { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; cursor: pointer; transition: background 0.12s; }
+  .chat-row:hover { background: rgba(255,255,255,0.03); }
+  .chat-row--active { background: rgba(200,255,0,0.04); }
+  .chat-row__av { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; color: #fff; flex-shrink: 0; }
+  .chat-row__name { font-size: 13px; font-weight: 500; }
+  .chat-row__msg { font-size: 11px; color: rgba(255,255,255,0.3); }
+
+  .chat-panel { flex: 1; display: flex; flex-direction: column; }
+  .chat-panel__msgs { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 4px; }
+  .bubble { max-width: 55%; padding: 8px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; }
+  .bubble--own { align-self: flex-end; background: rgba(200,255,0,0.1); border: 1px solid rgba(200,255,0,0.12); border-radius: 14px 14px 4px 14px; }
+  .bubble--other { align-self: flex-start; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px 14px 14px 4px; }
+
+  .chat-panel__input { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.04); }
+  .chat-panel__field { flex: 1; padding: 10px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.85); font-size: 13px; outline: none; font-family: inherit; }
+  .chat-panel__send { width: 36px; height: 36px; border-radius: 50%; border: none; background: #c8ff00; color: #08060f; font-weight: 700; cursor: pointer; }
+
+  /* Command palette overlay */
+  .palette { position: fixed; inset: 0; z-index: 200; background: rgba(8,6,15,0.6); backdrop-filter: blur(12px); display: none; justify-content: center; padding-top: 15vh; }
+  .palette--open { display: flex; }
+  .palette__box { width: 500px; max-height: 380px; border-radius: 20px; background: rgba(18,16,28,0.95); border: 1px solid rgba(255,255,255,0.1); overflow: hidden; display: flex; flex-direction: column; animation: palIn 0.2s ease; }
+  @keyframes palIn { from { opacity: 0; transform: scale(0.96) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .palette__input { padding: 16px; border: none; background: none; color: rgba(255,255,255,0.85); font-size: 16px; outline: none; font-family: inherit; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .palette__results { flex: 1; overflow-y: auto; padding: 8px; }
+  .palette__item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: background 0.1s; }
+  .palette__item:hover, .palette__item--sel { background: rgba(200,255,0,0.06); }
+  .palette__item-icon { width: 20px; text-align: center; color: rgba(255,255,255,0.4); font-size: 14px; }
+  .palette__item-label { font-size: 13px; flex: 1; }
+  .palette__item-hint { font-size: 10px; color: rgba(255,255,255,0.25); }
+  .palette__footer { padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.04); font-size: 10px; color: rgba(255,255,255,0.2); }
+  .palette__key { padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); font-size: 9px; font-weight: 600; }
+
+  /* Floating voicebar */
+  .vbar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 16px; background: rgba(14,12,22,0.95); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(20px); z-index: 50; }
+  .vbar__dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); } 50% { box-shadow: 0 0 0 4px rgba(74,222,128,0); } }
+  .vbar__name { font-size: 12px; font-weight: 500; }
+  .vbar__btn { width: 28px; height: 28px; border-radius: 8px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); cursor: pointer; font-size: 11px; }
+  .vbar__btn--end { background: rgba(239,68,68,0.15); color: #ef4444; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar"><div class="titlebar__text">blesk</div></div>
+
+  <div class="main">
+    <!-- Floating command bar — ALWAYS visible -->
+    <div class="cmdbar">
+      <input class="cmdbar__input" placeholder="Поиск или команда... (Ctrl+K)" onfocus="openPalette()" />
+      <button class="cmdbar__btn cmdbar__btn--active" title="Чаты">💬</button>
+      <button class="cmdbar__btn" title="Каналы">📢</button>
+      <button class="cmdbar__btn" title="Голос">🎤</button>
+      <button class="cmdbar__btn" title="Настройки">⚙</button>
+      <div class="cmdbar__av">G</div>
+    </div>
+
+    <div class="view">
+      <div class="chat-split">
+        <div class="chat-list">
+          <div class="chat-row chat-row--active">
+            <div class="chat-row__av" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V</div>
+            <div>
+              <div class="chat-row__name">Vohog</div>
+              <div class="chat-row__msg">дарова</div>
+            </div>
+          </div>
+          <div class="chat-row">
+            <div class="chat-row__av" style="background: linear-gradient(135deg, hsl(200,70%,55%), hsl(240,60%,45%))">D</div>
+            <div>
+              <div class="chat-row__name">Den</div>
+              <div class="chat-row__msg">эксперимент завершён</div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-panel">
+          <div class="chat-panel__msgs">
+            <div class="bubble bubble--other">привет</div>
+            <div class="bubble bubble--own">дарова</div>
+            <div class="bubble bubble--other">как blesk?</div>
+            <div class="bubble bubble--own">делаю новый дизайн, command center</div>
+            <div class="bubble bubble--other">звучит круто</div>
+          </div>
+          <div class="chat-panel__input">
+            <input class="chat-panel__field" placeholder="Написать..." />
+            <button class="chat-panel__send">→</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voice bar (floating pill) -->
+  <div class="vbar">
+    <div class="vbar__dot"></div>
+    <div class="vbar__name">gemoglobin · 2</div>
+    <button class="vbar__btn">🎤</button>
+    <button class="vbar__btn">🎧</button>
+    <button class="vbar__btn vbar__btn--end">✕</button>
+  </div>
+</div>
+
+<!-- Command Palette -->
+<div class="palette" id="palette" onclick="closePalette()">
+  <div class="palette__box" onclick="event.stopPropagation()">
+    <input class="palette__input" placeholder="Что ищешь?" autofocus />
+    <div class="palette__results">
+      <div class="palette__item palette__item--sel">
+        <div class="palette__item-icon">💬</div>
+        <div class="palette__item-label">Vohog</div>
+        <div class="palette__item-hint">Чат</div>
+      </div>
+      <div class="palette__item">
+        <div class="palette__item-icon">💬</div>
+        <div class="palette__item-label">Den</div>
+        <div class="palette__item-hint">Чат</div>
+      </div>
+      <div class="palette__item">
+        <div class="palette__item-icon">📢</div>
+        <div class="palette__item-label">blesk - Новости</div>
+        <div class="palette__item-hint">Канал</div>
+      </div>
+      <div class="palette__item">
+        <div class="palette__item-icon">🎤</div>
+        <div class="palette__item-label">gemoglobin</div>
+        <div class="palette__item-hint">Голосовая</div>
+      </div>
+      <div class="palette__item">
+        <div class="palette__item-icon">⚙</div>
+        <div class="palette__item-label">Настройки</div>
+        <div class="palette__item-hint">Ctrl+,</div>
+      </div>
+      <div class="palette__item">
+        <div class="palette__item-icon">👤</div>
+        <div class="palette__item-label">Мой профиль</div>
+      </div>
+    </div>
+    <div class="palette__footer">
+      <span class="palette__key">Enter</span> выбрать &nbsp;
+      <span class="palette__key">Esc</span> закрыть &nbsp;
+      <span class="palette__key">↑↓</span> навигация
+    </div>
+  </div>
+</div>
+
+<script>
+function openPalette() { document.getElementById('palette').classList.add('palette--open'); }
+function closePalette() { document.getElementById('palette').classList.remove('palette--open'); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePalette();
+  if (e.ctrlKey && e.key === 'k') { e.preventDefault(); openPalette(); }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk concept D2 — Orbit v2 (голос = overlay)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); overflow: hidden; height: 100vh; }
+  .app { display: flex; height: 100vh; position: relative; }
+
+  /* Left rail */
+  .rail { width: 52px; display: flex; flex-direction: column; align-items: center; padding: 36px 0 12px; gap: 6px; border-right: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; }
+  .rail__btn { width: 36px; height: 36px; border-radius: 11px; border: none; background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.35); cursor: pointer; font-size: 15px; transition: all 0.2s; position: relative; display: flex; align-items: center; justify-content: center; }
+  .rail__btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); transform: scale(1.06); }
+  .rail__btn--active { background: rgba(200,255,0,0.1); color: #c8ff00; }
+  .rail__btn--active::before { content: ''; position: absolute; left: -7px; width: 3px; height: 18px; border-radius: 2px; background: #c8ff00; }
+  .rail__spacer { flex: 1; }
+  .rail__av { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%)); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; color: #000; }
+  .rail__badge { position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%; background: #ef4444; color: #fff; font-size: 7px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #08060f; }
+
+  /* Sidebar — orbit + recents */
+  .sidebar { width: 300px; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; }
+  .sidebar__search { margin: 8px 12px; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.85); font-size: 12px; outline: none; font-family: inherit; }
+  .sidebar__search:focus { border-color: rgba(200,255,0,0.12); }
+
+  /* Mini orbit */
+  .mini-orbit { display: flex; align-items: center; gap: 8px; padding: 8px 12px; overflow-x: auto; flex-shrink: 0; }
+  .mini-orbit::-webkit-scrollbar { display: none; }
+  .mini-orb { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; flex-shrink: 0; transition: all 0.2s; border: 2px solid transparent; position: relative; }
+  .mini-orb:hover { transform: scale(1.1); border-color: rgba(200,255,0,0.3); }
+  .mini-orb--active { border-color: #c8ff00; }
+  .mini-orb__dot { position: absolute; bottom: 0; right: 0; width: 9px; height: 9px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; }
+  .mini-orb__add { width: 40px; height: 40px; border-radius: 50%; border: 1px dashed rgba(255,255,255,0.1); background: none; color: rgba(255,255,255,0.2); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  /* Chat list */
+  .chatlist { flex: 1; overflow-y: auto; padding: 4px 8px; }
+  .chatlist__label { font-size: 9px; color: rgba(255,255,255,0.2); text-transform: uppercase; letter-spacing: 1px; padding: 8px 6px 4px; }
+  .ci { display: flex; align-items: center; gap: 10px; padding: 8px 8px; border-radius: 10px; cursor: pointer; transition: background 0.12s; }
+  .ci:hover { background: rgba(255,255,255,0.02); }
+  .ci--active { background: rgba(200,255,0,0.03); }
+  .ci__av { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #fff; flex-shrink: 0; }
+  .ci__name { font-size: 12px; font-weight: 500; }
+  .ci__msg { font-size: 10px; color: rgba(255,255,255,0.25); }
+  .ci__time { font-size: 9px; color: rgba(255,255,255,0.15); margin-left: auto; }
+  .ci__badge { background: #c8ff00; color: #08060f; font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 6px; margin-left: auto; }
+
+  /* Voice rooms inline */
+  .ci--voice { border: 1px solid rgba(200,255,0,0.06); }
+  .ci--voice .ci__av { border-radius: 10px; background: rgba(200,255,0,0.06) !important; font-size: 14px; }
+
+  /* Chat panel */
+  .chat { flex: 1; display: flex; flex-direction: column; }
+  .chat__head { height: 48px; display: flex; align-items: center; padding: 0 16px; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; }
+  .chat__title { font-size: 14px; font-weight: 600; }
+  .chat__online { font-size: 10px; color: #4ade80; }
+  .chat__fill { flex: 1; }
+  .chat__act { width: 30px; height: 30px; border-radius: 9px; border: none; background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.3); cursor: pointer; font-size: 13px; }
+  .chat__act:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); }
+  .chat__act--green { background: rgba(74,222,128,0.06); color: #4ade80; }
+
+  .chat__body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 3px; }
+  .m { max-width: 55%; padding: 7px 13px; border-radius: 14px; font-size: 13px; line-height: 1.5; }
+  .m--o { align-self: flex-end; background: rgba(200,255,0,0.07); border: 1px solid rgba(200,255,0,0.08); border-radius: 14px 14px 4px 14px; }
+  .m--i { align-self: flex-start; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); border-radius: 14px 14px 14px 4px; }
+
+  .chat__bar { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.03); }
+  .chat__inp { flex: 1; padding: 9px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.85); font-size: 13px; outline: none; font-family: inherit; }
+  .chat__go { width: 34px; height: 34px; border-radius: 50%; border: none; background: #c8ff00; color: #08060f; font-weight: 700; cursor: pointer; }
+
+  /* Voice overlay */
+  .vo { position: fixed; inset: 0; z-index: 200; background: rgba(8,6,15,0.88); backdrop-filter: blur(24px); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 32px; }
+  .vo--open { display: flex; }
+  .vo__title { font-size: 18px; font-weight: 700; }
+  .vo__sub { font-size: 12px; color: rgba(255,255,255,0.3); }
+  .vo__people { display: flex; gap: 24px; }
+  .vo__person { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .vo__pav { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 700; color: #fff; transition: box-shadow 0.3s; }
+  .vo__pav--talk { box-shadow: 0 0 0 4px rgba(74,222,128,0.3), 0 0 24px rgba(74,222,128,0.15); }
+  .vo__pname { font-size: 13px; }
+  .vo__pstatus { font-size: 10px; color: rgba(255,255,255,0.3); }
+  .vo__btns { display: flex; gap: 12px; }
+  .vo__b { width: 48px; height: 48px; border-radius: 14px; border: none; cursor: pointer; font-size: 18px; transition: all 0.15s; }
+  .vo__b--on { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); }
+  .vo__b--end { background: #ef4444; color: #fff; border-radius: 50%; width: 56px; height: 56px; }
+  .vo__min { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 10px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); cursor: pointer; font-size: 14px; }
+
+  /* Voice pill */
+  .vp { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); display: none; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 14px; background: rgba(14,12,22,0.95); border: 1px solid rgba(255,255,255,0.06); z-index: 100; cursor: pointer; }
+  .vp--vis { display: flex; }
+  .vp__dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; }
+  .vp__t { font-size: 11px; font-weight: 500; }
+  .vp__x { width: 22px; height: 22px; border-radius: 6px; border: none; background: rgba(239,68,68,0.15); color: #ef4444; cursor: pointer; font-size: 9px; }
+
+  .orbs { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  .ob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.1; animation: ob 8s ease-in-out infinite; }
+  .ob--1 { width: 280px; height: 280px; background: #c8ff00; top: -80px; right: -60px; }
+  .ob--2 { width: 220px; height: 220px; background: #00d4ff; bottom: 10%; left: -60px; animation-delay: -3s; }
+  @keyframes ob { 0%,100% { transform: translate(0,0); } 50% { transform: translate(15px,-20px); } }
+</style>
+</head>
+<body>
+<div class="orbs"><div class="ob ob--1"></div><div class="ob ob--2"></div></div>
+
+<div class="app">
+  <div class="rail">
+    <div class="rail__btn rail__btn--active">💬</div>
+    <div class="rail__btn">📢<div class="rail__badge">3</div></div>
+    <div class="rail__spacer"></div>
+    <div class="rail__btn">🔔<div class="rail__badge">1</div></div>
+    <div class="rail__btn">⚙</div>
+    <div class="rail__av">G</div>
+  </div>
+
+  <div class="sidebar">
+    <input class="sidebar__search" placeholder="Поиск... Ctrl+K" />
+
+    <!-- Mini orbit strip — horizontal scroll of friends -->
+    <div class="mini-orbit">
+      <div class="mini-orb mini-orb--active" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V<div class="mini-orb__dot"></div></div>
+      <div class="mini-orb" style="background: linear-gradient(135deg, hsl(200,70%,55%), hsl(240,60%,45%))">D</div>
+      <div class="mini-orb" style="background: linear-gradient(135deg, hsl(30,70%,55%), hsl(50,60%,45%))">A<div class="mini-orb__dot"></div></div>
+      <div class="mini-orb" style="background: linear-gradient(135deg, hsl(170,70%,55%), hsl(190,60%,45%))">M</div>
+      <div class="mini-orb" style="background: linear-gradient(135deg, hsl(60,70%,50%), hsl(80,60%,40%))">K<div class="mini-orb__dot"></div></div>
+      <button class="mini-orb__add">+</button>
+    </div>
+
+    <div class="chatlist">
+      <!-- Voice room inline -->
+      <div class="chatlist__label">Голосовые</div>
+      <div class="ci ci--voice" onclick="openVoice()">
+        <div class="ci__av">🎤</div>
+        <div><div class="ci__name" style="color:#c8ff00">gemoglobin</div><div class="ci__msg">2 участника</div></div>
+      </div>
+
+      <div class="chatlist__label">Сообщения</div>
+      <div class="ci ci--active">
+        <div class="ci__av" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V</div>
+        <div><div class="ci__name">Vohog</div><div class="ci__msg">дарова</div></div>
+        <div class="ci__time">14м</div>
+      </div>
+      <div class="ci">
+        <div class="ci__av" style="background: linear-gradient(135deg, hsl(200,70%,55%), hsl(240,60%,45%))">D</div>
+        <div><div class="ci__name">Den</div><div class="ci__msg">эксперимент (7 сек)</div></div>
+        <div class="ci__badge">1</div>
+      </div>
+      <div class="ci">
+        <div class="ci__av" style="background: linear-gradient(135deg, hsl(80,70%,45%), hsl(120,60%,35%))">B</div>
+        <div><div class="ci__name">blesk team</div><div class="ci__msg">обнова</div></div>
+        <div class="ci__time">2ч</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat">
+    <div class="chat__head">
+      <div class="chat__title">Vohog</div>
+      <div class="chat__online">в сети</div>
+      <div class="chat__fill"></div>
+      <button class="chat__act chat__act--green" onclick="openVoice()">📞</button>
+      <button class="chat__act chat__act--green">📹</button>
+      <button class="chat__act">📌</button>
+      <button class="chat__act">ℹ️</button>
+    </div>
+    <div class="chat__body">
+      <div class="m m--i">привет</div>
+      <div class="m m--o">дарова</div>
+      <div class="m m--i">как blesk?</div>
+      <div class="m m--o">orbit v2 — друзья в полоске сверху, голос = overlay</div>
+      <div class="m m--i">нравится, компактнее чем круг</div>
+      <div class="m m--o">да, и голосовые комнаты прямо в списке чатов</div>
+    </div>
+    <div class="chat__bar">
+      <input class="chat__inp" placeholder="Написать Vohog..." />
+      <button class="chat__go">→</button>
+    </div>
+  </div>
+</div>
+
+<!-- Voice overlay -->
+<div class="vo" id="vo">
+  <button class="vo__min" onclick="closeVoice()">—</button>
+  <div class="vo__title">gemoglobin</div>
+  <div class="vo__sub">Голосовая комната</div>
+  <div class="vo__people">
+    <div class="vo__person">
+      <div class="vo__pav vo__pav--talk" style="background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%))">G</div>
+      <div class="vo__pname">gotblesk</div>
+      <div class="vo__pstatus">говорит</div>
+    </div>
+    <div class="vo__person">
+      <div class="vo__pav" style="background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%))">V</div>
+      <div class="vo__pname">Vohog</div>
+      <div class="vo__pstatus">слушает</div>
+    </div>
+  </div>
+  <div class="vo__btns">
+    <button class="vo__b vo__b--on">🎤</button>
+    <button class="vo__b vo__b--on">🎧</button>
+    <button class="vo__b vo__b--on">📹</button>
+    <button class="vo__b vo__b--on">🖥</button>
+    <button class="vo__b vo__b--end" onclick="disconnectVoice()">✕</button>
+  </div>
+</div>
+
+<!-- Voice pill -->
+<div class="vp" id="vp" onclick="openVoice()">
+  <div class="vp__dot"></div>
+  <div class="vp__t">gemoglobin · 2</div>
+  <button class="vp__x" onclick="event.stopPropagation(); disconnectVoice()">✕</button>
+</div>
+
+<script>
+let inv = false;
+function openVoice() { inv = true; document.getElementById('vo').classList.add('vo--open'); document.getElementById('vp').classList.remove('vp--vis'); }
+function closeVoice() { document.getElementById('vo').classList.remove('vo--open'); if (inv) document.getElementById('vp').classList.add('vp--vis'); }
+function disconnectVoice() { inv = false; document.getElementById('vp').classList.remove('vp--vis'); document.getElementById('vo').classList.remove('vo--open'); }
+</script>
+</body>
+</html>
