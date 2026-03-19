@@ -21,7 +21,7 @@ import ChannelBrowser from '../channels/ChannelBrowser';
 import ChannelView from '../channels/ChannelView';
 import UpdateBanner from '../ui/UpdateBanner';
 import SpotlightSearch from '../ui/SpotlightSearch';
-import { soundTabSwitch, soundWindowOpen, soundWindowClose, soundClick } from '../../utils/sounds';
+import { soundTabSwitch, soundWindowOpen, soundWindowClose, soundVoiceJoin, soundVoiceLeave, soundRingtoneStop } from '../../utils/sounds';
 import { useSocket } from '../../hooks/useSocket';
 import { useVoice } from '../../hooks/useVoice';
 import { useChatStore } from '../../store/chatStore';
@@ -170,6 +170,8 @@ export default function MainScreen({ user, onLogout }) {
   const handleAcceptCall = useCallback(() => {
     const call = useCallStore.getState().incomingCall;
     if (!call) return;
+    soundRingtoneStop();
+    soundVoiceJoin();
     useCallStore.getState().acceptCall();
     const socket = socketRef.current;
     if (socket) socket.emit('call:accept', { chatId: call.chatId });
@@ -179,6 +181,7 @@ export default function MainScreen({ user, onLogout }) {
   const handleDeclineCall = useCallback(() => {
     const call = useCallStore.getState().incomingCall;
     if (!call) return;
+    soundRingtoneStop();
     const socket = socketRef.current;
     if (socket) socket.emit('call:decline', { chatId: call.chatId });
     useCallStore.getState().clearIncomingCall();
@@ -263,6 +266,7 @@ export default function MainScreen({ user, onLogout }) {
           ) : (
             <VoiceRoomList
               onJoinRoom={(roomId, roomName) => {
+                soundVoiceJoin();
                 joinRoom(roomId, roomName);
                 setVoiceExpanded(true);
               }}
@@ -357,7 +361,7 @@ export default function MainScreen({ user, onLogout }) {
       {voiceRoomId && (
         <VoiceControls
           onLeave={() => {
-            // Если в звонке — завершить звонок
+            soundVoiceLeave();
             if (activeCall) {
               leaveCall(activeCall.chatId);
               useCallStore.getState().clearActiveCall();

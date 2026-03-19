@@ -10,11 +10,12 @@ const app = express();
 const httpServer = createServer(app);
 
 // Socket.io с CORS
+// CORS origin: Electron отправляет origin: null, поэтому разрешаем все origins
+// Безопасность обеспечивается JWT авторизацией, не CORS
+const corsOrigin = process.env.CLIENT_URL || '*';
+
 const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST'],
-  },
+  cors: { origin: corsOrigin, methods: ['GET', 'POST'] },
 });
 
 const path = require('path');
@@ -24,7 +25,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   crossOriginEmbedderPolicy: false,
 }));
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: '10mb' }));
 
 // Статика — аватары и загрузки (разрешаем cross-origin для Electron)
