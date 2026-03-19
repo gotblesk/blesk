@@ -8,6 +8,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { getCurrentUserId } from '../utils/auth';
 import { decryptMessage, fetchPublicKey } from '../utils/cryptoService';
 import API_URL from '../config';
+import { soundReceive, soundNotification, soundRingtoneStart, soundRingtoneStop, soundCallAccepted, soundCallEnded } from '../utils/sounds';
 
 export function useSocket() {
   const socketRef = useRef(null);
@@ -70,7 +71,10 @@ export function useSocket() {
       } else {
         useChatStore.getState().receiveMessage(msg);
 
-        // Уведомления и звуки для входящих сообщений
+        // Звук входящего сообщения
+        soundReceive();
+
+        // Уведомления для входящих сообщений
         const s = useSettingsStore.getState();
         if (s.notifications && s.notifMessages && document.hidden) {
           try {
@@ -103,14 +107,18 @@ export function useSocket() {
     // ═══ Уведомления ═══
     socket.on('notification:new', (notification) => {
       useNotificationStore.getState().addNotification(notification);
+      soundNotification(notification.fromUser?.hue || 0);
     });
 
     // ═══ Звонки ═══
     socket.on('call:incoming', (data) => {
       useCallStore.getState().setIncomingCall(data);
+      soundRingtoneStart();
     });
 
     socket.on('call:accepted', ({ chatId, userId: uid }) => {
+      soundRingtoneStop();
+      soundCallAccepted();
       const store = useCallStore.getState();
       if (store.activeCall?.chatId === chatId) {
         store.addCallParticipant(uid);
@@ -128,11 +136,13 @@ export function useSocket() {
     });
 
     socket.on('call:missed', ({ chatId }) => {
+      soundRingtoneStop();
       useCallStore.getState().clearActiveCall();
       useCallStore.getState().clearIncomingCall();
     });
 
     socket.on('call:cancelled', () => {
+      soundRingtoneStop();
       useCallStore.getState().clearIncomingCall();
     });
 
@@ -141,6 +151,8 @@ export function useSocket() {
     });
 
     socket.on('call:ended', () => {
+      soundRingtoneStop();
+      soundCallEnded();
       useCallStore.getState().clearActiveCall();
     });
 
