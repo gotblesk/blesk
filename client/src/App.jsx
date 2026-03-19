@@ -4,6 +4,11 @@ import AuthScreen from './components/auth/AuthScreen';
 import MainScreen from './components/main/MainScreen';
 import UpdateToast from './components/ui/UpdateToast';
 import { ensureKeyPair, clearCache } from './utils/cryptoService';
+import { useChatStore } from './store/chatStore';
+import { useNotificationStore } from './store/notificationStore';
+import { useVoiceStore } from './store/voiceStore';
+import { useCallStore } from './store/callStore';
+import { useChannelStore } from './store/channelStore';
 import API_URL from './config';
 
 export default function App() {
@@ -129,7 +134,13 @@ export default function App() {
 
   const handleLogout = () => {
     setUser(null);
-    clearCache(); // Очистить крипто-кэш предыдущего пользователя
+    clearCache();
+    // Очистить все Zustand stores
+    useChatStore.setState({ chats: [], messages: {}, activeChats: new Set(), onlineUsers: [], userStatuses: {}, typingUsers: {} });
+    useNotificationStore.setState({ notifications: [] });
+    useVoiceStore.getState().clearCurrentRoom();
+    useCallStore.setState({ incomingCall: null, activeCall: null });
+    useChannelStore.setState({ channels: [], myChannels: [], posts: {} });
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
   };

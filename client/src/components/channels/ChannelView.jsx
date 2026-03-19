@@ -47,14 +47,16 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         },
         body: JSON.stringify({ text: trimmed }),
       });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.message) {
-        useChannelStore.getState().receivePost(data.message);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Не удалось отправить пост');
+        return;
       }
+      // Не вызываем receivePost — сокет message:new с isChannel придёт автоматически
       setText('');
     } catch (err) {
       console.error('Ошибка отправки поста:', err);
+      alert('Ошибка сети');
     } finally {
       setSending(false);
     }

@@ -70,6 +70,49 @@
   font-size: 10px;
 }
 
+/* Кнопка полного экрана */
+.video-grid__fullscreen {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.video-grid__tile:hover .video-grid__fullscreen {
+  opacity: 1;
+}
+
+.video-grid__fullscreen:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Fullscreen state */
+.video-grid__tile:fullscreen {
+  border-radius: 0;
+  background: #000;
+}
+
+.video-grid__tile:fullscreen .video-grid__video {
+  object-fit: contain;
+}
+
+.video-grid__tile:fullscreen .video-grid__fullscreen {
+  opacity: 1;
+}
+
 /* Светлая тема */
 [data-theme="light"] .video-grid__tile {
   border-color: rgba(0, 0, 0, 0.1);

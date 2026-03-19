@@ -476,6 +476,9 @@ export function useVoice(socketRef) {
     }
     gainNodesRef.current.clear();
 
+    // Очистить маппинг consumer→user (фикс stale volume)
+    consumerUserMapRef.current.clear();
+
     // Закрыть transports
     if (sendTransportRef.current) {
       sendTransportRef.current.close();
@@ -649,6 +652,7 @@ export function useVoice(socketRef) {
       const producer = await sendTransportRef.current.produce({
         track,
         appData: { type: 'camera' },
+        encodings: [{ maxBitrate: 1500000 }],
         codecOptions: { videoGoogleStartBitrate: 1000 },
       });
       cameraProducerRef.current = producer;
@@ -690,12 +694,19 @@ export function useVoice(socketRef) {
             mandatory: {
               chromeMediaSource: 'desktop',
               chromeMediaSourceId: sources[0].id,
+              minWidth: 1280,
+              maxWidth: 1920,
+              minHeight: 720,
+              maxHeight: 1080,
+              maxFrameRate: 15,
             },
           },
         });
       } else {
         // Браузер — стандартный getDisplayMedia
-        stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { max: 15 } },
+        });
       }
       localScreenStreamRef.current = stream;
       const track = stream.getVideoTracks()[0];
@@ -703,6 +714,8 @@ export function useVoice(socketRef) {
       const producer = await sendTransportRef.current.produce({
         track,
         appData: { type: 'screen' },
+        encodings: [{ maxBitrate: 2500000 }],
+        codecOptions: { videoGoogleStartBitrate: 1000 },
       });
       screenProducerRef.current = producer;
       useVoiceStore.getState().setScreenShareOn(true);
