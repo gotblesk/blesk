@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Paperclip } from 'lucide-react';
 import AttachmentPreview from './AttachmentPreview';
+import { soundSend } from '../../utils/sounds';
 import './ChatInput.css';
 
 export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTypingStop, replyTo, onCancelReply }) {
@@ -68,9 +69,16 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     setUploadProgress({});
   }, []);
 
+  const [ripple, setRipple] = useState(false);
+
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed && !pendingFiles.length) return;
+
+    // Glass ripple + звук
+    soundSend();
+    setRipple(true);
+    setTimeout(() => setRipple(false), 500);
 
     if (pendingFiles.length > 0) {
       onSendFiles?.(pendingFiles, trimmed);
@@ -146,7 +154,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
 
   return (
     <div
-      className={`chat-input ${dragOver ? 'chat-input--drag-over' : ''}`}
+      className={`chat-input ${dragOver ? 'chat-input--drag-over' : ''} ${ripple ? 'chat-input--ripple' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

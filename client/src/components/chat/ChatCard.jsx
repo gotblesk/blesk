@@ -1,5 +1,9 @@
+import { useState, useCallback } from 'react';
+import { BellOff, Pin, Trash2, UserX } from 'lucide-react';
 import Avatar from '../ui/Avatar';
+import ContextMenu from '../ui/ContextMenu';
 import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
+import { useChatStore } from '../../store/chatStore';
 import './ChatCard.css';
 
 function GroupAvatar({ participants }) {
@@ -20,6 +24,7 @@ function GroupAvatar({ participants }) {
 }
 
 export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, cardRef }) {
+  const [ctxMenu, setCtxMenu] = useState(null);
   const isGroup = chat.type === 'group';
   const user = chat.otherUser;
 
@@ -38,46 +43,75 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
   };
 
+  const handleContextMenu = useCallback((e) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleMarkRead = useCallback(() => {
+    useChatStore.getState().markAsRead(chat.id);
+  }, [chat.id]);
+
   const displayName = isGroup ? chat.name : (user?.username || chat.name);
 
-  return (
-    <div
-      className={`chat-row ${isOpen ? 'chat-row--open' : ''}`}
-      onClick={onClick}
-      ref={cardRef}
-    >
-      <div className="chat-row__avatar-wrap">
-        {isGroup ? (
-          <GroupAvatar participants={chat.participants} />
-        ) : (
-          <Avatar user={user} size="md" showOnline isOnline={isOnline} userStatus={userStatus} />
-        )}
-      </div>
+  const ctxItems = [
+    { label: 'Отметить прочитанным', icon: <Pin size={14} strokeWidth={1.5} />, onClick: handleMarkRead },
+    { divider: true },
+    { label: 'Без звука', icon: <BellOff size={14} strokeWidth={1.5} />, onClick: () => {} },
+    { divider: true },
+    { label: isGroup ? 'Покинуть группу' : 'Удалить чат', icon: <Trash2 size={14} strokeWidth={1.5} />, danger: true, onClick: () => {} },
+  ];
 
-      <div className="chat-row__info">
-        <div className="chat-row__name">{displayName}</div>
-        <div className="chat-row__preview">
-          {chat.lastMessage ? (
-            <>
-              {isGroup && chat.lastMessage.username && (
-                <span className="chat-row__author">{chat.lastMessage.username}: </span>
-              )}
-              {chat.lastMessage.text}
-            </>
+  return (
+    <>
+      <div
+        className={`chat-row ${isOpen ? 'chat-row--open' : ''}`}
+        onClick={onClick}
+        onContextMenu={handleContextMenu}
+        ref={cardRef}
+      >
+        <div className="chat-row__avatar-wrap">
+          {isGroup ? (
+            <GroupAvatar participants={chat.participants} />
           ) : (
-            <span className="chat-row__empty-msg">Нет сообщений</span>
+            <Avatar user={user} size="md" showOnline isOnline={isOnline} userStatus={userStatus} />
+          )}
+        </div>
+
+        <div className="chat-row__info">
+          <div className="chat-row__name">{displayName}</div>
+          <div className="chat-row__preview">
+            {chat.lastMessage ? (
+              <>
+                {isGroup && chat.lastMessage.username && (
+                  <span className="chat-row__author">{chat.lastMessage.username}: </span>
+                )}
+                {chat.lastMessage.text}
+              </>
+            ) : (
+              <span className="chat-row__empty-msg">Нет сообщений</span>
+            )}
+          </div>
+        </div>
+
+        <div className="chat-row__meta">
+          {chat.lastMessage && (
+            <span className="chat-row__time">{formatTime(chat.lastMessage.createdAt)}</span>
+          )}
+          {chat.unreadCount > 0 && (
+            <span className="chat-row__badge">{chat.unreadCount}</span>
           )}
         </div>
       </div>
 
-      <div className="chat-row__meta">
-        {chat.lastMessage && (
-          <span className="chat-row__time">{formatTime(chat.lastMessage.createdAt)}</span>
-        )}
-        {chat.unreadCount > 0 && (
-          <span className="chat-row__badge">{chat.unreadCount}</span>
-        )}
-      </div>
-    </div>
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={ctxItems}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
+    </>
   );
 }

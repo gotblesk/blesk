@@ -1,5 +1,23 @@
 import { create } from 'zustand';
 
+// Горячие клавиши по умолчанию (пользователь может настроить)
+const DEFAULT_HOTKEYS = {
+  search: 'Ctrl+K',
+  tabChats: 'Ctrl+1',
+  tabVoice: 'Ctrl+2',
+  tabChannels: 'Ctrl+3',
+  tabFriends: 'Ctrl+4',
+  toggleMute: 'Ctrl+Shift+M',
+  settings: 'Ctrl+,',
+};
+
+function loadHotkeys() {
+  try {
+    const saved = localStorage.getItem('blesk-hotkeys');
+    return saved ? { ...DEFAULT_HOTKEYS, ...JSON.parse(saved) } : { ...DEFAULT_HOTKEYS };
+  } catch { return { ...DEFAULT_HOTKEYS }; }
+}
+
 // Значения по умолчанию
 const DEFAULTS = {
   sounds: true,
@@ -28,6 +46,22 @@ function loadSettings() {
 
 export const useSettingsStore = create((set, get) => ({
   ...loadSettings(),
+  hotkeys: loadHotkeys(),
+
+  // Установить горячую клавишу
+  setHotkey: (action, combo) => {
+    set((state) => {
+      const next = { ...state.hotkeys, [action]: combo };
+      localStorage.setItem('blesk-hotkeys', JSON.stringify(next));
+      return { hotkeys: next };
+    });
+  },
+
+  // Сбросить горячие клавиши на дефолт
+  resetHotkeys: () => {
+    localStorage.removeItem('blesk-hotkeys');
+    set({ hotkeys: { ...DEFAULT_HOTKEYS } });
+  },
 
   // Переключить boolean-настройку
   toggle: (key) => {

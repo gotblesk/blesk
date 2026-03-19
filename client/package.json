@@ -1,6 +1,6 @@
 {
   "name": "blesk-client",
-  "version": "0.5.5-beta",
+  "version": "0.5.6-beta",
   "description": "blesk — приватный десктопный мессенджер. Клиент (Electron + React).",
   "private": true,
   "author": "gotblesk",
