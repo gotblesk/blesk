@@ -6,7 +6,8 @@ const { generateTokens, verifyRefreshToken } = require('../middleware/auth');
 const { generateCode, sendVerificationCode } = require('../services/email');
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'blesk-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET не задан'); process.exit(1); }
 
 // Раздельные rate-limit Maps для email-кодов по эндпоинтам (email → timestamp)
 // Чтобы resend-code, forgot-password и change-password/request не мешали друг другу

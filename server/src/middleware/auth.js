@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'blesk-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET не задан в .env — сервер не может запуститься безопасно');
+  process.exit(1);
+}
 
 // Проверка JWT токена (только access, refresh не принимается)
 function authenticate(req, res, next) {

@@ -1,5 +1,6 @@
 const prisma = require('../db');
 const { createRouter, createWebRtcTransport } = require('../services/mediasoup');
+const { activeCalls } = require('./callHandler');
 // In-memory хранилище голосовых комнат
 // roomId → { router, peers: Map<userId, PeerData> }
 const voiceRooms = new Map();
@@ -96,6 +97,10 @@ function voiceHandler(io, socket) {
 
       if (isCall) {
         const chatId = roomId.slice(5); // убрать 'call:'
+        // Проверить что звонок действительно активен
+        if (!activeCalls.has(chatId)) {
+          return callback?.({ error: 'Нет активного звонка' });
+        }
         const participant = await prisma.roomParticipant.findUnique({
           where: { roomId_userId: { roomId: chatId, userId } },
         });

@@ -83,14 +83,16 @@ button, input, a, textarea, select {
   outline: none;
 }
 
-/* Фокус для клавиатурной навигации */
+/* Фокус для клавиатурной навигации (только Tab, не клик) */
 button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--accent);
+a:focus-visible {
+  outline: 1.5px solid rgba(200, 255, 0, 0.4);
   outline-offset: 2px;
+}
+
+[data-theme="light"] button:focus-visible,
+[data-theme="light"] a:focus-visible {
+  outline-color: rgba(74, 140, 0, 0.5);
 }
 
 /* Без анимаций для пользователей с вестибулярными расстройствами */

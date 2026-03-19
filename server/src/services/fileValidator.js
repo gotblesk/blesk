@@ -9,6 +9,7 @@ const ALLOWED_MIME = new Set([
 
 const BLOCKED_EXT = new Set([
   '.exe', '.bat', '.cmd', '.sh', '.ps1', '.msi', '.dll', '.com', '.vbs', '.jar', '.scr',
+  '.svg', '.html', '.htm', '.xhtml', '.xml', '.php', '.jsp', '.asp', '.cgi',
 ]);
 
 const SIZE_LIMITS = {
@@ -31,6 +32,13 @@ async function validateFile(filePath, originalname, mimetype, size) {
   fs.closeSync(fd);
 
   const detected = await fileType.fromBuffer(buffer);
+
+  // Если magic bytes не определены — не доверять клиентскому mimetype
+  // Исключение: text/plain (текстовые файлы не имеют magic bytes)
+  if (!detected && mimetype !== 'text/plain') {
+    return { ok: false, error: 'Не удалось определить тип файла' };
+  }
+
   const actualMime = detected?.mime || mimetype;
 
   if (!ALLOWED_MIME.has(actualMime)) return { ok: false, error: 'Формат файла не поддерживается' };
@@ -47,4 +55,9 @@ async function validateFile(filePath, originalname, mimetype, size) {
   return { ok: true, mime: actualMime };
 }
 
-module.exports = { validateFile, ALLOWED_MIME };
+// Санитизация имени файла
+function sanitizeFilename(name) {
+  return name.replace(/[^a-zA-Z0-9а-яА-ЯёЁ._\- ]/g, '_').slice(0, 255);
+}
+
+module.exports = { validateFile, sanitizeFilename, ALLOWED_MIME };

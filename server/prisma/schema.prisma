@@ -104,6 +104,7 @@ model RoomParticipant {
   user       User     @relation(fields: [userId], references: [id])
 
   @@unique([roomId, userId])
+  @@index([userId])
   @@map("room_participants")
 }
 
