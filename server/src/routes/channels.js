@@ -330,7 +330,7 @@ router.delete('/:id/subscribe', async (req, res) => {
 
     if (deleted.count > 0) {
       // Декрементировать счётчик (не ниже 0)
-      await prisma.$executeRaw`UPDATE "ChannelMeta" SET "subscriberCount" = MAX("subscriberCount" - 1, 0) WHERE "roomId" = ${id}`;
+      await prisma.$executeRaw`UPDATE "channel_meta" SET "subscriber_count" = GREATEST("subscriber_count" - 1, 0) WHERE "room_id" = ${id}`;
 
       // Отключить сокеты пользователя от комнаты канала
       const io = req.app.locals.io;
