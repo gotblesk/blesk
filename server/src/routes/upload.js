@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
-const { validateFile } = require('../services/fileValidator');
+const { validateFile, sanitizeFilename } = require('../services/fileValidator');
 
 const router = Router();
 
@@ -88,7 +88,7 @@ router.post('/channels/:channelId/upload', authenticate, upload.single('file'), 
           type: 'media',
           attachments: {
             create: [{
-              filename: req.file.originalname,
+              filename: sanitizeFilename(req.file.originalname),
               storedName,
               mimeType: validation.mime,
               size: req.file.size,
@@ -195,7 +195,7 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
         replyToId: replyToId || undefined,
         attachments: {
           create: [{
-            filename: req.file.originalname,
+            filename: sanitizeFilename(req.file.originalname),
             storedName,
             mimeType: validation.mime,
             size: req.file.size,

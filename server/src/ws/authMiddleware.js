@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'blesk-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET не задан в .env');
+  process.exit(1);
+}
 
 function socketAuth(socket, next) {
   const token = socket.handshake.auth?.token;

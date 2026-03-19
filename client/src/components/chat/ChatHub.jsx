@@ -15,6 +15,14 @@ export default function ChatHub({ onOpenChat, visible, openChatIds = [] }) {
     loadChats();
   }, [loadChats]);
 
+  // Очищаем stale refs для удалённых чатов
+  useEffect(() => {
+    const ids = new Set(chats.map((c) => c.id));
+    for (const key of Object.keys(cardRefs.current)) {
+      if (!ids.has(key)) delete cardRefs.current[key];
+    }
+  }, [chats]);
+
   const filtered = search
     ? chats.filter((c) =>
         (c.otherUser?.username || c.name || '').toLowerCase().includes(search.toLowerCase())

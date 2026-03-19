@@ -79,7 +79,11 @@ function chatHandler(io, socket) {
       const newStatus = savedStatus === 'dnd' ? 'dnd' : 'online';
       socket.userStatus = newStatus;
 
-      socket.broadcast.emit('user:online', { userId, status: newStatus });
+      // Оповестить только тех, кто в одних комнатах (не broadcast всем)
+      const rooms = Array.from(socket.rooms).filter((r) => r !== socket.id);
+      for (const roomId of rooms) {
+        socket.to(roomId).emit('user:online', { userId, status: newStatus });
+      }
 
       await prisma.user.update({
         where: { id: userId },
@@ -311,17 +315,23 @@ function chatHandler(io, socket) {
 
   // Disconnect
   socket.on('disconnect', async () => {
-    // Очистить все таймауты набора текста для этого пользователя
-    for (const [key, timeoutId] of typingTimeouts) {
-      if (key.startsWith(`${userId}:`)) {
-        clearTimeout(timeoutId);
-        typingTimeouts.delete(key);
-      }
+    // Очистить таймауты набора текста (собираем ключи чтобы не мутировать Map)
+    const keysToDelete = [];
+    for (const [key] of typingTimeouts) {
+      if (key.startsWith(`${userId}:`)) keysToDelete.push(key);
+    }
+    for (const key of keysToDelete) {
+      clearTimeout(typingTimeouts.get(key));
+      typingTimeouts.delete(key);
     }
 
     // Если невидимка — не оповещать об офлайне (для других и так не был виден)
     if (socket.userStatus !== 'invisible') {
-      socket.broadcast.emit('user:offline', { userId });
+      // Оповестить только тех, кто в одних комнатах
+      const rooms = Array.from(socket.rooms).filter((r) => r !== socket.id);
+      for (const roomId of rooms) {
+        socket.to(roomId).emit('user:offline', { userId });
+      }
     }
     try {
       // Сохраняем offline только если не invisible/dnd (чтобы сохранить статус при переподключении)
