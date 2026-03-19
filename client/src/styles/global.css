@@ -95,6 +95,17 @@ a:focus-visible {
   outline-color: rgba(74, 140, 0, 0.5);
 }
 
+/* Idle "дыхание" glass-панелей (body.app-idle добавляется через AnimatedBackground) */
+.app-idle .nav-shelf,
+.app-idle .chat-input {
+  animation: glassBreathe 4s ease-in-out infinite;
+}
+
+@keyframes glassBreathe {
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 1; }
+}
+
 /* Без анимаций для пользователей с вестибулярными расстройствами */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

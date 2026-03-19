@@ -73,9 +73,12 @@ export default function ChatHub({ onOpenChat, visible, openChatIds = [] }) {
         </div>
       ) : (
         <div className="chat-hub__empty">
-          <div className="chat-hub__empty-icon"><MessageCircle size={32} strokeWidth={1.5} /></div>
+          <div className="chat-hub__empty-icon"><MessageCircle size={40} strokeWidth={1.2} /></div>
           <div className="chat-hub__empty-title">Нет чатов</div>
-          <div className="chat-hub__empty-text">Начните общение — нажмите +</div>
+          <div className="chat-hub__empty-text">Добавьте друзей и начните общение</div>
+          <button className="chat-hub__empty-cta" onClick={() => setShowCreateModal(true)}>
+            Начать чат
+          </button>
         </div>
       )}
 

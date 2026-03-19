@@ -12,6 +12,11 @@
   filter: blur(60px);
   opacity: 0.4;
   animation: orb-float 8s ease-in-out infinite;
+  /* Parallax от курсора */
+  --parallax-x: 0px;
+  --parallax-y: 0px;
+  translate: var(--parallax-x) var(--parallax-y);
+  transition: translate 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animated-bg__orb--green {
@@ -47,7 +52,7 @@
   66% { transform: translate(-15px, 20px) scale(0.95); }
 }
 
-/* Subtle mode — для основного экрана */
+/* Subtle mode */
 .animated-bg--subtle .animated-bg__orb {
   opacity: 0.15;
   filter: blur(80px);

@@ -3,6 +3,8 @@
   flex-direction: column;
   padding: 8px 16px 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+  overflow: hidden;
 }
 
 .chat-input__row {
@@ -56,6 +58,25 @@
 
 .chat-input__send:active {
   transform: scale(0.95);
+}
+
+/* Glass ripple при отправке */
+.chat-input--ripple::after {
+  content: '';
+  position: absolute;
+  bottom: 50%;
+  right: 40px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200, 255, 0, 0.15) 0%, transparent 70%);
+  animation: glassRipple 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes glassRipple {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(20); opacity: 0; }
 }
 
 /* Reply preview */

@@ -20,6 +20,8 @@ import IncomingCallOverlay from '../voice/IncomingCallOverlay';
 import ChannelBrowser from '../channels/ChannelBrowser';
 import ChannelView from '../channels/ChannelView';
 import UpdateBanner from '../ui/UpdateBanner';
+import SpotlightSearch from '../ui/SpotlightSearch';
+import { soundTabSwitch, soundWindowOpen, soundWindowClose, soundClick } from '../../utils/sounds';
 import { useSocket } from '../../hooks/useSocket';
 import { useVoice } from '../../hooks/useVoice';
 import { useChatStore } from '../../store/chatStore';
@@ -27,6 +29,7 @@ import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import useWindowManager from '../../hooks/useWindowManager';
+import { useHotkeys } from '../../hooks/useHotkeys';
 import './MainScreen.css';
 
 // Зоны свайпа (px от края)
@@ -42,6 +45,7 @@ export default function MainScreen({ user, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(user);
+  const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [voiceExpanded, setVoiceExpanded] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState(null);
   const theme = useSettingsStore((s) => s.theme);
@@ -126,6 +130,23 @@ export default function MainScreen({ user, onLogout }) {
     };
   }, []);
 
+  // Переключение табов со звуком
+  const switchTab = useCallback((tab) => {
+    if (tab !== activeTab) soundTabSwitch();
+    setActiveTab(tab);
+  }, [activeTab]);
+
+  // Горячие клавиши
+  useHotkeys({
+    search: () => setSpotlightOpen(true),
+    tabChats: () => switchTab('chats'),
+    tabVoice: () => switchTab('voice'),
+    tabChannels: () => switchTab('channels'),
+    tabFriends: () => switchTab('friends'),
+    toggleMute: () => useVoiceStore.getState().toggleMute(),
+    settings: () => switchTab('settings'),
+  });
+
   const totalUnread = chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   // Открыть чат из ChatHub (с morph-анимацией)
@@ -133,12 +154,14 @@ export default function MainScreen({ user, onLogout }) {
     if (windows[chatId]) {
       focusWindow(chatId);
     } else {
+      soundWindowOpen();
       openWindow(chatId, rect);
     }
   }, [windows, focusWindow, openWindow]);
 
   // Закрыть окно чата
   const handleCloseChat = useCallback((chatId) => {
+    soundWindowClose();
     closeWindow(chatId);
     useChatStore.getState().closeChat(chatId);
   }, [closeWindow]);
@@ -202,7 +225,7 @@ export default function MainScreen({ user, onLogout }) {
       <div className="main-nav">
         <NavShelf
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={switchTab}
           unread={{ chats: totalUnread }}
         />
         <NotificationBell onOpenChat={handleOpenChat} />
@@ -323,6 +346,14 @@ export default function MainScreen({ user, onLogout }) {
       <UpdateBanner socketRef={socketRef} />
 
       {/* Голосовая панель — видна на всех табах */}
+      {/* Spotlight Search (Ctrl+K) */}
+      <SpotlightSearch
+        open={spotlightOpen}
+        onClose={() => setSpotlightOpen(false)}
+        onNavigate={switchTab}
+        onOpenChat={(chatId) => handleOpenChat(chatId, null)}
+      />
+
       {voiceRoomId && (
         <VoiceControls
           onLeave={() => {

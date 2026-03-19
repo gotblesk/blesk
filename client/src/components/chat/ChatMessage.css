@@ -2,29 +2,33 @@
   display: flex;
   flex-direction: column;
   max-width: 55%;
-  animation: msgAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   position: relative;
 }
 
-@keyframes msgAppear {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
+/* Своё — растёт из правого нижнего */
 .chat-message--own {
   align-self: flex-end;
   align-items: flex-end;
+  animation: msgGrowOwn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: bottom right;
 }
 
+/* Чужое — растёт из левого нижнего */
 .chat-message--other {
   align-self: flex-start;
   align-items: flex-start;
+  animation: msgGrowOther 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: bottom left;
+}
+
+@keyframes msgGrowOwn {
+  from { opacity: 0; transform: scale(0.85) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes msgGrowOther {
+  from { opacity: 0; transform: scale(0.85) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 /* Glass Minimal bubbles */
