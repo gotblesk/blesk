@@ -14,7 +14,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    width: 350px;
+    width: 600px;
     height: 400px;
     overflow: hidden;
     background: transparent;
@@ -27,57 +27,146 @@
     width: 100%;
     height: 100%;
     position: relative;
-    background: rgba(8, 6, 15, 0.94);
+    background: #08060f;
     border-radius: 20px;
     overflow: hidden;
   }
 
-  /* ═══════ CANVAS ═══════ */
-  #metaball-canvas {
+  /* ═══════ METABALL BACKGROUND ═══════ */
+  .orbs {
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: 20px;
+    z-index: 0;
+    filter: blur(60px);
   }
 
-  /* ═══════ OVERLAY ═══════ */
-  .overlay {
+  .orb {
     position: absolute;
-    inset: 0;
+    border-radius: 50%;
+    will-change: transform;
+  }
+
+  .orb-1 {
+    width: 200px;
+    height: 200px;
+    background: rgba(200, 255, 0, 0.2);
+    top: -30px;
+    left: -40px;
+    animation: orbFloat1 8s ease-in-out infinite;
+  }
+
+  .orb-2 {
+    width: 160px;
+    height: 160px;
+    background: rgba(200, 255, 0, 0.15);
+    bottom: -20px;
+    right: -30px;
+    animation: orbFloat2 10s ease-in-out infinite;
+  }
+
+  .orb-3 {
+    width: 120px;
+    height: 120px;
+    background: rgba(0, 212, 255, 0.1);
+    top: 50%;
+    left: 60%;
+    transform: translate(-50%, -50%);
+    animation: orbFloat3 7s ease-in-out infinite;
+  }
+
+  .orb-4 {
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 0, 106, 0.07);
+    bottom: 20%;
+    left: 15%;
+    animation: orbFloat4 9s ease-in-out infinite;
+  }
+
+  @keyframes orbFloat1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, 20px) scale(1.1); }
+    66% { transform: translate(-10px, 30px) scale(0.95); }
+  }
+
+  @keyframes orbFloat2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-25px, -15px) scale(1.05); }
+    66% { transform: translate(15px, -25px) scale(0.9); }
+  }
+
+  @keyframes orbFloat3 {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-40%, -60%) scale(1.15); }
+  }
+
+  @keyframes orbFloat4 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(20px, -10px) scale(1.1); }
+  }
+
+  /* ═══════ CONTENT ═══════ */
+  .content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    pointer-events: none;
-    z-index: 2;
   }
 
-  /* Logo */
+  /* ═══════ LOGO ═══════ */
   .logo {
-    width: 64px;
-    height: 64px;
+    width: 80px;
+    height: 80px;
     opacity: 0;
-    transform: scale(0.8);
-    filter: drop-shadow(0 0 0 rgba(200, 255, 0, 0));
-    transition: none;
+    animation: logoAppear 1s ease-out 0.3s forwards, logoPulse 3s ease-in-out 1.3s infinite;
   }
 
-  /* Tagline */
+  @keyframes logoAppear {
+    from {
+      opacity: 0;
+      transform: scale(0.7);
+      filter: drop-shadow(0 0 0 rgba(200, 255, 0, 0));
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+      filter: drop-shadow(0 0 25px rgba(200, 255, 0, 0.25));
+    }
+  }
+
+  @keyframes logoPulse {
+    0%, 100% {
+      transform: scale(1);
+      filter: drop-shadow(0 0 25px rgba(200, 255, 0, 0.25));
+    }
+    50% {
+      transform: scale(1.05);
+      filter: drop-shadow(0 0 35px rgba(200, 255, 0, 0.4));
+    }
+  }
+
+  /* ═══════ TAGLINE ═══════ */
   .tagline {
-    font-size: 9px;
+    font-size: 10px;
     color: rgba(255, 255, 255, 0.2);
-    letter-spacing: 3px;
+    letter-spacing: 3.5px;
     text-transform: uppercase;
-    margin-top: 12px;
+    margin-top: 14px;
     opacity: 0;
+    animation: fadeIn 0.6s ease-out 1s forwards;
   }
 
   /* ═══════ LOADING DOTS ═══════ */
   .dots {
     display: flex;
     gap: 8px;
-    margin-top: 24px;
+    margin-top: 28px;
+    opacity: 0;
+    animation: fadeIn 0.4s ease-out 0.5s forwards;
   }
 
   .dot {
@@ -96,22 +185,30 @@
     50% { opacity: 1; transform: scale(1.2); background: rgba(200, 255, 0, 1); }
   }
 
-  /* Status */
+  /* ═══════ STATUS ═══════ */
   .status {
     font-size: 9px;
     color: rgba(255, 255, 255, 0.2);
-    margin-top: 8px;
+    margin-top: 10px;
     transition: opacity 0.3s;
     min-height: 14px;
+    opacity: 0;
+    animation: fadeIn 0.4s ease-out 0.5s forwards;
   }
 
-  /* Version */
+  /* ═══════ VERSION ═══════ */
   .version {
     position: absolute;
-    bottom: 12px;
+    bottom: 14px;
     font-size: 8px;
-    color: rgba(200, 255, 0, 0.25);
+    color: rgba(200, 255, 0, 0.2);
     opacity: 0;
+    animation: fadeIn 0.4s ease-out 1.2s forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   /* ═══════ EXIT ANIMATION ═══════ */
@@ -130,21 +227,27 @@
   /* ═══════ REDUCED MOTION ═══════ */
   @media (prefers-reduced-motion: reduce) {
     .dot { animation: none; opacity: 0.5; }
-    .logo { opacity: 1 !important; transform: scale(1) !important; }
-    .tagline { opacity: 1 !important; }
-    .version { opacity: 1 !important; }
+    .logo { animation: none; opacity: 1; filter: drop-shadow(0 0 25px rgba(200, 255, 0, 0.25)); }
+    .tagline, .dots, .status, .version { animation: none; opacity: 1; }
+    .orb { animation: none; }
   }
 </style>
 </head>
 <body>
 <div id="splash">
-  <canvas id="metaball-canvas"></canvas>
+  <!-- Metaball background orbs -->
+  <div class="orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="orb orb-4"></div>
+  </div>
 
-  <div class="overlay">
-    <img class="logo" id="logo" src="../dist/blesk.png" alt="blesk"
-         onerror="this.src='../public/blesk.png'"
-    >
-    <div class="tagline" id="tagline">твой блеск. твои правила.</div>
+  <!-- Content -->
+  <div class="content">
+    <img class="logo" src="../dist/blesk.png" alt="blesk"
+         onerror="this.src='../public/blesk.png'">
+    <div class="tagline">твой блеск. твои правила.</div>
     <div class="dots">
       <div class="dot"></div>
       <div class="dot"></div>
@@ -156,21 +259,15 @@
   </div>
 </div>
 
-<script src="./lib/gsap.min.js"></script>
 <script>
 (function() {
   'use strict';
-
-  // ═══════ REDUCED MOTION CHECK ═══════
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ═══════ VERSION ═══════
   try {
     const ver = window.splashApi?.version?.();
     if (ver) document.getElementById('version').textContent = 'v' + ver;
-  } catch(e) {
-    document.getElementById('version').textContent = '';
-  }
+  } catch(e) {}
 
   // ═══════ STATUS ROTATION ═══════
   const STATUSES = [
@@ -198,7 +295,6 @@
     }
 
     let text = STATUSES[statusIdx];
-    // Easter eggs: 10% chance on steps 1-3 (indices 1,2,3)
     if (statusIdx >= 1 && statusIdx <= 3 && Math.random() < 0.1) {
       text = EASTER_EGGS[Math.floor(Math.random() * EASTER_EGGS.length)];
     }
@@ -210,305 +306,12 @@
     }, 150);
   }, 600);
 
-  // ═══════ WEBGL SETUP ═══════
-  const canvas = document.getElementById('metaball-canvas');
-  const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false, antialias: false });
+  // ═══════ READY SIGNAL ═══════
+  // Send ready after statuses finish (~3s)
+  setTimeout(() => {
+    window.splashApi?.ready();
+  }, 3000);
 
-  if (!gl) {
-    // Fallback: just show logo immediately
-    document.getElementById('logo').style.cssText = 'opacity:1;transform:scale(1)';
-    document.getElementById('tagline').style.opacity = '1';
-    document.getElementById('version').style.opacity = '1';
-    setTimeout(() => window.splashApi?.ready(), 1000);
-    return;
-  }
-
-  // DPR clamped to 1.5
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-  canvas.width = 350 * dpr;
-  canvas.height = 400 * dpr;
-
-  // ═══════ SHADERS ═══════
-  const vsSource = `
-    attribute vec2 aPosition;
-    varying vec2 vUv;
-    void main() {
-      vUv = aPosition * 0.5 + 0.5;
-      gl_Position = vec4(aPosition, 0.0, 1.0);
-    }
-  `;
-
-  const fsSource = `
-    precision highp float;
-    uniform float uTime;
-    uniform vec2 uResolution;
-    uniform vec2 uBlobs[5];
-    uniform float uRadii[5];
-    uniform float uSplit;
-    varying vec2 vUv;
-
-    // Simplex-like noise
-    float hash(vec2 p) {
-      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-    }
-
-    float noise(vec2 p) {
-      vec2 i = floor(p);
-      vec2 f = fract(p);
-      f = f * f * (3.0 - 2.0 * f);
-      float a = hash(i);
-      float b = hash(i + vec2(1.0, 0.0));
-      float c = hash(i + vec2(0.0, 1.0));
-      float d = hash(i + vec2(1.0, 1.0));
-      return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-    }
-
-    float fbm(vec2 p) {
-      float v = 0.0;
-      float a = 0.5;
-      for (int i = 0; i < 3; i++) {
-        v += a * noise(p);
-        p *= 2.0;
-        a *= 0.5;
-      }
-      return v;
-    }
-
-    // Smooth min for metaball blending
-    float smin(float a, float b, float k) {
-      float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-      return mix(b, a, h) - k * h * (1.0 - h);
-    }
-
-    void main() {
-      vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / min(uResolution.x, uResolution.y);
-
-      // Noise displacement on UV (continuous deformation)
-      float n = fbm(uv * 3.0 + uTime * 0.4) * 0.06;
-      vec2 distortedUv = uv + vec2(n, n * 0.8);
-
-      // SDF metaball field
-      float field = 1e5;
-      for (int i = 0; i < 5; i++) {
-        vec2 blobPos = uBlobs[i];
-        float r = uRadii[i];
-
-        // Add per-blob noise deformation
-        float blobNoise = fbm(distortedUv * 5.0 + float(i) * 1.7 + uTime * 0.3) * 0.03;
-        float d = length(distortedUv - blobPos) - r - blobNoise;
-        field = smin(field, d, 0.08);
-      }
-
-      // Color and shading
-      vec4 col = vec4(0.0);
-
-      if (field < 0.01) {
-        // Inside blob — compute normal for lighting
-        vec2 e = vec2(0.002, 0.0);
-        float dx = field; // approximate
-        vec3 normal = normalize(vec3(
-          smin(length(distortedUv + e.xy) - 0.1, length(distortedUv - e.xy) - 0.1, 0.08) - field,
-          smin(length(distortedUv + e.yx) - 0.1, length(distortedUv - e.yx) - 0.1, 0.08) - field,
-          0.15
-        ));
-
-        // Phong-like lighting
-        vec3 lightDir = normalize(vec3(0.3, 0.6, 1.0));
-        float diff = max(dot(normal, lightDir), 0.0) * 0.6 + 0.4;
-        float spec = pow(max(dot(reflect(-lightDir, normal), vec3(0.0, 0.0, 1.0)), 0.0), 16.0) * 0.5;
-
-        // Base color: #c8ff00
-        vec3 baseColor = vec3(0.784, 1.0, 0.0);
-        vec3 shadedColor = baseColor * diff + vec3(1.0) * spec;
-
-        // Edge darkening
-        float edgeFade = smoothstep(0.01, -0.02, field);
-        col = vec4(shadedColor * edgeFade, edgeFade * 0.85);
-      } else if (field < 0.06) {
-        // Glow around blobs
-        float glow = smoothstep(0.06, 0.0, field) * 0.3;
-        col = vec4(0.784, 1.0, 0.0, glow * 0.4);
-      }
-
-      // Dithering
-      float dither = hash(gl_FragCoord.xy + uTime) / 255.0;
-      col.rgb += (dither - 0.5 / 255.0);
-
-      gl_FragColor = col;
-    }
-  `;
-
-  // Compile shader
-  function createShader(type, source) {
-    const shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      console.error('Shader error:', gl.getShaderInfoLog(shader));
-      return null;
-    }
-    return shader;
-  }
-
-  const vs = createShader(gl.VERTEX_SHADER, vsSource);
-  const fs = createShader(gl.FRAGMENT_SHADER, fsSource);
-
-  if (!vs || !fs) {
-    // Shader compilation failed — show logo immediately
-    document.getElementById('logo').style.cssText = 'opacity:1;transform:scale(1)';
-    document.getElementById('tagline').style.opacity = '1';
-    document.getElementById('version').style.opacity = '1';
-    setTimeout(() => window.splashApi?.ready(), 1000);
-    return;
-  }
-
-  const program = gl.createProgram();
-  gl.attachShader(program, vs);
-  gl.attachShader(program, fs);
-  gl.linkProgram(program);
-  gl.useProgram(program);
-
-  // Fullscreen quad
-  const verts = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
-
-  const aPos = gl.getAttribLocation(program, 'aPosition');
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-
-  // Uniforms
-  const uTime = gl.getUniformLocation(program, 'uTime');
-  const uResolution = gl.getUniformLocation(program, 'uResolution');
-  const uBlobs = [];
-  const uRadii = [];
-  for (let i = 0; i < 5; i++) {
-    uBlobs.push(gl.getUniformLocation(program, `uBlobs[${i}]`));
-    uRadii.push(gl.getUniformLocation(program, `uRadii[${i}]`));
-  }
-  const uSplit = gl.getUniformLocation(program, 'uSplit');
-
-  gl.uniform2f(uResolution, canvas.width, canvas.height);
-
-  // ═══════ BLOB STATE ═══════
-  // Start positions: edges of the window (normalized -0.5 to 0.5)
-  const blobState = {
-    positions: [
-      { x: -0.4, y: -0.35 },  // bottom-left
-      { x: 0.4, y: -0.3 },    // bottom-right
-      { x: -0.35, y: 0.35 },  // top-left
-      { x: 0.35, y: 0.3 },    // top-right
-      { x: 0.0, y: -0.4 },    // bottom-center
-    ],
-    radii: [0, 0, 0, 0, 0],   // start at 0, grow in
-    split: 0,
-  };
-
-  // Target radii
-  const TARGET_RADII = [0.07, 0.06, 0.065, 0.055, 0.06];
-
-  // ═══════ GSAP TIMELINE ═══════
-  if (!reducedMotion) {
-    const tl = gsap.timeline();
-
-    // Phase 1 (0-0.8s): Blobs appear — grow from 0
-    blobState.radii.forEach((_, i) => {
-      tl.to(blobState.radii, {
-        [i]: TARGET_RADII[i],
-        duration: 0.4,
-        ease: 'back.out(2)',
-      }, i * 0.15);
-    });
-
-    // Phase 2 (0.8-1.5s): Blobs fly to center
-    tl.to(blobState.positions[0], { x: -0.06, y: -0.03, duration: 0.7, ease: 'power2.inOut' }, 0.8);
-    tl.to(blobState.positions[1], { x: 0.06, y: -0.02, duration: 0.7, ease: 'power2.inOut' }, 0.85);
-    tl.to(blobState.positions[2], { x: -0.04, y: 0.04, duration: 0.7, ease: 'power2.inOut' }, 0.9);
-    tl.to(blobState.positions[3], { x: 0.04, y: 0.03, duration: 0.7, ease: 'power2.inOut' }, 0.95);
-    tl.to(blobState.positions[4], { x: 0.0, y: -0.04, duration: 0.7, ease: 'power2.inOut' }, 0.85);
-
-    // Phase 3 (1.5-2.0s): All merged at center, pulsing (handled by shader noise)
-    tl.to(blobState.positions[0], { x: -0.02, y: 0.0, duration: 0.5, ease: 'power1.inOut' }, 1.5);
-    tl.to(blobState.positions[1], { x: 0.02, y: 0.0, duration: 0.5, ease: 'power1.inOut' }, 1.5);
-    tl.to(blobState.positions[2], { x: -0.01, y: 0.01, duration: 0.5, ease: 'power1.inOut' }, 1.5);
-    tl.to(blobState.positions[3], { x: 0.01, y: 0.01, duration: 0.5, ease: 'power1.inOut' }, 1.5);
-    tl.to(blobState.positions[4], { x: 0.0, y: -0.01, duration: 0.5, ease: 'power1.inOut' }, 1.5);
-
-    // Phase 4 (2.0-2.8s): Split + logo reveal
-    tl.to(blobState, { split: 1, duration: 0.8, ease: 'power2.inOut' }, 2.0);
-
-    // Move blob halves apart
-    tl.to(blobState.positions[0], { x: -0.18, duration: 0.8, ease: 'power2.inOut' }, 2.0);
-    tl.to(blobState.positions[2], { x: -0.16, duration: 0.8, ease: 'power2.inOut' }, 2.0);
-    tl.to(blobState.positions[1], { x: 0.18, duration: 0.8, ease: 'power2.inOut' }, 2.0);
-    tl.to(blobState.positions[3], { x: 0.16, duration: 0.8, ease: 'power2.inOut' }, 2.0);
-
-    // Logo reveal
-    const logo = document.getElementById('logo');
-    const tagline = document.getElementById('tagline');
-    const version = document.getElementById('version');
-
-    tl.to(logo, {
-      opacity: 1,
-      scale: 1,
-      filter: 'drop-shadow(0 0 20px rgba(200, 255, 0, 0.25))',
-      duration: 0.5,
-      ease: 'back.out(1.5)',
-    }, 2.2);
-
-    // Phase 5 (2.8+): Tagline + version
-    tl.to(tagline, { opacity: 1, duration: 0.4 }, 2.6);
-    tl.to(version, { opacity: 1, duration: 0.4 }, 2.8);
-
-    // IPC: ready at 2.0s
-    tl.call(() => {
-      window.splashApi?.ready();
-    }, [], 2.0);
-
-  } else {
-    // Reduced motion: show everything immediately
-    blobState.radii = [...TARGET_RADII];
-    blobState.positions.forEach(p => { p.x = 0; p.y = 0; });
-    blobState.split = 1;
-
-    document.getElementById('logo').style.cssText = 'opacity:1;transform:scale(1);filter:drop-shadow(0 0 20px rgba(200,255,0,0.25))';
-    document.getElementById('tagline').style.opacity = '1';
-    document.getElementById('version').style.opacity = '1';
-
-    setTimeout(() => window.splashApi?.ready(), 500);
-  }
-
-  // ═══════ RENDER LOOP ═══════
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-  let startTime = performance.now();
-
-  function render() {
-    const t = (performance.now() - startTime) / 1000;
-
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    gl.uniform1f(uTime, t);
-    gl.uniform1f(uSplit, blobState.split);
-
-    // Update blob uniforms
-    for (let i = 0; i < 5; i++) {
-      const p = blobState.positions[i];
-      // Add split offset
-      const splitOffset = i < 3 ? -blobState.split * 0.05 : blobState.split * 0.05;
-      gl.uniform2f(uBlobs[i], p.x + splitOffset, p.y);
-      gl.uniform1f(uRadii[i], blobState.radii[i]);
-    }
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    requestAnimationFrame(render);
-  }
-
-  render();
 })();
 </script>
 </body>

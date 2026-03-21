@@ -18,7 +18,7 @@ let splashWindow;
 let mainWindow;
 
 // Размеры
-const SPLASH_WIDTH = 350;
+const SPLASH_WIDTH = 600;
 const SPLASH_HEIGHT = 400;
 const MAIN_WIDTH = 1280;
 const MAIN_HEIGHT = 800;
