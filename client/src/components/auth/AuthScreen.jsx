@@ -446,10 +446,12 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
 
   return (
     <div className={`auth-screen ${collapsing ? 'auth-screen--collapsing' : ''}`}>
+      {/* Metaball background behind everything */}
+      <MetaballBackground subtle />
+
       <div className="auth-split">
-        {/* LEFT: Metaball World */}
+        {/* LEFT: Logo */}
         <div className="auth-left">
-          <MetaballBackground subtle />
           <div className="auth-logo">
             <img src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
             <div className="auth-tagline">твой блеск. твои правила.</div>
