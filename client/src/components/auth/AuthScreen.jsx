@@ -1,134 +1,123 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Mail, KeyRound } from 'lucide-react';
-import Glass from '../ui/Glass';
+import { AnimatePresence, motion } from 'framer-motion';
+import { User, Lock, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
+import gsap from 'gsap';
+import GravityCard from './GravityCard';
+import PasswordCard from './PasswordCard';
+import OrganicDivider from './OrganicDivider';
+import MetaballBackground from '../ui/MetaballBackground';
+import { getPasswordScore } from './StrengthDots';
 import useAppVersion from '../../hooks/useAppVersion';
 import API_URL from '../../config';
 import './AuthScreen.css';
 
 export default function AuthScreen({ onLogin, collapsing, pendingVerification, onVerified }) {
   const appVersion = useAppVersion();
-  const [phase, setPhase] = useState(pendingVerification ? 'verify' : 'intro');
-  const [tab, setTab] = useState('login');
+
+  // Phase: intro → form
+  const [phase, setPhase] = useState(pendingVerification ? 'form' : 'intro');
+
+  // Mode: login | register | verify | forgot | forgot-code | forgot-reset
+  const [mode, setMode] = useState(pendingVerification ? 'verify' : 'login');
+
+  // Form state
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [errorKey, setErrorKey] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [shaking, setShaking] = useState(false);
-  const cardRef = useRef(null);
-  const indicatorRef = useRef(null);
-  const tabsRef = useRef(null);
 
-  // Видимость паролей
+  // Password visibility
   const [showLoginPw, setShowLoginPw] = useState(false);
-  const [showRegConfirmPw, setShowRegConfirmPw] = useState(false);
-  const [showForgotNewPw, setShowForgotNewPw] = useState(false);
-  const [showForgotConfirmPw, setShowForgotConfirmPw] = useState(false);
 
-  // Для экрана восстановления пароля
+  // Forgot password state
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'code' | 'newpass'
   const [forgotCode, setForgotCode] = useState('');
   const [forgotNewPassword, setForgotNewPassword] = useState('');
   const [forgotConfirm, setForgotConfirm] = useState('');
   const [forgotError, setForgotError] = useState('');
+  const [forgotErrorKey, setForgotErrorKey] = useState(0);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotCodeDigits, setForgotCodeDigits] = useState(['', '', '', '', '', '']);
   const forgotCodeRefs = useRef([]);
 
-  // Для экрана верификации
-  const [verifyEmail, setVerifyEmail] = useState(pendingVerification?.user?.email || '');
-  const [verifyToken, setVerifyToken] = useState(pendingVerification?.token || '');
-  const [verifyRefresh, setVerifyRefresh] = useState(pendingVerification?.refreshToken || '');
-  const [verifyUser, setVerifyUser] = useState(pendingVerification?.user || null);
+  // Verify state
+  const [verifyEmail] = useState(pendingVerification?.user?.email || '');
+  const [verifyToken] = useState(pendingVerification?.token || '');
+  const [verifyRefresh] = useState(pendingVerification?.refreshToken || '');
+  const [verifyUser] = useState(pendingVerification?.user || null);
   const [codeDigits, setCodeDigits] = useState(['', '', '', '', '', '']);
   const [resendTimer, setResendTimer] = useState(60);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState('');
+  const [verifyErrorKey, setVerifyErrorKey] = useState(0);
   const codeRefs = useRef([]);
 
-  // Бренд-интро → exit → форма (пропускаем если уже на verify)
+  // Brand intro → form
   useEffect(() => {
     if (pendingVerification) return;
-    const exitTimer = setTimeout(() => setPhase('exiting'), 2500);
-    const formTimer = setTimeout(() => setPhase('form'), 3300);
-    return () => {
-      clearTimeout(exitTimer);
-      clearTimeout(formTimer);
-    };
+    const timer = setTimeout(() => setPhase('form'), 2500);
+    return () => clearTimeout(timer);
   }, [pendingVerification]);
 
-  // Таймер повторной отправки
+  // Resend timer
   useEffect(() => {
-    if (phase !== 'verify' || resendTimer <= 0) return;
+    if (mode !== 'verify' || resendTimer <= 0) return;
     const t = setTimeout(() => setResendTimer((p) => p - 1), 1000);
     return () => clearTimeout(t);
-  }, [phase, resendTimer]);
+  }, [mode, resendTimer]);
 
-  // Сила пароля
-  const getPasswordStrength = (pass) => {
-    if (!pass) return 0;
-    let score = 0;
-    if (pass.length >= 8) score++;
-    if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score++;
-    if (/\d/.test(pass) && /[^a-zA-Z0-9]/.test(pass)) score++;
-    return score;
+  // Trigger error with key increment for re-shake
+  const triggerError = (msg) => {
+    setError(msg);
+    setErrorKey((k) => k + 1);
   };
 
-  const strengthLevel = getPasswordStrength(password);
-  const strengthColors = ['var(--danger)', '#febc2e', 'var(--accent)'];
-  const strengthLabels = ['Слабый', 'Средний', 'Надёжный'];
-
-  // Позиция индикатора табов
-  useEffect(() => {
-    if (!tabsRef.current || !indicatorRef.current) return;
-    const tabs = tabsRef.current.querySelectorAll('.auth-tab');
-    const activeIdx = tab === 'login' ? 0 : 1;
-    const activeTab = tabs[activeIdx];
-    if (activeTab) {
-      indicatorRef.current.style.left = `${activeTab.offsetLeft}px`;
-      indicatorRef.current.style.width = `${activeTab.offsetWidth}px`;
-    }
-  }, [tab, phase]);
-
-  const triggerShake = () => {
-    setShaking(true);
-    setTimeout(() => setShaking(false), 500);
+  const triggerForgotError = (msg) => {
+    setForgotError(msg);
+    setForgotErrorKey((k) => k + 1);
   };
 
+  const triggerVerifyError = (msg) => {
+    setVerifyError(msg);
+    setVerifyErrorKey((k) => k + 1);
+  };
+
+  // ═══════ VALIDATION ═══════
   const validate = () => {
     if (username.length < 3) {
-      setError('Имя пользователя — минимум 3 символа');
-      triggerShake();
+      triggerError('Имя пользователя — минимум 3 символа');
       return false;
     }
     if (password.length < 8) {
-      setError('Пароль — минимум 8 символов');
-      triggerShake();
+      triggerError('Пароль — минимум 8 символов');
       return false;
     }
-    if (tab === 'register') {
+    if (mode === 'register') {
       if (!email) {
-        setError('Email обязателен');
-        triggerShake();
+        triggerError('Email обязателен');
         return false;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setError('Некорректный email');
-        triggerShake();
+        triggerError('Некорректный email');
+        return false;
+      }
+      if (getPasswordScore(password) < 3) {
+        triggerError('Пароль слишком простой');
         return false;
       }
       if (password !== confirmPassword) {
-        setError('Пароли не совпадают');
-        triggerShake();
+        triggerError('Пароли не совпадают');
         return false;
       }
     }
     return true;
   };
 
+  // ═══════ LOGIN / REGISTER ═══════
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -136,7 +125,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
 
     setLoading(true);
     try {
-      const isRegister = tab === 'register';
+      const isRegister = mode === 'register';
       const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
       const body = isRegister
         ? { username, password, email }
@@ -151,34 +140,28 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Ошибка');
-        triggerShake();
+        triggerError(data.error || 'Ошибка');
         return;
       }
 
-      // Если email не подтверждён — экран верификации
+      // Email not verified → verify screen
       if (data.user.email && data.user.emailVerified === false) {
-        setVerifyEmail(data.user.email);
-        setVerifyToken(data.token);
-        setVerifyRefresh(data.refreshToken);
-        setVerifyUser(data.user);
-        setResendTimer(60);
         setCodeDigits(['', '', '', '', '', '']);
         setVerifyError('');
-        setPhase('verify');
+        setResendTimer(60);
+        setMode('verify');
         return;
       }
 
       onLogin(data);
     } catch {
-      setError('Не удалось подключиться к серверу');
-      triggerShake();
+      triggerError('Не удалось подключиться к серверу');
     } finally {
       setLoading(false);
     }
   };
 
-  // Верификация кода
+  // ═══════ VERIFY CODE ═══════
   const submitCode = useCallback(async (digits) => {
     const code = digits.join('');
     if (code.length !== 6) return;
@@ -198,15 +181,12 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       const data = await res.json();
 
       if (!res.ok) {
-        setVerifyError(data.error || 'Ошибка');
-        setShaking(true);
-        setTimeout(() => setShaking(false), 500);
+        triggerVerifyError(data.error || 'Ошибка');
         setCodeDigits(['', '', '', '', '', '']);
         setTimeout(() => codeRefs.current[0]?.focus(), 100);
         return;
       }
 
-      // Верификация прошла — входим
       if (pendingVerification && onVerified) {
         onVerified();
       } else {
@@ -217,15 +197,13 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
         });
       }
     } catch {
-      setVerifyError('Не удалось подключиться к серверу');
+      triggerVerifyError('Не удалось подключиться к серверу');
     } finally {
       setVerifyLoading(false);
     }
-  }, [verifyToken, verifyRefresh, verifyUser, onLogin]);
+  }, [verifyToken, verifyRefresh, verifyUser, onLogin, pendingVerification, onVerified]);
 
-  // Обработка ввода цифр кода
   const handleCodeInput = (index, value) => {
-    // Если вставляют 6 цифр сразу (paste)
     if (value.length > 1) {
       const digits = value.replace(/\D/g, '').slice(0, 6).split('');
       const newCode = [...codeDigits];
@@ -235,9 +213,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       setCodeDigits(newCode);
       const nextIdx = Math.min(index + digits.length, 5);
       codeRefs.current[nextIdx]?.focus();
-      if (newCode.every((d) => d !== '')) {
-        submitCode(newCode);
-      }
+      if (newCode.every((d) => d !== '')) submitCode(newCode);
       return;
     }
 
@@ -245,14 +221,8 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     const newCode = [...codeDigits];
     newCode[index] = digit;
     setCodeDigits(newCode);
-
-    if (digit && index < 5) {
-      codeRefs.current[index + 1]?.focus();
-    }
-
-    if (newCode.every((d) => d !== '')) {
-      submitCode(newCode);
-    }
+    if (digit && index < 5) codeRefs.current[index + 1]?.focus();
+    if (newCode.every((d) => d !== '')) submitCode(newCode);
   };
 
   const handleCodeKeyDown = (index, e) => {
@@ -261,7 +231,6 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     }
   };
 
-  // Повторная отправка
   const handleResend = async () => {
     if (resendTimer > 0) return;
     try {
@@ -275,20 +244,18 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       setResendTimer(60);
       setVerifyError('');
     } catch {
-      setVerifyError('Не удалось отправить код');
+      triggerVerifyError('Не удалось отправить код');
     }
   };
 
-  // Восстановление пароля — отправка кода
+  // ═══════ FORGOT PASSWORD ═══════
   const handleForgotSend = async () => {
     if (!forgotEmail) {
-      setForgotError('Введите email');
-      triggerShake();
+      triggerForgotError('Введите email');
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail)) {
-      setForgotError('Некорректный email');
-      triggerShake();
+      triggerForgotError('Некорректный email');
       return;
     }
     setForgotLoading(true);
@@ -301,22 +268,19 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       });
       const data = await res.json();
       if (!res.ok) {
-        setForgotError(data.error || 'Ошибка');
-        triggerShake();
+        triggerForgotError(data.error || 'Ошибка');
         return;
       }
       setForgotError('');
-      setForgotStep('code');
+      setMode('forgot-code');
       setForgotCodeDigits(['', '', '', '', '', '']);
     } catch {
-      setForgotError('Не удалось подключиться к серверу');
-      triggerShake();
+      triggerForgotError('Не удалось подключиться к серверу');
     } finally {
       setForgotLoading(false);
     }
   };
 
-  // Восстановление пароля — ввод кода (просто сохраняем и переходим к newpass)
   const handleForgotCodeInput = (index, value) => {
     if (value.length > 1) {
       const digits = value.replace(/\D/g, '').slice(0, 6).split('');
@@ -329,7 +293,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       forgotCodeRefs.current[nextIdx]?.focus();
       if (newCode.every((d) => d !== '')) {
         setForgotCode(newCode.join(''));
-        setForgotStep('newpass');
+        setMode('forgot-reset');
       }
       return;
     }
@@ -337,12 +301,10 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     const newCode = [...forgotCodeDigits];
     newCode[index] = digit;
     setForgotCodeDigits(newCode);
-    if (digit && index < 5) {
-      forgotCodeRefs.current[index + 1]?.focus();
-    }
+    if (digit && index < 5) forgotCodeRefs.current[index + 1]?.focus();
     if (newCode.every((d) => d !== '')) {
       setForgotCode(newCode.join(''));
-      setForgotStep('newpass');
+      setMode('forgot-reset');
     }
   };
 
@@ -352,17 +314,14 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     }
   };
 
-  // Восстановление пароля — сброс
   const handleForgotReset = async (e) => {
     e.preventDefault();
     if (forgotNewPassword.length < 8) {
-      setForgotError('Пароль — минимум 8 символов');
-      triggerShake();
+      triggerForgotError('Пароль — минимум 8 символов');
       return;
     }
     if (forgotNewPassword !== forgotConfirm) {
-      setForgotError('Пароли не совпадают');
-      triggerShake();
+      triggerForgotError('Пароли не совпадают');
       return;
     }
     setForgotLoading(true);
@@ -379,16 +338,13 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       });
       const data = await res.json();
       if (!res.ok) {
-        setForgotError(data.error || 'Ошибка');
-        triggerShake();
+        triggerForgotError(data.error || 'Ошибка');
         return;
       }
       setForgotSuccess(true);
       setTimeout(() => {
-        setPhase('form');
-        setTab('login');
+        switchMode('login');
         setForgotEmail('');
-        setForgotStep('email');
         setForgotCode('');
         setForgotNewPassword('');
         setForgotConfirm('');
@@ -397,477 +353,493 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
         setForgotCodeDigits(['', '', '', '', '', '']);
       }, 2000);
     } catch {
-      setForgotError('Не удалось подключиться к серверу');
-      triggerShake();
+      triggerForgotError('Не удалось подключиться к серверу');
     } finally {
       setForgotLoading(false);
     }
   };
 
-  const switchTab = (newTab) => {
-    setTab(newTab);
+  // ═══════ MODE SWITCHING ═══════
+  const switchMode = (newMode) => {
+    setMode(newMode);
     setError('');
-    setPassword('');
-    setConfirmPassword('');
-    setEmail('');
+    setErrorKey(0);
+    if (newMode === 'login' || newMode === 'register') {
+      setPassword('');
+      setConfirmPassword('');
+      setEmail('');
+    }
   };
 
-  const EyeToggle = ({ visible, onToggle }) => (
-    <button
-      type="button"
-      className="auth-eye-toggle"
-      onClick={onToggle}
-      tabIndex={-1}
-    >
-      {visible ? (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-          <line x1="1" y1="1" x2="23" y2="23"/>
-        </svg>
-      ) : (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-      )}
-    </button>
-  );
+  // ═══════ BUTTON RIPPLE ═══════
+  const handleRipple = (e) => {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-  // Маскировка email
+    const ripple = document.createElement('div');
+    ripple.style.cssText = `
+      position: absolute; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.25), transparent);
+      width: 0; height: 0; left: ${x}px; top: ${y}px;
+      transform: translate(-50%, -50%); pointer-events: none;
+    `;
+    btn.appendChild(ripple);
+
+    gsap.to(ripple, {
+      width: rect.width * 2.5,
+      height: rect.width * 2.5,
+      opacity: 0,
+      duration: 0.5,
+      ease: 'power2.out',
+      onComplete: () => ripple.remove(),
+    });
+  };
+
+  // ═══════ MASKED EMAIL ═══════
   const maskedEmail = verifyEmail
     ? verifyEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + '•'.repeat(b.length) + c)
     : '';
 
+  // ═══════ CODE GRID RENDERER ═══════
+  const renderCodeGrid = (digits, refs, onInput, onKeyDown, disabled = false) => (
+    <div className="verify-code-grid">
+      {digits.map((digit, i) => (
+        <input
+          key={i}
+          ref={(el) => (refs.current[i] = el)}
+          className={`verify-code-cell ${digit ? 'filled' : ''}`}
+          type="text"
+          inputMode="numeric"
+          maxLength={6}
+          value={digit}
+          onChange={(e) => onInput(i, e.target.value)}
+          onKeyDown={(e) => onKeyDown(i, e)}
+          onFocus={(e) => e.target.select()}
+          autoFocus={i === 0}
+          disabled={disabled}
+        />
+      ))}
+    </div>
+  );
+
+  // ═══════ RENDER ═══════
+
+  // Brand intro
+  if (phase === 'intro') {
+    return (
+      <div className="auth-screen">
+        <motion.div
+          className="auth-intro"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+        >
+          <img src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
+          <div className="auth-intro-tagline">Твой блеск. Твои правила.</div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className={`auth-screen ${collapsing ? 'auth-screen--collapsing' : ''}`}>
-      {/* Бренд-интро */}
-      {phase !== 'form' && phase !== 'verify' && phase !== 'forgot' && (
-        <div className={`brand-intro ${phase === 'exiting' ? 'brand-intro--exit' : ''}`}>
-          <img className="brand-intro__logo-img" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
-          <div className="brand-intro__tagline">Твой блеск. Твои правила.</div>
+      <div className="auth-split">
+        {/* LEFT: Metaball World */}
+        <div className="auth-left">
+          <MetaballBackground subtle />
+          <div className="auth-logo">
+            <img src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
+            <div className="auth-tagline">твой блеск. твои правила.</div>
+            <div className="auth-version">v{appVersion}</div>
+          </div>
         </div>
-      )}
 
-      {/* Форма входа/регистрации */}
-      {phase === 'form' && (
-        <div className="auth-container">
-          <Glass
-            depth={3}
-            radius={28}
-            className={`auth-card ${shaking ? 'auth-card--shake' : ''}`}
-            ref={cardRef}
-          >
-            <div className="auth-card__highlight" />
+        {/* ORGANIC DIVIDER */}
+        <OrganicDivider />
 
-            <div className="auth-logo">
-              <img className="auth-logo__img" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
-            </div>
-            <div className="auth-tagline">Твой блеск. Твои правила.</div>
+        {/* RIGHT: Gravity Cards */}
+        <div className="auth-right">
+          {/* Mobile logo */}
+          <div className="auth-logo-mobile">
+            <img src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
+            <div className="auth-tagline">твой блеск. твои правила.</div>
+          </div>
 
-            <div className="auth-tabs" ref={tabsRef}>
-              <div className="auth-tab-indicator" ref={indicatorRef} />
-              <button
-                className={`auth-tab ${tab === 'login' ? 'auth-tab--active' : ''}`}
-                onClick={() => switchTab('login')}
+          <AnimatePresence mode="wait">
+            {/* ═══════ LOGIN ═══════ */}
+            {mode === 'login' && (
+              <motion.form
+                key="login"
+                onSubmit={handleSubmit}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}
               >
-                Вход
-              </button>
-              <button
-                className={`auth-tab ${tab === 'register' ? 'auth-tab--active' : ''}`}
-                onClick={() => switchTab('register')}
-              >
-                Регистрация
-              </button>
-            </div>
-
-            <form className="auth-form" onSubmit={handleSubmit}>
-              <div className="auth-field auth-field--animated">
-                <label className="auth-label">Имя пользователя</label>
-                <div className="auth-input-wrap">
-                  <input
-                    className="auth-input"
-                    type="text"
-                    placeholder="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    autoComplete="off"
-                    spellCheck="false"
-                    autoFocus
-                  />
-                </div>
-              </div>
-
-              {tab === 'register' && (
-                <div className="auth-field auth-field--animated" style={{ animationDelay: '0.05s' }}>
-                  <label className="auth-label">Email</label>
-                  <div className="auth-input-wrap">
+                <GravityCard
+                  tilt={-1.5}
+                  index={0}
+                  icon={<User size={16} stroke="#c8ff00" />}
+                  title="Кто ты?"
+                  subtitle="Имя в мире blesk"
+                  error={error && error.includes('Имя') ? error : null}
+                  errorKey={errorKey}
+                >
+                  <div className="g-input-wrap">
                     <input
-                      className="auth-input"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      className="g-input"
+                      type="text"
+                      placeholder="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       autoComplete="off"
+                      spellCheck="false"
+                      autoFocus
+                      aria-label="Имя пользователя"
                     />
                   </div>
-                </div>
-              )}
+                </GravityCard>
 
-              <div className="auth-field auth-field--animated" style={{ animationDelay: tab === 'register' ? '0.1s' : '0.1s' }}>
-                <label className="auth-label">Пароль</label>
-                <div className="auth-input-wrap">
-                  <input
-                    className="auth-input"
-                    type={showLoginPw ? 'text' : 'password'}
-                    placeholder={tab === 'register' ? 'Минимум 8 символов' : '••••••••'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <EyeToggle visible={showLoginPw} onToggle={() => setShowLoginPw(!showLoginPw)} />
-                </div>
-                {tab === 'register' && password.length > 0 && (
-                  <div className="auth-strength">
-                    <div className="auth-strength__track">
-                      <div
-                        className="auth-strength__fill"
-                        style={{
-                          width: `${(strengthLevel / 3) * 100}%`,
-                          background: strengthColors[strengthLevel - 1] || 'var(--danger)',
-                        }}
-                      />
-                    </div>
-                    <span
-                      className="auth-strength__label"
-                      style={{ color: strengthColors[strengthLevel - 1] || 'var(--danger)' }}
-                    >
-                      {strengthLabels[strengthLevel - 1] || 'Слабый'}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {tab === 'register' && (
-                <div className="auth-field auth-field--animated" style={{ animationDelay: '0.2s' }}>
-                  <label className="auth-label">Повторите пароль</label>
-                  <div className="auth-input-wrap">
+                <GravityCard
+                  tilt={1}
+                  index={1}
+                  icon={<Lock size={16} stroke="#c8ff00" />}
+                  title="Докажи"
+                  subtitle="Твой секрет"
+                  error={error && !error.includes('Имя') ? error : null}
+                  errorKey={errorKey}
+                >
+                  <div className="g-input-wrap">
                     <input
-                      className="auth-input"
-                      type={showRegConfirmPw ? 'text' : 'password'}
+                      className="g-input"
+                      type={showLoginPw ? 'text' : 'password'}
                       placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      aria-label="Пароль"
                     />
-                    <EyeToggle visible={showRegConfirmPw} onToggle={() => setShowRegConfirmPw(!showRegConfirmPw)} />
+                    <button
+                      type="button"
+                      className="g-input-action"
+                      onClick={() => setShowLoginPw(!showLoginPw)}
+                      aria-label={showLoginPw ? 'Скрыть' : 'Показать'}
+                    >
+                      {showLoginPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
+                </GravityCard>
+
+                <div className="g-action">
+                  <button
+                    type="submit"
+                    className={`g-btn ${loading ? 'g-btn--loading' : ''}`}
+                    disabled={loading}
+                    onClick={handleRipple}
+                  >
+                    {loading ? <>Входим<span className="g-spinner" /></> : 'Войти'}
+                  </button>
                 </div>
-              )}
 
-              {error && (
-                <div className="auth-error">
-                  <span className="auth-error__icon">!</span>
-                  {error}
-                </div>
-              )}
-
-              <button
-                className="auth-btn"
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? '...' : tab === 'login' ? 'Войти' : 'Создать аккаунт'}
-              </button>
-
-              {tab === 'login' && (
-                <div
-                  className="auth-forgot-link"
-                  onClick={() => {
+                <div className="auth-footer">
+                  <button type="button" className="auth-footer-link" onClick={() => {
                     setForgotEmail('');
-                    setForgotStep('email');
-                    setForgotCode('');
-                    setForgotNewPassword('');
-                    setForgotConfirm('');
                     setForgotError('');
                     setForgotSuccess(false);
                     setForgotCodeDigits(['', '', '', '', '', '']);
-                    setPhase('forgot');
-                  }}
-                >
-                  Забыли пароль?
+                    switchMode('forgot');
+                  }}>
+                    Забыли пароль?
+                  </button>
+                  <div className="auth-footer-sep" />
+                  <button type="button" className="auth-footer-link" onClick={() => switchMode('register')}>
+                    Создать аккаунт
+                  </button>
                 </div>
-              )}
-            </form>
+              </motion.form>
+            )}
 
-            <div className="auth-footer">blesk v{appVersion}</div>
-          </Glass>
-        </div>
-      )}
-
-      {/* Экран верификации email */}
-      {phase === 'verify' && (
-        <div className="auth-container">
-          <Glass
-            depth={3}
-            radius={28}
-            className={`auth-card auth-card--verify ${shaking ? 'auth-card--shake' : ''}`}
-          >
-            <div className="auth-card__highlight" />
-
-            <div className="auth-logo">
-              <img className="auth-logo__img" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
-            </div>
-
-            <div className="auth-verify">
-              <div className="auth-verify__icon"><Mail size={32} strokeWidth={1.5} /></div>
-              <div className="auth-verify__title">Подтвердите email</div>
-              <div className="auth-verify__subtitle">
-                Код отправлен на <span className="auth-verify__email">{maskedEmail}</span>
-              </div>
-
-              <div className="auth-code-inputs">
-                {codeDigits.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => (codeRefs.current[i] = el)}
-                    className="auth-code-input"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={digit}
-                    onChange={(e) => handleCodeInput(i, e.target.value)}
-                    onKeyDown={(e) => handleCodeKeyDown(i, e)}
-                    onFocus={(e) => e.target.select()}
-                    autoFocus={i === 0}
-                    disabled={verifyLoading}
-                  />
-                ))}
-              </div>
-
-              {verifyError && (
-                <div className="auth-error" style={{ marginTop: 12 }}>
-                  <span className="auth-error__icon">!</span>
-                  {verifyError}
-                </div>
-              )}
-
-              {verifyLoading && (
-                <div className="auth-verify__loading">Проверяем...</div>
-              )}
-
-              <button
-                className={`auth-verify__resend ${resendTimer > 0 ? 'auth-verify__resend--disabled' : ''}`}
-                onClick={handleResend}
-                disabled={resendTimer > 0}
+            {/* ═══════ REGISTER ═══════ */}
+            {mode === 'register' && (
+              <motion.form
+                key="register"
+                onSubmit={handleSubmit}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}
               >
-                {resendTimer > 0
-                  ? `Отправить повторно (${resendTimer}с)`
-                  : 'Отправить код повторно'}
-              </button>
-
-              <button
-                className="auth-verify__back"
-                onClick={() => {
-                  setPhase('form');
-                  setCodeDigits(['', '', '', '', '', '']);
-                  setVerifyError('');
-                  setResendTimer(60);
-                }}
-              >
-                ← Назад к входу
-              </button>
-            </div>
-
-            <div className="auth-footer">blesk v{appVersion}</div>
-          </Glass>
-        </div>
-      )}
-
-      {/* Экран восстановления пароля */}
-      {phase === 'forgot' && (
-        <div className="auth-container">
-          <Glass
-            depth={3}
-            radius={28}
-            className={`auth-card auth-card--verify ${shaking ? 'auth-card--shake' : ''}`}
-          >
-            <div className="auth-card__highlight" />
-
-            <div className="auth-logo">
-              <img className="auth-logo__img" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
-            </div>
-
-            <div className="auth-verify">
-              <div className="auth-verify__icon"><KeyRound size={32} strokeWidth={1.5} /></div>
-              <div className="auth-verify__title">Восстановление пароля</div>
-
-              {forgotSuccess && (
-                <div className="auth-forgot__success">
-                  Пароль успешно изменён! Перенаправляем...
-                </div>
-              )}
-
-              {!forgotSuccess && forgotStep === 'email' && (
-                <>
-                  <div className="auth-verify__subtitle">
-                    Введите email, привязанный к аккаунту
-                  </div>
-
-                  <form
-                    className="auth-form"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleForgotSend();
-                    }}
-                    style={{ width: '100%' }}
-                  >
-                    <div className="auth-field">
-                      <label className="auth-label">Email</label>
-                      <div className="auth-input-wrap">
-                        <input
-                          className="auth-input"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={forgotEmail}
-                          onChange={(e) => setForgotEmail(e.target.value)}
-                          autoComplete="off"
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-
-                    {forgotError && (
-                      <div className="auth-error">
-                        <span className="auth-error__icon">!</span>
-                        {forgotError}
-                      </div>
-                    )}
-
-                    <button
-                      className="auth-btn"
-                      type="submit"
-                      disabled={forgotLoading}
-                    >
-                      {forgotLoading ? '...' : 'Отправить код'}
-                    </button>
-                  </form>
-                </>
-              )}
-
-              {!forgotSuccess && forgotStep === 'code' && (
-                <>
-                  <div className="auth-verify__subtitle">
-                    Если этот email зарегистрирован, мы отправили код на <span className="auth-verify__email">{forgotEmail}</span>
-                  </div>
-
-                  <div className="auth-code-inputs">
-                    {forgotCodeDigits.map((digit, i) => (
-                      <input
-                        key={i}
-                        ref={(el) => (forgotCodeRefs.current[i] = el)}
-                        className="auth-code-input"
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={digit}
-                        onChange={(e) => handleForgotCodeInput(i, e.target.value)}
-                        onKeyDown={(e) => handleForgotCodeKeyDown(i, e)}
-                        onFocus={(e) => e.target.select()}
-                        autoFocus={i === 0}
-                      />
-                    ))}
-                  </div>
-
-                  {forgotError && (
-                    <div className="auth-error" style={{ marginTop: 12 }}>
-                      <span className="auth-error__icon">!</span>
-                      {forgotError}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {!forgotSuccess && forgotStep === 'newpass' && (
-                <>
-                  <div className="auth-verify__subtitle">
-                    Придумайте новый пароль
-                  </div>
-
-                  <form
-                    className="auth-form"
-                    onSubmit={handleForgotReset}
-                    style={{ width: '100%' }}
-                  >
-                    <div className="auth-field">
-                      <label className="auth-label">Новый пароль</label>
-                      <div className="auth-input-wrap">
-                        <input
-                          className="auth-input"
-                          type={showForgotNewPw ? 'text' : 'password'}
-                          placeholder="Минимум 8 символов"
-                          value={forgotNewPassword}
-                          onChange={(e) => setForgotNewPassword(e.target.value)}
-                          autoFocus
-                        />
-                        <EyeToggle visible={showForgotNewPw} onToggle={() => setShowForgotNewPw(!showForgotNewPw)} />
-                      </div>
-                    </div>
-
-                    <div className="auth-field">
-                      <label className="auth-label">Повторите пароль</label>
-                      <div className="auth-input-wrap">
-                        <input
-                          className="auth-input"
-                          type={showForgotConfirmPw ? 'text' : 'password'}
-                          placeholder="••••••••"
-                          value={forgotConfirm}
-                          onChange={(e) => setForgotConfirm(e.target.value)}
-                        />
-                        <EyeToggle visible={showForgotConfirmPw} onToggle={() => setShowForgotConfirmPw(!showForgotConfirmPw)} />
-                      </div>
-                    </div>
-
-                    {forgotError && (
-                      <div className="auth-error">
-                        <span className="auth-error__icon">!</span>
-                        {forgotError}
-                      </div>
-                    )}
-
-                    <button
-                      className="auth-btn"
-                      type="submit"
-                      disabled={forgotLoading}
-                    >
-                      {forgotLoading ? '...' : 'Сменить пароль'}
-                    </button>
-                  </form>
-                </>
-              )}
-
-              {!forgotSuccess && (
-                <button
-                  className="auth-verify__back"
-                  onClick={() => {
-                    if (forgotStep === 'code') {
-                      setForgotStep('email');
-                      setForgotError('');
-                    } else if (forgotStep === 'newpass') {
-                      setForgotStep('code');
-                      setForgotCodeDigits(['', '', '', '', '', '']);
-                      setForgotError('');
-                    } else {
-                      setPhase('form');
-                    }
-                  }}
+                <GravityCard
+                  tilt={-1.5}
+                  index={0}
+                  icon={<User size={16} stroke="#c8ff00" />}
+                  title="Придумай имя"
+                  subtitle="Твой ник в blesk"
+                  error={error && error.includes('Имя') ? error : null}
+                  errorKey={errorKey}
                 >
-                  ← Назад
-                </button>
-              )}
-            </div>
+                  <div className="g-input-wrap">
+                    <input
+                      className="g-input"
+                      type="text"
+                      placeholder="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      autoComplete="off"
+                      spellCheck="false"
+                      autoFocus
+                      aria-label="Имя пользователя"
+                    />
+                  </div>
+                </GravityCard>
 
-            <div className="auth-footer">blesk v{appVersion}</div>
-          </Glass>
+                <GravityCard
+                  tilt={1}
+                  index={1}
+                  icon={<Mail size={16} stroke="#c8ff00" />}
+                  title="Куда писать?"
+                  subtitle="Для подтверждения"
+                  error={error && error.includes('email') ? error : null}
+                  errorKey={errorKey}
+                >
+                  <div className="g-input-wrap">
+                    <input
+                      className="g-input"
+                      type="email"
+                      placeholder="email@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="off"
+                      aria-label="Email"
+                    />
+                  </div>
+                </GravityCard>
+
+                <PasswordCard
+                  tilt={-0.7}
+                  index={2}
+                  password={password}
+                  confirmPassword={confirmPassword}
+                  onPasswordChange={setPassword}
+                  onConfirmChange={setConfirmPassword}
+                  error={error && (error.includes('Пароль') || error.includes('совпад')) ? error : null}
+                  errorKey={errorKey}
+                />
+
+                <div className="g-action">
+                  <button
+                    type="submit"
+                    className={`g-btn ${loading ? 'g-btn--loading' : ''}`}
+                    disabled={loading}
+                    onClick={handleRipple}
+                  >
+                    {loading ? <>Создаём<span className="g-spinner" /></> : 'Создать аккаунт'}
+                  </button>
+                </div>
+
+                <div className="auth-footer">
+                  <button type="button" className="auth-footer-link" onClick={() => switchMode('login')}>
+                    Уже есть аккаунт? <span style={{ color: 'rgba(200,255,0,0.45)' }}>Войти</span>
+                  </button>
+                </div>
+              </motion.form>
+            )}
+
+            {/* ═══════ VERIFY ═══════ */}
+            {mode === 'verify' && (
+              <motion.div
+                key="verify"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}
+              >
+                <GravityCard
+                  tilt={0}
+                  index={0}
+                  icon={<Mail size={16} stroke="#4ade80" />}
+                  title="Проверь почту"
+                  subtitle={`Код отправлен на ${maskedEmail}`}
+                  error={verifyError}
+                  errorKey={verifyErrorKey}
+                >
+                  {renderCodeGrid(codeDigits, codeRefs, handleCodeInput, handleCodeKeyDown, verifyLoading)}
+                  <div className="verify-resend">
+                    {resendTimer > 0 ? (
+                      <>Отправить повторно через <span className="verify-resend-timer">{resendTimer}с</span></>
+                    ) : (
+                      <button type="button" className="verify-resend-btn" onClick={handleResend}>
+                        Отправить код повторно
+                      </button>
+                    )}
+                  </div>
+                </GravityCard>
+
+                <div className="auth-footer">
+                  <button type="button" className="auth-footer-link" onClick={() => {
+                    setCodeDigits(['', '', '', '', '', '']);
+                    setVerifyError('');
+                    setResendTimer(60);
+                    switchMode('login');
+                  }}>
+                    ← Назад к входу
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ═══════ FORGOT ═══════ */}
+            {mode === 'forgot' && (
+              <motion.form
+                key="forgot"
+                onSubmit={(e) => { e.preventDefault(); handleForgotSend(); }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}
+              >
+                <GravityCard
+                  tilt={0}
+                  index={0}
+                  icon={<Mail size={16} stroke="#00d4ff" />}
+                  title="Вспомним?"
+                  subtitle="Email для восстановления"
+                  error={forgotError}
+                  errorKey={forgotErrorKey}
+                >
+                  <div className="g-input-wrap">
+                    <input
+                      className="g-input"
+                      type="email"
+                      placeholder="email@example.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      autoComplete="off"
+                      autoFocus
+                      aria-label="Email"
+                    />
+                  </div>
+                </GravityCard>
+
+                <div className="g-action">
+                  <button
+                    type="submit"
+                    className={`g-btn ${forgotLoading ? 'g-btn--loading' : ''}`}
+                    disabled={forgotLoading}
+                    onClick={handleRipple}
+                  >
+                    {forgotLoading ? <>Отправляем<span className="g-spinner" /></> : 'Отправить код'}
+                  </button>
+                </div>
+
+                <div className="auth-footer">
+                  <button type="button" className="auth-footer-link" onClick={() => switchMode('login')}>
+                    Вспомнили? <span style={{ color: 'rgba(200,255,0,0.45)' }}>Войти</span>
+                  </button>
+                </div>
+              </motion.form>
+            )}
+
+            {/* ═══════ FORGOT-CODE ═══════ */}
+            {mode === 'forgot-code' && (
+              <motion.div
+                key="forgot-code"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}
+              >
+                <GravityCard
+                  tilt={0}
+                  index={0}
+                  icon={<KeyRound size={16} stroke="#c8ff00" />}
+                  title="Проверь почту"
+                  subtitle={`Код отправлен на ${forgotEmail}`}
+                  error={forgotError}
+                  errorKey={forgotErrorKey}
+                >
+                  {renderCodeGrid(forgotCodeDigits, forgotCodeRefs, handleForgotCodeInput, handleForgotCodeKeyDown)}
+                </GravityCard>
+
+                <div className="auth-footer">
+                  <button type="button" className="auth-footer-link" onClick={() => {
+                    setForgotError('');
+                    switchMode('forgot');
+                  }}>
+                    ← Назад
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ═══════ FORGOT-RESET ═══════ */}
+            {mode === 'forgot-reset' && (
+              <motion.form
+                key="forgot-reset"
+                onSubmit={handleForgotReset}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}
+              >
+                {forgotSuccess ? (
+                  <GravityCard
+                    tilt={0}
+                    index={0}
+                    icon={<KeyRound size={16} stroke="#4ade80" />}
+                    title="Готово!"
+                    subtitle="Пароль успешно изменён. Перенаправляем..."
+                  >
+                    <div />
+                  </GravityCard>
+                ) : (
+                  <>
+                    <PasswordCard
+                      tilt={0}
+                      index={0}
+                      password={forgotNewPassword}
+                      confirmPassword={forgotConfirm}
+                      onPasswordChange={setForgotNewPassword}
+                      onConfirmChange={setForgotConfirm}
+                      error={forgotError}
+                      errorKey={forgotErrorKey}
+                    />
+
+                    <div className="g-action">
+                      <button
+                        type="submit"
+                        className={`g-btn ${forgotLoading ? 'g-btn--loading' : ''}`}
+                        disabled={forgotLoading}
+                        onClick={handleRipple}
+                      >
+                        {forgotLoading ? <>Меняем<span className="g-spinner" /></> : 'Сменить пароль'}
+                      </button>
+                    </div>
+
+                    <div className="auth-footer">
+                      <button type="button" className="auth-footer-link" onClick={() => {
+                        setForgotError('');
+                        setForgotCodeDigits(['', '', '', '', '', '']);
+                        switchMode('forgot-code');
+                      }}>
+                        ← Назад
+                      </button>
+                    </div>
+                  </>
+                )}
+              </motion.form>
+            )}
+          </AnimatePresence>
         </div>
-      )}
+      </div>
     </div>
   );
 }
