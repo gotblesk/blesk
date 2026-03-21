@@ -8,21 +8,13 @@
   overflow: hidden;
 }
 
-.auth-split {
+/* ═══════ CENTERED LAYOUT ═══════ */
+.auth-center {
   display: flex;
-  height: 100%;
-  position: relative;
-}
-
-/* ═══════ LEFT: METABALL WORLD ═══════ */
-.auth-left {
-  flex: 0 0 40%;
-  position: relative;
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  height: 100%;
+  position: relative;
   z-index: 1;
 }
 
@@ -30,13 +22,14 @@
   position: relative;
   z-index: 2;
   text-align: center;
+  margin-bottom: 24px;
 }
 
 .auth-logo img {
-  width: 80px;
-  height: 80px;
+  width: 72px;
+  height: 72px;
   filter: drop-shadow(0 0 30px rgba(200, 255, 0, 0.2));
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .auth-tagline {
@@ -59,29 +52,15 @@
   display: inline-block;
 }
 
-/* ═══════ ORGANIC DIVIDER ═══════ */
-.auth-divider {
-  position: absolute;
-  left: calc(40% - 40px);
-  top: 0;
-  bottom: 0;
-  width: 120px;
-  z-index: 3;
-  pointer-events: none;
-}
+/* divider removed — centered layout */
 
-/* ═══════ RIGHT: GRAVITY CARDS ═══════ */
-.auth-right {
-  flex: 1;
+/* ═══════ CONTENT (CARDS) ═══════ */
+.auth-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 24px 48px;
   gap: 16px;
-  z-index: 2;
-  background: rgba(8, 6, 15, 0.5);
-  backdrop-filter: blur(2px);
+  padding: 24px;
 }
 
 /* ═══════ ACTION BUTTON ═══════ */
@@ -262,37 +241,18 @@
   margin-top: 16px;
 }
 
-/* ═══════ SMALL WINDOW (< 900px) ═══════ */
-@media (max-width: 900px) {
-  .auth-left {
-    display: none;
+/* ═══════ SMALL WINDOW ═══════ */
+@media (max-width: 600px) {
+  .auth-content {
+    padding: 16px;
   }
-  .auth-divider {
-    display: none;
+  .g-card {
+    width: 100%;
+    max-width: 360px;
   }
-  .auth-right {
-    padding: 40px 24px;
-  }
-  .auth-logo-mobile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 24px;
-  }
-  .auth-logo-mobile img {
-    width: 60px;
-    height: 60px;
-    filter: drop-shadow(0 0 20px rgba(200, 255, 0, 0.2));
-    margin-bottom: 8px;
-  }
-  .auth-logo-mobile .auth-tagline {
-    font-size: 9px;
-  }
-}
-
-@media (min-width: 901px) {
-  .auth-logo-mobile {
-    display: none;
+  .g-action {
+    width: 100%;
+    max-width: 360px;
   }
 }
 
