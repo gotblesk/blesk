@@ -19,7 +19,7 @@ let mainWindow;
 
 // Размеры
 const SPLASH_WIDTH = 350;
-const SPLASH_HEIGHT = 500;
+const SPLASH_HEIGHT = 400;
 const MAIN_WIDTH = 1280;
 const MAIN_HEIGHT = 800;
 
@@ -122,6 +122,11 @@ function transitionToMain() {
 }
 
 // Сплеш сообщает что загрузка завершена
+// Версия для splash screen
+ipcMain.on('get-version', (event) => {
+  event.returnValue = app.getVersion();
+});
+
 ipcMain.on('splash:ready', () => {
   // Создаём основное окно параллельно
   createMainWindow();
