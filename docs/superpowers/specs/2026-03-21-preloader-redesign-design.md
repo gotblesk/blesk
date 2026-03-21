@@ -96,7 +96,9 @@ client/electron/
 
 ### Three.js Canvas (metaball shader)
 
-**GLSL Fragment Shader:**
+**Vertex Shader:** стандартный fullscreen quad (position→gl_Position, uv→vUv).
+
+**Fragment Shader:**
 - 5 SDF сфер с `smin` blending (k=0.5 для мягкого слипания)
 - Noise displacement на поверхности (simplex noise, непрерывный)
 - Позиции сфер — uniforms, анимируются из JavaScript
@@ -148,7 +150,7 @@ client/electron/
   3. "Загрузка профиля..."
   4. "Подготовка интерфейса..."
   5. "Почти готово..."
-- Пасхалки (10% шанс на шагах 2-4):
+- Пасхалки (каждый шаг 2-4 независимо бросает 10% шанс):
   - "Полируем интерфейс..."
   - "Настраиваем блеск..."
   - "Прогреваем пиксели..."
@@ -164,12 +166,41 @@ client/electron/
 ## Изменения в main.js
 
 - `SPLASH_HEIGHT`: 500 → 400
-- Остальная логика transition без изменений (IPC, expand-out, fallback)
+- Остальная логика transition без изменений
+
+**IPC flow (текущий, сохраняется):**
+1. Splash HTML вызывает `window.splashApi.ready()` → IPC `splash:ready` → main process
+2. Main process создаёт main window в `ipcMain.on('splash:ready')`
+3. Main window `did-finish-load` → main.js через 600ms выполняет JS на splash window: `document.getElementById('splash').classList.add('expand-out')`
+4. Через 600ms splash закрывается, main window показывается
+5. Fallback: если `did-finish-load` не приходит за 5 секунд — переход всё равно
+
+**Версия из package.json:**
+main.js передаёт версию в splash через `splash-preload.js`:
+```js
+// splash-preload.js — добавить:
+contextBridge.exposeInMainWorld('splashApi', {
+  ready: () => ipcRenderer.send('splash:ready'),
+  version: () => ipcRenderer.sendSync('get-version'),
+});
+
+// main.js — добавить:
+ipcMain.on('get-version', (event) => {
+  event.returnValue = app.getVersion();
+});
+```
+splash.html читает: `document.getElementById('version').textContent = 'v' + window.splashApi.version();`
+
+**Путь к логотипу:**
+- В dev: `../public/blesk.png`
+- В prod (после сборки): `../dist/blesk.png`
+- Определение: `const isDev = !window.splashApi; const logoPath = isDev ? '../public/blesk.png' : '../dist/blesk.png';`
+- Fallback onerror: `this.style.display='none'`
 
 ## Производительность
 
 - Canvas 350x400 = 140,000 пикселей — минимальная нагрузка
-- DPR 1.0 — не ретина
+- DPR до 1.5 (не полный retina, но не blurry на HiDPI)
 - 40 raymarch steps — достаточно для 5 blob'ов
 - Three.js + GSAP через CDN (~150KB gzip total) — загружаются параллельно
 - requestAnimationFrame с blob деформацией не останавливается, но при expand-out окно закрывается через 600ms
@@ -179,8 +210,35 @@ client/electron/
 - prefers-reduced-motion: blob'ы статичные (без деформации), логотип появляется сразу, dots без анимации
 - Окно non-interactive (только визуальное), keyboard не применим
 
-## Зависимости (CDN в splash.html)
+## Зависимости (локальные копии)
 
-- three.js r183 (уже используется в проекте, совместимая версия)
-- gsap 3.14 (уже используется)
-- Не нужны npm install — всё inline в splash.html
+Three.js и GSAP НЕ через CDN (прелоадер может запуститься офлайн). Копии библиотек лежат рядом с splash.html:
+
+```
+client/electron/
+├── splash.html
+├── splash-preload.js
+├── lib/
+│   ├── three.min.js      # скопировать из node_modules/three/build/three.min.js
+│   └── gsap.min.js       # скопировать из node_modules/gsap/dist/gsap.min.js
+```
+
+Подключение в splash.html:
+```html
+<script src="./lib/three.min.js"></script>
+<script src="./lib/gsap.min.js"></script>
+```
+
+Шрифт Manrope — `@font-face` с локальным .woff2:
+```
+client/electron/lib/
+│   └── manrope-var.woff2  # скопировать из node_modules или Google Fonts
+```
+
+```css
+@font-face {
+  font-family: 'Manrope';
+  src: url('./lib/manrope-var.woff2') format('woff2');
+  font-weight: 300 800;
+}
+```
