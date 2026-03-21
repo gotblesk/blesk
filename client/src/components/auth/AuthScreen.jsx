@@ -4,7 +4,6 @@ import { User, Lock, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
 import gsap from 'gsap';
 import GravityCard from './GravityCard';
 import PasswordCard from './PasswordCard';
-import OrganicDivider from './OrganicDivider';
 import MetaballBackground from '../ui/MetaballBackground';
 import { getPasswordScore } from './StrengthDots';
 import useAppVersion from '../../hooks/useAppVersion';
@@ -449,25 +448,14 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       {/* Metaball background behind everything */}
       <MetaballBackground subtle />
 
-      <div className="auth-split">
-        {/* LEFT: Logo */}
-        <div className="auth-left">
+      <div className="auth-center">
+        {/* Gravity Cards */}
+        <div className="auth-content">
+          {/* Logo above cards */}
           <div className="auth-logo">
             <img src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
             <div className="auth-tagline">твой блеск. твои правила.</div>
             <div className="auth-version">v{appVersion}</div>
-          </div>
-        </div>
-
-        {/* ORGANIC DIVIDER */}
-        <OrganicDivider />
-
-        {/* RIGHT: Gravity Cards */}
-        <div className="auth-right">
-          {/* Mobile logo */}
-          <div className="auth-logo-mobile">
-            <img src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
-            <div className="auth-tagline">твой блеск. твои правила.</div>
           </div>
 
           <AnimatePresence mode="wait">
