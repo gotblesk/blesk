@@ -62,12 +62,11 @@
 /* ═══════ ORGANIC DIVIDER ═══════ */
 .auth-divider {
   position: absolute;
-  left: 40%;
+  left: calc(40% - 40px);
   top: 0;
   bottom: 0;
-  width: 80px;
+  width: 120px;
   z-index: 3;
-  transform: translateX(-50%);
   pointer-events: none;
 }
 
