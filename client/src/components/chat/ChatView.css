@@ -4,9 +4,9 @@
   /* top, left, width, height, zIndex — через inline style */
   display: flex;
   flex-direction: column;
-  background: rgba(12, 10, 20, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(12, 10, 20, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow:
@@ -27,9 +27,9 @@
   border-radius: 0;
   border: none;
   box-shadow: none;
-  background: rgba(8, 6, 15, 0.85);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  background: rgba(8, 6, 15, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   padding-bottom: 80px; /* место для DynamicIsland */
 }
 
