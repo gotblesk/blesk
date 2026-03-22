@@ -1,0 +1,178 @@
+/* ═══════ MINI CARDS SIDEBAR — Double Layer Glass ═══════ */
+.mini-sidebar {
+  width: 140px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 6px;
+  z-index: 20;
+  /* Outer glass layer */
+  background: rgba(255, 255, 255, 0.02);
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.mini-sidebar::-webkit-scrollbar {
+  width: 2px;
+}
+
+.mini-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 1px;
+}
+
+/* ═══════ BACK BUTTON ═══════ */
+.mini-sidebar__back {
+  width: 100%;
+  padding: 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 4px;
+}
+
+.mini-sidebar__back:hover {
+  background: rgba(200, 255, 0, 0.04);
+  color: var(--accent, #c8ff00);
+  border-color: rgba(200, 255, 0, 0.08);
+}
+
+/* ═══════ CHAT LIST ═══════ */
+.mini-sidebar__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ═══════ MINI CARD ═══════ */
+.mini-card {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Manrope', sans-serif;
+}
+
+/* Outer glass layer */
+.mini-card__glass {
+  padding: 2px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.025);
+  transition: all 0.15s;
+}
+
+/* Inner glass layer (Double Layer) */
+.mini-card__inner {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.15s;
+}
+
+.mini-card:hover .mini-card__glass {
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.mini-card:hover .mini-card__inner {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Active state — accent glow */
+.mini-card--active .mini-card__glass {
+  border-color: rgba(200, 255, 0, 0.15);
+  background: rgba(200, 255, 0, 0.02);
+  box-shadow:
+    0 0 12px rgba(200, 255, 0, 0.04),
+    inset 0 0 8px rgba(200, 255, 0, 0.02);
+}
+
+.mini-card--active .mini-card__inner {
+  background: rgba(200, 255, 0, 0.03);
+  border-color: rgba(200, 255, 0, 0.06);
+}
+
+/* Active glow line on left */
+.mini-card__glow {
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent, #c8ff00);
+  box-shadow: 0 0 8px rgba(200, 255, 0, 0.3);
+}
+
+/* ═══════ CARD CONTENT ═══════ */
+.mini-card__name {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.mini-card--active .mini-card__name {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.mini-card__badge {
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--accent, #c8ff00);
+  color: #08060f;
+  font-size: 7px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  flex-shrink: 0;
+}
+
+/* ═══════ LIGHT THEME ═══════ */
+[data-theme="light"] .mini-sidebar {
+  background: rgba(255, 255, 255, 0.5);
+  border-right-color: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .mini-card__glass {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .mini-card__inner {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .mini-card__name {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .mini-card--active .mini-card__name {
+  color: rgba(0, 0, 0, 0.8);
+}
