@@ -24,10 +24,15 @@ export default function Avatar({
   const statusDot = showOnline && (isOnline || userStatus === 'dnd');
   const dotClass = userStatus === 'dnd' ? 'avatar__dot--dnd' : 'avatar__dot--online';
 
+  // Поддержка числового size (inline) и строкового (CSS class)
+  const isNumeric = typeof size === 'number';
+  const sizeClass = isNumeric ? '' : `avatar--${size}`;
+  const sizeStyle = isNumeric ? { width: size, height: size, fontSize: Math.round(size * 0.4) } : {};
+
   return (
     <div
-      className={`avatar avatar--${size} ${className}`}
-      style={hasAvatar ? undefined : { background: getAvatarGradient(hue) }}
+      className={`avatar ${sizeClass} ${className}`}
+      style={{ ...(hasAvatar ? {} : { background: getAvatarGradient(hue) }), ...sizeStyle }}
       onClick={onClick}
     >
       {hasAvatar ? (

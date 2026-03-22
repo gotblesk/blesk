@@ -29,7 +29,7 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
   return (
     <div className="chat-header-zone">
       <div className="chat-header-island">
-        <Avatar user={otherUser || chat} size={28} showOnline={isOnline} />
+        <Avatar user={otherUser || chat} size={32} showOnline={isOnline} isOnline={isOnline} />
         <span className="chat-header__name">{chatName}</span>
         <span className="chat-header__dot" />
         <span className="chat-header__status">{statusText}</span>
