@@ -27,6 +27,7 @@
   border-radius: 0;
   border: none;
   box-shadow: none;
+  overflow: visible;
   background: rgba(8, 6, 15, 0.25);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
