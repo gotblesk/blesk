@@ -13,7 +13,7 @@
 
 /* When sidebar is visible, shift island to center over content area */
 .main-screen:has(.main-layout) .island-row {
-  left: calc(50% + 90px);
+  left: calc(50% + 100px);
 }
 
 /* ═══════ MAIN ISLAND ═══════ */
