@@ -27,11 +27,16 @@
   border-radius: 0;
   border: none;
   box-shadow: none;
-  overflow: visible;
+  overflow: hidden;
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  padding-bottom: 80px; /* место для DynamicIsland */
+  padding-bottom: 0;
+}
+
+/* Скролл-контейнер в inline — достаточный отступ снизу для input + island */
+.chat-view--inline .chat-view__messages {
+  padding-bottom: 160px;
 }
 
 /* Focused окно — ярче обводка */

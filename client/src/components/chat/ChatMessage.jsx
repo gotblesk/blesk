@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Pin, Lock, CheckCheck } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import MediaMessage from './MediaMessage';
-import MessageActionsPill from './MessageActionsPill';
+import useMessageActions from './MessageActionsPill';
 import { getHueStyles } from '../../utils/hueIdentity';
 import './ChatMessage.css';
 
@@ -28,6 +28,14 @@ export default function ChatMessage({
 }) {
   const [readAnimated, setReadAnimated] = useState(false);
   const prevReadRef = useRef(isRead);
+
+  const { handleContextMenu, menu: actionsMenu } = useMessageActions({
+    isOwn,
+    onReply,
+    onReact,
+    onEdit: () => onEdit?.(message),
+    onDelete: () => onDelete?.(message),
+  });
 
   // Анимация при переходе в "прочитано"
   if (isRead && !prevReadRef.current) {
@@ -100,7 +108,7 @@ export default function ChatMessage({
         <div className="chat-message__avatar chat-message__avatar--hidden" />
       )}
 
-      <div className="chat-message__col" style={{ position: 'relative' }}>
+      <div className="chat-message__col" style={{ position: 'relative', overflow: 'visible' }} onContextMenu={handleContextMenu}>
         {showName && (
           <div className="chat-message__name">{senderName}</div>
         )}
@@ -161,13 +169,7 @@ export default function ChatMessage({
           <div className="chat-message__time">{time}</div>
         )}
 
-        <MessageActionsPill
-          isOwn={isOwn}
-          onReply={onReply}
-          onReact={onReact}
-          onEdit={() => onEdit?.(message)}
-          onDelete={() => onDelete?.(message)}
-        />
+        {actionsMenu}
       </div>
     </div>
   );

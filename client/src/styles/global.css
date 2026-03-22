@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Unbounded:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Bricolage+Grotesque:wght@400;500;600;700;800&display=swap');
 
 :root {
   --bg: #08060f;
@@ -21,9 +21,20 @@
   /* Текст на акцентных кнопках */
   --accent-text: #08060f;
 
-  --font-ui: 'Unbounded', sans-serif;
-  --font-brand: 'Syne', sans-serif;
-  --font-logo: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  --font-ui: 'Manrope', -apple-system, 'SF Pro Display', 'Helvetica Neue', system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Manrope', sans-serif;
+  --font-brand: 'Bricolage Grotesque', sans-serif;
+  --font-logo: 'Bricolage Grotesque', -apple-system, 'SF Pro Display', sans-serif;
+
+  /* Double Layer Glass */
+  --dl-outer-blur: 8px;
+  --dl-inner-blur: 16px;
+  --dl-outer-bg: rgba(255, 255, 255, 0.04);
+  --dl-inner-bg: rgba(255, 255, 255, 0.1);
+  --dl-inner-inset: 8px;
+  --dl-border: rgba(255, 255, 255, 0.08);
+  --dl-inner-shadow-top: rgba(255, 255, 255, 0.2);
+  --dl-inner-shadow-bottom: rgba(255, 255, 255, 0.05);
 
   /* Design tokens */
   --radius-xs: 6px;
@@ -31,6 +42,31 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+
+  /* ═══════ RESPONSIVE SIZING ═══════ */
+  /* Nebula cards */
+  --nebula-card-w: clamp(280px, 20vw, 420px);
+  --nebula-card-h: clamp(62px, 4.2vw, 90px);
+  --nebula-card-radius: clamp(13px, 0.9vw, 20px);
+  --nebula-card-padding: clamp(10px, 0.7vw, 16px);
+  --nebula-card-gap: clamp(10px, 0.65vw, 14px);
+  --nebula-name-size: clamp(12px, 0.8vw, 17px);
+  --nebula-preview-size: clamp(10px, 0.65vw, 14px);
+  --nebula-avatar-size: clamp(34px, 2.2vw, 48px);
+
+  /* Island */
+  --island-w: clamp(150px, 11vw, 240px);
+  --island-h: clamp(40px, 2.9vw, 60px);
+  --island-expanded-w: clamp(480px, 34vw, 720px);
+  --island-expanded-h: clamp(50px, 3.4vw, 72px);
+  --island-radius: clamp(22px, 1.6vw, 36px);
+  --island-font: clamp(9px, 0.6vw, 13px);
+  --island-icon-size: clamp(20px, 1.4vw, 30px);
+  --island-dot-size: clamp(7px, 0.5vw, 10px);
+
+  /* Search */
+  --search-size: clamp(40px, 2.9vw, 60px);
+  --search-expanded-w: clamp(220px, 16vw, 340px);
 }
 
 /* Светлая тема v3 — контраст + читаемость */
@@ -50,6 +86,13 @@
 
   --scrollbar-thumb: rgba(0, 0, 0, 0.18);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+
+  /* Double Layer Glass — light */
+  --dl-outer-bg: rgba(255, 255, 255, 0.3);
+  --dl-inner-bg: rgba(255, 255, 255, 0.5);
+  --dl-border: rgba(0, 0, 0, 0.04);
+  --dl-inner-shadow-top: rgba(255, 255, 255, 0.7);
+  --dl-inner-shadow-bottom: rgba(0, 0, 0, 0.03);
 }
 
 /* Анимация смены темы */

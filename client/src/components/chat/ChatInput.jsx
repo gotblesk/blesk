@@ -4,7 +4,7 @@ import AttachmentPreview from './AttachmentPreview';
 import { soundSend } from '../../utils/sounds';
 import './ChatInput.css';
 
-export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTypingStop, replyTo, onCancelReply }) {
+export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTypingStop, replyTo, onCancelReply, editingMsg, onCancelEdit }) {
   const [text, setText] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -47,6 +47,21 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [replyTo]);
+
+  // Если editingMsg — заполнить текст и раскрыть
+  useEffect(() => {
+    if (editingMsg) {
+      setText(editingMsg.text || '');
+      setIsExpanded(true);
+      setTimeout(() => {
+        inputRef.current?.focus();
+        // Курсор в конец
+        if (inputRef.current) {
+          inputRef.current.selectionStart = inputRef.current.value.length;
+        }
+      }, 50);
+    }
+  }, [editingMsg]);
 
   // Авто-ресайз textarea
   const resizeTextarea = () => {
@@ -129,6 +144,11 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+    if (e.key === 'Escape' && editingMsg) {
+      onCancelEdit?.();
+      setText('');
+      return;
     }
     if (e.key === 'Escape' && replyTo) {
       onCancelReply?.();
@@ -235,6 +255,23 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
             </div>
           </div>
           <button className="chat-input__reply-close" onClick={onCancelReply}>
+            <X />
+          </button>
+        </div>
+      )}
+
+      {/* Превью редактирования */}
+      {editingMsg && (
+        <div className="chat-input__reply-preview">
+          <div className="chat-input__reply-bar" style={{ background: '#f59e0b' }} />
+          <div>
+            <div className="chat-input__reply-name" style={{ color: '#f59e0b' }}>Редактирование</div>
+            <div className="chat-input__reply-text">
+              {editingMsg.text?.slice(0, 60) || ''}
+              {editingMsg.text && editingMsg.text.length > 60 ? '...' : ''}
+            </div>
+          </div>
+          <button className="chat-input__reply-close" onClick={() => { onCancelEdit?.(); setText(''); }}>
             <X />
           </button>
         </div>

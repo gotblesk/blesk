@@ -1,115 +1,152 @@
+/* ═══════════════════════════════════════════════
+   Double Layer Glass
+   Outer: light blur backdrop
+   Inner: heavier blur, inset shadow, brighter
+   Edge: thin border
+   Content: on top
+   ═══════════════════════════════════════════════ */
+
 .glass {
   position: relative;
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px var(--glass-shadow);
   overflow: hidden;
 }
 
-/* Specular highlight — верхняя кромка */
-.glass::before {
-  content: '';
+/* ─── Outer layer ─── */
+.glass__outer {
   position: absolute;
-  top: 0;
-  left: 15%;
-  right: 15%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  z-index: 1;
-  pointer-events: none;
+  inset: 0;
+  border-radius: inherit;
+  backdrop-filter: blur(var(--dl-outer-blur));
+  -webkit-backdrop-filter: blur(var(--dl-outer-blur));
+  background: var(--dl-outer-bg);
+  z-index: 0;
 }
 
-/* Depth 0 — subtle */
+/* ─── Inner layer ─── */
+.glass__inner {
+  position: absolute;
+  inset: var(--dl-inner-inset);
+  backdrop-filter: blur(var(--dl-inner-blur));
+  -webkit-backdrop-filter: blur(var(--dl-inner-blur));
+  background: var(--dl-inner-bg);
+  box-shadow:
+    inset 0 1px 0 var(--dl-inner-shadow-top),
+    inset 0 -0.5px 0 var(--dl-inner-shadow-bottom);
+  z-index: 1;
+}
+
+/* ─── Edge border ─── */
+.glass__edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid var(--dl-border);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ─── Content ─── */
+.glass__content {
+  position: relative;
+  z-index: 3;
+}
+
+/* ═══════ DEPTH OVERRIDES ═══════ */
+
+/* Depth 0: subtle */
 .glass--depth-0 {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+.glass--depth-0 .glass__outer {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: 0 2px 8px var(--glass-shadow);
+  background: rgba(255, 255, 255, 0.02);
 }
-
-/* Depth 1 — normal */
-.glass--depth-1 {
+.glass--depth-0 .glass__inner {
+  inset: 4px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  background: var(--glass-bg);
-  box-shadow: 0 4px 16px var(--glass-shadow);
+  background: rgba(255, 255, 255, 0.06);
 }
 
-/* Depth 2 — elevated */
+/* Depth 1: normal (uses CSS var defaults) */
+.glass--depth-1 {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Depth 2: elevated */
 .glass--depth-2 {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  background: var(--glass-hover);
-  box-shadow: 0 8px 32px var(--glass-shadow);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
-
-/* Depth 3 — floating */
-.glass--depth-3 {
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 0 60px rgba(200, 255, 0, 0.03),
-    0 16px 48px var(--glass-shadow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-/* Hover effect */
-.glass--hover {
-  transition: border-color 0.2s, box-shadow 0.2s;
-  cursor: pointer;
-}
-
-.glass--hover:hover {
-  border-color: rgba(200, 255, 0, 0.2);
-  box-shadow: 0 8px 32px var(--glass-shadow), 0 0 20px rgba(200, 255, 0, 0.05);
-}
-
-/* ═══ Светлая тема v2 — полупрозрачное стекло + тени (Liquid Glass) ═══ */
-[data-theme="light"] .glass {
-  border-color: rgba(0, 0, 0, 0.1);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="light"] .glass--depth-0 {
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  background: rgba(255, 255, 255, 0.6);
-  border-color: rgba(0, 0, 0, 0.1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .glass--depth-1 {
+.glass--depth-2 .glass__outer {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(0, 0, 0, 0.1);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.06);
 }
-
-[data-theme="light"] .glass--depth-2 {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  background: rgba(255, 255, 255, 0.82);
-  border-color: rgba(0, 0, 0, 0.12);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="light"] .glass--depth-3 {
+.glass--depth-2 .glass__inner {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(0, 0, 0, 0.14);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Depth 3: floating */
+.glass--depth-3 {
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.14),
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    0 12px 48px rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(200, 255, 0, 0.03);
+}
+.glass--depth-3 .glass__outer {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.08);
+}
+.glass--depth-3 .glass__inner {
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.06);
 }
 
-[data-theme="light"] .glass::before {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+/* ═══════ HOVER ═══════ */
+.glass--hover {
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+  cursor: pointer;
+}
+.glass--hover:hover {
+  transform: scale(1.01);
+}
+.glass--hover:hover .glass__edge {
+  border-color: rgba(200, 255, 0, 0.15);
+}
+.glass--hover:hover .glass__inner {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -0.5px 0 rgba(255, 255, 255, 0.08);
 }
 
-[data-theme="light"] .glass--hover:hover {
-  border-color: rgba(74, 140, 0, 0.4);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), 0 0 12px rgba(74, 140, 0, 0.12);
+/* ═══════ LIGHT THEME ═══════ */
+[data-theme="light"] .glass--depth-0 { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+[data-theme="light"] .glass--depth-1 { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); }
+[data-theme="light"] .glass--depth-2 { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1); }
+[data-theme="light"] .glass--depth-3 { box-shadow: 0 8px 36px rgba(0, 0, 0, 0.12); }
+
+[data-theme="light"] .glass--depth-0 .glass__outer { background: rgba(255, 255, 255, 0.25); }
+[data-theme="light"] .glass--depth-0 .glass__inner { background: rgba(255, 255, 255, 0.4); }
+
+[data-theme="light"] .glass--depth-2 .glass__outer { background: rgba(255, 255, 255, 0.35); }
+[data-theme="light"] .glass--depth-2 .glass__inner { background: rgba(255, 255, 255, 0.6); }
+
+[data-theme="light"] .glass--depth-3 .glass__outer { background: rgba(255, 255, 255, 0.4); }
+[data-theme="light"] .glass--depth-3 .glass__inner { background: rgba(255, 255, 255, 0.65); }
+
+[data-theme="light"] .glass--hover:hover .glass__edge {
+  border-color: rgba(74, 140, 0, 0.2);
+}
+
+/* ═══════ REDUCED MOTION ═══════ */
+@media (prefers-reduced-motion: reduce) {
+  .glass--hover { transition: none; }
+  .glass--hover:hover { transform: none; }
 }

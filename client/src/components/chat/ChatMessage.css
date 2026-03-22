@@ -3,7 +3,8 @@
 .chat-message {
   display: flex;
   gap: 8px;
-  max-width: 72%;
+  max-width: min(72%, 600px);
+  min-width: 0;
   animation: msgAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
@@ -89,6 +90,8 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   position: relative;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Specular highlight */

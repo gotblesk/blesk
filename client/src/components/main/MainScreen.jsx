@@ -1,9 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import AnimatedBackground from '../ui/AnimatedBackground';
-import NavShelf from '../ui/NavShelf';
-import NotificationBell from '../ui/NotificationBell';
-import SpotlightProfile from '../ui/SpotlightProfile';
-import ChatHub from '../chat/ChatHub';
+import MetaballBackground from '../ui/MetaballBackground';
+import NebulaView from '../nebula/NebulaView';
+import MiniCardsSidebar from '../nebula/MiniCardsSidebar';
+import DynamicIsland from '../ui/DynamicIsland';
 import ChatView from '../chat/ChatView';
 import OrbitPanel from '../panels/OrbitPanel';
 import VibeMeter from '../panels/VibeMeter';
@@ -28,16 +27,18 @@ import { useChatStore } from '../../store/chatStore';
 import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import useWindowManager from '../../hooks/useWindowManager';
 import { useHotkeys } from '../../hooks/useHotkeys';
 import './MainScreen.css';
 
-// Зоны свайпа (px от края)
-const EDGE_ZONE = 40;
-const SWIPE_THRESHOLD = 60;
-
 export default function MainScreen({ user, onLogout }) {
-  const [activeTab, setActiveTab] = useState('chats');
+  // ═══════ CORE STATE ═══════
+  // view: 'nebula' (главное меню с карточками) | 'chat' (sidebar + чат)
+  // secondaryView: null | 'voice' | 'channels' | 'friends' | 'settings'
+  const [view, setView] = useState('nebula');
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [secondaryView, setSecondaryView] = useState(null);
+
+  // Модалки
   const [orbitOpen, setOrbitOpen] = useState(false);
   const [vibeOpen, setVibeOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -48,21 +49,23 @@ export default function MainScreen({ user, onLogout }) {
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [voiceExpanded, setVoiceExpanded] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState(null);
+
   const theme = useSettingsStore((s) => s.theme);
   const socketRef = useSocket();
   const { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare } = useVoice(socketRef);
 
-  // Применить тему при загрузке и смене
+  // Применить тему
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Запросить разрешение на уведомления
+  // Уведомления
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission();
     }
   }, []);
+
   const { chats } = useChatStore();
   const voiceRoomId = useVoiceStore((s) => s.currentRoomId);
   const cameraOn = useVoiceStore((s) => s.cameraOn);
@@ -70,103 +73,54 @@ export default function MainScreen({ user, onLogout }) {
   const incomingCall = useCallStore((s) => s.incomingCall);
   const activeCall = useCallStore((s) => s.activeCall);
 
-  // Менеджер окон чатов
-  const {
-    windows,
-    maxZ,
-    openWindow,
-    closeWindow,
-    focusWindow,
-    moveWindow,
-    resizeWindow,
-    clearMorph,
-  } = useWindowManager();
-
-  const openChatIds = Object.keys(windows);
-
-  // Свайп-жесты
-  const swipeRef = useRef({ startX: 0, startY: 0, edge: null });
-
-  useEffect(() => {
-    function onPointerDown(e) {
-      const x = e.clientX;
-      const w = window.innerWidth;
-
-      if (x < EDGE_ZONE) {
-        swipeRef.current = { startX: x, startY: e.clientY, edge: 'left' };
-      } else if (x > w - EDGE_ZONE) {
-        swipeRef.current = { startX: x, startY: e.clientY, edge: 'right' };
-      } else {
-        swipeRef.current.edge = null;
-      }
-    }
-
-    function onPointerUp(e) {
-      const { startX, edge } = swipeRef.current;
-      if (!edge) return;
-
-      const dx = e.clientX - startX;
-      const dy = Math.abs(e.clientY - swipeRef.current.startY);
-
-      if (dy > Math.abs(dx)) {
-        swipeRef.current.edge = null;
-        return;
-      }
-
-      if (edge === 'left' && dx > SWIPE_THRESHOLD) {
-        setOrbitOpen(true);
-      } else if (edge === 'right' && dx < -SWIPE_THRESHOLD) {
-        setVibeOpen(true);
-      }
-
-      swipeRef.current.edge = null;
-    }
-
-    window.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointerup', onPointerUp);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointerup', onPointerUp);
-    };
+  // ═══════ NAVIGATION ═══════
+  // Открыть чат из Nebula или Sidebar
+  const handleOpenChat = useCallback((chatId) => {
+    soundWindowOpen();
+    setActiveChatId(chatId);
+    setView('chat');
+    setSecondaryView(null);
+    // Загрузить сообщения
+    useChatStore.getState().openChat(chatId);
   }, []);
 
-  // Переключение табов со звуком
-  const switchTab = useCallback((tab) => {
-    if (tab !== activeTab) soundTabSwitch();
-    setActiveTab(tab);
-  }, [activeTab]);
-
-  // Горячие клавиши
-  useHotkeys({
-    search: () => setSpotlightOpen(true),
-    tabChats: () => switchTab('chats'),
-    tabVoice: () => switchTab('voice'),
-    tabChannels: () => switchTab('channels'),
-    tabFriends: () => switchTab('friends'),
-    toggleMute: () => useVoiceStore.getState().toggleMute(),
-    settings: () => switchTab('settings'),
-  });
-
-  const totalUnread = chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
-
-  // Открыть чат из ChatHub (с morph-анимацией)
-  const handleOpenChat = useCallback((chatId, rect) => {
-    if (windows[chatId]) {
-      focusWindow(chatId);
-    } else {
-      soundWindowOpen();
-      openWindow(chatId, rect);
-    }
-  }, [windows, focusWindow, openWindow]);
-
-  // Закрыть окно чата
-  const handleCloseChat = useCallback((chatId) => {
+  // Вернуться в Nebula
+  const handleBackToNebula = useCallback(() => {
     soundWindowClose();
-    closeWindow(chatId);
-    useChatStore.getState().closeChat(chatId);
-  }, [closeWindow]);
+    setView('nebula');
+    setActiveChatId(null);
+    setSecondaryView(null);
+  }, []);
 
-  // ═══ Звонки ═══
+  // Переключить чат в sidebar
+  const handleSelectChat = useCallback((chatId) => {
+    if (chatId === activeChatId) return;
+    soundTabSwitch();
+    setActiveChatId(chatId);
+    setSecondaryView(null);
+    useChatStore.getState().openChat(chatId);
+  }, [activeChatId]);
+
+  // Закрыть текущий чат
+  const handleCloseChat = useCallback(() => {
+    soundWindowClose();
+    if (activeChatId) {
+      useChatStore.getState().closeChat(activeChatId);
+    }
+    setActiveChatId(null);
+    setView('nebula');
+  }, [activeChatId]);
+
+  // Переключение secondary views
+  const switchToView = useCallback((viewName) => {
+    soundTabSwitch();
+    if (view === 'nebula') {
+      setView('chat');
+    }
+    setSecondaryView(viewName);
+  }, [view]);
+
+  // ═══════ CALLS ═══════
   const handleAcceptCall = useCallback(() => {
     const call = useCallStore.getState().incomingCall;
     if (!call) return;
@@ -192,136 +146,145 @@ export default function MainScreen({ user, onLogout }) {
     if (!socket) return;
     useCallStore.getState().initiateCall(chatId);
     socket.emit('call:initiate', { chatId });
-    // Звонящий сразу подключается к голосу
     const chat = chats.find((c) => c.id === chatId);
     joinCall(chatId, chat?.name || chat?.otherUser?.username || 'Звонок');
   }, [socketRef, joinCall, chats]);
 
-  // Открыть чат из панели (Orbit/Vibe) — без morph
-  const windowsRef = useRef(windows);
-  windowsRef.current = windows;
-
+  // Panel chat open
   const handlePanelOpenChat = useCallback((chatId) => {
     setOrbitOpen(false);
     setVibeOpen(false);
-    setTimeout(() => {
-      if (windowsRef.current[chatId]) {
-        focusWindow(chatId);
-      } else {
-        openWindow(chatId, null);
-      }
-    }, 200);
-  }, [focusWindow, openWindow]);
+    setTimeout(() => handleOpenChat(chatId), 200);
+  }, [handleOpenChat]);
 
+  // ═══════ HOTKEYS ═══════
+  useHotkeys({
+    search: () => setSpotlightOpen(true),
+    tabChats: () => { setSecondaryView(null); if (view !== 'nebula') setView('nebula'); },
+    tabVoice: () => switchToView('voice'),
+    tabChannels: () => switchToView('channels'),
+    tabFriends: () => switchToView('friends'),
+    toggleMute: () => useVoiceStore.getState().toggleMute(),
+    settings: () => switchToView('settings'),
+  });
+
+  // ═══════ AMBIENT HUE ═══════
+  // Hue Identity: фон меняет цвет под активного собеседника
+  const getAmbientHue = () => {
+    if (!activeChatId) return null;
+    const chat = chats.find(c => c.id === activeChatId);
+    if (!chat?.otherUser) return null;
+    let hash = 0;
+    const name = chat.otherUser.username || '';
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return Math.abs(hash) % 360;
+  };
+
+  // ═══════ RENDER ═══════
   return (
     <div className="main-screen">
-      <AnimatedBackground subtle />
+      <MetaballBackground subtle ambientHue={getAmbientHue()} />
 
-      {/* Индикаторы свайп-зон */}
-      {!orbitOpen && !vibeOpen && (
-        <>
-          <div className="swipe-hint swipe-hint--left" />
-          <div className="swipe-hint swipe-hint--right" />
-        </>
+      {/* ═══════ NEBULA VIEW (главное меню) ═══════ */}
+      {view === 'nebula' && !secondaryView && (
+        <NebulaView
+          onOpenChat={handleOpenChat}
+          onNavigate={switchToView}
+          onOpenProfile={() => setProfileOpen(true)}
+          user={currentUser}
+        />
       )}
 
-      <div className="main-nav">
-        <NavShelf
-          activeTab={activeTab}
-          onTabChange={switchTab}
-          unread={{ chats: totalUnread }}
-        />
-        <NotificationBell onOpenChat={handleOpenChat} />
-        <SpotlightProfile
-          user={currentUser}
-          onLogout={onLogout}
-          onNavigate={(action) => {
-            if (action === 'settings') setActiveTab('settings');
-            if (action === 'about') setAboutOpen(true);
-            if (action === 'feedback') setFeedbackOpen(true);
-            if (action === 'profile') setProfileOpen(true);
-            if (action === 'status') setStatusOpen(true);
-            if (action === 'theme') {
-              const next = useSettingsStore.getState().theme === 'dark' ? 'light' : 'dark';
-              useSettingsStore.getState().setValue('theme', next);
-            }
-          }}
-        />
-      </div>
+      {/* ═══════ CHAT VIEW (sidebar + чат) ═══════ */}
+      {view === 'chat' && (
+        <div className="main-layout">
+          <MiniCardsSidebar
+            activeChatId={activeChatId}
+            onSelectChat={handleSelectChat}
+            onBack={handleBackToNebula}
+          />
 
-      <div className="main-content">
-        {activeTab === 'chats' && (
-          <div className="main-screen__chat-area">
-            <ChatHub
-              onOpenChat={handleOpenChat}
-              visible={true}
-              openChatIds={openChatIds}
-            />
+          <div className="main-layout__content">
+            {/* Чат или secondary view */}
+            {!secondaryView && activeChatId && (
+              <ChatView
+                chatId={activeChatId}
+                onClose={handleCloseChat}
+                socketRef={socketRef}
+                onCall={() => handleInitiateCall(activeChatId)}
+                activeCall={activeCall?.chatId === activeChatId ? activeCall : null}
+                onJoinCall={() => joinCall(activeChatId)}
+              />
+            )}
+
+            {secondaryView === 'voice' && (
+              voiceRoomId && voiceExpanded ? (
+                <VoiceRoom socketRef={socketRef} />
+              ) : (
+                <VoiceRoomList
+                  onJoinRoom={(roomId, roomName) => {
+                    soundVoiceJoin();
+                    joinRoom(roomId, roomName);
+                    setVoiceExpanded(true);
+                  }}
+                />
+              )
+            )}
+
+            {secondaryView === 'channels' && (
+              activeChannelId
+                ? <ChannelView channelId={activeChannelId} onBack={() => setActiveChannelId(null)} user={currentUser} socketRef={socketRef} />
+                : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />
+            )}
+
+            {secondaryView === 'friends' && (
+              <FriendsScreen onBack={() => { setSecondaryView(null); }} onOpenChat={handleOpenChat} />
+            )}
+
+            {secondaryView === 'settings' && (
+              <SettingsScreen onBack={() => { setSecondaryView(null); }} />
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {activeTab === 'voice' && (
-          voiceRoomId && voiceExpanded ? (
-            <VoiceRoom socketRef={socketRef} />
-          ) : (
-            <VoiceRoomList
-              onJoinRoom={(roomId, roomName) => {
-                soundVoiceJoin();
-                joinRoom(roomId, roomName);
-                setVoiceExpanded(true);
-              }}
-            />
-          )
-        )}
+      {/* ═══════ SECONDARY VIEW в NEBULA MODE ═══════ */}
+      {view === 'nebula' && secondaryView && (
+        <div className="main-layout">
+          <div className="main-layout__content">
+            {secondaryView === 'voice' && (
+              voiceRoomId && voiceExpanded ? (
+                <VoiceRoom socketRef={socketRef} />
+              ) : (
+                <VoiceRoomList
+                  onJoinRoom={(roomId, roomName) => {
+                    soundVoiceJoin();
+                    joinRoom(roomId, roomName);
+                    setVoiceExpanded(true);
+                  }}
+                />
+              )
+            )}
+            {secondaryView === 'channels' && (
+              activeChannelId
+                ? <ChannelView channelId={activeChannelId} onBack={() => setActiveChannelId(null)} user={currentUser} socketRef={socketRef} />
+                : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />
+            )}
+            {secondaryView === 'friends' && (
+              <FriendsScreen onBack={() => setSecondaryView(null)} onOpenChat={handleOpenChat} />
+            )}
+            {secondaryView === 'settings' && (
+              <SettingsScreen onBack={() => setSecondaryView(null)} />
+            )}
+          </div>
+        </div>
+      )}
 
-        {activeTab === 'channels' && (
-          activeChannelId
-            ? <ChannelView channelId={activeChannelId} onBack={() => setActiveChannelId(null)} user={currentUser} socketRef={socketRef} />
-            : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />
-        )}
+      {/* ═══════ PANELS ═══════ */}
+      <OrbitPanel open={orbitOpen} onClose={() => setOrbitOpen(false)} onOpenChat={handlePanelOpenChat} />
+      <VibeMeter open={vibeOpen} onClose={() => setVibeOpen(false)} onOpenChat={handlePanelOpenChat} />
 
-        {activeTab === 'friends' && (
-          <FriendsScreen onBack={() => setActiveTab('chats')} onOpenChat={handleOpenChat} />
-        )}
-
-        {activeTab === 'settings' && (
-          <SettingsScreen onBack={() => setActiveTab('chats')} />
-        )}
-      </div>
-
-      {/* Окна чатов — fixed, вне overflow:hidden */}
-      {Object.values(windows).map((win) => (
-        <ChatView
-          key={win.chatId}
-          chatId={win.chatId}
-          morphRect={win.morphRect}
-          windowState={win}
-          isFocused={win.zIndex === maxZ}
-          onClose={() => handleCloseChat(win.chatId)}
-          onFocus={() => focusWindow(win.chatId)}
-          onMove={(x, y) => moveWindow(win.chatId, x, y)}
-          onResize={(x, y, w, h) => resizeWindow(win.chatId, x, y, w, h)}
-          onMorphEnd={() => clearMorph(win.chatId)}
-          socketRef={socketRef}
-          onCall={() => handleInitiateCall(win.chatId)}
-          activeCall={activeCall?.chatId === win.chatId ? activeCall : null}
-          onJoinCall={() => joinCall(win.chatId)}
-        />
-      ))}
-
-      {/* Панели */}
-      <OrbitPanel
-        open={orbitOpen}
-        onClose={() => setOrbitOpen(false)}
-        onOpenChat={handlePanelOpenChat}
-      />
-      <VibeMeter
-        open={vibeOpen}
-        onClose={() => setVibeOpen(false)}
-        onOpenChat={handlePanelOpenChat}
-      />
-
-      {/* Модалки */}
+      {/* ═══════ MODALS ═══════ */}
       <AboutScreen open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <FeedbackScreen open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       <ProfileScreen
@@ -337,7 +300,7 @@ export default function MainScreen({ user, onLogout }) {
         onUserUpdate={(updated) => setCurrentUser(prev => ({ ...prev, ...updated }))}
       />
 
-      {/* Входящий звонок — оверлей */}
+      {/* Входящий звонок */}
       {incomingCall && (
         <IncomingCallOverlay
           call={incomingCall}
@@ -346,18 +309,29 @@ export default function MainScreen({ user, onLogout }) {
         />
       )}
 
-      {/* Баннер обновления */}
+      {/* Обновление */}
       <UpdateBanner socketRef={socketRef} />
 
-      {/* Голосовая панель — видна на всех табах */}
       {/* Spotlight Search (Ctrl+K) */}
       <SpotlightSearch
         open={spotlightOpen}
         onClose={() => setSpotlightOpen(false)}
-        onNavigate={switchTab}
-        onOpenChat={(chatId) => handleOpenChat(chatId, null)}
+        onNavigate={switchToView}
+        onOpenChat={(chatId) => handleOpenChat(chatId)}
       />
 
+      {/* Dynamic Island — навигация (всегда виден) */}
+      <DynamicIsland
+        user={currentUser}
+        onNavigate={switchToView}
+        onOpenProfile={() => setProfileOpen(true)}
+        onOpenSearch={(query) => { setSpotlightOpen(true); }}
+        onStatusChange={(status) => {
+          setCurrentUser(prev => ({ ...prev, status }));
+        }}
+      />
+
+      {/* Voice Controls */}
       {voiceRoomId && (
         <VoiceControls
           onLeave={() => {
@@ -372,7 +346,7 @@ export default function MainScreen({ user, onLogout }) {
           }}
           onExpand={() => {
             if (!activeCall) {
-              setActiveTab('voice');
+              switchToView('voice');
               setVoiceExpanded(true);
             }
           }}

@@ -45,6 +45,7 @@ export default function ChatView({
   const messagesEndRef = useRef(null);
   const viewRef = useRef(null);
   const [replyTo, setReplyTo] = useState(null);
+  const [editingMsg, setEditingMsg] = useState(null);
   const [membersOpen, setMembersOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
 
@@ -312,10 +313,18 @@ export default function ChatView({
     socketRef.current?.emit('typing:stop', { chatId });
   };
 
-  // Редактирование сообщения
+  // Редактирование сообщения — заполнить input текстом
   const handleEdit = useCallback((msg) => {
-    socketRef.current?.emit('message:edit', { messageId: msg.id, chatId, text: msg.text });
-  }, [chatId, socketRef]);
+    setEditingMsg(msg);
+    setReplyTo(null);
+  }, []);
+
+  // Отправка отредактированного сообщения
+  const handleEditSend = useCallback((newText) => {
+    if (!editingMsg || !newText.trim()) return;
+    socketRef.current?.emit('message:edit', { messageId: editingMsg.id, chatId, text: newText.trim() });
+    setEditingMsg(null);
+  }, [editingMsg, chatId, socketRef]);
 
   // Удаление сообщения
   const handleDelete = useCallback((messageId) => {
@@ -456,6 +465,7 @@ export default function ChatView({
                 senderName={msg.user?.username || 'Unknown'}
                 isRead={msg.readBy?.includes?.(chat.otherUser?.id) || false}
                 onReply={() => setReplyTo(msg)}
+                onReact={() => { /* TODO: система реакций */ }}
                 onEdit={() => handleEdit(msg)}
                 onDelete={() => handleDelete(msg.id)}
                 onImageClick={setLightboxSrc}
@@ -476,12 +486,14 @@ export default function ChatView({
       </div>
 
       <ChatInput
-        onSend={handleSend}
+        onSend={editingMsg ? handleEditSend : handleSend}
         onSendFiles={handleSendFiles}
         onTypingStart={handleTypingStart}
         onTypingStop={handleTypingStop}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
+        editingMsg={editingMsg}
+        onCancelEdit={() => setEditingMsg(null)}
       />
 
       {lightboxSrc && (
