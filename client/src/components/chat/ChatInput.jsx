@@ -249,53 +249,55 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         onChange={handleFileSelect}
       />
 
-      {/* Compact / Expanded */}
-      {!isExpanded ? (
-        <div className="chat-input-compact" onClick={expandAndFocus}>
-          <span className="chat-input-compact__hint">Написать...</span>
-          <button className="chat-input-compact__mic" onClick={(e) => e.stopPropagation()}>
-            <Mic />
-          </button>
-        </div>
-      ) : (
-        <div className="chat-input-expanded">
-          <div className={`chat-input__outer ${isFocused ? 'chat-input__outer--focused' : ''}`}>
-            <div className="chat-input__inner">
-              <textarea
-                ref={inputRef}
-                className="chat-input__textarea"
-                placeholder="Написать сообщение..."
-                value={text}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-                rows={1}
-              />
-              <div className="chat-input__tools">
-                <button
-                  className="chat-input__tool-btn"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Прикрепить файл"
-                >
-                  <Paperclip />
-                </button>
-                <button className="chat-input__tool-btn" title="Эмодзи">
-                  <Smile />
-                </button>
-              </div>
+      {/* Compact state (hidden when expanded) */}
+      <div
+        className={`chat-input-compact ${isExpanded ? 'chat-input-compact--hidden' : ''}`}
+        onClick={expandAndFocus}
+      >
+        <span className="chat-input-compact__hint">Написать...</span>
+        <button className="chat-input-compact__mic" onClick={(e) => e.stopPropagation()}>
+          <Mic />
+        </button>
+      </div>
+
+      {/* Expanded state (hidden when compact) */}
+      <div className={`chat-input-expanded ${isExpanded ? 'chat-input-expanded--visible' : ''}`}>
+        <div className={`chat-input__outer ${isFocused ? 'chat-input__outer--focused' : ''}`}>
+          <div className="chat-input__inner">
+            <textarea
+              ref={inputRef}
+              className="chat-input__textarea"
+              placeholder="Написать сообщение..."
+              value={text}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              rows={1}
+            />
+            <div className="chat-input__tools">
+              <button
+                className="chat-input__tool-btn"
+                onClick={() => fileInputRef.current?.click()}
+                title="Прикрепить файл"
+              >
+                <Paperclip />
+              </button>
+              <button className="chat-input__tool-btn" title="Эмодзи">
+                <Smile />
+              </button>
             </div>
           </div>
-          <button
-            ref={sendBtnRef}
-            className="chat-input__send"
-            onClick={handleSend}
-          >
-            <ArrowUp />
-          </button>
         </div>
-      )}
+        <button
+          ref={sendBtnRef}
+          className="chat-input__send"
+          onClick={handleSend}
+        >
+          <ArrowUp />
+        </button>
+      </div>
     </div>
   );
 }
