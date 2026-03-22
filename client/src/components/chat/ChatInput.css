@@ -11,8 +11,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  width: 200px;
+  padding: 10px 18px;
+  width: clamp(200px, 40%, 320px);
   margin: 0 auto;
   background: rgba(255,255,255,0.04);
   backdrop-filter: blur(20px);
@@ -21,7 +21,7 @@
   border-radius: 100px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   cursor: text;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .chat-input-compact__hint {
@@ -54,7 +54,7 @@
   align-items: center;
   gap: 0;
   opacity: 1;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Outer glass */
