@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Paperclip } from 'lucide-react';
+import { ArrowUp, Paperclip, Smile, Mic, X } from 'lucide-react';
 import AttachmentPreview from './AttachmentPreview';
 import { soundSend } from '../../utils/sounds';
 import './ChatInput.css';
@@ -9,10 +9,18 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
   const [dragOver, setDragOver] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const sendBtnRef = useRef(null);
+  const blurTimeoutRef = useRef(null);
+
+  // Anti-spam: максимум 5 сообщений за 3 секунды
+  const sendTimestampsRef = useRef([]);
 
   // Очистить typing timeout при unmount
   useEffect(() => {
@@ -21,12 +29,24 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = null;
       }
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+        blurTimeoutRef.current = null;
+      }
       if (typingRef.current) {
         onTypingStop?.();
         typingRef.current = false;
       }
     };
   }, [onTypingStop]);
+
+  // Если есть replyTo — раскрыть и фокус
+  useEffect(() => {
+    if (replyTo) {
+      setIsExpanded(true);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [replyTo]);
 
   // Авто-ресайз textarea
   const resizeTextarea = () => {
@@ -54,7 +74,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
 
   const addFiles = useCallback((newFiles) => {
     const arr = Array.from(newFiles);
-    // Лимит 10 МБ на файл (для обычных пользователей)
+    // Лимит 10 МБ на файл
     const valid = arr.filter((f) => f.size <= 10 * 1024 * 1024);
     if (valid.length < arr.length) {
       const rejected = arr.length - valid.length;
@@ -65,20 +85,30 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
 
   const removeFile = useCallback((index) => {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
-    // Сбрасываем весь прогресс при удалении — индексы сдвигаются
     setUploadProgress({});
   }, []);
-
-  const [ripple, setRipple] = useState(false);
 
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed && !pendingFiles.length) return;
 
-    // Glass ripple + звук
+    // Anti-spam: 5 сообщений за 3 секунды
+    const now = Date.now();
+    sendTimestampsRef.current = sendTimestampsRef.current.filter((t) => now - t < 3000);
+    if (sendTimestampsRef.current.length >= 5) return;
+    sendTimestampsRef.current.push(now);
+
+    // Звук
     soundSend();
-    setRipple(true);
-    setTimeout(() => setRipple(false), 500);
+
+    // Ripple на кнопке отправки
+    const btn = sendBtnRef.current;
+    if (btn) {
+      const ripple = document.createElement('div');
+      ripple.className = 'chat-input__send-ripple';
+      btn.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+    }
 
     if (pendingFiles.length > 0) {
       onSendFiles?.(pendingFiles, trimmed);
@@ -148,13 +178,38 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     if (e.target.files?.length) {
       addFiles(e.target.files);
     }
-    // Сбросить value чтобы можно было выбрать тот же файл повторно
     e.target.value = '';
   }, [addFiles]);
 
+  // Compact → Expanded
+  const expandAndFocus = () => {
+    setIsExpanded(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  // Focus / Blur
+  const handleFocus = () => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+    setIsFocused(true);
+    setIsExpanded(true);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    // Сворачиваем только если пустой текст и нет файлов
+    blurTimeoutRef.current = setTimeout(() => {
+      if (!text.trim() && !pendingFiles.length) {
+        setIsExpanded(false);
+      }
+    }, 200);
+  };
+
   return (
     <div
-      className={`chat-input ${dragOver ? 'chat-input--drag-over' : ''} ${ripple ? 'chat-input--ripple' : ''}`}
+      className={`chat-input-zone ${dragOver ? 'chat-input-zone--drag-over' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -170,50 +225,77 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       {replyTo && (
         <div className="chat-input__reply-preview">
           <div className="chat-input__reply-bar" />
-          <div className="chat-input__reply-info">
-            <span className="chat-input__reply-author">
+          <div>
+            <div className="chat-input__reply-name">
               {replyTo.user?.username || replyTo.username || 'Сообщение'}
-            </span>
-            <span className="chat-input__reply-text">
+            </div>
+            <div className="chat-input__reply-text">
               {replyTo.text?.slice(0, 60) || '[Сообщение]'}
               {replyTo.text && replyTo.text.length > 60 ? '...' : ''}
-            </span>
+            </div>
           </div>
-          <button className="chat-input__reply-cancel" onClick={onCancelReply}>&times;</button>
+          <button className="chat-input__reply-close" onClick={onCancelReply}>
+            <X />
+          </button>
         </div>
       )}
 
-      <div className="chat-input__row">
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="chat-input__file-hidden"
-          onChange={handleFileSelect}
-        />
-        <button
-          className="chat-input__attach"
-          onClick={() => fileInputRef.current?.click()}
-          title="Прикрепить файл"
-        >
-          <Paperclip size={18} strokeWidth={1.5} />
-        </button>
-        <textarea
-          ref={inputRef}
-          className="chat-input__field"
-          placeholder="Написать сообщение..."
-          value={text}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          rows={1}
-        />
-        {(text.trim() || pendingFiles.length > 0) && (
-          <button className="chat-input__send" onClick={handleSend}>
-            &rarr;
+      {/* Скрытый file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="chat-input__file-hidden"
+        onChange={handleFileSelect}
+      />
+
+      {/* Compact / Expanded */}
+      {!isExpanded ? (
+        <div className="chat-input-compact" onClick={expandAndFocus}>
+          <span className="chat-input-compact__hint">Написать...</span>
+          <button className="chat-input-compact__mic" onClick={(e) => e.stopPropagation()}>
+            <Mic />
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="chat-input-expanded">
+          <div className={`chat-input__outer ${isFocused ? 'chat-input__outer--focused' : ''}`}>
+            <div className="chat-input__inner">
+              <textarea
+                ref={inputRef}
+                className="chat-input__textarea"
+                placeholder="Написать сообщение..."
+                value={text}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                rows={1}
+              />
+              <div className="chat-input__tools">
+                <button
+                  className="chat-input__tool-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Прикрепить файл"
+                >
+                  <Paperclip />
+                </button>
+                <button className="chat-input__tool-btn" title="Эмодзи">
+                  <Smile />
+                </button>
+              </div>
+            </div>
+          </div>
+          <button
+            ref={sendBtnRef}
+            className="chat-input__send"
+            onClick={handleSend}
+          >
+            <ArrowUp />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
