@@ -143,11 +143,12 @@ const fragmentShader = `
 `;
 
 // ═══════ FULLSCREEN QUAD ═══════
-// Целевые цвета для плавной интерполяции
-const targetColor1 = new THREE.Color('#c8ff00').multiplyScalar(0.5);
-const targetColor2 = new THREE.Color('#00d4ff').multiplyScalar(0.4);
-const defaultColor1 = new THREE.Color('#c8ff00').multiplyScalar(0.5);
-const defaultColor2 = new THREE.Color('#00d4ff').multiplyScalar(0.4);
+// Целевые цвета для плавной интерполяции (мутабельные)
+const targetColor1 = new THREE.Color().setHSL(0.22, 0.7, 0.45);
+const targetColor2 = new THREE.Color().setHSL(0.52, 0.6, 0.4);
+// Дефолтные цвета (иммутабельные копии)
+const DEFAULT_C1_H = 0.22, DEFAULT_C1_S = 0.7, DEFAULT_C1_L = 0.45;
+const DEFAULT_C2_H = 0.52, DEFAULT_C2_S = 0.6, DEFAULT_C2_L = 0.4;
 
 function MetaballScene({ ambientHue, subtle }) {
   const meshRef = useRef();
@@ -179,8 +180,8 @@ function MetaballScene({ ambientHue, subtle }) {
       targetColor1.setHSL(ambientHue / 360, 0.7, 0.45);
       targetColor2.setHSL(((ambientHue + 60) % 360) / 360, 0.6, 0.4);
     } else {
-      targetColor1.copy(defaultColor1);
-      targetColor2.copy(defaultColor2);
+      targetColor1.setHSL(DEFAULT_C1_H, DEFAULT_C1_S, DEFAULT_C1_L);
+      targetColor2.setHSL(DEFAULT_C2_H, DEFAULT_C2_S, DEFAULT_C2_L);
     }
   }, [ambientHue]);
 
