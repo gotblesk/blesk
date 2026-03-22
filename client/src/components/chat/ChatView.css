@@ -42,7 +42,7 @@
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
 }
 
-/* Glass specular highlight — блик сверху */
+/* Glass specular highlight — блик сверху (только floating mode) */
 .chat-view::before {
   content: '';
   position: absolute;
@@ -57,6 +57,25 @@
   );
   pointer-events: none;
   z-index: 1;
+}
+
+/* Убрать блик в inline mode */
+.chat-view--inline::before {
+  display: none;
+}
+
+/* Убрать close button и pull indicator в inline mode */
+.chat-view--inline .chat-view__close-btn {
+  display: none;
+}
+
+.chat-view--inline .chat-view__pull-indicator {
+  display: none;
+}
+
+/* Убрать drag zone cursor в inline mode */
+.chat-view--inline .chat-view__drag-zone {
+  cursor: default;
 }
 
 /* Drag zone — обёртка хедера для перетаскивания */
