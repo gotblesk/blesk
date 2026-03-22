@@ -143,6 +143,12 @@ const fragmentShader = `
 `;
 
 // ═══════ FULLSCREEN QUAD ═══════
+// Целевые цвета для плавной интерполяции
+const targetColor1 = new THREE.Color('#c8ff00').multiplyScalar(0.5);
+const targetColor2 = new THREE.Color('#00d4ff').multiplyScalar(0.4);
+const defaultColor1 = new THREE.Color('#c8ff00').multiplyScalar(0.5);
+const defaultColor2 = new THREE.Color('#00d4ff').multiplyScalar(0.4);
+
 function MetaballScene({ ambientHue, subtle }) {
   const meshRef = useRef();
   const { size } = useThree();
@@ -167,14 +173,14 @@ function MetaballScene({ ambientHue, subtle }) {
     return () => window.removeEventListener('mousemove', onMove);
   }, []);
 
-  // Update ambient hue
+  // Update target colors for smooth lerp (not instant)
   useEffect(() => {
-    if (ambientHue !== null && ambientHue !== undefined && meshRef.current) {
-      const mat = meshRef.current.material;
-      const hsl1 = { h: ambientHue / 360, s: 0.7, l: 0.45 };
-      const hsl2 = { h: ((ambientHue + 60) % 360) / 360, s: 0.6, l: 0.4 };
-      mat.uniforms.uColor1.value.setHSL(hsl1.h, hsl1.s, hsl1.l);
-      mat.uniforms.uColor2.value.setHSL(hsl2.h, hsl2.s, hsl2.l);
+    if (ambientHue !== null && ambientHue !== undefined) {
+      targetColor1.setHSL(ambientHue / 360, 0.7, 0.45);
+      targetColor2.setHSL(((ambientHue + 60) % 360) / 360, 0.6, 0.4);
+    } else {
+      targetColor1.copy(defaultColor1);
+      targetColor2.copy(defaultColor2);
     }
   }, [ambientHue]);
 
@@ -192,6 +198,10 @@ function MetaballScene({ ambientHue, subtle }) {
     // Smooth mouse lerp
     mat.uniforms.uMouse.value.x += (mousePos.x - mat.uniforms.uMouse.value.x) * 0.05;
     mat.uniforms.uMouse.value.y += (mousePos.y - mat.uniforms.uMouse.value.y) * 0.05;
+    // Smooth color lerp — плавное переливание между цветами чатов
+    const lerpSpeed = 0.02;
+    mat.uniforms.uColor1.value.lerp(targetColor1, lerpSpeed);
+    mat.uniforms.uColor2.value.lerp(targetColor2, lerpSpeed);
   });
 
   return (
