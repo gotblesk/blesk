@@ -1,15 +1,15 @@
-/* ═══════ MINI CARDS SIDEBAR — Double Layer Glass ═══════ */
+/* ═══════ SIDEBAR — Magnetic Edge + Glass Island ═══════ */
+
 .mini-sidebar {
-  width: 140px;
+  width: 180px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 6px;
+  gap: 2px;
+  padding: 8px 0;
   z-index: 20;
-  /* Outer glass layer */
-  background: rgba(255, 255, 255, 0.02);
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.015);
+  border-right: 1px solid rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   overflow-y: auto;
@@ -28,21 +28,20 @@
 /* ═══════ BACK BUTTON ═══════ */
 .mini-sidebar__back {
   width: 100%;
-  padding: 6px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 8px 14px;
+  background: none;
+  border: none;
   color: rgba(255, 255, 255, 0.2);
   font-size: 14px;
+  text-align: left;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 0.15s;
   margin-bottom: 4px;
+  font-family: 'Manrope', sans-serif;
 }
 
 .mini-sidebar__back:hover {
-  background: rgba(200, 255, 0, 0.04);
-  color: var(--accent, #c8ff00);
-  border-color: rgba(200, 255, 0, 0.08);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* ═══════ CHAT LIST ═══════ */
@@ -52,7 +51,7 @@
   gap: 2px;
 }
 
-/* ═══════ MINI CARD ═══════ */
+/* ═══════ CARD — Magnetic Edge ═══════ */
 .mini-card {
   position: relative;
   width: 100%;
@@ -64,93 +63,147 @@
   font-family: 'Manrope', sans-serif;
 }
 
-/* Outer glass layer */
-.mini-card__glass {
-  padding: 2px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.025);
-  transition: all 0.15s;
-}
-
-/* Inner glass layer (Double Layer) */
-.mini-card__inner {
+.mini-card__content {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 8px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 0 16px 16px 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(-4px);
+  position: relative;
+}
+
+.mini-card:hover .mini-card__content {
+  background: rgba(255, 255, 255, 0.03);
+  transform: translateX(0);
+}
+
+/* ═══════ ACTIVE — Glass Island (Double Layer) ═══════ */
+.mini-card--active .mini-card__content {
+  transform: translateX(2px);
+  padding: 3px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  transition: all 0.15s;
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
-.mini-card:hover .mini-card__glass {
-  border-color: rgba(255, 255, 255, 0.05);
+.mini-card__active-inner {
+  display: none;
 }
 
-.mini-card:hover .mini-card__inner {
-  background: rgba(255, 255, 255, 0.03);
+.mini-card--active .mini-card__active-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  width: 100%;
 }
 
-/* Active state — accent glow */
-.mini-card--active .mini-card__glass {
-  border-color: rgba(200, 255, 0, 0.15);
-  background: rgba(200, 255, 0, 0.02);
-  box-shadow:
-    0 0 12px rgba(200, 255, 0, 0.04),
-    inset 0 0 8px rgba(200, 255, 0, 0.02);
-}
-
-.mini-card--active .mini-card__inner {
-  background: rgba(200, 255, 0, 0.03);
-  border-color: rgba(200, 255, 0, 0.06);
-}
-
-/* Active glow line on left */
-.mini-card__glow {
+/* Specular highlight */
+.mini-card__active-inner::before {
+  content: '';
   position: absolute;
-  left: -6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 18px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent, #c8ff00);
-  box-shadow: 0 0 8px rgba(200, 255, 0, 0.3);
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  pointer-events: none;
 }
 
-/* ═══════ CARD CONTENT ═══════ */
-.mini-card__name {
+/* Hide default content in active, show inner instead */
+.mini-card--active .mini-card__default-content {
+  display: none;
+}
+
+.mini-card:not(.mini-card--active) .mini-card__active-inner {
+  display: none;
+}
+
+/* ═══════ AVATAR ═══════ */
+.mini-card__avatar {
+  flex-shrink: 0;
+}
+
+.mini-card__avatar .avatar {
+  transition: transform 0.2s;
+}
+
+.mini-card:hover .mini-card__avatar .avatar {
+  transform: scale(1.05);
+}
+
+/* ═══════ INFO ═══════ */
+.mini-card__info {
   flex: 1;
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
 }
 
+.mini-card__name {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+
+.mini-card:hover .mini-card__name {
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .mini-card--active .mini-card__name {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.mini-card__preview {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-card--active .mini-card__preview {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ═══════ META (time + badge) ═══════ */
+.mini-card__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mini-card__time {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.15);
 }
 
 .mini-card__badge {
-  min-width: 14px;
-  height: 14px;
-  border-radius: 7px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
   background: var(--accent, #c8ff00);
   color: #08060f;
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 3px;
-  flex-shrink: 0;
+  padding: 0 4px;
 }
 
 /* ═══════ LIGHT THEME ═══════ */
@@ -159,14 +212,18 @@
   border-right-color: rgba(0, 0, 0, 0.04);
 }
 
-[data-theme="light"] .mini-card__glass {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(0, 0, 0, 0.04);
+[data-theme="light"] .mini-card:hover .mini-card__content {
+  background: rgba(0, 0, 0, 0.03);
 }
 
-[data-theme="light"] .mini-card__inner {
+[data-theme="light"] .mini-card--active .mini-card__content {
   background: rgba(255, 255, 255, 0.4);
-  border-color: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .mini-card__active-inner {
+  background: rgba(255, 255, 255, 0.5);
+  border-top-color: rgba(255, 255, 255, 0.6);
 }
 
 [data-theme="light"] .mini-card__name {
@@ -174,5 +231,15 @@
 }
 
 [data-theme="light"] .mini-card--active .mini-card__name {
-  color: rgba(0, 0, 0, 0.8);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .mini-card__preview {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-card__content {
+    transition: none;
+  }
 }
