@@ -1,0 +1,65 @@
+.msg-actions-pill {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  border-radius: 100px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateY(-50%) scale(0.8);
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.chat-message:hover .msg-actions-pill {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+  pointer-events: auto;
+}
+
+.chat-message--own .msg-actions-pill {
+  right: calc(100% + 6px);
+}
+
+.chat-message--other .msg-actions-pill {
+  left: calc(100% + 6px);
+}
+
+.msg-actions-pill__btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.msg-actions-pill__btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.8);
+}
+
+.msg-actions-pill__btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+[data-theme="light"] .msg-actions-pill {
+  background: rgba(255,255,255,0.7);
+  border-color: rgba(0,0,0,0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-actions-pill { transition: none; }
+}
