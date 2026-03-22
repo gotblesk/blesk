@@ -3,6 +3,7 @@ import TitleBar from './components/ui/TitleBar';
 import AuthScreen from './components/auth/AuthScreen';
 import MainScreen from './components/main/MainScreen';
 import UpdateToast from './components/ui/UpdateToast';
+import MetaballFilter from './components/ui/MetaballFilter';
 import { ensureKeyPair, clearCache } from './utils/cryptoService';
 import { useChatStore } from './store/chatStore';
 import { useNotificationStore } from './store/notificationStore';
@@ -177,6 +178,7 @@ export default function App() {
 
   return (
     <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
+      <MetaballFilter />
       <TitleBar />
       <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <MainScreen user={user} onLogout={handleLogout} />

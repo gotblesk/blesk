@@ -1,6 +1,9 @@
 import { forwardRef } from 'react';
 import './Glass.css';
 
+// Double Layer Glass — два вложенных backdrop-filter слоя
+// API не изменён: depth(0-3), radius, hover, className, style, onClick
+
 const depthStyles = {
   0: 'glass--depth-0',
   1: 'glass--depth-1',
@@ -24,6 +27,8 @@ const Glass = forwardRef(function Glass({
     className,
   ].filter(Boolean).join(' ');
 
+  const innerRadius = Math.max(radius - 8, 6);
+
   return (
     <div
       ref={ref}
@@ -31,7 +36,20 @@ const Glass = forwardRef(function Glass({
       style={{ borderRadius: radius, ...style }}
       onClick={onClick}
     >
-      {children}
+      {/* Outer layer — light blur */}
+      <div className="glass__outer" aria-hidden="true" />
+      {/* Inner layer — heavier blur */}
+      <div
+        className="glass__inner"
+        style={{ borderRadius: innerRadius }}
+        aria-hidden="true"
+      />
+      {/* Edge border */}
+      <div className="glass__edge" aria-hidden="true" />
+      {/* Content */}
+      <div className="glass__content">
+        {children}
+      </div>
     </div>
   );
 });

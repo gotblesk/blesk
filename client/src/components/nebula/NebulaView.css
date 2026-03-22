@@ -1,0 +1,207 @@
+/* ═══════ NEBULA VIEW ═══════ */
+.nebula {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 5;
+}
+
+.nebula-svg {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* ═══════ TOPBAR ═══════ */
+.nebula-topbar {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  right: 14px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.035);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.nebula-topbar__logo {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent, #c8ff00);
+}
+
+.nebula-topbar__hint {
+  flex: 1;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.12);
+  text-align: center;
+}
+
+.nebula-topbar__reset {
+  padding: 4px 10px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  font-family: 'Manrope', sans-serif;
+  transition: all 0.2s;
+}
+
+.nebula-topbar__reset:hover {
+  background: rgba(200, 255, 0, 0.06);
+  color: var(--accent, #c8ff00);
+}
+
+/* ═══════ METABALL LAYER ═══════ */
+.nebula-metaball {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  filter: url(#nebulaGoo);
+  pointer-events: none;
+}
+
+.nebula-blob {
+  position: absolute;
+  border-radius: 14px;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* ═══════ CHAT CARDS ═══════ */
+.nebula-card {
+  position: absolute;
+  z-index: 10;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+}
+
+.nebula-card:active {
+  cursor: grabbing;
+  z-index: 50;
+}
+
+.nebula-card__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--nebula-card-gap);
+  padding: var(--nebula-card-padding);
+  width: var(--nebula-card-w);
+  height: var(--nebula-card-h);
+  /* Double Layer Glass */
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--nebula-card-radius);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  pointer-events: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.nebula-card:hover .nebula-card__inner {
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 20px rgba(200, 255, 0, 0.03);
+}
+
+.nebula-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.nebula-card__name {
+  font-size: var(--nebula-name-size);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nebula-card__preview {
+  font-size: var(--nebula-preview-size);
+  color: rgba(255, 255, 255, 0.25);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.nebula-card__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.nebula-card__time {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.12);
+}
+
+.nebula-card__badge {
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--accent, #c8ff00);
+  color: #08060f;
+  font-size: 8px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+/* ═══════ EMPTY STATE ═══════ */
+.nebula-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.nebula-empty__text {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.nebula-empty__hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.08);
+}
+
+/* ═══════ LIGHT THEME ═══════ */
+[data-theme="light"] .nebula-topbar {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .nebula-card__inner {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .nebula-card__name {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .nebula-card__preview {
+  color: rgba(0, 0, 0, 0.35);
+}
