@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
 import { useVoiceStore } from '../../store/voiceStore';
-import { Search, Users, Mic, Radio, Settings, X } from 'lucide-react';
+import { Search, Users, Mic, Radio, Settings, Shield, X } from 'lucide-react';
 import Avatar from './Avatar';
 import './DynamicIsland.css';
 
 // ═══════ DYNAMIC ISLAND — навигация blesk ═══════
 export default function DynamicIsland({
   user,
+  isAdmin,
   onNavigate,
   onOpenProfile,
   onOpenSearch,
@@ -200,6 +201,12 @@ export default function DynamicIsland({
                 <div className="island__btn-icon island__btn-icon--channels"><Radio size={14} /></div>
                 <span className="island__btn-label">Каналы</span>
               </button>
+
+              {isAdmin && (
+                <button className="island__btn" onClick={(e) => handleNav(e, 'admin')} title="Админ-панель">
+                  <div className="island__btn-icon"><Shield size={14} /></div>
+                </button>
+              )}
 
               <button className="island__btn" onClick={(e) => handleNav(e, 'settings')}>
                 <div className="island__btn-icon island__btn-icon--settings"><Settings size={14} /></div>

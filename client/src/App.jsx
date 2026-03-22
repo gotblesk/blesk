@@ -184,7 +184,7 @@ export default function App() {
       <MetaballFilter />
       <TitleBar />
       <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <MainScreen user={user} onLogout={handleLogout} />
+        <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />
       </div>
       <UpdateToast />
     </div>

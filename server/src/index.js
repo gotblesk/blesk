@@ -60,6 +60,12 @@ const uploadLimiter = rateLimit({
   message: { error: 'Слишком много загрузок.' },
 });
 
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { error: 'Слишком много запросов к админ-панели.' },
+});
+
 // Передать io в роуты через app.locals
 app.locals.io = io;
 
@@ -84,7 +90,7 @@ app.use('/api/notifications', chatLimiter, notificationRoutes);
 app.use('/api/friends', chatLimiter, friendRoutes);
 app.use('/api/feedback', chatLimiter, feedbackRoutes);
 app.use('/api/voice', voiceLimiter, voiceRoutes);
-app.use('/api/admin', authLimiter, adminRoutes);
+app.use('/api/admin', adminLimiter, adminRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {

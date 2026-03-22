@@ -26,6 +26,14 @@ model User {
   showLastSeen Boolean   @default(true) @map("show_last_seen")
   createdAt    DateTime @default(now()) @map("created_at")
 
+  // Админ-поля
+  role          String    @default("user") // user, moderator, admin
+  banned        Boolean   @default(false)
+  bannedAt      DateTime? @map("banned_at")
+  bannedReason  String?   @map("banned_reason")
+  bannedBy      String?   @map("banned_by")
+  verifiedLevel Int       @default(0) @map("verified_level") // 0=none, 1=email, 2=phone, 3=official
+
   sentMessages           Message[]
   ownedRooms             Room[]            @relation("RoomOwner")
   participations         RoomParticipant[]
@@ -34,6 +42,12 @@ model User {
   sentFriendRequests     FriendRequest[]   @relation("FriendRequestSender")
   receivedFriendRequests FriendRequest[]   @relation("FriendRequestReceiver")
   channelSubscriptions   ChannelSubscriber[] @relation("UserSubscriptions")
+  userTags               UserTag[]         @relation("UserTags")
+  grantedTags            UserTag[]         @relation("TagGranter")
+  auditLogs              AuditLog[]
+  reports                Report[]          @relation("ReportReporter")
+  resolvedReports        Report[]          @relation("ReportResolver")
+  feedbacks              Feedback[]
 
   @@map("users")
 }
@@ -156,6 +170,7 @@ model EmailCode {
 model Feedback {
   id         String   @id @default(uuid())
   userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
   type       String   // bug, suggestion, question
   text       String
   appVersion String   @map("app_version")
@@ -194,4 +209,75 @@ model ChannelSubscriber {
   @@index([channelId])
   @@index([userId])
   @@map("channel_subscribers")
+}
+
+// ═══════════════════════════════════════
+// Админ-панель: теги, логи, жалобы
+// ═══════════════════════════════════════
+
+model Tag {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  color       String    @default("#c8ff00")
+  type        String    @default("system") // system, achievement, seasonal, community
+  rarity      String    @default("common") // common, uncommon, rare, epic, legendary
+  description String    @default("")
+  icon        String?   // lucide icon name
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  userTags    UserTag[]
+
+  @@map("tags")
+}
+
+model UserTag {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tagId     String   @map("tag_id")
+  grantedBy String?  @map("granted_by")
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  user    User  @relation("UserTags", fields: [userId], references: [id])
+  tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  granter User? @relation("TagGranter", fields: [grantedBy], references: [id])
+
+  @@unique([userId, tagId])
+  @@index([userId])
+  @@map("user_tags")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String   @map("admin_id")
+  action     String   // user.ban, user.unban, user.edit, tag.create, tag.grant, message.delete, etc.
+  targetType String   @map("target_type") // user, tag, message, channel, report, feedback
+  targetId   String   @map("target_id")
+  details    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Report {
+  id         String   @id @default(uuid())
+  reporterId String   @map("reporter_id")
+  targetType String   @map("target_type") // user, message, channel
+  targetId   String   @map("target_id")
+  category   String   // spam, harassment, nsfw, other
+  text       String   @default("")
+  status     String   @default("new") // new, reviewed, resolved, rejected
+  resolvedBy String?  @map("resolved_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  reporter User  @relation("ReportReporter", fields: [reporterId], references: [id])
+  resolver User? @relation("ReportResolver", fields: [resolvedBy], references: [id])
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("reports")
 }

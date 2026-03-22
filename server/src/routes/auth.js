@@ -371,6 +371,14 @@ router.get('/me', async (req, res) => {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
+    // Забаненный юзер не может использовать приложение
+    if (user.banned) {
+      return res.status(403).json({
+        error: 'Аккаунт заблокирован',
+        bannedReason: user.bannedReason || 'Нарушение правил',
+      });
+    }
+
     res.json({
       user: {
         id: user.id,
@@ -385,6 +393,9 @@ router.get('/me', async (req, res) => {
         email: user.email,
         emailVerified: user.emailVerified,
         publicKey: user.publicKey,
+        role: user.role,
+        banned: user.banned,
+        bannedReason: user.bannedReason,
         createdAt: user.createdAt,
       },
     });
