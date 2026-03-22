@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Orbit: какой layout друзей?</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; padding: 32px; overflow-x: hidden; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .sub { font-size: 12px; color: rgba(255,255,255,0.2); margin-bottom: 32px; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+
+  .grid { display: flex; flex-direction: column; gap: 24px; max-width: 800px; margin: 0 auto; }
+  .card { padding: 20px; border-radius: 20px; border: 2px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.015); cursor: pointer; transition: all 0.3s; }
+  .card:hover { border-color: rgba(200,255,0,0.15); }
+  .card.selected { border-color: #c8ff00; background: rgba(200,255,0,0.03); }
+  .card__head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .card__letter { width: 32px; height: 32px; border-radius: 10px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: rgba(255,255,255,0.25); flex-shrink: 0; }
+  .card.selected .card__letter { background: #c8ff00; color: #08060f; }
+  .card__title { font-size: 15px; font-weight: 600; }
+  .card__desc { font-size: 11px; color: rgba(255,255,255,0.3); line-height: 1.6; margin-bottom: 16px; padding-left: 44px; }
+  .tag { display: inline-block; padding: 3px 10px; border-radius: 8px; font-size: 9px; font-weight: 600; }
+  .tag--rec { background: rgba(200,255,0,0.12); color: #c8ff00; }
+  .tag--alt { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.25); }
+
+  /* ═══ Preview containers ═══ */
+  .preview { width: 100%; height: 220px; border-radius: 14px; background: rgba(0,0,0,0.25); position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.03); }
+
+  /* ═══ OPTION A: Full circular orbit ═══ */
+  .orbitA { position: absolute; inset: 0; }
+  .orbitA__goo { filter: url(#goo); position: absolute; inset: 0; }
+  .oA-c { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
+  .oA-c:hover { z-index: 10 !important; }
+  .oA-c--me { width: 52px; height: 52px; font-size: 18px; color: #000; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 5; }
+  .oA-c--f { width: 38px; height: 38px; font-size: 14px; }
+  .oA-c--f:hover { transform: scale(1.25); }
+  .oA-dot { position: absolute; bottom: 0; right: 0; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; }
+  /* Имена СНАРУЖИ filter */
+  .oA-labels { position: absolute; inset: 0; pointer-events: none; }
+  .oA-label { position: absolute; font-size: 8px; color: rgba(255,255,255,0.2); text-align: center; white-space: nowrap; }
+
+  /* ═══ OPTION B: Horizontal strip (improved) ═══ */
+  .orbitB { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 6px; }
+  .orbitB__goo { filter: url(#goo); display: flex; align-items: center; gap: 4px; }
+  .oB { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); cursor: pointer; position: relative; }
+  .oB--me { width: 44px; height: 44px; font-size: 15px; color: #000; }
+  .oB:hover { transform: scale(1.22); z-index: 5; }
+  .orbitB__names { display: flex; align-items: center; gap: 4px; }
+  .oB-n { font-size: 7px; color: rgba(255,255,255,0.12); text-align: center; width: 36px; }
+  .oB-n--me { width: 44px; }
+
+  /* ═══ OPTION C: Arc / semicircle ═══ */
+  .orbitC { position: absolute; inset: 0; }
+  .orbitC__goo { filter: url(#goo-c); position: absolute; inset: 0; }
+  .oC { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
+  .oC:hover { transform: scale(1.25); z-index: 10; }
+  .oC--me { width: 48px; height: 48px; font-size: 16px; color: #000; }
+  .oC--f { width: 34px; height: 34px; font-size: 12px; }
+  .oC-labels { position: absolute; inset: 0; pointer-events: none; }
+  .oC-label { position: absolute; font-size: 8px; color: rgba(255,255,255,0.2); text-align: center; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<svg class="svg-f">
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+    <filter id="goo-c">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -6" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
+<h1>Orbit друзей — какой layout?</h1>
+<p class="sub">Hover на аватары чтобы увидеть metaball blob-мёрж. Кликни на вариант который нравится.</p>
+
+<div class="grid">
+
+  <!-- ═══ A: CIRCULAR ═══ -->
+  <div class="card" onclick="sel(this)">
+    <div class="card__head">
+      <div class="card__letter">A</div>
+      <div class="card__title">Полный круг <span class="tag tag--rec">Рекомендую</span></div>
+    </div>
+    <div class="card__desc">Друзья вокруг твоего аватара по кругу. Онлайн ближе, оффлайн дальше. Gravity: чем больше общаешься — тем ближе к центру. Занимает ~200px в sidebar.</div>
+    <div class="preview">
+      <div class="orbitA">
+        <div class="orbitA__goo">
+          <div class="oA-c oA-c--me" style="background:linear-gradient(135deg,hsl(100,70%,55%),hsl(140,60%,45%))">G</div>
+          <!-- Друзья по кругу (radius ~75px от центра) -->
+          <div class="oA-c oA-c--f" style="background:linear-gradient(135deg,hsl(300,70%,55%),hsl(340,60%,45%));top:20px;left:50%;margin-left:-19px">V<div class="oA-dot"></div></div>
+          <div class="oA-c oA-c--f" style="background:linear-gradient(135deg,hsl(200,70%,55%),hsl(240,60%,45%));top:55px;right:55px">D</div>
+          <div class="oA-c oA-c--f" style="background:linear-gradient(135deg,hsl(30,70%,55%),hsl(50,60%,45%));bottom:55px;right:55px">A<div class="oA-dot"></div></div>
+          <div class="oA-c oA-c--f" style="background:linear-gradient(135deg,hsl(170,70%,55%),hsl(190,60%,45%));bottom:20px;left:50%;margin-left:-19px">M</div>
+          <div class="oA-c oA-c--f" style="background:linear-gradient(135deg,hsl(60,70%,50%),hsl(80,60%,40%));bottom:55px;left:55px">K<div class="oA-dot"></div></div>
+          <div class="oA-c oA-c--f" style="background:linear-gradient(135deg,hsl(350,70%,55%),hsl(10,60%,45%));top:55px;left:55px">L</div>
+        </div>
+        <div class="oA-labels">
+          <div class="oA-label" style="top:6px;left:50%;transform:translateX(-50%)">Vohog</div>
+          <div class="oA-label" style="top:46px;right:30px">Den</div>
+          <div class="oA-label" style="bottom:40px;right:32px">Alice</div>
+          <div class="oA-label" style="bottom:6px;left:50%;transform:translateX(-50%)">Mike</div>
+          <div class="oA-label" style="bottom:40px;left:34px">Kate</div>
+          <div class="oA-label" style="top:46px;left:36px">Leo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ B: HORIZONTAL STRIP ═══ -->
+  <div class="card" onclick="sel(this)">
+    <div class="card__head">
+      <div class="card__letter">B</div>
+      <div class="card__title">Горизонтальная полоса <span class="tag tag--alt">Компактнее</span></div>
+    </div>
+    <div class="card__desc">Друзья в ряд с тобой в центре. Gravity: близкие друзья рядом. Blob-мёрж при hover соседних. Занимает всего ~65px — больше места для чатлиста.</div>
+    <div class="preview" style="height:90px">
+      <div class="orbitB">
+        <div class="orbitB__goo">
+          <div class="oB" style="background:linear-gradient(135deg,hsl(350,70%,55%),hsl(10,60%,45%))">L</div>
+          <div class="oB" style="background:linear-gradient(135deg,hsl(60,70%,50%),hsl(80,60%,40%))">K<div class="oA-dot" style="width:6px;height:6px"></div></div>
+          <div class="oB" style="background:linear-gradient(135deg,hsl(300,70%,55%),hsl(340,60%,45%))">V<div class="oA-dot" style="width:6px;height:6px"></div></div>
+          <div class="oB oB--me" style="background:linear-gradient(135deg,hsl(100,70%,55%),hsl(140,60%,45%))">G</div>
+          <div class="oB" style="background:linear-gradient(135deg,hsl(200,70%,55%),hsl(240,60%,45%))">D</div>
+          <div class="oB" style="background:linear-gradient(135deg,hsl(30,70%,55%),hsl(50,60%,45%))">A<div class="oA-dot" style="width:6px;height:6px"></div></div>
+          <div class="oB" style="background:linear-gradient(135deg,hsl(170,70%,55%),hsl(190,60%,45%))">M</div>
+        </div>
+        <div class="orbitB__names">
+          <div class="oB-n">Leo</div>
+          <div class="oB-n">Kate</div>
+          <div class="oB-n">Vohog</div>
+          <div class="oB-n oB-n--me">Ты</div>
+          <div class="oB-n">Den</div>
+          <div class="oB-n">Alice</div>
+          <div class="oB-n">Mike</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ C: SEMICIRCLE ARC ═══ -->
+  <div class="card" onclick="sel(this)">
+    <div class="card__head">
+      <div class="card__letter">C</div>
+      <div class="card__title">Полукруг / арка <span class="tag tag--alt">Компромисс</span></div>
+    </div>
+    <div class="card__desc">Твой аватар внизу по центру, друзья аркой сверху. Визуально как orbit, но компактнее (~150px). Blob-мёрж при hover.</div>
+    <div class="preview" style="height:170px">
+      <div class="orbitC">
+        <div class="orbitC__goo">
+          <div class="oC oC--me" style="background:linear-gradient(135deg,hsl(100,70%,55%),hsl(140,60%,45%));bottom:12px;left:50%;margin-left:-24px">G</div>
+          <div class="oC oC--f" style="background:linear-gradient(135deg,hsl(300,70%,55%),hsl(340,60%,45%));top:14px;left:50%;margin-left:-17px">V<div class="oA-dot" style="width:6px;height:6px"></div></div>
+          <div class="oC oC--f" style="background:linear-gradient(135deg,hsl(200,70%,55%),hsl(240,60%,45%));top:36px;right:60px">D</div>
+          <div class="oC oC--f" style="background:linear-gradient(135deg,hsl(30,70%,55%),hsl(50,60%,45%));top:85px;right:35px">A<div class="oA-dot" style="width:6px;height:6px"></div></div>
+          <div class="oC oC--f" style="background:linear-gradient(135deg,hsl(170,70%,55%),hsl(190,60%,45%));top:85px;left:35px">M</div>
+          <div class="oC oC--f" style="background:linear-gradient(135deg,hsl(60,70%,50%),hsl(80,60%,40%));top:36px;left:60px">K<div class="oA-dot" style="width:6px;height:6px"></div></div>
+          <div class="oC oC--f" style="background:linear-gradient(135deg,hsl(350,70%,55%),hsl(10,60%,45%));top:14px;left:110px">L</div>
+        </div>
+        <div class="oC-labels">
+          <div class="oC-label" style="top:2px;left:50%;transform:translateX(-50%)">Vohog</div>
+          <div class="oC-label" style="top:26px;right:36px">Den</div>
+          <div class="oC-label" style="top:76px;right:14px">Alice</div>
+          <div class="oC-label" style="top:76px;left:16px">Mike</div>
+          <div class="oC-label" style="top:26px;left:40px">Kate</div>
+          <div class="oC-label" style="top:2px;left:110px">Leo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function sel(card) {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+}
+</script>
+</body>
+</html>

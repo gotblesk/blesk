@@ -24,11 +24,9 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
     if (!open) return;
     const close = () => setTimeout(() => setOpen(false), 0);
     window.addEventListener('click', close);
-    window.addEventListener('contextmenu', close);
     window.addEventListener('scroll', close, true);
     return () => {
       window.removeEventListener('click', close);
-      window.removeEventListener('contextmenu', close);
       window.removeEventListener('scroll', close, true);
     };
   }, [open]);

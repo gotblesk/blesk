@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Full Main Metaball v2</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); overflow: hidden; height: 100vh; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+  .orbs { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.07; animation: of 10s ease-in-out infinite; }
+  .orb--1 { width: 350px; height: 350px; background: #c8ff00; top: -100px; right: -80px; }
+  .orb--2 { width: 280px; height: 280px; background: #00d4ff; bottom: 5%; left: -80px; animation-delay: -4s; }
+  @keyframes of { 0%,100%{transform:translate(0,0)} 33%{transform:translate(25px,-35px)} 66%{transform:translate(-20px,25px)} }
+
+  /* ═══ TITLEBAR ═══ */
+  .tb { position: fixed; top: 0; left: 0; right: 0; height: 34px; z-index: 500; display: flex; align-items: center; }
+  .tb__brand { margin-left: 14px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.1); }
+  .tb__sp { flex: 1; }
+  .tb__btns { filter: url(#goo-tb); display: flex; gap: 1px; margin-right: 12px; }
+  .tb__b { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; font-size: 0; color: transparent; }
+  .tb__b--min { background: rgba(250,204,21,0.6); }
+  .tb__b--max { background: rgba(74,222,128,0.6); }
+  .tb__b--close { background: rgba(239,68,68,0.6); }
+  .tb__b:hover { transform: scale(1.5); }
+  .tb__b--min:hover { background: #facc15; box-shadow: 0 0 10px rgba(250,204,21,0.4); font-size: 10px; color: #000; }
+  .tb__b--max:hover { background: #4ade80; box-shadow: 0 0 10px rgba(74,222,128,0.4); font-size: 8px; color: #000; }
+  .tb__b--close:hover { background: #ef4444; box-shadow: 0 0 10px rgba(239,68,68,0.4); font-size: 10px; color: #fff; }
+
+  .app { display: flex; height: 100vh; padding-top: 34px; position: relative; z-index: 1; }
+
+  /* ═══ DOCK ═══ */
+  .dock { width: 56px; display: flex; flex-direction: column; align-items: center; padding: 10px 0 14px; gap: 4px; border-right: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; }
+  .dock__goo { filter: url(#goo-dock); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .dk { width: 38px; height: 38px; border-radius: 12px; border: none; background: rgba(255,255,255,0.03); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
+  .dk svg { width: 18px; height: 18px; stroke: rgba(255,255,255,0.25); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .dk:hover { background: rgba(200,255,0,0.1); transform: scale(1.1); }
+  .dk:hover svg { stroke: #c8ff00; }
+  .dk--active { background: rgba(200,255,0,0.08); }
+  .dk--active svg { stroke: #c8ff00; }
+  .dock__sp { flex: 1; }
+  .dock__w { position: relative; }
+  .dock__badge { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; border-radius: 8px; background: #ef4444; color: #fff; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #08060f; z-index: 5; }
+  .dock__av { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg,hsl(100,70%,55%),hsl(140,60%,45%)); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; cursor: pointer; color: #000; }
+
+  /* ═══ SIDEBAR ═══ */
+  .side { width: 300px; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; }
+  .side__s { position: relative; margin: 8px 12px; }
+  .side__s input { width: 100%; padding: 8px 12px 8px 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.85); font-size: 11px; outline: none; font-family: inherit; }
+  .side__s input::placeholder { color: rgba(255,255,255,0.08); }
+  .side__s svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; stroke: rgba(255,255,255,0.08); fill: none; stroke-width: 2; }
+
+  /* ═══ ORBIT ═══ */
+  .orbit-sec { width: 100%; height: 200px; position: relative; flex-shrink: 0; }
+  .o-goo-l { filter: url(#goo-orbit); position: absolute; inset: 0; }
+  .o-photo-l { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+  .o-names-l { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+  .o-b { position: absolute; border-radius: 50%; pointer-events: none; }
+  .o-t { position: absolute; border-radius: 50%; pointer-events: none; }
+  .o-h { position: absolute; border-radius: 50%; cursor: pointer; z-index: 50; }
+  .o-r { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; pointer-events: none; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); }
+  .o-r img { width: calc(100% - 4px); height: calc(100% - 4px); border-radius: 50%; object-fit: cover; background: #08060f; }
+  .o-d { position: absolute; bottom: 0; right: 0; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; z-index: 3; }
+  .o-n { position: absolute; font-size: 7px; color: rgba(255,255,255,0.18); text-align: center; white-space: nowrap; transform: translate(-50%,0); }
+
+  /* ═══ CHAT LIST ═══ */
+  .chatlist { flex: 1; overflow-y: auto; padding: 2px 8px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.03) transparent; }
+  .cl-lb { font-size: 8px; color: rgba(255,255,255,0.07); text-transform: uppercase; letter-spacing: 1.5px; padding: 8px 8px 3px; font-weight: 600; }
+  .cl { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; cursor: pointer; transition: all 0.15s; }
+  .cl:hover { background: rgba(255,255,255,0.015); }
+  .cl--active { background: rgba(200,255,0,0.02); border: 1px solid rgba(200,255,0,0.03); }
+  /* Avatar + badge in metaball filter */
+  .cl__av-goo { filter: url(#goo-cl); flex-shrink: 0; position: relative; width: 38px; height: 38px; }
+  .cl__av { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: absolute; inset: 0; }
+  .cl__av img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; position: relative; z-index: 2; }
+  .cl__av-letter { width: 30px; height: 30px; border-radius: 50%; background: #08060f; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; position: relative; z-index: 2; }
+  .cl__dot { position: absolute; bottom: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; z-index: 3; }
+  /* Badge blob-прилипает к аватару через metaball */
+  .cl__badge-blob { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; border-radius: 9px; background: #c8ff00; color: #08060f; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 4; }
+  .cl__info { flex: 1; min-width: 0; }
+  .cl__name { font-size: 12px; font-weight: 500; }
+  .cl__msg { font-size: 10px; color: rgba(255,255,255,0.12); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  /* Typing dots in preview */
+  .cl__typing-goo { filter: url(#goo-cl-typing); display: inline-flex; gap: 2px; vertical-align: middle; margin-right: 3px; }
+  .cl__td { width: 5px; height: 5px; border-radius: 50%; background: #c8ff00; display: inline-block; animation: td 1.4s ease-in-out infinite; }
+  .cl__td:nth-child(2) { animation-delay: 0.15s; }
+  .cl__td:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes td { 0%,60%,100%{transform:translateY(0);opacity:0.3} 30%{transform:translateY(-3px);opacity:1} }
+  .cl__meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+  .cl__time { font-size: 9px; color: rgba(255,255,255,0.07); }
+
+  /* ═══ CHAT PANEL ═══ */
+  .panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .panel__head { height: 52px; display: flex; align-items: center; padding: 0 18px; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; }
+  .panel__av { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .panel__av img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+  .panel__name { font-size: 13px; font-weight: 600; }
+  .panel__status { font-size: 10px; color: #4ade80; }
+  .panel__sp { flex: 1; }
+  .panel__call-goo { filter: url(#goo-btns); display: flex; gap: 3px; }
+  .pb { width: 32px; height: 32px; border-radius: 10px; border: none; background: rgba(74,222,128,0.06); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+  .pb svg { width: 15px; height: 15px; stroke: rgba(74,222,128,0.4); fill: none; stroke-width: 2; stroke-linecap: round; }
+  .pb:hover { background: rgba(74,222,128,0.15); transform: scale(1.1); }
+  .pb:hover svg { stroke: #4ade80; }
+
+  /* ═══ MESSAGES with metaball grouped bubbles ═══ */
+  .panel__body { flex: 1; overflow-y: auto; padding: 16px 24px; display: flex; flex-direction: column; }
+  /* Message group — consecutive from same person */
+  .mg { position: relative; margin-bottom: 10px; display: flex; flex-direction: column; }
+  .mg--own { align-items: flex-end; }
+  .mg--in { align-items: flex-start; }
+  /* GOO layer — colored rects that blob-merge */
+  .mg__goo { display: flex; flex-direction: column; gap: 2px; }
+  .mg--own .mg__goo { align-items: flex-end; filter: url(#goo-msg-own); }
+  .mg--in .mg__goo { align-items: flex-start; filter: url(#goo-msg-in); }
+  .mg__bg { border-radius: 18px; min-height: 32px; padding: 8px 14px; }
+  .mg__bg--own { background: rgba(200,255,0,0.12); }
+  .mg__bg--in { background: rgba(255,255,255,0.06); }
+  /* Text layer — OUTSIDE filter, overlaid with negative margin */
+  .mg__texts { display: flex; flex-direction: column; gap: 2px; }
+  .mg--own .mg__texts { align-items: flex-end; }
+  .mg--in .mg__texts { align-items: flex-start; }
+  .mg__txt { padding: 8px 14px; font-size: 12px; line-height: 1.55; max-width: 320px; }
+  .mg__txt span { font-size: 8px; color: rgba(255,255,255,0.08); margin-left: 4px; }
+
+  /* ═══ TYPING — big metaball dots ═══ */
+  .typing-bar { padding: 6px 24px; height: 28px; display: flex; align-items: center; gap: 8px; }
+  .typing-goo { filter: url(#goo-typing); display: flex; align-items: center; gap: 4px; padding: 4px; }
+  .typing-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(200,255,0,0.4); animation: tb 1.4s ease-in-out infinite; }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes tb { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-10px)} }
+  .typing-text { font-size: 10px; color: rgba(255,255,255,0.1); }
+
+  /* ═══ INPUT ═══ */
+  .panel__input { display: flex; gap: 8px; padding: 10px 18px; border-top: 1px solid rgba(255,255,255,0.03); align-items: center; }
+  .panel__attach { width: 34px; height: 34px; border: none; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .panel__attach svg { width: 16px; height: 16px; stroke: rgba(255,255,255,0.1); fill: none; stroke-width: 2; }
+  .panel__field { flex: 1; padding: 10px 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.85); font-size: 12px; outline: none; font-family: inherit; }
+  .panel__field::placeholder { color: rgba(255,255,255,0.07); }
+  .panel__field:focus { border-color: rgba(200,255,0,0.08); }
+  .panel__send-goo { filter: url(#goo-send); }
+  .panel__send { width: 36px; height: 36px; border-radius: 50%; border: none; background: #c8ff00; color: #08060f; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.25s; }
+  .panel__send:hover { transform: scale(1.15); }
+  .panel__send svg { width: 16px; height: 16px; stroke: #08060f; fill: none; stroke-width: 2.5; stroke-linecap: round; }
+
+  /* ═══ VOICE PILL ═══ */
+  .vpill { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 18px; background: rgba(14,12,22,0.95); border: 1px solid rgba(255,255,255,0.04); backdrop-filter: blur(20px); z-index: 100; }
+  .vpill__dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: pd 2s ease-in-out infinite; }
+  @keyframes pd { 0%,100%{opacity:0.4} 50%{opacity:1} }
+  .vpill__t { font-size: 11px; font-weight: 500; }
+  .vpill__avs { filter: url(#goo-pill); display: flex; margin-left: 2px; }
+  .vpill__mav { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: #fff; margin-left: -4px; }
+</style>
+</head>
+<body>
+
+<svg class="svg-f"><defs>
+  <filter id="goo-tb"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 14 -5"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <filter id="goo-dock"><feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 16 -6"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <filter id="goo-orbit"><feGaussianBlur in="SourceGraphic" stdDeviation="12" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 22 -9"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <filter id="goo-btns"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 16 -6"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <!-- Chat list: avatar + badge merge -->
+  <filter id="goo-cl"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 14 -5"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <!-- Chat list typing dots -->
+  <filter id="goo-cl-typing"><feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 14 -5"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <!-- Messages own: green bubbles merge -->
+  <filter id="goo-msg-own"><feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 18 -7"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <!-- Messages in: white bubbles merge -->
+  <filter id="goo-msg-in"><feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 18 -7"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <!-- Typing big dots -->
+  <filter id="goo-typing"><feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 20 -8"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <filter id="goo-send"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 14 -5"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+  <filter id="goo-pill"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 14 -5"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>
+</defs></svg>
+
+<div class="orbs"><div class="orb orb--1"></div><div class="orb orb--2"></div></div>
+
+<!-- ═══ TITLEBAR with icons ═══ -->
+<div class="tb">
+  <div class="tb__brand">blesk</div>
+  <div class="tb__sp"></div>
+  <div class="tb__btns">
+    <div class="tb__b tb__b--min">–</div>
+    <div class="tb__b tb__b--max">□</div>
+    <div class="tb__b tb__b--close">×</div>
+  </div>
+</div>
+
+<div class="app">
+  <!-- DOCK -->
+  <div class="dock">
+    <div class="dock__goo">
+      <div class="dk dk--active"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <div class="dk"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/></svg></div>
+    </div>
+    <div class="dock__sp"></div>
+    <div class="dock__w">
+      <div class="dk"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+      <div class="dock__badge">2</div>
+    </div>
+    <div class="dk"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09c-.658.003-1.25.396-1.51 1z"/></svg></div>
+    <div class="dock__av">G</div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="side">
+    <div class="side__s">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input placeholder="Поиск... Ctrl+K" />
+    </div>
+
+    <div class="orbit-sec" id="oSec">
+      <div class="o-goo-l" id="oG"></div>
+      <div class="o-photo-l" id="oP"></div>
+      <div class="o-names-l" id="oN"></div>
+    </div>
+
+    <!-- CHAT LIST with metaball avatars -->
+    <div class="chatlist">
+      <div class="cl-lb">Голосовые</div>
+      <div class="cl">
+        <div class="cl__av-goo">
+          <div class="cl__av" style="background:rgba(200,255,0,0.06);border-radius:11px">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:#c8ff00;fill:none;stroke-width:2;position:relative;z-index:2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+          </div>
+        </div>
+        <div class="cl__info"><div class="cl__name" style="color:rgba(200,255,0,0.6);font-size:11px">gemoglobin</div><div class="cl__msg">gotblesk, Vohog</div></div>
+        <div class="cl__meta"><span style="font-size:9px;color:rgba(74,222,128,0.4)">2</span></div>
+      </div>
+
+      <div class="cl-lb">Сообщения</div>
+      <div class="cl cl--active">
+        <div class="cl__av-goo">
+          <div class="cl__av" style="background:hsl(320,70%,55%);box-shadow:0 0 10px hsla(320,70%,55%,0.3)">
+            <img src="https://i.pravatar.cc/40?img=5" alt="V">
+            <div class="cl__dot"></div>
+          </div>
+        </div>
+        <div class="cl__info"><div class="cl__name">Vohog</div><div class="cl__msg">orbit выглядит как магнитная жидкость</div></div>
+        <div class="cl__meta"><div class="cl__time">14м</div></div>
+      </div>
+      <div class="cl">
+        <div class="cl__av-goo">
+          <div class="cl__av" style="background:hsl(220,70%,55%);box-shadow:0 0 10px hsla(220,70%,55%,0.3)">
+            <img src="https://i.pravatar.cc/40?img=12" alt="D">
+          </div>
+          <!-- Badge blob-прилипает к аватару! -->
+          <div class="cl__badge-blob">1</div>
+        </div>
+        <div class="cl__info"><div class="cl__name">Den</div><div class="cl__msg">Закончен эксперимент</div></div>
+        <div class="cl__meta"><div class="cl__time">1ч</div></div>
+      </div>
+      <div class="cl">
+        <div class="cl__av-goo">
+          <div class="cl__av" style="background:hsl(40,70%,55%);box-shadow:0 0 10px hsla(40,70%,55%,0.3)">
+            <img src="https://i.pravatar.cc/40?img=9" alt="A">
+            <div class="cl__dot"></div>
+          </div>
+        </div>
+        <div class="cl__info"><div class="cl__name">Alice</div><div class="cl__msg"><span class="cl__typing-goo"><span class="cl__td"></span><span class="cl__td"></span><span class="cl__td"></span></span> печатает</div></div>
+        <div class="cl__meta"><div class="cl__time">32м</div></div>
+      </div>
+      <div class="cl">
+        <div class="cl__av-goo">
+          <div class="cl__av" style="background:hsl(80,70%,45%);border-radius:11px;box-shadow:0 0 8px hsla(80,70%,45%,0.2)">
+            <div class="cl__av-letter" style="border-radius:9px">B</div>
+          </div>
+        </div>
+        <div class="cl__info"><div class="cl__name">blesk team</div><div class="cl__msg">Егор: обнова на подходе</div></div>
+        <div class="cl__meta"><div class="cl__time">2ч</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT PANEL -->
+  <div class="panel">
+    <div class="panel__head">
+      <div class="panel__av" style="background:hsl(320,70%,55%);box-shadow:0 0 10px hsla(320,70%,55%,0.3)">
+        <img src="https://i.pravatar.cc/40?img=5" alt="V">
+      </div>
+      <div><div class="panel__name">Vohog</div><div class="panel__status">в сети</div></div>
+      <div class="panel__sp"></div>
+      <div class="panel__call-goo">
+        <button class="pb"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/></svg></button>
+        <button class="pb"><svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
+      </div>
+    </div>
+
+    <!-- MESSAGES — metaball grouped bubbles -->
+    <div class="panel__body">
+      <!-- Group: incoming -->
+      <div class="mg mg--in">
+        <div class="mg__goo">
+          <div class="mg__bg mg__bg--in" style="width:70px">&nbsp;</div>
+          <div class="mg__bg mg__bg--in" style="width:190px">&nbsp;</div>
+        </div>
+        <div class="mg__texts" style="margin-top:-70px">
+          <div class="mg__txt">привет!</div>
+          <div class="mg__txt">видел новый orbit дизайн?</div>
+        </div>
+      </div>
+      <!-- Group: own -->
+      <div class="mg mg--own">
+        <div class="mg__goo">
+          <div class="mg__bg mg__bg--own" style="width:72px">&nbsp;</div>
+          <div class="mg__bg mg__bg--own" style="width:200px">&nbsp;</div>
+        </div>
+        <div class="mg__texts" style="margin-top:-70px">
+          <div class="mg__txt">дарова</div>
+          <div class="mg__txt">да, metaball + ferrofluid</div>
+        </div>
+      </div>
+      <!-- Single in -->
+      <div class="mg mg--in">
+        <div class="mg__goo">
+          <div class="mg__bg mg__bg--in" style="width:260px">&nbsp;</div>
+        </div>
+        <div class="mg__texts" style="margin-top:-36px">
+          <div class="mg__txt">выглядит как магнитная жидкость</div>
+        </div>
+      </div>
+      <!-- Group: own 2 -->
+      <div class="mg mg--own">
+        <div class="mg__goo">
+          <div class="mg__bg mg__bg--own" style="width:290px">&nbsp;</div>
+          <div class="mg__bg mg__bg--own" style="width:255px">&nbsp;</div>
+        </div>
+        <div class="mg__texts" style="margin-top:-70px">
+          <div class="mg__txt">именно! друзья слипаются когда рядом</div>
+          <div class="mg__txt">и кнопки тоже blob-мержатся <span>🔒</span></div>
+        </div>
+      </div>
+      <!-- Single in -->
+      <div class="mg mg--in">
+        <div class="mg__goo">
+          <div class="mg__bg mg__bg--in" style="width:240px">&nbsp;</div>
+        </div>
+        <div class="mg__texts" style="margin-top:-36px">
+          <div class="mg__txt">а typing indicator? тоже metaball?</div>
+        </div>
+      </div>
+      <!-- Own reply -->
+      <div class="mg mg--own">
+        <div class="mg__goo">
+          <div class="mg__bg mg__bg--own" style="width:200px">&nbsp;</div>
+        </div>
+        <div class="mg__texts" style="margin-top:-36px">
+          <div class="mg__txt">конечно, смотри вниз ↓</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPING — big metaball dots -->
+    <div class="typing-bar">
+      <div class="typing-goo">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+      <span class="typing-text">Vohog печатает...</span>
+    </div>
+
+    <!-- INPUT -->
+    <div class="panel__input">
+      <button class="panel__attach"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+      <input class="panel__field" placeholder="Сообщение..." id="msgIn" />
+      <div class="panel__send-goo">
+        <button class="panel__send" onclick="sendMsg()"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Voice pill -->
+<div class="vpill">
+  <div class="vpill__dot"></div>
+  <span class="vpill__t">gemoglobin</span>
+  <div class="vpill__avs">
+    <div class="vpill__mav" style="background:linear-gradient(135deg,hsl(100,70%,55%),hsl(140,60%,45%))">G</div>
+    <div class="vpill__mav" style="background:linear-gradient(135deg,hsl(320,70%,55%),hsl(340,60%,45%))">V</div>
+  </div>
+</div>
+
+<script>
+// ═══ ORBIT ═══
+const ocx=150,ocy=100,oR=42,oMe=46,oF=34;
+const photos=['https://i.pravatar.cc/80?img=5','https://i.pravatar.cc/80?img=12','https://i.pravatar.cc/80?img=9','https://i.pravatar.cc/80?img=33','https://i.pravatar.cc/80?img=16','https://i.pravatar.cc/80?img=22'];
+const fr=[{l:'V',h:320,n:'Vohog',on:1},{l:'D',h:220,n:'Den',on:0},{l:'A',h:40,n:'Alice',on:1},{l:'M',h:180,n:'Mike',on:0},{l:'K',h:70,n:'Kate',on:1},{l:'L',h:355,n:'Leo',on:0}];
+function hc(h){return`hsl(${h},70%,55%)`}
+const oG=document.getElementById('oG'),oP=document.getElementById('oP'),oN=document.getElementById('oN'),oSec=document.getElementById('oSec');
+let e;
+e=document.createElement('div');e.className='o-b';e.style.cssText=`width:${oMe}px;height:${oMe}px;left:${ocx-oMe/2}px;top:${ocy-oMe/2}px;background:${hc(120)};border-radius:50%`;oG.appendChild(e);
+e=document.createElement('div');e.className='o-r';e.style.cssText=`width:${oMe}px;height:${oMe}px;left:${ocx-oMe/2}px;top:${ocy-oMe/2}px;background:${hc(120)};box-shadow:0 0 14px ${hc(120)}`;e.innerHTML=`<img src="https://i.pravatar.cc/80?img=68">`;oP.appendChild(e);
+fr.forEach((f,i)=>{
+  const a=(Math.PI*2*i/fr.length)-Math.PI/2,fx=ocx+Math.cos(a)*oR,fy=ocy+Math.sin(a)*oR,c=hc(f.h);
+  const ba=Math.atan2(fy-ocy,fx-ocx)*180/Math.PI,d=Math.sqrt((fx-ocx)**2+(fy-ocy)**2),bx=(ocx+fx)/2,by=(ocy+fy)/2,bw=d*0.55;
+  let t=document.createElement('div');t.className='o-t';t.style.cssText=`width:${bw}px;height:14px;border-radius:7px;left:${bx-bw/2}px;top:${by-7}px;transform:rotate(${ba}deg);background:${c};opacity:0.6`;oG.appendChild(t);
+  let b=document.createElement('div');b.className='o-b';b.style.cssText=`width:${oF}px;height:${oF}px;left:${fx-oF/2}px;top:${fy-oF/2}px;background:${c};border-radius:50%`;b.dataset.origX=fx-oF/2;b.dataset.origY=fy-oF/2;oG.appendChild(b);
+  const hs=oF+24;let h=document.createElement('div');h.className='o-h';h.style.cssText=`width:${hs}px;height:${hs}px;left:${fx-hs/2}px;top:${fy-hs/2}px`;oSec.appendChild(h);
+  let r=document.createElement('div');r.className='o-r';r.style.cssText=`width:${oF}px;height:${oF}px;left:${fx-oF/2}px;top:${fy-oF/2}px;background:${c};box-shadow:0 0 12px ${c}`;r.innerHTML=`<img src="${photos[i]}">`;r.dataset.origX=fx-oF/2;r.dataset.origY=fy-oF/2;if(f.on){let d=document.createElement('div');d.className='o-d';r.appendChild(d)}oP.appendChild(r);
+  const nR=oR+oF/2+14,nx=ocx+Math.cos(a)*nR,ny=ocy+Math.sin(a)*nR;let n=document.createElement('div');n.className='o-n';n.style.cssText=`left:${nx}px;top:${ny-3}px`;n.textContent=f.n;oN.appendChild(n);
+  let af=null,ih=false,cd=0,td=0;
+  function an(){const sp=ih?0.12:0.18;cd+=(td-cd)*sp;if(Math.abs(cd-td)<0.3&&!ih)cd=td;const dx=Math.cos(a)*cd,dy=Math.sin(a)*cd;b.style.left=(parseFloat(b.dataset.origX)+dx)+'px';b.style.top=(parseFloat(b.dataset.origY)+dy)+'px';r.style.left=(parseFloat(r.dataset.origX)+dx)+'px';r.style.top=(parseFloat(r.dataset.origY)+dy)+'px';const pr=cd/30;r.style.transform=`scale(${1+pr*0.12})`;r.style.boxShadow=`0 0 ${12+pr*14}px ${c}`;if(cd!==td||ih){af=requestAnimationFrame(an)}else{r.style.transform='';r.style.boxShadow=`0 0 12px ${c}`;af=null}}
+  h.addEventListener('mouseenter',()=>{ih=true;td=30;if(!af)af=requestAnimationFrame(an)});
+  h.addEventListener('mouseleave',()=>{ih=false;td=0;if(!af)af=requestAnimationFrame(an)});
+});
+
+// ═══ SEND MESSAGE ═══
+function sendMsg(){
+  const inp=document.getElementById('msgIn');
+  const txt=inp.value.trim();if(!txt)return;
+  const body=document.querySelector('.panel__body');
+  const mg=document.createElement('div');mg.className='mg mg--own';
+  mg.innerHTML=`<div class="mg__goo"><div class="mg__bg mg__bg--own" style="width:${Math.min(txt.length*8+28,320)}px">&nbsp;</div></div><div class="mg__texts" style="margin-top:-36px"><div class="mg__txt">${txt}</div></div>`;
+  body.appendChild(mg);body.scrollTop=body.scrollHeight;inp.value='';
+}
+document.getElementById('msgIn').addEventListener('keydown',e=>{if(e.key==='Enter')sendMsg()});
+</script>
+</body>
+</html>

@@ -48,6 +48,14 @@ export default function UserProfileModal({
       .finally(() => setLoading(false));
   }, [open, userId]);
 
+  // Escape для закрытия
+  useEffect(() => {
+    if (!open) return;
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [open, onClose]);
+
   const handleBackdrop = useCallback(
     (e) => {
       if (e.target === e.currentTarget) onClose?.();

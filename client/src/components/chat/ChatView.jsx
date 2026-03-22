@@ -116,7 +116,7 @@ export default function ChatView({
 
   // Escape — закрыть только focused окно
   useEffect(() => {
-    if (!isFocused) return;
+    if (!isFocused && !isInline) return;
     const handleKey = (e) => {
       if (e.key === 'Escape') animateClose();
     };

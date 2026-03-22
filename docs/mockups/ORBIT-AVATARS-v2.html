@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Orbit: ободок + glow от аватарки</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px; gap: 20px; }
+  h1 { font-size: 18px; font-weight: 700; }
+  .sub { font-size: 11px; color: rgba(255,255,255,0.2); text-align: center; max-width: 500px; line-height: 1.6; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+
+  .orbit-wrap { position: relative; width: 300px; height: 300px; margin: 8px auto; }
+
+  /* GOO filter layer — цветные кружки + мостики */
+  .goo-layer { position: absolute; inset: 0; }
+  /* Photo layer — ВНЕ filter, чёткие фото с ободком */
+  .photo-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+  /* Names layer */
+  .names-layer { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+  .nm { position: absolute; font-size: 8px; color: rgba(255,255,255,0.25); text-align: center; white-space: nowrap; transform: translate(-50%, 0); }
+
+  /* Blob elements in filter */
+  .blob-circle { position: absolute; border-radius: 50%; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
+  .blob-circle:hover { z-index: 10 !important; }
+  .tentacle { position: absolute; border-radius: 50%; pointer-events: none; transition: opacity 0.5s; }
+
+  /* Photo overlay with colored ring + glow */
+  .photo-ring { position: absolute; border-radius: 50%; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); display: flex; align-items: center; justify-content: center; }
+  .photo-ring__img { width: calc(100% - 5px); height: calc(100% - 5px); border-radius: 50%; object-fit: cover; background: #08060f; }
+  /* Fallback letter for no-photo */
+  .photo-ring__letter { width: calc(100% - 5px); height: calc(100% - 5px); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; background: #08060f; }
+  .dot { position: absolute; bottom: 0; right: 0; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; z-index: 3; }
+</style>
+</head>
+<body>
+
+<svg class="svg-f">
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
+<h1>Orbit: цветной ободок + glow</h1>
+<p class="sub">Каждый аватар окружён цветным ободком (hue пользователя) со свечением. Мостики того же цвета. Hover = отлипает.</p>
+
+<div class="orbit-wrap">
+  <div class="goo-layer" style="filter:url(#goo)" id="gooLayer"></div>
+  <div class="photo-layer" id="photoLayer"></div>
+  <div class="names-layer" id="namesLayer"></div>
+</div>
+
+<p class="sub" style="margin-top:-8px">↑ Hover на аватар — он отлипает от массы. Цвет мостиков = hue друга.</p>
+
+<!-- Вариант без фото — для тех кто не загрузил аватарку -->
+<p class="sub"><b style="color:rgba(255,255,255,0.4)">↓ Так выглядит если друг не загрузил фото (буква на тёмном фоне внутри ободка) ↓</b></p>
+
+<div class="orbit-wrap">
+  <div class="goo-layer" style="filter:url(#goo)" id="gooLayer2"></div>
+  <div class="photo-layer" id="photoLayer2"></div>
+  <div class="names-layer" id="namesLayer2"></div>
+</div>
+
+<script>
+const cx = 150, cy = 150;
+const R = 50;
+const meSize = 56;
+const fSize = 40;
+
+const photos = [
+  'https://i.pravatar.cc/80?img=5',
+  'https://i.pravatar.cc/80?img=12',
+  'https://i.pravatar.cc/80?img=9',
+  'https://i.pravatar.cc/80?img=33',
+  'https://i.pravatar.cc/80?img=16',
+  'https://i.pravatar.cc/80?img=22',
+];
+const mePhotoUrl = 'https://i.pravatar.cc/100?img=68';
+
+const friends = [
+  { letter: 'V', hue: 320, name: 'Vohog', online: true },
+  { letter: 'D', hue: 220, name: 'Den', online: false },
+  { letter: 'A', hue: 40, name: 'Alice', online: true },
+  { letter: 'M', hue: 180, name: 'Mike', online: false },
+  { letter: 'K', hue: 70, name: 'Kate', online: true },
+  { letter: 'L', hue: 355, name: 'Leo', online: false },
+];
+const meHue = 120;
+
+function hueColor(h) { return `hsl(${h}, 70%, 55%)`; }
+function hueGlow(h) { return `0 0 14px ${hueColor(h)}, 0 0 6px ${hueColor(h)}`; }
+
+function buildOrbit(gooId, photoId, namesId, usePhotos) {
+  const goo = document.getElementById(gooId);
+  const photo = document.getElementById(photoId);
+  const names = document.getElementById(namesId);
+
+  // ═══ GOO LAYER: center blob ═══
+  const meBlob = document.createElement('div');
+  meBlob.className = 'blob-circle';
+  meBlob.style.cssText = `width:${meSize}px;height:${meSize}px;left:${cx-meSize/2}px;top:${cy-meSize/2}px;background:${hueColor(meHue)}`;
+  goo.appendChild(meBlob);
+
+  // ═══ PHOTO LAYER: center ring ═══
+  const meRing = document.createElement('div');
+  meRing.className = 'photo-ring';
+  meRing.style.cssText = `width:${meSize}px;height:${meSize}px;left:${cx-meSize/2}px;top:${cy-meSize/2}px;background:${hueColor(meHue)};box-shadow:${hueGlow(meHue)}`;
+  if (usePhotos) {
+    meRing.innerHTML = `<img class="photo-ring__img" src="${mePhotoUrl}">`;
+  } else {
+    meRing.innerHTML = `<div class="photo-ring__letter" style="font-size:20px;color:#000;background:${hueColor(meHue)}">G</div>`;
+  }
+  photo.appendChild(meRing);
+
+  friends.forEach((f, i) => {
+    const angle = (Math.PI * 2 * i / friends.length) - Math.PI / 2;
+    const fx = cx + Math.cos(angle) * R;
+    const fy = cy + Math.sin(angle) * R;
+    const color = hueColor(f.hue);
+
+    // ═══ GOO: bridge tentacle ═══
+    const bAngle = Math.atan2(fy - cy, fx - cx) * 180 / Math.PI;
+    const dist = Math.sqrt((fx-cx)**2 + (fy-cy)**2);
+    const bx = (cx + fx) / 2;
+    const by = (cy + fy) / 2;
+    const bridge = document.createElement('div');
+    bridge.className = 'tentacle';
+    bridge.style.cssText = `width:${dist*0.55}px;height:18px;border-radius:9px;left:${bx-dist*0.275}px;top:${by-9}px;transform:rotate(${bAngle}deg);background:${color};opacity:0.65`;
+    bridge.dataset.idx = i;
+    goo.appendChild(bridge);
+
+    // ═══ GOO: colored blob ═══
+    const blob = document.createElement('div');
+    blob.className = 'blob-circle';
+    blob.style.cssText = `width:${fSize}px;height:${fSize}px;left:${fx-fSize/2}px;top:${fy-fSize/2}px;background:${color}`;
+    blob.dataset.origX = fx - fSize/2;
+    blob.dataset.origY = fy - fSize/2;
+    blob.dataset.idx = i;
+    blob.dataset.angle = angle;
+    goo.appendChild(blob);
+
+    // ═══ PHOTO: ring with glow ═══
+    const ring = document.createElement('div');
+    ring.className = 'photo-ring';
+    ring.style.cssText = `width:${fSize}px;height:${fSize}px;left:${fx-fSize/2}px;top:${fy-fSize/2}px;background:${color};box-shadow:${hueGlow(f.hue)}`;
+    ring.dataset.origX = fx - fSize/2;
+    ring.dataset.origY = fy - fSize/2;
+    ring.dataset.idx = i;
+
+    if (usePhotos) {
+      ring.innerHTML = `<img class="photo-ring__img" src="${photos[i]}">`;
+    } else {
+      ring.innerHTML = `<div class="photo-ring__letter" style="font-size:${fSize*0.38}px">${f.letter}</div>`;
+    }
+
+    if (f.online) {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      ring.appendChild(dot);
+    }
+    photo.appendChild(ring);
+
+    // ═══ HOVER: push outward ═══
+    blob.addEventListener('mouseenter', function() {
+      const pd = 26;
+      const a = parseFloat(this.dataset.angle);
+      const nx = parseFloat(this.dataset.origX) + Math.cos(a) * pd;
+      const ny = parseFloat(this.dataset.origY) + Math.sin(a) * pd;
+      this.style.left = nx + 'px';
+      this.style.top = ny + 'px';
+      this.style.transform = 'scale(1.1)';
+      this.style.zIndex = '10';
+      // Move ring too
+      const r = photo.querySelector(`[data-idx="${i}"]`);
+      if (r) {
+        r.style.left = nx + 'px';
+        r.style.top = ny + 'px';
+        r.style.transform = 'scale(1.1)';
+        r.style.boxShadow = `0 0 22px ${color}, 0 0 10px ${color}`;
+      }
+      // Fade bridge
+      const br = goo.querySelector(`.tentacle[data-idx="${i}"]`);
+      if (br) br.style.opacity = '0.25';
+    });
+    blob.addEventListener('mouseleave', function() {
+      this.style.left = this.dataset.origX + 'px';
+      this.style.top = this.dataset.origY + 'px';
+      this.style.transform = '';
+      this.style.zIndex = '';
+      const r = photo.querySelector(`[data-idx="${i}"]`);
+      if (r) {
+        r.style.left = r.dataset.origX + 'px';
+        r.style.top = r.dataset.origY + 'px';
+        r.style.transform = '';
+        r.style.boxShadow = hueGlow(f.hue);
+      }
+      const br = goo.querySelector(`.tentacle[data-idx="${i}"]`);
+      if (br) br.style.opacity = '0.65';
+    });
+
+    // ═══ NAME ═══
+    const nameR = R + fSize/2 + 16;
+    const nx = cx + Math.cos(angle) * nameR;
+    const ny = cy + Math.sin(angle) * nameR;
+    const nm = document.createElement('div');
+    nm.className = 'nm';
+    nm.style.cssText = `left:${nx}px;top:${ny-4}px`;
+    nm.textContent = f.name;
+    names.appendChild(nm);
+  });
+}
+
+// С фото
+buildOrbit('gooLayer', 'photoLayer', 'namesLayer', true);
+// Без фото (буквы)
+buildOrbit('gooLayer2', 'photoLayer2', 'namesLayer2', false);
+</script>
+</body>
+</html>

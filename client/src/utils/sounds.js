@@ -16,7 +16,8 @@ function getCtx() {
 
 // Генерация импульса реверба (программный, без файлов)
 function createReverbBuffer() {
-  const ctx = getCtx();
+  if (!audioCtx) return;
+  const ctx = audioCtx; // используем напрямую, не через getCtx()
   const rate = ctx.sampleRate;
   const length = rate * 1.2; // 1.2 секунды реверба
   const buffer = ctx.createBuffer(2, length, rate);

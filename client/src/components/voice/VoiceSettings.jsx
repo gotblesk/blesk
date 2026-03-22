@@ -58,6 +58,8 @@ export default function VoiceSettings() {
         cancelAnimationFrame(animRef.current);
         animRef.current = null;
       }
+      ctxRef.current?.close();
+      ctxRef.current = null;
       setTesting(false);
       setMicLevel(0);
       return;

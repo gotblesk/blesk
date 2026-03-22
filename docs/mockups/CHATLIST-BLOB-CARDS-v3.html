@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Чат-лист blob-карточки v3</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px; gap: 16px; }
+  h1 { font-size: 18px; font-weight: 700; }
+  .sub { font-size: 11px; color: rgba(255,255,255,0.2); text-align: center; max-width: 400px; line-height: 1.6; }
+  .sub b { color: #c8ff00; }
+
+  .sidebar-mock { width: 300px; padding: 8px; }
+  .cl-lb { font-size: 8px; color: rgba(255,255,255,0.07); text-transform: uppercase; letter-spacing: 1.5px; padding: 8px 6px 4px; font-weight: 600; }
+
+  /* ═══ CARD — simple, interactive, no SVG filter nonsense ═══ */
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    margin-bottom: 3px;
+    /* Colored glow bg via box-shadow + background */
+  }
+  .card:hover {
+    transform: scale(1.02) translateX(2px);
+  }
+  .card:active {
+    transform: scale(0.98);
+  }
+  .card--active {
+    border: 1px solid rgba(200,255,0,0.05);
+  }
+
+  /* Avatar with glow ring */
+  .card__av {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+  }
+  .card:hover .card__av {
+    transform: scale(1.08);
+  }
+  .card__av img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .card__av-letter {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .card__dot {
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #4ade80;
+    border: 2px solid #08060f;
+    z-index: 2;
+  }
+  .card__badge {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: #c8ff00;
+    color: #08060f;
+    font-size: 8px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #08060f;
+    z-index: 3;
+  }
+  .card__info { flex: 1; min-width: 0; }
+  .card__name { font-size: 12px; font-weight: 500; }
+  .card__msg {
+    font-size: 10px;
+    color: rgba(255,255,255,0.18);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+  }
+  .card__meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .card__time { font-size: 9px; color: rgba(255,255,255,0.08); }
+
+  /* Typing dots */
+  .td-wrap { display: inline-flex; gap: 2px; vertical-align: middle; margin-right: 3px; }
+  .td { width: 5px; height: 5px; border-radius: 50%; background: #c8ff00; display: inline-block; animation: td 1.4s ease-in-out infinite; }
+  .td:nth-child(2) { animation-delay: 0.15s; }
+  .td:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes td { 0%,60%,100%{transform:translateY(0);opacity:0.3} 30%{transform:translateY(-3px);opacity:1} }
+
+  /* Voice card */
+  .card--voice .card__av { border-radius: 12px; }
+  .card--voice .card__name { color: rgba(200,255,0,0.6); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>Чат-лист: blob-карточки v3</h1>
+<p class="sub"><b>Hover</b> = карточка набухает, glow усиливается, аватар увеличивается. <b>Клик</b> = сжатие. Каждая карточка окрашена в hue пользователя.</p>
+
+<div class="sidebar-mock">
+  <div class="cl-lb">Голосовые</div>
+  <div id="voiceList"></div>
+  <div class="cl-lb">Сообщения</div>
+  <div id="msgList"></div>
+  <div class="cl-lb">Каналы</div>
+  <div id="chList"></div>
+</div>
+
+<script>
+const voices = [
+  { name:'gemoglobin', msg:'gotblesk, Vohog', hue:120, letter:'🎤', voice:true, count:'2' },
+];
+const chats = [
+  { name:'Vohog', msg:'orbit выглядит как магнитная жидкость', time:'14м', hue:320, online:true, photo:'https://i.pravatar.cc/40?img=5', active:true },
+  { name:'Den', msg:'Закончен эксперимент', time:'1ч', hue:220, photo:'https://i.pravatar.cc/40?img=12', badge:'1' },
+  { name:'Alice', msg:null, time:'32м', hue:40, online:true, photo:'https://i.pravatar.cc/40?img=9', typing:true },
+  { name:'blesk team', msg:'Егор: обнова на подходе', time:'2ч', hue:80, letter:'B', group:true },
+  { name:'Mike', msg:'в голосовой gemoglobin', time:'3ч', hue:180, photo:'https://i.pravatar.cc/40?img=33' },
+];
+const channels = [
+  { name:'GOTBLESK', msg:'Новый трек выходит в пятницу', time:'5ч', hue:100, letter:'G', group:true },
+  { name:'дизайн', msg:'concept-METABALL-ORBIT.html', time:'1д', hue:280, letter:'Д', group:true },
+];
+
+function buildList(items, containerId) {
+  const container = document.getElementById(containerId);
+  items.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'card' + (c.active ? ' card--active' : '') + (c.voice ? ' card--voice' : '');
+
+    // Background color — hue-tinted
+    const bgAlpha = c.active ? 0.07 : 0.035;
+    const hoverAlpha = c.active ? 0.11 : 0.06;
+    card.style.background = `hsla(${c.hue}, 60%, 50%, ${bgAlpha})`;
+
+    // Hover glow
+    card.addEventListener('mouseenter', () => {
+      card.style.background = `hsla(${c.hue}, 60%, 50%, ${hoverAlpha})`;
+      card.style.boxShadow = `0 0 24px hsla(${c.hue},70%,55%,0.08), inset 0 0 16px hsla(${c.hue},70%,55%,0.03)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.background = `hsla(${c.hue}, 60%, 50%, ${bgAlpha})`;
+      card.style.boxShadow = '';
+    });
+
+    const color = `hsl(${c.hue}, 70%, 55%)`;
+
+    // Avatar
+    let avInner;
+    if (c.photo) {
+      avInner = `<img src="${c.photo}" alt="${c.name[0]}">`;
+    } else if (c.voice) {
+      avInner = `<span style="font-size:16px">${c.letter}</span>`;
+    } else {
+      const br = c.group ? 'border-radius:10px;' : '';
+      avInner = `<div class="card__av-letter" style="${br}background:hsla(${c.hue},70%,55%,0.15);color:${color}">${c.letter}</div>`;
+    }
+
+    let dotHtml = c.online ? '<div class="card__dot"></div>' : '';
+    let badgeHtml = c.badge ? `<div class="card__badge">${c.badge}</div>` : '';
+
+    // Message
+    let msgHtml;
+    if (c.typing) {
+      msgHtml = `<span class="td-wrap"><span class="td"></span><span class="td"></span><span class="td"></span></span> печатает`;
+    } else {
+      msgHtml = c.msg || '';
+    }
+
+    // Time / count
+    let metaHtml = '';
+    if (c.time) {
+      metaHtml = `<div class="card__time">${c.time}</div>`;
+    } else if (c.count) {
+      metaHtml = `<span style="font-size:9px;color:rgba(74,222,128,0.5)">${c.count}</span>`;
+    }
+
+    const avStyle = c.voice
+      ? `border-radius:12px;background:rgba(200,255,0,0.06);box-shadow:0 0 8px rgba(200,255,0,0.15)`
+      : `border:2.5px solid ${color};box-shadow:0 0 10px hsla(${c.hue},70%,55%,0.25)${c.group ? ';border-radius:12px' : ''}`;
+
+    card.innerHTML = `
+      <div class="card__av" style="${avStyle}">
+        ${avInner}
+        ${dotHtml}
+        ${badgeHtml}
+      </div>
+      <div class="card__info">
+        <div class="card__name">${c.name}</div>
+        <div class="card__msg">${msgHtml}</div>
+      </div>
+      <div class="card__meta">${metaHtml}</div>
+    `;
+
+    container.appendChild(card);
+  });
+}
+
+buildList(voices, 'voiceList');
+buildList(chats, 'msgList');
+buildList(channels, 'chList');
+</script>
+</body>
+</html>

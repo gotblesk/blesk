@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Double Layer Glass + Grotesque Typography</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#08060f;color:#fff;min-height:100vh;overflow-x:hidden}
+
+  /* ═══════ BACKGROUND ═══════ */
+  .bg{position:fixed;inset:0;z-index:0;overflow:hidden}
+  .orb{position:absolute;border-radius:50%;filter:blur(90px)}
+  .o1{width:420px;height:420px;background:rgba(200,255,0,0.5);top:5%;left:8%}
+  .o2{width:350px;height:350px;background:rgba(255,0,204,0.45);top:50%;left:55%}
+  .o3{width:300px;height:300px;background:rgba(0,204,255,0.4);top:65%;left:12%}
+  .o4{width:280px;height:280px;background:rgba(255,102,0,0.4);top:10%;left:72%}
+  .o5{width:380px;height:380px;background:rgba(170,68,255,0.3);top:35%;left:38%}
+
+  /* ═══════ DOUBLE LAYER GLASS ═══════ */
+  .dl{position:relative;border-radius:20px;overflow:hidden;transition:transform 0.35s cubic-bezier(0.175,0.885,0.32,2.2)}
+  .dl:hover{transform:scale(1.01)}
+  .dl-outer{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(8px);background:rgba(255,255,255,0.04)}
+  .dl-inner{position:absolute;inset:8px;border-radius:14px;backdrop-filter:blur(16px);background:rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.2),inset 0 -0.5px 0 rgba(255,255,255,0.05)}
+  .dl-edge{position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:1px solid rgba(255,255,255,0.08)}
+  .dl-ct{position:relative;z-index:10;padding:24px 28px}
+  .dl{box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+
+  /* ═══════ LAYOUT ═══════ */
+  .page{position:relative;z-index:1;padding:30px 40px 60px;max-width:1200px;margin:0 auto}
+  .section{margin-bottom:48px}
+  .section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:rgba(200,255,0,0.6);margin-bottom:16px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+  /* ═══════ FONT A: System (SF Pro stack) — Apple default ═══════ */
+  .font-a{font-family:-apple-system,'SF Pro Display','SF Pro Text','Helvetica Neue',system-ui,sans-serif}
+  .font-a .label{font-family:-apple-system,'SF Pro Text','Helvetica Neue',system-ui,sans-serif}
+
+  /* ═══════ FONT B: Inter — closest open-source to SF Pro ═══════ */
+  .font-b{font-family:'Inter',sans-serif}
+
+  /* ═══════ FONT C: DM Sans — geometric grotesque, softer ═══════ */
+  .font-c{font-family:'DM Sans',sans-serif}
+
+  /* ═══════ FONT D: Manrope — modern grotesque, rounded terminals ═══════ */
+  .font-d{font-family:'Manrope',sans-serif}
+
+  /* ═══════ TYPOGRAPHY STYLES ═══════ */
+  .h1{font-size:28px;font-weight:700;letter-spacing:-0.5px;line-height:1.15;color:rgba(255,255,255,0.95)}
+  .h2{font-size:20px;font-weight:600;letter-spacing:-0.3px;line-height:1.2;color:rgba(255,255,255,0.92)}
+  .h3{font-size:16px;font-weight:600;letter-spacing:-0.1px;line-height:1.3;color:rgba(255,255,255,0.9)}
+  .body{font-size:14px;font-weight:400;line-height:1.55;color:rgba(255,255,255,0.6);letter-spacing:0}
+  .body-sm{font-size:12px;font-weight:400;line-height:1.5;color:rgba(255,255,255,0.5)}
+  .caption{font-size:11px;font-weight:500;letter-spacing:0.3px;color:rgba(255,255,255,0.4)}
+  .label-text{font-size:13px;font-weight:500;color:rgba(255,255,255,0.7)}
+  .accent-text{color:#c8ff00}
+  .mono{font-family:'SF Mono',ui-monospace,'Cascadia Code',monospace;font-size:12px;color:rgba(200,255,0,0.7)}
+
+  /* ═══════ FONT BADGE ═══════ */
+  .font-badge{display:inline-block;padding:4px 12px;font-size:11px;font-weight:600;border-radius:8px;background:rgba(200,255,0,0.1);color:#c8ff00;border:1px solid rgba(200,255,0,0.15);margin-bottom:14px;letter-spacing:0.5px}
+
+  /* ═══════ CHAT MESSAGE DEMO ═══════ */
+  .msg{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px}
+  .msg:last-child{margin-bottom:0}
+  .msg-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+  .msg-body{flex:1}
+  .msg-name{font-size:13px;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:2px}
+  .msg-text{font-size:13px;font-weight:400;color:rgba(255,255,255,0.6);line-height:1.45}
+  .msg-time{font-size:10px;font-weight:400;color:rgba(255,255,255,0.3);margin-top:2px}
+
+  /* ═══════ NAV PILL DEMO ═══════ */
+  .nav-row{display:flex;gap:6px;margin-top:12px}
+  .pill{padding:6px 14px;border-radius:10px;font-size:12px;font-weight:500;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);transition:all 0.2s}
+  .pill.active{background:rgba(200,255,0,0.12);color:#c8ff00;border-color:rgba(200,255,0,0.2)}
+
+  /* ═══════ INPUT DEMO ═══════ */
+  .input-demo{margin-top:12px;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);font-size:13px;color:rgba(255,255,255,0.35)}
+
+  /* ═══════ STAT DEMO ═══════ */
+  .stat{text-align:center}
+  .stat-num{font-size:32px;font-weight:700;letter-spacing:-1px;color:rgba(255,255,255,0.95)}
+  .stat-label{font-size:11px;font-weight:500;color:rgba(255,255,255,0.4);margin-top:4px;letter-spacing:0.5px;text-transform:uppercase}
+
+  /* ═══════ THEME TOGGLE ═══════ */
+  .theme-btn{position:fixed;top:16px;right:16px;z-index:100;padding:8px 16px;font-size:12px;font-family:'Inter',sans-serif;font-weight:500;background:rgba(255,255,255,0.07);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;color:rgba(255,255,255,0.8);cursor:pointer}
+
+  /* ═══════ LIGHT THEME ═══════ */
+  body.light{background:#f0eff5}
+  body.light .orb{opacity:0.3}
+  body.light .dl-outer{background:rgba(255,255,255,0.3)}
+  body.light .dl-inner{background:rgba(255,255,255,0.5);box-shadow:inset 0 1px 0 rgba(255,255,255,0.7),inset 0 -0.5px 0 rgba(0,0,0,0.03)}
+  body.light .dl-edge{border-color:rgba(0,0,0,0.04)}
+  body.light .dl{box-shadow:0 4px 20px rgba(0,0,0,0.08)}
+  body.light .h1{color:rgba(26,26,46,0.95)}
+  body.light .h2{color:rgba(26,26,46,0.92)}
+  body.light .h3{color:rgba(26,26,46,0.9)}
+  body.light .body{color:rgba(26,26,46,0.55)}
+  body.light .body-sm{color:rgba(26,26,46,0.45)}
+  body.light .caption{color:rgba(26,26,46,0.35)}
+  body.light .label-text{color:rgba(26,26,46,0.65)}
+  body.light .msg-name{color:rgba(26,26,46,0.85)}
+  body.light .msg-text{color:rgba(26,26,46,0.55)}
+  body.light .msg-time{color:rgba(26,26,46,0.3)}
+  body.light .pill{color:rgba(26,26,46,0.5);background:rgba(0,0,0,0.03);border-color:rgba(0,0,0,0.06)}
+  body.light .pill.active{color:#3a7000;background:rgba(200,255,0,0.12);border-color:rgba(74,140,0,0.2)}
+  body.light .input-demo{background:rgba(0,0,0,0.03);border-color:rgba(0,0,0,0.06);color:rgba(26,26,46,0.3)}
+  body.light .stat-num{color:rgba(26,26,46,0.95)}
+  body.light .stat-label{color:rgba(26,26,46,0.4)}
+  body.light .section-title{color:rgba(74,140,0,0.7)}
+  body.light .theme-btn{background:rgba(0,0,0,0.05);border-color:rgba(0,0,0,0.1);color:rgba(26,26,46,0.7)}
+</style>
+</head>
+<body>
+
+<div class="bg"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div><div class="orb o4"></div><div class="orb o5"></div></div>
+<button class="theme-btn" onclick="document.body.classList.toggle('light');this.textContent=document.body.classList.contains('light')?'Dark':'Light'">Light</button>
+
+<div class="page">
+
+  <!-- ═══════ HEADER ═══════ -->
+  <div class="section" style="text-align:center;padding:20px 0 10px">
+    <div class="dl" style="display:inline-block;max-width:600px;width:100%">
+      <div class="dl-outer"></div><div class="dl-inner"></div><div class="dl-edge"></div>
+      <div class="dl-ct" style="text-align:center">
+        <div class="font-b h1" style="margin-bottom:8px">Double Layer Glass + Typography</div>
+        <div class="font-b body">4 grotesque шрифта в стиле Apple &times; Double Layer Glass</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ FONT A: System (SF Pro) ═══════ -->
+  <div class="section">
+    <div class="section-title">Font comparison</div>
+    <div class="grid-2">
+
+      <div class="dl font-a">
+        <div class="dl-outer"></div><div class="dl-inner"></div><div class="dl-edge"></div>
+        <div class="dl-ct">
+          <div class="font-badge">A &mdash; SF Pro (System)</div>
+          <div class="h2" style="margin-bottom:6px">Системный шрифт Apple</div>
+          <div class="body" style="margin-bottom:14px">-apple-system, SF Pro Display. Стандарт iOS/macOS. Оптимизирован под Retina, идеальный tracking и hinting.</div>
+          <div class="msg">
+            <div class="msg-av" style="background:rgba(200,255,0,0.15);color:#c8ff00">E</div>
+            <div class="msg-body"><div class="msg-name">Egor</div><div class="msg-text">Привет! Как тебе новый дизайн стекла? Мне кажется двойной слой выглядит круче</div><div class="msg-time">14:32</div></div>
+          </div>
+          <div class="nav-row">
+            <div class="pill active">Чаты</div><div class="pill">Каналы</div><div class="pill">Друзья</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dl font-b">
+        <div class="dl-outer"></div><div class="dl-inner"></div><div class="dl-edge"></div>
+        <div class="dl-ct">
+          <div class="font-badge">B &mdash; Inter</div>
+          <div class="h2" style="margin-bottom:6px">Inter — ближайший к SF Pro</div>
+          <div class="body" style="margin-bottom:14px">Open-source, Rasmus Andersson. Разработан для экранов, отличный x-height. Самый популярный UI шрифт.</div>
+          <div class="msg">
+            <div class="msg-av" style="background:rgba(255,0,204,0.12);color:#ff88dd">V</div>
+            <div class="msg-body"><div class="msg-name">Vohog</div><div class="msg-text">Привет! Как тебе новый дизайн стекла? Мне кажется двойной слой выглядит круче</div><div class="msg-time">14:32</div></div>
+          </div>
+          <div class="nav-row">
+            <div class="pill active">Чаты</div><div class="pill">Каналы</div><div class="pill">Друзья</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dl font-c">
+        <div class="dl-outer"></div><div class="dl-inner"></div><div class="dl-edge"></div>
+        <div class="dl-ct">
+          <div class="font-badge">C &mdash; DM Sans</div>
+          <div class="h2" style="margin-bottom:6px">DM Sans — геометрический</div>
+          <div class="body" style="margin-bottom:14px">Google, геометрический гротеск. Мягче и округлее Inter. Хорош для дружелюбного UI. Низкий контраст штрихов.</div>
+          <div class="msg">
+            <div class="msg-av" style="background:rgba(0,204,255,0.12);color:#00ccff">K</div>
+            <div class="msg-body"><div class="msg-name">Katya</div><div class="msg-text">Привет! Как тебе новый дизайн стекла? Мне кажется двойной слой выглядит круче</div><div class="msg-time">14:32</div></div>
+          </div>
+          <div class="nav-row">
+            <div class="pill active">Чаты</div><div class="pill">Каналы</div><div class="pill">Друзья</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dl font-d">
+        <div class="dl-outer"></div><div class="dl-inner"></div><div class="dl-edge"></div>
+        <div class="dl-ct">
+          <div class="font-badge">D &mdash; Manrope</div>
+          <div class="h2" style="margin-bottom:6px">Manrope — современный гротеск</div>
+          <div class="body" style="margin-bottom:14px">Mikhail Sharanda, округлые терминалы. Сочетает геометрику и гуманистику. Очень читаемый в мелком размере.</div>
+          <div class="msg">
+            <div class="msg-av" style="background:rgba(255,102,0,0.12);color:#ff8800">A</div>
+            <div class="msg-body"><div class="msg-name">Alex</div><div class="msg-text">Привет! Как тебе новый дизайн стекла? Мне кажется двойной слой выглядит круче</div><div class="msg-time">14:32</div></div>
+          </div>
+          <div class="nav-row">
+            <div class="pill active">Чаты</div><div class="pill">Каналы</div><div class="pill">Друзья</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════ TYPOGRAPHY SCALE ═══════ -->
+  <div class="section">
+    <div class="section-title">Typography scale (Inter)</div>
+    <div class="dl font-b">
+      <div class="dl-outer"></div><div class="dl-inner"></div><div class="dl-edge"></div>
+      <div class="dl-ct">
+        <div class="h1" style="margin-bottom:4px">H1 — Заголовок страницы</div>
+        <div class="caption" style="margin-bottom:16px">28px / 700 / -0.5px tracking</div>
+        <div class="h2" style="margin-bottom:4px">H2 — Заголовок секции</div>
+        <div class="caption" style="margin-bottom:16px">20px / 600 / -0.3px tracking</div>
+        <div class="h3" style="margin-bottom:4px">H3 — Заголовок карточки</div>
+        <div class="caption" style="margin-bottom:16px">16px / 600 / -0.1px tracking</div>
+        <div class="label-text" style="margin-bottom:4px">Label — навигация, кнопки</div>
+        <div class="caption" style="margin-bottom:16px">13px / 500 / 0 tracking</div>
+        <div class="body" style="margin-bottom:4px">Body — основной текст, описания, сообщения в чате</div>
+        <div class="caption" style="margin-bottom:16px">14px / 400 / 0 tracking</div>
+        <div class="body-sm" style="margin-bottom:4px">Body Small — вторичный текст, подписи</div>
+        <div class="caption" style="margin-bottom:16px">12px / 400</div>
+        <div class="caption" style="margin-bottom:4px">CAPTION — МЕТА, ВРЕМЯ, ТЕГИ</div>
+        <div class="caption">11px / 500 / 0.3px tracking / uppercase</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ UI ELEMENTS ═══════ -->
+  <div class="section">
+    <div class="section-title">UI elements in Double Layer Glass</div>
+    <div class="grid-3">
+
+      <div class="dl font-b">
+        <div class="dl-outer"></div><div class="dl-inner"></div><div class="dl-edge"></div>
+        <div class="dl-ct" style="text-align:center">
+          <div class="stat"><div class="stat-num">2,847</div><div class="stat-label">сообщений</div></div>
+          <div style="height:12px"></div>
+          <div class="stat"><div class="stat-num accent-text">128</div><div class="stat-label">онлайн</div></div>
+        </div>
+      </div>
+
+      <div class="dl font-b">
+        <div class="dl-outer"></div><div class="dl-inner"></div><div class="dl-edge"></div>
+        <div class="dl-ct">
+          <div class="h3" style="margin-bottom:10px">Настройки</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="label-text">Тёмная тема</div>
+            <div style="width:40px;height:22px;border-radius:11px;background:rgba(200,255,0,0.3);position:relative;border:1px solid rgba(200,255,0,0.2)"><div style="width:18px;height:18px;border-radius:50%;background:#c8ff00;position:absolute;right:1px;top:1px"></div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="label-text">Уведомления</div>
+            <div style="width:40px;height:22px;border-radius:11px;background:rgba(255,255,255,0.1);position:relative;border:1px solid rgba(255,255,255,0.08)"><div style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.4);position:absolute;left:1px;top:1px"></div></div>
+          </div>
+          <div class="input-demo">Поиск настроек...</div>
+        </div>
+      </div>
+
+      <div class="dl font-b">
+        <div class="dl-outer"></div><div class="dl-inner"></div><div class="dl-edge"></div>
+        <div class="dl-ct">
+          <div class="h3" style="margin-bottom:10px">Профиль</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,rgba(200,255,0,0.2),rgba(200,255,0,0.05));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#c8ff00">E</div>
+            <div><div class="h3" style="margin-bottom:2px">gotblesk</div><div class="body-sm">Дизайнер &bull; Онлайн</div></div>
+          </div>
+          <div class="body-sm" style="margin-bottom:8px">Создатель blesk. Твой блеск. Твои правила.</div>
+          <div class="caption">BLESK+ &bull; С МАРТА 2026</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

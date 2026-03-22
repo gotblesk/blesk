@@ -18,6 +18,7 @@ export const useChatStore = create((set, get) => ({
   loadingChatList: false,
   onlineUsers: [],
   userStatuses: {}, // { [userId]: 'online' | 'dnd' | 'invisible' }
+  customStatuses: {}, // { [userId]: 'текст статуса' }
   typingUsers: {},
 
   loadChats: async () => {
@@ -235,7 +236,8 @@ export const useChatStore = create((set, get) => ({
 
   setUserStatus: (userId, status, customStatus) => {
     set((state) => ({
-      userStatuses: { ...state.userStatuses, [userId]: status },
+      userStatuses: { ...state.userStatuses, [userId]: status || 'online' },
+      customStatuses: { ...state.customStatuses, [userId]: customStatus || '' },
     }));
   },
 

@@ -160,7 +160,7 @@ export default function MainScreen({ user, onLogout }) {
   // ═══════ HOTKEYS ═══════
   useHotkeys({
     search: () => setSpotlightOpen(true),
-    tabChats: () => { setSecondaryView(null); if (view !== 'nebula') setView('nebula'); },
+    tabChats: () => { setSecondaryView(null); if (!activeChatId) setView('nebula'); },
     tabVoice: () => switchToView('voice'),
     tabChannels: () => switchToView('channels'),
     tabFriends: () => switchToView('friends'),

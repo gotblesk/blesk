@@ -188,9 +188,6 @@ export default function DynamicIsland({
               <button className="island__btn" onClick={(e) => handleNav(e, 'friends')}>
                 <div className="island__btn-icon"><Users size={14} /></div>
                 <span className="island__btn-label">Друзья</span>
-                {onlineUsers.length > 0 && (
-                  <span className="island__btn-badge">{onlineUsers.length}</span>
-                )}
               </button>
 
               <button className="island__btn" onClick={(e) => handleNav(e, 'voice')}>

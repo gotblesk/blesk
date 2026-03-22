@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Orbit: плотный круг с прилипанием</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px; }
+  h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .sub { font-size: 11px; color: rgba(255,255,255,0.2); margin-bottom: 24px; text-align: center; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+
+  .variants { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; }
+  .variant { display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; }
+  .variant__label { font-size: 11px; color: rgba(255,255,255,0.25); font-weight: 600; }
+  .variant__label span { color: #c8ff00; }
+
+  /* ═══ Orbit container ═══ */
+  .orbit-box { width: 220px; height: 220px; position: relative; border-radius: 20px; background: rgba(255,255,255,0.01); border: 2px solid rgba(255,255,255,0.04); transition: all 0.3s; }
+  .orbit-box:hover { border-color: rgba(200,255,0,0.12); }
+  .orbit-box.selected { border-color: #c8ff00; background: rgba(200,255,0,0.02); }
+
+  /* Filter ТОЛЬКО на кружки */
+  .orbit__goo { filter: url(#goo); position: absolute; inset: 0; }
+  .orbit__goo2 { filter: url(#goo2); position: absolute; inset: 0; }
+  .orbit__goo3 { filter: url(#goo3); position: absolute; inset: 0; }
+
+  /* Аватарки */
+  .av { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; cursor: pointer; transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
+  .av:hover { z-index: 10 !important; transform: scale(1.15); }
+  .av--me { width: 48px; height: 48px; font-size: 17px; color: #000; z-index: 5; }
+  .av--f { width: 36px; height: 36px; font-size: 13px; }
+  .av--sm { width: 32px; height: 32px; font-size: 11px; }
+  .dot { position: absolute; bottom: 0; right: 0; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; }
+
+  /* Имена СНАРУЖИ filter */
+  .names { position: absolute; inset: 0; pointer-events: none; }
+  .nm { position: absolute; font-size: 7px; color: rgba(255,255,255,0.18); text-align: center; white-space: nowrap; }
+
+  /* Info */
+  .info { margin-top: 20px; max-width: 500px; text-align: center; }
+  .info p { font-size: 11px; color: rgba(255,255,255,0.2); line-height: 1.6; margin-bottom: 8px; }
+  .info b { color: rgba(255,255,255,0.4); }
+
+  /* Hue colors */
+  .hue-v { background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%)); }
+  .hue-d { background: linear-gradient(135deg, hsl(200,70%,55%), hsl(240,60%,45%)); }
+  .hue-a { background: linear-gradient(135deg, hsl(30,70%,55%), hsl(50,60%,45%)); }
+  .hue-m { background: linear-gradient(135deg, hsl(170,70%,55%), hsl(190,60%,45%)); }
+  .hue-k { background: linear-gradient(135deg, hsl(60,70%,50%), hsl(80,60%,40%)); }
+  .hue-l { background: linear-gradient(135deg, hsl(350,70%,55%), hsl(10,60%,45%)); }
+  .hue-me { background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%)); }
+</style>
+</head>
+<body>
+
+<svg class="svg-f">
+  <defs>
+    <!-- Вариант 1: средний blur — лёгкое прилипание -->
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+    <!-- Вариант 2: сильный blur — жирные мостики -->
+    <filter id="goo2">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+    <!-- Вариант 3: очень сильный — всё сливается -->
+    <filter id="goo3">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
+<h1>Orbit: плотный круг — какая степень прилипания?</h1>
+<p class="sub">Аватары близко друг к другу. Hover чтобы оттянуть. Три варианта силы blob-мостиков.</p>
+
+<div class="variants">
+
+  <!-- ═══ ВАРИАНТ 1: Средний blob ═══ -->
+  <div class="variant" onclick="sel(0)">
+    <div class="variant__label">1 — <span>Лёгкое</span> прилипание</div>
+    <div class="orbit-box" id="v0">
+      <div class="orbit__goo">
+        <!-- Центр -->
+        <div class="av av--me hue-me" style="top:50%;left:50%;margin:-24px 0 0 -24px">G</div>
+        <!-- Друзья БЛИЗКО — radius ~44px -->
+        <div class="av av--f hue-v" style="top:22px;left:50%;margin-left:-18px">V<div class="dot"></div></div>
+        <div class="av av--f hue-d" style="top:46px;right:28px">D</div>
+        <div class="av av--f hue-a" style="bottom:46px;right:28px">A<div class="dot"></div></div>
+        <div class="av av--f hue-m" style="bottom:22px;left:50%;margin-left:-18px">M</div>
+        <div class="av av--f hue-k" style="bottom:46px;left:28px">K<div class="dot"></div></div>
+        <div class="av av--f hue-l" style="top:46px;left:28px">L</div>
+      </div>
+      <div class="names">
+        <div class="nm" style="top:8px;left:50%;transform:translateX(-50%)">Vohog</div>
+        <div class="nm" style="top:38px;right:6px">Den</div>
+        <div class="nm" style="bottom:32px;right:8px">Alice</div>
+        <div class="nm" style="bottom:8px;left:50%;transform:translateX(-50%)">Mike</div>
+        <div class="nm" style="bottom:32px;left:10px">Kate</div>
+        <div class="nm" style="top:38px;left:10px">Leo</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ВАРИАНТ 2: Сильный blob ═══ -->
+  <div class="variant" onclick="sel(1)">
+    <div class="variant__label">2 — <span>Среднее</span> прилипание</div>
+    <div class="orbit-box" id="v1">
+      <div class="orbit__goo2">
+        <div class="av av--me hue-me" style="top:50%;left:50%;margin:-24px 0 0 -24px">G</div>
+        <div class="av av--f hue-v" style="top:24px;left:50%;margin-left:-18px">V<div class="dot"></div></div>
+        <div class="av av--f hue-d" style="top:48px;right:30px">D</div>
+        <div class="av av--f hue-a" style="bottom:48px;right:30px">A<div class="dot"></div></div>
+        <div class="av av--f hue-m" style="bottom:24px;left:50%;margin-left:-18px">M</div>
+        <div class="av av--f hue-k" style="bottom:48px;left:30px">K<div class="dot"></div></div>
+        <div class="av av--f hue-l" style="top:48px;left:30px">L</div>
+      </div>
+      <div class="names">
+        <div class="nm" style="top:10px;left:50%;transform:translateX(-50%)">Vohog</div>
+        <div class="nm" style="top:40px;right:8px">Den</div>
+        <div class="nm" style="bottom:34px;right:10px">Alice</div>
+        <div class="nm" style="bottom:10px;left:50%;transform:translateX(-50%)">Mike</div>
+        <div class="nm" style="bottom:34px;left:12px">Kate</div>
+        <div class="nm" style="top:40px;left:12px">Leo</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ВАРИАНТ 3: Очень сильный blob ═══ -->
+  <div class="variant" onclick="sel(2)">
+    <div class="variant__label">3 — <span>Сильное</span> прилипание</div>
+    <div class="orbit-box" id="v2">
+      <div class="orbit__goo3">
+        <div class="av av--me hue-me" style="top:50%;left:50%;margin:-24px 0 0 -24px">G</div>
+        <div class="av av--f hue-v" style="top:26px;left:50%;margin-left:-18px">V<div class="dot"></div></div>
+        <div class="av av--f hue-d" style="top:50px;right:32px">D</div>
+        <div class="av av--f hue-a" style="bottom:50px;right:32px">A<div class="dot"></div></div>
+        <div class="av av--f hue-m" style="bottom:26px;left:50%;margin-left:-18px">M</div>
+        <div class="av av--f hue-k" style="bottom:50px;left:32px">K<div class="dot"></div></div>
+        <div class="av av--f hue-l" style="top:50px;left:32px">L</div>
+      </div>
+      <div class="names">
+        <div class="nm" style="top:12px;left:50%;transform:translateX(-50%)">Vohog</div>
+        <div class="nm" style="top:42px;right:10px">Den</div>
+        <div class="nm" style="bottom:36px;right:12px">Alice</div>
+        <div class="nm" style="bottom:12px;left:50%;transform:translateX(-50%)">Mike</div>
+        <div class="nm" style="bottom:36px;left:14px">Kate</div>
+        <div class="nm" style="top:42px;left:14px">Leo</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="info">
+  <p><b>Поведение:</b> При hover аватар увеличивается и "отлипает" от соседей. При idle — все слиты в blob-массу. Клик — открыть чат с другом.</p>
+  <p><b>Gravity:</b> Чем больше общаешься с другом — тем ближе он к центру (к тебе). Оффлайн друзья на внешней орбите.</p>
+</div>
+
+<script>
+function sel(idx) {
+  document.querySelectorAll('.orbit-box').forEach(b => b.classList.remove('selected'));
+  document.getElementById('v' + idx).classList.add('selected');
+}
+</script>
+</body>
+</html>

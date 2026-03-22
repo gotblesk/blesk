@@ -71,6 +71,11 @@ export default function MiniCardsSidebar({ activeChatId, onSelectChat, onBack })
       </button>
 
       <div className="mini-sidebar__list">
+        {chats.length === 0 && (
+          <div style={{ padding: '20px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+            Нет чатов
+          </div>
+        )}
         {chats.map(chat => {
           const active = chat.id === activeChatId;
           return (

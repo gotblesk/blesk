@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ZoomIn } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import './AvatarCropModal.css';
@@ -39,6 +39,13 @@ export default function AvatarCropModal({ imageSrc, onClose, onSave }) {
   const onCropComplete = useCallback((_, croppedPixels) => {
     setCroppedArea(croppedPixels);
   }, []);
+
+  // Escape для закрытия
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
 
   const handleSave = async () => {
     if (!croppedArea) return;

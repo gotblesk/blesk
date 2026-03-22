@@ -104,7 +104,7 @@ export default function ChatMessage({
     >
       {/* Аватар — только для last/solo чужих сообщений */}
       {!isOwn && showAvatar && (
-        <Avatar user={{ username: senderName, avatar: message.avatar }} size="sm" className="chat-message__avatar" />
+        <Avatar user={{ username: senderName, avatar: message.user?.avatar }} size="sm" className="chat-message__avatar" />
       )}
       {!isOwn && !showAvatar && (
         <div className="chat-message__avatar chat-message__avatar--hidden" />

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Чат-лист blob-карточки v2</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px; gap: 16px; }
+  h1 { font-size: 18px; font-weight: 700; }
+  .sub { font-size: 11px; color: rgba(255,255,255,0.2); text-align: center; max-width: 400px; line-height: 1.6; }
+  .sub b { color: #c8ff00; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+
+  .sidebar-mock { width: 300px; background: rgba(255,255,255,0.01); border-radius: 16px; border: 1px solid rgba(255,255,255,0.03); padding: 8px; }
+  .cl-lb { font-size: 8px; color: rgba(255,255,255,0.07); text-transform: uppercase; letter-spacing: 1.5px; padding: 8px 6px 4px; font-weight: 600; }
+
+  /* Container for each section */
+  .cl-section { position: relative; }
+
+  /* GOO layer — colored card bgs */
+  .cl-goo { filter: url(#goo-cards); display: flex; flex-direction: column; gap: 3px; }
+  .cl-bg { border-radius: 14px; height: 58px; }
+
+  /* TEXT layer — absolute, on top, no pointer events */
+  .cl-texts { position: absolute; top: 0; left: 0; right: 0; display: flex; flex-direction: column; gap: 3px; pointer-events: none; z-index: 10; }
+  .ct { display: flex; align-items: center; gap: 10px; padding: 8px 10px; height: 58px; border-radius: 14px; }
+  .ct__av { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; overflow: hidden; }
+  .ct__av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .ct__av-letter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; border-radius: 50%; }
+  .ct__info { flex: 1; min-width: 0; }
+  .ct__name { font-size: 12px; font-weight: 500; }
+  .ct__msg { font-size: 10px; color: rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .ct__meta { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .ct__time { font-size: 9px; color: rgba(255,255,255,0.1); }
+  .ct__badge { background: #c8ff00; color: #08060f; font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
+  .ct__dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; position: absolute; left: 36px; bottom: 10px; z-index: 2; }
+  .ct__typing { display: inline-flex; gap: 2px; vertical-align: middle; }
+  .ct__td { width: 5px; height: 5px; border-radius: 50%; background: #c8ff00; display: inline-block; animation: td 1.4s ease-in-out infinite; }
+  .ct__td:nth-child(2) { animation-delay: 0.15s; }
+  .ct__td:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes td { 0%,60%,100%{transform:translateY(0);opacity:0.3} 30%{transform:translateY(-3px);opacity:1} }
+
+  /* HIT layer — on top of everything, catches hover */
+  .cl-hits { position: absolute; top: 0; left: 0; right: 0; display: flex; flex-direction: column; gap: 3px; z-index: 20; }
+  .cl-hit { height: 58px; border-radius: 14px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<svg class="svg-f"><defs>
+  <filter id="goo-cards">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/>
+    <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 18 -7" result="g"/>
+    <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+  </filter>
+</defs></svg>
+
+<h1>Чат-лист: blob-карточки v2</h1>
+<p class="sub"><b>Hover</b> — карточка набухает и отделяется от соседей. Соседние карточки blob-мержатся краями.</p>
+
+<div class="sidebar-mock">
+  <div class="cl-lb">Сообщения</div>
+  <div class="cl-section" id="msgSection"></div>
+
+  <div class="cl-lb" style="margin-top:6px">Каналы</div>
+  <div class="cl-section" id="chSection"></div>
+</div>
+
+<script>
+const chats = [
+  { name:'Vohog', msg:'orbit выглядит как магнитная жидкость', time:'14м', hue:320, online:true, photo:'https://i.pravatar.cc/40?img=5', active:true },
+  { name:'Den', msg:'Закончен эксперимент', time:'1ч', hue:220, photo:'https://i.pravatar.cc/40?img=12', badge:'1' },
+  { name:'Alice', msg:null, time:'32м', hue:40, online:true, photo:'https://i.pravatar.cc/40?img=9', typing:true },
+  { name:'blesk team', msg:'Егор: обнова на подходе', time:'2ч', hue:80, letter:'B', group:true },
+  { name:'Mike', msg:'в голосовой gemoglobin', time:'3ч', hue:180, photo:'https://i.pravatar.cc/40?img=33' },
+];
+const channels = [
+  { name:'GOTBLESK', msg:'Новый трек выходит в пятницу', time:'5ч', hue:100, letter:'G', group:true },
+  { name:'дизайн', msg:'concept-METABALL-ORBIT.html', time:'1д', hue:280, letter:'Д', group:true },
+];
+
+function buildSection(items, sectionId) {
+  const section = document.getElementById(sectionId);
+
+  // 3 layers
+  const gooDiv = document.createElement('div'); gooDiv.className = 'cl-goo';
+  const textDiv = document.createElement('div'); textDiv.className = 'cl-texts';
+  const hitDiv = document.createElement('div'); hitDiv.className = 'cl-hits';
+
+  const bgs = [];
+
+  items.forEach((c, i) => {
+    const alpha = c.active ? 0.09 : 0.05;
+
+    // GOO: colored bg
+    const bg = document.createElement('div');
+    bg.className = 'cl-bg';
+    bg.style.background = `hsla(${c.hue}, 60%, 50%, ${alpha})`;
+    bg.style.transition = 'all 0.3s cubic-bezier(0.16,1,0.3,1)';
+    gooDiv.appendChild(bg);
+    bgs.push(bg);
+
+    // TEXT
+    const ct = document.createElement('div');
+    ct.className = 'ct';
+    ct.style.position = 'relative';
+
+    const color = `hsl(${c.hue}, 70%, 55%)`;
+    let avHtml;
+    if (c.photo) {
+      avHtml = `<div class="ct__av" style="border:2px solid ${color};box-shadow:0 0 8px hsla(${c.hue},70%,55%,0.3)"><img src="${c.photo}"></div>`;
+    } else {
+      const br = c.group ? 'border-radius:10px' : '';
+      avHtml = `<div class="ct__av" style="border:2px solid ${color};box-shadow:0 0 8px hsla(${c.hue},70%,55%,0.2);${br}"><div class="ct__av-letter" style="background:hsla(${c.hue},70%,55%,0.15);color:${color};${br}">${c.letter}</div></div>`;
+    }
+    let dotHtml = c.online ? `<div class="ct__dot"></div>` : '';
+    let msgHtml = c.typing
+      ? `<div class="ct__msg"><span class="ct__typing"><span class="ct__td"></span><span class="ct__td"></span><span class="ct__td"></span></span> печатает</div>`
+      : `<div class="ct__msg">${c.msg || ''}</div>`;
+    let metaHtml = `<div class="ct__meta"><div class="ct__time">${c.time}</div>${c.badge ? `<div class="ct__badge">${c.badge}</div>` : ''}</div>`;
+
+    ct.innerHTML = `${avHtml}${dotHtml}<div class="ct__info"><div class="ct__name">${c.name}</div>${msgHtml}</div>${metaHtml}`;
+    textDiv.appendChild(ct);
+
+    // HIT
+    const hit = document.createElement('div');
+    hit.className = 'cl-hit';
+
+    // Hover: bg scales up, separates from neighbors
+    hit.addEventListener('mouseenter', () => {
+      bg.style.transform = 'scale(1.04) translateX(3px)';
+      bg.style.boxShadow = `0 0 20px hsla(${c.hue},70%,55%,0.12)`;
+      bg.style.background = `hsla(${c.hue}, 60%, 50%, ${alpha * 1.8})`;
+      // Push neighbors slightly
+      if (bgs[i-1]) bgs[i-1].style.transform = 'translateY(-2px)';
+      if (bgs[i+1]) bgs[i+1].style.transform = 'translateY(2px)';
+    });
+    hit.addEventListener('mouseleave', () => {
+      bg.style.transform = '';
+      bg.style.boxShadow = '';
+      bg.style.background = `hsla(${c.hue}, 60%, 50%, ${alpha})`;
+      if (bgs[i-1]) bgs[i-1].style.transform = '';
+      if (bgs[i+1]) bgs[i+1].style.transform = '';
+    });
+
+    hitDiv.appendChild(hit);
+  });
+
+  section.appendChild(gooDiv);
+  section.appendChild(textDiv);
+  section.appendChild(hitDiv);
+}
+
+buildSection(chats, 'msgSection');
+buildSection(channels, 'chSection');
+</script>
+</body>
+</html>

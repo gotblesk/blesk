@@ -252,7 +252,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                             className="voice-invite-panel__av"
                             style={{ background: getAvatarColor(getAvatarHue(inv)) }}
                           >
-                            {inv.username[0].toUpperCase()}
+                            {(inv.username || '?')[0].toUpperCase()}
                           </div>
                           <span className="voice-invite-panel__name">{inv.username}</span>
                           <button
