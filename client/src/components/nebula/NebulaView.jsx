@@ -28,7 +28,7 @@ const DEBUG_CHATS = [
   { id: 'debug-7', type: 'personal', otherUser: { id: 'u7', username: 'Маша', avatar: null }, lastMessage: { text: 'до завтра!', username: 'Маша', createdAt: new Date().toISOString() }, unreadCount: 0 },
   { id: 'debug-8', type: 'group', name: 'GOTBLESK', lastMessage: { text: 'новый дроп...', username: '', createdAt: new Date().toISOString() }, unreadCount: 5 },
 ];
-const USE_DEBUG = true; // Переключить на false для продакшена
+const USE_DEBUG = false; // Переключить на false для продакшена
 
 // ═══════ NEBULA VIEW — Physics chat cards ═══════
 export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user }) {
@@ -383,10 +383,16 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     if (!chat.lastMessage?.createdAt) return '';
     const d = new Date(chat.lastMessage.createdAt);
     const now = new Date();
-    if (d.toDateString() === now.toDateString()) {
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
       return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     }
-    return 'вчера';
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) {
+      return 'вчера';
+    }
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
   };
 
   // Welcome Card для новых пользователей

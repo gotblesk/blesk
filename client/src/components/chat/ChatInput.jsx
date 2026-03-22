@@ -19,9 +19,6 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const sendBtnRef = useRef(null);
   const blurTimeoutRef = useRef(null);
 
-  // Anti-spam: максимум 5 сообщений за 3 секунды
-  const sendTimestampsRef = useRef([]);
-
   // Очистить typing timeout при unmount
   useEffect(() => {
     return () => {
@@ -106,12 +103,6 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed && !pendingFiles.length) return;
-
-    // Anti-spam: 5 сообщений за 3 секунды
-    const now = Date.now();
-    sendTimestampsRef.current = sendTimestampsRef.current.filter((t) => now - t < 3000);
-    if (sendTimestampsRef.current.length >= 5) return;
-    sendTimestampsRef.current.push(now);
 
     // Звук
     soundSend();

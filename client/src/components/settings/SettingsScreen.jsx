@@ -156,7 +156,7 @@ export default function SettingsScreen({ onBack }) {
                         Authorization: `Bearer ${localStorage.getItem('token')}`,
                       },
                       body: JSON.stringify({ showLastSeen: next }),
-                    }).catch(() => {});
+                    }).catch(() => { toggle('showLastSeen'); });
                   }}
                 />
               </Glass>

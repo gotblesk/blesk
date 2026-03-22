@@ -52,7 +52,10 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         alert(errData.error || 'Не удалось отправить пост');
         return;
       }
-      // Не вызываем receivePost — сокет message:new с isChannel придёт автоматически
+      const data = await res.json().catch(() => ({}));
+      if (data.message) {
+        useChannelStore.getState().receivePost(data.message);
+      }
       setText('');
     } catch (err) {
       console.error('Ошибка отправки поста:', err);

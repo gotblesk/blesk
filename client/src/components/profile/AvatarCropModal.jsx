@@ -54,7 +54,7 @@ export default function AvatarCropModal({ imageSrc, onClose, onSave }) {
   };
 
   return (
-    <div className="avatar-crop-overlay" onClick={onClose}>
+    <div className="avatar-crop-overlay">
       <div className="avatar-crop-card" onClick={(e) => e.stopPropagation()}>
         <div className="avatar-crop-card__shine" />
 

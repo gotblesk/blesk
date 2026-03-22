@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 
 // Парсит строку "Ctrl+Shift+K" в объект для сравнения с KeyboardEvent
@@ -30,6 +30,8 @@ function matchesEvent(e, parsed) {
 // actions: { actionName: callback }
 export function useHotkeys(actions) {
   const hotkeys = useSettingsStore((s) => s.hotkeys);
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -40,7 +42,7 @@ export function useHotkeys(actions) {
         if (e.key !== 'Escape' && !(e.ctrlKey && e.key.toLowerCase() === 'k')) return;
       }
 
-      for (const [action, callback] of Object.entries(actions)) {
+      for (const [action, callback] of Object.entries(actionsRef.current)) {
         const combo = hotkeys[action];
         if (!combo) continue;
         if (matchesEvent(e, parseCombo(combo))) {
@@ -53,5 +55,5 @@ export function useHotkeys(actions) {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [hotkeys, actions]);
+  }, [hotkeys]);
 }

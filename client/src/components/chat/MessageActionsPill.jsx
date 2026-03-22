@@ -22,7 +22,7 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
   // Закрыть при клике вне
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
+    const close = () => setTimeout(() => setOpen(false), 0);
     window.addEventListener('click', close);
     window.addEventListener('contextmenu', close);
     window.addEventListener('scroll', close, true);

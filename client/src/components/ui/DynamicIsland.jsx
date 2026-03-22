@@ -91,22 +91,6 @@ export default function DynamicIsland({
     });
   }, []);
 
-  // Ctrl+K
-  useEffect(() => {
-    function onKey(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        toggleSearch();
-      }
-      if (e.key === 'Escape' && searchOpen) {
-        setSearchOpen(false);
-        setSearchQuery('');
-      }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [searchOpen, toggleSearch]);
-
   // Search submit
   const handleSearchSubmit = useCallback(() => {
     if (searchQuery.trim() && onOpenSearch) {

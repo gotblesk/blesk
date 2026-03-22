@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Rocket, X } from 'lucide-react';
 import './UpdateBanner.css';
 
@@ -10,10 +10,13 @@ export default function UpdateBanner({ socketRef }) {
   const [total, setTotal] = useState(0);
   const [downloaded, setDownloaded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const registeredRef = useRef(false);
 
   // Слушать Electron autoUpdater (локальная проверка)
   useEffect(() => {
+    if (registeredRef.current) return;
     if (!window.blesk?.update) return;
+    registeredRef.current = true;
 
     window.blesk.update.onAvailable((version) => {
       setUpdateInfo({ version, source: 'electron' });

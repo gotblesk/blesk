@@ -56,17 +56,8 @@ export default function UserProfileModal({
   );
 
   const handleAddFriend = async () => {
-    onAddFriend?.(userId);
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/friends/request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ userId }),
-      });
+      await onAddFriend?.(userId);
       setFriendReqSent(true);
     } catch {
       /* ignore */

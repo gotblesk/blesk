@@ -238,11 +238,11 @@ export default function MainScreen({ user, onLogout }) {
             )}
 
             {secondaryView === 'friends' && (
-              <FriendsScreen onBack={() => { setSecondaryView(null); }} onOpenChat={handleOpenChat} />
+              <FriendsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} onOpenChat={handleOpenChat} />
             )}
 
             {secondaryView === 'settings' && (
-              <SettingsScreen onBack={() => { setSecondaryView(null); }} />
+              <SettingsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
             )}
           </div>
         </div>
@@ -271,10 +271,10 @@ export default function MainScreen({ user, onLogout }) {
                 : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />
             )}
             {secondaryView === 'friends' && (
-              <FriendsScreen onBack={() => setSecondaryView(null)} onOpenChat={handleOpenChat} />
+              <FriendsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} onOpenChat={handleOpenChat} />
             )}
             {secondaryView === 'settings' && (
-              <SettingsScreen onBack={() => setSecondaryView(null)} />
+              <SettingsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
             )}
           </div>
         </div>
