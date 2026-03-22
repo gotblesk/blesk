@@ -42,7 +42,7 @@ export default function MiniCardsSidebar({ activeChatId, onSelectChat, onBack })
         <Avatar
           username={getChatName(chat)}
           avatarUrl={chat.otherUser?.avatar}
-          size={active ? 36 : 34}
+          size={active ? 38 : 34}
           showOnline={isOnline(chat)}
         />
       </div>
