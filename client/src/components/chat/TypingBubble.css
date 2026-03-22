@@ -1,0 +1,61 @@
+.typing-bubble {
+  display: flex;
+  gap: 8px;
+  align-self: flex-start;
+  align-items: flex-end;
+  animation: msgAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.typing-bubble__outer {
+  padding: 3px;
+  border-radius: 22px;
+  background: var(--sender-bubble-bg, rgba(255,255,255,0.035));
+  border: 0.5px solid var(--sender-bubble-border, rgba(255,255,255,0.06));
+  box-shadow: 0 1.5px 6px rgba(0,0,0,0.1);
+  backdrop-filter: blur(8px);
+}
+
+.typing-bubble__inner {
+  padding: 10px 16px;
+  border-radius: 19px;
+  background: var(--sender-bubble-inner-bg, rgba(255,255,255,0.06));
+  border-top: 0.5px solid var(--sender-bubble-inner-border, rgba(255,255,255,0.07));
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.typing-bubble__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sender-hue-color, rgba(255,255,255,0.4));
+  opacity: 0.5;
+  animation: typingWave 1.4s ease-in-out infinite;
+}
+
+.typing-bubble__dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-bubble__dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typingWave {
+  0%, 60%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-6px) scale(1.2);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-bubble { animation: fadeIn 0.2s ease both; }
+  .typing-bubble__dot { animation: typingPulse 1.4s ease-in-out infinite; }
+  .typing-bubble__dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-bubble__dot:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes typingPulse {
+    0%, 60%, 100% { opacity: 0.3; }
+    30% { opacity: 0.8; }
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+}
