@@ -98,7 +98,7 @@ export default function VoiceChat({ roomId, socketRef }) {
                   className="voice-chat__msg-av"
                   style={{ background: getAvatarColor(getAvatarHue(msg)) }}
                 >
-                  {msg.username[0].toUpperCase()}
+                  {(msg.username || '?')[0].toUpperCase()}
                 </div>
                 <div className="voice-chat__msg-body">
                   <div className="voice-chat__msg-header">

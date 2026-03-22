@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Orbit: blob прилипание v4</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px; gap: 20px; }
+  h1 { font-size: 18px; font-weight: 700; }
+  .sub { font-size: 11px; color: rgba(255,255,255,0.2); text-align: center; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+
+  /* ═══ Proof section ═══ */
+  .proof { display: flex; gap: 32px; align-items: flex-start; margin-bottom: 12px; }
+  .proof-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .proof-label { font-size: 9px; color: rgba(255,255,255,0.15); text-align: center; }
+  .proof-label b { color: #c8ff00; }
+  .proof-box { border-radius: 14px; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); position: relative; overflow: hidden; }
+
+  /* circles — hover to merge */
+  .p-goo { filter: url(#goo-strong); width: 100%; height: 100%; position: relative; }
+  .p-blob { position: absolute; border-radius: 50%; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); }
+
+  /* ═══ Main orbit variants ═══ */
+  .variants { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .variant { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .variant__label { font-size: 11px; color: rgba(255,255,255,0.2); font-weight: 600; }
+  .variant__label span { color: #c8ff00; }
+
+  .orbit-box { width: 260px; height: 260px; position: relative; border-radius: 20px; background: rgba(255,255,255,0.01); border: 2px solid rgba(255,255,255,0.04); transition: all 0.3s; cursor: pointer; overflow: hidden; }
+  .orbit-box:hover { border-color: rgba(200,255,0,0.1); }
+  .orbit-box.selected { border-color: #c8ff00; background: rgba(200,255,0,0.015); }
+
+  .goo-layer { position: absolute; inset: 0; }
+  .names-layer { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+  .nm { position: absolute; font-size: 7px; color: rgba(255,255,255,0.2); text-align: center; white-space: nowrap; transform: translate(-50%, 0); }
+
+  /* Avatar circles */
+  .av { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); cursor: pointer; z-index: 2; }
+  .av:hover { z-index: 10 !important; }
+  .av--me { color: #000; }
+  .dot { position: absolute; bottom: -1px; right: -1px; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; border: 1.5px solid #08060f; }
+
+  /* Hidden pseudo-element "tentacle" connecting to center */
+  .tentacle { position: absolute; border-radius: 50%; pointer-events: none; }
+
+  .hue-v { background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%)); }
+  .hue-d { background: linear-gradient(135deg, hsl(200,70%,55%), hsl(240,60%,45%)); }
+  .hue-a { background: linear-gradient(135deg, hsl(30,70%,55%), hsl(50,60%,45%)); }
+  .hue-m { background: linear-gradient(135deg, hsl(170,70%,55%), hsl(190,60%,45%)); }
+  .hue-k { background: linear-gradient(135deg, hsl(60,70%,50%), hsl(80,60%,40%)); }
+  .hue-l { background: linear-gradient(135deg, hsl(350,70%,55%), hsl(10,60%,45%)); }
+  .hue-me { background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%)); }
+
+  .info { max-width: 600px; text-align: center; }
+  .info p { font-size: 11px; color: rgba(255,255,255,0.2); line-height: 1.6; }
+  .info b { color: rgba(255,255,255,0.4); }
+</style>
+</head>
+<body>
+
+<svg class="svg-f">
+  <defs>
+    <filter id="goo-strong">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+    <filter id="goo-orbit-a">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+    <filter id="goo-orbit-b">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
+<h1>Orbit: прилипание через "щупальца"</h1>
+<p class="sub">Секрет: между аватаром и центром есть невидимый овал-мостик.</p>
+
+<!-- ═══ PROOF: tentacle bridges ═══ -->
+<div class="proof">
+  <!-- Proof 1: без мостика -->
+  <div class="proof-item">
+    <div class="proof-label">Без мостика (не работает)</div>
+    <div class="proof-box" style="width:180px;height:80px">
+      <div class="p-goo">
+        <div class="p-blob" style="width:40px;height:40px;background:#c8ff00;left:30px;top:20px"></div>
+        <div class="p-blob" style="width:40px;height:40px;background:#c8ff00;left:110px;top:20px"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Proof 2: с мостиком -->
+  <div class="proof-item">
+    <div class="proof-label"><b>С мостиком</b> (прилипание!)</div>
+    <div class="proof-box" style="width:180px;height:80px">
+      <div class="p-goo">
+        <div class="p-blob" style="width:40px;height:40px;background:#c8ff00;left:30px;top:20px"></div>
+        <!-- Мостик — невидимый овал между ними -->
+        <div class="p-blob" style="width:60px;height:20px;background:#c8ff00;left:60px;top:30px;border-radius:10px"></div>
+        <div class="p-blob" style="width:40px;height:40px;background:#c8ff00;left:110px;top:20px"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Proof 3: разноцветные -->
+  <div class="proof-item">
+    <div class="proof-label"><b>Разноцветные</b> с мостиками</div>
+    <div class="proof-box" style="width:200px;height:80px">
+      <div class="p-goo">
+        <div class="p-blob hue-v" style="width:40px;height:40px;left:20px;top:20px"></div>
+        <div class="p-blob" style="width:30px;height:12px;left:50px;top:34px;border-radius:6px;background:linear-gradient(90deg,hsl(300,70%,55%),hsl(100,70%,55%))"></div>
+        <div class="p-blob hue-me" style="width:48px;height:48px;left:76px;top:16px"></div>
+        <div class="p-blob" style="width:30px;height:12px;left:116px;top:34px;border-radius:6px;background:linear-gradient(90deg,hsl(100,70%,55%),hsl(200,70%,55%))"></div>
+        <div class="p-blob hue-d" style="width:40px;height:40px;left:140px;top:20px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="sub" style="margin-top:-4px">↑ Видишь прилипание на 2 и 3? Теперь orbit с этой техникой ↓</p>
+
+<div class="variants">
+
+  <!-- ═══ V1: Orbit с мостиками ═══ -->
+  <div class="variant" onclick="sel(0)">
+    <div class="variant__label">1 — Orbit с <span>мостиками</span></div>
+    <div class="orbit-box" id="v0">
+      <div class="goo-layer" style="filter:url(#goo-orbit-a)" id="orbit1">
+        <!-- Позиции: центр 130,130. Друзья на R=52px. Мостики между каждым другом и центром -->
+      </div>
+      <div class="names-layer" id="names1"></div>
+    </div>
+  </div>
+
+  <!-- ═══ V2: Orbit плотнее ═══ -->
+  <div class="variant" onclick="sel(1)">
+    <div class="variant__label">2 — Orbit <span>плотнее</span> + жирные мостики</div>
+    <div class="orbit-box" id="v1">
+      <div class="goo-layer" style="filter:url(#goo-orbit-b)" id="orbit2">
+      </div>
+      <div class="names-layer" id="names2"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="info">
+  <p><b>Hover</b> на аватар друга — мостик растягивается, аватар "отлипает". Без hover — все связаны blob-мостиками с центром.</p>
+</div>
+
+<script>
+const cx = 130, cy = 130;
+const friends = [
+  { letter: 'V', hue: 'hue-v', name: 'Vohog', online: true },
+  { letter: 'D', hue: 'hue-d', name: 'Den', online: false },
+  { letter: 'A', hue: 'hue-a', name: 'Alice', online: true },
+  { letter: 'M', hue: 'hue-m', name: 'Mike', online: false },
+  { letter: 'K', hue: 'hue-k', name: 'Kate', online: true },
+  { letter: 'L', hue: 'hue-l', name: 'Leo', online: false },
+];
+
+function buildOrbit(containerId, namesId, radius, meSize, fSize, bridgeW, bridgeH) {
+  const container = document.getElementById(containerId);
+  const namesC = document.getElementById(namesId);
+  const meHalf = meSize / 2;
+  const fHalf = fSize / 2;
+
+  // Center avatar
+  const me = document.createElement('div');
+  me.className = 'av av--me hue-me';
+  me.style.cssText = `width:${meSize}px;height:${meSize}px;font-size:${meSize*0.36}px;left:${cx-meHalf}px;top:${cy-meHalf}px`;
+  me.textContent = 'G';
+  container.appendChild(me);
+
+  friends.forEach((f, i) => {
+    const angle = (Math.PI * 2 * i / friends.length) - Math.PI / 2;
+    const fx = cx + Math.cos(angle) * radius;
+    const fy = cy + Math.sin(angle) * radius;
+
+    // Bridge (tentacle) between center and friend
+    const bx = (cx + fx) / 2;
+    const by = (cy + fy) / 2;
+    const bAngle = Math.atan2(fy - cy, fx - cx) * 180 / Math.PI;
+
+    const bridge = document.createElement('div');
+    bridge.className = 'tentacle';
+    const dist = Math.sqrt((fx-cx)**2 + (fy-cy)**2);
+    bridge.style.cssText = `width:${dist * 0.6}px;height:${bridgeH}px;border-radius:${bridgeH/2}px;left:${bx - dist*0.3}px;top:${by - bridgeH/2}px;transform:rotate(${bAngle}deg);`;
+    // Gradient bridge color from friend to center
+    bridge.style.background = `linear-gradient(${bAngle+90}deg, transparent 10%, currentColor 50%, transparent 90%)`;
+    // Use average color — just use friend's hue class bg
+    const tempDiv = document.createElement('div');
+    tempDiv.className = f.hue;
+    document.body.appendChild(tempDiv);
+    const bg = getComputedStyle(tempDiv).backgroundImage;
+    document.body.removeChild(tempDiv);
+    bridge.style.background = bg;
+    bridge.style.opacity = '0.7';
+    bridge.dataset.idx = i;
+    container.appendChild(bridge);
+
+    // Friend avatar
+    const av = document.createElement('div');
+    av.className = `av ${f.hue}`;
+    av.style.cssText = `width:${fSize}px;height:${fSize}px;font-size:${fSize*0.36}px;left:${fx-fHalf}px;top:${fy-fHalf}px`;
+    av.textContent = f.letter;
+    av.dataset.origX = fx - fHalf;
+    av.dataset.origY = fy - fHalf;
+    av.dataset.idx = i;
+    if (f.online) {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      av.appendChild(dot);
+    }
+
+    // Hover: push outward
+    av.addEventListener('mouseenter', function() {
+      const pushDist = 22;
+      const px = Math.cos(angle) * pushDist;
+      const py = Math.sin(angle) * pushDist;
+      this.style.left = (parseFloat(this.dataset.origX) + px) + 'px';
+      this.style.top = (parseFloat(this.dataset.origY) + py) + 'px';
+      this.style.transform = 'scale(1.12)';
+      this.style.zIndex = '10';
+      // Stretch bridge
+      const b = container.querySelector(`.tentacle[data-idx="${i}"]`);
+      if (b) b.style.opacity = '0.3';
+    });
+    av.addEventListener('mouseleave', function() {
+      this.style.left = this.dataset.origX + 'px';
+      this.style.top = this.dataset.origY + 'px';
+      this.style.transform = '';
+      this.style.zIndex = '';
+      const b = container.querySelector(`.tentacle[data-idx="${i}"]`);
+      if (b) b.style.opacity = '0.7';
+    });
+
+    container.appendChild(av);
+
+    // Name label (outside filter)
+    const nameR = radius + fHalf + 12;
+    const nx = cx + Math.cos(angle) * nameR;
+    const ny = cy + Math.sin(angle) * nameR;
+    const nm = document.createElement('div');
+    nm.className = 'nm';
+    nm.style.cssText = `left:${nx}px;top:${ny - 4}px`;
+    nm.textContent = f.name;
+    namesC.appendChild(nm);
+  });
+}
+
+// Variant 1: R=52, me=50, friend=38, bridge 12px thick
+buildOrbit('orbit1', 'names1', 52, 50, 38, 0.6, 14);
+
+// Variant 2: R=46, me=52, friend=36, bridge 16px thick — tighter
+buildOrbit('orbit2', 'names2', 46, 52, 36, 0.6, 18);
+
+function sel(idx) {
+  document.querySelectorAll('.orbit-box').forEach(b => b.classList.remove('selected'));
+  document.getElementById('v' + idx).classList.add('selected');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Сообщения: metaball идеи</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; padding: 32px; }
+  h1 { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 4px; }
+  .sub { font-size: 11px; color: rgba(255,255,255,0.2); text-align: center; margin-bottom: 24px; }
+  .sub b { color: #c8ff00; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+
+  .ideas { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .idea { width: 420px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.01); padding: 16px; }
+  .idea__title { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #c8ff00; }
+  .idea__desc { font-size: 10px; color: rgba(255,255,255,0.25); margin-bottom: 12px; line-height: 1.5; }
+  .idea__chat { padding: 12px; border-radius: 14px; background: rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 3px; min-height: 200px; position: relative; overflow: hidden; }
+
+  /* ═══ IDEA 1: Аватар blob-прилеплен к первому сообщению ═══ */
+  .i1-goo { filter: url(#goo-i1); display: flex; align-items: flex-start; gap: 0; position: relative; }
+  .i1-av { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .i1-neck { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 10px; margin-left: -4px; margin-right: -4px; }
+  .i1-bubble-bg { height: 32px; border-radius: 16px; min-width: 60px; }
+  /* Text overlay */
+  .i1-row { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
+  .i1-av-space { width: 28px; flex-shrink: 0; }
+  .i1-text { font-size: 12px; line-height: 1.5; padding: 7px 12px; }
+
+  /* ═══ IDEA 2: Группа сообщений — фоны blob-мержатся ═══ */
+  .i2-group { position: relative; margin-bottom: 8px; }
+  .i2-group--own { display: flex; flex-direction: column; align-items: flex-end; }
+  .i2-group--in { display: flex; flex-direction: column; align-items: flex-start; }
+  .i2-goo { filter: url(#goo-i2); display: flex; flex-direction: column; gap: 2px; }
+  .i2-group--own .i2-goo { align-items: flex-end; }
+  .i2-group--in .i2-goo { align-items: flex-start; }
+  .i2-bg { border-radius: 16px; min-height: 30px; }
+  /* Text layer */
+  .i2-texts { display: flex; flex-direction: column; gap: 2px; position: absolute; top: 0; left: 0; right: 0; }
+  .i2-group--own .i2-texts { align-items: flex-end; }
+  .i2-group--in .i2-texts { align-items: flex-start; }
+  .i2-txt { padding: 7px 12px; font-size: 12px; line-height: 1.5; }
+
+  /* ═══ IDEA 3: Glow border вместо filter ═══ */
+  .i3-bubble {
+    padding: 8px 14px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 18px;
+    max-width: 280px;
+    transition: all 0.3s;
+    position: relative;
+  }
+  .i3-bubble--own {
+    align-self: flex-end;
+    background: rgba(200,255,0,0.06);
+    border: 1px solid rgba(200,255,0,0.08);
+    box-shadow: 0 0 12px rgba(200,255,0,0.04);
+  }
+  .i3-bubble--in {
+    align-self: flex-start;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  /* Grouped: reduced radius on touching side */
+  .i3-bubble--own + .i3-bubble--own { border-radius: 6px 18px 18px 6px; margin-top: -1px; border-top-color: transparent; }
+  .i3-bubble--in + .i3-bubble--in { border-radius: 18px 6px 6px 18px; margin-top: -1px; border-top-color: transparent; }
+  /* Hover glow */
+  .i3-bubble:hover { box-shadow: 0 0 20px rgba(200,255,0,0.08); }
+  .i3-bubble--in:hover { box-shadow: 0 0 20px rgba(255,255,255,0.04); }
+
+  /* ═══ IDEA 4: Blob send ripple + аватар blob ═══ */
+  .i4-chat { position: relative; }
+  .i4-bubble {
+    padding: 8px 14px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 18px;
+    max-width: 280px;
+    animation: i4in 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .i4-bubble--own {
+    align-self: flex-end;
+    background: rgba(200,255,0,0.06);
+    border: 1px solid rgba(200,255,0,0.06);
+    transform-origin: bottom right;
+  }
+  .i4-bubble--in {
+    align-self: flex-start;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.03);
+    transform-origin: bottom left;
+  }
+  @keyframes i4in { from { opacity:0; transform: scale(0.7) translateY(8px); } to { opacity:1; transform: scale(1) translateY(0); } }
+  /* Avatar connected to first incoming */
+  .i4-row { display: flex; align-items: flex-end; gap: 6px; }
+  .i4-av {
+    width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; color: #fff;
+    margin-bottom: 2px;
+  }
+  /* Send ripple */
+  .i4-ripple {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(200,255,0,0.2);
+    animation: i4rip 0.6s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes i4rip { from { transform: scale(0.5); opacity: 0.6; } to { transform: scale(4); opacity: 0; } }
+  /* New message glow pulse */
+  .i4-bubble--new {
+    animation: i4in 0.4s cubic-bezier(0.16,1,0.3,1) both, i4glow 1s ease-out 0.3s both;
+  }
+  @keyframes i4glow { from { box-shadow: 0 0 20px rgba(200,255,0,0.15); } to { box-shadow: 0 0 0 transparent; } }
+</style>
+</head>
+<body>
+
+<svg class="svg-f"><defs>
+  <filter id="goo-i1">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 18 -7" result="goo"/>
+    <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+  </filter>
+  <filter id="goo-i2">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>
+    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 18 -7" result="goo"/>
+    <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+  </filter>
+</defs></svg>
+
+<h1>Сообщения: 4 идеи metaball стиля</h1>
+<p class="sub">Какой вариант нравится? Можно комбинировать.</p>
+
+<div class="ideas">
+
+  <!-- ═══ IDEA 1: Avatar blob-connected ═══ -->
+  <div class="idea">
+    <div class="idea__title">1. Аватар blob-прилеплен к сообщению</div>
+    <div class="idea__desc">Аватар отправителя blob-мостиком соединён с первым сообщением группы. Как в orbit — цветной кружок + tentacle. Текст снаружи.</div>
+    <div class="idea__chat">
+      <!-- Incoming with avatar blob -->
+      <div style="position:relative;margin-bottom:3px">
+        <div class="i1-goo">
+          <div class="i1-av" style="background:hsl(320,70%,55%)"></div>
+          <div class="i1-neck" style="background:hsl(320,70%,55%)"></div>
+          <div class="i1-bubble-bg" style="background:rgba(255,255,255,0.06);width:140px"></div>
+        </div>
+        <div style="position:absolute;top:0;left:0;display:flex;align-items:flex-start;gap:6px;pointer-events:none">
+          <img src="https://i.pravatar.cc/28?img=5" style="width:24px;height:24px;border-radius:50%;margin-top:5px;margin-left:2px">
+          <div class="i1-text">привет!</div>
+        </div>
+      </div>
+      <div style="margin-left:34px">
+        <div style="position:relative">
+          <div class="i1-goo">
+            <div class="i1-bubble-bg" style="background:rgba(255,255,255,0.06);width:200px"></div>
+          </div>
+          <div style="position:absolute;top:0;left:0;pointer-events:none">
+            <div class="i1-text">видел новый orbit дизайн?</div>
+          </div>
+        </div>
+      </div>
+      <div style="height:8px"></div>
+      <!-- Own -->
+      <div style="align-self:flex-end;padding:7px 14px;font-size:12px;border-radius:18px;background:rgba(200,255,0,0.06);border:1px solid rgba(200,255,0,0.06)">дарова</div>
+    </div>
+  </div>
+
+  <!-- ═══ IDEA 2: Grouped bubble backgrounds merge ═══ -->
+  <div class="idea">
+    <div class="idea__title">2. Фоны группы blob-мержатся</div>
+    <div class="idea__desc">Consecutive сообщения от одного человека — их фоны в SVG filter, blob-сливаются в одну массу. Текст поверх отдельно.</div>
+    <div class="idea__chat">
+      <!-- Incoming group -->
+      <div class="i2-group i2-group--in">
+        <div class="i2-goo">
+          <div class="i2-bg" style="background:rgba(255,255,255,0.06);width:80px;height:32px"></div>
+          <div class="i2-bg" style="background:rgba(255,255,255,0.06);width:200px;height:32px"></div>
+        </div>
+        <div class="i2-texts">
+          <div class="i2-txt">привет!</div>
+          <div class="i2-txt">видел новый orbit дизайн?</div>
+        </div>
+      </div>
+      <div style="height:6px"></div>
+      <!-- Own group -->
+      <div class="i2-group i2-group--own">
+        <div class="i2-goo">
+          <div class="i2-bg" style="background:rgba(200,255,0,0.1);width:80px;height:32px"></div>
+          <div class="i2-bg" style="background:rgba(200,255,0,0.1);width:210px;height:32px"></div>
+        </div>
+        <div class="i2-texts">
+          <div class="i2-txt">дарова</div>
+          <div class="i2-txt">да, metaball + ferrofluid</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ IDEA 3: Glow border (no SVG) ═══ -->
+  <div class="idea">
+    <div class="idea__title">3. Glow border + grouped radius (без SVG filter)</div>
+    <div class="idea__desc">Никакого SVG filter. Grouped сообщения меняют border-radius на стыке (визуально "слипаются"). Hover = glow усиливается. Самый надёжный вариант.</div>
+    <div class="idea__chat" style="gap:0">
+      <div class="i3-bubble i3-bubble--in">привет!</div>
+      <div class="i3-bubble i3-bubble--in">видел новый orbit дизайн?</div>
+      <div style="height:8px"></div>
+      <div class="i3-bubble i3-bubble--own">дарова</div>
+      <div class="i3-bubble i3-bubble--own">да, metaball + ferrofluid</div>
+      <div style="height:8px"></div>
+      <div class="i3-bubble i3-bubble--in">выглядит как магнитная жидкость</div>
+      <div style="height:8px"></div>
+      <div class="i3-bubble i3-bubble--own">именно! друзья слипаются</div>
+      <div class="i3-bubble i3-bubble--own">и кнопки blob-мержатся</div>
+    </div>
+  </div>
+
+  <!-- ═══ IDEA 4: Send ripple + glow pulse ═══ -->
+  <div class="idea">
+    <div class="idea__title">4. Send ripple + glow pulse при новом сообщении</div>
+    <div class="idea__desc">Обычные пузыри, но: отправка = blob-ripple из кнопки, новое сообщение = glow-пульс. Аватар маленький рядом с первым сообщением (без SVG filter).</div>
+    <div class="idea__chat i4-chat" style="gap:3px">
+      <div class="i4-row">
+        <div class="i4-av" style="background:hsl(320,70%,55%)">V</div>
+        <div class="i4-bubble i4-bubble--in">привет!</div>
+      </div>
+      <div style="margin-left:30px"><div class="i4-bubble i4-bubble--in">видел новый orbit?</div></div>
+      <div style="height:5px"></div>
+      <div class="i4-bubble i4-bubble--own">дарова</div>
+      <div class="i4-bubble i4-bubble--own">да, metaball!</div>
+      <div style="height:5px"></div>
+      <div class="i4-row">
+        <div class="i4-av" style="background:hsl(320,70%,55%)">V</div>
+        <div class="i4-bubble i4-bubble--in">магнитная жидкость</div>
+      </div>
+      <div style="height:5px"></div>
+      <div class="i4-bubble i4-bubble--own i4-bubble--new">конечно, смотри ↓</div>
+      <div class="i4-ripple"></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

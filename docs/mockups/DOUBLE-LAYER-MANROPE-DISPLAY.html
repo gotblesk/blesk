@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Manrope + Display Fonts (Syne-like)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Urbanist:wght@400;500;600;700;800&family=Sofia+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#08060f;color:#fff;min-height:100vh;overflow-x:hidden}
+
+  .bg{position:fixed;inset:0;z-index:0;overflow:hidden}
+  .orb{position:absolute;border-radius:50%;filter:blur(90px)}
+  .o1{width:420px;height:420px;background:rgba(200,255,0,0.5);top:5%;left:8%}
+  .o2{width:350px;height:350px;background:rgba(255,0,204,0.45);top:50%;left:55%}
+  .o3{width:300px;height:300px;background:rgba(0,204,255,0.4);top:65%;left:12%}
+  .o4{width:280px;height:280px;background:rgba(255,102,0,0.4);top:10%;left:72%}
+  .o5{width:380px;height:380px;background:rgba(170,68,255,0.3);top:35%;left:38%}
+
+  /* Double Layer Glass */
+  .dl{position:relative;border-radius:20px;overflow:hidden;transition:transform 0.35s cubic-bezier(0.175,0.885,0.32,2.2)}
+  .dl:hover{transform:scale(1.01)}
+  .dl-o{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(8px);background:rgba(255,255,255,0.04)}
+  .dl-i{position:absolute;inset:8px;border-radius:14px;backdrop-filter:blur(16px);background:rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.2),inset 0 -0.5px 0 rgba(255,255,255,0.05)}
+  .dl-e{position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:1px solid rgba(255,255,255,0.08)}
+  .dl-ct{position:relative;z-index:10;padding:24px 28px}
+  .dl{box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+
+  .page{position:relative;z-index:1;padding:30px 40px 60px;max-width:1200px;margin:0 auto}
+  .section{margin-bottom:40px}
+  .stitle{font-family:'Manrope',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:rgba(200,255,0,0.6);margin-bottom:16px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+  /* Manrope body everywhere */
+  .body-font{font-family:'Manrope',sans-serif}
+  .body-text{font-family:'Manrope',sans-serif;font-size:13px;font-weight:400;color:rgba(255,255,255,0.55);line-height:1.5}
+  .label{font-family:'Manrope',sans-serif;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7)}
+  .caption{font-family:'Manrope',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.3px;color:rgba(255,255,255,0.35)}
+  .sm{font-family:'Manrope',sans-serif;font-size:12px;font-weight:400;color:rgba(255,255,255,0.45)}
+
+  /* Display fonts for headings */
+  .fa{font-family:'Space Grotesk',sans-serif}
+  .fb{font-family:'Urbanist',sans-serif}
+  .fc{font-family:'Sofia Sans',sans-serif}
+  .fd{font-family:'Bricolage Grotesque',sans-serif}
+
+  .badge{display:inline-block;padding:4px 12px;font-family:'Manrope',sans-serif;font-size:11px;font-weight:600;border-radius:8px;background:rgba(200,255,0,0.1);color:#c8ff00;border:1px solid rgba(200,255,0,0.15);margin-bottom:14px;letter-spacing:0.5px}
+
+  /* Display heading styles */
+  .dh1{font-size:30px;font-weight:700;letter-spacing:-0.8px;line-height:1.1;color:rgba(255,255,255,0.95)}
+  .dh2{font-size:20px;font-weight:700;letter-spacing:-0.3px;line-height:1.2;color:rgba(255,255,255,0.92)}
+  .dh3{font-size:16px;font-weight:600;letter-spacing:-0.1px;line-height:1.3;color:rgba(255,255,255,0.9)}
+
+  /* Chat demo */
+  .msg{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+  .msg:last-child{margin-bottom:0}
+  .av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;font-size:13px;font-weight:700;flex-shrink:0}
+  .msg-n{font-family:'Manrope',sans-serif;font-size:13px;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:2px}
+  .msg-t{font-family:'Manrope',sans-serif;font-size:13px;font-weight:400;color:rgba(255,255,255,0.55);line-height:1.45}
+  .msg-time{font-family:'Manrope',sans-serif;font-size:10px;color:rgba(255,255,255,0.25);margin-top:2px}
+
+  .pills{display:flex;gap:6px;margin-top:12px}
+  .pill{font-family:'Manrope',sans-serif;padding:6px 14px;border-radius:10px;font-size:12px;font-weight:500;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06)}
+  .pill.on{background:rgba(200,255,0,0.12);color:#c8ff00;border-color:rgba(200,255,0,0.2)}
+
+  .input-box{font-family:'Manrope',sans-serif;margin-top:10px;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);font-size:13px;color:rgba(255,255,255,0.3)}
+
+  /* Full mock card */
+  .mock-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .mock-av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
+  .stat-big{font-size:36px;font-weight:800;letter-spacing:-1.5px;color:rgba(255,255,255,0.95)}
+  .stat-lbl{font-family:'Manrope',sans-serif;font-size:11px;font-weight:500;color:rgba(255,255,255,0.35);margin-top:4px;letter-spacing:0.5px;text-transform:uppercase}
+
+  .theme-btn{position:fixed;top:16px;right:16px;z-index:100;padding:8px 16px;font-size:12px;font-family:'Manrope',sans-serif;font-weight:500;background:rgba(255,255,255,0.07);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;color:rgba(255,255,255,0.8);cursor:pointer}
+
+  body.light{background:#f0eff5}
+  body.light .orb{opacity:0.3}
+  body.light .dl-o{background:rgba(255,255,255,0.3)}
+  body.light .dl-i{background:rgba(255,255,255,0.5);box-shadow:inset 0 1px 0 rgba(255,255,255,0.7),inset 0 -0.5px 0 rgba(0,0,0,0.03)}
+  body.light .dl-e{border-color:rgba(0,0,0,0.04)}
+  body.light .dl{box-shadow:0 4px 20px rgba(0,0,0,0.08)}
+  body.light .dh1,.light .dh2,.light .dh3{color:rgba(26,26,46,0.95)}
+  body.light .body-text,.light .msg-t{color:rgba(26,26,46,0.5)}
+  body.light .label{color:rgba(26,26,46,0.65)}
+  body.light .caption,.light .stat-lbl{color:rgba(26,26,46,0.35)}
+  body.light .sm{color:rgba(26,26,46,0.4)}
+  body.light .msg-n{color:rgba(26,26,46,0.85)}
+  body.light .msg-time{color:rgba(26,26,46,0.25)}
+  body.light .pill{color:rgba(26,26,46,0.5);background:rgba(0,0,0,0.03);border-color:rgba(0,0,0,0.06)}
+  body.light .pill.on{color:#3a7000}
+  body.light .input-box{background:rgba(0,0,0,0.03);border-color:rgba(0,0,0,0.06);color:rgba(26,26,46,0.25)}
+  body.light .stitle{color:rgba(74,140,0,0.7)}
+  body.light .stat-big{color:rgba(26,26,46,0.95)}
+  body.light .theme-btn{background:rgba(0,0,0,0.05);border-color:rgba(0,0,0,0.1);color:rgba(26,26,46,0.7)}
+</style>
+</head>
+<body>
+
+<div class="bg"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div><div class="orb o4"></div><div class="orb o5"></div></div>
+<button class="theme-btn" onclick="document.body.classList.toggle('light');this.textContent=document.body.classList.contains('light')?'Dark':'Light'">Light</button>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="section" style="text-align:center;padding:20px 0 10px">
+    <div class="dl" style="display:inline-block;max-width:650px;width:100%">
+      <div class="dl-o"></div><div class="dl-i"></div><div class="dl-e"></div>
+      <div class="dl-ct" style="text-align:center">
+        <div class="fd dh1" style="margin-bottom:8px">Manrope + Display Fonts</div>
+        <div class="body-text">Manrope для body/UI + 4 display-шрифта для заголовков (все с кириллицей)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ 4 FONT PAIRINGS ═══════ -->
+  <div class="section">
+    <div class="stitle">Display font pairing comparison</div>
+    <div class="grid-2">
+
+      <!-- A: Space Grotesk + Manrope -->
+      <div class="dl">
+        <div class="dl-o"></div><div class="dl-i"></div><div class="dl-e"></div>
+        <div class="dl-ct">
+          <div class="badge">A — Space Grotesk + Manrope</div>
+          <div class="fa dh2" style="margin-bottom:6px">Моноширинный характер</div>
+          <div class="body-text" style="margin-bottom:12px">Space Grotesk — из семейства Space Mono. Сохраняет quirky детали моноширинного шрифта, но пропорциональный. Технический, но дружелюбный.</div>
+          <div class="msg">
+            <div class="av" style="background:rgba(200,255,0,0.15);color:#c8ff00">E</div>
+            <div><div class="msg-n">Egor</div><div class="msg-t">Как тебе связка? Space Grotesk для заголовков, Manrope для всего остального</div><div class="msg-time">14:32</div></div>
+          </div>
+          <div class="pills"><div class="pill on">Чаты</div><div class="pill">Каналы</div><div class="pill">Друзья</div></div>
+        </div>
+      </div>
+
+      <!-- B: Urbanist + Manrope -->
+      <div class="dl">
+        <div class="dl-o"></div><div class="dl-i"></div><div class="dl-e"></div>
+        <div class="dl-ct">
+          <div class="badge">B — Urbanist + Manrope</div>
+          <div class="fb dh2" style="margin-bottom:6px">Геометрический модернизм</div>
+          <div class="body-text" style="margin-bottom:12px">Urbanist — чистая геометрика, вдохновлён модернистской типографикой. Идеальные круги в O, чистые линии. Ближе всего к Syne по духу.</div>
+          <div class="msg">
+            <div class="av" style="background:rgba(255,0,204,0.12);color:#ff88dd">V</div>
+            <div><div class="msg-n">Vohog</div><div class="msg-t">Как тебе связка? Urbanist для заголовков, Manrope для всего остального</div><div class="msg-time">14:32</div></div>
+          </div>
+          <div class="pills"><div class="pill on">Чаты</div><div class="pill">Каналы</div><div class="pill">Друзья</div></div>
+        </div>
+      </div>
+
+      <!-- C: Sofia Sans + Manrope -->
+      <div class="dl">
+        <div class="dl-o"></div><div class="dl-i"></div><div class="dl-e"></div>
+        <div class="dl-ct">
+          <div class="badge">C — Sofia Sans + Manrope</div>
+          <div class="fc dh2" style="margin-bottom:6px">Технологичная геометрика</div>
+          <div class="body-text" style="margin-bottom:12px">Sofia Sans — технологичный и геометрический. Есть condensed варианты. Слияние технологий и эстетики. Сильный характер в заголовках.</div>
+          <div class="msg">
+            <div class="av" style="background:rgba(0,204,255,0.12);color:#00ccff">K</div>
+            <div><div class="msg-n">Katya</div><div class="msg-t">Как тебе связка? Sofia Sans для заголовков, Manrope для всего остального</div><div class="msg-time">14:32</div></div>
+          </div>
+          <div class="pills"><div class="pill on">Чаты</div><div class="pill">Каналы</div><div class="pill">Друзья</div></div>
+        </div>
+      </div>
+
+      <!-- D: Bricolage Grotesque + Manrope -->
+      <div class="dl">
+        <div class="dl-o"></div><div class="dl-i"></div><div class="dl-e"></div>
+        <div class="dl-ct">
+          <div class="badge">D — Bricolage Grotesque + Manrope</div>
+          <div class="fd dh2" style="margin-bottom:6px">Экспериментальный гротеск</div>
+          <div class="body-text" style="margin-bottom:12px">Bricolage Grotesque — смесь исторических влияний и эмоций. Самый близкий к Syne по характеру: нестандартный, дерзкий, с личностью.</div>
+          <div class="msg">
+            <div class="av" style="background:rgba(255,102,0,0.12);color:#ff8800">A</div>
+            <div><div class="msg-n">Alex</div><div class="msg-t">Как тебе связка? Bricolage для заголовков, Manrope для всего остального</div><div class="msg-time">14:32</div></div>
+          </div>
+          <div class="pills"><div class="pill on">Чаты</div><div class="pill">Каналы</div><div class="pill">Друзья</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════ FULL UI MOCK WITH EACH PAIRING ═══════ -->
+  <div class="section">
+    <div class="stitle">Full UI mock — each pairing in context</div>
+
+    <!-- Space Grotesk mock -->
+    <div class="dl" style="margin-bottom:20px">
+      <div class="dl-o"></div><div class="dl-i"></div><div class="dl-e"></div>
+      <div class="dl-ct">
+        <div style="display:flex;gap:24px">
+          <div style="flex:1">
+            <div class="fa dh1" style="margin-bottom:4px">blesk</div>
+            <div class="sm" style="margin-bottom:16px">Твой блеск. Твои правила.</div>
+            <div class="fa dh3" style="margin-bottom:8px">Сообщения</div>
+            <div class="msg">
+              <div class="av" style="background:rgba(200,255,0,0.15);color:#c8ff00">E</div>
+              <div><div class="msg-n">Egor <span class="caption">14:32</span></div><div class="msg-t">Новый билд готов, тестируй</div></div>
+            </div>
+            <div class="msg">
+              <div class="av" style="background:rgba(255,0,204,0.12);color:#ff88dd">V</div>
+              <div><div class="msg-n">Vohog <span class="caption">14:35</span></div><div class="msg-t">Окей, скачиваю. Стекло выглядит огонь</div></div>
+            </div>
+            <div class="input-box">Написать сообщение...</div>
+          </div>
+          <div style="width:180px;text-align:center;border-left:1px solid rgba(255,255,255,0.06);padding-left:20px">
+            <div class="fa" style="margin-bottom:16px">
+              <div class="stat-big">847</div>
+              <div class="stat-lbl">сообщений</div>
+            </div>
+            <div class="fa">
+              <div class="stat-big" style="color:#c8ff00">12</div>
+              <div class="stat-lbl">онлайн</div>
+            </div>
+            <div style="margin-top:16px">
+              <div class="badge" style="margin-bottom:0">Space Grotesk</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bricolage Grotesque mock -->
+    <div class="dl">
+      <div class="dl-o"></div><div class="dl-i"></div><div class="dl-e"></div>
+      <div class="dl-ct">
+        <div style="display:flex;gap:24px">
+          <div style="flex:1">
+            <div class="fd dh1" style="margin-bottom:4px">blesk</div>
+            <div class="sm" style="margin-bottom:16px">Твой блеск. Твои правила.</div>
+            <div class="fd dh3" style="margin-bottom:8px">Сообщения</div>
+            <div class="msg">
+              <div class="av" style="background:rgba(200,255,0,0.15);color:#c8ff00">E</div>
+              <div><div class="msg-n">Egor <span class="caption">14:32</span></div><div class="msg-t">Новый билд готов, тестируй</div></div>
+            </div>
+            <div class="msg">
+              <div class="av" style="background:rgba(255,0,204,0.12);color:#ff88dd">V</div>
+              <div><div class="msg-n">Vohog <span class="caption">14:35</span></div><div class="msg-t">Окей, скачиваю. Стекло выглядит огонь</div></div>
+            </div>
+            <div class="input-box">Написать сообщение...</div>
+          </div>
+          <div style="width:180px;text-align:center;border-left:1px solid rgba(255,255,255,0.06);padding-left:20px">
+            <div class="fd" style="margin-bottom:16px">
+              <div class="stat-big">847</div>
+              <div class="stat-lbl">сообщений</div>
+            </div>
+            <div class="fd">
+              <div class="stat-big" style="color:#c8ff00">12</div>
+              <div class="stat-lbl">онлайн</div>
+            </div>
+            <div style="margin-top:16px">
+              <div class="badge" style="margin-bottom:0">Bricolage Grotesque</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</body>
+</html>

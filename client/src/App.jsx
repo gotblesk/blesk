@@ -135,13 +135,16 @@ export default function App() {
 
   const handleLogout = () => {
     setUser(null);
+    // Очистить E2E ключи и кеши
     clearCache();
-    // Очистить все Zustand stores
+    // Полная очистка всех Zustand stores
     useChatStore.setState({ chats: [], messages: {}, activeChats: new Set(), onlineUsers: [], userStatuses: {}, typingUsers: {} });
-    useNotificationStore.setState({ notifications: [] });
+    useNotificationStore.setState({ notifications: [], unreadCount: 0 });
     useVoiceStore.getState().clearCurrentRoom();
+    useVoiceStore.setState({ rooms: [], loading: false, userVolumes: {} });
     useCallStore.setState({ incomingCall: null, activeCall: null });
     useChannelStore.setState({ channels: [], myChannels: [], posts: {} });
+    // Токены
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
   };
@@ -181,7 +184,7 @@ export default function App() {
       <MetaballFilter />
       <TitleBar />
       <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <MainScreen user={user} onLogout={handleLogout} />
+        <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />
       </div>
       <UpdateToast />
     </div>

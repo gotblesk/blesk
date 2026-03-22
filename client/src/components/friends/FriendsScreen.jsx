@@ -90,8 +90,14 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     }
   }, []);
 
-  // При смене таба — загружаем данные
+  // При смене таба — обновляем данные (не при первом рендере, т.к. монтирование уже загрузило)
+  const initialTabRef = useRef(true);
   useEffect(() => {
+    if (initialTabRef.current) {
+      initialTabRef.current = false;
+      return;
+    }
+
     let isCancelled = false;
 
     setError('');
@@ -105,12 +111,12 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     return () => { isCancelled = true; };
   }, [tab]);
 
-  // Загружаем заявки при монтировании (для badge)
+  // Загружаем друзей и заявки при монтировании (для badge и списка)
   useEffect(() => {
     let isCancelled = false;
 
-    loadPending().catch(() => { if (!isCancelled) setError('Не удалось загрузить заявки'); });
     loadFriends().catch(() => { if (!isCancelled) setError('Не удалось загрузить друзей'); });
+    loadPending().catch(() => { if (!isCancelled) setError('Не удалось загрузить заявки'); });
 
     return () => { isCancelled = true; };
   }, []);

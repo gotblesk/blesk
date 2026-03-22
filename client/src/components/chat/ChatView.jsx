@@ -48,6 +48,7 @@ export default function ChatView({
   const [editingMsg, setEditingMsg] = useState(null);
   const [membersOpen, setMembersOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  const initialUnreadRef = useRef(null);
 
   // Drag/pull state
   const dragRef = useRef({
@@ -88,10 +89,14 @@ export default function ChatView({
   // Загрузить сообщения
   useEffect(() => {
     if (chatId) {
+      if (initialUnreadRef.current === null) {
+        const c = chats.find((ch) => ch.id === chatId);
+        initialUnreadRef.current = c?.unreadCount || 0;
+      }
       openChat(chatId);
       markAsRead(chatId);
     }
-  }, [chatId, openChat, markAsRead]);
+  }, [chatId, openChat, markAsRead, chats]);
 
   // Скролл к последнему сообщению (только если пользователь уже внизу)
   const messagesContainerRef = useRef(null);
@@ -111,7 +116,7 @@ export default function ChatView({
 
   // Escape — закрыть только focused окно
   useEffect(() => {
-    if (!isFocused) return;
+    if (!isFocused && !isInline) return;
     const handleKey = (e) => {
       if (e.key === 'Escape') animateClose();
     };
@@ -337,9 +342,9 @@ export default function ChatView({
   const typingInChat = typingUsers[chatId] || [];
 
   // Вычисляем ID первого непрочитанного сообщения (для UnreadDivider)
-  const unreadCount = chat.unreadCount || 0;
-  const firstUnreadId = unreadCount > 0 && chatMessages.length >= unreadCount
-    ? chatMessages[chatMessages.length - unreadCount]?.id
+  const savedUnread = initialUnreadRef.current || 0;
+  const firstUnreadId = savedUnread > 0 && chatMessages.length >= savedUnread
+    ? chatMessages[chatMessages.length - savedUnread]?.id
     : null;
 
   // Morph animation — пересчитать координаты относительно окна
@@ -414,7 +419,7 @@ export default function ChatView({
         {/* Кнопка закрытия */}
         <button
           className="chat-view__close-btn"
-          onClick={(e) => { e.stopPropagation(); animateClose(); }}
+          onClick={(e) => { e.stopPropagation(); initialUnreadRef.current = null; animateClose(); }}
           title="Закрыть"
         >
           ×

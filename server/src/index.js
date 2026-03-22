@@ -26,7 +26,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(cors({ origin: corsOrigin }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '100kb' }));
 
 // Статика — аватары и загрузки (разрешаем cross-origin для Electron)
 app.use('/uploads', (req, res, next) => {
@@ -60,6 +60,12 @@ const uploadLimiter = rateLimit({
   message: { error: 'Слишком много загрузок.' },
 });
 
+const internalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { error: 'Слишком много запросов.' },
+});
+
 // Передать io в роуты через app.locals
 app.locals.io = io;
 
@@ -71,7 +77,7 @@ const notificationRoutes = require('./routes/notifications');
 const friendRoutes = require('./routes/friends');
 const feedbackRoutes = require('./routes/feedback');
 const voiceRoutes = require('./routes/voice');
-const adminRoutes = require('./routes/admin');
+const internalRoutes = require('./routes/admin');
 const uploadRoutes = require('./routes/upload');
 const channelRoutes = require('./routes/channels');
 
@@ -84,7 +90,7 @@ app.use('/api/notifications', chatLimiter, notificationRoutes);
 app.use('/api/friends', chatLimiter, friendRoutes);
 app.use('/api/feedback', chatLimiter, feedbackRoutes);
 app.use('/api/voice', voiceLimiter, voiceRoutes);
-app.use('/api/admin', authLimiter, adminRoutes);
+app.use('/api/internal', internalLimiter, internalRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const prisma = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -6,7 +7,7 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
-function socketAuth(socket, next) {
+async function socketAuth(socket, next) {
   const token = socket.handshake.auth?.token;
 
   if (!token) {
@@ -19,9 +20,21 @@ function socketAuth(socket, next) {
     if (payload.type === 'refresh') {
       return next(new Error('Нельзя использовать refresh token'));
     }
+
+    // Проверка бана — забаненный юзер не может подключиться
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, banned: true },
+    });
+    if (!user) return next(new Error('Пользователь не найден'));
+    if (user.banned) return next(new Error('Аккаунт заблокирован'));
+
     socket.userId = payload.userId;
     next();
-  } catch {
+  } catch (err) {
+    if (err.message === 'Аккаунт заблокирован' || err.message === 'Пользователь не найден') {
+      return next(err);
+    }
     next(new Error('Неверный токен'));
   }
 }

@@ -13,11 +13,13 @@ export async function generateKeyPair() {
   const publicKeyB64 = encodeBase64(keyPair.publicKey);
   const secretKeyB64 = encodeBase64(keyPair.secretKey);
 
-  // Приватный ключ — в Electron safeStorage (DPAPI на Windows)
+  // Приватный ключ — ТОЛЬКО в Electron safeStorage (DPAPI на Windows)
   if (window.blesk?.crypto?.saveSecretKey) {
     await window.blesk.crypto.saveSecretKey(secretKeyB64);
   } else {
-    localStorage.setItem('blesk-secret-key', secretKeyB64);
+    // НЕ сохраняем в localStorage — небезопасно (XSS = компрометация E2E)
+    console.warn('[E2E] safeStorage недоступен — ключи не сохранены, E2E отключено');
+    return null;
   }
 
   localStorage.setItem('blesk-public-key', publicKeyB64);
@@ -38,7 +40,8 @@ export async function hasKeyPair() {
   if (window.blesk?.crypto?.hasSecretKey) {
     return await window.blesk.crypto.hasSecretKey();
   }
-  return !!localStorage.getItem('blesk-secret-key');
+  // Без safeStorage E2E недоступно
+  return false;
 }
 
 // Создать пару если её нет
@@ -53,8 +56,8 @@ async function getSecretKey() {
     const b64 = await window.blesk.crypto.getSecretKey();
     return b64 ? decodeBase64(b64) : null;
   }
-  const b64 = localStorage.getItem('blesk-secret-key');
-  return b64 ? decodeBase64(b64) : null;
+  // Без safeStorage приватный ключ недоступен
+  return null;
 }
 
 // Публичный ключ текущего пользователя (base64)
@@ -122,8 +125,11 @@ export async function decryptMessage(payload, senderPublicKeyB64, roomId) {
   }
 }
 
-// Очистить кеши (при логауте)
+// Очистить кеши и ключи (при логауте)
 export function clearCache() {
   sharedKeyCache.clear();
   publicKeyCache.clear();
+  // Удалить ключи из localStorage (на случай если остались от старых версий)
+  localStorage.removeItem('blesk-secret-key');
+  localStorage.removeItem('blesk-public-key');
 }

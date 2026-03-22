@@ -71,8 +71,10 @@ export function useSocket() {
       } else {
         useChatStore.getState().receiveMessage(msg);
 
-        // Звук входящего сообщения
-        soundReceive();
+        // Звук входящего сообщения (не для своих с другого устройства)
+        if (msg.userId !== userId) {
+          soundReceive();
+        }
 
         // Уведомления для входящих сообщений
         const s = useSettingsStore.getState();

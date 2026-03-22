@@ -3,6 +3,8 @@ const prisma = require('../db');
 const messageRateLimits = new Map(); // userId → [timestamps]
 // Таймауты набора текста: `${userId}:${chatId}` → timeoutId
 const typingTimeouts = new Map();
+// Throttle для typing:start: `${userId}:${chatId}` → timestamp
+const typingRateLimits = new Map();
 const RATE_LIMIT_WINDOW = 3000; // 3 секунды
 const RATE_LIMIT_MAX = 5; // 5 сообщений
 
@@ -94,8 +96,9 @@ function chatHandler(io, socket) {
 
   // Отправка сообщения
   socket.on('message:send', async ({ chatId, text, tempId, replyToId, encrypted }) => {
-    if (!chatId || !text?.trim()) return;
+    if (!chatId || typeof text !== 'string' || !text.trim()) return;
     if (text.length > 4000) return; // Лимит длины сообщения
+    if (encrypted !== undefined && typeof encrypted !== 'boolean') return;
 
     // Rate limiting — макс 5 сообщений за 3 секунды
     if (isRateLimited(userId)) {
@@ -245,6 +248,12 @@ function chatHandler(io, socket) {
     if (!messageId || !chatId) return;
 
     try {
+      // Проверить что пользователь участник комнаты
+      const memberCheck = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId: chatId, userId } },
+      });
+      if (!memberCheck) return;
+
       const message = await prisma.message.findUnique({ where: { id: messageId } });
       if (!message || message.roomId !== chatId) return;
 
@@ -280,6 +289,13 @@ function chatHandler(io, socket) {
   // Typing indicators — только если пользователь в этой Socket.io комнате
   socket.on('typing:start', ({ chatId }) => {
     if (!chatId || !socket.rooms.has(chatId)) return;
+
+    // Throttle: не чаще 1 раза в 2 секунды на чат
+    const typingKey = `${userId}:${chatId}`;
+    const lastTyping = typingRateLimits.get(typingKey) || 0;
+    if (Date.now() - lastTyping < 2000) return;
+    typingRateLimits.set(typingKey, Date.now());
+
     socket.to(chatId).emit('typing:start', { chatId, userId });
 
     // Серверный таймаут: если через 5 сек нет typing:stop или нового сообщения —

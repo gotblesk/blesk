@@ -274,6 +274,11 @@ export function useVoice(socketRef) {
     }, QUALITY_CHECK_INTERVAL);
   }, []);
 
+  // Refs для актуальных функций (против stale closure) — объявлены до joinRoom
+  const leaveRoomRef = useRef(null);
+  const consumeProducerRef = useRef(consumeProducer);
+  consumeProducerRef.current = consumeProducer;
+
   // ═══ Войти в голосовую комнату ═══
   const joinRoom = useCallback(async (roomId, roomName) => {
     const socket = socketRef?.current;
@@ -528,6 +533,8 @@ export function useVoice(socketRef) {
       }
     }
 
+    if (!producerRef.current) return; // продюсер ещё не создан
+
     socket.emit('voice:mute', { roomId, muted: isMuted });
   }, [isMuted, socketRef]);
 
@@ -553,11 +560,8 @@ export function useVoice(socketRef) {
     socket.emit('voice:deafen', { roomId, deafened: isDeafened });
   }, [isDeafened, socketRef]);
 
-  // Refs для актуальных функций (против stale closure)
-  const leaveRoomRef = useRef(leaveRoom);
+  // Синхронизировать leaveRoomRef после определения leaveRoom
   leaveRoomRef.current = leaveRoom;
-  const consumeProducerRef = useRef(consumeProducer);
-  consumeProducerRef.current = consumeProducer;
 
   useEffect(() => {
     const socket = socketRef?.current;
@@ -642,6 +646,7 @@ export function useVoice(socketRef) {
   // ═══ Видео: камера ═══
   const enableCamera = useCallback(async () => {
     try {
+      if (cameraProducerRef.current) return;
       if (!sendTransportRef.current) return;
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 1280, height: 720, frameRate: 30 },

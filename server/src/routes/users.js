@@ -8,6 +8,13 @@ const { validateFile } = require('../services/fileValidator');
 
 const router = Router();
 
+// Санитизация текста — защита от XSS
+function sanitizeText(str) {
+  return str.replace(/[<>"'`&]/g, (ch) => ({
+    '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '`': '&#x60;', '&': '&amp;',
+  }[ch]));
+}
+
 // Настройка multer для загрузки аватаров
 const avatarDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
 if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
@@ -144,7 +151,7 @@ router.put('/me', authenticate, async (req, res) => {
       if (typeof bio !== 'string' || bio.length > 200) {
         return res.status(400).json({ error: 'Bio должно быть до 200 символов' });
       }
-      data.bio = bio.replace(/[<>]/g, '');
+      data.bio = sanitizeText(bio);
     }
 
     if (status !== undefined) {
@@ -160,7 +167,7 @@ router.put('/me', authenticate, async (req, res) => {
         return res.status(400).json({ error: 'Кастомный статус до 50 символов' });
       }
       // Санитизация HTML-символов
-      data.customStatus = customStatus.replace(/[<>]/g, '');
+      data.customStatus = sanitizeText(customStatus);
     }
 
     if (hue !== undefined) {

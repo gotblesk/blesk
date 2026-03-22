@@ -44,10 +44,10 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
   const forgotCodeRefs = useRef([]);
 
   // Verify state
-  const [verifyEmail] = useState(pendingVerification?.user?.email || '');
-  const [verifyToken] = useState(pendingVerification?.token || '');
-  const [verifyRefresh] = useState(pendingVerification?.refreshToken || '');
-  const [verifyUser] = useState(pendingVerification?.user || null);
+  const [verifyEmail, setVerifyEmail] = useState(pendingVerification?.user?.email || '');
+  const [verifyToken, setVerifyToken] = useState(pendingVerification?.token || '');
+  const [verifyRefresh, setVerifyRefresh] = useState(pendingVerification?.refreshToken || '');
+  const [verifyUser, setVerifyUser] = useState(pendingVerification?.user || null);
   const [codeDigits, setCodeDigits] = useState(['', '', '', '', '', '']);
   const [resendTimer, setResendTimer] = useState(60);
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -145,6 +145,10 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
 
       // Email not verified → verify screen
       if (data.user.email && data.user.emailVerified === false) {
+        setVerifyToken(data.token || data.accessToken);
+        setVerifyUser(data.user);
+        setVerifyEmail(data.user.email);
+        setVerifyRefresh(data.refreshToken || '');
         setCodeDigits(['', '', '', '', '', '']);
         setVerifyError('');
         setResendTimer(60);

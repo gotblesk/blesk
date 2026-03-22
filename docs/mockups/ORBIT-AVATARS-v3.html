@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Orbit: отлипание с натяжением</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px; gap: 16px; }
+  h1 { font-size: 18px; font-weight: 700; }
+  .sub { font-size: 11px; color: rgba(255,255,255,0.2); text-align: center; max-width: 500px; line-height: 1.6; }
+  .sub b { color: #c8ff00; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+
+  .orbit-wrap { position: relative; width: 320px; height: 320px; margin: 0 auto; }
+  .goo-layer { position: absolute; inset: 0; }
+  .photo-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+  .names-layer { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+  .nm { position: absolute; font-size: 8px; color: rgba(255,255,255,0.25); text-align: center; white-space: nowrap; transform: translate(-50%, 0); transition: all 0.5s cubic-bezier(0.16,1,0.3,1); }
+
+  .blob-circle { position: absolute; border-radius: 50%; pointer-events: none; }
+  .tentacle { position: absolute; border-radius: 50%; pointer-events: none; }
+  /* Невидимая зона hover — НЕ двигается, больше аватара */
+  .hit-area { position: absolute; border-radius: 50%; cursor: pointer; z-index: 50; }
+
+  .photo-ring { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .photo-ring__img { width: calc(100% - 5px); height: calc(100% - 5px); border-radius: 50%; object-fit: cover; background: #08060f; }
+  .dot { position: absolute; bottom: 0; right: 0; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; z-index: 3; }
+</style>
+</head>
+<body>
+
+<svg class="svg-f">
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
+<h1>Orbit: hover = отлипание с натяжением</h1>
+<p class="sub"><b>Hover на аватар</b> — он оттягивается от массы, мостик тянется как жвачка, потом истончается. При отпускании — пружинит обратно.</p>
+
+<div class="orbit-wrap">
+  <div class="goo-layer" style="filter:url(#goo)" id="gooLayer"></div>
+  <div class="photo-layer" id="photoLayer"></div>
+  <div class="names-layer" id="namesLayer"></div>
+</div>
+
+<p class="sub">Попробуй hover на каждого друга — мостик тянется и рвётся, аватар пружинит обратно.</p>
+
+<script>
+const cx = 160, cy = 160;
+const R = 52;
+const meSize = 58;
+const fSize = 42;
+
+const photos = [
+  'https://i.pravatar.cc/80?img=5',
+  'https://i.pravatar.cc/80?img=12',
+  'https://i.pravatar.cc/80?img=9',
+  'https://i.pravatar.cc/80?img=33',
+  'https://i.pravatar.cc/80?img=16',
+  'https://i.pravatar.cc/80?img=22',
+];
+const mePhotoUrl = 'https://i.pravatar.cc/100?img=68';
+
+const friends = [
+  { letter: 'V', hue: 320, name: 'Vohog', online: true },
+  { letter: 'D', hue: 220, name: 'Den', online: false },
+  { letter: 'A', hue: 40, name: 'Alice', online: true },
+  { letter: 'M', hue: 180, name: 'Mike', online: false },
+  { letter: 'K', hue: 70, name: 'Kate', online: true },
+  { letter: 'L', hue: 355, name: 'Leo', online: false },
+];
+const meHue = 120;
+
+function hueColor(h) { return `hsl(${h}, 70%, 55%)`; }
+
+const goo = document.getElementById('gooLayer');
+const photo = document.getElementById('photoLayer');
+const names = document.getElementById('namesLayer');
+
+// ═══ Center ═══
+const meBlob = document.createElement('div');
+meBlob.className = 'blob-circle';
+meBlob.style.cssText = `width:${meSize}px;height:${meSize}px;left:${cx-meSize/2}px;top:${cy-meSize/2}px;background:${hueColor(meHue)}`;
+goo.appendChild(meBlob);
+
+const meRing = document.createElement('div');
+meRing.className = 'photo-ring';
+meRing.style.cssText = `width:${meSize}px;height:${meSize}px;left:${cx-meSize/2}px;top:${cy-meSize/2}px;background:${hueColor(meHue)};box-shadow:0 0 16px ${hueColor(meHue)}, 0 0 6px ${hueColor(meHue)}`;
+meRing.innerHTML = `<img class="photo-ring__img" src="${mePhotoUrl}">`;
+photo.appendChild(meRing);
+
+// ═══ Friends ═══
+friends.forEach((f, i) => {
+  const angle = (Math.PI * 2 * i / friends.length) - Math.PI / 2;
+  const fx = cx + Math.cos(angle) * R;
+  const fy = cy + Math.sin(angle) * R;
+  const color = hueColor(f.hue);
+
+  // Tentacle bridge
+  const bAngle = Math.atan2(fy - cy, fx - cx) * 180 / Math.PI;
+  const dist = Math.sqrt((fx-cx)**2 + (fy-cy)**2);
+  const bx = (cx + fx) / 2;
+  const by = (cy + fy) / 2;
+  const bridgeW = dist * 0.55;
+  const bridgeH = 18;
+
+  const bridge = document.createElement('div');
+  bridge.className = 'tentacle';
+  bridge.style.cssText = `
+    width:${bridgeW}px;height:${bridgeH}px;border-radius:${bridgeH/2}px;
+    left:${bx - bridgeW/2}px;top:${by - bridgeH/2}px;
+    transform:rotate(${bAngle}deg);transform-origin:center;
+    background:${color};opacity:0.65;
+    transition: all 0.15s ease-out;
+  `;
+  bridge.dataset.origW = bridgeW;
+  bridge.dataset.origH = bridgeH;
+  bridge.dataset.origX = bx - bridgeW/2;
+  bridge.dataset.origY = by - bridgeH/2;
+  bridge.dataset.angle = bAngle;
+  goo.appendChild(bridge);
+
+  // Blob circle (visual only, no pointer events)
+  const blob = document.createElement('div');
+  blob.className = 'blob-circle';
+  blob.style.cssText = `
+    width:${fSize}px;height:${fSize}px;
+    left:${fx - fSize/2}px;top:${fy - fSize/2}px;
+    background:${color};
+  `;
+  blob.dataset.origX = fx - fSize/2;
+  blob.dataset.origY = fy - fSize/2;
+  blob.dataset.angle = angle;
+  blob.dataset.idx = i;
+  goo.appendChild(blob);
+
+  // Hit area — invisible, fixed, larger than avatar, catches hover
+  const hitSize = fSize + 30;
+  const hitArea = document.createElement('div');
+  hitArea.className = 'hit-area';
+  hitArea.style.cssText = `width:${hitSize}px;height:${hitSize}px;left:${fx - hitSize/2}px;top:${fy - hitSize/2}px`;
+  // Append to orbit-wrap (outside goo filter)
+  document.querySelector('.orbit-wrap').appendChild(hitArea);
+
+  // Photo ring
+  const ring = document.createElement('div');
+  ring.className = 'photo-ring';
+  ring.style.cssText = `
+    width:${fSize}px;height:${fSize}px;
+    left:${fx - fSize/2}px;top:${fy - fSize/2}px;
+    background:${color};
+    box-shadow: 0 0 14px ${color}, 0 0 6px ${color};
+    transition: all 0.08s ease-out;
+  `;
+  ring.dataset.origX = fx - fSize/2;
+  ring.dataset.origY = fy - fSize/2;
+  ring.innerHTML = `<img class="photo-ring__img" src="${photos[i]}">`;
+  if (f.online) {
+    const dot = document.createElement('div');
+    dot.className = 'dot';
+    ring.appendChild(dot);
+  }
+  photo.appendChild(ring);
+
+  // Name
+  const nameR = R + fSize/2 + 18;
+  const nx = cx + Math.cos(angle) * nameR;
+  const ny = cy + Math.sin(angle) * nameR;
+  const nm = document.createElement('div');
+  nm.className = 'nm';
+  nm.style.cssText = `left:${nx}px;top:${ny - 4}px`;
+  nm.textContent = f.name;
+  nm.dataset.origX = nx;
+  nm.dataset.origY = ny - 4;
+  names.appendChild(nm);
+
+  // ═══ ANIMATION: mouse-follow stretch ═══
+  let animFrame = null;
+  let isHovering = false;
+  let currentDist = 0;
+  let targetDist = 0;
+  const maxPull = 38;
+
+  function animatePull() {
+    // Smooth interpolation
+    const speed = isHovering ? 0.12 : 0.18;
+    currentDist += (targetDist - currentDist) * speed;
+
+    if (Math.abs(currentDist - targetDist) < 0.3 && !isHovering) {
+      currentDist = targetDist;
+    }
+
+    const dx = Math.cos(angle) * currentDist;
+    const dy = Math.sin(angle) * currentDist;
+
+    // Move blob
+    blob.style.left = (parseFloat(blob.dataset.origX) + dx) + 'px';
+    blob.style.top = (parseFloat(blob.dataset.origY) + dy) + 'px';
+
+    // Scale blob slightly when pulled
+    const pullRatio = currentDist / maxPull;
+    blob.style.transform = `scale(${1 + pullRatio * 0.15})`;
+
+    // Move ring
+    ring.style.left = (parseFloat(ring.dataset.origX) + dx) + 'px';
+    ring.style.top = (parseFloat(ring.dataset.origY) + dy) + 'px';
+    ring.style.transform = `scale(${1 + pullRatio * 0.15})`;
+    // Intensify glow when pulled
+    const glowSize = 14 + pullRatio * 16;
+    ring.style.boxShadow = `0 0 ${glowSize}px ${color}, 0 0 ${glowSize * 0.4}px ${color}`;
+
+    // Stretch bridge — gets thinner as it stretches
+    const newBridgeW = parseFloat(bridge.dataset.origW) + currentDist * 0.8;
+    const newBridgeH = Math.max(4, bridgeH - currentDist * 0.3);
+    const newBx = (cx + fx + dx) / 2;
+    const newBy = (cy + fy + dy) / 2;
+    bridge.style.width = newBridgeW + 'px';
+    bridge.style.height = newBridgeH + 'px';
+    bridge.style.borderRadius = (newBridgeH / 2) + 'px';
+    bridge.style.left = (newBx - newBridgeW / 2) + 'px';
+    bridge.style.top = (newBy - newBridgeH / 2) + 'px';
+    bridge.style.opacity = Math.max(0.1, 0.65 - pullRatio * 0.5);
+
+    // Move name
+    const nameNx = parseFloat(nm.dataset.origX) + dx * 0.6;
+    const nameNy = parseFloat(nm.dataset.origY) + dy * 0.6;
+    nm.style.left = nameNx + 'px';
+    nm.style.top = nameNy + 'px';
+
+    if (currentDist !== targetDist || isHovering) {
+      animFrame = requestAnimationFrame(animatePull);
+    } else {
+      // Reset bridge when back
+      bridge.style.width = bridge.dataset.origW + 'px';
+      bridge.style.height = bridge.dataset.origH + 'px';
+      bridge.style.left = bridge.dataset.origX + 'px';
+      bridge.style.top = bridge.dataset.origY + 'px';
+      bridge.style.opacity = '0.65';
+      blob.style.transform = '';
+      ring.style.transform = '';
+      ring.style.boxShadow = `0 0 14px ${color}, 0 0 6px ${color}`;
+      animFrame = null;
+    }
+  }
+
+  hitArea.addEventListener('mouseenter', () => {
+    isHovering = true;
+    targetDist = maxPull;
+    if (!animFrame) animFrame = requestAnimationFrame(animatePull);
+  });
+
+  hitArea.addEventListener('mouseleave', () => {
+    isHovering = false;
+    targetDist = 0;
+    if (!animFrame) animFrame = requestAnimationFrame(animatePull);
+  });
+});
+</script>
+</body>
+</html>

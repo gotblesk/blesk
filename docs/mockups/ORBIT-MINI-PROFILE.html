@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Orbit: мини-профиль metaball</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px; gap: 16px; }
+  h1 { font-size: 18px; font-weight: 700; }
+  .sub { font-size: 11px; color: rgba(255,255,255,0.2); text-align: center; max-width: 500px; line-height: 1.6; }
+  .sub b { color: #c8ff00; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+
+  .orbit-wrap { position: relative; width: 320px; height: 320px; margin: 0 auto; }
+  .goo-layer { position: absolute; inset: 0; }
+  .photo-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+  .names-layer { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+  .nm { position: absolute; font-size: 8px; color: rgba(255,255,255,0.25); text-align: center; white-space: nowrap; transform: translate(-50%, 0); transition: all 0.5s cubic-bezier(0.16,1,0.3,1); }
+
+  .blob-circle { position: absolute; border-radius: 50%; pointer-events: none; }
+  .tentacle { position: absolute; border-radius: 50%; pointer-events: none; }
+  .hit-area { position: absolute; border-radius: 50%; cursor: pointer; z-index: 50; }
+
+  .photo-ring { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .photo-ring__img { width: calc(100% - 5px); height: calc(100% - 5px); border-radius: 50%; object-fit: cover; background: #08060f; }
+  .dot { position: absolute; bottom: 0; right: 0; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; border: 2px solid #08060f; z-index: 3; }
+
+  /* ═══ MINI PROFILE — blob popup ═══ */
+  .mini-profile {
+    position: absolute;
+    z-index: 200;
+    pointer-events: auto;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .mini-profile--open {
+    opacity: 1;
+    transform: scale(1);
+  }
+  /* Blob layer inside mini-profile — buttons merge */
+  .mp__goo { filter: url(#goo-mp); display: flex; flex-direction: column; align-items: center; }
+  /* Card bg — glass */
+  .mp__card {
+    width: 200px;
+    padding: 20px 16px 14px;
+    border-radius: 20px;
+    background: rgba(18, 14, 28, 0.92);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+  }
+  /* Avatar at top — blob connected to card */
+  .mp__av-goo {
+    filter: url(#goo-mp-av);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: -36px;
+  }
+  .mp__av-blob { width: 60px; height: 60px; border-radius: 50%; }
+  .mp__av-neck { width: 20px; height: 14px; border-radius: 10px; margin-top: -6px; }
+  .mp__av-photo {
+    position: absolute;
+    top: -32px;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .mp__av-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .mp__name { font-size: 14px; font-weight: 700; margin-top: 2px; }
+  .mp__status { font-size: 10px; display: flex; align-items: center; gap: 4px; }
+  .mp__status-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
+  .mp__status-text { color: rgba(255,255,255,0.3); }
+  .mp__bio { font-size: 10px; color: rgba(255,255,255,0.2); text-align: center; line-height: 1.4; margin: 2px 0; }
+  .mp__divider { width: 100%; height: 1px; background: rgba(255,255,255,0.04); margin: 4px 0; }
+  /* Buttons — metaball merge! */
+  .mp__btns-goo { filter: url(#goo-mp-btns); display: flex; gap: 4px; margin-top: 2px; }
+  .mp__btn {
+    padding: 8px 18px;
+    border-radius: 14px;
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+  }
+  .mp__btn:hover { transform: scale(1.06); }
+  .mp__btn--primary { background: #c8ff00; color: #08060f; }
+  .mp__btn--primary:hover { box-shadow: 0 0 16px rgba(200,255,0,0.25); }
+  .mp__btn--secondary { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); }
+  .mp__btn--secondary:hover { background: rgba(255,255,255,0.08); }
+  .mp__btn--call {
+    width: 34px; height: 34px; padding: 0;
+    border-radius: 50%;
+    background: rgba(74,222,128,0.08);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mp__btn--call svg { width: 14px; height: 14px; stroke: rgba(74,222,128,0.5); fill: none; stroke-width: 2; stroke-linecap: round; }
+  .mp__btn--call:hover { background: rgba(74,222,128,0.15); }
+  .mp__btn--call:hover svg { stroke: #4ade80; }
+
+  /* Close area */
+  .overlay { position: fixed; inset: 0; z-index: 100; display: none; }
+  .overlay--open { display: block; }
+</style>
+</head>
+<body>
+
+<svg class="svg-f">
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+    <!-- Mini profile avatar blob — connects avatar to card -->
+    <filter id="goo-mp-av">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+    <!-- Buttons merge -->
+    <filter id="goo-mp-btns">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -6" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
+<h1>Orbit → клик → мини-профиль (metaball)</h1>
+<p class="sub"><b>Кликни на друга</b> в orbit — появится blob-попап с аватаркой, именем, статусом и кнопками. Кнопки "Написать" и "Позвонить" blob-мержатся.</p>
+
+<!-- Overlay to close popup -->
+<div class="overlay" id="overlay" onclick="closeProfile()"></div>
+
+<div class="orbit-wrap" id="orbitWrap">
+  <div class="goo-layer" style="filter:url(#goo)" id="gooLayer"></div>
+  <div class="photo-layer" id="photoLayer"></div>
+  <div class="names-layer" id="namesLayer"></div>
+</div>
+
+<p class="sub">Аватар blob-"вытекает" из карточки сверху. Кнопки внизу — metaball группа.</p>
+
+<script>
+const cx = 160, cy = 160, R = 52, meSize = 58, fSize = 42;
+const photos = [
+  'https://i.pravatar.cc/80?img=5','https://i.pravatar.cc/80?img=12',
+  'https://i.pravatar.cc/80?img=9','https://i.pravatar.cc/80?img=33',
+  'https://i.pravatar.cc/80?img=16','https://i.pravatar.cc/80?img=22',
+];
+const mePhotoUrl = 'https://i.pravatar.cc/100?img=68';
+const friends = [
+  { letter:'V', hue:320, name:'Vohog', online:true, bio:'дизайнер / музыкант' },
+  { letter:'D', hue:220, name:'Den', online:false, bio:'был 2 часа назад' },
+  { letter:'A', hue:40, name:'Alice', online:true, bio:'печатает...' },
+  { letter:'M', hue:180, name:'Mike', online:false, bio:'в голосовой gemoglobin' },
+  { letter:'K', hue:70, name:'Kate', online:true, bio:'✨ living my best life' },
+  { letter:'L', hue:355, name:'Leo', online:false, bio:'был вчера' },
+];
+const meHue = 120;
+
+function hueColor(h) { return `hsl(${h}, 70%, 55%)`; }
+
+const goo = document.getElementById('gooLayer');
+const photo = document.getElementById('photoLayer');
+const names = document.getElementById('namesLayer');
+const wrap = document.getElementById('orbitWrap');
+
+// Center
+const meBlob = document.createElement('div');
+meBlob.className = 'blob-circle';
+meBlob.style.cssText = `width:${meSize}px;height:${meSize}px;left:${cx-meSize/2}px;top:${cy-meSize/2}px;background:${hueColor(meHue)}`;
+goo.appendChild(meBlob);
+const meRing = document.createElement('div');
+meRing.className = 'photo-ring';
+meRing.style.cssText = `width:${meSize}px;height:${meSize}px;left:${cx-meSize/2}px;top:${cy-meSize/2}px;background:${hueColor(meHue)};box-shadow:0 0 16px ${hueColor(meHue)},0 0 6px ${hueColor(meHue)}`;
+meRing.innerHTML = `<img class="photo-ring__img" src="${mePhotoUrl}">`;
+photo.appendChild(meRing);
+
+let currentPopup = null;
+
+friends.forEach((f, i) => {
+  const angle = (Math.PI * 2 * i / friends.length) - Math.PI / 2;
+  const fx = cx + Math.cos(angle) * R;
+  const fy = cy + Math.sin(angle) * R;
+  const color = hueColor(f.hue);
+
+  // Bridge
+  const bAngle = Math.atan2(fy-cy, fx-cx) * 180 / Math.PI;
+  const dist = Math.sqrt((fx-cx)**2+(fy-cy)**2);
+  const bx = (cx+fx)/2, by = (cy+fy)/2;
+  const bridgeW = dist*0.55, bridgeH = 18;
+  const bridge = document.createElement('div');
+  bridge.className = 'tentacle';
+  bridge.style.cssText = `width:${bridgeW}px;height:${bridgeH}px;border-radius:${bridgeH/2}px;left:${bx-bridgeW/2}px;top:${by-bridgeH/2}px;transform:rotate(${bAngle}deg);background:${color};opacity:0.65;transition:all 0.15s ease-out`;
+  bridge.dataset.origW=bridgeW; bridge.dataset.origH=bridgeH;
+  bridge.dataset.origX=bx-bridgeW/2; bridge.dataset.origY=by-bridgeH/2;
+  goo.appendChild(bridge);
+
+  // Blob
+  const blob = document.createElement('div');
+  blob.className = 'blob-circle';
+  blob.style.cssText = `width:${fSize}px;height:${fSize}px;left:${fx-fSize/2}px;top:${fy-fSize/2}px;background:${color}`;
+  blob.dataset.origX=fx-fSize/2; blob.dataset.origY=fy-fSize/2;
+  goo.appendChild(blob);
+
+  // Hit area
+  const hitSize = fSize+30;
+  const hitArea = document.createElement('div');
+  hitArea.className = 'hit-area';
+  hitArea.style.cssText = `width:${hitSize}px;height:${hitSize}px;left:${fx-hitSize/2}px;top:${fy-hitSize/2}px`;
+  wrap.appendChild(hitArea);
+
+  // Photo ring
+  const ring = document.createElement('div');
+  ring.className = 'photo-ring';
+  ring.style.cssText = `width:${fSize}px;height:${fSize}px;left:${fx-fSize/2}px;top:${fy-fSize/2}px;background:${color};box-shadow:0 0 14px ${color},0 0 6px ${color}`;
+  ring.innerHTML = `<img class="photo-ring__img" src="${photos[i]}">`;
+  if (f.online) { const d=document.createElement('div'); d.className='dot'; ring.appendChild(d); }
+  photo.appendChild(ring);
+
+  // Name
+  const nameR = R+fSize/2+18;
+  const nx = cx+Math.cos(angle)*nameR, ny = cy+Math.sin(angle)*nameR;
+  const nm = document.createElement('div');
+  nm.className = 'nm';
+  nm.style.cssText = `left:${nx}px;top:${ny-4}px`;
+  nm.textContent = f.name;
+  nm.dataset.origX=nx; nm.dataset.origY=ny-4;
+  names.appendChild(nm);
+
+  // ═══ HOVER ANIMATION ═══
+  let animFrame=null, isHovering=false, currentDist=0, targetDist=0;
+  const maxPull = 38;
+  function animatePull() {
+    const speed = isHovering ? 0.12 : 0.18;
+    currentDist += (targetDist-currentDist)*speed;
+    if (Math.abs(currentDist-targetDist)<0.3 && !isHovering) currentDist=targetDist;
+    const dx=Math.cos(angle)*currentDist, dy=Math.sin(angle)*currentDist;
+    blob.style.left=(parseFloat(blob.dataset.origX)+dx)+'px';
+    blob.style.top=(parseFloat(blob.dataset.origY)+dy)+'px';
+    const pr=currentDist/maxPull;
+    blob.style.transform=`scale(${1+pr*0.15})`;
+    ring.style.left=(parseFloat(ring.dataset.origX)+dx)+'px';
+    ring.style.top=(parseFloat(ring.dataset.origY)+dy)+'px';
+    ring.style.transform=`scale(${1+pr*0.15})`;
+    const gs=14+pr*16;
+    ring.style.boxShadow=`0 0 ${gs}px ${color},0 0 ${gs*0.4}px ${color}`;
+    const nw=parseFloat(bridge.dataset.origW)+currentDist*0.8;
+    const nh=Math.max(4,bridgeH-currentDist*0.3);
+    const nbx=(cx+fx+dx)/2, nby=(cy+fy+dy)/2;
+    bridge.style.width=nw+'px'; bridge.style.height=nh+'px';
+    bridge.style.borderRadius=(nh/2)+'px';
+    bridge.style.left=(nbx-nw/2)+'px'; bridge.style.top=(nby-nh/2)+'px';
+    bridge.style.opacity=Math.max(0.1,0.65-pr*0.5);
+    nm.style.left=(parseFloat(nm.dataset.origX)+dx*0.6)+'px';
+    nm.style.top=(parseFloat(nm.dataset.origY)+dy*0.6)+'px';
+    if(currentDist!==targetDist||isHovering){animFrame=requestAnimationFrame(animatePull)}
+    else{bridge.style.width=bridge.dataset.origW+'px';bridge.style.height=bridge.dataset.origH+'px';bridge.style.left=bridge.dataset.origX+'px';bridge.style.top=bridge.dataset.origY+'px';bridge.style.opacity='0.65';blob.style.transform='';ring.style.transform='';ring.style.boxShadow=`0 0 14px ${color},0 0 6px ${color}`;animFrame=null}
+  }
+  hitArea.addEventListener('mouseenter',()=>{isHovering=true;targetDist=maxPull;if(!animFrame)animFrame=requestAnimationFrame(animatePull)});
+  hitArea.addEventListener('mouseleave',()=>{isHovering=false;targetDist=0;if(!animFrame)animFrame=requestAnimationFrame(animatePull)});
+
+  // ═══ CLICK → MINI PROFILE ═══
+  hitArea.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openProfile(f, i, fx, fy, color, photos[i]);
+  });
+});
+
+// ═══ MINI PROFILE POPUP ═══
+function openProfile(f, idx, fx, fy, color, photoUrl) {
+  closeProfile();
+
+  const popup = document.createElement('div');
+  popup.className = 'mini-profile';
+  popup.id = 'miniProfile';
+
+  // Position near the friend avatar
+  const rect = wrap.getBoundingClientRect();
+  let popX = fx - 100; // center 200px card
+  let popY = fy + 30;  // below avatar
+  // Keep in bounds
+  if (popX < 0) popX = 10;
+  if (popX > 120) popX = 110;
+  if (popY > 200) popY = fy - 220; // flip above if too low
+
+  popup.style.left = popX + 'px';
+  popup.style.top = popY + 'px';
+  popup.style.transformOrigin = `${fx - popX}px ${fy - popY}px`; // scale from avatar position
+
+  popup.innerHTML = `
+    <div class="mp__card">
+      <!-- Avatar blob connected to card top -->
+      <div class="mp__av-goo">
+        <div class="mp__av-blob" style="background:${color}"></div>
+        <div class="mp__av-neck" style="background:${color}"></div>
+      </div>
+      <!-- Photo overlay on avatar blob -->
+      <div class="mp__av-photo">
+        <img src="${photoUrl}" alt="${f.letter}">
+      </div>
+      <!-- Name — СНАРУЖИ filter -->
+      <div class="mp__name">${f.name}</div>
+      <div class="mp__status">
+        ${f.online ? '<div class="mp__status-dot"></div><span class="mp__status-text">в сети</span>' : '<span class="mp__status-text" style="color:rgba(255,255,255,0.2)">' + f.bio + '</span>'}
+      </div>
+      ${f.online ? '<div class="mp__bio">' + f.bio + '</div>' : ''}
+      <div class="mp__divider"></div>
+      <!-- Buttons — metaball merge -->
+      <div class="mp__btns-goo">
+        <button class="mp__btn mp__btn--primary" onclick="alert('Открыть чат с ${f.name}')">Написать</button>
+        <button class="mp__btn mp__btn--call" onclick="alert('Звонок ${f.name}')">
+          <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/></svg>
+        </button>
+        <button class="mp__btn mp__btn--secondary" onclick="alert('Профиль ${f.name}')">Профиль</button>
+      </div>
+    </div>
+  `;
+
+  wrap.appendChild(popup);
+  document.getElementById('overlay').classList.add('overlay--open');
+
+  // Animate in
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      popup.classList.add('mini-profile--open');
+    });
+  });
+
+  currentPopup = popup;
+}
+
+function closeProfile() {
+  document.getElementById('overlay').classList.remove('overlay--open');
+  if (currentPopup) {
+    currentPopup.classList.remove('mini-profile--open');
+    const p = currentPopup;
+    setTimeout(() => p.remove(), 300);
+    currentPopup = null;
+  }
+}
+</script>
+</body>
+</html>

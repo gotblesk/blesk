@@ -14,7 +14,6 @@ function computeCardSize() {
   const h = Math.max(62, Math.min(90, vw * 0.042));
   return { w, h };
 }
-let { w: CW, h: CH } = computeCardSize();
 const GAP = 8;
 
 // DEBUG: тестовые чаты для проверки Nebula (удалить в продакшене)
@@ -28,13 +27,22 @@ const DEBUG_CHATS = [
   { id: 'debug-7', type: 'personal', otherUser: { id: 'u7', username: 'Маша', avatar: null }, lastMessage: { text: 'до завтра!', username: 'Маша', createdAt: new Date().toISOString() }, unreadCount: 0 },
   { id: 'debug-8', type: 'group', name: 'GOTBLESK', lastMessage: { text: 'новый дроп...', username: '', createdAt: new Date().toISOString() }, unreadCount: 5 },
 ];
-const USE_DEBUG = true; // Переключить на false для продакшена
+const USE_DEBUG = false; // Переключить на false для продакшена
 
 // ═══════ NEBULA VIEW — Physics chat cards ═══════
 export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user }) {
   const realChats = useChatStore(s => s.chats);
   const onlineUsers = useChatStore(s => s.onlineUsers);
+  const loadingChatList = useChatStore(s => s.loadingChatList);
+  const loadChats = useChatStore(s => s.loadChats);
   const chats = USE_DEBUG && realChats.length === 0 ? DEBUG_CHATS : realChats;
+
+  // Загрузить чаты при монтировании (если ещё не загружены)
+  useEffect(() => {
+    if (realChats.length === 0 && !loadingChatList) {
+      loadChats();
+    }
+  }, []); // eslint-disable-line
 
   // Inject debug chats into store so ChatView can find them
   useEffect(() => {
@@ -58,6 +66,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
       useChatStore.setState(state => ({ messages: { ...state.messages, ...fakeMessages } }));
     }
   }, [realChats.length, user?.username]);
+  const sizeRef = useRef(computeCardSize());
   const containerRef = useRef(null);
   const bodiesRef = useRef([]);
   const animRef = useRef(false);
@@ -68,6 +77,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     const W = window.innerWidth;
     const H = window.innerHeight;
     const cx = W / 2, cy = H / 2;
+    const { w: CW, h: CH } = sizeRef.current;
     const gx = CW + 8, gy = CH + 8;
     const cols = Math.max(2, Math.floor((W - 100) / gx));
     const positions = [];
@@ -91,7 +101,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
       const saved = JSON.parse(localStorage.getItem('blesk_nebula'));
       if (saved) {
         // Clamp to current window bounds
-        const hw = CW / 2, hh = CH / 2;
+        const hw = sizeRef.current.w / 2, hh = sizeRef.current.h / 2;
         for (const key in saved) {
           saved[key].x = Math.max(hw, Math.min(window.innerWidth - hw, saved[key].x));
           saved[key].y = Math.max(55 + hh, Math.min(window.innerHeight - hh, saved[key].y));
@@ -123,7 +133,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
       b.y += b.vy;
 
       // Bouncy walls
-      const hw = CW / 2, hh = CH / 2;
+      const hw = sizeRef.current.w / 2, hh = sizeRef.current.h / 2;
       const W = window.innerWidth, H = window.innerHeight;
       if (b.x < hw) { b.x = hw; b.vx = Math.abs(b.vx) * 0.55; }
       if (b.x > W - hw) { b.x = W - hw; b.vx = -Math.abs(b.vx) * 0.55; }
@@ -142,7 +152,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
         if (j === i || bodies[j].drag) continue;
         const b = bodies[j];
         const dx = b.x - a.x, dy = b.y - a.y;
-        const ox = CW - Math.abs(dx), oy = CH - Math.abs(dy);
+        const ox = sizeRef.current.w - Math.abs(dx), oy = sizeRef.current.h - Math.abs(dy);
         if (ox <= 0 || oy <= 0) continue;
 
         if (ox < oy) {
@@ -168,12 +178,13 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     }
 
     // Render
+    const { w: rCW, h: rCH } = sizeRef.current;
     bodies.forEach(b => {
       if (b.el) {
-        b.el.style.transform = `translate(${b.x - CW / 2}px, ${b.y - CH / 2}px)`;
+        b.el.style.transform = `translate(${b.x - rCW / 2}px, ${b.y - rCH / 2}px)`;
       }
       if (b.blob) {
-        b.blob.style.transform = `translate(${b.x - CW / 2}px, ${b.y - CH / 2}px)`;
+        b.blob.style.transform = `translate(${b.x - rCW / 2}px, ${b.y - rCH / 2}px)`;
       }
     });
 
@@ -211,7 +222,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     const b = bodiesRef.current[bodyIndex];
     if (!b || !b.drag) return;
     const px = b.x, py = b.y;
-    const hw = CW / 2, hh = CH / 2;
+    const hw = sizeRef.current.w / 2, hh = sizeRef.current.h / 2;
     b.x = Math.max(hw, Math.min(window.innerWidth - hw, e.clientX - b.ox));
     b.y = Math.max(55 + hh, Math.min(window.innerHeight - hh, e.clientY - b.oy));
     b.vh.push({ dx: b.x - px, dy: b.y - py, t: Date.now() });
@@ -221,7 +232,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     bodiesRef.current.forEach((o, j) => {
       if (j === bodyIndex || o.drag) return;
       const dx = o.x - b.x, dy = o.y - b.y;
-      const ox = CW - Math.abs(dx), oy = CH - Math.abs(dy);
+      const ox = sizeRef.current.w - Math.abs(dx), oy = sizeRef.current.h - Math.abs(dy);
       if (ox <= 0 || oy <= 0) return;
       if (ox < oy) o.x += (dx > 0 ? 1 : -1) * ox;
       else o.y += (dy > 0 ? 1 : -1) * oy;
@@ -257,19 +268,20 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
       let bestD = 80, bestX = b.x, bestY = b.y;
       bodiesRef.current.forEach((o, j) => {
         if (j === bodyIndex) return;
+        const { w: sCW, h: sCH } = sizeRef.current;
         const slots = [
-          { x: o.x + CW + GAP, y: o.y },
-          { x: o.x - CW - GAP, y: o.y },
-          { x: o.x, y: o.y + CH + GAP },
-          { x: o.x, y: o.y - CH - GAP },
+          { x: o.x + sCW + GAP, y: o.y },
+          { x: o.x - sCW - GAP, y: o.y },
+          { x: o.x, y: o.y + sCH + GAP },
+          { x: o.x, y: o.y - sCH - GAP },
         ];
         for (const s of slots) {
-          if (s.x < CW / 2 || s.x > window.innerWidth - CW / 2) continue;
-          if (s.y < 60 || s.y > window.innerHeight - CH / 2) continue;
+          if (s.x < sCW / 2 || s.x > window.innerWidth - sCW / 2) continue;
+          if (s.y < 60 || s.y > window.innerHeight - sCH / 2) continue;
           let free = true;
           bodiesRef.current.forEach((k, ki) => {
             if (ki === bodyIndex) return;
-            if (Math.abs(k.x - s.x) < CW - 1 && Math.abs(k.y - s.y) < CH - 1) free = false;
+            if (Math.abs(k.x - s.x) < sCW - 1 && Math.abs(k.y - s.y) < sCH - 1) free = false;
           });
           if (!free) continue;
           const d = Math.hypot(b.x - s.x, b.y - s.y);
@@ -290,9 +302,10 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
       b.x = pos.x; b.y = pos.y; b.vx = 0; b.vy = 0;
     });
     // Force re-render
+    const { w: rCW, h: rCH } = sizeRef.current;
     bodiesRef.current.forEach(b => {
-      if (b.el) b.el.style.transform = `translate(${b.x - CW / 2}px, ${b.y - CH / 2}px)`;
-      if (b.blob) b.blob.style.transform = `translate(${b.x - CW / 2}px, ${b.y - CH / 2}px)`;
+      if (b.el) b.el.style.transform = `translate(${b.x - rCW / 2}px, ${b.y - rCH / 2}px)`;
+      if (b.blob) b.blob.style.transform = `translate(${b.x - rCW / 2}px, ${b.y - rCH / 2}px)`;
     });
     savePositions();
   }, [getGrid, savePositions]);
@@ -307,8 +320,8 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
       const pos = saved?.[chat.id] || grid[i] || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
       return {
         chatId: chat.id,
-        x: Math.max(CW / 2, Math.min(window.innerWidth - CW / 2, pos.x)),
-        y: Math.max(60, Math.min(window.innerHeight - CH / 2, pos.y)),
+        x: Math.max(sizeRef.current.w / 2, Math.min(window.innerWidth - sizeRef.current.w / 2, pos.x)),
+        y: Math.max(60, Math.min(window.innerHeight - sizeRef.current.h / 2, pos.y)),
         vx: 0, vy: 0,
         drag: false, t0: 0, mx0: 0, my0: 0, ox: 0, oy: 0, vh: [],
         el: null, blob: null,
@@ -320,9 +333,8 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
   useEffect(() => {
     // Update card sizes on resize
     const onResize = () => {
-      const size = computeCardSize();
-      CW = size.w;
-      CH = size.h;
+      sizeRef.current = computeCardSize();
+      const { w: CW, h: CH } = sizeRef.current;
       // Clamp bodies to new bounds
       bodiesRef.current.forEach(b => {
         b.x = Math.max(CW / 2, Math.min(window.innerWidth - CW / 2, b.x));
@@ -383,10 +395,16 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     if (!chat.lastMessage?.createdAt) return '';
     const d = new Date(chat.lastMessage.createdAt);
     const now = new Date();
-    if (d.toDateString() === now.toDateString()) {
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
       return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     }
-    return 'вчера';
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) {
+      return 'вчера';
+    }
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
   };
 
   // Welcome Card для новых пользователей
@@ -395,7 +413,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     else if (onNavigate) onNavigate(action);
   }, [onNavigate, onOpenProfile]);
 
-  if (!chats.length) {
+  if (!chats.length && !loadingChatList) {
     return (
       <div className="nebula">
         <WelcomeCard
@@ -404,6 +422,10 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
         />
       </div>
     );
+  }
+
+  if (!chats.length && loadingChatList) {
+    return <div className="nebula" />;
   }
 
   return (
@@ -433,7 +455,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
             key={`blob-${chat.id}`}
             className="nebula-blob"
             style={{
-              width: CW, height: CH,
+              width: sizeRef.current.w, height: sizeRef.current.h,
               background: getChatColor(chat),
             }}
             ref={el => { if (bodiesRef.current[i]) bodiesRef.current[i].blob = el; }}

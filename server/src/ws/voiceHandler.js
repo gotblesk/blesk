@@ -413,12 +413,16 @@ function voiceHandler(io, socket) {
     if (!room || !room.peers.has(userId)) return;
 
     const peer = room.peers.get(userId);
+    // Санитизация текста от XSS
+    const sanitized = text.trim().replace(/[<>"'`&]/g, (ch) => ({
+      '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '`': '&#x60;', '&': '&amp;'
+    }[ch]));
     const message = {
       id: `vc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       userId,
       username: peer.username,
       hue: peer.hue,
-      text: text.trim(),
+      text: sanitized,
       timestamp: Date.now(),
     };
 

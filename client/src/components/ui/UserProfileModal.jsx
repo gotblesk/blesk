@@ -48,6 +48,14 @@ export default function UserProfileModal({
       .finally(() => setLoading(false));
   }, [open, userId]);
 
+  // Escape для закрытия
+  useEffect(() => {
+    if (!open) return;
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [open, onClose]);
+
   const handleBackdrop = useCallback(
     (e) => {
       if (e.target === e.currentTarget) onClose?.();
@@ -56,17 +64,8 @@ export default function UserProfileModal({
   );
 
   const handleAddFriend = async () => {
-    onAddFriend?.(userId);
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/friends/request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ userId }),
-      });
+      await onAddFriend?.(userId);
       setFriendReqSent(true);
     } catch {
       /* ignore */

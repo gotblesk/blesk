@@ -33,7 +33,12 @@ export default function MiniCardsSidebar({ activeChatId, onSelectChat, onBack })
     if (isToday) {
       return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     }
-    return 'вчера';
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) {
+      return 'вчера';
+    }
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
   };
 
   const cardContent = (chat, active) => (
@@ -66,6 +71,11 @@ export default function MiniCardsSidebar({ activeChatId, onSelectChat, onBack })
       </button>
 
       <div className="mini-sidebar__list">
+        {chats.length === 0 && (
+          <div style={{ padding: '20px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+            Нет чатов
+          </div>
+        )}
         {chats.map(chat => {
           const active = chat.id === activeChatId;
           return (

@@ -24,7 +24,7 @@ export default function VideoGrid({ participants }) {
   }
 
   const getUserName = (userId) => {
-    const p = participants?.find((p) => p.id === userId || p.odId === userId);
+    const p = participants?.find((p) => p.id === userId || p.userId === userId);
     return p?.username || 'Участник';
   };
 

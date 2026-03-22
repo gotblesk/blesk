@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Liquid Glass Variants</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#08060f;color:#fff;
+    font-family:-apple-system,'SF Pro Display','Helvetica Neue',system-ui,sans-serif;
+    min-height:100vh;overflow-x:hidden;
+  }
+  .bg{position:fixed;inset:0;z-index:0;overflow:hidden}
+  .orb{position:absolute;border-radius:50%;filter:blur(90px)}
+  .o1{width:420px;height:420px;background:rgba(200,255,0,0.5);top:5%;left:8%}
+  .o2{width:350px;height:350px;background:rgba(255,0,204,0.45);top:50%;left:55%}
+  .o3{width:300px;height:300px;background:rgba(0,204,255,0.4);top:65%;left:12%}
+  .o4{width:280px;height:280px;background:rgba(255,102,0,0.4);top:10%;left:72%}
+  .o5{width:380px;height:380px;background:rgba(170,68,255,0.3);top:35%;left:38%}
+
+  .page{position:relative;z-index:1;padding:30px 40px 60px}
+  h1{font-size:22px;font-weight:700;text-align:center;margin-bottom:6px;color:rgba(255,255,255,0.9)}
+  .sub{text-align:center;font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:30px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:28px;max-width:1400px;margin:0 auto}
+
+  .variant{position:relative}
+  .vl{font-size:14px;font-weight:600;margin-bottom:10px;color:rgba(255,255,255,0.85);display:flex;align-items:center;gap:8px}
+  .vl .n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(200,255,0,0.15);color:#c8ff00;font-size:11px;font-weight:700}
+  .vd{font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:12px;line-height:1.4}
+
+  .card{position:relative;height:200px;border-radius:20px;overflow:hidden;transition:transform 0.35s cubic-bezier(0.175,0.885,0.32,2.2)}
+  .card:hover{transform:scale(1.02)}
+  .ct{position:relative;z-index:10;padding:20px;height:100%;display:flex;flex-direction:column;justify-content:space-between}
+  .ct .t{font-size:16px;font-weight:600;color:rgba(255,255,255,0.92)}
+  .ct .s{font-size:12px;color:rgba(255,255,255,0.55);line-height:1.5}
+  .ct .f{display:flex;justify-content:space-between;align-items:center}
+  .ct .tag{padding:3px 10px;font-size:10px;font-weight:500;border-radius:8px;background:rgba(200,255,0,0.1);color:#c8ff00;border:1px solid rgba(200,255,0,0.2)}
+  .ct .dot{width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px rgba(74,222,128,0.5)}
+
+  /* ═══════ 1: CSS Pure Glassmorphism ═══════ */
+  .g1-bg{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(20px) saturate(1.4);background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15)}
+  .g1-bg::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,0.12),transparent 50%)}
+  .g1-bg::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,0.25),inset 0 -1px 0 rgba(255,255,255,0.05)}
+  .c1{box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+
+  /* ═══════ 2: SVG Distortion (lucasromerodb) ═══════ */
+  .g2-fx{position:absolute;inset:0;z-index:0;overflow:hidden;isolation:isolate;backdrop-filter:blur(3px);filter:url(#fd2)}
+  .g2-tint{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.25);pointer-events:none}
+  .g2-shine{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 2px 2px 1px 0 rgba(255,255,255,0.5),inset -1px -1px 1px 1px rgba(255,255,255,0.5)}
+  .c2{box-shadow:0 6px 24px rgba(0,0,0,0.3)}
+
+  /* ═══════ 3: Gradient Border Glass ═══════ */
+  .g3-blur{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(16px) brightness(1.1)}
+  .g3-grad{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0.05)),linear-gradient(135deg,rgba(255,255,255,0.1),transparent 60%)}
+  .g3-brd{position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:1px solid transparent;background:linear-gradient(180deg,rgba(255,255,255,0.3),rgba(255,255,255,0.05)) border-box;-webkit-mask:linear-gradient(#fff 0 0) padding-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+  .c3{box-shadow:0 8px 32px rgba(0,0,0,0.25),0 0 0 0.5px rgba(255,255,255,0.1)}
+
+  /* ═══════ 4: Heavy Frosted (Control Center) ═══════ */
+  .g4-frost{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(40px) saturate(1.8) brightness(1.15);background:rgba(255,255,255,0.12)}
+  .g4-hi{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,0.18),transparent 40%)}
+  .g4-edge{position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0.5px 0 rgba(255,255,255,0.4),inset 0 -0.5px 0 rgba(255,255,255,0.1);border:0.5px solid rgba(255,255,255,0.18)}
+  .c4{box-shadow:0 10px 40px rgba(0,0,0,0.35)}
+
+  /* ═══════ 5: Neumorphic Glass ═══════ */
+  .g5-base{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(24px) saturate(1.3);background:rgba(255,255,255,0.06)}
+  .g5-inner{position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 3px 3px 6px rgba(255,255,255,0.08),inset -3px -3px 6px rgba(0,0,0,0.3)}
+  .g5-rim{position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:1px solid rgba(255,255,255,0.08);background:linear-gradient(145deg,rgba(255,255,255,0.06),transparent 50%)}
+  .c5{box-shadow:6px 6px 20px rgba(0,0,0,0.4),-4px -4px 16px rgba(255,255,255,0.02)}
+
+  /* ═══════ 6: Iridescent Rainbow ═══════ */
+  .g6-blur{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(18px) saturate(1.5);background:rgba(255,255,255,0.06)}
+  .g6-rain{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:conic-gradient(from 180deg,rgba(255,0,128,0.08),rgba(0,200,255,0.08) 60deg,rgba(200,255,0,0.08) 120deg,rgba(255,128,0,0.08) 180deg,rgba(128,0,255,0.08) 240deg,rgba(255,0,128,0.08));mix-blend-mode:screen;animation:hueShift 8s linear infinite}
+  @keyframes hueShift{to{filter:hue-rotate(360deg)}}
+  .g6-shine{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg,rgba(255,255,255,0.2),transparent 40%,transparent 60%,rgba(255,255,255,0.08));box-shadow:inset 0 0.5px 0 rgba(255,255,255,0.3)}
+  .c6{box-shadow:0 8px 32px rgba(0,0,0,0.3);border:0.5px solid rgba(255,255,255,0.12)}
+
+  /* ═══════ 7: Smoky Dark ═══════ */
+  .g7-smoke{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(24px) brightness(0.6) saturate(1.5);background:rgba(0,0,0,0.35)}
+  .g7-glow{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,0.04),transparent 30%)}
+  .g7-edge{position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:1px solid rgba(255,255,255,0.06);box-shadow:inset 0 1px 0 rgba(255,255,255,0.08)}
+  .c7{box-shadow:0 10px 40px rgba(0,0,0,0.5)}
+
+  /* ═══════ 8: Accent Tinted (#c8ff00) ═══════ */
+  .g8-glass{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(20px) saturate(1.6);background:linear-gradient(135deg,rgba(200,255,0,0.06),rgba(200,255,0,0.02))}
+  .g8-tint{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:rgba(255,255,255,0.1)}
+  .g8-edge{position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:1px solid rgba(200,255,0,0.1);box-shadow:inset 0 1px 0 rgba(200,255,0,0.12),inset 0 -0.5px 0 rgba(200,255,0,0.04)}
+  .c8{box-shadow:0 8px 32px rgba(0,0,0,0.3),0 0 20px rgba(200,255,0,0.03)}
+  .c8:hover .g8-edge{border-color:rgba(200,255,0,0.2)}
+
+  /* ═══════ 9: Crystalline Diamond ═══════ */
+  .g9-base{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(12px) contrast(1.05) brightness(1.1);background:rgba(255,255,255,0.04)}
+  .g9-facets{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(45deg,transparent 40%,rgba(255,255,255,0.1) 45%,transparent 50%),linear-gradient(135deg,transparent 40%,rgba(255,255,255,0.06) 45%,transparent 50%),linear-gradient(225deg,transparent 40%,rgba(255,255,255,0.04) 45%,transparent 50%)}
+  .g9-hi{position:absolute;top:0;left:0;right:0;height:50%;border-radius:20px 20px 0 0;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,0.15),transparent);border-bottom:0.5px solid rgba(255,255,255,0.06)}
+  .g9-brd{position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:1px solid rgba(255,255,255,0.12);box-shadow:inset 0 0 8px rgba(255,255,255,0.04)}
+  .c9{box-shadow:0 6px 24px rgba(0,0,0,0.25),0 1px 2px rgba(255,255,255,0.05)}
+
+  /* ═══════ 10: Floating Minimal ═══════ */
+  .g10-bg{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(30px) saturate(1.2);background:rgba(255,255,255,0.05)}
+  .g10-line{position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:0.5px solid rgba(255,255,255,0.15)}
+  .g10-dot{position:absolute;top:-0.5px;left:20%;right:20%;height:1px;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)}
+  .c10{box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+
+  /* ═══════ 11: Gentle SVG Lens ═══════ */
+  .g11-fx{position:absolute;inset:0;z-index:0;overflow:hidden;isolation:isolate;backdrop-filter:blur(16px);filter:url(#fd11)}
+  .g11-tint{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.18);pointer-events:none}
+  .g11-shine{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 0 1px 0 rgba(255,255,255,0.3),inset 0 -0.5px 0 rgba(255,255,255,0.08)}
+  .c11{box-shadow:0 8px 32px rgba(0,0,0,0.25)}
+
+  /* ═══════ 12: Hot Specular SVG ═══════ */
+  .g12-fx{position:absolute;inset:0;z-index:0;overflow:hidden;isolation:isolate;backdrop-filter:blur(8px);filter:url(#fd12)}
+  .g12-tint{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.15);pointer-events:none}
+  .g12-shine{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 1px 1px 2px 0 rgba(255,255,255,0.6),inset -1px -1px 1px 0 rgba(255,255,255,0.3)}
+  .c12{box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+
+  /* ═══════ 13: Rippled Water SVG ═══════ */
+  .g13-fx{position:absolute;inset:0;z-index:0;overflow:hidden;isolation:isolate;backdrop-filter:blur(4px);filter:url(#fd13)}
+  .g13-tint{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.2);pointer-events:none}
+  .g13-shine{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 2px 2px 1px 0 rgba(255,255,255,0.4),inset -1px -1px 1px 1px rgba(255,255,255,0.35)}
+  .c13{box-shadow:0 6px 24px rgba(0,0,0,0.3)}
+
+  /* ═══════ 14: Saturated SVG ═══════ */
+  .g14-fx{position:absolute;inset:0;z-index:0;overflow:hidden;isolation:isolate;backdrop-filter:blur(6px);filter:url(#fd14)}
+  .g14-tint{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.12);pointer-events:none}
+  .g14-shine{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 2px 2px 1px 0 rgba(255,255,255,0.35),inset -1px -1px 1px 1px rgba(255,255,255,0.25)}
+  .c14{box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+
+  /* ═══════ 15: Warm Light SVG ═══════ */
+  .g15-fx{position:absolute;inset:0;z-index:0;overflow:hidden;isolation:isolate;backdrop-filter:blur(10px);filter:url(#fd15)}
+  .g15-tint{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.2);pointer-events:none}
+  .g15-shine{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 1px 1px 1px 0 rgba(255,245,220,0.45),inset -1px -1px 1px 0 rgba(255,255,255,0.3)}
+  .c15{box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+
+  /* ═══════ 16: Dual Displacement SVG ═══════ */
+  .g16-fx{position:absolute;inset:0;z-index:0;overflow:hidden;isolation:isolate;backdrop-filter:blur(5px);filter:url(#fd16)}
+  .g16-tint{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.2);pointer-events:none}
+  .g16-shine{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 2px 2px 2px 0 rgba(255,255,255,0.5),inset -1px -1px 1px 1px rgba(255,255,255,0.4)}
+  .c16{box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+
+  /* ═══════ 17: Soft Diffuse SVG ═══════ */
+  .g17-fx{position:absolute;inset:0;z-index:0;overflow:hidden;isolation:isolate;backdrop-filter:blur(12px);filter:url(#fd17)}
+  .g17-tint{position:absolute;inset:0;z-index:1;background:rgba(255,255,255,0.22);pointer-events:none}
+  .g17-shine{position:absolute;inset:0;z-index:2;pointer-events:none;box-shadow:inset 0 1px 0 rgba(255,255,255,0.25)}
+  .c17{box-shadow:0 10px 40px rgba(0,0,0,0.25)}
+
+  /* ═══════ 18: Double Layer Glass ═══════ */
+  .g18-outer{position:absolute;inset:0;border-radius:inherit;backdrop-filter:blur(8px);background:rgba(255,255,255,0.04)}
+  .g18-inner{position:absolute;inset:8px;border-radius:14px;backdrop-filter:blur(16px);background:rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.2),inset 0 -0.5px 0 rgba(255,255,255,0.05)}
+  .g18-edge{position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:1px solid rgba(255,255,255,0.08)}
+  .c18{box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+
+  .theme-btn{position:fixed;top:16px;right:16px;z-index:100;padding:8px 16px;font-size:12px;font-family:inherit;background:rgba(255,255,255,0.07);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;color:rgba(255,255,255,0.8);cursor:pointer}
+
+  /* Light theme */
+  body.light{background:#f0eff5}
+  body.light .orb{opacity:0.3}
+  body.light h1,.light .vl{color:rgba(26,26,46,0.9)}
+  body.light .sub,.light .vd{color:rgba(26,26,46,0.4)}
+  body.light .ct .t{color:rgba(26,26,46,0.92)}
+  body.light .ct .s{color:rgba(26,26,46,0.5)}
+  body.light .theme-btn{background:rgba(0,0,0,0.05);border-color:rgba(0,0,0,0.1);color:rgba(26,26,46,0.7)}
+  /* Light overrides for CSS variants */
+  body.light .g1-bg{background:rgba(255,255,255,0.55);border-color:rgba(255,255,255,0.5)}
+  body.light .g3-grad{background:linear-gradient(180deg,rgba(255,255,255,0.5),rgba(255,255,255,0.2))}
+  body.light .g4-frost{background:rgba(255,255,255,0.5)}
+  body.light .g5-base{background:rgba(255,255,255,0.4)}
+  body.light .g5-inner{box-shadow:inset 3px 3px 6px rgba(255,255,255,0.5),inset -3px -3px 6px rgba(0,0,0,0.06)}
+  body.light .g6-blur{background:rgba(255,255,255,0.5)}
+  body.light .g7-smoke{background:rgba(0,0,0,0.06);backdrop-filter:blur(24px) brightness(1.05)}
+  body.light .g8-tint{background:rgba(255,255,255,0.55)}
+  body.light .g9-base{background:rgba(255,255,255,0.5)}
+  body.light .g10-bg{background:rgba(255,255,255,0.6)}
+  body.light .g10-line{border-color:rgba(0,0,0,0.06)}
+  body.light .g18-outer{background:rgba(255,255,255,0.3)}
+  body.light .g18-inner{background:rgba(255,255,255,0.5)}
+  /* Light SVG tints */
+  body.light .g2-tint,.light .g11-tint,.light .g15-tint,.light .g16-tint,.light .g17-tint{background:rgba(255,255,255,0.65)}
+  body.light .g12-tint,.light .g14-tint{background:rgba(255,255,255,0.55)}
+  body.light .g13-tint{background:rgba(255,255,255,0.6)}
+  body.light .card{box-shadow:0 4px 16px rgba(0,0,0,0.08) !important}
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+  <!-- 2: Original lucasromerodb -->
+  <filter id="fd2" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+    <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="1" seed="5" result="t"/>
+    <feComponentTransfer in="t"><feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5"/><feFuncG type="gamma" amplitude="0" exponent="1" offset="0"/></feComponentTransfer>
+    <feGaussianBlur in="t" stdDeviation="3" result="s"/>
+    <feSpecularLighting in="s" surfaceScale="5" specularConstant="1" specularExponent="100" lighting-color="white" result="sp"><fePointLight x="-200" y="-200" z="300"/></feSpecularLighting>
+    <feComposite in="sp" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+    <feDisplacementMap in="SourceGraphic" in2="s" scale="150" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <!-- 11: Gentle Lens -->
+  <filter id="fd11" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+    <feTurbulence type="fractalNoise" baseFrequency="0.008" numOctaves="2" seed="12" result="t"/>
+    <feGaussianBlur in="t" stdDeviation="8" result="s"/>
+    <feSpecularLighting in="s" surfaceScale="2" specularConstant="0.4" specularExponent="60" lighting-color="white" result="sp"><fePointLight x="0" y="-300" z="400"/></feSpecularLighting>
+    <feComposite in="sp" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+    <feDisplacementMap in="SourceGraphic" in2="s" scale="40" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <!-- 12: Hot Specular -->
+  <filter id="fd12" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+    <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="7" result="t"/>
+    <feGaussianBlur in="t" stdDeviation="2" result="s"/>
+    <feSpecularLighting in="s" surfaceScale="8" specularConstant="1.5" specularExponent="200" lighting-color="white" result="sp"><fePointLight x="-150" y="-150" z="200"/></feSpecularLighting>
+    <feComposite in="sp" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+    <feDisplacementMap in="SourceGraphic" in2="s" scale="60" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <!-- 13: Rippled Water -->
+  <filter id="fd13" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+    <feTurbulence type="fractalNoise" baseFrequency="0.025 0.02" numOctaves="4" seed="17" result="t"/>
+    <feComponentTransfer in="t"><feFuncR type="gamma" amplitude="1" exponent="5" offset="0.5"/><feFuncG type="gamma" amplitude="1" exponent="5" offset="0.5"/></feComponentTransfer>
+    <feGaussianBlur in="t" stdDeviation="2" result="s"/>
+    <feSpecularLighting in="s" surfaceScale="3" specularConstant="0.7" specularExponent="80" lighting-color="white" result="sp"><fePointLight x="-100" y="-250" z="250"/></feSpecularLighting>
+    <feComposite in="sp" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+    <feDisplacementMap in="SourceGraphic" in2="s" scale="100" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <!-- 14: Saturated -->
+  <filter id="fd14" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+    <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="1" seed="5" result="t"/>
+    <feGaussianBlur in="t" stdDeviation="3" result="s"/>
+    <feDisplacementMap in="SourceGraphic" in2="s" scale="120" xChannelSelector="R" yChannelSelector="G" result="d"/>
+    <feColorMatrix in="d" type="saturate" values="2.5" result="sat"/>
+    <feSpecularLighting in="s" surfaceScale="4" specularConstant="0.8" specularExponent="100" lighting-color="white" result="sp"><fePointLight x="-200" y="-200" z="300"/></feSpecularLighting>
+    <feComposite in="sp" in2="sat" operator="arithmetic" k1="0" k2="0.3" k3="1" k4="0"/>
+  </filter>
+  <!-- 15: Warm Light -->
+  <filter id="fd15" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+    <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="1" seed="5" result="t"/>
+    <feGaussianBlur in="t" stdDeviation="3" result="s"/>
+    <feSpecularLighting in="s" surfaceScale="5" specularConstant="1.2" specularExponent="80" lighting-color="#fff5e0" result="sp"><fePointLight x="300" y="-100" z="250"/></feSpecularLighting>
+    <feComposite in="sp" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+    <feDisplacementMap in="SourceGraphic" in2="s" scale="130" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <!-- 16: Dual Displacement -->
+  <filter id="fd16" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+    <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="1" seed="3" result="t1"/>
+    <feGaussianBlur in="t1" stdDeviation="4" result="s1"/>
+    <feDisplacementMap in="SourceGraphic" in2="s1" scale="80" xChannelSelector="R" yChannelSelector="G" result="d1"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="14" result="t2"/>
+    <feGaussianBlur in="t2" stdDeviation="2" result="s2"/>
+    <feDisplacementMap in="d1" in2="s2" scale="30" xChannelSelector="R" yChannelSelector="G" result="d2"/>
+    <feSpecularLighting in="s1" surfaceScale="4" specularConstant="0.9" specularExponent="100" lighting-color="white" result="sp"><fePointLight x="-200" y="-200" z="300"/></feSpecularLighting>
+    <feComposite in="sp" in2="d2" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+  </filter>
+  <!-- 17: Soft Diffuse -->
+  <filter id="fd17" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+    <feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="2" seed="9" result="t"/>
+    <feGaussianBlur in="t" stdDeviation="6" result="s"/>
+    <feSpecularLighting in="s" surfaceScale="3" specularConstant="0.6" specularExponent="20" lighting-color="white" result="sp"><fePointLight x="0" y="-200" z="500"/></feSpecularLighting>
+    <feComposite in="sp" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+    <feDisplacementMap in="SourceGraphic" in2="s" scale="50" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<div class="bg"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div><div class="orb o4"></div><div class="orb o5"></div></div>
+<button class="theme-btn" onclick="document.body.classList.toggle('light');this.textContent=document.body.classList.contains('light')?'Dark':'Light'">Light</button>
+
+<div class="page">
+  <h1>Liquid Glass — 18 Variants</h1>
+  <p class="sub">CSS + SVG approaches side by side. Click Light/Dark to compare themes.</p>
+  <div class="grid">
+
+    <div class="variant"><div class="vl"><span class="n">1</span>CSS Pure Glassmorphism</div><div class="vd">backdrop-filter:blur(20px) + gradient + border</div>
+      <div class="card c1"><div class="g1-bg"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Pure CSS — backdrop-filter, gradients, box-shadow. No SVG.</div></div><div class="f"><span class="tag">CSS only</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">2</span>SVG Distortion (lucasromerodb)</div><div class="vd">feDisplacementMap scale=150 + feSpecularLighting</div>
+      <div class="card c2"><div class="g2-fx"></div><div class="g2-tint"></div><div class="g2-shine"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Original reference — strong displacement, specular from top-left.</div></div><div class="f"><span class="tag">SVG original</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">3</span>Gradient Border Glass</div><div class="vd">mask-composite gradient border + dual gradients</div>
+      <div class="card c3"><div class="g3-blur"></div><div class="g3-grad"></div><div class="g3-brd"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Gradient border via CSS mask. Dual gradient layers.</div></div><div class="f"><span class="tag">gradient</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">4</span>Heavy Frosted (Control Center)</div><div class="vd">blur(40px) saturate(1.8) brightness(1.15)</div>
+      <div class="card c4"><div class="g4-frost"></div><div class="g4-hi"></div><div class="g4-edge"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Maximum frosted — heavy blur with saturation boost.</div></div><div class="f"><span class="tag">frosted</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">5</span>Neumorphic Glass</div><div class="vd">Inner shadows light/dark + thin rim</div>
+      <div class="card c5"><div class="g5-base"></div><div class="g5-inner"></div><div class="g5-rim"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Neumorphic — soft inner shadows, 3D pressed feel.</div></div><div class="f"><span class="tag">neumorphic</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">6</span>Iridescent Rainbow</div><div class="vd">conic-gradient + hue-rotate animation</div>
+      <div class="card c6"><div class="g6-blur"></div><div class="g6-rain"></div><div class="g6-shine"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Rainbow shimmer — animated hue rotation. Soap bubble.</div></div><div class="f"><span class="tag">iridescent</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">7</span>Smoky Dark Glass</div><div class="vd">brightness(0.6) + dark overlay</div>
+      <div class="card c7"><div class="g7-smoke"></div><div class="g7-glow"></div><div class="g7-edge"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Smoky — dimmed background, high contrast. Moody.</div></div><div class="f"><span class="tag">smoky</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">8</span>Accent Tinted (#c8ff00)</div><div class="vd">blesk green tint + accent border glow</div>
+      <div class="card c8"><div class="g8-glass"></div><div class="g8-tint"></div><div class="g8-edge"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Brand-colored glass — subtle GOTBLESK green tint.</div></div><div class="f"><span class="tag">accent</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">9</span>Crystalline Diamond</div><div class="vd">Diagonal facet highlights + top half brighter</div>
+      <div class="card c9"><div class="g9-base"></div><div class="g9-facets"></div><div class="g9-hi"></div><div class="g9-brd"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Crystalline — diagonal light streaks, faceted gem look.</div></div><div class="f"><span class="tag">crystalline</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">10</span>Floating Minimal</div><div class="vd">blur(30px) + 0.5px border + top light line</div>
+      <div class="card c10"><div class="g10-bg"></div><div class="g10-line"></div><div class="g10-dot"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Ultra-minimal — thin border, top accent, heavy blur.</div></div><div class="f"><span class="tag">minimal</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">11</span>SVG Gentle Lens</div><div class="vd">scale=40, blur stdDev=8, soft specular</div>
+      <div class="card c11"><div class="g11-fx"></div><div class="g11-tint"></div><div class="g11-shine"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Gentle lens — minimal distortion, heavy frosted blur.</div></div><div class="f"><span class="tag">gentle SVG</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">12</span>SVG Hot Specular</div><div class="vd">surfaceScale=8, specExponent=200, bright spot</div>
+      <div class="card c12"><div class="g12-fx"></div><div class="g12-tint"></div><div class="g12-shine"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Hot specular — intense focused light. Chrome/wet glass.</div></div><div class="f"><span class="tag">hot SVG</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">13</span>SVG Rippled Water</div><div class="vd">numOctaves=4, baseFreq=0.025, organic</div>
+      <div class="card c13"><div class="g13-fx"></div><div class="g13-tint"></div><div class="g13-shine"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Rippled water — high-octave noise, organic patterns.</div></div><div class="f"><span class="tag">rippled SVG</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">14</span>SVG Saturated</div><div class="vd">feColorMatrix saturate=2.5 after displacement</div>
+      <div class="card c14"><div class="g14-fx"></div><div class="g14-tint"></div><div class="g14-shine"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Saturated glass — colors behind glass amplified.</div></div><div class="f"><span class="tag">saturated SVG</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">15</span>SVG Warm Light</div><div class="vd">lighting-color=#fff5e0, light from right</div>
+      <div class="card c15"><div class="g15-fx"></div><div class="g15-tint"></div><div class="g15-shine"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Warm specular — golden light from right. Sunset vibe.</div></div><div class="f"><span class="tag">warm SVG</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">16</span>SVG Dual Displacement</div><div class="vd">Two stacked turbulence + displacement passes</div>
+      <div class="card c16"><div class="g16-fx"></div><div class="g16-tint"></div><div class="g16-shine"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Dual displacement — two turbulence layers stacked.</div></div><div class="f"><span class="tag">dual SVG</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">17</span>SVG Soft Diffuse</div><div class="vd">specExponent=20 wide spread, scale=50</div>
+      <div class="card c17"><div class="g17-fx"></div><div class="g17-tint"></div><div class="g17-shine"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Soft diffuse — wide specular, minimal distortion. Calm.</div></div><div class="f"><span class="tag">soft SVG</span><span class="dot"></span></div></div></div></div>
+
+    <div class="variant"><div class="vl"><span class="n">18</span>Double Layer Glass</div><div class="vd">Outer blur(8px) + inner blur(16px) nested</div>
+      <div class="card c18"><div class="g18-outer"></div><div class="g18-inner"></div><div class="g18-edge"></div><div class="ct"><div><div class="t">Chat Message</div><div class="s">Double layer — two nested glass panes. Extra depth.</div></div><div class="f"><span class="tag">double</span><span class="dot"></span></div></div></div></div>
+
+  </div>
+</div>
+</body>
+</html>

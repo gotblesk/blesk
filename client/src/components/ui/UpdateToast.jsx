@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Download, Sparkles } from 'lucide-react';
 import './UpdateToast.css';
 
@@ -26,8 +26,12 @@ export default function UpdateToast() {
   const [total, setTotal] = useState(0);
   const [dismissed, setDismissed] = useState(false);
 
+  const registeredRef = useRef(false);
+
   useEffect(() => {
+    if (registeredRef.current) return;
     if (!window.blesk?.update) return;
+    registeredRef.current = true;
 
     window.blesk.update.onAvailable((v) => {
       setVersion(v);

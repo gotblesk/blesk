@@ -18,6 +18,7 @@ import VoiceControls from '../voice/VoiceControls';
 import IncomingCallOverlay from '../voice/IncomingCallOverlay';
 import ChannelBrowser from '../channels/ChannelBrowser';
 import ChannelView from '../channels/ChannelView';
+import AdminPanel from '../admin/AdminPanel';
 import UpdateBanner from '../ui/UpdateBanner';
 import SpotlightSearch from '../ui/SpotlightSearch';
 import { soundTabSwitch, soundWindowOpen, soundWindowClose, soundVoiceJoin, soundVoiceLeave, soundRingtoneStop } from '../../utils/sounds';
@@ -30,7 +31,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useHotkeys } from '../../hooks/useHotkeys';
 import './MainScreen.css';
 
-export default function MainScreen({ user, onLogout }) {
+export default function MainScreen({ user, onLogout, isAdmin }) {
   // ═══════ CORE STATE ═══════
   // view: 'nebula' (главное меню с карточками) | 'chat' (sidebar + чат)
   // secondaryView: null | 'voice' | 'channels' | 'friends' | 'settings'
@@ -160,7 +161,7 @@ export default function MainScreen({ user, onLogout }) {
   // ═══════ HOTKEYS ═══════
   useHotkeys({
     search: () => setSpotlightOpen(true),
-    tabChats: () => { setSecondaryView(null); if (view !== 'nebula') setView('nebula'); },
+    tabChats: () => { setSecondaryView(null); if (!activeChatId) setView('nebula'); },
     tabVoice: () => switchToView('voice'),
     tabChannels: () => switchToView('channels'),
     tabFriends: () => switchToView('friends'),
@@ -238,11 +239,15 @@ export default function MainScreen({ user, onLogout }) {
             )}
 
             {secondaryView === 'friends' && (
-              <FriendsScreen onBack={() => { setSecondaryView(null); }} onOpenChat={handleOpenChat} />
+              <FriendsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} onOpenChat={handleOpenChat} />
             )}
 
             {secondaryView === 'settings' && (
-              <SettingsScreen onBack={() => { setSecondaryView(null); }} />
+              <SettingsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
+            )}
+
+            {secondaryView === 'admin' && (
+              <AdminPanel onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
             )}
           </div>
         </div>
@@ -271,10 +276,14 @@ export default function MainScreen({ user, onLogout }) {
                 : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />
             )}
             {secondaryView === 'friends' && (
-              <FriendsScreen onBack={() => setSecondaryView(null)} onOpenChat={handleOpenChat} />
+              <FriendsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} onOpenChat={handleOpenChat} />
             )}
             {secondaryView === 'settings' && (
-              <SettingsScreen onBack={() => setSecondaryView(null)} />
+              <SettingsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
+            )}
+
+            {secondaryView === 'admin' && (
+              <AdminPanel onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
             )}
           </div>
         </div>
@@ -323,6 +332,7 @@ export default function MainScreen({ user, onLogout }) {
       {/* Dynamic Island — навигация (всегда виден) */}
       <DynamicIsland
         user={currentUser}
+        isAdmin={isAdmin}
         onNavigate={switchToView}
         onOpenProfile={() => setProfileOpen(true)}
         onOpenSearch={(query) => { setSpotlightOpen(true); }}

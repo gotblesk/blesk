@@ -7,6 +7,7 @@ import './Avatar.css';
 // Решает: broken image fallback, консистентные цвета, onError обработка
 export default function Avatar({
   user,
+  avatarUrl,           // fallback если user.avatar нет
   size = 'md',        // sm (24), md (36), lg (48), xl (80)
   showOnline = false,
   isOnline = false,
@@ -19,7 +20,12 @@ export default function Avatar({
 
   const hue = getAvatarHue(user);
   const initial = getInitial(user);
-  const hasAvatar = user?.avatar && !imgError;
+  const avatarSrc = user?.avatar
+    ? `${API_URL}/uploads/avatars/${user.avatar}`
+    : avatarUrl
+      ? `${API_URL}/uploads/avatars/${avatarUrl}`
+      : null;
+  const hasAvatar = avatarSrc && !imgError;
 
   const statusDot = showOnline && (isOnline || userStatus === 'dnd');
   const dotClass = userStatus === 'dnd' ? 'avatar__dot--dnd' : 'avatar__dot--online';
@@ -38,7 +44,7 @@ export default function Avatar({
       {hasAvatar ? (
         <img
           className="avatar__img"
-          src={`${API_URL}/uploads/avatars/${user.avatar}`}
+          src={avatarSrc}
           alt=""
           onError={() => setImgError(true)}
         />

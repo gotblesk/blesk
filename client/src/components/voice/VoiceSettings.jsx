@@ -24,6 +24,7 @@ export default function VoiceSettings() {
   const [micLevel, setMicLevel] = useState(0);
   const streamRef = useRef(null);
   const animRef = useRef(null);
+  const ctxRef = useRef(null);
 
   // Загрузить список устройств
   useEffect(() => {
@@ -57,6 +58,8 @@ export default function VoiceSettings() {
         cancelAnimationFrame(animRef.current);
         animRef.current = null;
       }
+      ctxRef.current?.close();
+      ctxRef.current = null;
       setTesting(false);
       setMicLevel(0);
       return;
@@ -77,6 +80,7 @@ export default function VoiceSettings() {
 
       // Визуализация уровня
       const ctx = new AudioContext();
+      ctxRef.current = ctx;
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
@@ -105,6 +109,8 @@ export default function VoiceSettings() {
       if (animRef.current) {
         cancelAnimationFrame(animRef.current);
       }
+      ctxRef.current?.close();
+      ctxRef.current = null;
     };
   }, []);
 

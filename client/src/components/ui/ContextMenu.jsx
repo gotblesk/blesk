@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import './ContextMenu.css';
 
 export default function ContextMenu({ x, y, items, onClose }) {
@@ -20,8 +20,8 @@ export default function ContextMenu({ x, y, items, onClose }) {
     };
   }, [onClose]);
 
-  // Позиционирование (не выходить за экран)
-  useEffect(() => {
+  // Позиционирование (useLayoutEffect — синхронно до paint, убирает визуальный флэш)
+  useLayoutEffect(() => {
     if (!menuRef.current) return;
     const rect = menuRef.current.getBoundingClientRect();
     if (rect.right > window.innerWidth) {

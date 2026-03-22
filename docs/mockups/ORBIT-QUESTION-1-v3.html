@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Orbit: плотный blob с прилипанием</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'SF Pro Display', sans-serif; background: #08060f; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px; gap: 24px; }
+  h1 { font-size: 18px; font-weight: 700; }
+  .sub { font-size: 11px; color: rgba(255,255,255,0.2); text-align: center; margin-top: -16px; }
+  .svg-f { position: absolute; width: 0; height: 0; }
+
+  /* ═══ Demo 0: Proof that metaball works ═══ */
+  .proof { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .proof__label { font-size: 10px; color: rgba(255,255,255,0.15); }
+  .proof__box { width: 200px; height: 80px; position: relative; }
+  .proof__goo { filter: url(#goo-strong); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
+  .proof__blob { width: 50px; height: 50px; border-radius: 50%; position: absolute; transition: all 0.6s cubic-bezier(0.16,1,0.3,1); }
+  .proof__blob--a { background: #c8ff00; left: 50px; top: 15px; }
+  .proof__blob--b { background: #c8ff00; left: 100px; top: 15px; }
+  .proof__box:hover .proof__blob--a { left: 60px; }
+  .proof__box:hover .proof__blob--b { left: 90px; }
+  .proof__hint { font-size: 9px; color: rgba(200,255,0,0.3); }
+
+  /* ═══ Variants row ═══ */
+  .variants { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .variant { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+  .variant__label { font-size: 11px; color: rgba(255,255,255,0.2); font-weight: 600; }
+  .variant__label span { color: #c8ff00; }
+
+  .orbit-box { width: 240px; height: 240px; position: relative; border-radius: 20px; background: rgba(255,255,255,0.01); border: 2px solid rgba(255,255,255,0.04); transition: all 0.3s; overflow: hidden; }
+  .orbit-box:hover { border-color: rgba(200,255,0,0.1); }
+  .orbit-box.selected { border-color: #c8ff00; background: rgba(200,255,0,0.015); }
+
+  /* Кружки — позиционируем через JS для точности */
+  .goo-layer { position: absolute; inset: 0; }
+  .av { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; transition: all 0.5s cubic-bezier(0.16,1,0.3,1); cursor: pointer; z-index: 2; }
+  .av:hover { z-index: 10 !important; }
+  .av--me { color: #000; }
+  .dot { position: absolute; bottom: -1px; right: -1px; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; border: 1.5px solid #08060f; }
+  /* Имена СНАРУЖИ */
+  .names-layer { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+  .nm { position: absolute; font-size: 7px; color: rgba(255,255,255,0.2); text-align: center; white-space: nowrap; transform: translate(-50%, 0); }
+
+  .hue-v { background: linear-gradient(135deg, hsl(300,70%,55%), hsl(340,60%,45%)); }
+  .hue-d { background: linear-gradient(135deg, hsl(200,70%,55%), hsl(240,60%,45%)); }
+  .hue-a { background: linear-gradient(135deg, hsl(30,70%,55%), hsl(50,60%,45%)); }
+  .hue-m { background: linear-gradient(135deg, hsl(170,70%,55%), hsl(190,60%,45%)); }
+  .hue-k { background: linear-gradient(135deg, hsl(60,70%,50%), hsl(80,60%,40%)); }
+  .hue-l { background: linear-gradient(135deg, hsl(350,70%,55%), hsl(10,60%,45%)); }
+  .hue-me { background: linear-gradient(135deg, hsl(100,70%,55%), hsl(140,60%,45%)); }
+
+  .info { max-width: 600px; text-align: center; margin-top: 8px; }
+  .info p { font-size: 11px; color: rgba(255,255,255,0.2); line-height: 1.6; }
+  .info b { color: rgba(255,255,255,0.4); }
+</style>
+</head>
+<body>
+
+<svg class="svg-f">
+  <defs>
+    <!-- Средний — stdDeviation=10, matrix 20 -8 -->
+    <filter id="goo-mid">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+    <!-- Сильный — stdDeviation=12, matrix 22 -9 -->
+    <filter id="goo-strong">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+    <!-- Очень сильный — stdDeviation=14, matrix 24 -10 -->
+    <filter id="goo-ultra">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="b"/>
+      <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10" result="g"/>
+      <feComposite in="SourceGraphic" in2="g" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
+<h1>Orbit: прилипание — тест</h1>
+<p class="sub">Сначала проверь что metaball работает — hover на жёлтые кружки ниже</p>
+
+<!-- Proof of concept -->
+<div class="proof">
+  <div class="proof__label">↓ HOVER чтобы увидеть blob-мостик ↓</div>
+  <div class="proof__box">
+    <div class="proof__goo">
+      <div class="proof__blob proof__blob--a"></div>
+      <div class="proof__blob proof__blob--b"></div>
+    </div>
+  </div>
+  <div class="proof__hint">при hover кружки сближаются → blob-мостик</div>
+</div>
+
+<p class="sub">Теперь варианты orbit. Аватары расположены ВПЛОТНУЮ. Hover на аватар = он "отлипает".</p>
+
+<div class="variants">
+
+  <!-- ═══ V1: Средний ═══ -->
+  <div class="variant" onclick="sel(0)">
+    <div class="variant__label">1 — <span>Средний</span> blob</div>
+    <div class="orbit-box" id="v0">
+      <!-- Filter layer — ТОЛЬКО кружки -->
+      <div class="goo-layer" style="filter:url(#goo-mid)">
+        <!-- Центр: 120,120. Друзья на расстоянии ~48px от центра (ВПЛОТНУЮ к центру size 48+36=84, gap~12px) -->
+        <div class="av av--me hue-me" style="width:48px;height:48px;font-size:17px;left:96px;top:96px">G</div>
+        <!-- top -->
+        <div class="av hue-v" style="width:36px;height:36px;font-size:13px;left:102px;top:42px" onmouseenter="push(this,0,-18)" onmouseleave="unpush(this)">V<div class="dot"></div></div>
+        <!-- top-right -->
+        <div class="av hue-d" style="width:36px;height:36px;font-size:13px;left:154px;top:62px" onmouseenter="push(this,14,-12)" onmouseleave="unpush(this)">D</div>
+        <!-- bottom-right -->
+        <div class="av hue-a" style="width:36px;height:36px;font-size:13px;left:154px;top:128px" onmouseenter="push(this,14,12)" onmouseleave="unpush(this)">A<div class="dot"></div></div>
+        <!-- bottom -->
+        <div class="av hue-m" style="width:36px;height:36px;font-size:13px;left:102px;top:160px" onmouseenter="push(this,0,18)" onmouseleave="unpush(this)">M</div>
+        <!-- bottom-left -->
+        <div class="av hue-k" style="width:36px;height:36px;font-size:13px;left:48px;top:128px" onmouseenter="push(this,-14,12)" onmouseleave="unpush(this)">K<div class="dot"></div></div>
+        <!-- top-left -->
+        <div class="av hue-l" style="width:36px;height:36px;font-size:13px;left:48px;top:62px" onmouseenter="push(this,-14,-12)" onmouseleave="unpush(this)">L</div>
+      </div>
+      <!-- Имена СНАРУЖИ -->
+      <div class="names-layer">
+        <div class="nm" style="left:120px;top:28px">Vohog</div>
+        <div class="nm" style="left:192px;top:54px">Den</div>
+        <div class="nm" style="left:192px;top:148px">Alice</div>
+        <div class="nm" style="left:120px;top:198px">Mike</div>
+        <div class="nm" style="left:46px;top:148px">Kate</div>
+        <div class="nm" style="left:46px;top:54px">Leo</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ V2: Сильный ═══ -->
+  <div class="variant" onclick="sel(1)">
+    <div class="variant__label">2 — <span>Сильный</span> blob</div>
+    <div class="orbit-box" id="v1">
+      <div class="goo-layer" style="filter:url(#goo-strong)">
+        <div class="av av--me hue-me" style="width:48px;height:48px;font-size:17px;left:96px;top:96px">G</div>
+        <div class="av hue-v" style="width:36px;height:36px;font-size:13px;left:102px;top:42px" onmouseenter="push(this,0,-20)" onmouseleave="unpush(this)">V<div class="dot"></div></div>
+        <div class="av hue-d" style="width:36px;height:36px;font-size:13px;left:154px;top:62px" onmouseenter="push(this,16,-14)" onmouseleave="unpush(this)">D</div>
+        <div class="av hue-a" style="width:36px;height:36px;font-size:13px;left:154px;top:128px" onmouseenter="push(this,16,14)" onmouseleave="unpush(this)">A<div class="dot"></div></div>
+        <div class="av hue-m" style="width:36px;height:36px;font-size:13px;left:102px;top:160px" onmouseenter="push(this,0,20)" onmouseleave="unpush(this)">M</div>
+        <div class="av hue-k" style="width:36px;height:36px;font-size:13px;left:48px;top:128px" onmouseenter="push(this,-16,14)" onmouseleave="unpush(this)">K<div class="dot"></div></div>
+        <div class="av hue-l" style="width:36px;height:36px;font-size:13px;left:48px;top:62px" onmouseenter="push(this,-16,-14)" onmouseleave="unpush(this)">L</div>
+      </div>
+      <div class="names-layer">
+        <div class="nm" style="left:120px;top:28px">Vohog</div>
+        <div class="nm" style="left:192px;top:54px">Den</div>
+        <div class="nm" style="left:192px;top:148px">Alice</div>
+        <div class="nm" style="left:120px;top:198px">Mike</div>
+        <div class="nm" style="left:46px;top:148px">Kate</div>
+        <div class="nm" style="left:46px;top:54px">Leo</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ V3: Ультра ═══ -->
+  <div class="variant" onclick="sel(2)">
+    <div class="variant__label">3 — <span>Ультра</span> blob</div>
+    <div class="orbit-box" id="v2">
+      <div class="goo-layer" style="filter:url(#goo-ultra)">
+        <div class="av av--me hue-me" style="width:48px;height:48px;font-size:17px;left:96px;top:96px">G</div>
+        <div class="av hue-v" style="width:36px;height:36px;font-size:13px;left:102px;top:42px" onmouseenter="push(this,0,-22)" onmouseleave="unpush(this)">V<div class="dot"></div></div>
+        <div class="av hue-d" style="width:36px;height:36px;font-size:13px;left:154px;top:62px" onmouseenter="push(this,18,-16)" onmouseleave="unpush(this)">D</div>
+        <div class="av hue-a" style="width:36px;height:36px;font-size:13px;left:154px;top:128px" onmouseenter="push(this,18,16)" onmouseleave="unpush(this)">A<div class="dot"></div></div>
+        <div class="av hue-m" style="width:36px;height:36px;font-size:13px;left:102px;top:160px" onmouseenter="push(this,0,22)" onmouseleave="unpush(this)">M</div>
+        <div class="av hue-k" style="width:36px;height:36px;font-size:13px;left:48px;top:128px" onmouseenter="push(this,-18,16)" onmouseleave="unpush(this)">K<div class="dot"></div></div>
+        <div class="av hue-l" style="width:36px;height:36px;font-size:13px;left:48px;top:62px" onmouseenter="push(this,-18,-16)" onmouseleave="unpush(this)">L</div>
+      </div>
+      <div class="names-layer">
+        <div class="nm" style="left:120px;top:28px">Vohog</div>
+        <div class="nm" style="left:192px;top:54px">Den</div>
+        <div class="nm" style="left:192px;top:148px">Alice</div>
+        <div class="nm" style="left:120px;top:198px">Mike</div>
+        <div class="nm" style="left:46px;top:148px">Kate</div>
+        <div class="nm" style="left:46px;top:54px">Leo</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="info">
+  <p><b>Hover</b> на аватар друга — он "отлипает" и отъезжает от центра. Без hover — все слиты blob-мостиками.</p>
+  <p><b>Разница:</b> 1 = тонкие мостики, 2 = жирные мостики, 3 = почти единая масса.</p>
+</div>
+
+<script>
+function sel(idx) {
+  document.querySelectorAll('.orbit-box').forEach(b => b.classList.remove('selected'));
+  document.getElementById('v' + idx).classList.add('selected');
+}
+
+// Отталкивание при hover — аватар отъезжает от массы
+function push(el, dx, dy) {
+  const origLeft = parseFloat(el.style.left);
+  const origTop = parseFloat(el.style.top);
+  el._origLeft = origLeft;
+  el._origTop = origTop;
+  el.style.left = (origLeft + dx) + 'px';
+  el.style.top = (origTop + dy) + 'px';
+  el.style.transform = 'scale(1.15)';
+  el.style.zIndex = '10';
+}
+function unpush(el) {
+  if (el._origLeft !== undefined) {
+    el.style.left = el._origLeft + 'px';
+    el.style.top = el._origTop + 'px';
+  }
+  el.style.transform = '';
+  el.style.zIndex = '';
+}
+</script>
+</body>
+</html>

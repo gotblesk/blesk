@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Pin, Lock, CheckCheck } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import MediaMessage from './MediaMessage';
@@ -38,10 +38,12 @@ export default function ChatMessage({
   });
 
   // Анимация при переходе в "прочитано"
-  if (isRead && !prevReadRef.current) {
-    prevReadRef.current = true;
-    if (!readAnimated) setReadAnimated(true);
-  }
+  useEffect(() => {
+    if (isRead && !prevReadRef.current) {
+      prevReadRef.current = true;
+      setReadAnimated(true);
+    }
+  }, [isRead]);
 
   const time = new Date(message.createdAt).toLocaleTimeString('ru-RU', {
     hour: '2-digit',
@@ -102,7 +104,7 @@ export default function ChatMessage({
     >
       {/* Аватар — только для last/solo чужих сообщений */}
       {!isOwn && showAvatar && (
-        <Avatar user={{ username: senderName, avatar: message.avatar }} size="sm" className="chat-message__avatar" />
+        <Avatar user={{ username: senderName, avatar: message.user?.avatar }} size="sm" className="chat-message__avatar" />
       )}
       {!isOwn && !showAvatar && (
         <div className="chat-message__avatar chat-message__avatar--hidden" />

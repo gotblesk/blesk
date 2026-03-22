@@ -2,13 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
 import { useVoiceStore } from '../../store/voiceStore';
-import { Search, Users, Mic, Radio, Settings, X } from 'lucide-react';
+import { Search, Users, Mic, Radio, Settings, Sparkles, X } from 'lucide-react';
 import Avatar from './Avatar';
 import './DynamicIsland.css';
 
-// ═══════ DYNAMIC ISLAND — навигация blesk ═══════
 export default function DynamicIsland({
   user,
+  isAdmin,
   onNavigate,
   onOpenProfile,
   onOpenSearch,
@@ -90,22 +90,6 @@ export default function DynamicIsland({
       return !prev;
     });
   }, []);
-
-  // Ctrl+K
-  useEffect(() => {
-    function onKey(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        toggleSearch();
-      }
-      if (e.key === 'Escape' && searchOpen) {
-        setSearchOpen(false);
-        setSearchQuery('');
-      }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [searchOpen, toggleSearch]);
 
   // Search submit
   const handleSearchSubmit = useCallback(() => {
@@ -204,9 +188,6 @@ export default function DynamicIsland({
               <button className="island__btn" onClick={(e) => handleNav(e, 'friends')}>
                 <div className="island__btn-icon"><Users size={14} /></div>
                 <span className="island__btn-label">Друзья</span>
-                {onlineUsers.length > 0 && (
-                  <span className="island__btn-badge">{onlineUsers.length}</span>
-                )}
               </button>
 
               <button className="island__btn" onClick={(e) => handleNav(e, 'voice')}>
@@ -219,6 +200,12 @@ export default function DynamicIsland({
                 <div className="island__btn-icon island__btn-icon--channels"><Radio size={14} /></div>
                 <span className="island__btn-label">Каналы</span>
               </button>
+
+              {isAdmin && (
+                <button className="island__btn" onClick={(e) => handleNav(e, 'admin')}>
+                  <div className="island__btn-icon"><Sparkles size={14} /></div>
+                </button>
+              )}
 
               <button className="island__btn" onClick={(e) => handleNav(e, 'settings')}>
                 <div className="island__btn-icon island__btn-icon--settings"><Settings size={14} /></div>
