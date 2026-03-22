@@ -4,6 +4,9 @@ import { useSettingsStore } from '../../store/settingsStore';
 import ChatHeader from './ChatHeader';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import TypingBubble from './TypingBubble';
+import DateSeparator from './DateSeparator';
+import UnreadDivider from './UnreadDivider';
 import ImageLightbox from './ImageLightbox';
 import CallBanner from '../voice/CallBanner';
 import GroupMembersPanel from './GroupMembersPanel';
@@ -11,6 +14,7 @@ import { MIN_WIDTH, MIN_HEIGHT } from '../../hooks/useWindowManager';
 import { getCurrentUserId } from '../../utils/auth';
 import uploadFile from '../../utils/uploadFile';
 import { encryptMessage, fetchPublicKey } from '../../utils/cryptoService';
+import { getHueFromString } from '../../utils/hueIdentity';
 import './ChatView.css';
 
 // Resize edges
@@ -31,6 +35,8 @@ export default function ChatView({
   activeCall,
   onJoinCall,
 }) {
+  // Inline mode — встроен в layout без windowState
+  const isInline = !windowState;
   const { messages, chats, onlineUsers, userStatuses, typingUsers, openChat, markAsRead } = useChatStore();
   const showTyping = useSettingsStore((s) => s.showTyping);
   const compactMessages = useSettingsStore((s) => s.compactMessages);
@@ -122,10 +128,12 @@ export default function ChatView({
 
   // === Drag / Pull-down на хедере ===
   const handleHeaderPointerDown = useCallback((e) => {
+    // Inline mode — не перетаскивается
+    if (isInline) return;
     // Игнорировать клик на кнопку закрытия
     if (e.target.closest('button') || e.target.closest('.chat-header__actions') || e.target.closest('a') || e.target.closest('input')) return;
 
-    onFocus();
+    if (onFocus) onFocus();
     dragRef.current = {
       mode: 'undecided',
       startX: e.clientX,
@@ -136,7 +144,7 @@ export default function ChatView({
     };
     e.currentTarget.setPointerCapture(e.pointerId);
     e.preventDefault();
-  }, [onFocus, windowState.x, windowState.y]);
+  }, [isInline, onFocus, windowState?.x, windowState?.y]);
 
   const handleHeaderPointerMove = useCallback((e) => {
     const d = dragRef.current;
@@ -304,10 +312,26 @@ export default function ChatView({
     socketRef.current?.emit('typing:stop', { chatId });
   };
 
+  // Редактирование сообщения
+  const handleEdit = useCallback((msg) => {
+    socketRef.current?.emit('message:edit', { messageId: msg.id, chatId, text: msg.text });
+  }, [chatId, socketRef]);
+
+  // Удаление сообщения
+  const handleDelete = useCallback((messageId) => {
+    socketRef.current?.emit('message:delete', { messageId, chatId });
+  }, [chatId, socketRef]);
+
   if (!chat) return null;
 
   const isOnline = chat.otherUser ? onlineUsers.includes(chat.otherUser.id) : false;
   const typingInChat = typingUsers[chatId] || [];
+
+  // Вычисляем ID первого непрочитанного сообщения (для UnreadDivider)
+  const unreadCount = chat.unreadCount || 0;
+  const firstUnreadId = unreadCount > 0 && chatMessages.length >= unreadCount
+    ? chatMessages[chatMessages.length - unreadCount]?.id
+    : null;
 
   // Morph animation — пересчитать координаты относительно окна
   const morphStyle = morphRect
@@ -328,9 +352,9 @@ export default function ChatView({
 
   return (
     <div
-      className={`chat-view ${morphRect ? 'chat-view--morph' : ''} ${isFocused ? 'chat-view--focused' : ''} ${closing ? 'chat-view--closing' : ''}`}
+      className={`chat-view ${isInline ? 'chat-view--inline' : ''} ${morphRect ? 'chat-view--morph' : ''} ${isFocused ? 'chat-view--focused' : ''} ${closing ? 'chat-view--closing' : ''}`}
       ref={viewRef}
-      style={{
+      style={isInline ? {} : {
         top: windowState.y,
         left: windowState.x,
         width: windowState.width,
@@ -349,7 +373,7 @@ export default function ChatView({
       }}
       onPointerDown={(e) => {
         // Focus при клике в любое место окна
-        if (!e.target.closest('.chat-view__resize')) {
+        if (onFocus && !e.target.closest('.chat-view__resize')) {
           onFocus();
         }
       }}
@@ -410,23 +434,44 @@ export default function ChatView({
           else if (!prevSame && nextSame) groupPosition = 'first';
           else if (prevSame && !nextSame) groupPosition = 'last';
 
-          const showTime = !nextSame;
           const showGap = prev && prev.userId !== msg.userId;
+
+          // Разделитель дат
+          const showDateSep = !prev ||
+            new Date(msg.createdAt).toDateString() !== new Date(prev.createdAt).toDateString();
+
+          // Hue identity
+          const hue = getHueFromString(msg.user?.username || msg.userId || '');
 
           return (
             <Fragment key={msg.id}>
-              {showGap && <div className="chat-view__group-gap" />}
+              {showDateSep && <DateSeparator date={msg.createdAt} />}
+              {firstUnreadId === msg.id && <UnreadDivider />}
+              {showGap && !showDateSep && <div className="chat-view__group-gap" />}
               <ChatMessage
                 message={msg}
                 isOwn={isOwn}
                 groupPosition={groupPosition}
-                showTime={showTime}
+                hue={hue}
+                senderName={msg.user?.username || 'Unknown'}
+                isRead={msg.readBy?.includes?.(chat.otherUser?.id) || false}
                 onReply={() => setReplyTo(msg)}
+                onEdit={() => handleEdit(msg)}
+                onDelete={() => handleDelete(msg.id)}
                 onImageClick={setLightboxSrc}
               />
             </Fragment>
           );
         })}
+
+        {/* Typing bubble */}
+        {typingInChat.length > 0 && typingInChat[0] && (
+          <TypingBubble
+            user={typingInChat[0]}
+            hue={getHueFromString(typingInChat[0].username || '')}
+          />
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -443,8 +488,8 @@ export default function ChatView({
         <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
       )}
 
-      {/* Resize хендлы — 8 зон по краям и углам */}
-      {EDGES.map((edge) => (
+      {/* Resize хендлы — 8 зон по краям и углам (только floating mode) */}
+      {!isInline && EDGES.map((edge) => (
         <div
           key={edge}
           className={`chat-view__resize chat-view__resize--${edge}`}
