@@ -30,6 +30,7 @@
   background: rgba(8, 6, 15, 0.85);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  padding-bottom: 80px; /* место для DynamicIsland */
 }
 
 /* Focused окно — ярче обводка */
