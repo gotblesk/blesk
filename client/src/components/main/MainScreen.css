@@ -1,3 +1,4 @@
+/* ═══════ MAIN SCREEN ═══════ */
 .main-screen {
   flex: 1;
   display: flex;
@@ -6,67 +7,25 @@
   min-height: 0;
 }
 
-/* Navigation bar */
-.main-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 24px 12px;
-  position: relative;
-  z-index: 10;
-}
-
-.main-nav > * {
-  -webkit-app-region: no-drag;
-}
-
-/* Content area */
-.main-content {
+/* ═══════ LAYOUT: SIDEBAR + CONTENT ═══════ */
+.main-layout {
   flex: 1;
   display: flex;
-  overflow: hidden;
-  padding: 0 16px 16px;
-  gap: 12px;
+  min-height: 0;
   position: relative;
-  z-index: 1;
+  z-index: 5;
 }
 
-.main-content__center {
+.main-layout__content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-/* Placeholder */
-.placeholder-icon {
-  font-size: 48px;
-  margin-bottom: 8px;
-  opacity: 0.6;
-}
-
-.placeholder-title {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.placeholder-sub {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* Chat area */
-.main-screen__chat-area {
-  flex: 1;
-  display: flex;
+  min-width: 0;
   position: relative;
   overflow: hidden;
 }
 
-/* Section enter animation (blur morph) */
+/* ═══════ SECTION ANIMATION ═══════ */
 .section-enter {
   animation: sectionIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -82,101 +41,7 @@
   }
 }
 
-/* Swipe edge hints — светящиеся полоски по краям */
-.swipe-hint {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  z-index: 50;
-  pointer-events: none;
-}
-
-.swipe-hint--left {
-  left: 0;
-  background: linear-gradient(180deg,
-    transparent 20%,
-    rgba(200, 255, 0, 0.06) 35%,
-    rgba(200, 255, 0, 0.15) 50%,
-    rgba(200, 255, 0, 0.06) 65%,
-    transparent 80%
-  );
-  animation: edgeGlow 3s ease-in-out infinite;
-}
-
-.swipe-hint--right {
-  right: 0;
-  background: linear-gradient(180deg,
-    transparent 20%,
-    rgba(140, 100, 255, 0.06) 35%,
-    rgba(140, 100, 255, 0.15) 50%,
-    rgba(140, 100, 255, 0.06) 65%,
-    transparent 80%
-  );
-  animation: edgeGlow 3s ease-in-out infinite 1.5s;
-}
-
-/* Стрелочки-подсказки */
-.swipe-hint::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  border: 2px solid;
-  border-radius: 2px;
-}
-
-.swipe-hint--left::after {
-  left: 6px;
-  transform: translateY(-50%) rotate(45deg);
-  border-left: none;
-  border-bottom: none;
-  border-color: rgba(200, 255, 0, 0.2);
-}
-
-.swipe-hint--right::after {
-  right: 6px;
-  transform: translateY(-50%) rotate(-135deg);
-  border-left: none;
-  border-bottom: none;
-  border-color: rgba(140, 100, 255, 0.2);
-}
-
-@keyframes edgeGlow {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-
-/* ═══ Светлая тема ═══ */
-[data-theme="light"] .swipe-hint--left {
-  background: linear-gradient(180deg,
-    transparent 20%,
-    rgba(74, 140, 0, 0.08) 35%,
-    rgba(74, 140, 0, 0.2) 50%,
-    rgba(74, 140, 0, 0.08) 65%,
-    transparent 80%
-  );
-}
-
-[data-theme="light"] .swipe-hint--left::after {
-  border-color: rgba(74, 140, 0, 0.3);
-}
-
-[data-theme="light"] .swipe-hint--right {
-  background: linear-gradient(180deg,
-    transparent 20%,
-    rgba(100, 70, 200, 0.08) 35%,
-    rgba(100, 70, 200, 0.2) 50%,
-    rgba(100, 70, 200, 0.08) 65%,
-    transparent 80%
-  );
-}
-
-[data-theme="light"] .swipe-hint--right::after {
-  border-color: rgba(100, 70, 200, 0.3);
-}
-
+/* ═══════ LIGHT THEME ═══════ */
 [data-theme="light"] .placeholder-title {
   color: rgba(26, 26, 46, 0.6);
 }
