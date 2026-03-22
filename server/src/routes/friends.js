@@ -1,11 +1,11 @@
 const { Router } = require('express');
 const prisma = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireVerified } = require('../middleware/auth');
 
 const router = Router();
 
 // Отправить заявку в друзья
-router.post('/request', authenticate, async (req, res) => {
+router.post('/request', authenticate, requireVerified, async (req, res) => {
   try {
     const { userId: targetId } = req.body;
     if (!targetId) return res.status(400).json({ error: 'Укажите userId' });

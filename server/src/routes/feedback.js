@@ -15,13 +15,15 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Неверный тип обратной связи' });
     }
 
-    // Валидация текста
-    if (!text || text.trim().length === 0) {
-      return res.status(400).json({ error: 'Текст не может быть пустым' });
+    // Валидация длины полей
+    if (appVersion && appVersion.length > 50) {
+      return res.status(400).json({ error: 'appVersion слишком длинный' });
     }
-
-    if (text.length > 2000) {
-      return res.status(400).json({ error: 'Текст слишком длинный (макс. 2000 символов)' });
+    if (osInfo && osInfo.length > 200) {
+      return res.status(400).json({ error: 'osInfo слишком длинный' });
+    }
+    if (!text || text.trim().length === 0 || text.length > 5000) {
+      return res.status(400).json({ error: 'Текст обязателен (макс 5000 символов)' });
     }
 
     const feedback = await prisma.feedback.create({

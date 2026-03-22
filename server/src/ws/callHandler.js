@@ -78,10 +78,15 @@ function callHandler(io, socket) {
         callerSocketId: socket.id,
         startedAt: new Date(),
         participants: new Set(),
+        targetUserIds: new Set(),
         timeout: null,
       };
       // Звонящий сразу становится участником
       call.participants.add(userId);
+      // Сохранить кому адресован звонок (все участники чата кроме инициатора)
+      for (const pid of chatInfo.participantIds) {
+        if (pid !== userId) call.targetUserIds.add(pid);
+      }
       activeCalls.set(chatId, call);
 
       // Данные для входящего звонка
@@ -138,6 +143,11 @@ function callHandler(io, socket) {
       const call = activeCalls.get(chatId);
       if (!call) {
         return socket.emit('call:error', { chatId, error: 'Звонок не найден' });
+      }
+
+      // Проверить что звонок адресован этому пользователю
+      if (!call.targetUserIds.has(userId)) {
+        return socket.emit('call:error', { chatId, error: 'Звонок не адресован вам' });
       }
 
       // Проверить что пользователь участник чата

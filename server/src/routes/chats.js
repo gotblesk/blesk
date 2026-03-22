@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const prisma = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireVerified } = require('../middleware/auth');
 
 const router = Router();
 
@@ -103,6 +103,8 @@ router.get('/:id/messages', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const { before, limit = 50 } = req.query;
+    const parsedLimit = parseInt(limit) || 50;
+    const take = Math.min(Math.max(parsedLimit, 1), 100);
 
     const participant = await prisma.roomParticipant.findUnique({
       where: { roomId_userId: { roomId: id, userId: req.userId } },
@@ -122,7 +124,7 @@ router.get('/:id/messages', authenticate, async (req, res) => {
     const messages = await prisma.message.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: Math.min(parseInt(limit), 100),
+      take,
       include: {
         user: { select: { id: true, username: true, hue: true } },
         replyTo: {
@@ -142,7 +144,7 @@ router.get('/:id/messages', authenticate, async (req, res) => {
 });
 
 // Создать чат (личный или групповой)
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, requireVerified, async (req, res) => {
   try {
     const { participantId, participantIds, name } = req.body;
 
@@ -506,6 +508,10 @@ router.post('/:id/messages/:msgId/pin', authenticate, async (req, res) => {
     });
     if (!requester) {
       return res.status(403).json({ error: 'Нет доступа' });
+    }
+
+    if (requester.role === 'member') {
+      return res.status(403).json({ error: 'Только администратор может закреплять сообщения' });
     }
 
     const message = await prisma.message.findUnique({ where: { id: msgId } });

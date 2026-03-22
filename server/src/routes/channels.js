@@ -1,9 +1,11 @@
 const { Router } = require('express');
 const crypto = require('crypto');
 const prisma = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireVerified } = require('../middleware/auth');
 
 const router = Router();
+
+const VALID_CATEGORIES = ['gaming', 'music', 'art', 'tech', 'education', 'entertainment', 'news', 'sports', 'science', 'other'];
 
 // Все эндпоинты требуют авторизации
 router.use(authenticate);
@@ -62,7 +64,8 @@ router.get('/', async (req, res) => {
   try {
     const userId = req.userId;
     const { sort = 'popular', category, search, page = 1, limit = 20 } = req.query;
-    const take = Math.min(parseInt(limit) || 20, 50);
+    const parsedLimit = parseInt(limit) || 20;
+    const take = Math.min(Math.max(parsedLimit, 1), 50);
     const skip = (Math.max(parseInt(page) || 1, 1) - 1) * take;
 
     // Фильтры
@@ -73,6 +76,10 @@ router.get('/', async (req, res) => {
 
     if (category && category !== 'all') {
       where.channelMeta.category = category;
+    }
+
+    if (search && search.length > 100) {
+      return res.status(400).json({ error: 'Слишком длинный поисковый запрос' });
     }
 
     if (search) {
@@ -172,7 +179,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // ─── POST / — создать канал ───
-router.post('/', async (req, res) => {
+router.post('/', requireVerified, async (req, res) => {
   try {
     const userId = req.userId;
     const { name, description, category } = req.body;
@@ -183,6 +190,10 @@ router.post('/', async (req, res) => {
 
     if (name.trim().length > 64) {
       return res.status(400).json({ error: 'Название слишком длинное (макс 64)' });
+    }
+
+    if (category && !VALID_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: 'Недопустимая категория канала' });
     }
 
     // Создать Room + ChannelMeta + RoomParticipant в транзакции
@@ -248,7 +259,12 @@ router.patch('/:id', async (req, res) => {
       updates.name = name.trim();
     }
     if (description !== undefined) metaUpdates.description = description.trim();
-    if (category) metaUpdates.category = category;
+    if (category) {
+      if (!VALID_CATEGORIES.includes(category)) {
+        return res.status(400).json({ error: 'Недопустимая категория канала' });
+      }
+      metaUpdates.category = category;
+    }
 
     const [updatedRoom, updatedMeta] = await prisma.$transaction([
       Object.keys(updates).length > 0
@@ -356,7 +372,8 @@ router.get('/:id/posts', async (req, res) => {
     const userId = req.userId;
     const { id } = req.params;
     const { before, limit = 30 } = req.query;
-    const take = Math.min(parseInt(limit) || 30, 50);
+    const parsedLimit = parseInt(limit) || 30;
+    const take = Math.min(Math.max(parsedLimit, 1), 50);
 
     // Проверить доступ: публичный канал или подписчик
     const channel = await prisma.room.findUnique({

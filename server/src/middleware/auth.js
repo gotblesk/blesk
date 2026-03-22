@@ -45,4 +45,22 @@ function verifyRefreshToken(token) {
   }
 }
 
-module.exports = { authenticate, generateTokens, verifyRefreshToken };
+// Middleware: требует подтверждённый email (для чувствительных маршрутов)
+const prisma = require('../db');
+
+async function requireVerified(req, res, next) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { emailVerified: true },
+    });
+    if (!user || !user.emailVerified) {
+      return res.status(403).json({ error: 'Подтвердите email для выполнения этого действия' });
+    }
+    next();
+  } catch {
+    return res.status(500).json({ error: 'Ошибка проверки верификации' });
+  }
+}
+
+module.exports = { authenticate, generateTokens, verifyRefreshToken, requireVerified };

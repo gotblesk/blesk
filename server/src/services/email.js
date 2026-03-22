@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 const path = require('path');
 
 // SMTP транспорт — настраивается через env
@@ -28,9 +29,9 @@ if (process.env.SMTP_HOST) {
 // Путь к логотипу
 const LOGO_PATH = path.resolve(__dirname, '../../assets/blesk-email.png');
 
-// Генерация 6-значного кода
+// Генерация 6-значного кода (криптографически безопасный)
 function generateCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 // HTML-шаблон письма в стиле blesk (с логотипом через CID)

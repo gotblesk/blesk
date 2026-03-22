@@ -26,7 +26,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(cors({ origin: corsOrigin }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '100kb' }));
 
 // Статика — аватары и загрузки (разрешаем cross-origin для Electron)
 app.use('/uploads', (req, res, next) => {
