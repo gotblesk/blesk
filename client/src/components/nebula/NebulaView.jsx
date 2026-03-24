@@ -199,6 +199,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
 
     if (motion < 0.05) {
       animRef.current = false;
+      frameRef.current = null;
       savePositions();
       return;
     }
@@ -362,12 +363,15 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
       bodiesRef.current.forEach(b => {
         b.x = Math.max(CW / 2, Math.min(window.innerWidth - CW / 2, b.x));
         b.y = Math.max(55 + CH / 2, Math.min(window.innerHeight - CH / 2, b.y));
+        b.vx = 0; b.vy = 0;
       });
     };
     window.addEventListener('resize', onResize);
     return () => {
       window.removeEventListener('resize', onResize);
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
+      bodiesRef.current.forEach(b => { b.el = null; b.blob = null; });
+      bodiesRef.current = [];
     };
   }, []);
 

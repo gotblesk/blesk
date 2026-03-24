@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Call Screen Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Manrope', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 50px; }
+  .label { font-size: 11px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .ctitle { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 6px; }
+  .cdesc { font-size: 13px; color: rgba(255,255,255,0.35); max-width: 460px; text-align: center; line-height: 1.5; margin-bottom: 20px; }
+  .sep { width: 100%; max-width: 500px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT A: GLASS CALL SCREEN
+     Полноэкранный звонок с blur-фоном
+     ═══════════════════════════════════════ */
+  .call-a {
+    width: 360px; height: 600px;
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    background: #0a0816;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+  }
+
+  /* Blurred avatar background */
+  .call-a__bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, #7c3aed, #a855f7, #e879f9);
+    filter: blur(60px) saturate(1.3) brightness(0.35);
+    transform: scale(1.4);
+  }
+
+  /* Animated gradient overlay */
+  .call-a__overlay {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 30%, transparent 20%, rgba(10,8,22,0.7) 70%);
+  }
+
+  /* Subtle moving particles */
+  .call-a__particles {
+    position: absolute; inset: 0;
+    background: radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 100%),
+                radial-gradient(1px 1px at 80% 70%, rgba(255,255,255,0.08) 0%, transparent 100%),
+                radial-gradient(1px 1px at 50% 50%, rgba(200,255,0,0.06) 0%, transparent 100%),
+                radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.05) 0%, transparent 100%),
+                radial-gradient(1px 1px at 90% 20%, rgba(255,255,255,0.07) 0%, transparent 100%);
+    animation: particlesDrift 8s ease-in-out infinite alternate;
+  }
+  @keyframes particlesDrift {
+    0% { transform: translate(0,0); }
+    100% { transform: translate(5px, -8px); }
+  }
+
+  .call-a__content {
+    position: relative; z-index: 1;
+    height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 30px;
+  }
+
+  /* Status text top */
+  .call-a__status {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .call-a__status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4ade80;
+    animation: statusPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .call-a__time {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: auto;
+  }
+
+  /* Avatar — large, centered */
+  .call-a__ava {
+    width: 130px; height: 130px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 52px; font-weight: 900; color: #fff;
+    margin-bottom: 20px;
+    position: relative;
+    box-shadow: 0 0 60px rgba(167,139,250,0.2);
+  }
+
+  /* Animated rings around avatar */
+  .call-a__ring {
+    position: absolute; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.06);
+    animation: ringExpand 3s ease-out infinite;
+  }
+  .call-a__ring--1 { inset: -20px; animation-delay: 0s; }
+  .call-a__ring--2 { inset: -40px; animation-delay: 1s; }
+  .call-a__ring--3 { inset: -60px; animation-delay: 2s; }
+
+  @keyframes ringExpand {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(1.2); opacity: 0; }
+  }
+
+  /* Sound wave visualization */
+  .call-a__wave {
+    display: flex; align-items: center; gap: 3px;
+    height: 24px;
+    margin-bottom: 16px;
+  }
+
+  .call-a__wave-bar {
+    width: 3px;
+    border-radius: 2px;
+    background: rgba(200,255,0,0.4);
+    animation: waveAnim 1.2s ease-in-out infinite;
+  }
+  .call-a__wave-bar:nth-child(1) { animation-delay: 0s; }
+  .call-a__wave-bar:nth-child(2) { animation-delay: 0.1s; }
+  .call-a__wave-bar:nth-child(3) { animation-delay: 0.2s; }
+  .call-a__wave-bar:nth-child(4) { animation-delay: 0.3s; }
+  .call-a__wave-bar:nth-child(5) { animation-delay: 0.4s; }
+  .call-a__wave-bar:nth-child(6) { animation-delay: 0.3s; }
+  .call-a__wave-bar:nth-child(7) { animation-delay: 0.2s; }
+
+  @keyframes waveAnim {
+    0%, 100% { height: 4px; }
+    50% { height: 20px; }
+  }
+
+  .call-a__name {
+    font-size: 28px; font-weight: 900;
+    letter-spacing: -0.04em;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.3);
+  }
+
+  .call-a__label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: auto;
+  }
+
+  /* Action buttons */
+  .call-a__actions {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .call-a__btn {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .call-a__btn:hover { transform: scale(1.08); }
+  .call-a__btn:active { transform: scale(0.95); }
+
+  .call-a__btn--action {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.7);
+  }
+  .call-a__btn--action:hover { background: rgba(255,255,255,0.12); }
+  .call-a__btn--action.active { background: rgba(200,255,0,0.12); color: #c8ff00; border-color: rgba(200,255,0,0.2); }
+
+  .call-a__btn--end {
+    width: 60px; height: 60px;
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(239,68,68,0.3);
+  }
+  .call-a__btn--end:hover { box-shadow: 0 6px 28px rgba(239,68,68,0.4); }
+
+  .call-a__btn svg { width: 20px; height: 20px; }
+  .call-a__btn--end svg { width: 22px; height: 22px; }
+
+  .call-a__btn-label {
+    position: absolute;
+    bottom: -18px;
+    font-size: 9px;
+    color: rgba(255,255,255,0.2);
+    white-space: nowrap;
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT B: COMPACT FLOATING CARD
+     Компактная карточка поверх чата
+     ═══════════════════════════════════════ */
+  .call-b {
+    width: 340px;
+    border-radius: 22px;
+    overflow: hidden;
+    position: relative;
+    background: rgba(14,12,24,0.9);
+    backdrop-filter: blur(40px);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+    padding: 20px;
+  }
+
+  /* Gradient background glow */
+  .call-b__glow {
+    position: absolute;
+    top: -30px; left: -20%; right: -20%;
+    height: 120px;
+    background: radial-gradient(ellipse at 50% 50%, rgba(167,139,250,0.1), transparent 65%);
+    pointer-events: none;
+  }
+
+  .call-b__content {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 14px;
+  }
+
+  /* Top row — timer + close */
+  .call-b__top {
+    width: 100%;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .call-b__timer {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px; font-weight: 600;
+    color: rgba(74,222,128,0.7);
+  }
+
+  .call-b__timer-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #4ade80;
+    animation: bDot 1.5s ease-in-out infinite;
+  }
+  @keyframes bDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .call-b__close {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: none; background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.3);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    transition: all 0.12s;
+  }
+  .call-b__close:hover { background: rgba(255,255,255,0.08); }
+
+  /* Avatar */
+  .call-b__ava {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 900; color: #fff;
+    box-shadow: 0 0 40px rgba(167,139,250,0.15);
+    position: relative;
+  }
+
+  .call-b__ava-ring {
+    position: absolute; inset: -6px;
+    border-radius: 50%;
+    border: 2px solid rgba(74,222,128,0.2);
+    animation: bRing 2s ease-in-out infinite;
+  }
+  @keyframes bRing { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 0.2; } }
+
+  .call-b__name {
+    font-size: 20px; font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .call-b__status {
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    margin-top: -6px;
+  }
+
+  /* Mini wave */
+  .call-b__wave {
+    display: flex; gap: 2px; align-items: center; height: 16px;
+  }
+  .call-b__wave-bar {
+    width: 2px; border-radius: 1px;
+    background: rgba(200,255,0,0.3);
+    animation: waveAnim 1.2s ease-in-out infinite;
+  }
+
+  /* Buttons */
+  .call-b__btns {
+    display: flex; gap: 10px; width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  .call-b__btn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.12s;
+  }
+  .call-b__btn:hover { transform: scale(1.08); }
+
+  .call-b__btn--act {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+  }
+  .call-b__btn--act.on { background: rgba(200,255,0,0.1); color: #c8ff00; }
+
+  .call-b__btn--end {
+    width: 50px; height: 50px;
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 3px 14px rgba(239,68,68,0.25);
+  }
+
+  .call-b__btn svg { width: 18px; height: 18px; }
+  .call-b__btn--end svg { width: 20px; height: 20px; }
+
+  /* ═══════════════════════════════════════
+     CONCEPT C: MINIMAL BAR + EXPANDED
+     Минималистичная полоска, раскрывается
+     ═══════════════════════════════════════ */
+  .call-c-scene { width: 360px; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+
+  /* Collapsed bar */
+  .call-c-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px 8px 10px;
+    border-radius: 100px;
+    background: rgba(14,12,24,0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: fit-content;
+  }
+  .call-c-bar:hover { background: rgba(20,18,34,0.9); transform: scale(1.02); }
+
+  .call-c-bar__ava {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; color: #fff;
+    position: relative;
+  }
+
+  .call-c-bar__ava::after {
+    content: '';
+    position: absolute; inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(74,222,128,0.3);
+    animation: cBarRing 2s ease-in-out infinite;
+  }
+  @keyframes cBarRing { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.2; } }
+
+  .call-c-bar__info { display: flex; flex-direction: column; }
+  .call-c-bar__name { font-size: 12px; font-weight: 700; }
+  .call-c-bar__time { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(74,222,128,0.6); }
+
+  .call-c-bar__end {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #ef4444;
+    border: none; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; margin-left: 8px;
+  }
+  .call-c-bar__end svg { width: 12px; height: 12px; }
+
+  /* Expanded card */
+  .call-c-exp {
+    width: 100%;
+    border-radius: 22px;
+    background: rgba(14,12,24,0.9);
+    backdrop-filter: blur(40px);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    padding: 24px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 16px;
+  }
+
+  .call-c-exp__ava {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 900; color: #fff;
+  }
+
+  .call-c-exp__name { font-size: 20px; font-weight: 800; }
+
+  .call-c-exp__wave {
+    display: flex; gap: 2px; align-items: center; height: 20px;
+  }
+  .call-c-exp__wave-bar {
+    width: 2.5px; border-radius: 1.5px;
+    background: rgba(200,255,0,0.3);
+    animation: waveAnim 1.2s ease-in-out infinite;
+  }
+
+  .call-c-exp__time {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px; font-weight: 600;
+    color: rgba(74,222,128,0.6);
+  }
+
+  .call-c-exp__btns {
+    display: flex; gap: 12px;
+  }
+
+  .call-c-exp__btn {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.12s;
+  }
+  .call-c-exp__btn:hover { transform: scale(1.08); }
+
+  .call-c-exp__btn--act {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.6);
+  }
+
+  .call-c-exp__btn--end {
+    width: 56px; height: 56px;
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(239,68,68,0.25);
+  }
+
+  .call-c-exp__btn svg { width: 18px; height: 18px; }
+  .call-c-exp__btn--end svg { width: 20px; height: 20px; }
+</style>
+</head>
+<body>
+
+  <!-- CONCEPT A -->
+  <div style="text-align: center;">
+    <div class="label">Концепт A</div>
+    <div class="ctitle">Full Call Screen</div>
+    <div class="cdesc">Полноэкранный звонок. Blurred аватарка как фон. Анимированные волны звука. Расходящиеся кольца от аватара. Кнопки: микрофон, динамик, видео, завершить.</div>
+  </div>
+
+  <div class="call-a">
+    <div class="call-a__bg"></div>
+    <div class="call-a__overlay"></div>
+    <div class="call-a__particles"></div>
+    <div class="call-a__content">
+      <div class="call-a__status">
+        <div class="call-a__status-dot"></div>
+        Звонок
+      </div>
+      <div class="call-a__time">2:34</div>
+
+      <div class="call-a__ava">
+        <div class="call-a__ring call-a__ring--1"></div>
+        <div class="call-a__ring call-a__ring--2"></div>
+        <div class="call-a__ring call-a__ring--3"></div>
+        V
+      </div>
+
+      <div class="call-a__wave">
+        <div class="call-a__wave-bar" style="height: 6px;"></div>
+        <div class="call-a__wave-bar" style="height: 12px;"></div>
+        <div class="call-a__wave-bar" style="height: 8px;"></div>
+        <div class="call-a__wave-bar" style="height: 18px;"></div>
+        <div class="call-a__wave-bar" style="height: 10px;"></div>
+        <div class="call-a__wave-bar" style="height: 14px;"></div>
+        <div class="call-a__wave-bar" style="height: 6px;"></div>
+      </div>
+
+      <div class="call-a__name">Vohog</div>
+      <div class="call-a__label">Голосовой звонок</div>
+
+      <div class="call-a__actions">
+        <button class="call-a__btn call-a__btn--action">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+          <span class="call-a__btn-label">Микро</span>
+        </button>
+        <button class="call-a__btn call-a__btn--action active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <span class="call-a__btn-label">Динамик</span>
+        </button>
+        <button class="call-a__btn call-a__btn--end">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+        </button>
+        <button class="call-a__btn call-a__btn--action">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          <span class="call-a__btn-label">Видео</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- CONCEPT B -->
+  <div style="text-align: center;">
+    <div class="label">Концепт B</div>
+    <div class="ctitle">Floating Card</div>
+    <div class="cdesc">Компактная glass-карточка поверх чата. Не на весь экран — можно видеть чат за ней. Аватар с зелёным кольцом. Волны. Кнопки в ряд.</div>
+  </div>
+
+  <div class="call-b">
+    <div class="call-b__glow"></div>
+    <div class="call-b__content">
+      <div class="call-b__top">
+        <div class="call-b__timer">
+          <div class="call-b__timer-dot"></div>
+          2:34
+        </div>
+        <button class="call-b__close">✕</button>
+      </div>
+
+      <div class="call-b__ava">
+        <div class="call-b__ava-ring"></div>
+        V
+      </div>
+
+      <div class="call-b__name">Vohog</div>
+      <div class="call-b__status">Голосовой звонок</div>
+
+      <div class="call-b__wave">
+        <div class="call-b__wave-bar" style="height: 4px;"></div>
+        <div class="call-b__wave-bar" style="height: 10px;"></div>
+        <div class="call-b__wave-bar" style="height: 6px;"></div>
+        <div class="call-b__wave-bar" style="height: 14px;"></div>
+        <div class="call-b__wave-bar" style="height: 8px;"></div>
+        <div class="call-b__wave-bar" style="height: 12px;"></div>
+        <div class="call-b__wave-bar" style="height: 4px;"></div>
+      </div>
+
+      <div class="call-b__btns">
+        <button class="call-b__btn call-b__btn--act">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+        </button>
+        <button class="call-b__btn call-b__btn--act on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
+        <button class="call-b__btn call-b__btn--end">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+        </button>
+        <button class="call-b__btn call-b__btn--act">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- CONCEPT C -->
+  <div style="text-align: center;">
+    <div class="label">Концепт C</div>
+    <div class="ctitle">Expand Bar</div>
+    <div class="cdesc">Две формы: компактная pill-полоска (свёрнуто) и раскрытая карточка (развёрнуто). Кликни чтобы переключить. Pill показывает имя + таймер + кнопку завершить.</div>
+  </div>
+
+  <div class="call-c-scene">
+    <div class="call-c-bar">
+      <div class="call-c-bar__ava">V</div>
+      <div class="call-c-bar__info">
+        <span class="call-c-bar__name">Vohog</span>
+        <span class="call-c-bar__time">2:34</span>
+      </div>
+      <button class="call-c-bar__end">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+      </button>
+    </div>
+
+    <div style="font-size: 10px; color: rgba(255,255,255,0.1);">↓ раскрытое состояние ↓</div>
+
+    <div class="call-c-exp">
+      <div class="call-c-exp__ava">V</div>
+      <div class="call-c-exp__name">Vohog</div>
+
+      <div class="call-c-exp__wave">
+        <div class="call-c-exp__wave-bar" style="height: 4px;"></div>
+        <div class="call-c-exp__wave-bar" style="height: 10px;"></div>
+        <div class="call-c-exp__wave-bar" style="height: 6px;"></div>
+        <div class="call-c-exp__wave-bar" style="height: 16px;"></div>
+        <div class="call-c-exp__wave-bar" style="height: 8px;"></div>
+        <div class="call-c-exp__wave-bar" style="height: 12px;"></div>
+        <div class="call-c-exp__wave-bar" style="height: 4px;"></div>
+      </div>
+
+      <div class="call-c-exp__time">2:34</div>
+
+      <div class="call-c-exp__btns">
+        <button class="call-c-exp__btn call-c-exp__btn--act">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+        </button>
+        <button class="call-c-exp__btn call-c-exp__btn--act">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
+        <button class="call-c-exp__btn call-c-exp__btn--end">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+        </button>
+        <button class="call-c-exp__btn call-c-exp__btn--act">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

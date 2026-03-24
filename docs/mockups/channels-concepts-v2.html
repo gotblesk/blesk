@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Channels Concepts v2</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; overflow-x: hidden; }
+
+.tabs { display: flex; justify-content: center; gap: 4px; padding: 24px 24px 0; position: sticky; top: 0; z-index: 10; background: #08060f; }
+.tab { padding: 10px 20px; border-radius: 12px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.4); transition: all 0.2s; user-select: none; }
+.tab:hover { background: rgba(255,255,255,0.06); }
+.tab.active { background: rgba(200,255,0,0.08); border-color: rgba(200,255,0,0.2); color: #c8ff00; }
+
+.scene { display: none; padding: 24px; max-width: 700px; margin: 0 auto; }
+.scene.active { display: block; }
+.scene-title { font-size: 26px; font-weight: 800; letter-spacing: -0.04em; text-align: center; margin-bottom: 6px; }
+.scene-desc { font-size: 13px; color: rgba(255,255,255,0.3); text-align: center; margin-bottom: 32px; line-height: 1.6; max-width: 500px; margin-left: auto; margin-right: auto; }
+
+/* ═══════════════════════════════════════
+   D: HYBRID SPLIT — Feed + Shelf
+   ═══════════════════════════════════════ */
+.hs { display: flex; flex-direction: column; gap: 0; }
+
+/* Top shelf — horizontal scroll of subscribed channels */
+.hs__shelf {
+  display: flex; gap: 12px; padding: 0 0 16px; overflow-x: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  margin-bottom: 16px;
+}
+.hs__shelf::-webkit-scrollbar { display: none; }
+
+.hs__chip {
+  flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  cursor: pointer; transition: all 0.2s;
+  position: relative;
+}
+.hs__chip:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); transform: translateY(-2px); }
+.hs__chip.active { border-color: rgba(200,255,0,0.2); background: rgba(200,255,0,0.04); }
+.hs__chip.active .hs__chip-name { color: #c8ff00; }
+
+.hs__chip-ava {
+  width: 32px; height: 32px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+
+.hs__chip-info { display: flex; flex-direction: column; }
+.hs__chip-name { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.hs__chip-meta { font-size: 9px; color: rgba(255,255,255,0.2); white-space: nowrap; }
+
+/* Unread dot */
+.hs__chip-unread {
+  position: absolute; top: 6px; right: 6px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #c8ff00;
+  box-shadow: 0 0 6px rgba(200,255,0,0.4);
+}
+
+/* "Все каналы" chip */
+.hs__chip--all {
+  background: rgba(200,255,0,0.04);
+  border-color: rgba(200,255,0,0.1);
+}
+.hs__chip--all .hs__chip-ava {
+  background: rgba(200,255,0,0.1);
+  color: #c8ff00; font-size: 16px;
+}
+
+/* Feed section below shelf */
+.hs__feed-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.hs__feed-title { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.6); }
+.hs__feed-filter { font-size: 10px; color: rgba(255,255,255,0.2); cursor: pointer; }
+
+.hs__post {
+  padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.025);
+  display: flex; gap: 12px;
+}
+.hs__post-ava {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 14px; color: #fff;
+}
+.hs__post-body { flex: 1; min-width: 0; }
+.hs__post-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+.hs__post-name { font-size: 13px; font-weight: 700; }
+.hs__post-time { font-size: 10px; color: rgba(255,255,255,0.15); }
+.hs__post-text { font-size: 13px; line-height: 1.55; color: rgba(255,255,255,0.6); }
+.hs__post-media {
+  margin-top: 8px; height: 120px; border-radius: 12px;
+  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: rgba(255,255,255,0.08);
+}
+
+/* ═══════════════════════════════════════
+   E: MOSAIC — Pinterest-style masonry
+   ═══════════════════════════════════════ */
+.mo { }
+
+.mo__top-bar {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+  padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.mo__search {
+  flex: 1; padding: 9px 14px 9px 32px; border-radius: 12px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.5); font-size: 12px; position: relative;
+}
+.mo__search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.15); font-size: 13px; }
+
+.mo__cats { display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.mo__cats::-webkit-scrollbar { display: none; }
+.mo__cat { padding: 5px 12px; border-radius: 8px; font-size: 10px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); color: rgba(255,255,255,0.3); transition: all 0.15s; }
+.mo__cat:hover { background: rgba(255,255,255,0.06); }
+.mo__cat.active { background: rgba(200,255,0,0.06); border-color: rgba(200,255,0,0.15); color: #c8ff00; }
+
+/* Masonry grid */
+.mo__grid {
+  columns: 2;
+  column-gap: 10px;
+}
+
+.mo__card {
+  break-inside: avoid;
+  margin-bottom: 10px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(14,12,24,0.7);
+  border: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+}
+.mo__card:hover { border-color: rgba(255,255,255,0.1); transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+
+/* Cards with different heights for masonry effect */
+.mo__card-cover {
+  width: 100%; position: relative; overflow: hidden;
+}
+.mo__card-cover-bg { width: 100%; height: 100%; }
+.mo__card-cover-fade { position: absolute; bottom: 0; left: 0; right: 0; height: 40%; background: linear-gradient(transparent, rgba(14,12,24,0.95)); }
+
+.mo__card-body { padding: 12px 14px; }
+
+.mo__card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.mo__card-ava {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.mo__card-name { font-size: 13px; font-weight: 700; }
+.mo__card-cat { font-size: 9px; color: rgba(255,255,255,0.2); }
+
+.mo__card-text {
+  font-size: 12px; line-height: 1.5; color: rgba(255,255,255,0.45);
+  display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.mo__card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.mo__card-subs { font-size: 10px; color: rgba(255,255,255,0.15); }
+.mo__card-btn {
+  padding: 5px 12px; border-radius: 8px; border: none;
+  font-size: 10px; font-weight: 700; cursor: pointer;
+}
+.mo__card-btn--sub { background: #c8ff00; color: #000; }
+.mo__card-btn--open { background: rgba(200,255,0,0.08); color: rgba(200,255,0,0.7); border: 1px solid rgba(200,255,0,0.12); }
+
+/* Different card sizes for visual variety */
+.mo__card--tall .mo__card-cover { height: 140px; }
+.mo__card--short .mo__card-cover { height: 80px; }
+.mo__card--text-only .mo__card-text { -webkit-line-clamp: 4; }
+.mo__card--text-only { }
+.mo__card--featured { border-color: rgba(200,255,0,0.1); }
+.mo__card--featured::before {
+  content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 1.5px;
+  background: linear-gradient(90deg, transparent, rgba(200,255,0,0.3), transparent);
+}
+
+/* Info boxes */
+.info-box {
+  margin-top: 24px; padding: 16px; border-radius: 14px;
+  background: rgba(200,255,0,0.03); border: 1px solid rgba(200,255,0,0.08);
+}
+.info-box h4 { font-size: 13px; font-weight: 700; color: #c8ff00; margin-bottom: 8px; }
+.info-box p { font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.6; }
+.info-box ul { list-style: none; }
+.info-box li { font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 3px; padding-left: 12px; position: relative; }
+.info-box li::before { content: '→'; position: absolute; left: 0; color: rgba(200,255,0,0.4); }
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" onclick="show('hybrid')">D. Hybrid Split</div>
+  <div class="tab" onclick="show('mosaic')">E. Mosaic</div>
+</div>
+
+<!-- ═══════ D: HYBRID SPLIT ═══════ -->
+<div class="scene active" id="scene-hybrid">
+  <div class="scene-title">Hybrid Split</div>
+  <div class="scene-desc">Горизонтальная полка подписок сверху (как stories) + лента постов ниже. Клик по каналу фильтрует ленту. Кнопка "Все каналы" открывает обзор. Лучшее от ленты и карточек.</div>
+
+  <div class="hs">
+    <!-- Shelf -->
+    <div class="hs__shelf">
+      <div class="hs__chip hs__chip--all">
+        <div class="hs__chip-ava">⚡</div>
+        <div class="hs__chip-info">
+          <span class="hs__chip-name" style="color:#c8ff00;">Все</span>
+          <span class="hs__chip-meta">Обзор каналов</span>
+        </div>
+      </div>
+      <div class="hs__chip active">
+        <div class="hs__chip-ava" style="background:linear-gradient(135deg,#ec4899,#be185d);">М</div>
+        <div class="hs__chip-info">
+          <span class="hs__chip-name">Музыка</span>
+          <span class="hs__chip-meta">142 · 2ч</span>
+        </div>
+        <div class="hs__chip-unread"></div>
+      </div>
+      <div class="hs__chip">
+        <div class="hs__chip-ava" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">Н</div>
+        <div class="hs__chip-info">
+          <span class="hs__chip-name">Новости</span>
+          <span class="hs__chip-meta">890 · 5ч</span>
+        </div>
+      </div>
+      <div class="hs__chip">
+        <div class="hs__chip-ava" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">И</div>
+        <div class="hs__chip-info">
+          <span class="hs__chip-name">Игры</span>
+          <span class="hs__chip-meta">340 · 1д</span>
+        </div>
+        <div class="hs__chip-unread"></div>
+      </div>
+      <div class="hs__chip">
+        <div class="hs__chip-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">А</div>
+        <div class="hs__chip-info">
+          <span class="hs__chip-name">Арт</span>
+          <span class="hs__chip-meta">67 · вчера</span>
+        </div>
+      </div>
+      <div class="hs__chip">
+        <div class="hs__chip-ava" style="background:linear-gradient(135deg,#06b6d4,#0891b2);">Т</div>
+        <div class="hs__chip-info">
+          <span class="hs__chip-name">Технологии</span>
+          <span class="hs__chip-meta">210</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feed -->
+    <div class="hs__feed-head">
+      <span class="hs__feed-title">Музыка</span>
+      <span class="hs__feed-filter">Все посты ↓</span>
+    </div>
+
+    <div class="hs__post">
+      <div class="hs__post-ava" style="background:linear-gradient(135deg,#ec4899,#be185d);">М</div>
+      <div class="hs__post-body">
+        <div class="hs__post-head">
+          <span class="hs__post-name">Музыка</span>
+          <span class="hs__post-time">2 часа назад</span>
+        </div>
+        <div class="hs__post-text">Новый трек от GOTBLESK уже на платформе. Кислотный синт с deep-bass линией, вдохновлённый берлинским техно...</div>
+        <div class="hs__post-media">🎵 audio attachment</div>
+      </div>
+    </div>
+
+    <div class="hs__post">
+      <div class="hs__post-ava" style="background:linear-gradient(135deg,#ec4899,#be185d);">М</div>
+      <div class="hs__post-body">
+        <div class="hs__post-head">
+          <span class="hs__post-name">Музыка</span>
+          <span class="hs__post-time">вчера</span>
+        </div>
+        <div class="hs__post-text">Плейлист недели: 10 треков для ночной поездки по городу. Lo-fi, ambient, downtempo.</div>
+      </div>
+    </div>
+
+    <div class="hs__post">
+      <div class="hs__post-ava" style="background:linear-gradient(135deg,#ec4899,#be185d);">М</div>
+      <div class="hs__post-body">
+        <div class="hs__post-head">
+          <span class="hs__post-name">Музыка</span>
+          <span class="hs__post-time">3 дня назад</span>
+        </div>
+        <div class="hs__post-text">Запись live-сета с ивента в субботу. 2 часа нон-стоп.</div>
+        <div class="hs__post-media">🎧 audio — 2:14:30</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <h4>Почему это работает</h4>
+    <ul>
+      <li>Полка подписок = мгновенный доступ (без навигации)</li>
+      <li>Unread точки показывают новый контент</li>
+      <li>Клик по каналу = фильтр ленты (не переход)</li>
+      <li>"Все" = обзор для discovery новых каналов</li>
+      <li>Compact chips = 10+ каналов в одной строке</li>
+      <li>Лента постов = сразу контент, не карточки</li>
+      <li>Работает с 1 каналом и с 50 каналами</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════ E: MOSAIC ═══════ -->
+<div class="scene" id="scene-mosaic">
+  <div class="scene-title">Mosaic</div>
+  <div class="scene-desc">Pinterest-style masonry grid. Карточки разных размеров — текстовые, с cover, featured. Визуально богато, каждый канал уникален. Категории сверху.</div>
+
+  <div class="mo">
+    <div class="mo__top-bar">
+      <div style="position:relative;flex:1;">
+        <span class="mo__search-icon">🔍</span>
+        <input class="mo__search" placeholder="Найти канал..." disabled />
+      </div>
+    </div>
+
+    <div class="mo__cats" style="margin-bottom: 16px;">
+      <div class="mo__cat active">Все</div>
+      <div class="mo__cat">Новости</div>
+      <div class="mo__cat">Игры</div>
+      <div class="mo__cat">Музыка</div>
+      <div class="mo__cat">Арт</div>
+      <div class="mo__cat">Технологии</div>
+    </div>
+
+    <div class="mo__grid">
+      <!-- Featured tall card -->
+      <div class="mo__card mo__card--tall mo__card--featured">
+        <div class="mo__card-cover" style="height:140px;">
+          <div class="mo__card-cover-bg" style="background:linear-gradient(135deg,#ec4899,#be185d,#7c2d12);"></div>
+          <div class="mo__card-cover-fade"></div>
+        </div>
+        <div class="mo__card-body">
+          <div class="mo__card-head">
+            <div class="mo__card-ava" style="background:linear-gradient(135deg,#ec4899,#be185d);">М</div>
+            <div>
+              <div class="mo__card-name">Музыка</div>
+              <div class="mo__card-cat">Музыка · 142</div>
+            </div>
+          </div>
+          <div class="mo__card-text" style="-webkit-line-clamp:2;">Новый трек от GOTBLESK уже на платформе. Кислотный синт...</div>
+          <div class="mo__card-foot">
+            <span class="mo__card-subs">2ч назад</span>
+            <button class="mo__card-btn mo__card-btn--open">Открыть</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text-only card -->
+      <div class="mo__card mo__card--text-only">
+        <div class="mo__card-body">
+          <div class="mo__card-head">
+            <div class="mo__card-ava" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">Н</div>
+            <div>
+              <div class="mo__card-name">Новости blesk</div>
+              <div class="mo__card-cat">Новости · 890</div>
+            </div>
+          </div>
+          <div class="mo__card-text" style="-webkit-line-clamp:4;">Обновление v0.6.2 уже доступно! Голосовые комнаты с редизайном, каналы, и 60+ багфиксов. Полный changelog на GitHub.</div>
+          <div class="mo__card-foot">
+            <span class="mo__card-subs">5ч</span>
+            <button class="mo__card-btn mo__card-btn--open">Открыть</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Short cover card -->
+      <div class="mo__card mo__card--short">
+        <div class="mo__card-cover" style="height:80px;">
+          <div class="mo__card-cover-bg" style="background:linear-gradient(135deg,#f59e0b,#d97706,#92400e);"></div>
+          <div class="mo__card-cover-fade"></div>
+        </div>
+        <div class="mo__card-body">
+          <div class="mo__card-head">
+            <div class="mo__card-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">А</div>
+            <div>
+              <div class="mo__card-name">Арт-студия</div>
+              <div class="mo__card-cat">Арт · 67</div>
+            </div>
+          </div>
+          <div class="mo__card-foot">
+            <span class="mo__card-subs">вчера</span>
+            <button class="mo__card-btn mo__card-btn--sub">Подписаться</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text-only small -->
+      <div class="mo__card mo__card--text-only">
+        <div class="mo__card-body">
+          <div class="mo__card-head">
+            <div class="mo__card-ava" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">И</div>
+            <div>
+              <div class="mo__card-name">Игры</div>
+              <div class="mo__card-cat">Игры · 340</div>
+            </div>
+          </div>
+          <div class="mo__card-text" style="-webkit-line-clamp:2;">LFG CS2 — ищем 2 человека на вечер. Rank: Global Elite.</div>
+          <div class="mo__card-foot">
+            <span class="mo__card-subs">сегодня</span>
+            <button class="mo__card-btn mo__card-btn--sub">Подписаться</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tall cover -->
+      <div class="mo__card mo__card--tall">
+        <div class="mo__card-cover" style="height:140px;">
+          <div class="mo__card-cover-bg" style="background:linear-gradient(135deg,#06b6d4,#0891b2,#164e63);"></div>
+          <div class="mo__card-cover-fade"></div>
+        </div>
+        <div class="mo__card-body">
+          <div class="mo__card-head">
+            <div class="mo__card-ava" style="background:linear-gradient(135deg,#06b6d4,#0891b2);">Т</div>
+            <div>
+              <div class="mo__card-name">Технологии</div>
+              <div class="mo__card-cat">Технологии · 210</div>
+            </div>
+          </div>
+          <div class="mo__card-text" style="-webkit-line-clamp:3;">AI-агенты научились писать код лучше джунов. Разбираем Claude Code, Cursor и Devin — кто реально работает.</div>
+          <div class="mo__card-foot">
+            <span class="mo__card-subs">3ч</span>
+            <button class="mo__card-btn mo__card-btn--sub">Подписаться</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Small -->
+      <div class="mo__card mo__card--text-only">
+        <div class="mo__card-body">
+          <div class="mo__card-head">
+            <div class="mo__card-ava" style="background:linear-gradient(135deg,#6b7280,#4b5563);">Р</div>
+            <div>
+              <div class="mo__card-name">Разное</div>
+              <div class="mo__card-cat">Другое · 23</div>
+            </div>
+          </div>
+          <div class="mo__card-text" style="-webkit-line-clamp:2;">Флуд, мемы, и всё остальное.</div>
+          <div class="mo__card-foot">
+            <span class="mo__card-subs">2д</span>
+            <button class="mo__card-btn mo__card-btn--sub">Подписаться</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <h4>Почему это работает</h4>
+    <ul>
+      <li>Визуально богато — каждый канал уникальной высоты</li>
+      <li>Cover gradients = identity канала</li>
+      <li>Text-only карточки для каналов без медиа</li>
+      <li>Featured каналы выделяются accent линией</li>
+      <li>Masonry layout = нет пустого пространства</li>
+      <li>Категории сверху для фильтрации</li>
+      <li>Масштабируется от 2 до 100+ каналов</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('scene-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

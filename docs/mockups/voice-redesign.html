@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Voice Room Redesign</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Manrope', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; padding: 30px 20px; display: flex; flex-direction: column; align-items: center; gap: 50px; }
+  .label { font-size: 10px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .ctitle { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .cdesc { font-size: 12px; color: rgba(255,255,255,0.3); max-width: 500px; text-align: center; line-height: 1.4; margin-bottom: 16px; }
+  .sep { width: 100%; max-width: 600px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     1. VOICE ROOM LIST
+     ═══════════════════════════════════════ */
+  .vrl {
+    width: 600px;
+    border-radius: 22px;
+    background: rgba(14,12,24,0.6);
+    backdrop-filter: blur(40px);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+    padding: 20px;
+  }
+
+  .vrl__head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .vrl__title { font-size: 18px; font-weight: 800; letter-spacing: -0.03em; }
+  .vrl__create {
+    padding: 6px 14px; border-radius: 10px; border: none;
+    background: var(--accent, #c8ff00); color: #000;
+    font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+
+  .vrl__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .vrl__card {
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .vrl__card:hover { background: rgba(255,255,255,0.04); transform: translateY(-2px); }
+
+  /* Live indicator */
+  .vrl__card--live::before {
+    content: '';
+    position: absolute; top: 0; left: 15%; right: 15%;
+    height: 1.5px;
+    background: linear-gradient(90deg, transparent, #4ade80, transparent);
+    opacity: 0.4;
+  }
+
+  .vrl__card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .vrl__card-name { font-size: 13px; font-weight: 700; }
+  .vrl__card-badge { font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+  .vrl__card-badge--live { background: rgba(74,222,128,0.1); color: #4ade80; }
+  .vrl__card-badge--mine { background: rgba(200,255,0,0.06); color: rgba(200,255,0,0.5); }
+
+  .vrl__card-users { display: flex; align-items: center; gap: -4px; margin-bottom: 8px; }
+  .vrl__card-ava {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800; color: #fff;
+    border: 2px solid rgba(14,12,24,0.9);
+    margin-left: -6px;
+  }
+  .vrl__card-ava:first-child { margin-left: 0; }
+
+  .vrl__card-count { font-size: 10px; color: rgba(255,255,255,0.25); margin-left: 4px; }
+
+  .vrl__card-join {
+    width: 100%; padding: 7px; border-radius: 10px; border: none;
+    background: rgba(74,222,128,0.08); color: #4ade80;
+    font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .vrl__card-join:hover { background: rgba(74,222,128,0.14); }
+
+  .vrl__card-here {
+    width: 100%; padding: 7px; border-radius: 10px; border: none;
+    background: rgba(200,255,0,0.06); color: rgba(200,255,0,0.5);
+    font-size: 11px; font-weight: 600; font-family: inherit;
+    text-align: center;
+  }
+
+  /* Empty room */
+  .vrl__card--empty .vrl__card-name { color: rgba(255,255,255,0.3); }
+
+  /* ═══════════════════════════════════════
+     2. VOICE ROOM — In-Room View
+     ═══════════════════════════════════════ */
+  .vr {
+    width: 600px;
+    border-radius: 22px;
+    background: rgba(14,12,24,0.7);
+    backdrop-filter: blur(40px);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+  }
+
+  .vr__head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .vr__head-left { display: flex; align-items: center; gap: 8px; }
+  .vr__head-name { font-size: 15px; font-weight: 800; }
+  .vr__head-count { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.04); padding: 2px 7px; border-radius: 8px; }
+
+  .vr__head-qual {
+    display: flex; align-items: flex-end; gap: 1.5px; height: 12px;
+  }
+  .vr__head-bar { width: 3px; border-radius: 1px; }
+
+  /* Screen share area */
+  .vr__screen {
+    width: 100%; aspect-ratio: 16/9;
+    background: #0a0816;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .vr__screen-content {
+    width: 100%; height: 100%; padding: 12px;
+    background: #1e293b;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; color: rgba(255,255,255,0.3);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+
+  .vr__screen-badge {
+    position: absolute; top: 8px; left: 8px;
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 6px;
+    background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.15);
+    font-size: 9px; font-weight: 700; color: #ef4444;
+  }
+
+  .vr__screen-rec { width: 5px; height: 5px; border-radius: 50%; background: #ef4444; animation: rec 1s ease-in-out infinite; }
+  @keyframes rec { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .vr__screen-name {
+    position: absolute; bottom: 8px; left: 8px;
+    font-size: 10px; font-weight: 600;
+    padding: 3px 8px; border-radius: 5px;
+    background: rgba(0,0,0,0.5); color: rgba(255,255,255,0.6);
+  }
+
+  /* Participants grid */
+  .vr__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 12px;
+  }
+
+  .vr__user {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+    padding: 12px 8px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.015);
+    cursor: pointer;
+    transition: all 0.12s;
+    position: relative;
+  }
+  .vr__user:hover { background: rgba(255,255,255,0.03); }
+
+  .vr__user-ava {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: #fff;
+    position: relative;
+    transition: box-shadow 0.2s;
+  }
+
+  /* Speaking glow */
+  .vr__user--speaking .vr__user-ava {
+    box-shadow: 0 0 20px rgba(74,222,128,0.3);
+  }
+
+  /* Audio level ring */
+  .vr__user-level {
+    position: absolute; inset: -3px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .vr__user--speaking .vr__user-level {
+    border-color: rgba(74,222,128,0.4);
+  }
+
+  .vr__user-name { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.6); text-align: center; }
+
+  /* Status icons */
+  .vr__user-icons {
+    position: absolute; bottom: -2px; right: -2px;
+    display: flex; gap: 2px;
+  }
+  .vr__user-ico {
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px;
+    border: 1.5px solid rgba(14,12,24,0.9);
+  }
+  .vr__user-ico--muted { background: #ef4444; color: #fff; }
+  .vr__user-ico--deaf { background: #f59e0b; color: #fff; }
+  .vr__user-ico--cam { background: #38bdf8; color: #fff; }
+
+  /* Camera tile in participant */
+  .vr__user--camera .vr__user-ava {
+    width: 100%; height: 60px;
+    border-radius: 10px;
+    background: #1a1530;
+    font-size: 10px; color: rgba(255,255,255,0.2);
+  }
+
+  /* ═══════════════════════════════════════
+     3. VOICE CONTROLS — Floating Bar
+     ═══════════════════════════════════════ */
+  .vc {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px 6px 14px;
+    border-radius: 100px;
+    background: rgba(14,12,24,0.85);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    width: fit-content;
+  }
+
+  .vc__info { display: flex; align-items: center; gap: 8px; margin-right: 6px; cursor: pointer; }
+
+  .vc__qual { display: flex; align-items: flex-end; gap: 1px; height: 10px; }
+  .vc__qual-bar { width: 2.5px; border-radius: 1px; }
+
+  .vc__room { font-size: 11px; font-weight: 700; }
+  .vc__count { font-size: 9px; color: rgba(255,255,255,0.2); }
+
+  .vc__avas { display: flex; margin-left: 4px; }
+  .vc__mini-ava {
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 800; color: #fff;
+    border: 1.5px solid rgba(14,12,24,0.85);
+    margin-left: -5px;
+  }
+  .vc__mini-ava:first-child { margin-left: 0; }
+
+  .vc__sep { width: 1px; height: 20px; background: rgba(255,255,255,0.06); margin: 0 4px; }
+
+  .vc__btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: none; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 13px; transition: all 0.12s;
+  }
+  .vc__btn:hover { transform: scale(1.08); }
+  .vc__btn--off { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); }
+  .vc__btn--on { background: rgba(200,255,0,0.1); color: #c8ff00; }
+  .vc__btn--muted { background: rgba(239,68,68,0.1); color: #ef4444; }
+  .vc__btn--end { background: #ef4444; color: #fff; }
+
+  /* ═══════════════════════════════════════
+     4. VIDEO GRID (inside VoiceRoom)
+     ═══════════════════════════════════════ */
+  .vg { width: 600px; border-radius: 16px; overflow: hidden; background: #0a0816; }
+
+  .vg__screens { display: flex; flex-direction: column; }
+
+  .vg__screen-tile {
+    width: 100%; aspect-ratio: 16/9;
+    background: #1e293b; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .vg__tile-label {
+    position: absolute; bottom: 8px; left: 8px;
+    padding: 3px 8px; border-radius: 5px;
+    background: rgba(0,0,0,0.6); font-size: 10px; font-weight: 600;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .vg__tile-fs {
+    position: absolute; top: 8px; right: 8px;
+    width: 24px; height: 24px; border-radius: 6px;
+    background: rgba(0,0,0,0.4); border: none;
+    color: rgba(255,255,255,0.4); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; opacity: 0; transition: opacity 0.12s;
+  }
+  .vg__screen-tile:hover .vg__tile-fs { opacity: 1; }
+
+  .vg__cameras {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 2px; padding: 2px;
+  }
+
+  .vg__cam-tile {
+    aspect-ratio: 4/3;
+    background: #1a1530; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; overflow: hidden;
+  }
+
+  .vg__cam-face {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; color: #fff;
+  }
+
+  .vg__pip {
+    position: absolute; bottom: 8px; right: 8px;
+    width: 100px; height: 75px; border-radius: 10px;
+    overflow: hidden; background: #1a1530;
+    border: 1.5px solid rgba(255,255,255,0.1);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .vg__pip-label {
+    position: absolute; top: 3px; left: 5px;
+    font-size: 7px; font-weight: 700; color: rgba(255,255,255,0.5);
+    background: rgba(0,0,0,0.4); padding: 1px 4px; border-radius: 3px;
+  }
+
+  /* Fake content */
+  .fake-code { font-family: 'Space Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+
+  <!-- ═══════ 1. ROOM LIST ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Компонент 1</div>
+    <div class="ctitle">Voice Room List</div>
+    <div class="cdesc">Список голосовых комнат. Grid 2 колонки. Карточки с live-индикатором (зелёная линия сверху), мини-аватарки участников, кнопка "Войти". Кнопка "Создать" в header.</div>
+  </div>
+
+  <div class="vrl">
+    <div class="vrl__head">
+      <div class="vrl__title">Голосовые комнаты</div>
+      <button class="vrl__create">+ Создать</button>
+    </div>
+    <div class="vrl__grid">
+      <div class="vrl__card vrl__card--live">
+        <div class="vrl__card-top">
+          <span class="vrl__card-name">Общая</span>
+          <div style="display:flex;gap:4px;">
+            <span class="vrl__card-badge vrl__card-badge--live">● 3 онлайн</span>
+          </div>
+        </div>
+        <div class="vrl__card-users">
+          <div class="vrl__card-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+          <div class="vrl__card-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+          <div class="vrl__card-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+        </div>
+        <button class="vrl__card-join">Войти</button>
+      </div>
+      <div class="vrl__card">
+        <div class="vrl__card-top">
+          <span class="vrl__card-name">Студия</span>
+          <span class="vrl__card-badge vrl__card-badge--mine">мой</span>
+        </div>
+        <div class="vrl__card-users">
+          <span class="vrl__card-count" style="margin-left:0;">Пусто</span>
+        </div>
+        <div class="vrl__card-here">Вы здесь</div>
+      </div>
+      <div class="vrl__card vrl__card--live">
+        <div class="vrl__card-top">
+          <span class="vrl__card-name">Музыка</span>
+          <span class="vrl__card-badge vrl__card-badge--live">● 1</span>
+        </div>
+        <div class="vrl__card-users">
+          <div class="vrl__card-ava" style="background:linear-gradient(135deg,#4ade80,#22c55e);">N</div>
+        </div>
+        <button class="vrl__card-join">Войти</button>
+      </div>
+      <div class="vrl__card vrl__card--empty">
+        <div class="vrl__card-top">
+          <span class="vrl__card-name">Игры</span>
+        </div>
+        <div class="vrl__card-users">
+          <span class="vrl__card-count" style="margin-left:0;">Никого нет</span>
+        </div>
+        <button class="vrl__card-join" style="opacity:0.4;">Войти</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ 2. VOICE ROOM (in-room) ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Компонент 2</div>
+    <div class="ctitle">Voice Room — В комнате</div>
+    <div class="cdesc">Внутри комнаты. Сверху — screen share (если есть). Ниже — grid участников. Каждый с аватаром, speaking glow, audio level ring, status icons. Камеры — встроены в плитки.</div>
+  </div>
+
+  <div class="vr">
+    <div class="vr__head">
+      <div class="vr__head-left">
+        <span class="vr__head-name">Общая</span>
+        <span class="vr__head-count">3</span>
+      </div>
+      <div class="vr__head-qual">
+        <div class="vr__head-bar" style="height:4px;background:#4ade80;"></div>
+        <div class="vr__head-bar" style="height:8px;background:#4ade80;"></div>
+        <div class="vr__head-bar" style="height:12px;background:#4ade80;"></div>
+      </div>
+    </div>
+
+    <!-- Screen share -->
+    <div class="vr__screen">
+      <div class="vr__screen-content">
+        <span class="fake-code">// blesk — server code</span>
+        <span class="fake-code">const io = require('socket.io');</span>
+        <span class="fake-code">io.on('connection', socket => {</span>
+        <span class="fake-code">  socket.on('voice:join', ...);</span>
+        <span class="fake-code">});</span>
+      </div>
+      <div class="vr__screen-badge"><div class="vr__screen-rec"></div> Den демонстрирует</div>
+      <div class="vr__screen-name">Den — экран</div>
+    </div>
+
+    <!-- Participants -->
+    <div class="vr__grid">
+      <div class="vr__user vr__user--speaking">
+        <div class="vr__user-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">
+          <div class="vr__user-level"></div>
+          V
+        </div>
+        <div class="vr__user-name">Vohog</div>
+      </div>
+      <div class="vr__user">
+        <div class="vr__user-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">
+          <div class="vr__user-level"></div>
+          D
+          <div class="vr__user-icons">
+            <div class="vr__user-ico vr__user-ico--cam">📹</div>
+          </div>
+        </div>
+        <div class="vr__user-name">Den</div>
+      </div>
+      <div class="vr__user">
+        <div class="vr__user-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+          <div class="vr__user-level"></div>
+          S
+          <div class="vr__user-icons">
+            <div class="vr__user-ico vr__user-ico--muted">✕</div>
+          </div>
+        </div>
+        <div class="vr__user-name">shkirtil</div>
+      </div>
+      <div class="vr__user" style="border:1px dashed rgba(200,255,0,0.1);">
+        <div class="vr__user-ava" style="background:linear-gradient(135deg,#c8ff00,#a0cc00);color:#000;">
+          <div class="vr__user-level"></div>
+          G
+        </div>
+        <div class="vr__user-name" style="color:#c8ff00;">Вы</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ 3. VOICE CONTROLS ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Компонент 3</div>
+    <div class="ctitle">Voice Controls — Floating Bar</div>
+    <div class="cdesc">Компактная pill-полоска. Слева: качество связи + название комнаты + мини-аватарки. Справа: mute, deafen, camera, screen share, disconnect. Формат: compact pill.</div>
+  </div>
+
+  <div class="vc">
+    <div class="vc__info">
+      <div class="vc__qual">
+        <div class="vc__qual-bar" style="height:3px;background:#4ade80;"></div>
+        <div class="vc__qual-bar" style="height:6px;background:#4ade80;"></div>
+        <div class="vc__qual-bar" style="height:10px;background:#4ade80;"></div>
+      </div>
+      <span class="vc__room">Общая</span>
+      <span class="vc__count">· 3</span>
+      <div class="vc__avas">
+        <div class="vc__mini-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+        <div class="vc__mini-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+        <div class="vc__mini-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+      </div>
+    </div>
+    <div class="vc__sep"></div>
+    <button class="vc__btn vc__btn--off">🎤</button>
+    <button class="vc__btn vc__btn--off">🔊</button>
+    <button class="vc__btn vc__btn--off">📹</button>
+    <button class="vc__btn vc__btn--off">🖥</button>
+    <button class="vc__btn vc__btn--end">✕</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ 4. VIDEO GRID ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Компонент 4</div>
+    <div class="ctitle">Video Grid</div>
+    <div class="cdesc">Экраны — full-width сверху. Камеры — grid 3 колонки. Ваша камера — PiP в углу. Fullscreen кнопка на каждом тайле. Labels с именами.</div>
+  </div>
+
+  <div class="vg" style="position: relative;">
+    <!-- Screen share -->
+    <div class="vg__screens">
+      <div class="vg__screen-tile">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,0.15);text-align:center;">
+          Screen share content<br>(1920×1080)
+        </div>
+        <div class="vg__tile-label">Den — экран</div>
+        <button class="vg__tile-fs">⤢</button>
+      </div>
+    </div>
+    <!-- Cameras -->
+    <div class="vg__cameras">
+      <div class="vg__cam-tile">
+        <div class="vg__cam-face" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+        <div class="vg__tile-label">Vohog</div>
+      </div>
+      <div class="vg__cam-tile">
+        <div class="vg__cam-face" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+        <div class="vg__tile-label">Den</div>
+      </div>
+      <div class="vg__cam-tile" style="background:#0f172a;">
+        <div style="font-size:9px;color:rgba(255,255,255,0.1);">Камера выкл</div>
+        <div class="vg__tile-label">shkirtil</div>
+      </div>
+    </div>
+    <!-- PiP -->
+    <div class="vg__pip">
+      <div class="vg__cam-face" style="background:linear-gradient(135deg,#c8ff00,#a0cc00);color:#000;width:28px;height:28px;font-size:11px;">G</div>
+      <div class="vg__pip-label">Вы</div>
+    </div>
+  </div>
+
+</body>
+</html>

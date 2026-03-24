@@ -39,7 +39,7 @@
 .pf-front__bg {
   position: absolute; inset: 0;
   background-size: cover;
-  background-position: center;
+  background-position: center center;
   filter: blur(40px) saturate(1.3) brightness(0.45);
   transform: scale(1.3);
   z-index: 0;
@@ -269,7 +269,7 @@
 [data-theme="light"] .pf-cell__val { color: rgba(0,0,0,0.6); }
 [data-theme="light"] .pf-cell__chev { color: rgba(0,0,0,0.1); }
 [data-theme="light"] .pf-cell__input { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.05); color: rgba(0,0,0,0.7); }
-[data-theme="light"] .pf-cell__input::placeholder { color: rgba(0,0,0,0.15); }
+[data-theme="light"] .pf-cell__input::placeholder { color: rgba(0,0,0,0.3); }
 [data-theme="light"] .pf-cell__drawer-inner { border-top-color: rgba(0,0,0,0.04); }
 [data-theme="light"] .pf-back__bio { background: rgba(0,0,0,0.01); border-color: rgba(0,0,0,0.04); }
 [data-theme="light"] .pf-back__bio-ta { color: rgba(0,0,0,0.35); }

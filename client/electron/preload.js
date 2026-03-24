@@ -66,6 +66,13 @@ contextBridge.exposeInMainWorld('blesk', {
     hasSecretKey: () => ipcRenderer.invoke('crypto:hasSecretKey'),
   },
 
+  // Безопасное открытие внешних ссылок (только http/https)
+  openExternal: (url) => {
+    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+      ipcRenderer.send('open-external', url);
+    }
+  },
+
   // Платформа
   platform: process.platform,
 });

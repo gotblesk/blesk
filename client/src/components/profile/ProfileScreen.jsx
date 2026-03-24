@@ -251,7 +251,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
                   {/* Bio */}
                   <div className="pf-back__bio">
-                    <textarea className="pf-back__bio-ta" value={bio} onChange={e => setBio(e.target.value.slice(0, 200))} placeholder="О себе..." rows={2} onClick={e => e.stopPropagation()} />
+                    <textarea className="pf-back__bio-ta" value={bio} onChange={e => setBio(e.target.value.slice(0, 200))} placeholder="О себе..." rows={2} maxLength={200} onClick={e => e.stopPropagation()} />
                     <div className="pf-back__bio-bar">
                       <span className="pf-back__bio-n">{bio.length}/200</span>
                     </div>

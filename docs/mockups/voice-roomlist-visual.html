@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Visual Voice Rooms</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Manrope', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; padding: 30px 20px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+
+  .head { display: flex; align-items: center; justify-content: space-between; width: 540px; margin-bottom: 8px; }
+  .head__title { font-size: 18px; font-weight: 800; letter-spacing: -0.03em; }
+  .head__btn { padding: 6px 14px; border-radius: 10px; border: 1px solid rgba(200,255,0,0.15); background: rgba(200,255,0,0.05); color: #c8ff00; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+
+  /* ═══════ ROOM CARD ═══════ */
+  .rc {
+    width: 540px;
+    border-radius: 20px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .rc:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,0,0,0.35); }
+
+  /* Cover — unique gradient per room */
+  .rc__cover {
+    height: 120px;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 14px 18px;
+    overflow: hidden;
+  }
+
+  /* Grain */
+  .rc__cover::before {
+    content: ''; position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  /* Fade to dark at bottom */
+  .rc__cover::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+    height: 60%;
+    background: linear-gradient(0deg, rgba(14,12,24,0.95), transparent);
+    pointer-events: none;
+  }
+
+  /* Decorative shapes */
+  .rc__shape {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(25px);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  /* Emoji/icon decoration */
+  .rc__deco {
+    position: absolute;
+    font-size: 40px;
+    opacity: 0.06;
+    pointer-events: none;
+    top: 10px; right: 20px;
+  }
+
+  /* Performers on cover */
+  .rc__perfs {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex; gap: 10px;
+    z-index: 2;
+  }
+
+  .rc__perf {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+  }
+
+  .rc__perf-ava {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; color: #fff;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    position: relative;
+  }
+
+  .rc__perf--speaking .rc__perf-ava {
+    box-shadow: 0 0 20px rgba(74,222,128,0.3);
+  }
+  .rc__perf--speaking .rc__perf-ava::after {
+    content: ''; position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(74,222,128,0.35);
+    animation: sp 1.5s ease-in-out infinite;
+  }
+  @keyframes sp { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+
+  .rc__perf-name { font-size: 8px; font-weight: 700; color: rgba(255,255,255,0.5); }
+
+  /* Empty cover — animated icon */
+  .rc__empty-ico {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 28px; opacity: 0.08;
+    z-index: 1;
+    animation: emIco 4s ease-in-out infinite;
+  }
+  @keyframes emIco { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.1); } }
+
+  /* Cover name overlay */
+  .rc__cover-name {
+    position: relative; z-index: 3;
+    font-size: 18px; font-weight: 900;
+    letter-spacing: -0.03em;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+
+  /* Info bar — glass pill overlay on cover bottom */
+  .rc__bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px;
+    margin: 0 10px 10px;
+    border-radius: 14px;
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+    z-index: 5;
+    margin-top: -38px;
+  }
+
+  .rc__bar-left { display: flex; align-items: center; gap: 6px; }
+
+  .rc__bar-count { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.35); }
+
+  /* Live — pulsing green dot + text */
+  .rc__bar-live {
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: rgba(74,222,128,0.08);
+    font-size: 9px; font-weight: 700; color: #4ade80;
+  }
+  .rc__bar-dot { width: 5px; height: 5px; border-radius: 50%; background: #4ade80; animation: ld 1.5s ease-in-out infinite; }
+  @keyframes ld { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .rc__bar-own {
+    font-size: 8px; font-weight: 800;
+    color: rgba(200,255,0,0.6);
+    background: rgba(200,255,0,0.06);
+    padding: 3px 8px; border-radius: 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .rc__bar-right { display: flex; align-items: center; gap: 6px; }
+
+  /* Mini wave — inside live pill */
+  .rc__wave { display: flex; gap: 1.5px; align-items: center; height: 10px; }
+  .rc__wave-bar { width: 2px; border-radius: 1px; background: rgba(74,222,128,0.4); animation: wv 1.2s ease-in-out infinite; }
+  @keyframes wv { 0%, 100% { height: 2px; } 50% { height: 8px; } }
+
+  /* Join — accent pill */
+  .rc__join {
+    padding: 6px 18px; border-radius: 10px; border: none;
+    font-size: 11px; font-weight: 700; font-family: inherit;
+    cursor: pointer; transition: all 0.15s;
+    letter-spacing: 0.01em;
+  }
+  .rc__join--go {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.8);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .rc__join--go:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .rc__join--here {
+    background: rgba(200,255,0,0.08);
+    color: rgba(200,255,0,0.5);
+    border: 1px solid rgba(200,255,0,0.08);
+    cursor: default;
+  }
+
+  /* ═══════ ROOM "HERE" ═══════ */
+  .rc--here { border: 1px solid rgba(200,255,0,0.1); }
+  .rc--here .rc__cover-name { color: #c8ff00; }
+
+  /* ═══════ ROOM EMPTY ═══════ */
+  .rc--empty .rc__cover { height: 90px; }
+  .rc--empty { opacity: 0.65; }
+  .rc--empty:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+
+  <div class="head">
+    <span class="head__title">Голосовые комнаты</span>
+    <button class="head__btn">+ Создать</button>
+  </div>
+
+  <!-- Room 1: Live, 3 people — vibrant purple/pink -->
+  <div class="rc">
+    <div class="rc__cover" style="background: linear-gradient(135deg, #2d1065, #7c3aed, #a855f7);">
+      <div class="rc__shape" style="width:120px;height:120px;background:#e879f9;top:-20px;right:40px;"></div>
+      <div class="rc__shape" style="width:80px;height:80px;background:#7c3aed;bottom:-10px;left:60px;"></div>
+      <div class="rc__deco">🎙</div>
+      <div class="rc__perfs">
+        <div class="rc__perf rc__perf--speaking">
+          <div class="rc__perf-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+          <span class="rc__perf-name">Vohog</span>
+        </div>
+        <div class="rc__perf">
+          <div class="rc__perf-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+          <span class="rc__perf-name">Den</span>
+        </div>
+        <div class="rc__perf">
+          <div class="rc__perf-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+          <span class="rc__perf-name">shkirtil</span>
+        </div>
+      </div>
+      <div class="rc__cover-name">ывчсфывфывфы</div>
+    </div>
+    <div class="rc__bar">
+      <div class="rc__bar-left">
+        <span class="rc__bar-own">мой</span>
+        <span class="rc__bar-count">3 на сцене</span>
+        <div class="rc__bar-live"><div class="rc__bar-dot"></div> Live</div>
+        <div class="rc__wave">
+          <div class="rc__wave-bar" style="animation-delay:0s;"></div>
+          <div class="rc__wave-bar" style="animation-delay:0.1s;"></div>
+          <div class="rc__wave-bar" style="animation-delay:0.2s;"></div>
+          <div class="rc__wave-bar" style="animation-delay:0.3s;"></div>
+          <div class="rc__wave-bar" style="animation-delay:0.2s;"></div>
+        </div>
+      </div>
+      <div class="rc__bar-right">
+        <button class="rc__join rc__join--go">Войти</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room 2: Empty but mine — deep ocean blue -->
+  <div class="rc rc--here">
+    <div class="rc__cover" style="background: linear-gradient(135deg, #0c1a3a, #1e3a5f, #2563eb);">
+      <div class="rc__shape" style="width:100px;height:100px;background:#38bdf8;top:-15px;left:30%;"></div>
+      <div class="rc__shape" style="width:60px;height:60px;background:#0ea5e9;bottom:0;right:20%;"></div>
+      <div class="rc__deco">🎧</div>
+      <div class="rc__empty-ico">🌊</div>
+      <div class="rc__cover-name">gemoglobin</div>
+    </div>
+    <div class="rc__bar">
+      <div class="rc__bar-left">
+        <span class="rc__bar-count" style="color:rgba(200,255,0,0.2);">Вы здесь</span>
+      </div>
+      <div class="rc__bar-right">
+        <button class="rc__join rc__join--here">Здесь</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room 3: Empty — warm amber/fire -->
+  <div class="rc rc--empty">
+    <div class="rc__cover" style="background: linear-gradient(135deg, #451a03, #78350f, #b45309);">
+      <div class="rc__shape" style="width:90px;height:90px;background:#f59e0b;top:-10px;right:25%;"></div>
+      <div class="rc__shape" style="width:70px;height:70px;background:#d97706;bottom:-5px;left:20%;"></div>
+      <div class="rc__deco">🔥</div>
+      <div class="rc__empty-ico">🎵</div>
+      <div class="rc__cover-name">Тест</div>
+    </div>
+    <div class="rc__bar">
+      <div class="rc__bar-left">
+        <span class="rc__bar-own">мой</span>
+        <span class="rc__bar-count">Пусто</span>
+      </div>
+      <div class="rc__bar-right">
+        <button class="rc__join rc__join--go">Войти</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room 4: Empty — forest green -->
+  <div class="rc rc--empty">
+    <div class="rc__cover" style="background: linear-gradient(135deg, #052e16, #14532d, #166534);">
+      <div class="rc__shape" style="width:100px;height:100px;background:#4ade80;top:-20px;left:40%;"></div>
+      <div class="rc__deco">🌿</div>
+      <div class="rc__empty-ico">🎶</div>
+      <div class="rc__cover-name">Музыка</div>
+    </div>
+    <div class="rc__bar">
+      <div class="rc__bar-left">
+        <span class="rc__bar-count">Пусто</span>
+      </div>
+      <div class="rc__bar-right">
+        <button class="rc__join rc__join--go">Войти</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room 5: Live, 1 person — neon red/pink -->
+  <div class="rc">
+    <div class="rc__cover" style="background: linear-gradient(135deg, #4c0519, #881337, #be123c);">
+      <div class="rc__shape" style="width:110px;height:110px;background:#f43f5e;top:-25px;right:30%;"></div>
+      <div class="rc__shape" style="width:60px;height:60px;background:#e11d48;bottom:0;left:15%;"></div>
+      <div class="rc__deco">🎮</div>
+      <div class="rc__perfs">
+        <div class="rc__perf">
+          <div class="rc__perf-ava" style="background:linear-gradient(135deg,#4ade80,#22c55e);">N</div>
+          <span class="rc__perf-name">NovaPlayer</span>
+        </div>
+      </div>
+      <div class="rc__cover-name">Игры</div>
+    </div>
+    <div class="rc__bar">
+      <div class="rc__bar-left">
+        <span class="rc__bar-count">1 на сцене</span>
+        <div class="rc__bar-live"><div class="rc__bar-dot"></div> Live</div>
+      </div>
+      <div class="rc__bar-right">
+        <button class="rc__join rc__join--go">Войти</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

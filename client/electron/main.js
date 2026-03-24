@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, desktopCapturer, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, desktopCapturer, safeStorage, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -62,10 +62,27 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
     icon: iconPath,
     title: 'blesk',
     show: false,
+  });
+
+  // Безопасность: блокируем открытие новых окон, внешние ссылки — в браузер
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  // Безопасность: блокируем навигацию на внешние URL
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const allowed = ['http://localhost', 'file://'];
+    if (!allowed.some(a => url.startsWith(a))) {
+      event.preventDefault();
+    }
   });
 
   // Оповещаем renderer о maximize/unmaximize
@@ -190,6 +207,13 @@ ipcMain.on('window:stop-drag', () => {
 });
 
 ipcMain.handle('app:version', () => app.getVersion());
+
+// Безопасное открытие внешних ссылок — только http/https
+ipcMain.on('open-external', (event, url) => {
+  if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+    shell.openExternal(url);
+  }
+});
 
 // ═══ E2E шифрование — безопасное хранение приватного ключа ═══
 const keyPath = path.join(app.getPath('userData'), 'blesk.key');

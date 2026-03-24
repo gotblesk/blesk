@@ -4,6 +4,7 @@ import AuthScreen from './components/auth/AuthScreen';
 import MainScreen from './components/main/MainScreen';
 import UpdateToast from './components/ui/UpdateToast';
 import MetaballFilter from './components/ui/MetaballFilter';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import { ensureKeyPair, clearCache } from './utils/cryptoService';
 import { useSettingsStore } from './store/settingsStore';
 import { useChatStore } from './store/chatStore';
@@ -211,13 +212,15 @@ export default function App() {
   }
 
   return (
-    <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
-      <MetaballFilter />
-      <TitleBar />
-      <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />
+    <ErrorBoundary>
+      <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
+        <MetaballFilter />
+        <TitleBar />
+        <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />
+        </div>
+        <UpdateToast />
       </div>
-      <UpdateToast />
-    </div>
+    </ErrorBoundary>
   );
 }

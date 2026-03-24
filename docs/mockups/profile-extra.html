@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Extra Hybrids</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Manrope', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 60px; }
+  .label { font-size: 11px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .ctitle { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 6px; }
+  .cdesc { font-size: 13px; color: rgba(255,255,255,0.35); max-width: 460px; text-align: center; line-height: 1.5; margin-bottom: 24px; }
+  .sep { width: 100%; max-width: 500px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     HYBRID 2: VERTICAL BOARDING PASS
+     Вертикальный билет с обложкой
+     ═══════════════════════════════════════ */
+  .vbp {
+    width: 360px;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    background: rgba(14,12,24,0.9);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+    transition: transform 0.15s ease-out;
+  }
+
+  /* Cover — magazine gradient + grain */
+  .vbp__cover {
+    height: 180px;
+    background: linear-gradient(160deg, #0f172a, #1e1b4b, #3b0764);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 16px 20px;
+    overflow: hidden;
+  }
+
+  .vbp__cover::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  .vbp__cover::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 60%;
+    background: linear-gradient(0deg, rgba(14,12,24,0.95), transparent);
+    pointer-events: none;
+  }
+
+  /* Shimmer */
+  .vbp__shimmer {
+    position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(200,255,0,0.03) 40%, rgba(167,139,250,0.04) 44%, transparent 52%);
+    background-size: 300% 100%;
+    animation: vbpShimmer 5s ease-in-out infinite;
+    pointer-events: none; z-index: 1;
+  }
+  @keyframes vbpShimmer { 0%, 100% { background-position: 200% 0; } 50% { background-position: -50% 0; } }
+
+  .vbp__watermark {
+    position: absolute;
+    top: -20px; right: -10px;
+    font-size: 200px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.015);
+    line-height: 0.8;
+    pointer-events: none;
+  }
+
+  .vbp__logo {
+    position: absolute;
+    top: 14px; left: 18px;
+    font-size: 13px; font-weight: 800;
+    color: rgba(200,255,0,0.45);
+    z-index: 2;
+    letter-spacing: -0.02em;
+  }
+
+  .vbp__issue {
+    position: absolute;
+    top: 14px; right: 18px;
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: rgba(255,255,255,0.15);
+    z-index: 2;
+    text-align: right;
+  }
+
+  /* Avatar on boundary */
+  .vbp__hero {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    position: relative;
+    z-index: 3;
+  }
+
+  .vbp__ava {
+    width: 60px; height: 60px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 800; color: #fff;
+    border: 3px solid rgba(14,12,24,0.9);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+    cursor: pointer;
+    transform: translateY(16px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .vbp__ava-hover {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.7);
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .vbp__ava:hover .vbp__ava-hover { opacity: 1; }
+
+  .vbp__hero-info {
+    margin-bottom: 2px;
+  }
+
+  .vbp__name {
+    font-size: 22px; font-weight: 900; letter-spacing: -0.04em;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  }
+
+  .vbp__sub {
+    font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 2px;
+  }
+
+  /* ─── TEAR LINE ─── */
+  .vbp__tear {
+    height: 1px;
+    margin: 0 12px;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 5px, transparent 5px, transparent 10px);
+    position: relative;
+  }
+
+  .vbp__tear-notch {
+    position: absolute;
+    top: -7px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #08060f;
+  }
+  .vbp__tear-notch--l { left: -7px; }
+  .vbp__tear-notch--r { right: -7px; }
+
+  /* ─── CONTENT ─── */
+  .vbp__content {
+    padding: 22px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* iOS cells */
+  .vbp__cell {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.015);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .vbp__cell:hover { background: rgba(255,255,255,0.035); }
+
+  .vbp__cell-ico {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0;
+  }
+
+  .vbp__cell-info { flex: 1; min-width: 0; }
+  .vbp__cell-key { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.18); text-transform: uppercase; letter-spacing: 0.04em; }
+  .vbp__cell-val { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .vbp__cell-end { font-size: 8px; font-weight: 700; padding: 2px 7px; border-radius: 5px; flex-shrink: 0; }
+  .vbp__cell-arr { color: rgba(255,255,255,0.08); font-size: 13px; flex-shrink: 0; transition: transform 0.1s; }
+  .vbp__cell:hover .vbp__cell-arr { transform: translateX(2px); color: rgba(255,255,255,0.15); }
+
+  /* Bio */
+  .vbp__bio {
+    margin-top: 4px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px dashed rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.01);
+  }
+  .vbp__bio-label { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.12); text-transform: uppercase; margin-bottom: 4px; }
+  .vbp__bio-text { font-size: 12px; color: rgba(255,255,255,0.3); font-style: italic; line-height: 1.5; }
+
+  .vbp__bio-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .vbp__bio-count { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(255,255,255,0.08); }
+  .vbp__btn { padding: 6px 14px; border-radius: 8px; border: none; background: #c8ff00; color: #000; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; transition: box-shadow 0.12s; }
+  .vbp__btn:hover { box-shadow: 0 3px 12px rgba(200,255,0,0.2); }
+
+  /* ─── BOTTOM STUB ─── */
+  .vbp__stub {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    border-top: 1px solid rgba(255,255,255,0.02);
+  }
+
+  .vbp__stub-barcode {
+    display: flex; gap: 2px; align-items: flex-end; height: 24px;
+  }
+  .vbp__stub-bar { width: 2px; background: rgba(255,255,255,0.1); border-radius: 1px; }
+
+  .vbp__stub-id {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px; font-weight: 700;
+    color: rgba(255,255,255,0.15);
+    letter-spacing: 0.1em;
+  }
+
+  .vbp__stub-label {
+    font-size: 7px; color: rgba(255,255,255,0.06);
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+
+  /* ═══════════════════════════════════════
+     HYBRID 3: FLIP PHONE CARD
+     Credit Card + Phone + Magazine
+     Переворачивается — спереди обложка,
+     сзади данные в стиле телефона
+     ═══════════════════════════════════════ */
+  .flip-scene {
+    width: 360px;
+    height: 520px;
+    perspective: 1200px;
+    cursor: pointer;
+  }
+
+  .flip {
+    width: 100%; height: 100%;
+    position: relative;
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-style: preserve-3d;
+  }
+
+  .flip-scene:hover .flip { transform: rotateY(180deg); }
+
+  .flip__face {
+    position: absolute; inset: 0;
+    backface-visibility: hidden;
+    border-radius: 22px;
+    overflow: hidden;
+  }
+
+  /* ─── FRONT: Magazine Cover ─── */
+  .flip__front {
+    background: linear-gradient(160deg, #0f172a, #1e1b4b, #3b0764, #581c87);
+    display: flex; flex-direction: column;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+  }
+
+  .flip__front-grain {
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  .flip__front-initial {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 240px; font-weight: 900;
+    color: rgba(255,255,255,0.02);
+    pointer-events: none;
+  }
+
+  .flip__front-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 20px 20px 0;
+    position: relative; z-index: 2;
+  }
+
+  .flip__front-logo { font-size: 20px; font-weight: 900; color: rgba(200,255,0,0.6); letter-spacing: -0.04em; }
+  .flip__front-issue { font-family: 'Space Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.2); text-align: right; }
+
+  .flip__front-body {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px;
+    position: relative; z-index: 2;
+  }
+
+  .flip__front-ava {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 42px; font-weight: 900; color: #fff;
+    box-shadow: 0 12px 40px rgba(167,139,250,0.25);
+  }
+
+  .flip__front-name {
+    font-size: 32px; font-weight: 900;
+    letter-spacing: -0.05em;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  .flip__front-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: rgba(255,255,255,0.25);
+    margin-top: -8px;
+  }
+
+  .flip__front-hint {
+    position: absolute; bottom: 20px;
+    font-size: 10px; color: rgba(255,255,255,0.1);
+    z-index: 2;
+  }
+
+  /* Holographic overlay */
+  .flip__front-holo {
+    position: absolute; inset: 0;
+    background: conic-gradient(from 0deg at 50% 50%,
+      transparent, rgba(200,255,0,0.02) 60deg, rgba(167,139,250,0.03) 120deg,
+      rgba(56,189,248,0.02) 180deg, transparent 240deg);
+    animation: flipHolo 10s linear infinite;
+    pointer-events: none; z-index: 1;
+  }
+  @keyframes flipHolo { to { transform: rotate(360deg); } }
+
+  /* ─── BACK: Phone-style data ─── */
+  .flip__back {
+    transform: rotateY(180deg);
+    background: rgba(14,12,24,0.95);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+    display: flex; flex-direction: column;
+  }
+
+  /* Phone notch */
+  .flip__back-notch {
+    width: 80px; height: 22px;
+    background: #08060f;
+    border-radius: 0 0 12px 12px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .flip__back-notch::before {
+    content: '';
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    width: 30px; height: 3px; border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .flip__back-content {
+    flex: 1;
+    padding: 12px 16px 8px;
+    display: flex; flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+  }
+
+  .flip__back-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    margin-bottom: 4px;
+  }
+
+  .flip__back-ava {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800; color: #fff;
+  }
+
+  .flip__back-name { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+  .flip__back-tag { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.2); }
+
+  /* Cells */
+  .fb__cell {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.015);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .fb__cell:hover { background: rgba(255,255,255,0.03); }
+
+  .fb__cell-ico {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+  }
+
+  .fb__cell-info { flex: 1; min-width: 0; }
+  .fb__cell-key { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.18); text-transform: uppercase; }
+  .fb__cell-val { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 1px; }
+
+  .fb__cell-badge { font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+  .fb__cell-arr { color: rgba(255,255,255,0.08); font-size: 12px; }
+
+  .fb__bio {
+    padding: 10px; border-radius: 12px;
+    background: rgba(255,255,255,0.01);
+    border: 1px dashed rgba(255,255,255,0.03);
+    margin-top: 4px;
+  }
+  .fb__bio-text { font-size: 11.5px; color: rgba(255,255,255,0.3); font-style: italic; line-height: 1.5; }
+
+  .fb__save {
+    margin-top: auto;
+    padding: 10px; border-radius: 12px;
+    border: none; background: #c8ff00; color: #000;
+    font-size: 12px; font-weight: 700; font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* Home indicator */
+  .flip__back-home {
+    width: 80px; height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+    margin: 8px auto;
+  }
+
+  .flip-hint {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.1);
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ═══════ HYBRID 2: VERTICAL BOARDING PASS ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Гибрид 2</div>
+    <div class="ctitle">Vertical Pass</div>
+    <div class="cdesc">Вертикальный boarding pass. Cover-обложка сверху (Magazine), горизонтальная перфорация с вырезами посередине (Boarding Pass), данные в iOS-ячейках снизу (Phone), штрихкод в footer. Всё в одной карточке.</div>
+  </div>
+
+  <div class="vbp" id="vbpCard">
+    <div class="vbp__cover">
+      <div class="vbp__shimmer"></div>
+      <div class="vbp__watermark">G</div>
+      <span class="vbp__logo">blesk</span>
+      <div class="vbp__issue">#0000<br>MAR 2026</div>
+      <div class="vbp__hero">
+        <div class="vbp__ava">G<div class="vbp__ava-hover">edit</div></div>
+        <div class="vbp__hero-info">
+          <div class="vbp__name">gotblesk</div>
+          <div class="vbp__sub">Designer · Creator</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tear line with notches -->
+    <div class="vbp__tear">
+      <div class="vbp__tear-notch vbp__tear-notch--l"></div>
+      <div class="vbp__tear-notch vbp__tear-notch--r"></div>
+    </div>
+
+    <div class="vbp__content">
+      <div class="vbp__cell">
+        <div class="vbp__cell-ico" style="background: rgba(74,222,128,0.08); color: #4ade80;">✉</div>
+        <div class="vbp__cell-info"><div class="vbp__cell-key">Email</div><div class="vbp__cell-val">mxkarov@mail.ru</div></div>
+        <div class="vbp__cell-end" style="background: rgba(74,222,128,0.08); color: #4ade80;">verified</div>
+        <span class="vbp__cell-arr">›</span>
+      </div>
+      <div class="vbp__cell">
+        <div class="vbp__cell-ico" style="background: rgba(245,158,11,0.06); color: #f59e0b;">📱</div>
+        <div class="vbp__cell-info"><div class="vbp__cell-key">Телефон</div><div class="vbp__cell-val" style="opacity:0.3;">Не привязан</div></div>
+        <span class="vbp__cell-arr">›</span>
+      </div>
+      <div class="vbp__cell">
+        <div class="vbp__cell-ico" style="background: rgba(200,255,0,0.05); color: #c8ff00;">🔒</div>
+        <div class="vbp__cell-info"><div class="vbp__cell-key">Пароль</div><div class="vbp__cell-val">●●●●●●●●</div></div>
+        <span class="vbp__cell-arr" style="color: #c8ff00;">›</span>
+      </div>
+      <div class="vbp__bio">
+        <div class="vbp__bio-label">О себе</div>
+        <div class="vbp__bio-text">"Дизайнер, создатель blesk."</div>
+        <div class="vbp__bio-footer">
+          <span class="vbp__bio-count">42/200</span>
+          <button class="vbp__btn">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="vbp__stub">
+      <div class="vbp__stub-barcode">
+        <div class="vbp__stub-bar" style="height:12px;"></div>
+        <div class="vbp__stub-bar" style="height:18px;"></div>
+        <div class="vbp__stub-bar" style="height:8px;"></div>
+        <div class="vbp__stub-bar" style="height:22px;"></div>
+        <div class="vbp__stub-bar" style="height:14px;"></div>
+        <div class="vbp__stub-bar" style="height:10px;"></div>
+        <div class="vbp__stub-bar" style="height:20px;"></div>
+        <div class="vbp__stub-bar" style="height:6px;"></div>
+        <div class="vbp__stub-bar" style="height:16px;"></div>
+        <div class="vbp__stub-bar" style="height:12px;"></div>
+        <div class="vbp__stub-bar" style="height:22px;"></div>
+        <div class="vbp__stub-bar" style="height:8px;"></div>
+        <div class="vbp__stub-bar" style="height:18px;"></div>
+        <div class="vbp__stub-bar" style="height:10px;"></div>
+        <div class="vbp__stub-bar" style="height:14px;"></div>
+      </div>
+      <div class="vbp__stub-id">#0000</div>
+      <div class="vbp__stub-label">blesk pass</div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ HYBRID 3: FLIP CARD ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Гибрид 3</div>
+    <div class="ctitle">Flip Card</div>
+    <div class="cdesc">Лицо — обложка журнала с голографией, огромным аватаром и именем. При hover переворачивается (Credit Card flip). На обратной стороне — экран телефона с нотчем и iOS-ячейками данных.</div>
+  </div>
+
+  <div class="flip-scene">
+    <div class="flip">
+      <!-- Front: Magazine Cover -->
+      <div class="flip__face flip__front">
+        <div class="flip__front-grain"></div>
+        <div class="flip__front-holo"></div>
+        <div class="flip__front-initial">G</div>
+        <div class="flip__front-top">
+          <div class="flip__front-logo">blesk</div>
+          <div class="flip__front-issue">ISSUE #0000<br>MARCH 2026</div>
+        </div>
+        <div class="flip__front-body">
+          <div class="flip__front-ava">G</div>
+          <div class="flip__front-name">gotblesk</div>
+          <div class="flip__front-tag">#0000</div>
+        </div>
+        <div class="flip__front-hint">hover чтобы перевернуть →</div>
+      </div>
+
+      <!-- Back: Phone Screen -->
+      <div class="flip__face flip__back">
+        <div class="flip__back-notch"></div>
+        <div class="flip__back-content">
+          <div class="flip__back-head">
+            <div class="flip__back-ava">G</div>
+            <div>
+              <div class="flip__back-name">gotblesk</div>
+              <div class="flip__back-tag">#0000 · с марта 2026</div>
+            </div>
+          </div>
+
+          <div class="fb__cell">
+            <div class="fb__cell-ico" style="background:rgba(74,222,128,0.08);color:#4ade80;">✉</div>
+            <div class="fb__cell-info"><div class="fb__cell-key">Email</div><div class="fb__cell-val">mxkarov@mail.ru</div></div>
+            <div class="fb__cell-badge" style="background:rgba(74,222,128,0.1);color:#4ade80;">✓</div>
+            <span class="fb__cell-arr">›</span>
+          </div>
+          <div class="fb__cell">
+            <div class="fb__cell-ico" style="background:rgba(245,158,11,0.06);color:#f59e0b;">📱</div>
+            <div class="fb__cell-info"><div class="fb__cell-key">Телефон</div><div class="fb__cell-val" style="opacity:0.3;">Не привязан</div></div>
+            <span class="fb__cell-arr">›</span>
+          </div>
+          <div class="fb__cell">
+            <div class="fb__cell-ico" style="background:rgba(200,255,0,0.05);color:#c8ff00;">🔒</div>
+            <div class="fb__cell-info"><div class="fb__cell-key">Пароль</div><div class="fb__cell-val">●●●●●●●●</div></div>
+            <span class="fb__cell-arr" style="color:#c8ff00;">›</span>
+          </div>
+
+          <div class="fb__bio">
+            <div class="fb__bio-text">"Дизайнер, создатель blesk."</div>
+          </div>
+
+          <button class="fb__save">Редактировать профиль</button>
+        </div>
+        <div class="flip__back-home"></div>
+      </div>
+    </div>
+  </div>
+  <div class="flip-hint">↕ наведи чтобы перевернуть</div>
+
+</body>
+<script>
+  // 3D tilt for vertical pass
+  const vbp = document.getElementById('vbpCard');
+  vbp.addEventListener('mousemove', (e) => {
+    const r = vbp.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    vbp.style.transform = `perspective(800px) rotateY(${x * 5}deg) rotateX(${-y * 3}deg)`;
+  });
+  vbp.addEventListener('mouseleave', () => { vbp.style.transform = ''; });
+</script>
+</html>

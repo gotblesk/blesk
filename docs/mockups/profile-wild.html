@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Wild Profile Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 60px;
+  }
+
+  .label { font-size: 11px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .ctitle { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 6px; }
+  .cdesc { font-size: 13px; color: rgba(255,255,255,0.35); max-width: 440px; text-align: center; line-height: 1.5; margin-bottom: 24px; }
+  .sep { width: 100%; max-width: 500px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT G: CREDIT CARD
+     Профиль как банковская карта — переворачивается
+     ═══════════════════════════════════════ */
+  .cc-scene {
+    width: 420px;
+    height: 260px;
+    perspective: 1000px;
+    cursor: pointer;
+  }
+
+  .cc {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-style: preserve-3d;
+  }
+
+  .cc-scene:hover .cc {
+    transform: rotateY(180deg);
+  }
+
+  .cc__face {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    backface-visibility: hidden;
+    overflow: hidden;
+  }
+
+  /* Front */
+  .cc__front {
+    background: linear-gradient(135deg, rgba(20,18,34,0.95), rgba(30,25,50,0.9));
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cc__front-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .cc__chip {
+    width: 40px; height: 30px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #c8ff00, #a0cc00);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cc__chip::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.15);
+    background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+  }
+
+  .cc__logo {
+    font-size: 16px;
+    font-weight: 800;
+    color: rgba(200,255,0,0.6);
+    letter-spacing: -0.03em;
+  }
+
+  .cc__number {
+    font-family: 'Space Mono', monospace;
+    font-size: 20px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.7);
+    margin-top: auto;
+    margin-bottom: 16px;
+  }
+
+  .cc__bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .cc__holder-label {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.2);
+    margin-bottom: 3px;
+  }
+
+  .cc__holder {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .cc__since-label {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.2);
+    margin-bottom: 3px;
+    text-align: right;
+  }
+
+  .cc__since {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    text-align: right;
+  }
+
+  /* Holographic shimmer */
+  .cc__front::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: conic-gradient(from 0deg at 50% 50%,
+      transparent 0deg,
+      rgba(200,255,0,0.03) 60deg,
+      rgba(167,139,250,0.04) 120deg,
+      rgba(56,189,248,0.03) 180deg,
+      rgba(245,158,11,0.03) 240deg,
+      transparent 360deg
+    );
+    animation: ccHolo 8s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes ccHolo {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Back */
+  .cc__back {
+    background: rgba(20,18,34,0.95);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    transform: rotateY(180deg);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cc__stripe {
+    height: 40px;
+    background: rgba(255,255,255,0.06);
+    margin-top: 20px;
+  }
+
+  .cc__back-body {
+    flex: 1;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cc__back-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .cc__back-key {
+    font-size: 9px;
+    color: rgba(255,255,255,0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    min-width: 60px;
+  }
+
+  .cc__back-val {
+    color: rgba(255,255,255,0.6);
+    flex: 1;
+  }
+
+  .cc__back-badge {
+    font-size: 8px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(74,222,128,0.1);
+    color: #4ade80;
+  }
+
+  .cc__back-bio {
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    font-style: italic;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .cc-hint {
+    font-size: 10px;
+    color: rgba(255,255,255,0.12);
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT H: PHONE SCREEN
+     Профиль как экран телефона
+     ═══════════════════════════════════════ */
+  .phone {
+    width: 280px;
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    background: #0a0812;
+    border: 3px solid rgba(255,255,255,0.08);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.03);
+    padding: 12px;
+    transition: transform 0.15s;
+  }
+
+  .phone:hover { transform: perspective(800px) rotateY(4deg) rotateX(-2deg); }
+
+  /* Notch */
+  .phone__notch {
+    width: 100px;
+    height: 24px;
+    background: #0a0812;
+    border-radius: 0 0 14px 14px;
+    margin: 0 auto 12px;
+    position: relative;
+    z-index: 5;
+  }
+
+  .phone__notch::before {
+    content: '';
+    position: absolute;
+    top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 40px; height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .phone__screen {
+    border-radius: 24px;
+    overflow: hidden;
+    background: rgba(14,12,24,0.9);
+  }
+
+  /* Status bar */
+  .phone__statusbar {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 16px;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* Profile content */
+  .phone__profile {
+    padding: 8px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .phone__ava {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 800; color: #fff;
+    box-shadow: 0 8px 24px rgba(167,139,250,0.2);
+  }
+
+  .phone__name {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .phone__tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
+    margin-top: -4px;
+  }
+
+  .phone__bio {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    text-align: center;
+    line-height: 1.4;
+    padding: 0 8px;
+  }
+
+  .phone__fields {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .phone__field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .phone__field-icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .phone__field-info { flex: 1; min-width: 0; }
+  .phone__field-key { font-size: 9px; color: rgba(255,255,255,0.2); text-transform: uppercase; }
+  .phone__field-val { font-size: 11.5px; color: rgba(255,255,255,0.6); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .phone__field-arr {
+    font-size: 12px;
+    color: rgba(255,255,255,0.1);
+  }
+
+  .phone__btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: 12px;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+
+  /* Home indicator */
+  .phone__home {
+    width: 100px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+    margin: 12px auto 4px;
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT I: BLUEPRINT
+     Профиль как чертёж / blueprint
+     ═══════════════════════════════════════ */
+  .bp {
+    width: 440px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(10,14,30,0.95);
+    border: 1px solid rgba(56,100,180,0.15);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    position: relative;
+    padding: 24px;
+    transition: transform 0.15s;
+  }
+
+  .bp:hover { transform: perspective(800px) rotateY(2deg); }
+
+  /* Grid background */
+  .bp::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(56,100,180,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,100,180,0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    pointer-events: none;
+  }
+
+  /* Corner marks */
+  .bp::after {
+    content: '';
+    position: absolute;
+    top: 8px; left: 8px;
+    width: 20px; height: 20px;
+    border-top: 2px solid rgba(56,100,180,0.2);
+    border-left: 2px solid rgba(56,100,180,0.2);
+  }
+
+  .bp__corner {
+    position: absolute;
+    bottom: 8px; right: 8px;
+    width: 20px; height: 20px;
+    border-bottom: 2px solid rgba(56,100,180,0.2);
+    border-right: 2px solid rgba(56,100,180,0.2);
+  }
+
+  .bp__title-block {
+    position: absolute;
+    bottom: 8px; left: 8px;
+    padding: 6px 12px;
+    border: 1px solid rgba(56,100,180,0.12);
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: rgba(56,100,180,0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .bp__content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .bp__header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px dashed rgba(56,100,180,0.1);
+  }
+
+  .bp__ava {
+    width: 60px; height: 60px;
+    border-radius: 4px;
+    border: 2px solid rgba(56,100,180,0.2);
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 800; color: #fff;
+    position: relative;
+  }
+
+  /* Dimension lines */
+  .bp__ava::before {
+    content: '60×60';
+    position: absolute;
+    top: -14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    color: rgba(56,100,180,0.3);
+  }
+
+  .bp__name-block {}
+
+  .bp__name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: rgba(255,255,255,0.85);
+  }
+
+  .bp__tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: rgba(56,100,180,0.4);
+    margin-top: 2px;
+  }
+
+  .bp__grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .bp__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    border: 1px dashed rgba(56,100,180,0.08);
+    border-radius: 4px;
+    position: relative;
+  }
+
+  /* Connection dot */
+  .bp__row::before {
+    content: '';
+    position: absolute;
+    left: -6px; top: 50%;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    border: 2px solid;
+    background: rgba(10,14,30,0.95);
+    transform: translateY(-50%);
+  }
+
+  .bp__row--email::before { border-color: #4ade80; }
+  .bp__row--phone::before { border-color: #f59e0b; }
+  .bp__row--pw::before { border-color: #c8ff00; }
+  .bp__row--bio::before { border-color: #a78bfa; }
+
+  .bp__row-key {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: rgba(56,100,180,0.35);
+    text-transform: uppercase;
+    min-width: 60px;
+    flex-shrink: 0;
+  }
+
+  .bp__row-val {
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.6);
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bp__row-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    border: 1px solid rgba(74,222,128,0.2);
+    color: #4ade80;
+  }
+
+  .bp__save {
+    margin-top: 16px;
+    padding: 9px 20px;
+    border-radius: 4px;
+    border: 2px solid rgba(200,255,0,0.3);
+    background: transparent;
+    color: #c8ff00;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    transition: all 0.12s;
+  }
+  .bp__save:hover { background: rgba(200,255,0,0.06); border-color: rgba(200,255,0,0.5); }
+</style>
+</head>
+<body>
+
+  <!-- ═══════ CONCEPT G: CREDIT CARD ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт G</div>
+    <div class="ctitle">Credit Card</div>
+    <div class="cdesc">Профиль как банковская карта с чипом и голографией. При hover переворачивается и показывает данные на обратной стороне. Как физическая карта.</div>
+  </div>
+
+  <div class="cc-scene">
+    <div class="cc">
+      <div class="cc__face cc__front">
+        <div class="cc__front-top">
+          <div class="cc__chip"></div>
+          <div class="cc__logo">blesk</div>
+        </div>
+        <div class="cc__number">0000 ·· gotblesk</div>
+        <div class="cc__bottom">
+          <div>
+            <div class="cc__holder-label">Card Holder</div>
+            <div class="cc__holder">GOTBLESK</div>
+          </div>
+          <div>
+            <div class="cc__since-label">Member Since</div>
+            <div class="cc__since">03/2026</div>
+          </div>
+        </div>
+      </div>
+      <div class="cc__face cc__back">
+        <div class="cc__stripe"></div>
+        <div class="cc__back-body">
+          <div class="cc__back-field">
+            <span class="cc__back-key">Email</span>
+            <span class="cc__back-val">mxkarov@mail.ru</span>
+            <span class="cc__back-badge">verified</span>
+          </div>
+          <div class="cc__back-field">
+            <span class="cc__back-key">Phone</span>
+            <span class="cc__back-val" style="opacity: 0.3;">Not linked</span>
+          </div>
+          <div class="cc__back-field">
+            <span class="cc__back-key">Pass</span>
+            <span class="cc__back-val" style="color: #c8ff00;">Change →</span>
+          </div>
+          <div class="cc__back-bio">"Дизайнер, создатель blesk. Люблю минимализм."</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cc-hint">↕ наведи чтобы перевернуть</div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT H: PHONE ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт H</div>
+    <div class="ctitle">Phone Screen</div>
+    <div class="cdesc">Профиль как экран смартфона с нотчем, статусбаром и home indicator. Как будто смотришь на свой телефон внутри мессенджера.</div>
+  </div>
+
+  <div class="phone">
+    <div class="phone__notch"></div>
+    <div class="phone__screen">
+      <div class="phone__statusbar">
+        <span>16:04</span>
+        <span>●●● WiFi 🔋</span>
+      </div>
+      <div class="phone__profile">
+        <div class="phone__ava">G</div>
+        <div class="phone__name">gotblesk</div>
+        <div class="phone__tag">#0000</div>
+        <div class="phone__bio">"Дизайнер, создатель blesk"</div>
+        <div class="phone__fields">
+          <div class="phone__field">
+            <div class="phone__field-icon" style="background: rgba(74,222,128,0.08); color: #4ade80;">✉</div>
+            <div class="phone__field-info">
+              <div class="phone__field-key">Email</div>
+              <div class="phone__field-val">mxkarov@mail.ru</div>
+            </div>
+            <span class="phone__field-arr">›</span>
+          </div>
+          <div class="phone__field">
+            <div class="phone__field-icon" style="background: rgba(245,158,11,0.08); color: #f59e0b;">📱</div>
+            <div class="phone__field-info">
+              <div class="phone__field-key">Phone</div>
+              <div class="phone__field-val" style="opacity: 0.3;">Не привязан</div>
+            </div>
+            <span class="phone__field-arr">›</span>
+          </div>
+          <div class="phone__field">
+            <div class="phone__field-icon" style="background: rgba(200,255,0,0.06); color: #c8ff00;">🔒</div>
+            <div class="phone__field-info">
+              <div class="phone__field-key">Password</div>
+              <div class="phone__field-val">●●●●●●●●</div>
+            </div>
+            <span class="phone__field-arr">›</span>
+          </div>
+        </div>
+        <button class="phone__btn">Редактировать</button>
+      </div>
+    </div>
+    <div class="phone__home"></div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT I: BLUEPRINT ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт I</div>
+    <div class="ctitle">Blueprint</div>
+    <div class="cdesc">Профиль как технический чертёж — сетка на фоне, пунктирные границы, dimension labels, connection dots. Инженерная эстетика.</div>
+  </div>
+
+  <div class="bp">
+    <div class="bp__corner"></div>
+    <div class="bp__title-block">blesk / user / profile / v0.5.7</div>
+    <div class="bp__content">
+      <div class="bp__header">
+        <div class="bp__ava">G</div>
+        <div class="bp__name-block">
+          <div class="bp__name">gotblesk</div>
+          <div class="bp__tag">ID: #0000 | SINCE: 03.2026</div>
+        </div>
+      </div>
+      <div class="bp__grid">
+        <div class="bp__row bp__row--email">
+          <span class="bp__row-key">email</span>
+          <span class="bp__row-val">mxkarov@mail.ru</span>
+          <span class="bp__row-badge">VERIFIED</span>
+        </div>
+        <div class="bp__row bp__row--phone">
+          <span class="bp__row-key">phone</span>
+          <span class="bp__row-val" style="opacity: 0.3;">not linked</span>
+        </div>
+        <div class="bp__row bp__row--pw">
+          <span class="bp__row-key">passwd</span>
+          <span class="bp__row-val" style="color: #c8ff00;">●●●●●●●● → change</span>
+        </div>
+        <div class="bp__row bp__row--bio">
+          <span class="bp__row-key">bio</span>
+          <span class="bp__row-val" style="font-style: italic; opacity: 0.5;">"Дизайнер, создатель blesk"</span>
+        </div>
+      </div>
+      <button class="bp__save">[ save changes ]</button>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -309,16 +309,21 @@ export default function ChatView({
     setReplyTo(null);
   }, [chatId, replyTo]);
 
-  const handleTypingStart = () => {
-    // Если индикатор набора отключён в настройках приватности — не отправляем
-    if (!showTyping) return;
-    socketRef.current?.emit('typing:start', { chatId });
-  };
+  // Дебаунс typing:start — не чаще 1 раза в 2 секунды
+  const lastTypingRef = useRef(0);
 
-  const handleTypingStop = () => {
+  const handleTypingStart = useCallback(() => {
+    if (!showTyping) return;
+    const now = Date.now();
+    if (now - lastTypingRef.current < 2000) return;
+    lastTypingRef.current = now;
+    socketRef.current?.emit('typing:start', { chatId });
+  }, [showTyping, chatId, socketRef]);
+
+  const handleTypingStop = useCallback(() => {
     if (!showTyping) return;
     socketRef.current?.emit('typing:stop', { chatId });
-  };
+  }, [showTyping, chatId, socketRef]);
 
   // Редактирование сообщения — заполнить input текстом
   const handleEdit = useCallback((msg) => {
@@ -439,7 +444,7 @@ export default function ChatView({
         ref={messagesContainerRef}
         onScroll={handleMessagesScroll}
       >
-        {chatMessages.map((msg, idx) => {
+        {(chatMessages ?? []).map((msg, idx) => {
           const isOwn = msg.userId === userId.current;
           const prev = chatMessages[idx - 1];
           const next = chatMessages[idx + 1];

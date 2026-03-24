@@ -163,12 +163,12 @@
 
 /* ═══════ VERIFY CODE INPUTS ═══════ */
 .verify-code-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
   gap: 8px;
 }
 
 .verify-code-cell {
-  flex: 1;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
@@ -214,6 +214,13 @@
 
 .verify-resend-btn:hover {
   color: var(--accent, #c8ff00);
+}
+
+/* ═══════ LIGHT THEME — VERIFY CODE ═══════ */
+[data-theme="light"] .verify-code-cell {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.08);
+  color: rgba(0,0,0,0.75);
 }
 
 /* ═══════ BRAND INTRO ═══════ */

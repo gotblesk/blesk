@@ -739,6 +739,18 @@
   50% { box-shadow: 0 0 12px rgba(239, 68, 68, 0.2); }
 }
 
+.vrl__card-act--danger {
+  width: auto !important;
+  padding: 0 8px !important;
+  gap: 4px;
+}
+.vrl__card-act-confirm {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 /* ═══════ INVITE PANEL — Glass Drawer ═══════ */
 .vrl__invite { overflow: hidden; }
 

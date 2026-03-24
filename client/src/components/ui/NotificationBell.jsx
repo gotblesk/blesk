@@ -81,7 +81,8 @@ export default function NotificationBell({ onOpenChat }) {
   const handleOpen = useCallback(() => {
     if (bellRef.current) setAnchor(bellRef.current.getBoundingClientRect());
     setOpen(true);
-  }, []);
+    if (unreadCount > 0) markAllAsRead();
+  }, [unreadCount, markAllAsRead]);
 
   // Click outside
   useEffect(() => {
@@ -182,7 +183,15 @@ export default function NotificationBell({ onOpenChat }) {
                         yOffset={offsets[i] || 0}
                         rotation={ROTATIONS[i % ROTATIONS.length]}
                         isFirst={i === 0}
-                        onItemClick={() => { if (!item.isRead) markAsRead(item.id); setExpanded(item); }}
+                        onItemClick={() => {
+                          if (!item.isRead) markAsRead(item.id);
+                          if (item.type !== 'friend_request' && item.roomId && onOpenChat) {
+                            setOpen(false);
+                            onOpenChat(item.roomId, null);
+                          } else {
+                            setExpanded(item);
+                          }
+                        }}
                         onAccept={acceptFriend}
                         onDecline={declineFriend}
                         onRemove={() => item.ids.forEach(id => removeNotification(id))}

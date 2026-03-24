@@ -18,7 +18,7 @@ function useDebounce(value, delay) {
 const TABS = [
   { id: 'friends', label: 'Друзья' },
   { id: 'requests', label: 'Заявки' },
-  { id: 'search', label: 'Поиск' },
+  { id: 'search', label: 'Найти друзей' },
 ];
 
 const tabV = {

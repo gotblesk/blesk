@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Voice Room List v3</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Manrope', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; padding: 30px 20px; display: flex; flex-direction: column; align-items: center; gap: 50px; }
+  .label { font-size: 10px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .ctitle { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .cdesc { font-size: 12px; color: rgba(255,255,255,0.3); max-width: 500px; text-align: center; line-height: 1.4; margin-bottom: 16px; }
+  .sep { width: 100%; max-width: 600px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT I: PLANETS / SOLAR SYSTEM
+     Комнаты как планеты разного размера
+     с орбитами участников
+     ═══════════════════════════════════════ */
+  .li {
+    width: 560px; height: 340px;
+    position: relative;
+  }
+
+  .li__head { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; z-index: 5; }
+  .li__title { font-size: 15px; font-weight: 800; }
+  .li__create { padding: 4px 10px; border-radius: 6px; border: none; background: rgba(200,255,0,0.06); color: #c8ff00; font-size: 9px; font-weight: 700; font-family: inherit; cursor: pointer; }
+
+  .li__planet {
+    position: absolute;
+    border-radius: 50%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    gap: 3px;
+  }
+  .li__planet:hover { transform: scale(1.12); z-index: 10; }
+
+  /* Orbit ring around planet */
+  .li__planet-orbit {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px dashed rgba(255,255,255,0.04);
+    pointer-events: none;
+  }
+
+  /* User dots orbiting */
+  .li__planet-dot {
+    position: absolute;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 6px; font-weight: 900; color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  .li__planet-name { font-size: 10px; font-weight: 800; }
+  .li__planet-count { font-size: 7px; color: rgba(255,255,255,0.2); }
+
+  /* Glow for active planets */
+  .li__planet--live { box-shadow: 0 0 30px rgba(74,222,128,0.1); }
+
+  /* Connection lines between planets */
+  .li__lines { position: absolute; inset: 0; pointer-events: none; }
+  .li__lines line { stroke: rgba(255,255,255,0.02); stroke-width: 1; stroke-dasharray: 3 6; }
+
+  /* ═══════════════════════════════════════
+     CONCEPT J: CASSETTE TAPES
+     Комнаты как кассеты в плеере
+     ═══════════════════════════════════════ */
+  .lj {
+    width: 520px; padding: 16px;
+    border-radius: 22px;
+    background: rgba(14,12,24,0.6);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .lj__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .lj__title { font-size: 15px; font-weight: 800; }
+  .lj__create { padding: 5px 12px; border-radius: 8px; border: none; background: rgba(200,255,0,0.06); color: #c8ff00; font-size: 10px; font-weight: 700; font-family: inherit; cursor: pointer; }
+
+  .lj__list { display: flex; flex-direction: column; gap: 6px; }
+
+  .lj__tape {
+    display: flex; align-items: center; gap: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: rgba(255,255,255,0.01);
+    border: 1px solid rgba(255,255,255,0.03);
+    height: 70px;
+  }
+  .lj__tape:hover { background: rgba(255,255,255,0.025); transform: translateX(4px); }
+
+  /* Left color strip — unique per room */
+  .lj__tape-strip {
+    width: 6px; height: 100%;
+    flex-shrink: 0;
+  }
+
+  /* Tape reels */
+  .lj__tape-reels {
+    width: 60px; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    gap: 4px;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .lj__tape-reel {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
+    position: relative;
+  }
+
+  /* Spinning reels for live */
+  .lj__tape--live .lj__tape-reel {
+    border-color: rgba(74,222,128,0.15);
+    animation: reelSpin 2s linear infinite;
+  }
+  @keyframes reelSpin { to { transform: rotate(360deg); } }
+
+  .lj__tape-reel::before {
+    content: ''; position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+
+  /* Tape band between reels */
+  .lj__tape-band {
+    position: absolute;
+    top: 50%; left: 14px; right: 14px;
+    height: 1px;
+    background: rgba(255,255,255,0.04);
+    transform: translateY(-50%);
+  }
+
+  /* Info */
+  .lj__tape-info {
+    flex: 1; padding: 0 12px;
+    display: flex; flex-direction: column;
+    justify-content: center; gap: 3px;
+  }
+
+  .lj__tape-name { font-size: 13px; font-weight: 700; }
+  .lj__tape-meta { font-size: 9px; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 4px; }
+
+  .lj__tape-wave { display: flex; gap: 1.5px; align-items: center; height: 8px; }
+  .lj__tape-wave-bar { width: 1.5px; border-radius: 1px; background: rgba(74,222,128,0.3); animation: twBar 1s ease-in-out infinite; }
+  @keyframes twBar { 0%, 100% { height: 2px; } 50% { height: 7px; } }
+
+  /* Avatars */
+  .lj__tape-avas { display: flex; flex-shrink: 0; margin-right: 10px; }
+  .lj__tape-ava { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; color: #fff; border: 1.5px solid rgba(14,12,24,0.8); margin-left: -5px; }
+  .lj__tape-ava:first-child { margin-left: 0; }
+
+  .lj__tape-btn { padding: 5px 12px; border-radius: 8px; border: none; font-size: 10px; font-weight: 700; font-family: inherit; cursor: pointer; flex-shrink: 0; margin-right: 10px; }
+  .lj__tape-btn--go { background: rgba(74,222,128,0.08); color: #4ade80; }
+  .lj__tape-btn--here { background: rgba(200,255,0,0.04); color: rgba(200,255,0,0.3); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT K: SOUNDWAVE CARDS
+     Карточки с уникальной формой волны
+     ═══════════════════════════════════════ */
+  .lk {
+    width: 540px; padding: 16px;
+  }
+
+  .lk__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .lk__title { font-size: 16px; font-weight: 800; }
+  .lk__create { padding: 5px 12px; border-radius: 8px; border: none; background: rgba(200,255,0,0.06); color: #c8ff00; font-size: 10px; font-weight: 700; font-family: inherit; cursor: pointer; }
+
+  .lk__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .lk__card {
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: rgba(14,12,24,0.7);
+    border: 1px solid rgba(255,255,255,0.04);
+    position: relative;
+  }
+  .lk__card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
+
+  /* Unique waveform as header */
+  .lk__card-wave {
+    height: 60px;
+    position: relative;
+    overflow: hidden;
+    display: flex; align-items: flex-end;
+    padding: 0 8px;
+    gap: 1.5px;
+  }
+
+  .lk__card-wave-bar {
+    flex: 1;
+    border-radius: 1px 1px 0 0;
+    min-height: 2px;
+    transition: height 0.3s;
+  }
+
+  /* Live waveform animated */
+  .lk__card--live .lk__card-wave-bar {
+    animation: waveBar 1.5s ease-in-out infinite;
+  }
+  @keyframes waveBar {
+    0%, 100% { transform: scaleY(0.4); }
+    50% { transform: scaleY(1); }
+  }
+
+  /* Static waveform for empty rooms */
+  .lk__card--empty .lk__card-wave-bar { opacity: 0.15; }
+
+  .lk__card-body { padding: 12px 14px; }
+
+  .lk__card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .lk__card-name { font-size: 14px; font-weight: 800; }
+  .lk__card-live { display: flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; color: #4ade80; }
+  .lk__card-live-dot { width: 5px; height: 5px; border-radius: 50%; background: #4ade80; animation: kdot 1.5s ease-in-out infinite; }
+  @keyframes kdot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .lk__card-avas { display: flex; align-items: center; margin-bottom: 8px; }
+  .lk__card-ava { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; color: #fff; border: 1.5px solid rgba(14,12,24,0.8); margin-left: -4px; }
+  .lk__card-ava:first-child { margin-left: 0; }
+  .lk__card-count { font-size: 9px; color: rgba(255,255,255,0.15); margin-left: 6px; }
+
+  .lk__card-btn { width: 100%; padding: 7px; border-radius: 10px; border: none; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all 0.1s; }
+  .lk__card-btn--go { background: rgba(74,222,128,0.08); color: #4ade80; }
+  .lk__card-btn--go:hover { background: rgba(74,222,128,0.14); }
+  .lk__card-btn--here { background: rgba(200,255,0,0.04); color: rgba(200,255,0,0.3); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT L: PHONE DIAL PAD
+     Комнаты как кнопки на dial pad
+     ═══════════════════════════════════════ */
+  .ll {
+    width: 340px;
+    border-radius: 22px;
+    background: rgba(14,12,24,0.6);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(255,255,255,0.05);
+    padding: 18px;
+  }
+
+  .ll__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .ll__title { font-size: 15px; font-weight: 800; }
+  .ll__create { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(200,255,0,0.06); color: #c8ff00; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+  .ll__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+  .ll__key {
+    aspect-ratio: 1;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .ll__key:hover { background: rgba(255,255,255,0.04); transform: scale(1.04); }
+  .ll__key:active { transform: scale(0.96); }
+
+  /* Live glow */
+  .ll__key--live { border-color: rgba(74,222,128,0.12); }
+  .ll__key--live::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(74,222,128,0.04), transparent 70%);
+    pointer-events: none;
+  }
+
+  .ll__key--here { border-color: rgba(200,255,0,0.1); }
+
+  .ll__key-name { font-size: 11px; font-weight: 800; }
+  .ll__key-count { font-size: 8px; color: rgba(255,255,255,0.15); }
+
+  .ll__key-avas { display: flex; }
+  .ll__key-ava { width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 6px; font-weight: 900; color: #fff; border: 1px solid rgba(14,12,24,0.8); margin-left: -3px; }
+  .ll__key-ava:first-child { margin-left: 0; }
+
+  .ll__key-wave { display: flex; gap: 1px; align-items: center; height: 8px; }
+  .ll__key-wave-bar { width: 1.5px; border-radius: 1px; background: rgba(74,222,128,0.25); animation: twBar 1s ease-in-out infinite; }
+
+  .ll__key-badge {
+    position: absolute; top: 4px; right: 4px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 6px rgba(74,222,128,0.3);
+  }
+</style>
+</head>
+<body>
+
+  <!-- CONCEPT I: PLANETS -->
+  <div style="text-align:center;">
+    <div class="label">Концепт I</div>
+    <div class="ctitle">Solar System</div>
+    <div class="cdesc">Комнаты как планеты. Размер = активность. Участники = точки на орбите. Пунктирные орбитальные кольца. Линии-связи между планетами. Nebula meets cosmos.</div>
+  </div>
+
+  <div class="li">
+    <div class="li__head"><span class="li__title">Голосовые</span><button class="li__create">+</button></div>
+
+    <svg class="li__lines" viewBox="0 0 560 340">
+      <line x1="160" y1="170" x2="380" y2="130" />
+      <line x1="380" y1="130" x2="430" y2="250" />
+      <line x1="160" y1="170" x2="100" y2="270" />
+    </svg>
+
+    <!-- Общая — большая, live -->
+    <div class="li__planet li__planet--live" style="width:120px;height:120px;background:rgba(74,222,128,0.04);border:1px solid rgba(74,222,128,0.08);left:100px;top:110px;">
+      <div class="li__planet-orbit" style="inset:-18px;"></div>
+      <div class="li__planet-dot" style="background:linear-gradient(135deg,#e879f9,#7c3aed);top:-8px;left:50px;">V</div>
+      <div class="li__planet-dot" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);bottom:-6px;right:10px;">D</div>
+      <div class="li__planet-dot" style="background:linear-gradient(135deg,#f59e0b,#d97706);left:-8px;top:50px;">S</div>
+      <span class="li__planet-name">Общая</span>
+      <span class="li__planet-count">3 онлайн</span>
+    </div>
+
+    <!-- Студия — средняя, вы здесь -->
+    <div class="li__planet" style="width:90px;height:90px;background:rgba(200,255,0,0.02);border:1px solid rgba(200,255,0,0.08);left:320px;top:85px;">
+      <div class="li__planet-orbit" style="inset:-12px;border-color:rgba(200,255,0,0.05);"></div>
+      <div class="li__planet-dot" style="background:linear-gradient(135deg,#c8ff00,#a0cc00);color:#000;top:-6px;left:35px;">G</div>
+      <span class="li__planet-name" style="color:#c8ff00;font-size:9px;">Студия</span>
+      <span class="li__planet-count">Вы</span>
+    </div>
+
+    <!-- Музыка — маленькая, live -->
+    <div class="li__planet li__planet--live" style="width:70px;height:70px;background:rgba(74,222,128,0.03);border:1px solid rgba(74,222,128,0.06);left:380px;top:210px;">
+      <div class="li__planet-dot" style="background:linear-gradient(135deg,#4ade80,#22c55e);top:-6px;left:25px;">N</div>
+      <span class="li__planet-name" style="font-size:8px;">Музыка</span>
+    </div>
+
+    <!-- Игры — маленькая, пустая -->
+    <div class="li__planet" style="width:50px;height:50px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.03);left:50px;top:240px;">
+      <span class="li__planet-name" style="font-size:7px;color:rgba(255,255,255,0.15);">Игры</span>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- CONCEPT J: CASSETTE -->
+  <div style="text-align:center;">
+    <div class="label">Концепт J</div>
+    <div class="ctitle">Cassette Tapes</div>
+    <div class="cdesc">Каждая комната — кассета. Катушки вращаются для live. Цветная полоска слева (уникальный цвет). Лента между катушками. Ретро-tech эстетика.</div>
+  </div>
+
+  <div class="lj">
+    <div class="lj__head"><span class="lj__title">Голосовые</span><button class="lj__create">+ Создать</button></div>
+    <div class="lj__list">
+      <div class="lj__tape lj__tape--live">
+        <div class="lj__tape-strip" style="background:linear-gradient(180deg,#7c3aed,#a855f7);"></div>
+        <div class="lj__tape-reels">
+          <div class="lj__tape-reel"></div>
+          <div class="lj__tape-band"></div>
+          <div class="lj__tape-reel"></div>
+        </div>
+        <div class="lj__tape-info">
+          <div class="lj__tape-name">Общая</div>
+          <div class="lj__tape-meta">3 в эфире <div class="lj__tape-wave"><div class="lj__tape-wave-bar" style="animation-delay:0s;"></div><div class="lj__tape-wave-bar" style="animation-delay:0.1s;"></div><div class="lj__tape-wave-bar" style="animation-delay:0.2s;"></div><div class="lj__tape-wave-bar" style="animation-delay:0.3s;"></div></div></div>
+        </div>
+        <div class="lj__tape-avas">
+          <div class="lj__tape-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+          <div class="lj__tape-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+          <div class="lj__tape-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+        </div>
+        <button class="lj__tape-btn lj__tape-btn--go">Play</button>
+      </div>
+      <div class="lj__tape" style="border-color:rgba(200,255,0,0.06);">
+        <div class="lj__tape-strip" style="background:linear-gradient(180deg,#c8ff00,#a0cc00);"></div>
+        <div class="lj__tape-reels"><div class="lj__tape-reel"></div><div class="lj__tape-band"></div><div class="lj__tape-reel"></div></div>
+        <div class="lj__tape-info">
+          <div class="lj__tape-name" style="color:#c8ff00;">Студия</div>
+          <div class="lj__tape-meta" style="color:rgba(200,255,0,0.2);">Вы здесь</div>
+        </div>
+        <button class="lj__tape-btn lj__tape-btn--here">Playing</button>
+      </div>
+      <div class="lj__tape lj__tape--live">
+        <div class="lj__tape-strip" style="background:linear-gradient(180deg,#22c55e,#4ade80);"></div>
+        <div class="lj__tape-reels"><div class="lj__tape-reel"></div><div class="lj__tape-band"></div><div class="lj__tape-reel"></div></div>
+        <div class="lj__tape-info">
+          <div class="lj__tape-name">Музыка</div>
+          <div class="lj__tape-meta">1 в эфире</div>
+        </div>
+        <div class="lj__tape-avas"><div class="lj__tape-ava" style="background:linear-gradient(135deg,#4ade80,#22c55e);">N</div></div>
+        <button class="lj__tape-btn lj__tape-btn--go">Play</button>
+      </div>
+      <div class="lj__tape">
+        <div class="lj__tape-strip" style="background:linear-gradient(180deg,#334155,#1e293b);"></div>
+        <div class="lj__tape-reels"><div class="lj__tape-reel" style="border-color:rgba(255,255,255,0.04);"></div><div class="lj__tape-band"></div><div class="lj__tape-reel" style="border-color:rgba(255,255,255,0.04);"></div></div>
+        <div class="lj__tape-info">
+          <div class="lj__tape-name" style="color:rgba(255,255,255,0.2);">Игры</div>
+          <div class="lj__tape-meta">Тишина</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- CONCEPT K: SOUNDWAVE CARDS -->
+  <div style="text-align:center;">
+    <div class="label">Концепт K</div>
+    <div class="ctitle">Soundwave Cards</div>
+    <div class="cdesc">Каждая карточка с уникальной формой звуковой волны вверху. Live — волна анимирована. Пустая — статическая тусклая волна. Форма волны — "отпечаток" комнаты.</div>
+  </div>
+
+  <div class="lk">
+    <div class="lk__head"><span class="lk__title">Голосовые</span><button class="lk__create">+ Создать</button></div>
+    <div class="lk__grid">
+      <div class="lk__card lk__card--live">
+        <div class="lk__card-wave">
+          <div class="lk__card-wave-bar" style="height:15px;background:#4ade80;animation-delay:0s;"></div>
+          <div class="lk__card-wave-bar" style="height:35px;background:#4ade80;animation-delay:0.05s;"></div>
+          <div class="lk__card-wave-bar" style="height:20px;background:#22c55e;animation-delay:0.1s;"></div>
+          <div class="lk__card-wave-bar" style="height:45px;background:#4ade80;animation-delay:0.15s;"></div>
+          <div class="lk__card-wave-bar" style="height:12px;background:#22c55e;animation-delay:0.2s;"></div>
+          <div class="lk__card-wave-bar" style="height:38px;background:#4ade80;animation-delay:0.25s;"></div>
+          <div class="lk__card-wave-bar" style="height:25px;background:#22c55e;animation-delay:0.3s;"></div>
+          <div class="lk__card-wave-bar" style="height:50px;background:#4ade80;animation-delay:0.35s;"></div>
+          <div class="lk__card-wave-bar" style="height:18px;background:#22c55e;animation-delay:0.4s;"></div>
+          <div class="lk__card-wave-bar" style="height:42px;background:#4ade80;animation-delay:0.45s;"></div>
+          <div class="lk__card-wave-bar" style="height:14px;background:#22c55e;animation-delay:0.5s;"></div>
+          <div class="lk__card-wave-bar" style="height:30px;background:#4ade80;animation-delay:0.55s;"></div>
+        </div>
+        <div class="lk__card-body">
+          <div class="lk__card-top"><span class="lk__card-name">Общая</span><div class="lk__card-live"><div class="lk__card-live-dot"></div> Live</div></div>
+          <div class="lk__card-avas">
+            <div class="lk__card-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+            <div class="lk__card-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+            <div class="lk__card-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+            <span class="lk__card-count">3</span>
+          </div>
+          <button class="lk__card-btn lk__card-btn--go">Войти</button>
+        </div>
+      </div>
+      <div class="lk__card" style="border-color:rgba(200,255,0,0.06);">
+        <div class="lk__card-wave">
+          <div class="lk__card-wave-bar" style="height:8px;background:rgba(200,255,0,0.15);"></div>
+          <div class="lk__card-wave-bar" style="height:12px;background:rgba(200,255,0,0.1);"></div>
+          <div class="lk__card-wave-bar" style="height:6px;background:rgba(200,255,0,0.15);"></div>
+          <div class="lk__card-wave-bar" style="height:16px;background:rgba(200,255,0,0.1);"></div>
+          <div class="lk__card-wave-bar" style="height:8px;background:rgba(200,255,0,0.15);"></div>
+          <div class="lk__card-wave-bar" style="height:20px;background:rgba(200,255,0,0.1);"></div>
+          <div class="lk__card-wave-bar" style="height:10px;background:rgba(200,255,0,0.15);"></div>
+          <div class="lk__card-wave-bar" style="height:14px;background:rgba(200,255,0,0.1);"></div>
+        </div>
+        <div class="lk__card-body">
+          <div class="lk__card-top"><span class="lk__card-name" style="color:#c8ff00;">Студия</span></div>
+          <div class="lk__card-avas"><span class="lk__card-count" style="margin-left:0;color:rgba(200,255,0,0.15);">Вы здесь</span></div>
+          <button class="lk__card-btn lk__card-btn--here">Здесь</button>
+        </div>
+      </div>
+      <div class="lk__card lk__card--live">
+        <div class="lk__card-wave">
+          <div class="lk__card-wave-bar" style="height:10px;background:#4ade80;animation-delay:0.1s;"></div>
+          <div class="lk__card-wave-bar" style="height:25px;background:#22c55e;animation-delay:0.2s;"></div>
+          <div class="lk__card-wave-bar" style="height:15px;background:#4ade80;animation-delay:0.3s;"></div>
+          <div class="lk__card-wave-bar" style="height:35px;background:#22c55e;animation-delay:0.4s;"></div>
+          <div class="lk__card-wave-bar" style="height:12px;background:#4ade80;animation-delay:0.5s;"></div>
+          <div class="lk__card-wave-bar" style="height:28px;background:#22c55e;animation-delay:0.6s;"></div>
+        </div>
+        <div class="lk__card-body">
+          <div class="lk__card-top"><span class="lk__card-name">Музыка</span><div class="lk__card-live"><div class="lk__card-live-dot"></div> 1</div></div>
+          <div class="lk__card-avas"><div class="lk__card-ava" style="background:linear-gradient(135deg,#4ade80,#22c55e);">N</div></div>
+          <button class="lk__card-btn lk__card-btn--go">Войти</button>
+        </div>
+      </div>
+      <div class="lk__card lk__card--empty">
+        <div class="lk__card-wave">
+          <div class="lk__card-wave-bar" style="height:4px;background:rgba(255,255,255,0.04);"></div>
+          <div class="lk__card-wave-bar" style="height:6px;background:rgba(255,255,255,0.03);"></div>
+          <div class="lk__card-wave-bar" style="height:3px;background:rgba(255,255,255,0.04);"></div>
+          <div class="lk__card-wave-bar" style="height:8px;background:rgba(255,255,255,0.03);"></div>
+          <div class="lk__card-wave-bar" style="height:4px;background:rgba(255,255,255,0.04);"></div>
+          <div class="lk__card-wave-bar" style="height:5px;background:rgba(255,255,255,0.03);"></div>
+        </div>
+        <div class="lk__card-body">
+          <div class="lk__card-top"><span class="lk__card-name" style="color:rgba(255,255,255,0.2);">Игры</span></div>
+          <div class="lk__card-avas"><span class="lk__card-count" style="margin-left:0;">Пусто</span></div>
+          <button class="lk__card-btn lk__card-btn--go" style="opacity:0.3;">Войти</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- CONCEPT L: DIAL PAD -->
+  <div style="text-align:center;">
+    <div class="label">Концепт L</div>
+    <div class="ctitle">Dial Pad</div>
+    <div class="cdesc">Комнаты как кнопки на телефоне. Grid 3x3. Нажимаешь — "звонишь" в комнату. Live = зелёная точка-badge. Мини-аватарки внутри кнопки. Компактно, тактильно.</div>
+  </div>
+
+  <div class="ll">
+    <div class="ll__head"><span class="ll__title">Голосовые</span><button class="ll__create">+</button></div>
+    <div class="ll__grid">
+      <div class="ll__key ll__key--live">
+        <div class="ll__key-badge"></div>
+        <span class="ll__key-name">Общая</span>
+        <div class="ll__key-avas">
+          <div class="ll__key-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+          <div class="ll__key-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+          <div class="ll__key-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+        </div>
+        <div class="ll__key-wave">
+          <div class="ll__key-wave-bar" style="animation-delay:0s;"></div>
+          <div class="ll__key-wave-bar" style="animation-delay:0.1s;"></div>
+          <div class="ll__key-wave-bar" style="animation-delay:0.2s;"></div>
+        </div>
+      </div>
+      <div class="ll__key ll__key--here">
+        <span class="ll__key-name" style="color:#c8ff00;">Студия</span>
+        <span class="ll__key-count" style="color:rgba(200,255,0,0.2);">Вы</span>
+      </div>
+      <div class="ll__key ll__key--live">
+        <div class="ll__key-badge"></div>
+        <span class="ll__key-name">Музыка</span>
+        <div class="ll__key-avas"><div class="ll__key-ava" style="background:linear-gradient(135deg,#4ade80,#22c55e);">N</div></div>
+      </div>
+      <div class="ll__key">
+        <span class="ll__key-name" style="color:rgba(255,255,255,0.15);">Игры</span>
+        <span class="ll__key-count">0</span>
+      </div>
+      <div class="ll__key" style="border-style:dashed;border-color:rgba(200,255,0,0.06);">
+        <span class="ll__key-name" style="color:rgba(200,255,0,0.2);font-size:16px;">+</span>
+        <span class="ll__key-count" style="color:rgba(200,255,0,0.1);">Создать</span>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

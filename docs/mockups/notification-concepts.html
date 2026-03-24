@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Notification Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', -apple-system, sans-serif;
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+
+  .page-title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #c8ff00, #4ade80);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .page-sub {
+    font-size: 14px;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 48px;
+  }
+
+  .concepts {
+    display: flex;
+    flex-direction: column;
+    gap: 64px;
+  }
+
+  .concept {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+  }
+
+  .concept__info {
+    flex: 0 0 280px;
+    position: sticky;
+    top: 40px;
+  }
+
+  .concept__num {
+    font-size: 11px;
+    font-weight: 800;
+    color: #c8ff00;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .concept__name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 10px;
+  }
+
+  .concept__desc {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.6;
+  }
+
+  .concept__preview {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT A: RADIAL STACK
+     Карточки расходятся веером из точки bell
+     ═══════════════════════════════════════ */
+
+  .radial-demo {
+    position: relative;
+    width: 400px;
+    height: 500px;
+  }
+
+  .radial-bell {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(200,255,0,0.1);
+    border: 1.5px solid rgba(200,255,0,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    z-index: 10;
+  }
+
+  .radial-card {
+    position: absolute;
+    bottom: 70px;
+    width: 300px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: radialIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .radial-card:hover {
+    transform: var(--hover-transform) !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+
+  .radial-card:nth-child(1) {
+    left: 50px;
+    transform: rotate(-3deg) translateY(0px);
+    --hover-transform: rotate(-3deg) translateY(-4px) scale(1.02);
+    animation-delay: 0.05s;
+  }
+  .radial-card:nth-child(2) {
+    left: 50px;
+    transform: rotate(1deg) translateY(-80px);
+    --hover-transform: rotate(1deg) translateY(-84px) scale(1.02);
+    animation-delay: 0.1s;
+  }
+  .radial-card:nth-child(3) {
+    left: 50px;
+    transform: rotate(-1.5deg) translateY(-160px);
+    --hover-transform: rotate(-1.5deg) translateY(-164px) scale(1.02);
+    animation-delay: 0.15s;
+  }
+  .radial-card:nth-child(4) {
+    left: 50px;
+    transform: rotate(2deg) translateY(-240px);
+    --hover-transform: rotate(2deg) translateY(-244px) scale(1.02);
+    animation-delay: 0.2s;
+  }
+  .radial-card:nth-child(5) {
+    left: 50px;
+    transform: rotate(-0.5deg) translateY(-320px);
+    --hover-transform: rotate(-0.5deg) translateY(-324px) scale(1.02);
+    animation-delay: 0.25s;
+  }
+
+  @keyframes radialIn {
+    from { opacity: 0; transform: translateY(40px) scale(0.8); }
+  }
+
+  .radial-ava {
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .radial-body { flex: 1; min-width: 0; }
+  .radial-title { font-size: 12.5px; font-weight: 600; }
+  .radial-sub { font-size: 10.5px; color: rgba(255,255,255,0.3); margin-top: 1px; }
+  .radial-time { font-size: 9px; color: rgba(255,255,255,0.15); flex-shrink: 0; align-self: flex-start; margin-top: 2px; }
+
+  .radial-glow {
+    position: absolute;
+    left: 0; top: 20%; bottom: 20%;
+    width: 2.5px;
+    border-radius: 0 2px 2px 0;
+    opacity: 0.6;
+  }
+
+  /* Friend request — hero variant */
+  .radial-card--hero {
+    padding: 16px;
+    border-color: rgba(167,139,250,0.15);
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .radial-card--hero .radial-hero-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .radial-card--hero .radial-ava {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+  }
+
+  .radial-hero-btns {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .radial-hero-btns button {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 9px;
+    font-size: 11.5px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .radial-hero-btns .rbtn-yes {
+    background: #c8ff00;
+    color: #000;
+  }
+
+  .radial-hero-btns .rbtn-no {
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT B: TIMELINE RIBBON
+     Вертикальная лента с точками-событиями
+     ═══════════════════════════════════════ */
+
+  .ribbon-demo {
+    width: 380px;
+    padding: 20px;
+    border-radius: 22px;
+    background: rgba(16,14,28,0.7);
+    backdrop-filter: blur(40px);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ribbon-demo::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  }
+
+  .ribbon-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+
+  .ribbon-title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .ribbon-count {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #c8ff00;
+    color: #000;
+    font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .ribbon-list {
+    position: relative;
+    padding-left: 28px;
+  }
+
+  /* Vertical timeline line */
+  .ribbon-list::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 6px;
+    bottom: 6px;
+    width: 1.5px;
+    background: linear-gradient(180deg, #c8ff00, #a78bfa, #60a5fa, rgba(255,255,255,0.05));
+    border-radius: 1px;
+  }
+
+  .ribbon-item {
+    position: relative;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.12s;
+    animation: ribbonIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .ribbon-item:nth-child(1) { animation-delay: 0.05s; }
+  .ribbon-item:nth-child(2) { animation-delay: 0.1s; }
+  .ribbon-item:nth-child(3) { animation-delay: 0.15s; }
+  .ribbon-item:nth-child(4) { animation-delay: 0.2s; }
+  .ribbon-item:nth-child(5) { animation-delay: 0.25s; }
+  .ribbon-item:nth-child(6) { animation-delay: 0.3s; }
+
+  @keyframes ribbonIn {
+    from { opacity: 0; transform: translateX(-10px); }
+  }
+
+  .ribbon-item:hover { background: rgba(255,255,255,0.025); }
+
+  /* Timeline dot */
+  .ribbon-dot {
+    position: absolute;
+    left: -24px;
+    top: 16px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 2px solid;
+    background: #08060f;
+    z-index: 2;
+  }
+
+  .ribbon-dot--unread {
+    background: var(--dot-color);
+    border-color: var(--dot-color);
+    box-shadow: 0 0 8px var(--dot-color);
+    animation: dotPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes dotPulse {
+    0%, 100% { box-shadow: 0 0 4px var(--dot-color); }
+    50% { box-shadow: 0 0 12px var(--dot-color); }
+  }
+
+  .ribbon-dot--read {
+    border-color: rgba(255,255,255,0.12);
+  }
+
+  .ribbon-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ribbon-ava {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .ribbon-info { flex: 1; min-width: 0; }
+  .ribbon-name { font-size: 12px; font-weight: 600; }
+  .ribbon-desc { font-size: 10.5px; color: rgba(255,255,255,0.3); margin-top: 1px; }
+  .ribbon-time { font-size: 9px; color: rgba(255,255,255,0.15); align-self: flex-start; }
+
+  /* Friend request inside ribbon */
+  .ribbon-item--friend {
+    background: rgba(167,139,250,0.03);
+    border: 1px solid rgba(167,139,250,0.08);
+    border-radius: 14px;
+    padding: 12px;
+  }
+
+  .ribbon-friend-btns {
+    display: flex;
+    gap: 5px;
+    margin-top: 8px;
+    margin-left: 38px;
+  }
+
+  .ribbon-friend-btns button {
+    padding: 5px 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .rf-yes { background: #c8ff00; color: #000; }
+  .rf-no { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT C: NOTIFICATION ORBS
+     Пузыри-сферы вокруг bell (Nebula style)
+     ═══════════════════════════════════════ */
+
+  .orbs-demo {
+    position: relative;
+    width: 450px;
+    height: 450px;
+  }
+
+  .orbs-bell {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(200,255,0,0.08);
+    border: 1.5px solid rgba(200,255,0,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    z-index: 10;
+    box-shadow: 0 0 30px rgba(200,255,0,0.1);
+  }
+
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s;
+    animation: orbFloat 4s ease-in-out infinite;
+  }
+
+  .orb:hover {
+    transform: scale(1.12) !important;
+    z-index: 20;
+  }
+
+  .orb--sm {
+    width: 64px; height: 64px;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .orb--md {
+    width: 80px; height: 80px;
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  }
+
+  .orb--lg {
+    width: 110px; height: 110px;
+    backdrop-filter: blur(28px);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  }
+
+  .orb:nth-child(1) { left: 30px; bottom: 180px; animation-delay: 0s; }
+  .orb:nth-child(2) { right: 50px; bottom: 220px; animation-delay: 0.5s; }
+  .orb:nth-child(3) { left: 140px; bottom: 310px; animation-delay: 1s; }
+  .orb:nth-child(4) { right: 100px; bottom: 120px; animation-delay: 1.5s; }
+  .orb:nth-child(5) { left: 60px; bottom: 80px; animation-delay: 0.3s; }
+
+  @keyframes orbFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .orb__ava {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    color: #fff;
+  }
+
+  .orb__label {
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    max-width: 90%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .orb__count {
+    font-size: 18px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.8);
+  }
+
+  .orb__sub {
+    font-size: 7px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.35);
+  }
+
+  /* Glow ring for unread */
+  .orb--unread::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid;
+    opacity: 0.4;
+    animation: orbRing 2s ease-in-out infinite;
+  }
+
+  @keyframes orbRing {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.04); }
+  }
+
+  /* Expanded orb on hover */
+  .orb--lg:hover {
+    border-radius: 20px;
+    width: 200px;
+    height: auto;
+    padding: 14px;
+    min-height: 110px;
+  }
+
+  /* Connector lines from bell to orbs */
+  .orbs-lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .orbs-lines line {
+    stroke: rgba(200,255,0,0.06);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+  }
+
+  /* ═══════ SEPARATOR ═══════ */
+  .sep {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    margin: 20px 0;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-title">Notification Concepts</div>
+  <div class="page-sub">3 уникальных концепта для уведомлений blesk. Выбери какой нравится.</div>
+
+  <div class="concepts">
+
+    <!-- ═══════ CONCEPT A: RADIAL STACK ═══════ -->
+    <div class="concept">
+      <div class="concept__info">
+        <div class="concept__num">Концепт A</div>
+        <div class="concept__name">Radial Stack</div>
+        <div class="concept__desc">
+          Карточки вылетают из bell и раскладываются стопкой с лёгким поворотом.
+          Каждая карточка слегка повёрнута — создаёт ощущение "разложенных карт".
+          Friend requests — увеличенные карточки с кнопками.
+          При hover — карточка поднимается и увеличивается.
+          Как колода карт, разложенная веером.
+        </div>
+      </div>
+      <div class="concept__preview">
+        <div class="radial-demo">
+          <!-- Cards stacked with rotation -->
+          <div class="radial-card" style="--hover-transform: rotate(-3deg) translateY(-4px) scale(1.02);">
+            <div class="radial-glow" style="background: #60a5fa;"></div>
+            <div class="radial-ava" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);">⚡</div>
+            <div class="radial-body">
+              <div class="radial-title">Новый вход <span style="color: #60a5fa; font-weight: 800;">×3</span></div>
+              <div class="radial-sub">Вход в аккаунт выполнен</div>
+            </div>
+            <div class="radial-time">2ч</div>
+          </div>
+
+          <div class="radial-card" style="--hover-transform: rotate(1deg) translateY(-84px) scale(1.02);">
+            <div class="radial-glow" style="background: #4ade80;"></div>
+            <div class="radial-ava" style="background: linear-gradient(135deg, #22c55e, #15803d);">D</div>
+            <div class="radial-body">
+              <div class="radial-title">Den теперь ваш друг</div>
+              <div class="radial-sub">Заявка принята</div>
+            </div>
+            <div class="radial-time">1ч</div>
+          </div>
+
+          <div class="radial-card" style="--hover-transform: rotate(-1.5deg) translateY(-164px) scale(1.02);">
+            <div class="radial-glow" style="background: #f59e0b;"></div>
+            <div class="radial-ava" style="background: linear-gradient(135deg, #f59e0b, #d97706);">D</div>
+            <div class="radial-body">
+              <div class="radial-title">Упоминание в #общий</div>
+              <div class="radial-sub">@gotblesk посмотри это</div>
+            </div>
+            <div class="radial-time">15м</div>
+          </div>
+
+          <div class="radial-card" style="--hover-transform: rotate(2deg) translateY(-244px) scale(1.02);">
+            <div class="radial-glow" style="background: #38bdf8;"></div>
+            <div class="radial-ava" style="background: linear-gradient(135deg, #e879f9, #a855f7);">V</div>
+            <div class="radial-body">
+              <div class="radial-title">Vohog</div>
+              <div class="radial-sub">Привет! Как дела?</div>
+            </div>
+            <div class="radial-time">5м</div>
+          </div>
+
+          <div class="radial-card radial-card--hero" style="--hover-transform: rotate(-0.5deg) translateY(-344px) scale(1.02);">
+            <div class="radial-glow" style="background: #a78bfa; top: 0; bottom: 0;"></div>
+            <div class="radial-hero-row">
+              <div class="radial-ava" style="background: linear-gradient(135deg, #a78bfa, #7c3aed);">S</div>
+              <div class="radial-body">
+                <div class="radial-title">shkirtil хочет дружить</div>
+                <div class="radial-sub">Заявка в друзья</div>
+              </div>
+              <div class="radial-time">2м</div>
+            </div>
+            <div class="radial-hero-btns">
+              <button class="rbtn-yes">Принять</button>
+              <button class="rbtn-no">Нет</button>
+            </div>
+          </div>
+
+          <div class="radial-bell">🔔</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- ═══════ CONCEPT B: TIMELINE RIBBON ═══════ -->
+    <div class="concept">
+      <div class="concept__info">
+        <div class="concept__num">Концепт B</div>
+        <div class="concept__name">Timeline Ribbon</div>
+        <div class="concept__desc">
+          Вертикальная лента-таймлайн с цветными точками-событиями.
+          Линия таймлайна — градиент от зелёного к синему.
+          Непрочитанные — точки светятся и пульсируют.
+          Прочитанные — пустые точки.
+          Friend request — выделенная карточка с бордером.
+          Каждое событие — точка на линии времени.
+        </div>
+      </div>
+      <div class="concept__preview">
+        <div class="ribbon-demo">
+          <div class="ribbon-head">
+            <span class="ribbon-title">Уведомления</span>
+            <span class="ribbon-count">4</span>
+          </div>
+
+          <div class="ribbon-list">
+            <!-- Friend request -->
+            <div class="ribbon-item ribbon-item--friend">
+              <div class="ribbon-dot ribbon-dot--unread" style="--dot-color: #a78bfa; border-color: #a78bfa;"></div>
+              <div class="ribbon-row">
+                <div class="ribbon-ava" style="background: linear-gradient(135deg, #a78bfa, #7c3aed);">S</div>
+                <div class="ribbon-info">
+                  <div class="ribbon-name">shkirtil хочет дружить</div>
+                  <div class="ribbon-desc">Заявка в друзья</div>
+                </div>
+                <div class="ribbon-time">2м</div>
+              </div>
+              <div class="ribbon-friend-btns">
+                <button class="rf-yes">Принять</button>
+                <button class="rf-no">Нет</button>
+              </div>
+            </div>
+
+            <!-- Message -->
+            <div class="ribbon-item">
+              <div class="ribbon-dot ribbon-dot--unread" style="--dot-color: #38bdf8; border-color: #38bdf8;"></div>
+              <div class="ribbon-row">
+                <div class="ribbon-ava" style="background: linear-gradient(135deg, #e879f9, #a855f7);">V</div>
+                <div class="ribbon-info">
+                  <div class="ribbon-name">Vohog</div>
+                  <div class="ribbon-desc">Привет! Как дела?</div>
+                </div>
+                <div class="ribbon-time">5м</div>
+              </div>
+            </div>
+
+            <!-- Mention -->
+            <div class="ribbon-item">
+              <div class="ribbon-dot ribbon-dot--unread" style="--dot-color: #f59e0b; border-color: #f59e0b;"></div>
+              <div class="ribbon-row">
+                <div class="ribbon-ava" style="background: linear-gradient(135deg, #60a5fa, #3b82f6);">D</div>
+                <div class="ribbon-info">
+                  <div class="ribbon-name">Упоминание в #общий</div>
+                  <div class="ribbon-desc">@gotblesk посмотри это</div>
+                </div>
+                <div class="ribbon-time">15м</div>
+              </div>
+            </div>
+
+            <!-- Friend accepted -->
+            <div class="ribbon-item">
+              <div class="ribbon-dot ribbon-dot--unread" style="--dot-color: #4ade80; border-color: #4ade80;"></div>
+              <div class="ribbon-row">
+                <div class="ribbon-ava" style="background: linear-gradient(135deg, #60a5fa, #3b82f6);">D</div>
+                <div class="ribbon-info">
+                  <div class="ribbon-name">Den теперь ваш друг</div>
+                  <div class="ribbon-desc">Заявка принята</div>
+                </div>
+                <div class="ribbon-time">1ч</div>
+              </div>
+            </div>
+
+            <!-- Login — read -->
+            <div class="ribbon-item">
+              <div class="ribbon-dot ribbon-dot--read"></div>
+              <div class="ribbon-row">
+                <div class="ribbon-ava" style="background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.3);">⚡</div>
+                <div class="ribbon-info">
+                  <div class="ribbon-name" style="color: rgba(255,255,255,0.4);">Новый вход <span style="color: #60a5fa; font-size: 10px;">×3</span></div>
+                  <div class="ribbon-desc">Вход в аккаунт выполнен</div>
+                </div>
+                <div class="ribbon-time">2ч</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- ═══════ CONCEPT C: NOTIFICATION ORBS ═══════ -->
+    <div class="concept">
+      <div class="concept__info">
+        <div class="concept__num">Концепт C</div>
+        <div class="concept__name">Notification Orbs</div>
+        <div class="concept__desc">
+          Уведомления как плавающие сферы вокруг bell — в стиле Nebula.
+          Каждый тип — отдельный orb разного размера и цвета.
+          Friend request — большая сфера с аватаром.
+          Сгруппированные входы — сфера со счётчиком.
+          Orbs плавают и пульсируют.
+          При hover — orb увеличивается и показывает детали.
+          Самый экспериментальный вариант — Nebula для уведомлений.
+        </div>
+      </div>
+      <div class="concept__preview">
+        <div class="orbs-demo">
+          <!-- SVG connector lines -->
+          <svg class="orbs-lines" viewBox="0 0 450 450">
+            <line x1="225" y1="410" x2="75" y2="250" />
+            <line x1="225" y1="410" x2="370" y2="210" />
+            <line x1="225" y1="410" x2="195" y2="120" />
+            <line x1="225" y1="410" x2="320" y2="310" />
+            <line x1="225" y1="410" x2="105" y2="350" />
+          </svg>
+
+          <!-- Orbs -->
+          <div class="orb orb--lg orb--unread" style="background: rgba(167,139,250,0.08); --dot-color: #a78bfa; border-color: rgba(167,139,250,0.15);">
+            <div class="orb__ava" style="background: linear-gradient(135deg, #a78bfa, #7c3aed);">S</div>
+            <div class="orb__label">shkirtil</div>
+            <div style="font-size: 8px; color: rgba(255,255,255,0.3);">хочет дружить</div>
+          </div>
+
+          <div class="orb orb--md orb--unread" style="background: rgba(56,189,248,0.06); --dot-color: #38bdf8; border-color: rgba(56,189,248,0.12);">
+            <div class="orb__ava" style="background: linear-gradient(135deg, #e879f9, #a855f7);">V</div>
+            <div class="orb__label">Vohog</div>
+          </div>
+
+          <div class="orb orb--md orb--unread" style="background: rgba(245,158,11,0.06); --dot-color: #f59e0b; border-color: rgba(245,158,11,0.12);">
+            <div class="orb__ava" style="background: linear-gradient(135deg, #60a5fa, #3b82f6);">@</div>
+            <div class="orb__label">#общий</div>
+          </div>
+
+          <div class="orb orb--sm" style="background: rgba(74,222,128,0.05); border-color: rgba(74,222,128,0.1);">
+            <div class="orb__ava" style="background: linear-gradient(135deg, #22c55e, #15803d); width: 24px; height: 24px; font-size: 10px;">D</div>
+            <div class="orb__label" style="font-size: 7px;">друг</div>
+          </div>
+
+          <div class="orb orb--sm" style="background: rgba(96,165,250,0.04); border-color: rgba(96,165,250,0.08);">
+            <div class="orb__count" style="color: #60a5fa;">3</div>
+            <div class="orb__sub">входа</div>
+          </div>
+
+          <div class="orbs-bell">🔔</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

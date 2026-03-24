@@ -160,6 +160,14 @@ export const useChannelStore = create((set, get) => ({
     }));
   },
 
+  // Удалить канал из локального состояния
+  removeChannel: (channelId) => {
+    set((state) => ({
+      channels: state.channels.filter((c) => c.id !== channelId),
+      myChannels: state.myChannels.filter((c) => c.id !== channelId),
+    }));
+  },
+
   // Установить активный канал
   setActiveChannel: (id) => set({ activeChannelId: id }),
 }));

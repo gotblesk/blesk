@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — More Profile Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 60px;
+  }
+
+  .label { font-size: 11px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .ctitle { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 6px; }
+  .cdesc { font-size: 13px; color: rgba(255,255,255,0.35); max-width: 440px; text-align: center; line-height: 1.5; margin-bottom: 24px; }
+  .sep { width: 100%; max-width: 500px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT D: PASSPORT / BOOK
+     Двухстраничная раскладка как паспорт
+     ═══════════════════════════════════════ */
+  .passport {
+    width: 520px;
+    display: flex;
+    border-radius: 4px 22px 22px 4px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    transition: transform 0.15s ease-out;
+    position: relative;
+  }
+  .passport:hover { transform: perspective(800px) rotateY(3deg) rotateX(-1deg); }
+
+  /* Spine */
+  .passport__spine {
+    width: 6px;
+    background: linear-gradient(180deg, rgba(200,255,0,0.15), rgba(200,255,0,0.05));
+    flex-shrink: 0;
+    position: relative;
+  }
+  .passport__spine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(180deg, transparent, transparent 8px, rgba(255,255,255,0.03) 8px, rgba(255,255,255,0.03) 9px);
+  }
+
+  /* Left page — identity */
+  .pp-left {
+    flex: 0 0 200px;
+    background: rgba(14,12,24,0.9);
+    border-right: 1px solid rgba(255,255,255,0.03);
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .pp-left__label {
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(200,255,0,0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    align-self: flex-start;
+  }
+
+  .pp-left__ava {
+    width: 90px; height: 110px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; font-weight: 800; color: #fff;
+    border: 2px solid rgba(255,255,255,0.06);
+    position: relative;
+    cursor: pointer;
+  }
+
+  /* Stamp overlay */
+  .pp-left__stamp {
+    position: absolute;
+    bottom: -8px; right: -8px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 2px solid rgba(74,222,128,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    color: rgba(74,222,128,0.5);
+    transform: rotate(-15deg);
+    background: rgba(14,12,24,0.8);
+  }
+
+  .pp-left__name {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+
+  .pp-left__tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.1em;
+  }
+
+  .pp-left__since {
+    font-size: 9px;
+    color: rgba(255,255,255,0.15);
+    text-align: center;
+    margin-top: auto;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Right page — data */
+  .pp-right {
+    flex: 1;
+    background: rgba(18,16,30,0.85);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pp-right__label {
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.15);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 4px;
+  }
+
+  .pp-field {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    border-left: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+  .pp-field:hover { background: rgba(255,255,255,0.035); }
+
+  .pp-field__left { display: flex; flex-direction: column; gap: 2px; }
+  .pp-field__key {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.3;
+  }
+  .pp-field__val {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text, rgba(255,255,255,0.8));
+  }
+
+  .pp-field__action {
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: none;
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    opacity: 0;
+    transition: all 0.12s;
+  }
+  .pp-field:hover .pp-field__action { opacity: 1; }
+  .pp-field__action:hover { background: rgba(200,255,0,0.08); color: #c8ff00; }
+
+  .pp-bio {
+    margin-top: auto;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.015);
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.35);
+    line-height: 1.5;
+    font-style: italic;
+    border: 1px dashed rgba(255,255,255,0.04);
+  }
+
+  .pp-save {
+    padding: 8px;
+    border-radius: 10px;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: box-shadow 0.12s;
+  }
+  .pp-save:hover { box-shadow: 0 3px 14px rgba(200,255,0,0.15); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT E: LAYERS / CARDS STACK
+     Несколько карточек наложенных друг на друга,
+     при hover — раздвигаются
+     ═══════════════════════════════════════ */
+  .layers {
+    width: 380px;
+    position: relative;
+    height: 420px;
+    cursor: pointer;
+  }
+
+  .layers:hover .layers__card--back { transform: translateY(-16px) rotate(-2deg) scale(0.95); }
+  .layers:hover .layers__card--mid { transform: translateY(-8px) rotate(1deg) scale(0.97); }
+  .layers:hover .layers__card--front { transform: translateY(0px); }
+
+  .layers__card {
+    position: absolute;
+    inset: 0;
+    border-radius: 22px;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+
+  /* Back card — Bio */
+  .layers__card--back {
+    background: rgba(167,139,250,0.06);
+    border: 1px solid rgba(167,139,250,0.1);
+    z-index: 1;
+    transform: translateY(-8px) rotate(-1deg) scale(0.96);
+    display: flex; flex-direction: column;
+    padding: 20px;
+    justify-content: flex-end;
+  }
+
+  .layers__card--back .l-bio-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(167,139,250,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
+  .layers__card--back .l-bio {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  /* Mid card — Data */
+  .layers__card--mid {
+    background: rgba(56,189,248,0.04);
+    border: 1px solid rgba(56,189,248,0.08);
+    z-index: 2;
+    transform: translateY(-4px) rotate(0.5deg) scale(0.98);
+    display: flex; flex-direction: column;
+    padding: 20px;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .l-data-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .l-data-icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  .l-data-info { flex: 1; }
+  .l-data-key { font-size: 9px; color: rgba(255,255,255,0.2); text-transform: uppercase; letter-spacing: 0.04em; }
+  .l-data-val { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 1px; }
+
+  /* Front card — Avatar + Name */
+  .layers__card--front {
+    background: rgba(14,12,24,0.85);
+    backdrop-filter: blur(40px);
+    border: 1px solid rgba(255,255,255,0.07);
+    z-index: 3;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    display: flex; flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 30px;
+  }
+
+  .l-front-ava {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 800; color: #fff;
+    box-shadow: 0 8px 32px rgba(167,139,250,0.2);
+  }
+
+  .l-front-name {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+  }
+
+  .l-front-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: rgba(255,255,255,0.25);
+    margin-top: -6px;
+  }
+
+  .l-front-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #4ade80;
+  }
+
+  .l-front-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4ade80;
+    animation: ldotPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes ldotPulse {
+    0%, 100% { box-shadow: 0 0 4px #4ade80; }
+    50% { box-shadow: 0 0 12px #4ade80; }
+  }
+
+  .l-front-btn {
+    padding: 10px 32px;
+    border-radius: 14px;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  .l-hint {
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: rgba(255,255,255,0.15);
+    white-space: nowrap;
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT F: ORBITAL RINGS
+     Данные расположены на орбитальных кольцах
+     вокруг аватара
+     ═══════════════════════════════════════ */
+  .orbital {
+    width: 440px;
+    height: 440px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Rings */
+  .orb-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid;
+    animation: ringRotate 20s linear infinite;
+  }
+
+  .orb-ring--1 {
+    width: 200px; height: 200px;
+    border-color: rgba(200,255,0,0.06);
+    animation-duration: 25s;
+  }
+
+  .orb-ring--2 {
+    width: 300px; height: 300px;
+    border-color: rgba(167,139,250,0.05);
+    animation-duration: 35s;
+    animation-direction: reverse;
+  }
+
+  .orb-ring--3 {
+    width: 400px; height: 400px;
+    border-color: rgba(56,189,248,0.04);
+    animation-duration: 45s;
+  }
+
+  @keyframes ringRotate {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Center avatar */
+  .orb-center {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 800; color: #fff;
+    z-index: 10;
+    box-shadow: 0 0 40px rgba(167,139,250,0.2);
+    position: relative;
+  }
+
+  .orb-name {
+    position: absolute;
+    bottom: -28px;
+    font-size: 16px;
+    font-weight: 800;
+    white-space: nowrap;
+    letter-spacing: -0.02em;
+  }
+
+  .orb-tag {
+    position: absolute;
+    bottom: -44px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+  }
+
+  /* Data nodes on orbits */
+  .orb-node {
+    position: absolute;
+    padding: 8px 14px;
+    border-radius: 12px;
+    background: rgba(14,12,24,0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.6);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 5;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .orb-node:hover {
+    background: rgba(24,22,40,0.95);
+    transform: scale(1.06);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 20;
+  }
+
+  .orb-node__icon {
+    font-size: 10px;
+    opacity: 0.4;
+  }
+
+  .orb-node--1 { top: 40px; right: 20px; }
+  .orb-node--2 { bottom: 100px; left: 10px; }
+  .orb-node--3 { top: 120px; left: 20px; }
+  .orb-node--4 { bottom: 40px; right: 40px; }
+  .orb-node--5 { top: 60px; left: 120px; }
+
+  .orb-node__badge {
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(74,222,128,0.1);
+    color: #4ade80;
+  }
+
+  .orb-edit {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 24px;
+    border-radius: 12px;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ═══════ CONCEPT D: PASSPORT ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт D</div>
+    <div class="ctitle">Passport</div>
+    <div class="cdesc">Профиль как разворот паспорта — левая страница (фото + имя), правая (данные). Корешок-spine с accent цветом. Штамп "verified" на аватаре.</div>
+  </div>
+
+  <div class="passport">
+    <div class="passport__spine"></div>
+    <div class="pp-left">
+      <div class="pp-left__label">blesk identity</div>
+      <div class="pp-left__ava">
+        G
+        <div class="pp-left__stamp">✓</div>
+      </div>
+      <div class="pp-left__name">gotblesk</div>
+      <div class="pp-left__tag">#0000</div>
+      <div class="pp-left__since">ISSUED: MAR 2026</div>
+    </div>
+    <div class="pp-right">
+      <div class="pp-right__label">personal data</div>
+      <div class="pp-field" style="border-color: rgba(74,222,128,0.3);">
+        <div class="pp-field__left">
+          <div class="pp-field__key">Email</div>
+          <div class="pp-field__val">mxkarov@mail.ru</div>
+        </div>
+        <button class="pp-field__action">edit</button>
+      </div>
+      <div class="pp-field" style="border-color: rgba(245,158,11,0.2);">
+        <div class="pp-field__left">
+          <div class="pp-field__key">Phone</div>
+          <div class="pp-field__val" style="opacity: 0.3;">Not linked</div>
+        </div>
+        <button class="pp-field__action" style="opacity: 0.3; pointer-events: none;">soon</button>
+      </div>
+      <div class="pp-field" style="border-color: rgba(200,255,0,0.2);">
+        <div class="pp-field__left">
+          <div class="pp-field__key">Password</div>
+          <div class="pp-field__val">●●●●●●●●</div>
+        </div>
+        <button class="pp-field__action">change</button>
+      </div>
+      <div class="pp-bio">"Дизайнер, создатель blesk. Люблю красивые интерфейсы."</div>
+      <button class="pp-save">Save changes</button>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT E: LAYERS ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт E</div>
+    <div class="ctitle">Card Layers</div>
+    <div class="cdesc">Три карточки наложены друг на друга. При hover они раздвигаются и показывают слои: фронт (аватар), середина (данные), задник (bio). Как колода.</div>
+  </div>
+
+  <div class="layers">
+    <div class="layers__card layers__card--back">
+      <div class="l-bio-label">О себе</div>
+      <div class="l-bio">"Дизайнер, создатель blesk. Люблю минимализм и красивые интерфейсы. 20 лет, Россия."</div>
+    </div>
+    <div class="layers__card layers__card--mid">
+      <div class="l-data-row">
+        <div class="l-data-icon">✉</div>
+        <div class="l-data-info">
+          <div class="l-data-key">Email</div>
+          <div class="l-data-val">mxkarov@mail.ru</div>
+        </div>
+      </div>
+      <div class="l-data-row">
+        <div class="l-data-icon">🔒</div>
+        <div class="l-data-info">
+          <div class="l-data-key">Password</div>
+          <div class="l-data-val" style="color: #c8ff00;">Change →</div>
+        </div>
+      </div>
+      <div class="l-data-row">
+        <div class="l-data-icon">📱</div>
+        <div class="l-data-info">
+          <div class="l-data-key">Phone</div>
+          <div class="l-data-val" style="opacity: 0.3;">Not linked</div>
+        </div>
+      </div>
+    </div>
+    <div class="layers__card layers__card--front">
+      <div class="l-front-ava">G</div>
+      <div class="l-front-name">gotblesk</div>
+      <div class="l-front-tag">#0000</div>
+      <div class="l-front-status"><div class="l-front-dot"></div> В сети</div>
+      <div class="l-front-btn">Редактировать</div>
+    </div>
+    <div class="l-hint">hover чтобы раздвинуть слои</div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT F: ORBITAL RINGS ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт F</div>
+    <div class="ctitle">Orbital</div>
+    <div class="cdesc">Аватар в центре, данные на орбитальных кольцах вокруг. Кольца вращаются. Ноды-карточки при hover увеличиваются. Nebula-стиль для профиля.</div>
+  </div>
+
+  <div class="orbital">
+    <div class="orb-ring orb-ring--1"></div>
+    <div class="orb-ring orb-ring--2"></div>
+    <div class="orb-ring orb-ring--3"></div>
+
+    <div class="orb-center">
+      G
+      <div class="orb-name">gotblesk</div>
+      <div class="orb-tag">#0000</div>
+    </div>
+
+    <div class="orb-node orb-node--1">
+      <span class="orb-node__icon">✉</span>
+      mxkarov@mail.ru
+      <span class="orb-node__badge">✓</span>
+    </div>
+    <div class="orb-node orb-node--2">
+      <span class="orb-node__icon">🔒</span>
+      Сменить пароль
+    </div>
+    <div class="orb-node orb-node--3">
+      <span class="orb-node__icon">📱</span>
+      <span style="opacity: 0.3;">Не привязан</span>
+    </div>
+    <div class="orb-node orb-node--4">
+      <span class="orb-node__icon">📝</span>
+      "Дизайнер, создатель blesk"
+    </div>
+    <div class="orb-node orb-node--5">
+      <span style="font-size: 9px; color: rgba(255,255,255,0.2);">С марта 2026</span>
+    </div>
+
+    <button class="orb-edit">Редактировать</button>
+  </div>
+
+</body>
+</html>

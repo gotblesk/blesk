@@ -1,6 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Bricolage+Grotesque:wght@400;500;600;700;800&display=swap');
 
 :root {
+  /* Z-index hierarchy */
+  --z-base: 1;
+  --z-sticky: 10;
+  --z-dropdown: 50;
+  --z-overlay: 100;
+  --z-modal: 200;
+  --z-notification: 300;
+  --z-lightbox: 1000;
+  --z-call-overlay: 1100;
+
   --bg: #08060f;
   --accent: #c8ff00;
   --text: rgba(255, 255, 255, 0.85);
@@ -72,7 +82,7 @@
 /* Светлая тема v3 — контраст + читаемость */
 [data-theme="light"] {
   --bg: #edeaf3;
-  --accent: #6ab300;
+  --accent: #5a9800;
   --accent-text: #111118;
   --text: #1a1a2e;
   --text-muted: rgba(26, 26, 46, 0.55);

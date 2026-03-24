@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Hybrid Profile</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    perspective: 1200px;
+  }
+
+  /* ═══════ blesk PASS ═══════ */
+  .bp {
+    width: 480px;
+    display: flex;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.15s ease-out;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.55);
+  }
+
+  /* ═══════ MAIN SECTION ═══════ */
+  .bp__main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: rgba(14,12,24,0.9);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-right: none;
+    border-radius: 20px 0 0 20px;
+  }
+
+  /* ─── COVER ZONE (Magazine + Split Glass) ─── */
+  .bp__cover {
+    position: relative;
+    height: 160px;
+    background: linear-gradient(135deg, #1a0a2e, #2d1065, #4c1d95);
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    padding: 16px 20px;
+  }
+
+  /* Grain texture */
+  .bp__cover::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  /* Gradient fade at bottom */
+  .bp__cover::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 70%;
+    background: linear-gradient(0deg, rgba(14,12,24,0.95), transparent);
+    pointer-events: none;
+  }
+
+  /* Watermark initial (Magazine) */
+  .bp__watermark {
+    position: absolute;
+    top: 0px; right: -10px;
+    font-size: 180px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.025);
+    line-height: 0.85;
+    pointer-events: none;
+  }
+
+  /* Holographic shimmer (Credit Card) */
+  .bp__holo {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 30%,
+      rgba(200,255,0,0.04) 38%,
+      rgba(167,139,250,0.05) 42%,
+      rgba(56,189,248,0.04) 46%,
+      transparent 54%
+    );
+    background-size: 250% 100%;
+    animation: holoSlide 4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  @keyframes holoSlide {
+    0%, 100% { background-position: 200% 0; }
+    50% { background-position: -50% 0; }
+  }
+
+  /* blesk logo top-left */
+  .bp__logo {
+    position: absolute;
+    top: 14px; left: 16px;
+    font-size: 14px;
+    font-weight: 800;
+    color: rgba(200,255,0,0.5);
+    letter-spacing: -0.03em;
+    z-index: 2;
+  }
+
+  /* Issue tag (Magazine) */
+  .bp__issue {
+    position: absolute;
+    top: 14px; right: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-align: right;
+    z-index: 2;
+  }
+
+  /* Avatar overlapping cover/content boundary (Split Glass) */
+  .bp__ava-wrap {
+    position: relative;
+    z-index: 5;
+    transform: translateY(24px);
+    flex-shrink: 0;
+  }
+
+  .bp__ava {
+    width: 64px; height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #e879f9, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 800; color: #fff;
+    border: 3px solid rgba(14,12,24,0.9);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .bp__ava-edit {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.7);
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .bp__ava:hover .bp__ava-edit { opacity: 1; }
+
+  /* Name over cover bottom */
+  .bp__cover-info {
+    position: relative;
+    z-index: 3;
+    margin-left: 14px;
+    margin-bottom: -4px;
+  }
+
+  .bp__name {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+
+  .bp__subtitle {
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* ─── CONTENT ZONE (Phone Screen style) ─── */
+  .bp__content {
+    padding: 30px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  /* iOS-style cells */
+  .bp__cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    cursor: pointer;
+    transition: all 0.12s;
+    position: relative;
+  }
+
+  .bp__cell:hover {
+    background: rgba(255,255,255,0.04);
+  }
+
+  .bp__cell:active {
+    transform: scale(0.98);
+  }
+
+  .bp__cell-icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .bp__cell-info { flex: 1; min-width: 0; }
+
+  .bp__cell-key {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .bp__cell-val {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.7);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bp__cell-badge {
+    font-size: 8px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 5px;
+    flex-shrink: 0;
+  }
+
+  .bp__cell-arr {
+    color: rgba(255,255,255,0.1);
+    font-size: 14px;
+    flex-shrink: 0;
+    transition: transform 0.12s;
+  }
+
+  .bp__cell:hover .bp__cell-arr {
+    transform: translateX(2px);
+    color: rgba(255,255,255,0.2);
+  }
+
+  /* Bio */
+  .bp__bio {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.015);
+    border: 1px dashed rgba(255,255,255,0.04);
+    margin-top: 4px;
+  }
+
+  .bp__bio-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.15);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .bp__bio-text {
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  .bp__bio-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .bp__bio-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: rgba(255,255,255,0.1);
+  }
+
+  .bp__save {
+    padding: 7px 16px;
+    border-radius: 8px;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: box-shadow 0.12s;
+    position: relative;
+    overflow: hidden;
+  }
+  .bp__save:hover { box-shadow: 0 3px 12px rgba(200,255,0,0.2); }
+
+  .bp__save::after {
+    content: '';
+    position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: saveShine 2s ease-in-out infinite;
+  }
+  @keyframes saveShine { 0% { left: -100%; } 50%, 100% { left: 200%; } }
+
+  /* ═══════ STUB / TEAR-OFF (Boarding Pass) ═══════ */
+  .bp__tear {
+    position: absolute;
+    top: 10px; bottom: 10px;
+    right: 100px;
+    width: 1px;
+    background: repeating-linear-gradient(
+      180deg,
+      rgba(255,255,255,0.06) 0px,
+      rgba(255,255,255,0.06) 5px,
+      transparent 5px,
+      transparent 10px
+    );
+    z-index: 6;
+  }
+
+  /* Notch cutouts */
+  .bp__notch {
+    position: absolute;
+    right: 93px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #08060f;
+    z-index: 7;
+  }
+  .bp__notch--top { top: -7px; }
+  .bp__notch--bottom { bottom: -7px; }
+
+  .bp__stub {
+    width: 100px;
+    flex-shrink: 0;
+    background: rgba(12,10,22,0.95);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-left: none;
+    border-radius: 0 20px 20px 0;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Barcode */
+  .bp__barcode {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 32px;
+  }
+
+  .bp__bar {
+    width: 100%;
+    border-radius: 0.5px;
+    background: rgba(255,255,255,0.12);
+  }
+
+  .bp__stub-id {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.3);
+    writing-mode: vertical-lr;
+    letter-spacing: 0.08em;
+  }
+
+  .bp__stub-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    color: rgba(255,255,255,0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    writing-mode: vertical-lr;
+  }
+
+  .bp__stub-since {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: rgba(255,255,255,0.12);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="bp" id="card">
+  <div class="bp__tear"></div>
+  <div class="bp__notch bp__notch--top"></div>
+  <div class="bp__notch bp__notch--bottom"></div>
+
+  <!-- ═══════ MAIN ═══════ -->
+  <div class="bp__main">
+    <!-- Cover (Magazine + Split Glass) -->
+    <div class="bp__cover">
+      <div class="bp__holo"></div>
+      <div class="bp__watermark">G</div>
+      <span class="bp__logo">blesk</span>
+      <div class="bp__issue">ISSUE #0000<br>MAR 2026</div>
+
+      <div class="bp__ava-wrap">
+        <div class="bp__ava">
+          G
+          <div class="bp__ava-edit">edit</div>
+        </div>
+      </div>
+      <div class="bp__cover-info">
+        <div class="bp__name">gotblesk</div>
+        <div class="bp__subtitle">Designer · Creator · blesk founder</div>
+      </div>
+    </div>
+
+    <!-- Content (Phone Screen style cells) -->
+    <div class="bp__content">
+      <div class="bp__cell">
+        <div class="bp__cell-icon" style="background: rgba(74,222,128,0.08); color: #4ade80;">✉</div>
+        <div class="bp__cell-info">
+          <div class="bp__cell-key">Email</div>
+          <div class="bp__cell-val">mxkarov@mail.ru</div>
+        </div>
+        <div class="bp__cell-badge" style="background: rgba(74,222,128,0.1); color: #4ade80;">verified</div>
+        <span class="bp__cell-arr">›</span>
+      </div>
+
+      <div class="bp__cell">
+        <div class="bp__cell-icon" style="background: rgba(245,158,11,0.06); color: #f59e0b;">📱</div>
+        <div class="bp__cell-info">
+          <div class="bp__cell-key">Телефон</div>
+          <div class="bp__cell-val" style="opacity: 0.3;">Не привязан</div>
+        </div>
+        <div class="bp__cell-badge" style="background: rgba(245,158,11,0.06); color: rgba(245,158,11,0.4);">soon</div>
+        <span class="bp__cell-arr">›</span>
+      </div>
+
+      <div class="bp__cell">
+        <div class="bp__cell-icon" style="background: rgba(200,255,0,0.05); color: #c8ff00;">🔒</div>
+        <div class="bp__cell-info">
+          <div class="bp__cell-key">Пароль</div>
+          <div class="bp__cell-val">●●●●●●●●</div>
+        </div>
+        <span class="bp__cell-arr" style="color: #c8ff00; font-size: 11px;">change ›</span>
+      </div>
+
+      <!-- Bio -->
+      <div class="bp__bio">
+        <div class="bp__bio-label">О себе</div>
+        <div class="bp__bio-text">"Дизайнер, создатель blesk. Люблю минимализм и красивые интерфейсы."</div>
+        <div class="bp__bio-bar">
+          <span class="bp__bio-count">42/200</span>
+          <button class="bp__save">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ STUB (Boarding Pass) ═══════ -->
+  <div class="bp__stub">
+    <div class="bp__barcode">
+      <div class="bp__bar" style="height: 3px;"></div>
+      <div class="bp__bar" style="height: 5px;"></div>
+      <div class="bp__bar" style="height: 2px;"></div>
+      <div class="bp__bar" style="height: 6px;"></div>
+      <div class="bp__bar" style="height: 3px;"></div>
+      <div class="bp__bar" style="height: 4px;"></div>
+      <div class="bp__bar" style="height: 2px;"></div>
+      <div class="bp__bar" style="height: 5px;"></div>
+      <div class="bp__bar" style="height: 3px;"></div>
+      <div class="bp__bar" style="height: 6px;"></div>
+      <div class="bp__bar" style="height: 2px;"></div>
+      <div class="bp__bar" style="height: 4px;"></div>
+      <div class="bp__bar" style="height: 3px;"></div>
+      <div class="bp__bar" style="height: 5px;"></div>
+    </div>
+    <div class="bp__stub-id">#0000</div>
+    <div class="bp__stub-label">blesk pass</div>
+    <div class="bp__stub-since">03.2026</div>
+  </div>
+</div>
+
+<script>
+  const card = document.getElementById('card');
+  card.addEventListener('mousemove', (e) => {
+    const rect = card.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    card.style.transform = `perspective(800px) rotateY(${x * 6}deg) rotateX(${-y * 3}deg)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg)';
+  });
+</script>
+
+</body>
+</html>

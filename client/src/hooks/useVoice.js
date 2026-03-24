@@ -792,5 +792,14 @@ export function useVoice(socketRef) {
     leaveRoom();
   }, [socketRef, leaveRoom]);
 
+  // Cleanup voice resources on unmount
+  useEffect(() => {
+    return () => {
+      if (vadIntervalRef.current) { clearInterval(vadIntervalRef.current); vadIntervalRef.current = null; }
+      if (qualityIntervalRef.current) { clearInterval(qualityIntervalRef.current); qualityIntervalRef.current = null; }
+      if (audioContextRef.current) { try { audioContextRef.current.close(); } catch {} audioContextRef.current = null; }
+    };
+  }, []);
+
   return { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare };
 }

@@ -24,7 +24,14 @@ const inviteRowV = {
 };
 
 export default function VoiceRoomList({ onJoinRoom }) {
-  const { rooms, loading, loadRooms, createRoom, deleteRoom, inviteToRoom, kickFromRoom, currentRoomId } = useVoiceStore();
+  const rooms = useVoiceStore((s) => s.rooms);
+  const loading = useVoiceStore((s) => s.loading);
+  const loadRooms = useVoiceStore((s) => s.loadRooms);
+  const createRoom = useVoiceStore((s) => s.createRoom);
+  const deleteRoom = useVoiceStore((s) => s.deleteRoom);
+  const inviteToRoom = useVoiceStore((s) => s.inviteToRoom);
+  const kickFromRoom = useVoiceStore((s) => s.kickFromRoom);
+  const currentRoomId = useVoiceStore((s) => s.currentRoomId);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLimit, setNewLimit] = useState(10);
@@ -36,6 +43,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
 
   const currentUserId = useMemo(getCurrentUserId, []);
   const deleteTimerRef = useRef(null);
+  const friendsFetchedRef = useRef(0);
 
   useEffect(() => () => clearTimeout(deleteTimerRef.current), []);
 
@@ -47,14 +55,16 @@ export default function VoiceRoomList({ onJoinRoom }) {
 
   useEffect(() => {
     if (!inviting) return;
+    // Кэш друзей — не перезапрашивать чаще чем раз в 30 секунд
+    if (friends.length > 0 && Date.now() - friendsFetchedRef.current < 30000) return;
     setFriendsLoading(true);
     const token = localStorage.getItem('token');
     fetch(`${API_URL}/api/friends`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setFriends(data); })
+      .then(data => { if (Array.isArray(data)) { setFriends(data); friendsFetchedRef.current = Date.now(); } })
       .catch(() => {})
       .finally(() => setFriendsLoading(false));
-  }, [inviting]);
+  }, [inviting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -131,7 +141,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
       {/* Empty state */}
       {loading && rooms.length === 0 && <div className="vrl__empty">Загрузка...</div>}
       {!loading && rooms.length === 0 && (
-        <motion.div className="vrl__empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <motion.div className="vrl__empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setShowCreateModal(true)} style={{ cursor: 'pointer' }}>
           <div className="vrl__empty-icon">
             <Radio size={28} strokeWidth={1.2} />
           </div>
@@ -270,9 +280,16 @@ export default function VoiceRoomList({ onJoinRoom }) {
                       onClick={e => handleDelete(e, room.id)}
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.85 }}
-                      title={deleting === room.id ? 'Подтвердить удаление' : 'Удалить'}
+                      title={deleting === room.id ? 'Нажмите ещё раз для удаления' : 'Удалить'}
                     >
-                      {deleting === room.id ? <X size={13} strokeWidth={2.5} /> : <Trash2 size={13} strokeWidth={2} />}
+                      {deleting === room.id ? (
+                        <>
+                          <Trash2 size={13} strokeWidth={2.5} />
+                          <span className="vrl__card-act-confirm">Удалить?</span>
+                        </>
+                      ) : (
+                        <Trash2 size={13} strokeWidth={2} />
+                      )}
                     </motion.button>
                   </div>
                 )}

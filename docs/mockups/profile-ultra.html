@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Ultra Profile Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 60px;
+  }
+  .label { font-size: 11px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .ctitle { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 6px; }
+  .cdesc { font-size: 13px; color: rgba(255,255,255,0.35); max-width: 460px; text-align: center; line-height: 1.5; margin-bottom: 24px; }
+  .sep { width: 100%; max-width: 500px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT J: VINYL RECORD
+     Профиль как виниловая пластинка
+     ═══════════════════════════════════════ */
+  .vinyl-scene {
+    width: 400px; height: 400px;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .vinyl-scene:hover .vinyl__disc { transform: translateX(60px) rotate(30deg); }
+  .vinyl-scene:hover .vinyl__sleeve { transform: translateX(-20px); }
+
+  /* Disc */
+  .vinyl__disc {
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    position: absolute;
+    right: 20px; top: 50px;
+    background: conic-gradient(
+      from 0deg,
+      #111 0deg, #1a1a2e 30deg, #111 60deg, #1a1a2e 90deg,
+      #111 120deg, #1a1a2e 150deg, #111 180deg, #1a1a2e 210deg,
+      #111 240deg, #1a1a2e 270deg, #111 300deg, #1a1a2e 330deg, #111 360deg
+    );
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  }
+
+  .vinyl__disc::before {
+    content: '';
+    position: absolute;
+    inset: 35%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c8ff00, #a0cc00);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .vinyl__disc-label {
+    position: absolute;
+    inset: 35%;
+    border-radius: 50%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 2;
+    background: linear-gradient(135deg, rgba(200,255,0,0.9), rgba(160,204,0,0.95));
+  }
+
+  .vinyl__disc-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: #000;
+    letter-spacing: -0.02em;
+  }
+
+  .vinyl__disc-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: rgba(0,0,0,0.4);
+  }
+
+  /* Center hole */
+  .vinyl__disc::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #08060f;
+    z-index: 3;
+  }
+
+  /* Grooves */
+  .vinyl__grooves {
+    position: absolute;
+    inset: 8%;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.03);
+    pointer-events: none;
+  }
+  .vinyl__grooves::before {
+    content: '';
+    position: absolute;
+    inset: 12%;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.02);
+  }
+  .vinyl__grooves::after {
+    content: '';
+    position: absolute;
+    inset: 24%;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.02);
+  }
+
+  /* Sleeve */
+  .vinyl__sleeve {
+    width: 300px; height: 300px;
+    position: absolute;
+    left: 20px; top: 50px;
+    border-radius: 6px;
+    background: rgba(14,12,24,0.9);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+    z-index: 2;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 20px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  .vinyl__sleeve-top {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: rgba(200,255,0,0.3);
+    margin-bottom: auto;
+  }
+
+  .vinyl__sleeve-fields {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .vs-field {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px;
+  }
+  .vs-key { color: rgba(255,255,255,0.2); min-width: 50px; font-size: 9px; text-transform: uppercase; }
+  .vs-val { color: rgba(255,255,255,0.6); }
+  .vs-badge { font-size: 8px; padding: 1px 5px; border-radius: 3px; background: rgba(74,222,128,0.1); color: #4ade80; }
+
+  .vinyl__sleeve-bio {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    font-style: italic;
+    border-top: 1px solid rgba(255,255,255,0.03);
+    padding-top: 10px;
+  }
+
+  .vinyl-hint {
+    position: absolute;
+    bottom: 20px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.12);
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT K: HOLOGRAM
+     Голографическая проекция
+     ═══════════════════════════════════════ */
+  .holo {
+    width: 380px;
+    position: relative;
+    padding: 30px 24px;
+    text-align: center;
+  }
+
+  /* Scan lines overlay */
+  .holo::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(200,255,0,0.01) 2px,
+      rgba(200,255,0,0.01) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* Base platform */
+  .holo__base {
+    width: 200px; height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, transparent, rgba(200,255,0,0.15), transparent);
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .holo__base::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 10%; right: 10%;
+    height: 40px;
+    background: linear-gradient(0deg, rgba(200,255,0,0.04), transparent);
+    pointer-events: none;
+  }
+
+  /* Projection cone */
+  .holo__cone {
+    width: 100px; height: 300px;
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(0deg, rgba(200,255,0,0.03), transparent 80%);
+    clip-path: polygon(20% 100%, 80% 100%, 100% 0%, 0% 0%);
+    pointer-events: none;
+  }
+
+  /* Content — "projected" with glow */
+  .holo__content {
+    position: relative;
+    z-index: 5;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 12px;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 0 8px rgba(200,255,0,0.08));
+  }
+
+  .holo__ava {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(200,255,0,0.15), rgba(167,139,250,0.1));
+    border: 2px solid rgba(200,255,0,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800;
+    color: rgba(200,255,0,0.7);
+    animation: holoFlicker 4s ease-in-out infinite;
+    position: relative;
+  }
+
+  @keyframes holoFlicker {
+    0%, 100% { opacity: 1; }
+    47% { opacity: 1; }
+    48% { opacity: 0.6; }
+    49% { opacity: 1; }
+    93% { opacity: 1; }
+    94% { opacity: 0.7; }
+    95% { opacity: 1; }
+  }
+
+  /* Glitch double */
+  .holo__ava::before {
+    content: 'G';
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(167,139,250,0.3);
+    animation: holoGlitch 5s ease-in-out infinite;
+  }
+
+  @keyframes holoGlitch {
+    0%, 100% { transform: translate(0,0); }
+    48% { transform: translate(2px, -1px); }
+    49% { transform: translate(0,0); }
+    94% { transform: translate(-1px, 1px); }
+    95% { transform: translate(0,0); }
+  }
+
+  .holo__name {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: rgba(200,255,0,0.7);
+    text-shadow: 0 0 20px rgba(200,255,0,0.15);
+  }
+
+  .holo__tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: rgba(200,255,0,0.25);
+    margin-top: -6px;
+  }
+
+  .holo__fields {
+    display: flex; flex-direction: column; gap: 6px;
+    width: 100%;
+    text-align: left;
+  }
+
+  .holo__field {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(200,255,0,0.04);
+    transition: border-color 0.15s, background 0.15s;
+    cursor: pointer;
+  }
+
+  .holo__field:hover {
+    border-color: rgba(200,255,0,0.1);
+    background: rgba(200,255,0,0.02);
+  }
+
+  .holo__field-icon {
+    font-size: 11px;
+    color: rgba(200,255,0,0.3);
+    width: 20px; text-align: center;
+  }
+
+  .holo__field-key {
+    font-size: 9px;
+    color: rgba(200,255,0,0.2);
+    text-transform: uppercase;
+    min-width: 50px;
+  }
+
+  .holo__field-val {
+    font-size: 12px;
+    color: rgba(200,255,0,0.5);
+    flex: 1;
+  }
+
+  .holo__field-badge {
+    font-size: 8px; font-weight: 700;
+    padding: 2px 6px; border-radius: 4px;
+    border: 1px solid rgba(74,222,128,0.2);
+    color: rgba(74,222,128,0.6);
+  }
+
+  .holo__bio {
+    font-size: 11px;
+    color: rgba(200,255,0,0.2);
+    font-style: italic;
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  .holo__btn {
+    padding: 9px 28px;
+    border-radius: 10px;
+    border: 1.5px solid rgba(200,255,0,0.2);
+    background: transparent;
+    color: rgba(200,255,0,0.5);
+    font-size: 12px; font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 8px;
+  }
+
+  .holo__btn:hover {
+    background: rgba(200,255,0,0.05);
+    border-color: rgba(200,255,0,0.35);
+    color: rgba(200,255,0,0.8);
+    box-shadow: 0 0 20px rgba(200,255,0,0.08);
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT L: MAGAZINE COVER
+     Профиль как обложка журнала
+     ═══════════════════════════════════════ */
+  .mag {
+    width: 360px;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    background: #0a0812;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    transition: transform 0.15s;
+  }
+  .mag:hover { transform: perspective(800px) rotateY(3deg) rotateX(-1deg); }
+
+  /* Full-bleed avatar as cover photo */
+  .mag__cover {
+    width: 100%;
+    height: 280px;
+    background: linear-gradient(135deg, #3b0764, #7c3aed, #a855f7);
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 20px;
+  }
+
+  /* Grain overlay */
+  .mag__cover::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  /* Gradient fade at bottom */
+  .mag__cover::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 60%;
+    background: linear-gradient(0deg, rgba(10,8,18,0.95), transparent);
+    pointer-events: none;
+  }
+
+  /* Magazine logo */
+  .mag__logo {
+    position: absolute;
+    top: 16px; left: 20px;
+    font-size: 28px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.9);
+    letter-spacing: -0.06em;
+    z-index: 2;
+  }
+
+  /* Big initial as "cover photo" */
+  .mag__initial {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 120px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.06);
+    z-index: 1;
+  }
+
+  /* Name overlay on cover */
+  .mag__cover-name {
+    position: relative;
+    z-index: 3;
+  }
+
+  .mag__name {
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+  }
+
+  .mag__tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 4px;
+  }
+
+  /* Issue info */
+  .mag__issue {
+    position: absolute;
+    top: 16px; right: 20px;
+    text-align: right;
+    z-index: 2;
+  }
+
+  .mag__issue-num {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .mag__issue-date {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: rgba(255,255,255,0.2);
+  }
+
+  /* Body — "articles" */
+  .mag__body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mag__headline {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #c8ff00;
+    margin-bottom: 4px;
+  }
+
+  .mag__article {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    cursor: pointer;
+    transition: padding-left 0.15s;
+  }
+
+  .mag__article:hover { padding-left: 6px; }
+
+  .mag__article-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .mag__article-title {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .mag__article-meta {
+    font-size: 10px;
+    color: rgba(255,255,255,0.2);
+    flex-shrink: 0;
+  }
+
+  .mag__cta {
+    width: 100%;
+    padding: 11px;
+    border-radius: 0;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 12px;
+    font-weight: 800;
+    font-family: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: letter-spacing 0.15s;
+  }
+  .mag__cta:hover { letter-spacing: 0.15em; }
+</style>
+</head>
+<body>
+
+  <!-- ═══════ CONCEPT J: VINYL ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт J</div>
+    <div class="ctitle">Vinyl Record</div>
+    <div class="cdesc">Профиль как виниловая пластинка в конверте. При hover пластинка выезжает из конверта и поворачивается. Имя на лейбле. Данные на конверте.</div>
+  </div>
+
+  <div class="vinyl-scene">
+    <div class="vinyl__disc">
+      <div class="vinyl__grooves"></div>
+      <div class="vinyl__disc-label">
+        <div class="vinyl__disc-name">gotblesk</div>
+        <div class="vinyl__disc-tag">#0000</div>
+      </div>
+    </div>
+    <div class="vinyl__sleeve">
+      <div class="vinyl__sleeve-top">blesk records ™</div>
+      <div class="vinyl__sleeve-fields">
+        <div class="vs-field">
+          <span class="vs-key">email</span>
+          <span class="vs-val">mxkarov@mail.ru</span>
+          <span class="vs-badge">✓</span>
+        </div>
+        <div class="vs-field">
+          <span class="vs-key">phone</span>
+          <span class="vs-val" style="opacity: 0.3;">—</span>
+        </div>
+        <div class="vs-field">
+          <span class="vs-key">pass</span>
+          <span class="vs-val" style="color: #c8ff00;">change →</span>
+        </div>
+      </div>
+      <div class="vinyl__sleeve-bio">"Дизайнер, создатель blesk"</div>
+    </div>
+    <div class="vinyl-hint">hover чтобы достать пластинку</div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT K: HOLOGRAM ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт K</div>
+    <div class="ctitle">Hologram</div>
+    <div class="cdesc">Профиль как голографическая проекция. Scan-lines, glitch-эффект на аватаре, зелёное свечение, мерцание. Sci-fi эстетика. Платформа-проектор внизу.</div>
+  </div>
+
+  <div class="holo">
+    <div class="holo__cone"></div>
+    <div class="holo__content">
+      <div class="holo__ava">G</div>
+      <div class="holo__name">gotblesk</div>
+      <div class="holo__tag">#0000</div>
+      <div class="holo__fields">
+        <div class="holo__field">
+          <span class="holo__field-icon">✉</span>
+          <span class="holo__field-key">email</span>
+          <span class="holo__field-val">mxkarov@mail.ru</span>
+          <span class="holo__field-badge">verified</span>
+        </div>
+        <div class="holo__field">
+          <span class="holo__field-icon">📱</span>
+          <span class="holo__field-key">phone</span>
+          <span class="holo__field-val" style="opacity: 0.3;">not linked</span>
+        </div>
+        <div class="holo__field">
+          <span class="holo__field-icon">🔒</span>
+          <span class="holo__field-key">pass</span>
+          <span class="holo__field-val">change →</span>
+        </div>
+      </div>
+      <div class="holo__bio">"Дизайнер, создатель blesk"</div>
+      <button class="holo__btn">Edit Profile</button>
+    </div>
+    <div class="holo__base"></div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT L: MAGAZINE ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт L</div>
+    <div class="ctitle">Magazine Cover</div>
+    <div class="cdesc">Профиль как обложка журнала — большой cover с grain-текстурой, имя как заголовок, данные как "статьи" внутри. Огромная буква-инициал на фоне. Editorial стиль.</div>
+  </div>
+
+  <div class="mag">
+    <div class="mag__cover">
+      <div class="mag__logo">blesk</div>
+      <div class="mag__initial">G</div>
+      <div class="mag__issue">
+        <div class="mag__issue-num">Issue #0000</div>
+        <div class="mag__issue-date">MAR 2026</div>
+      </div>
+      <div class="mag__cover-name">
+        <div class="mag__name">gotblesk</div>
+        <div class="mag__tag">#0000 · designer · creator</div>
+      </div>
+    </div>
+    <div class="mag__body">
+      <div class="mag__headline">Inside this profile</div>
+      <div class="mag__article">
+        <div class="mag__article-dot" style="background: #4ade80;"></div>
+        <div class="mag__article-title">Email подтверждён</div>
+        <div class="mag__article-meta">mxkarov@mail.ru</div>
+      </div>
+      <div class="mag__article">
+        <div class="mag__article-dot" style="background: #f59e0b;"></div>
+        <div class="mag__article-title">Телефон не привязан</div>
+        <div class="mag__article-meta">скоро</div>
+      </div>
+      <div class="mag__article">
+        <div class="mag__article-dot" style="background: #c8ff00;"></div>
+        <div class="mag__article-title">Сменить пароль</div>
+        <div class="mag__article-meta">●●●●●●●●</div>
+      </div>
+      <div class="mag__article" style="border: none;">
+        <div class="mag__article-dot" style="background: #a78bfa;"></div>
+        <div class="mag__article-title" style="font-style: italic; font-weight: 400; color: rgba(255,255,255,0.4);">"Дизайнер, создатель blesk"</div>
+      </div>
+      <button class="mag__cta">Редактировать профиль</button>
+    </div>
+  </div>
+
+</body>
+</html>

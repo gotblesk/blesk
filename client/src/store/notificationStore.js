@@ -46,13 +46,21 @@ export const useNotificationStore = create((set, get) => ({
 
   // Добавить новое уведомление (из WebSocket)
   addNotification: (notification) => {
-    set((state) => {
-      if (state.notifications.some(n => n.id === notification.id)) return state;
-      return {
-        notifications: [notification, ...state.notifications],
-        unreadCount: state.unreadCount + 1,
-      };
-    });
+    const state = get();
+    const now = Date.now();
+
+    // Дедупликация по id
+    if (state.notifications.some(n => n.id === notification.id)) return;
+
+    // Rate limit: макс 10 уведомлений за 5 сек
+    const recent = state.notifications.filter(n => (now - new Date(n.createdAt).getTime()) < 5000);
+    if (recent.length >= 10) return;
+
+    // Макс 50 уведомлений
+    let updated = [notification, ...state.notifications];
+    if (updated.length > 50) updated = updated.slice(0, 50);
+
+    set({ notifications: updated, unreadCount: state.unreadCount + 1 });
   },
 
   // Пометить одно как прочитанное

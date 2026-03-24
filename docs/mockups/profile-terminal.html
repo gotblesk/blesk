@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Terminal Profile</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Manrope:wght@400;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 1000px;
+  }
+
+  /* ═══════ CARD ═══════ */
+  .tp {
+    width: 440px;
+    border-radius: 22px;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.15s ease-out;
+
+    background: rgba(12,10,22,0.8);
+    backdrop-filter: blur(50px) saturate(1.3);
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow:
+      0 40px 120px rgba(0,0,0,0.55),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .tp:hover { transform: perspective(800px) rotateY(2deg) rotateX(-1deg); }
+
+  /* Glow */
+  .tp__glow {
+    position: absolute;
+    top: -40px; left: -15%; right: -15%;
+    height: 140px;
+    background: radial-gradient(ellipse at 50% 30%, hsla(290, 60%, 45%, 0.12), transparent 65%);
+    pointer-events: none;
+  }
+
+  /* Specular */
+  .tp__shine {
+    position: absolute;
+    top: 0; left: 8%; right: 8%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    z-index: 2;
+  }
+
+  /* ═══════ HEADER — like terminal title bar ═══════ */
+  .tp__head {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    position: relative;
+    z-index: 1;
+  }
+
+  .tp__dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .tp__dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: opacity 0.1s;
+  }
+  .tp__dot:hover { opacity: 0.8; }
+  .tp__dot--red { background: #ef4444; }
+  .tp__dot--yellow { background: #f59e0b; }
+  .tp__dot--green { background: #4ade80; }
+
+  .tp__title {
+    flex: 1;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.02em;
+  }
+
+  /* ═══════ HERO — Avatar + Identity ═══════ */
+  .tp__hero {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 20px 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tp__ava {
+    width: 64px; height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #e879f9, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 800; color: #fff;
+    position: relative;
+    flex-shrink: 0;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  /* Scan line effect on avatar */
+  .tp__ava::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: 0; right: 0;
+    height: 100%;
+    background: linear-gradient(180deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%);
+    animation: scanLine 3s ease-in-out infinite;
+  }
+
+  @keyframes scanLine {
+    0% { top: -100%; }
+    100% { top: 200%; }
+  }
+
+  .tp__ava-edit {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    opacity: 0;
+    transition: opacity 0.15s;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tp__ava:hover .tp__ava-edit { opacity: 1; }
+
+  .tp__identity {
+    flex: 1;
+  }
+
+  .tp__name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .tp__tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.25);
+  }
+
+  .tp__since {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.15);
+    margin-top: 4px;
+  }
+
+  /* ═══════ TERMINAL BODY ═══════ */
+  .tp__term {
+    padding: 0 16px 16px;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* Each row is a "command line" */
+  .tp__line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    transition: background 0.1s;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .tp__line:hover {
+    background: rgba(255,255,255,0.025);
+  }
+
+  /* Prompt symbol */
+  .tp__prompt {
+    color: #c8ff00;
+    font-weight: 600;
+    flex-shrink: 0;
+    opacity: 0.6;
+  }
+
+  /* Key name */
+  .tp__key {
+    color: rgba(255,255,255,0.35);
+    font-weight: 500;
+    min-width: 70px;
+    flex-shrink: 0;
+  }
+
+  /* Value */
+  .tp__val {
+    color: rgba(255,255,255,0.75);
+    font-weight: 400;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tp__val--muted { color: rgba(255,255,255,0.2); }
+  .tp__val--accent { color: #c8ff00; }
+  .tp__val--link { color: #60a5fa; cursor: pointer; }
+  .tp__val--link:hover { text-decoration: underline; }
+
+  /* Badge */
+  .tp__badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .tp__badge--ok {
+    background: rgba(74,222,128,0.1);
+    color: #4ade80;
+    border: 1px solid rgba(74,222,128,0.15);
+  }
+
+  .tp__badge--warn {
+    background: rgba(245,158,11,0.08);
+    color: #f59e0b;
+    border: 1px solid rgba(245,158,11,0.12);
+  }
+
+  /* Action button at line end */
+  .tp__act {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(200,255,0,0.15);
+    background: rgba(200,255,0,0.05);
+    color: #c8ff00;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.12s;
+    flex-shrink: 0;
+    opacity: 0;
+  }
+
+  .tp__line:hover .tp__act { opacity: 1; }
+  .tp__act:hover { background: rgba(200,255,0,0.12); }
+
+  /* ═══════ SEPARATOR ═══════ */
+  .tp__sep {
+    height: 1px;
+    margin: 6px 12px;
+    background: linear-gradient(90deg, rgba(200,255,0,0.05), rgba(255,255,255,0.03), transparent);
+  }
+
+  /* ═══════ BIO — editable terminal area ═══════ */
+  .tp__bio {
+    margin: 0 12px 4px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.015);
+    border: 1px solid rgba(255,255,255,0.03);
+    position: relative;
+  }
+
+  .tp__bio-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: rgba(200,255,0,0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+
+  .tp__bio-text {
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  .tp__bio-cursor {
+    display: inline-block;
+    width: 7px; height: 14px;
+    background: #c8ff00;
+    margin-left: 2px;
+    vertical-align: middle;
+    animation: blink 1s step-end infinite;
+    opacity: 0.6;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 0; }
+  }
+
+  .tp__bio-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .tp__bio-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: rgba(255,255,255,0.15);
+  }
+
+  .tp__bio-save {
+    padding: 5px 14px;
+    border-radius: 8px;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    transition: box-shadow 0.12s;
+  }
+
+  .tp__bio-save:hover { box-shadow: 0 3px 14px rgba(200,255,0,0.2); }
+
+  /* ═══════ PASSWORD CHANGE — terminal steps ═══════ */
+  .tp__pw-steps {
+    margin: 0 12px 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.015);
+    border: 1px solid rgba(255,255,255,0.03);
+    display: none; /* toggle with JS */
+  }
+
+  .tp__pw-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    animation: typeIn 0.3s ease both;
+  }
+
+  .tp__pw-step:nth-child(2) { animation-delay: 0.15s; }
+  .tp__pw-step:nth-child(3) { animation-delay: 0.3s; }
+  .tp__pw-step:nth-child(4) { animation-delay: 0.45s; }
+
+  @keyframes typeIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .tp__pw-prompt { color: #f59e0b; font-weight: 600; }
+
+  .tp__pw-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.7);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    outline: none;
+    caret-color: #c8ff00;
+  }
+
+  .tp__pw-input::placeholder { color: rgba(255,255,255,0.15); }
+
+  /* ═══════ EMAIL VERIFY — inline code input ═══════ */
+  .tp__verify {
+    display: none; /* toggle */
+    margin: 0 12px 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(74,222,128,0.02);
+    border: 1px solid rgba(74,222,128,0.06);
+  }
+
+  .tp__verify-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .tp__verify-prompt { color: #4ade80; font-weight: 600; }
+
+  .tp__verify-code {
+    background: none;
+    border: none;
+    color: #4ade80;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    outline: none;
+    width: 80px;
+    caret-color: #4ade80;
+  }
+
+  .tp__verify-code::placeholder { color: rgba(74,222,128,0.2); }
+
+  /* ═══════ BOTTOM STATUS BAR ═══════ */
+  .tp__status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: rgba(255,255,255,0.15);
+  }
+
+  .tp__status-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #4ade80;
+    display: inline-block;
+    margin-right: 4px;
+    animation: statusPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes statusPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* Demo states */
+  .tp__pw-steps.active, .tp__verify.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="tp" id="card">
+  <div class="tp__glow"></div>
+  <div class="tp__shine"></div>
+
+  <!-- Terminal title bar -->
+  <div class="tp__head">
+    <div class="tp__dots">
+      <div class="tp__dot tp__dot--red" onclick="document.getElementById('card').style.display='none'"></div>
+      <div class="tp__dot tp__dot--yellow"></div>
+      <div class="tp__dot tp__dot--green"></div>
+    </div>
+    <div class="tp__title">gotblesk@blesk ~ /profile</div>
+    <div style="width: 42px;"></div>
+  </div>
+
+  <!-- Hero -->
+  <div class="tp__hero">
+    <div class="tp__ava">
+      G
+      <div class="tp__ava-edit">edit</div>
+    </div>
+    <div class="tp__identity">
+      <div class="tp__name">
+        gotblesk
+        <span class="tp__tag">#0000</span>
+      </div>
+      <div class="tp__since">member_since: march_2026</div>
+    </div>
+  </div>
+
+  <!-- Terminal lines -->
+  <div class="tp__term">
+    <div class="tp__line">
+      <span class="tp__prompt">$</span>
+      <span class="tp__key">email</span>
+      <span class="tp__val">mxkarov@mail.ru</span>
+      <span class="tp__badge tp__badge--ok">verified</span>
+    </div>
+
+    <div class="tp__line" onclick="document.querySelector('.tp__verify').classList.toggle('active')">
+      <span class="tp__prompt">$</span>
+      <span class="tp__key">email</span>
+      <span class="tp__val tp__val--muted">не подтверждён</span>
+      <span class="tp__badge tp__badge--warn">unverified</span>
+      <span class="tp__act">verify →</span>
+    </div>
+
+    <!-- Email verify panel (toggle) -->
+    <div class="tp__verify" id="verify">
+      <div class="tp__verify-line">
+        <span class="tp__verify-prompt">code:</span>
+        <input class="tp__verify-code" placeholder="------" maxlength="6">
+        <span style="color: rgba(255,255,255,0.15); font-size: 10px; font-family: 'JetBrains Mono', monospace;">enter to confirm</span>
+      </div>
+    </div>
+
+    <div class="tp__sep"></div>
+
+    <div class="tp__line">
+      <span class="tp__prompt">$</span>
+      <span class="tp__key">phone</span>
+      <span class="tp__val tp__val--muted">not_linked</span>
+      <span class="tp__act" style="opacity: 0.3; pointer-events: none;">soon</span>
+    </div>
+
+    <div class="tp__sep"></div>
+
+    <div class="tp__line" onclick="document.querySelector('.tp__pw-steps').classList.toggle('active')">
+      <span class="tp__prompt">$</span>
+      <span class="tp__key">passwd</span>
+      <span class="tp__val tp__val--accent">●●●●●●●●</span>
+      <span class="tp__act">change →</span>
+    </div>
+
+    <!-- Password change steps (toggle) -->
+    <div class="tp__pw-steps" id="pwSteps">
+      <div class="tp__pw-step">
+        <span class="tp__pw-prompt">current:</span>
+        <input class="tp__pw-input" type="password" placeholder="текущий пароль">
+      </div>
+      <div class="tp__pw-step">
+        <span class="tp__pw-prompt">new:</span>
+        <input class="tp__pw-input" type="password" placeholder="новый пароль (мин. 8)">
+      </div>
+      <div class="tp__pw-step">
+        <span class="tp__pw-prompt">confirm:</span>
+        <input class="tp__pw-input" type="password" placeholder="повторите">
+      </div>
+      <div class="tp__pw-step">
+        <span class="tp__pw-prompt">code:</span>
+        <input class="tp__pw-input" placeholder="код из email" maxlength="6">
+      </div>
+    </div>
+  </div>
+
+  <!-- Bio -->
+  <div class="tp__bio">
+    <div class="tp__bio-label">$ bio</div>
+    <div class="tp__bio-text">
+      Дизайнер, создатель blesk. Люблю минимализм.<span class="tp__bio-cursor"></span>
+    </div>
+    <div class="tp__bio-footer">
+      <span class="tp__bio-count">42/200</span>
+      <button class="tp__bio-save">save</button>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="tp__status">
+    <span><span class="tp__status-dot"></span>online</span>
+    <span>blesk v0.5.7-beta</span>
+    <span>utf-8</span>
+  </div>
+</div>
+
+<script>
+  // 3D tilt
+  const card = document.getElementById('card');
+  card.addEventListener('mousemove', (e) => {
+    const rect = card.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    card.style.transform = `perspective(800px) rotateY(${x * 6}deg) rotateX(${-y * 4}deg)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg)';
+  });
+</script>
+
+</body>
+</html>

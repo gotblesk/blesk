@@ -638,6 +638,12 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Только владелец может удалить канал' });
     }
 
+    // Получить всех подписчиков ДО удаления
+    const subscribers = await prisma.channelSubscriber.findMany({
+      where: { channelId: id },
+      select: { userId: true },
+    });
+
     // Каскадное удаление: ChannelMeta и ChannelSubscriber удалятся через onDelete: Cascade
     // Сообщения и участники тоже нужно удалить
     await prisma.$transaction([
@@ -651,10 +657,19 @@ router.delete('/:id', async (req, res) => {
       prisma.room.delete({ where: { id } }),
     ]);
 
-    // Уведомить сокеты
+    // Уведомить всех подписчиков об удалении канала
     const io = req.app.locals.io;
     if (io) {
       io.to(id).emit('channel:deleted', { channelId: id });
+      // Дополнительно уведомить каждого подписчика напрямую (на случай если уже покинули комнату)
+      subscribers.forEach(sub => {
+        const sockets = io.sockets.sockets;
+        for (const [, s] of sockets) {
+          if (s.userId === sub.userId) {
+            s.emit('channel:deleted', { channelId: id });
+          }
+        }
+      });
     }
 
     res.json({ deleted: true });

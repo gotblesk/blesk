@@ -17,6 +17,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
   const textareaRef = useRef(null);
   const avatarFileRef = useRef(null);
   const coverFileRef = useRef(null);
+  const errorTimerRef = useRef(null);
 
   const { posts, loadPosts, myChannels, channels } = useChannelStore();
   const channelPosts = posts[channelId] || [];
@@ -40,6 +41,13 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     if (composerOpen && textareaRef.current) textareaRef.current.focus();
   }, [composerOpen]);
 
+  // Утилита: показать ошибку с таймером (очищает предыдущий таймер)
+  const showPostError = useCallback((msg) => {
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    setPostError(msg);
+    errorTimerRef.current = setTimeout(() => setPostError(null), 4000);
+  }, []);
+
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
@@ -51,20 +59,23 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         body: JSON.stringify({ text: trimmed }),
       });
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        setPostError(errData.error || 'Не удалось отправить');
-        setTimeout(() => setPostError(null), 4000);
+        let errData;
+        try { errData = await res.json(); } catch { errData = {}; }
+        showPostError(errData.error || 'Не удалось отправить');
         return;
       }
-      const data = await res.json().catch(() => ({}));
+      let data;
+      try { data = await res.json(); } catch {
+        showPostError('Ошибка сервера');
+        return;
+      }
       if (data.message) useChannelStore.getState().receivePost(data.message);
       setText('');
       setComposerOpen(false);
     } catch {
-      setPostError('Ошибка сети');
-      setTimeout(() => setPostError(null), 4000);
+      showPostError('Ошибка сети');
     } finally { setSending(false); }
-  }, [text, channelId, sending]);
+  }, [text, channelId, sending, showPostError]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
@@ -225,7 +236,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
             <span className="cv__empty-hint">{isOwner ? 'Напишите первый пост!' : 'Посты скоро появятся'}</span>
           </motion.div>
         ) : (
-          channelPosts.map((post, i) => (
+          (channelPosts ?? []).map((post, i) => (
             <ChannelPost key={post.id} post={post} index={i} />
           ))
         )}
@@ -277,9 +288,10 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
                 className="cv__composer-textarea"
                 placeholder="О чём расскажете?"
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(e) => setText(e.target.value.slice(0, 4000))}
                 onKeyDown={handleKeyDown}
                 rows={3}
+                maxLength={4000}
               />
 
               <div className="cv__composer-bar">

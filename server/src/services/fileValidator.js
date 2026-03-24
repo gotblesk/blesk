@@ -34,12 +34,15 @@ async function validateFile(filePath, originalname, mimetype, size) {
   const detected = await fileType.fromBuffer(buffer);
 
   // Если magic bytes не определены — не доверять клиентскому mimetype
-  // Исключение: text/plain (текстовые файлы не имеют magic bytes)
-  if (!detected && mimetype !== 'text/plain') {
+  // Исключение: text/plain с расширением .txt (текстовые файлы не имеют magic bytes)
+  if (!detected) {
+    if (mimetype === 'text/plain' && ext === '.txt') {
+      return { ok: true, mime: 'text/plain' };
+    }
     return { ok: false, error: 'Не удалось определить тип файла' };
   }
 
-  const actualMime = detected?.mime || mimetype;
+  const actualMime = detected.mime;
 
   if (!ALLOWED_MIME.has(actualMime)) return { ok: false, error: 'Формат файла не поддерживается' };
 

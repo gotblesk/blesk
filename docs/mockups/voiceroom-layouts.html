@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>VoiceRoom Layout Concepts</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #08060f;
+    color: #fff;
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .header {
+    text-align: center;
+    padding: 32px 24px 16px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: rgba(255,255,255,0.9);
+  }
+  .header p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 6px;
+  }
+
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 24px;
+    margin-bottom: 24px;
+  }
+  .tab {
+    padding: 10px 24px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.5);
+    user-select: none;
+  }
+  .tab:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+  .tab.active {
+    background: rgba(200,255,0,0.1);
+    border-color: rgba(200,255,0,0.3);
+    color: #c8ff00;
+  }
+
+  .scene {
+    display: none;
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 0 24px 40px;
+  }
+  .scene.active { display: block; }
+
+  .scene-label {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .room-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/10;
+    border-radius: 20px;
+    background: rgba(14,12,22,0.95);
+    border: 1px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .room-title {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.7);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .room-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 8px rgba(74,222,128,0.5);
+  }
+  .room-title .count {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.35);
+  }
+
+  /* ============ ORBITAL ============ */
+  .orbital-container {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .orbital-ring {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .orbital-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    text-align: center;
+  }
+  .orbital-center-icon {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: rgba(200,255,0,0.08);
+    border: 1.5px solid rgba(200,255,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 6px;
+  }
+  .orbital-center-icon svg { width: 20px; height: 20px; color: rgba(200,255,0,0.6); }
+  .orbital-center span {
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  .orbital-avatar {
+    position: absolute;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.1);
+    transition: all 0.6s cubic-bezier(0.16,1,0.3,1);
+    cursor: pointer;
+  }
+  .orbital-avatar .name {
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .orbital-avatar.speaking {
+    width: 62px; height: 62px;
+    border-color: rgba(200,255,0,0.6);
+    box-shadow: 0 0 20px rgba(200,255,0,0.25), 0 0 40px rgba(200,255,0,0.1);
+    z-index: 2;
+  }
+  .orbital-avatar.speaking .name { color: #c8ff00; }
+  .orbital-avatar.muted { opacity: 0.45; }
+  .orbital-avatar .mute-icon {
+    position: absolute;
+    bottom: -2px; right: -2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: rgba(239,68,68,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .orbital-avatar .mute-icon svg { width: 9px; height: 9px; color: #fff; }
+
+  /* Position avatars in circle */
+  .orbital-avatar:nth-child(1) { top: -26px; left: 50%; transform: translateX(-50%); }
+  .orbital-avatar:nth-child(2) { top: 15%; right: -10px; }
+  .orbital-avatar:nth-child(3) { bottom: 15%; right: -10px; }
+  .orbital-avatar:nth-child(4) { bottom: -26px; left: 50%; transform: translateX(-50%); }
+  .orbital-avatar:nth-child(5) { bottom: 15%; left: -10px; }
+  .orbital-avatar:nth-child(6) { top: 15%; left: -10px; }
+
+  .orbital-avatar.speaking:nth-child(1) { top: -31px; }
+  .orbital-avatar.speaking:nth-child(3) { right: -15px; }
+
+  @keyframes orbitalPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(200,255,0,0.25), 0 0 40px rgba(200,255,0,0.1); }
+    50% { box-shadow: 0 0 28px rgba(200,255,0,0.35), 0 0 56px rgba(200,255,0,0.15); }
+  }
+  .orbital-avatar.speaking { animation: orbitalPulse 2s ease-in-out infinite; }
+
+  @keyframes orbitalRotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .orbital-ring-line {
+    position: absolute;
+    inset: -1px;
+    border-radius: 50%;
+    border: 1px dashed rgba(255,255,255,0.04);
+    animation: orbitalRotate 60s linear infinite;
+  }
+
+  /* ============ BUBBLES ============ */
+  .bubbles-container {
+    position: absolute;
+    inset: 0;
+  }
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    transition: all 0.8s cubic-bezier(0.16,1,0.3,1);
+  }
+  .bubble .name {
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .bubble.speaking {
+    border-color: rgba(200,255,0,0.6);
+    box-shadow: 0 0 24px rgba(200,255,0,0.3), 0 0 48px rgba(200,255,0,0.1);
+    z-index: 2;
+  }
+  .bubble.speaking .name { color: #c8ff00; }
+  .bubble.muted { opacity: 0.4; }
+  .bubble .mute-icon {
+    position: absolute;
+    bottom: -2px; right: -2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: rgba(239,68,68,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bubble .mute-icon svg { width: 9px; height: 9px; color: #fff; }
+
+  @keyframes bubbleFloat1 {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(8px, -12px); }
+    50% { transform: translate(-5px, -8px); }
+    75% { transform: translate(10px, 5px); }
+  }
+  @keyframes bubbleFloat2 {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(-10px, 8px); }
+    50% { transform: translate(6px, 12px); }
+    75% { transform: translate(-8px, -5px); }
+  }
+  @keyframes bubbleFloat3 {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(12px, 6px); }
+    50% { transform: translate(-8px, -10px); }
+    75% { transform: translate(5px, 8px); }
+  }
+  @keyframes bubblePulse {
+    0%, 100% { box-shadow: 0 0 24px rgba(200,255,0,0.3), 0 0 48px rgba(200,255,0,0.1); }
+    50% { box-shadow: 0 0 32px rgba(200,255,0,0.4), 0 0 64px rgba(200,255,0,0.15); }
+  }
+  .bubble.speaking { animation: bubblePulse 1.8s ease-in-out infinite; }
+  .bubble:nth-child(1) { animation: bubbleFloat1 8s ease-in-out infinite; }
+  .bubble:nth-child(2) { animation: bubbleFloat2 9s ease-in-out infinite; }
+  .bubble:nth-child(3) { animation: bubbleFloat3 7s ease-in-out infinite; }
+  .bubble:nth-child(4) { animation: bubbleFloat1 10s ease-in-out infinite; }
+  .bubble:nth-child(5) { animation: bubbleFloat2 8.5s ease-in-out infinite; }
+  .bubble:nth-child(6) { animation: bubbleFloat3 9.5s ease-in-out infinite; }
+  .bubble.speaking { animation: bubbleFloat1 8s ease-in-out infinite, bubblePulse 1.8s ease-in-out infinite; }
+
+  /* ============ STAGE ============ */
+  .stage-container {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 50px 32px 24px;
+  }
+  .stage-speakers {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(200,255,0,0.02);
+    border: 1px solid rgba(200,255,0,0.06);
+  }
+  .stage-speaker {
+    text-align: center;
+    cursor: pointer;
+  }
+  .stage-speaker-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.1);
+    transition: all 0.5s;
+    margin: 0 auto;
+  }
+  .stage-speaker.speaking .stage-speaker-avatar {
+    border-color: rgba(200,255,0,0.6);
+    box-shadow: 0 0 24px rgba(200,255,0,0.3), 0 0 48px rgba(200,255,0,0.1);
+    animation: orbitalPulse 2s ease-in-out infinite;
+  }
+  .stage-speaker .name {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    margin-top: 8px;
+  }
+  .stage-speaker.speaking .name { color: #c8ff00; }
+  .stage-speaker .role {
+    font-size: 9px;
+    color: rgba(200,255,0,0.4);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .stage-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    margin: 16px 0;
+  }
+  .stage-label {
+    font-size: 10px;
+    color: rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .stage-audience {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .stage-listener {
+    text-align: center;
+    cursor: pointer;
+  }
+  .stage-listener-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.08);
+  }
+  .stage-listener.muted .stage-listener-avatar { opacity: 0.4; }
+  .stage-listener .name {
+    font-size: 9px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 4px;
+  }
+
+  /* ============ DESCRIPTION ============ */
+  .desc {
+    max-width: 700px;
+    margin: 20px auto 0;
+    padding: 0 24px;
+  }
+  .desc h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 6px;
+  }
+  .desc p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.6;
+  }
+  .desc .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 6px;
+    margin-top: 10px;
+  }
+  .tag.pro { background: rgba(74,222,128,0.1); color: #4ade80; }
+  .tag.con { background: rgba(239,68,68,0.1); color: #ef4444; }
+  .tag.neutral { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>VoiceRoom: Layout участников</h1>
+  <p>3 концепта для голосовой комнаты (audio-only mode)</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showScene('orbital')">A. Orbital</div>
+  <div class="tab" onclick="showScene('bubbles')">B. Bubbles</div>
+  <div class="tab" onclick="showScene('stage')">C. Stage</div>
+</div>
+
+<!-- ============ SCENE A: ORBITAL ============ -->
+<div class="scene active" id="scene-orbital">
+  <div class="scene-label">Orbital Circle</div>
+  <div class="room-frame">
+    <div class="room-title">
+      <span class="dot"></span>
+      lounge
+      <span class="count">6 online</span>
+    </div>
+    <div class="orbital-container">
+      <div class="orbital-ring">
+        <div class="orbital-ring-line"></div>
+        <!-- Avatars positioned in circle -->
+        <div class="orbital-avatar speaking" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24);">
+          <span class="name" style="color:#c8ff00;">egor</span>
+        </div>
+        <div class="orbital-avatar" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);">
+          <span class="name">katya</span>
+        </div>
+        <div class="orbital-avatar" style="background:linear-gradient(135deg,#fdcb6e,#e17055);">
+          <span class="name">max</span>
+          <div class="mute-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/></svg></div>
+        </div>
+        <div class="orbital-avatar muted" style="background:linear-gradient(135deg,#00cec9,#0984e3);">
+          <span class="name">alex</span>
+          <div class="mute-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/></svg></div>
+        </div>
+        <div class="orbital-avatar" style="background:linear-gradient(135deg,#fd79a8,#e84393);">
+          <span class="name">lena</span>
+        </div>
+        <div class="orbital-avatar" style="background:linear-gradient(135deg,#55efc4,#00b894);">
+          <span class="name">dima</span>
+        </div>
+        <!-- Center -->
+        <div class="orbital-center">
+          <div class="orbital-center-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <span>lounge</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="desc">
+    <h3>Orbital Circle</h3>
+    <p>Участники расположены по кругу. Говорящий увеличивается, получает #c8ff00 glow и пульсацию. Кольцо медленно вращается (dashed line). Центр - иконка/название комнаты.</p>
+    <span class="tag pro">Элегантно</span>
+    <span class="tag pro">2-8 человек</span>
+    <span class="tag con">Больше 8 - тесно</span>
+    <span class="tag neutral">Discord Stage vibes</span>
+  </div>
+</div>
+
+<!-- ============ SCENE B: BUBBLES ============ -->
+<div class="scene" id="scene-bubbles">
+  <div class="scene-label">Fluid Bubbles</div>
+  <div class="room-frame">
+    <div class="room-title">
+      <span class="dot"></span>
+      lounge
+      <span class="count">6 online</span>
+    </div>
+    <div class="bubbles-container">
+      <!-- Speaking - biggest -->
+      <div class="bubble speaking" style="width:80px;height:80px;top:25%;left:22%;background:linear-gradient(135deg,#ff6b6b,#ee5a24);">
+        <span class="name" style="color:#c8ff00;">egor</span>
+      </div>
+      <!-- Normal -->
+      <div class="bubble" style="width:60px;height:60px;top:18%;right:25%;background:linear-gradient(135deg,#a29bfe,#6c5ce7);">
+        <span class="name">katya</span>
+      </div>
+      <!-- Normal with mute -->
+      <div class="bubble" style="width:54px;height:54px;bottom:30%;left:15%;background:linear-gradient(135deg,#fdcb6e,#e17055);">
+        <span class="name">max</span>
+        <div class="mute-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="1" y1="1" x2="23" y2="23"/></svg></div>
+      </div>
+      <!-- Small / quiet -->
+      <div class="bubble" style="width:48px;height:48px;bottom:25%;right:20%;background:linear-gradient(135deg,#00cec9,#0984e3);">
+        <span class="name">alex</span>
+      </div>
+      <!-- Medium -->
+      <div class="bubble" style="width:56px;height:56px;top:45%;right:12%;background:linear-gradient(135deg,#fd79a8,#e84393);">
+        <span class="name">lena</span>
+      </div>
+      <!-- Muted / small -->
+      <div class="bubble muted" style="width:42px;height:42px;bottom:15%;left:45%;background:linear-gradient(135deg,#55efc4,#00b894);">
+        <span class="name">dima</span>
+        <div class="mute-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="1" y1="1" x2="23" y2="23"/></svg></div>
+      </div>
+    </div>
+  </div>
+  <div class="desc">
+    <h3>Fluid Bubbles</h3>
+    <p>Пузыри мягко плавают по экрану. Размер зависит от активности: говорящий - самый большой, молчащие - маленькие. Физика столкновений не даёт перекрываться. Живой, органический вид.</p>
+    <span class="tag pro">Уникально</span>
+    <span class="tag pro">До 20+ человек</span>
+    <span class="tag pro">Живая физика</span>
+    <span class="tag neutral">Сложнее реализовать</span>
+  </div>
+</div>
+
+<!-- ============ SCENE C: STAGE ============ -->
+<div class="scene" id="scene-stage">
+  <div class="scene-label">Stage + Audience</div>
+  <div class="room-frame">
+    <div class="room-title">
+      <span class="dot"></span>
+      lounge
+      <span class="count">6 online</span>
+    </div>
+    <div class="stage-container">
+      <div class="stage-speakers">
+        <div class="stage-speaker speaking">
+          <div class="stage-speaker-avatar" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24);"></div>
+          <div class="name" style="color:#c8ff00;">egor</div>
+          <div class="role">speaking</div>
+        </div>
+        <div class="stage-speaker">
+          <div class="stage-speaker-avatar" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);"></div>
+          <div class="name">katya</div>
+        </div>
+      </div>
+
+      <div class="stage-divider"></div>
+      <div class="stage-label">Listeners</div>
+
+      <div class="stage-audience">
+        <div class="stage-listener">
+          <div class="stage-listener-avatar" style="background:linear-gradient(135deg,#fdcb6e,#e17055);"></div>
+          <div class="name">max</div>
+        </div>
+        <div class="stage-listener muted">
+          <div class="stage-listener-avatar" style="background:linear-gradient(135deg,#00cec9,#0984e3);"></div>
+          <div class="name">alex</div>
+        </div>
+        <div class="stage-listener">
+          <div class="stage-listener-avatar" style="background:linear-gradient(135deg,#fd79a8,#e84393);"></div>
+          <div class="name">lena</div>
+        </div>
+        <div class="stage-listener muted">
+          <div class="stage-listener-avatar" style="background:linear-gradient(135deg,#55efc4,#00b894);"></div>
+          <div class="name">dima</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="desc">
+    <h3>Stage + Audience</h3>
+    <p>Говорящие наверху в "stage zone" с акцентной рамкой. Слушатели внизу мелко. Чёткая иерархия. При начале речи слушатель "поднимается" на сцену с анимацией.</p>
+    <span class="tag pro">Ясная иерархия</span>
+    <span class="tag pro">Большие комнаты</span>
+    <span class="tag con">Менее динамично</span>
+    <span class="tag neutral">Clubhouse vibes</span>
+  </div>
+</div>
+
+<script>
+function showScene(id) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('scene-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

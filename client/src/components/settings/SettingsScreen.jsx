@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Volume2, Globe, Monitor, Palette, Sun, Moon, Bell, MessageSquare, Users, AtSign, Shield, Clock, Github, ExternalLink, MessageCircle, PartyPopper, Eye, Keyboard, HardDrive, Accessibility, RotateCcw, Trash2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Volume2, Globe, Monitor, Palette, Sun, Moon, Bell, MessageSquare, Users, AtSign, Shield, Clock, Github, ExternalLink, MessageCircle, PartyPopper, Eye, Keyboard, HardDrive, Accessibility, RotateCcw, Trash2, Download, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import Glass from '../ui/Glass';
 import VoiceSettings from '../voice/VoiceSettings';
 import FeedbackScreen from './FeedbackScreen';
@@ -43,8 +43,8 @@ const tabV = {
   exit: { opacity: 0, transition: { duration: 0.08 } },
 };
 
-export default function SettingsScreen({ open, onClose }) {
-  const [tab, setTab] = useState('general');
+export default function SettingsScreen({ open, onClose, onLogout }) {
+  const [tab, setTab] = useState(() => localStorage.getItem('blesk_settings_tab') || 'general');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [logoClicks, setLogoClicks] = useState(0);
   const [easterEgg, setEasterEgg] = useState(false);
@@ -95,7 +95,7 @@ export default function SettingsScreen({ open, onClose }) {
                 </motion.button>
               </div>
 
-              <TabBar tabs={TABS} activeTab={tab} onTabChange={setTab} />
+              <TabBar tabs={TABS} activeTab={tab} onTabChange={(id) => { setTab(id); localStorage.setItem('blesk_settings_tab', id); }} />
 
               <motion.div className="settings-modal__body" layout="size" transition={{ layout: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } }}>
                 <AnimatePresence mode="wait">
@@ -113,6 +113,19 @@ export default function SettingsScreen({ open, onClose }) {
                   </motion.div>
                 </AnimatePresence>
               </motion.div>
+
+              {/* Выход из аккаунта */}
+              {onLogout && (
+                <motion.button
+                  className="settings-logout"
+                  onClick={onLogout}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.96 }}
+                >
+                  <LogOut size={15} strokeWidth={1.5} />
+                  Выйти из аккаунта
+                </motion.button>
+              )}
             </Glass>
           </motion.div>
           <FeedbackScreen open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />

@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Profile Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    gap: 60px;
+  }
+
+  .label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #c8ff00;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .title { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 6px; }
+  .desc { font-size: 13px; color: rgba(255,255,255,0.35); max-width: 400px; text-align: center; line-height: 1.5; margin-bottom: 24px; }
+
+  /* ═══════════════════════════════════════
+     CONCEPT A: ID CARD
+     ═══════════════════════════════════════ */
+  .id-card {
+    width: 420px;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    background: rgba(14,12,24,0.85);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    perspective: 800px;
+    transition: transform 0.15s ease-out;
+  }
+
+  .id-card:hover {
+    transform: perspective(800px) rotateY(2deg) rotateX(-1deg);
+  }
+
+  /* Holographic strip */
+  .id-holo {
+    height: 36px;
+    background: linear-gradient(
+      90deg,
+      rgba(200,255,0,0.08),
+      rgba(167,139,250,0.12),
+      rgba(56,189,248,0.1),
+      rgba(245,158,11,0.08),
+      rgba(200,255,0,0.08)
+    );
+    background-size: 300% 100%;
+    animation: holoShimmer 4s linear infinite;
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    justify-content: space-between;
+  }
+
+  @keyframes holoShimmer {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
+
+  .id-holo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+    background-size: 200% 100%;
+    animation: holoGlint 3s ease-in-out infinite;
+  }
+
+  @keyframes holoGlint {
+    0%, 100% { background-position: -200% 0; }
+    50% { background-position: 200% 0; }
+  }
+
+  .id-holo__label {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    z-index: 1;
+  }
+
+  .id-holo__logo {
+    font-size: 13px;
+    font-weight: 800;
+    color: rgba(200,255,0,0.5);
+    z-index: 1;
+    letter-spacing: -0.03em;
+  }
+
+  /* Main content */
+  .id-body {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+  }
+
+  .id-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .id-avatar {
+    width: 80px; height: 80px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #e879f9, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 800; color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .id-avatar::after {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: conic-gradient(from 0deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: avatarSpin 6s linear infinite;
+  }
+
+  @keyframes avatarSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  .id-tag-big {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.02em;
+  }
+
+  .id-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .id-name {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text, rgba(255,255,255,0.9));
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+  }
+
+  .id-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .id-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .id-field__icon {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    flex-shrink: 0;
+  }
+
+  .id-field__val {
+    font-size: 12px;
+    color: rgba(255,255,255,0.55);
+  }
+
+  .id-field__badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(74,222,128,0.08);
+    color: #4ade80;
+  }
+
+  /* Bio strip */
+  .id-bio {
+    padding: 12px 18px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  /* Footer */
+  .id-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 18px 14px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .id-footer__date {
+    font-size: 9px;
+    color: rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .id-footer__edit {
+    padding: 5px 14px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(200,255,0,0.08);
+    color: #c8ff00;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .id-footer__edit:hover {
+    background: rgba(200,255,0,0.14);
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT B: SPLIT GLASS
+     ═══════════════════════════════════════ */
+  .split {
+    width: 440px;
+    border-radius: 22px;
+    overflow: hidden;
+    position: relative;
+    background: rgba(14,12,24,0.75);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    transition: transform 0.15s ease-out;
+  }
+
+  .split:hover { transform: perspective(800px) rotateY(-2deg) rotateX(1deg); }
+
+  /* Top half — dark with avatar taking full width */
+  .split__top {
+    position: relative;
+    height: 140px;
+    background: linear-gradient(135deg, rgba(167,139,250,0.08), rgba(200,255,0,0.04));
+    display: flex;
+    align-items: flex-end;
+    padding: 0 24px 0;
+    overflow: hidden;
+  }
+
+  /* Noise texture */
+  .split__top::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.5;
+  }
+
+  /* Big username watermark */
+  .split__watermark {
+    position: absolute;
+    top: 12px; right: 16px;
+    font-size: 48px;
+    font-weight: 900;
+    letter-spacing: -0.06em;
+    color: rgba(255,255,255,0.03);
+    text-transform: uppercase;
+    pointer-events: none;
+    line-height: 1;
+  }
+
+  .split__avatar {
+    width: 72px; height: 72px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #e879f9, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; color: #fff;
+    transform: translateY(20px);
+    border: 3px solid rgba(14,12,24,0.85);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 2;
+  }
+
+  .split__info {
+    margin-left: 16px;
+    padding-bottom: 6px;
+  }
+
+  .split__name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .split__tag {
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 1px;
+  }
+
+  /* Bottom half */
+  .split__bottom {
+    padding: 28px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .split__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .split__cell {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .split__cell-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+
+  .split__cell-val {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text, rgba(255,255,255,0.8));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .split__bio {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.03);
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  .split__actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .split__btn {
+    flex: 1;
+    padding: 9px;
+    border-radius: 10px;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .split__btn--primary { background: #c8ff00; color: #000; }
+  .split__btn--ghost { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT C: MINIMAL FLOATING
+     ═══════════════════════════════════════ */
+  .mf {
+    width: 360px;
+    position: relative;
+  }
+
+  .mf__avatar-float {
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e879f9, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; font-weight: 800; color: #fff;
+    margin: 0 auto;
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 12px 40px rgba(167,139,250,0.25);
+    animation: mfFloat 4s ease-in-out infinite;
+  }
+
+  @keyframes mfFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .mf__card {
+    margin-top: -30px;
+    padding: 50px 24px 20px;
+    border-radius: 22px;
+    background: rgba(14,12,24,0.8);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+    text-align: center;
+    position: relative;
+  }
+
+  .mf__name {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    margin-bottom: 2px;
+  }
+
+  .mf__tag {
+    font-size: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 16px;
+  }
+
+  .mf__chips {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .mf__chip {
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  .mf__chip--verified { border-color: rgba(74,222,128,0.15); color: #4ade80; }
+
+  .mf__bio {
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    line-height: 1.5;
+    margin-bottom: 16px;
+    padding: 0 8px;
+  }
+
+  .mf__btn {
+    width: 100%;
+    padding: 11px;
+    border-radius: 14px;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .mf__since {
+    font-size: 10px;
+    color: rgba(255,255,255,0.15);
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+  <div style="text-align: center;">
+    <div class="label">Концепт A</div>
+    <div class="title">ID Card</div>
+    <div class="desc">Профиль как голографическое удостоверение. Shimmer-полоса сверху, данные как на ID. Тег #0000 крупно как номер. 3D tilt при движении мыши.</div>
+  </div>
+
+  <div class="id-card">
+    <div class="id-holo">
+      <span class="id-holo__label">blesk identity card</span>
+      <span class="id-holo__logo">blesk</span>
+    </div>
+    <div class="id-body">
+      <div class="id-left">
+        <div class="id-avatar">G</div>
+        <div class="id-tag-big">#0000</div>
+      </div>
+      <div class="id-right">
+        <div class="id-name">gotblesk</div>
+        <div class="id-fields">
+          <div class="id-field">
+            <div class="id-field__icon">✉</div>
+            <span class="id-field__val">mxkarov@mail.ru</span>
+            <span class="id-field__badge">✓ Подтверждён</span>
+          </div>
+          <div class="id-field">
+            <div class="id-field__icon">📱</div>
+            <span class="id-field__val" style="opacity: 0.3;">Не привязан</span>
+          </div>
+          <div class="id-field">
+            <div class="id-field__icon">🔒</div>
+            <span class="id-field__val" style="color: #c8ff00; cursor: pointer;">Сменить пароль →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="id-bio">"Дизайнер, создатель blesk. Люблю минимализм и красивые интерфейсы."</div>
+    <div class="id-footer">
+      <span class="id-footer__date">Участник с марта 2026</span>
+      <button class="id-footer__edit">Редактировать</button>
+    </div>
+  </div>
+
+  <div style="width: 100%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); max-width: 500px;"></div>
+
+  <div style="text-align: center;">
+    <div class="label">Концепт B</div>
+    <div class="title">Split Glass</div>
+    <div class="desc">Два уровня — тёмный верх с аватаром и именем, светлый низ с данными в grid. Аватар выступает на стыке. Watermark имени на фоне.</div>
+  </div>
+
+  <div class="split">
+    <div class="split__top">
+      <div class="split__watermark">GOTBLESK</div>
+      <div class="split__avatar">G</div>
+      <div class="split__info">
+        <div class="split__name">gotblesk</div>
+        <div class="split__tag">#0000 · Участник с марта 2026</div>
+      </div>
+    </div>
+    <div class="split__bottom">
+      <div class="split__grid">
+        <div class="split__cell">
+          <div class="split__cell-label">Email</div>
+          <div class="split__cell-val">mxkarov@mail.ru</div>
+        </div>
+        <div class="split__cell">
+          <div class="split__cell-label">Телефон</div>
+          <div class="split__cell-val" style="opacity: 0.3;">Не привязан</div>
+        </div>
+        <div class="split__cell">
+          <div class="split__cell-label">Пароль</div>
+          <div class="split__cell-val" style="color: #c8ff00;">Сменить →</div>
+        </div>
+        <div class="split__cell">
+          <div class="split__cell-label">Статус</div>
+          <div class="split__cell-val" style="color: #4ade80;">● В сети</div>
+        </div>
+      </div>
+      <div class="split__bio">"Дизайнер, создатель blesk."</div>
+      <div class="split__actions">
+        <button class="split__btn split__btn--primary">Сохранить</button>
+        <button class="split__btn split__btn--ghost">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="width: 100%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); max-width: 500px;"></div>
+
+  <div style="text-align: center;">
+    <div class="label">Концепт C</div>
+    <div class="title">Minimal Floating</div>
+    <div class="desc">Аватар парит над карточкой с мягкой тенью. Всё центрировано. Данные как чипы-пилюли. Максимальный минимализм.</div>
+  </div>
+
+  <div class="mf">
+    <div class="mf__avatar-float">G</div>
+    <div class="mf__card">
+      <div class="mf__name">gotblesk</div>
+      <div class="mf__tag">#0000</div>
+      <div class="mf__chips">
+        <div class="mf__chip">✉ mxkarov@mail.ru</div>
+        <div class="mf__chip mf__chip--verified">✓ Подтверждён</div>
+        <div class="mf__chip">🔒 Сменить пароль</div>
+      </div>
+      <div class="mf__bio">"Дизайнер, создатель blesk."</div>
+      <button class="mf__btn">Редактировать профиль</button>
+      <div class="mf__since">Участник с марта 2026</div>
+    </div>
+  </div>
+
+</body>
+</html>

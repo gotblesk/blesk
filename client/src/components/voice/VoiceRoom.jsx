@@ -25,10 +25,15 @@ function QualityBars({ quality }) {
 }
 
 export default function VoiceRoom({ socketRef }) {
-  const {
-    currentRoomId, currentRoomName, participants, audioLevels, userVolumes, setUserVolume,
-    videoStreams, localCameraStream, connectionQuality,
-  } = useVoiceStore();
+  const currentRoomId = useVoiceStore((s) => s.currentRoomId);
+  const currentRoomName = useVoiceStore((s) => s.currentRoomName);
+  const participants = useVoiceStore((s) => s.participants);
+  const audioLevels = useVoiceStore((s) => s.audioLevels);
+  const userVolumes = useVoiceStore((s) => s.userVolumes);
+  const setUserVolume = useVoiceStore((s) => s.setUserVolume);
+  const videoStreams = useVoiceStore((s) => s.videoStreams);
+  const localCameraStream = useVoiceStore((s) => s.localCameraStream);
+  const connectionQuality = useVoiceStore((s) => s.connectionQuality);
 
   const [volumePopup, setVolumePopup] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);

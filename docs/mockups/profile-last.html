@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Last Profile Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 60px;
+  }
+  .label { font-size: 11px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .ctitle { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 6px; }
+  .cdesc { font-size: 13px; color: rgba(255,255,255,0.35); max-width: 460px; text-align: center; line-height: 1.5; margin-bottom: 24px; }
+  .sep { width: 100%; max-width: 500px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT P: PRISM / GLASS SHARD
+     Профиль как стеклянная призма —
+     несколько граней под разными углами
+     ═══════════════════════════════════════ */
+  .prism {
+    width: 400px;
+    position: relative;
+    perspective: 1200px;
+  }
+
+  /* Main face */
+  .prism__face {
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    background: rgba(14,12,24,0.8);
+    backdrop-filter: blur(40px);
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+    transform-style: preserve-3d;
+    transition: transform 0.2s ease-out;
+  }
+
+  /* Rainbow refraction edge */
+  .prism__refract {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #ef4444, #f59e0b, #c8ff00, #4ade80, #38bdf8, #a78bfa, #e879f9);
+    opacity: 0.5;
+    z-index: 5;
+  }
+
+  /* Light dispersion glow */
+  .prism__dispersion {
+    position: absolute;
+    top: -20px; left: 30%; right: 30%;
+    height: 60px;
+    background: conic-gradient(from 180deg at 50% 100%,
+      rgba(239,68,68,0.06), rgba(245,158,11,0.06), rgba(200,255,0,0.08),
+      rgba(74,222,128,0.06), rgba(56,189,248,0.06), rgba(167,139,250,0.06));
+    filter: blur(20px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .prism__inner {
+    position: relative;
+    z-index: 1;
+    padding: 28px 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Hero — asymmetric layout */
+  .prism__hero {
+    display: flex;
+    gap: 18px;
+  }
+
+  .prism__ava {
+    width: 72px; height: 72px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; color: #fff;
+    flex-shrink: 0;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  /* Prismatic shine on avatar */
+  .prism__ava::before {
+    content: '';
+    position: absolute;
+    top: -100%; left: -50%;
+    width: 200%; height: 300%;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.15) 50%, transparent 60%);
+    animation: prismShine 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes prismShine {
+    0% { transform: translateY(-50%) rotate(45deg); }
+    100% { transform: translateY(100%) rotate(45deg); }
+  }
+
+  .prism__ava-cam {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.7);
+    opacity: 0; transition: opacity 0.15s;
+    font-family: 'Space Mono', monospace;
+  }
+  .prism__ava:hover .prism__ava-cam { opacity: 1; }
+
+  .prism__meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .prism__name {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+  }
+
+  .prism__tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: rgba(255,255,255,0.2);
+    margin-top: 4px;
+  }
+
+  .prism__since {
+    font-size: 10px;
+    color: rgba(255,255,255,0.12);
+    margin-top: 6px;
+  }
+
+  /* Faceted data sections — each "facet" of the prism */
+  .prism__facets {
+    display: flex;
+    gap: 6px;
+  }
+
+  .prism__facet {
+    flex: 1;
+    padding: 14px 12px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .prism__facet:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.08);
+    transform: translateY(-2px);
+  }
+
+  /* Color accent top line per facet */
+  .prism__facet::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 1.5px;
+    border-radius: 0 0 1px 1px;
+  }
+
+  .prism__facet--email::before { background: #4ade80; opacity: 0.4; }
+  .prism__facet--phone::before { background: #f59e0b; opacity: 0.3; }
+  .prism__facet--pass::before { background: #c8ff00; opacity: 0.4; }
+
+  .prism__facet-icon {
+    font-size: 16px;
+    margin-bottom: 8px;
+    opacity: 0.5;
+  }
+
+  .prism__facet-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .prism__facet-val {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .prism__facet-status {
+    font-size: 8px;
+    font-weight: 700;
+    margin-top: 6px;
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* Bio area */
+  .prism__bio {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.015);
+    border: 1px solid rgba(255,255,255,0.03);
+    position: relative;
+  }
+
+  .prism__bio-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.15);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+
+  .prism__bio-text {
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  .prism__bio-count {
+    position: absolute;
+    bottom: 8px; right: 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: rgba(255,255,255,0.1);
+  }
+
+  /* Save */
+  .prism__save {
+    width: 100%;
+    padding: 12px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, #c8ff00, #a0cc00);
+    color: #000;
+    font-size: 13px;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    letter-spacing: -0.02em;
+    transition: box-shadow 0.15s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .prism__save:hover { box-shadow: 0 6px 24px rgba(200,255,0,0.2); transform: translateY(-1px); }
+  .prism__save:active { transform: translateY(0); }
+
+  /* Shimmer on button */
+  .prism__save::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    animation: btnShimmer 2.5s ease-in-out infinite;
+  }
+
+  @keyframes btnShimmer {
+    0% { left: -100%; }
+    50%, 100% { left: 200%; }
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT Q: ENVELOPE / LETTER
+     Профиль как письмо в конверте
+     ═══════════════════════════════════════ */
+  .env-scene {
+    width: 420px;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .env-scene:hover .env__flap { transform: rotateX(180deg); }
+  .env-scene:hover .env__letter { transform: translateY(-40px); }
+
+  /* Envelope */
+  .env {
+    width: 100%;
+    height: 280px;
+    border-radius: 4px 4px 16px 16px;
+    background: rgba(20,18,34,0.9);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    position: relative;
+    overflow: visible;
+  }
+
+  /* Flap */
+  .env__flap {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 120px;
+    background: rgba(24,22,40,0.95);
+    border: 1px solid rgba(255,255,255,0.06);
+    clip-path: polygon(0% 0%, 50% 80%, 100% 0%);
+    transform-origin: top center;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 2;
+  }
+
+  /* Seal */
+  .env__seal {
+    position: absolute;
+    top: 55px; left: 50%;
+    transform: translateX(-50%);
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c8ff00, #a0cc00);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 900; color: #000;
+    z-index: 3;
+    box-shadow: 0 4px 12px rgba(200,255,0,0.15);
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .env-scene:hover .env__seal { transform: translateX(-50%) scale(0.8) translateY(-20px); opacity: 0.5; }
+
+  /* Letter inside */
+  .env__letter {
+    position: absolute;
+    top: 20px; left: 16px; right: 16px;
+    background: rgba(30,28,48,0.95);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .env__letter-head {
+    display: flex; align-items: center; gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .env__letter-ava {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: #fff;
+  }
+
+  .env__letter-name { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+  .env__letter-tag { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.2); }
+
+  .env__letter-field {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11.5px;
+  }
+  .env__letter-key { color: rgba(255,255,255,0.2); min-width: 50px; font-size: 9px; text-transform: uppercase; }
+  .env__letter-val { color: rgba(255,255,255,0.6); flex: 1; }
+  .env__letter-badge { font-size: 8px; padding: 1px 5px; border-radius: 3px; background: rgba(74,222,128,0.1); color: #4ade80; }
+
+  .env__letter-bio {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    font-style: italic;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.02);
+  }
+
+  /* Bottom V shape */
+  .env__bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 100px;
+    background: rgba(20,18,34,0.9);
+    clip-path: polygon(0% 100%, 50% 20%, 100% 100%);
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    z-index: 4;
+  }
+
+  .env-hint {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.1);
+    margin-top: 8px;
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT R: DNA HELIX
+     Профиль как спираль ДНК — данные
+     расположены на нитях
+     ═══════════════════════════════════════ */
+  .dna {
+    width: 380px;
+    padding: 30px 20px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* Helix strands */
+  .dna__strand {
+    position: absolute;
+    top: 80px; bottom: 40px;
+    width: 200px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .dna__strand svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Avatar */
+  .dna__ava {
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; color: #fff;
+    z-index: 5;
+    box-shadow: 0 0 30px rgba(167,139,250,0.2);
+    position: relative;
+  }
+
+  .dna__name {
+    font-size: 22px; font-weight: 900;
+    letter-spacing: -0.04em;
+    margin-top: 10px;
+    z-index: 5;
+  }
+
+  .dna__tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
+    z-index: 5;
+  }
+
+  /* Data nodes — alternating left/right */
+  .dna__nodes {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 20px;
+    z-index: 5;
+  }
+
+  .dna__node {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(14,12,24,0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .dna__node:hover {
+    background: rgba(20,18,36,0.9);
+    border-color: rgba(255,255,255,0.1);
+    transform: translateX(4px);
+  }
+
+  .dna__node:nth-child(even) { margin-left: 40px; }
+  .dna__node:nth-child(odd) { margin-right: 40px; }
+
+  .dna__node:nth-child(even):hover { transform: translateX(-4px); }
+
+  /* Connecting dot */
+  .dna__node-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dna__node-info { flex: 1; min-width: 0; }
+  .dna__node-key { font-size: 9px; color: rgba(255,255,255,0.2); text-transform: uppercase; letter-spacing: 0.04em; }
+  .dna__node-val { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .dna__node-badge {
+    font-size: 8px; font-weight: 700;
+    padding: 2px 6px; border-radius: 4px;
+  }
+
+  .dna__btn {
+    margin-top: 16px;
+    padding: 10px 32px;
+    border-radius: 12px;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 12px; font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    z-index: 5;
+  }
+
+  .dna__since {
+    font-size: 9px;
+    color: rgba(255,255,255,0.1);
+    margin-top: 8px;
+    z-index: 5;
+    font-family: 'Space Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ═══════ CONCEPT P: PRISM ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт P</div>
+    <div class="ctitle">Glass Prism</div>
+    <div class="cdesc">Профиль как стеклянная призма — радужная рефракция сверху, данные как отдельные грани (facets). Каждая грань при hover поднимается. Shimmer на аватаре и кнопке Save. 3D tilt.</div>
+  </div>
+
+  <div class="prism" id="prismCard">
+    <div class="prism__face">
+      <div class="prism__refract"></div>
+      <div class="prism__dispersion"></div>
+      <div class="prism__inner">
+        <div class="prism__hero">
+          <div class="prism__ava">
+            G
+            <div class="prism__ava-cam">edit</div>
+          </div>
+          <div class="prism__meta">
+            <div class="prism__name">gotblesk</div>
+            <div class="prism__tag">#0000</div>
+            <div class="prism__since">member since march 2026</div>
+          </div>
+        </div>
+
+        <div class="prism__facets">
+          <div class="prism__facet prism__facet--email">
+            <div class="prism__facet-icon">✉</div>
+            <div class="prism__facet-label">Email</div>
+            <div class="prism__facet-val">mxkarov@mail.ru</div>
+            <div class="prism__facet-status" style="background: rgba(74,222,128,0.1); color: #4ade80;">verified</div>
+          </div>
+          <div class="prism__facet prism__facet--phone">
+            <div class="prism__facet-icon">📱</div>
+            <div class="prism__facet-label">Phone</div>
+            <div class="prism__facet-val" style="opacity: 0.3;">—</div>
+            <div class="prism__facet-status" style="background: rgba(245,158,11,0.08); color: #f59e0b;">soon</div>
+          </div>
+          <div class="prism__facet prism__facet--pass">
+            <div class="prism__facet-icon">🔒</div>
+            <div class="prism__facet-label">Password</div>
+            <div class="prism__facet-val">●●●●●●●●</div>
+            <div class="prism__facet-status" style="background: rgba(200,255,0,0.06); color: #c8ff00;">change →</div>
+          </div>
+        </div>
+
+        <div class="prism__bio">
+          <div class="prism__bio-label">About</div>
+          <div class="prism__bio-text">"Дизайнер, создатель blesk. Люблю минимализм и красивые интерфейсы."</div>
+          <div class="prism__bio-count">42/200</div>
+        </div>
+
+        <button class="prism__save">Сохранить изменения</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT Q: ENVELOPE ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт Q</div>
+    <div class="ctitle">Envelope</div>
+    <div class="cdesc">Профиль как письмо в конверте. При hover крышка конверта открывается и письмо с данными выезжает вверх. Печать blesk на клапане. V-образное дно.</div>
+  </div>
+
+  <div class="env-scene">
+    <div class="env">
+      <div class="env__flap"></div>
+      <div class="env__seal">bl</div>
+      <div class="env__letter">
+        <div class="env__letter-head">
+          <div class="env__letter-ava">G</div>
+          <div>
+            <div class="env__letter-name">gotblesk</div>
+            <div class="env__letter-tag">#0000</div>
+          </div>
+        </div>
+        <div class="env__letter-field">
+          <span class="env__letter-key">email</span>
+          <span class="env__letter-val">mxkarov@mail.ru</span>
+          <span class="env__letter-badge">✓</span>
+        </div>
+        <div class="env__letter-field">
+          <span class="env__letter-key">phone</span>
+          <span class="env__letter-val" style="opacity: 0.3;">Не привязан</span>
+        </div>
+        <div class="env__letter-field">
+          <span class="env__letter-key">pass</span>
+          <span class="env__letter-val" style="color: #c8ff00;">Сменить →</span>
+        </div>
+        <div class="env__letter-bio">"Дизайнер, создатель blesk."</div>
+      </div>
+      <div class="env__bottom"></div>
+    </div>
+    <div class="env-hint">hover чтобы открыть</div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT R: DNA ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт R</div>
+    <div class="ctitle">DNA Helix</div>
+    <div class="cdesc">Данные профиля как нуклеотиды на спирали ДНК — чередуются лево/право. Аватар в центре сверху. Каждый узел с цветной точкой. При hover узлы сдвигаются.</div>
+  </div>
+
+  <div class="dna">
+    <div class="dna__ava">G</div>
+    <div class="dna__name">gotblesk</div>
+    <div class="dna__tag">#0000</div>
+
+    <div class="dna__nodes">
+      <div class="dna__node">
+        <div class="dna__node-dot" style="background: #4ade80;"></div>
+        <div class="dna__node-info">
+          <div class="dna__node-key">Email</div>
+          <div class="dna__node-val">mxkarov@mail.ru</div>
+        </div>
+        <div class="dna__node-badge" style="background: rgba(74,222,128,0.1); color: #4ade80;">verified</div>
+      </div>
+      <div class="dna__node">
+        <div class="dna__node-dot" style="background: #f59e0b; opacity: 0.3;"></div>
+        <div class="dna__node-info">
+          <div class="dna__node-key">Phone</div>
+          <div class="dna__node-val" style="opacity: 0.3;">Не привязан</div>
+        </div>
+      </div>
+      <div class="dna__node">
+        <div class="dna__node-dot" style="background: #c8ff00;"></div>
+        <div class="dna__node-info">
+          <div class="dna__node-key">Password</div>
+          <div class="dna__node-val" style="color: #c8ff00;">●●●●●●●● → change</div>
+        </div>
+      </div>
+      <div class="dna__node">
+        <div class="dna__node-dot" style="background: #a78bfa;"></div>
+        <div class="dna__node-info">
+          <div class="dna__node-key">Bio</div>
+          <div class="dna__node-val" style="font-style: italic; opacity: 0.5;">"Дизайнер, создатель blesk"</div>
+        </div>
+        <div class="dna__node-badge" style="background: rgba(167,139,250,0.08); color: #a78bfa;">42/200</div>
+      </div>
+    </div>
+
+    <button class="dna__btn">Редактировать</button>
+    <div class="dna__since">SINCE: 03.2026</div>
+  </div>
+
+</body>
+
+<script>
+  // 3D tilt for prism
+  const prism = document.getElementById('prismCard');
+  const face = prism.querySelector('.prism__face');
+  prism.addEventListener('mousemove', (e) => {
+    const rect = prism.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    face.style.transform = `perspective(800px) rotateY(${x * 8}deg) rotateX(${-y * 5}deg)`;
+  });
+  prism.addEventListener('mouseleave', () => {
+    face.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg)';
+  });
+</script>
+</html>

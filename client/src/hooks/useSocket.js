@@ -12,12 +12,15 @@ import { soundReceive, soundNotification, soundRingtoneStart, soundRingtoneStop,
 
 export function useSocket() {
   const socketRef = useRef(null);
+  const typingTimersRef = useRef(new Map());
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
     const { showOnline } = useSettingsStore.getState();
+
+    let hasConnectedOnce = false;
 
     const socket = io(API_URL, {
       auth: { token, showOnline },
@@ -28,20 +31,28 @@ export function useSocket() {
 
     socketRef.current = socket;
 
+    const userId = getCurrentUserId();
+
+    // Ресинк состояния при переподключении (не первый коннект)
+    socket.on('connect', () => {
+      if (hasConnectedOnce) {
+        useChatStore.getState().loadChats?.();
+      }
+      hasConnectedOnce = true;
+    });
+
     // При ошибке подключения — обновить токен и переподключиться
-    socket.on('connect_error', (err) => {
+    const handleConnectError = (err) => {
       console.error('Socket connection error:', err.message);
       const freshToken = localStorage.getItem('token');
       if (freshToken && freshToken !== socket.auth.token) {
         socket.auth.token = freshToken;
         socket.connect();
       }
-    });
-
-    const userId = getCurrentUserId();
+    };
 
     // ═══ Сообщения ═══
-    socket.on('message:new', async (msg) => {
+    const handleMessageNew = async (msg) => {
       // Посты каналов — в channelStore
       if (msg.isChannel) {
         useChannelStore.getState().receivePost(msg);
@@ -87,16 +98,15 @@ export function useSocket() {
           } catch { /* Notification API недоступен */ }
         }
       }
-    });
+    };
 
-    socket.on('message:error', ({ tempId, error }) => {
+    const handleMessageError = ({ tempId, error }) => {
       console.error('Message error:', tempId, error);
-      // Убрать неотправленное сообщение из UI
       useChatStore.getState().failMessage(tempId);
-    });
+    };
 
     // ═══ Редактирование/удаление сообщений ═══
-    socket.on('message:edited', ({ messageId, chatId, text, editedAt }) => {
+    const handleMessageEdited = ({ messageId, chatId, text, editedAt }) => {
       useChatStore.setState((state) => {
         const msgs = state.messages[chatId];
         if (!msgs) return state;
@@ -107,9 +117,9 @@ export function useSocket() {
           },
         };
       });
-    });
+    };
 
-    socket.on('message:deleted', ({ messageId, chatId }) => {
+    const handleMessageDeleted = ({ messageId, chatId }) => {
       useChatStore.setState((state) => {
         const msgs = state.messages[chatId];
         if (!msgs) return state;
@@ -120,37 +130,82 @@ export function useSocket() {
           },
         };
       });
-    });
+    };
 
     // ═══ Онлайн/офлайн/статус ═══
-    socket.on('user:online', ({ userId: uid, status }) => useChatStore.getState().setUserOnline(uid, status));
-    socket.on('user:offline', ({ userId: uid }) => useChatStore.getState().setUserOffline(uid));
-    socket.on('user:statusChange', ({ userId: uid, status, customStatus }) => {
+    const handleUserOnline = ({ userId: uid, status }) => useChatStore.getState().setUserOnline(uid, status);
+    const handleUserOffline = ({ userId: uid }) => useChatStore.getState().setUserOffline(uid);
+    const handleUserStatusChange = ({ userId: uid, status, customStatus }) => {
       useChatStore.getState().setUserStatus(uid, status, customStatus);
-    });
+    };
+
+    // Обновление аватара пользователя (профиль изменён)
+    const handleUserUpdated = (data) => {
+      const { userId: uid, avatar } = data;
+      if (uid && avatar) {
+        useChatStore.getState().updateUserAvatar(uid, avatar);
+      }
+    };
+
+    // Удаление из друзей — перезагрузить чаты
+    const handleFriendRemoved = (data) => {
+      const { userId: uid, friendId } = data;
+      const myId = getCurrentUserId();
+      if (uid === myId || friendId === myId) {
+        useChatStore.getState().loadChats();
+      }
+    };
+
+    // Удаление канала — убрать из списка
+    const handleChannelDeleted = (data) => {
+      const { channelId } = data;
+      if (channelId) {
+        const channelState = useChannelStore.getState();
+        if (channelState.removeChannel) {
+          channelState.removeChannel(channelId);
+        }
+      }
+    };
 
     // ═══ Набор текста ═══
-    socket.on('typing:start', ({ chatId, userId: uid }) => useChatStore.getState().setTyping(chatId, uid, true));
-    socket.on('typing:stop', ({ chatId, userId: uid }) => useChatStore.getState().setTyping(chatId, uid, false));
+    const handleTypingStart = ({ chatId, userId: uid }) => {
+      useChatStore.getState().setTyping(chatId, uid, true);
+      // Авто-очистка: если typing:stop не пришёл за 8 сек — сбросить
+      const timerKey = `${chatId}:${uid}`;
+      const prev = typingTimersRef.current.get(timerKey);
+      if (prev) clearTimeout(prev);
+      typingTimersRef.current.set(timerKey, setTimeout(() => {
+        useChatStore.getState().setTyping(chatId, uid, false);
+        typingTimersRef.current.delete(timerKey);
+      }, 8000));
+    };
+    const handleTypingStop = ({ chatId, userId: uid }) => {
+      useChatStore.getState().setTyping(chatId, uid, false);
+      const timerKey = `${chatId}:${uid}`;
+      const prev = typingTimersRef.current.get(timerKey);
+      if (prev) {
+        clearTimeout(prev);
+        typingTimersRef.current.delete(timerKey);
+      }
+    };
 
     // ═══ Уведомления ═══
-    socket.on('notification:new', (notification) => {
+    const handleNotificationNew = (notification) => {
       useNotificationStore.getState().addNotification(notification);
-      // Фильтрация по типу уведомления
       const ns = useSettingsStore.getState();
       const type = notification.type;
       if (type === 'friend_request' && !ns.notifFriends) return;
       if (type === 'mention' && !ns.notifMentions) return;
       soundNotification(notification.fromUser?.hue || 0);
-    });
+    };
 
     // ═══ Звонки ═══
-    socket.on('call:incoming', (data) => {
+    const handleCallIncoming = (data) => {
       useCallStore.getState().setIncomingCall(data);
       soundRingtoneStart();
-    });
+    };
 
-    socket.on('call:accepted', ({ chatId, userId: uid }) => {
+    const handleCallAccepted = ({ chatId, userId: uid }) => {
       soundRingtoneStop();
       soundCallAccepted();
       const store = useCallStore.getState();
@@ -160,61 +215,61 @@ export function useSocket() {
           store.setActiveCall({ ...store.activeCall, status: 'active' });
         }
       }
-    });
+    };
 
-    socket.on('call:declined', ({ chatId }) => {
+    const handleCallDeclined = ({ chatId }) => {
       const store = useCallStore.getState();
       if (store.activeCall?.chatId === chatId) {
         store.clearActiveCall();
       }
-    });
+    };
 
-    socket.on('call:missed', ({ chatId }) => {
+    const handleCallMissed = ({ chatId }) => {
       soundRingtoneStop();
       useCallStore.getState().clearActiveCall();
       useCallStore.getState().clearIncomingCall();
-    });
+    };
 
-    socket.on('call:cancelled', () => {
+    const handleCallCancelled = () => {
       soundRingtoneStop();
       useCallStore.getState().clearIncomingCall();
-    });
+    };
 
-    socket.on('call:user-left', ({ chatId, userId: uid }) => {
+    const handleCallUserLeft = ({ chatId, userId: uid }) => {
       useCallStore.getState().removeCallParticipant(uid);
-    });
+    };
 
-    socket.on('call:ended', () => {
+    const handleCallEnded = () => {
       soundRingtoneStop();
       soundCallEnded();
       useCallStore.getState().clearActiveCall();
-    });
+    };
 
-    socket.on('call:error', ({ chatId, error }) => {
+    const handleCallError = ({ chatId, error }) => {
       console.error('Call error:', chatId, error);
       useCallStore.getState().clearActiveCall();
-    });
+    };
 
     // ═══ Бан аккаунта ═══
-    socket.on('auth:banned', ({ reason }) => {
+    const handleAuthBanned = ({ reason }) => {
       console.warn('Аккаунт заблокирован:', reason);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       window.location.reload();
-    });
+    };
 
     // ═══ Групповые события ═══
-    socket.on('group:member-added', () => useChatStore.getState().loadChats());
-    socket.on('group:member-removed', ({ userId: uid }) => {
+    const handleGroupMemberAdded = () => useChatStore.getState().loadChats();
+    const handleGroupMemberRemoved = ({ userId: uid }) => {
       if (uid === userId) {
         // Нас удалили — перезагрузить
       }
       useChatStore.getState().loadChats();
-    });
-    socket.on('group:updated', () => useChatStore.getState().loadChats());
+    };
+    const handleGroupUpdated = () => useChatStore.getState().loadChats();
 
     // ═══ Закреплённые сообщения ═══
-    socket.on('message:pinned', ({ messageId, chatId, pinned }) => {
+    const handleMessagePinned = ({ messageId, chatId, pinned }) => {
       const state = useChatStore.getState();
       const msgs = state.messages[chatId];
       if (msgs) {
@@ -225,9 +280,68 @@ export function useSocket() {
           messages: { ...state.messages, [chatId]: updated },
         });
       }
-    });
+    };
+
+    // ═══ Регистрация обработчиков ═══
+    socket.on('connect_error', handleConnectError);
+    socket.on('message:new', handleMessageNew);
+    socket.on('message:error', handleMessageError);
+    socket.on('message:edited', handleMessageEdited);
+    socket.on('message:deleted', handleMessageDeleted);
+    socket.on('user:online', handleUserOnline);
+    socket.on('user:offline', handleUserOffline);
+    socket.on('user:statusChange', handleUserStatusChange);
+    socket.on('user:updated', handleUserUpdated);
+    socket.on('friend:removed', handleFriendRemoved);
+    socket.on('channel:deleted', handleChannelDeleted);
+    socket.on('typing:start', handleTypingStart);
+    socket.on('typing:stop', handleTypingStop);
+    socket.on('notification:new', handleNotificationNew);
+    socket.on('call:incoming', handleCallIncoming);
+    socket.on('call:accepted', handleCallAccepted);
+    socket.on('call:declined', handleCallDeclined);
+    socket.on('call:missed', handleCallMissed);
+    socket.on('call:cancelled', handleCallCancelled);
+    socket.on('call:user-left', handleCallUserLeft);
+    socket.on('call:ended', handleCallEnded);
+    socket.on('call:error', handleCallError);
+    socket.on('auth:banned', handleAuthBanned);
+    socket.on('group:member-added', handleGroupMemberAdded);
+    socket.on('group:member-removed', handleGroupMemberRemoved);
+    socket.on('group:updated', handleGroupUpdated);
+    socket.on('message:pinned', handleMessagePinned);
 
     return () => {
+      // Очистить все таймеры typing auto-clear
+      typingTimersRef.current.forEach((timer) => clearTimeout(timer));
+      typingTimersRef.current.clear();
+      socket.off('connect_error', handleConnectError);
+      socket.off('message:new', handleMessageNew);
+      socket.off('message:error', handleMessageError);
+      socket.off('message:edited', handleMessageEdited);
+      socket.off('message:deleted', handleMessageDeleted);
+      socket.off('user:online', handleUserOnline);
+      socket.off('user:offline', handleUserOffline);
+      socket.off('user:statusChange', handleUserStatusChange);
+      socket.off('user:updated', handleUserUpdated);
+      socket.off('friend:removed', handleFriendRemoved);
+      socket.off('channel:deleted', handleChannelDeleted);
+      socket.off('typing:start', handleTypingStart);
+      socket.off('typing:stop', handleTypingStop);
+      socket.off('notification:new', handleNotificationNew);
+      socket.off('call:incoming', handleCallIncoming);
+      socket.off('call:accepted', handleCallAccepted);
+      socket.off('call:declined', handleCallDeclined);
+      socket.off('call:missed', handleCallMissed);
+      socket.off('call:cancelled', handleCallCancelled);
+      socket.off('call:user-left', handleCallUserLeft);
+      socket.off('call:ended', handleCallEnded);
+      socket.off('call:error', handleCallError);
+      socket.off('auth:banned', handleAuthBanned);
+      socket.off('group:member-added', handleGroupMemberAdded);
+      socket.off('group:member-removed', handleGroupMemberRemoved);
+      socket.off('group:updated', handleGroupUpdated);
+      socket.off('message:pinned', handleMessagePinned);
       socket.disconnect();
       socketRef.current = null;
     };

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>blesk — Channels Redesign Concepts</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; }
+
+/* Tabs */
+.tabs { display: flex; justify-content: center; gap: 4px; padding: 24px 24px 0; position: sticky; top: 0; z-index: 10; background: #08060f; }
+.tab { padding: 10px 22px; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.4); transition: all 0.2s; user-select: none; }
+.tab:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); }
+.tab.active { background: rgba(200,255,0,0.08); border-color: rgba(200,255,0,0.2); color: #c8ff00; }
+
+.scene { display: none; padding: 24px; max-width: 700px; margin: 0 auto; }
+.scene.active { display: block; }
+.scene-title { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; text-align: center; margin-bottom: 6px; }
+.scene-desc { font-size: 13px; color: rgba(255,255,255,0.3); text-align: center; margin-bottom: 28px; line-height: 1.5; max-width: 480px; margin-left: auto; margin-right: auto; }
+
+/* ═══════ A: MAGAZINE FEED ═══════ */
+.mag { display: flex; flex-direction: column; gap: 2px; }
+.mag-header { display: flex; align-items: center; gap: 8px; padding: 10px 0; }
+.mag-tabs { display: flex; gap: 0; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.mag-tab { padding: 8px 16px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.3); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.mag-tab.active { color: #c8ff00; border-bottom-color: #c8ff00; }
+
+.mag-post { padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.mag-post-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.mag-post-ava { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: #fff; flex-shrink: 0; }
+.mag-post-info { flex: 1; }
+.mag-post-name { font-size: 13px; font-weight: 700; }
+.mag-post-meta { font-size: 10px; color: rgba(255,255,255,0.2); display: flex; gap: 8px; }
+.mag-post-sub { font-size: 10px; padding: 3px 10px; border-radius: 8px; border: 1px solid rgba(200,255,0,0.15); color: rgba(200,255,0,0.6); cursor: pointer; background: none; }
+.mag-post-text { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.75); margin-bottom: 8px; }
+.mag-post-img { width: 100%; height: 160px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.08); font-size: 12px; margin-bottom: 8px; }
+.mag-post-actions { display: flex; gap: 16px; }
+.mag-post-act { font-size: 11px; color: rgba(255,255,255,0.2); cursor: pointer; display: flex; align-items: center; gap: 4px; }
+
+/* ═══════ B: SHOWCASE CARDS ═══════ */
+.show-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.show-card { border-radius: 22px; overflow: hidden; background: rgba(14,12,24,0.7); border: 1px solid rgba(255,255,255,0.05); position: relative; cursor: pointer; transition: all 0.25s; }
+.show-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+.show-cover { height: 120px; position: relative; overflow: hidden; }
+.show-cover-bg { position: absolute; inset: 0; opacity: 0.3; }
+.show-cover-fade { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background: linear-gradient(transparent, rgba(14,12,24,0.95)); }
+.show-body { padding: 16px 18px; position: relative; }
+.show-ava { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; color: #fff; position: absolute; top: -24px; left: 18px; border: 3px solid rgba(14,12,24,0.9); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.show-info { margin-left: 58px; margin-top: -8px; }
+.show-name { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+.show-cat { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+.show-preview { margin-top: 12px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); }
+.show-preview-label { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.12); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.show-preview-text { font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.show-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+.show-subs { font-size: 11px; color: rgba(255,255,255,0.2); }
+.show-btn { padding: 7px 16px; border-radius: 10px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; }
+.show-btn--sub { background: #c8ff00; color: #000; }
+.show-btn--open { background: rgba(200,255,0,0.08); color: #c8ff00; border: 1px solid rgba(200,255,0,0.15); }
+
+/* ═══════ C: RADICAL MINIMAL ═══════ */
+.min-list { display: flex; flex-direction: column; }
+.min-item { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.02); cursor: pointer; position: relative; transition: all 0.2s; }
+.min-item:hover { padding-left: 8px; }
+.min-item:hover .min-expand { max-height: 60px; opacity: 1; margin-top: 6px; }
+.min-ava { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #fff; flex-shrink: 0; transition: transform 0.2s; }
+.min-item:hover .min-ava { transform: scale(1.08); }
+.min-body { flex: 1; min-width: 0; }
+.min-name { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; transition: color 0.2s; }
+.min-item:hover .min-name { color: #c8ff00; }
+.min-meta { font-size: 10px; color: rgba(255,255,255,0.15); margin-top: 2px; }
+.min-expand { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.3s ease; font-size: 12px; color: rgba(255,255,255,0.35); line-height: 1.5; }
+.min-arrow { font-size: 18px; color: rgba(255,255,255,0.0); transition: all 0.2s; }
+.min-item:hover .min-arrow { color: rgba(255,255,255,0.3); transform: translateX(4px); }
+
+.min-section { margin-top: 24px; }
+.min-section-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.1); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+
+.pros-cons { display: flex; gap: 16px; margin-top: 16px; }
+.pros, .cons { flex: 1; padding: 12px; border-radius: 12px; }
+.pros { background: rgba(74,222,128,0.04); border: 1px solid rgba(74,222,128,0.08); }
+.cons { background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.08); }
+.pros h4, .cons h4 { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+.pros h4 { color: #4ade80; }
+.cons h4 { color: #ef4444; }
+.pros li, .cons li { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 3px; list-style: none; }
+.pros li::before { content: '+ '; color: #4ade80; }
+.cons li::before { content: '- '; color: #ef4444; }
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" onclick="show('mag')">A. Magazine Feed</div>
+  <div class="tab" onclick="show('showcase')">B. Showcase Cards</div>
+  <div class="tab" onclick="show('minimal')">C. Radical Minimal</div>
+</div>
+
+<!-- ═══════ A: MAGAZINE FEED ═══════ -->
+<div class="scene active" id="scene-mag">
+  <div class="scene-title">Magazine Feed</div>
+  <div class="scene-desc">Каналы как единая лента постов. Подписки смешиваются в один scroll. Нет grid карточек — сразу контент. Открываешь "Каналы" и видишь посты.</div>
+
+  <div class="mag">
+    <div class="mag-tabs">
+      <div class="mag-tab active">Лента</div>
+      <div class="mag-tab">Мои каналы</div>
+      <div class="mag-tab">Обзор</div>
+    </div>
+
+    <div class="mag-post">
+      <div class="mag-post-head">
+        <div class="mag-post-ava" style="background:linear-gradient(135deg,#ec4899,#be185d);">М</div>
+        <div class="mag-post-info">
+          <div class="mag-post-name">Музыка</div>
+          <div class="mag-post-meta"><span>2 часа назад</span><span>· 142 подписчика</span></div>
+        </div>
+        <button class="mag-post-sub">Подписан</button>
+      </div>
+      <div class="mag-post-text">Новый трек от GOTBLESK уже на платформе. Кислотный синт с deep-bass линией, вдохновлённый берлинским техно...</div>
+      <div class="mag-post-img">🎵 audio preview</div>
+      <div class="mag-post-actions">
+        <span class="mag-post-act">💬 12</span>
+        <span class="mag-post-act">🔗 Поделиться</span>
+      </div>
+    </div>
+
+    <div class="mag-post">
+      <div class="mag-post-head">
+        <div class="mag-post-ava" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">Н</div>
+        <div class="mag-post-info">
+          <div class="mag-post-name">Новости blesk</div>
+          <div class="mag-post-meta"><span>5 часов назад</span><span>· 890 подписчиков</span></div>
+        </div>
+        <button class="mag-post-sub">Подписан</button>
+      </div>
+      <div class="mag-post-text">Обновление v0.6.2 уже доступно! Голосовые комнаты, каналы, и 60+ багфиксов.</div>
+    </div>
+
+    <div class="mag-post">
+      <div class="mag-post-head">
+        <div class="mag-post-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">А</div>
+        <div class="mag-post-info">
+          <div class="mag-post-name">Арт-студия</div>
+          <div class="mag-post-meta"><span>вчера</span><span>· 67 подписчиков</span></div>
+        </div>
+        <button class="mag-post-sub" style="border-color:rgba(200,255,0,0.3);color:#c8ff00;">+ Подписаться</button>
+      </div>
+      <div class="mag-post-text">Финальный рендер обложки для нового альбома.</div>
+      <div class="mag-post-img">🖼 image preview (1200×800)</div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Плюсы</h4>
+      <ul>
+        <li>Сразу видишь контент</li>
+        <li>Engagement выше (scroll = discovery)</li>
+        <li>Уникально для мессенджера</li>
+        <li>Telegram-like UX (привычно)</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>Минусы</h4>
+      <ul>
+        <li>Нужна "Лента" подписок (новая логика)</li>
+        <li>Обзор каналов вторичен</li>
+        <li>Сложнее при 0 подписок</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ B: SHOWCASE CARDS ═══════ -->
+<div class="scene" id="scene-showcase">
+  <div class="scene-title">Showcase Cards</div>
+  <div class="scene-desc">Каждый канал — мини-лендинг с cover, превью последнего поста, ambient glow от цвета. Крупные, дышащие карточки на всю ширину.</div>
+
+  <div class="show-grid">
+    <div class="show-card">
+      <div class="show-cover">
+        <div class="show-cover-bg" style="background:linear-gradient(135deg,#ec4899,#be185d);"></div>
+        <div class="show-cover-fade"></div>
+      </div>
+      <div class="show-body">
+        <div class="show-ava" style="background:linear-gradient(135deg,#ec4899,#be185d);">М</div>
+        <div class="show-info">
+          <div class="show-name">Музыка</div>
+          <div class="show-cat">Музыка · 142 подписчика</div>
+        </div>
+        <div class="show-preview">
+          <div class="show-preview-label">Последний пост</div>
+          <div class="show-preview-text">Новый трек от GOTBLESK уже на платформе. Кислотный синт с deep-bass линией...</div>
+        </div>
+        <div class="show-foot">
+          <span class="show-subs">2 часа назад</span>
+          <button class="show-btn show-btn--open">Открыть</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="show-card">
+      <div class="show-cover">
+        <div class="show-cover-bg" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);"></div>
+        <div class="show-cover-fade"></div>
+      </div>
+      <div class="show-body">
+        <div class="show-ava" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">Н</div>
+        <div class="show-info">
+          <div class="show-name">Новости blesk</div>
+          <div class="show-cat">Новости · 890 подписчиков</div>
+        </div>
+        <div class="show-preview">
+          <div class="show-preview-label">Последний пост</div>
+          <div class="show-preview-text">Обновление v0.6.2 уже доступно! Голосовые комнаты, каналы, и 60+ багфиксов.</div>
+        </div>
+        <div class="show-foot">
+          <span class="show-subs">5 часов назад</span>
+          <button class="show-btn show-btn--sub">Подписаться</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="show-card" style="opacity: 0.5;">
+      <div class="show-cover">
+        <div class="show-cover-bg" style="background:linear-gradient(135deg,#f59e0b,#d97706);"></div>
+        <div class="show-cover-fade"></div>
+      </div>
+      <div class="show-body">
+        <div class="show-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">А</div>
+        <div class="show-info">
+          <div class="show-name">Арт-студия</div>
+          <div class="show-cat">Арт · 67 подписчиков</div>
+        </div>
+        <div class="show-preview">
+          <div class="show-preview-label">Нет постов</div>
+          <div class="show-preview-text" style="font-style: italic;">Канал только создан</div>
+        </div>
+        <div class="show-foot">
+          <span class="show-subs">Создан вчера</span>
+          <button class="show-btn show-btn--sub">Подписаться</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Плюсы</h4>
+      <ul>
+        <li>Визуально мощно</li>
+        <li>Превью поста в обзоре</li>
+        <li>Каждый канал уникален</li>
+        <li>Cover images = identity</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>Минусы</h4>
+      <ul>
+        <li>Занимает много места</li>
+        <li>Нужны cover images</li>
+        <li>Медленнее скроллить при 20+ каналов</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ C: RADICAL MINIMAL ═══════ -->
+<div class="scene" id="scene-minimal">
+  <div class="scene-title">Radical Minimal</div>
+  <div class="scene-desc">Только текст и типографика. Hover раскрывает описание. Вся красота в анимациях перехода и чистоте линий. Ничего лишнего.</div>
+
+  <div class="min-section">
+    <div class="min-section-label">Мои каналы</div>
+    <div class="min-list">
+      <div class="min-item">
+        <div class="min-ava" style="background:linear-gradient(135deg,#ec4899,#be185d);">М</div>
+        <div class="min-body">
+          <div class="min-name">Музыка</div>
+          <div class="min-meta">142 подписчика · последний пост 2ч назад</div>
+          <div class="min-expand">Кислотный синт с deep-bass линией, вдохновлённый берлинским техно. Новый трек уже на платформе.</div>
+        </div>
+        <span class="min-arrow">→</span>
+      </div>
+      <div class="min-item">
+        <div class="min-ava" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">Н</div>
+        <div class="min-body">
+          <div class="min-name">Новости blesk</div>
+          <div class="min-meta">890 подписчиков · последний пост 5ч назад</div>
+          <div class="min-expand">Обновление v0.6.2 уже доступно! Голосовые комнаты, каналы, и 60+ багфиксов.</div>
+        </div>
+        <span class="min-arrow">→</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="min-section">
+    <div class="min-section-label">Рекомендуемые</div>
+    <div class="min-list">
+      <div class="min-item">
+        <div class="min-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">А</div>
+        <div class="min-body">
+          <div class="min-name">Арт-студия</div>
+          <div class="min-meta">67 подписчиков · создан вчера</div>
+          <div class="min-expand">Финальный рендер обложки для нового альбома. Цифровое искусство и 3D.</div>
+        </div>
+        <span class="min-arrow">→</span>
+      </div>
+      <div class="min-item">
+        <div class="min-ava" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">И</div>
+        <div class="min-body">
+          <div class="min-name">Игры</div>
+          <div class="min-meta">340 подписчиков · последний пост сегодня</div>
+          <div class="min-expand">Обзоры, новости, LFG для CS2 и Valorant.</div>
+        </div>
+        <span class="min-arrow">→</span>
+      </div>
+      <div class="min-item">
+        <div class="min-ava" style="background:linear-gradient(135deg,#06b6d4,#0891b2);">Т</div>
+        <div class="min-body">
+          <div class="min-name">Технологии</div>
+          <div class="min-meta">210 подписчиков</div>
+          <div class="min-expand">AI, разработка, open-source проекты.</div>
+        </div>
+        <span class="min-arrow">→</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Плюсы</h4>
+      <ul>
+        <li>Максимально чисто</li>
+        <li>Быстрый скан 50+ каналов</li>
+        <li>Hover = превью</li>
+        <li>Уникальный подход</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>Минусы</h4>
+      <ul>
+        <li>Менее визуально</li>
+        <li>Нет cover images</li>
+        <li>Может казаться "пустым"</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('scene-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

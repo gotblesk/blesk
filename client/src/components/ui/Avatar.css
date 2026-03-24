@@ -43,9 +43,9 @@
 }
 
 .avatar--sm .avatar__dot { width: 8px; height: 8px; bottom: -1px; right: -1px; }
-.avatar--md .avatar__dot { width: 10px; height: 10px; bottom: 0; right: 0; }
-.avatar--lg .avatar__dot { width: 12px; height: 12px; bottom: 0; right: 0; }
-.avatar--xl .avatar__dot { width: 14px; height: 14px; bottom: 2px; right: 2px; }
+.avatar--md .avatar__dot { width: 10px; height: 10px; bottom: -1px; right: -1px; }
+.avatar--lg .avatar__dot { width: 12px; height: 12px; bottom: -1px; right: -1px; }
+.avatar--xl .avatar__dot { width: 14px; height: 14px; bottom: -1px; right: -1px; }
 
 .avatar__dot--online {
   background: var(--online, #4ade80);

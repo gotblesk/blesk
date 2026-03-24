@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Flip Card v5 (Slide to flip)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Manrope', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  .hint { font-size: 10px; color: rgba(255,255,255,0.1); }
+
+  .scene { width: 380px; height: 560px; perspective: 1400px; }
+  .card { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.12s ease-out; }
+  .card--flip { transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1) !important; }
+  .face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 24px; overflow: hidden; }
+
+  /* ═══════ FRONT ═══════ */
+  .front { background: linear-gradient(160deg, #0f172a, #1e1b4b, #3b0764, #581c87); display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.07); box-shadow: 0 40px 100px rgba(0,0,0,0.5); }
+  .front__grain { position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E"); pointer-events: none; }
+  .front__holo { position: absolute; inset: 0; background: conic-gradient(from 0deg at 50% 50%, transparent, rgba(200,255,0,0.015) 60deg, rgba(167,139,250,0.025) 120deg, rgba(56,189,248,0.015) 180deg, transparent 240deg); animation: spin 12s linear infinite; pointer-events: none; z-index: 1; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .front__shimmer { position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.04) 42%, transparent 50%); background-size: 300% 100%; animation: shimmer 4s ease-in-out infinite; pointer-events: none; z-index: 2; }
+  @keyframes shimmer { 0%, 100% { background-position: 200% 0; } 50% { background-position: -50% 0; } }
+  .front__wm { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 280px; font-weight: 900; color: rgba(255,255,255,0.015); pointer-events: none; }
+  .front__top { display: flex; justify-content: space-between; padding: 22px 22px 0; position: relative; z-index: 3; }
+  .front__logo { font-size: 22px; font-weight: 900; color: rgba(200,255,0,0.55); letter-spacing: -0.04em; }
+  .front__issue { font-family: 'Space Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.2); text-align: right; }
+  .front__body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; position: relative; z-index: 3; }
+  .front__ava { width: 110px; height: 110px; border-radius: 50%; background: linear-gradient(135deg, #e879f9, #7c3aed); display: flex; align-items: center; justify-content: center; font-size: 44px; font-weight: 900; color: #fff; box-shadow: 0 16px 50px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.06); position: relative; cursor: pointer; overflow: hidden; }
+  .front__ava-ring { position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; background: conic-gradient(from 0deg, #c8ff00, #a78bfa, #38bdf8, #c8ff00) border-box; -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0); mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: ringR 4s linear infinite; opacity: 0.5; }
+  @keyframes ringR { to { transform: rotate(360deg); } }
+  .front__ava-hover { position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.8); opacity: 0; transition: opacity 0.2s; }
+  .front__ava:hover .front__ava-hover { opacity: 1; }
+  .front__name { font-size: 34px; font-weight: 900; letter-spacing: -0.05em; text-shadow: 0 4px 24px rgba(0,0,0,0.5); }
+  .front__tag { font-family: 'Space Mono', monospace; font-size: 15px; color: rgba(255,255,255,0.25); margin-top: -8px; }
+  .front__status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #4ade80; }
+  .front__dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+
+  /* ═══════ SLIDE TO FLIP ═══════ */
+  .slider {
+    position: absolute;
+    bottom: 18px; left: 50%; transform: translateX(-50%);
+    width: 200px; height: 36px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    z-index: 10;
+    display: flex; align-items: center;
+    padding: 3px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .slider__track {
+    position: absolute;
+    inset: 3px;
+    border-radius: 15px;
+    overflow: hidden;
+  }
+
+  /* Animated gradient hint */
+  .slider__hint-bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(200,255,0,0.04), transparent);
+    background-size: 200% 100%;
+    animation: hintSlide 2.5s ease-in-out infinite;
+  }
+  @keyframes hintSlide { 0%, 100% { background-position: -100% 0; } 50% { background-position: 100% 0; } }
+
+  .slider__text {
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    color: rgba(255,255,255,0.35);
+    pointer-events: none;
+    letter-spacing: 0.02em;
+    text-align: center;
+    padding: 0 36px;
+  }
+
+  /* Thumb */
+  .slider__thumb {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: rgba(200,255,0,0.15);
+    border: 1.5px solid rgba(200,255,0,0.3);
+    display: flex; align-items: center; justify-content: center;
+    cursor: grab;
+    position: relative;
+    z-index: 2;
+    transition: box-shadow 0.15s;
+    flex-shrink: 0;
+    touch-action: none;
+  }
+  .slider__thumb:hover { box-shadow: 0 0 12px rgba(200,255,0,0.15); }
+  .slider__thumb:active { cursor: grabbing; }
+
+  .slider__thumb-arrow {
+    font-size: 12px;
+    color: #c8ff00;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  /* Back slider — reversed */
+  .slider--back .slider__thumb { margin-left: auto; }
+  .slider--back .slider__hint-bg { animation-direction: reverse; }
+
+  /* ═══════ BACK ═══════ */
+  .back { transform: rotateY(180deg); background: rgba(14,12,24,0.95); border: 1px solid rgba(255,255,255,0.06); box-shadow: 0 40px 100px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+  .back__head { display: flex; align-items: center; gap: 14px; padding: 18px 18px 14px; }
+  .back__ava { width: 48px; height: 48px; border-radius: 13px; background: linear-gradient(135deg, #e879f9, #7c3aed); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: #fff; flex-shrink: 0; }
+  .back__name { font-size: 19px; font-weight: 800; letter-spacing: -0.03em; }
+  .back__sub { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.2); margin-top: 2px; }
+
+  .back__scroll { flex: 1; overflow-y: auto; padding: 0 14px 60px; display: flex; flex-direction: column; gap: 4px; }
+
+  .cell { border-radius: 14px; background: rgba(255,255,255,0.015); overflow: hidden; transition: background 0.12s; }
+  .cell:hover { background: rgba(255,255,255,0.03); }
+  .cell__main { display: flex; align-items: center; gap: 10px; padding: 12px; cursor: pointer; }
+  .cell__ico { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .cell__info { flex: 1; min-width: 0; }
+  .cell__key { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.18); text-transform: uppercase; letter-spacing: 0.04em; }
+  .cell__val { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+  .cell__dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .cell__chev { color: rgba(255,255,255,0.1); font-size: 13px; transition: all 0.2s; flex-shrink: 0; }
+  .cell:hover .cell__chev { color: rgba(255,255,255,0.2); }
+  .cell--open .cell__chev { transform: rotate(90deg); color: rgba(255,255,255,0.3); }
+  .cell__drawer { max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), padding 0.35s; padding: 0 12px; }
+  .cell--open .cell__drawer { max-height: 220px; padding: 0 12px 12px; }
+  .cell__drawer-inner { padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; gap: 6px; }
+  .cell__input { width: 100%; padding: 9px 11px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.7); font-size: 12px; font-family: inherit; outline: none; }
+  .cell__input::placeholder { color: rgba(255,255,255,0.12); }
+  .cell__input:focus { border-color: rgba(200,255,0,0.2); }
+  .cell__hint { font-size: 10px; color: rgba(255,255,255,0.15); }
+  .cell__btns { display: flex; gap: 6px; }
+  .cell__btn { padding: 7px 14px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all 0.12s; }
+  .cell__btn--go { background: rgba(200,255,0,0.1); color: #c8ff00; }
+  .cell__btn--go:hover { background: rgba(200,255,0,0.18); }
+  .cell__btn--x { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.3); }
+
+  .back__bio { padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,0.01); border: 1px dashed rgba(255,255,255,0.03); margin-top: 4px; }
+  .back__bio-ta { width: 100%; border: none; background: none; color: rgba(255,255,255,0.35); font-size: 12.5px; font-family: inherit; font-style: italic; line-height: 1.5; resize: none; outline: none; }
+  .back__bio-ta:focus { color: rgba(255,255,255,0.6); }
+  .back__bio-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .back__bio-n { font-family: 'Space Mono', monospace; font-size: 8px; color: rgba(255,255,255,0.08); }
+
+  .back__save { padding: 12px; border-radius: 14px; border: none; background: #c8ff00; color: #000; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; position: relative; overflow: hidden; margin-top: 6px; }
+  .back__save::after { content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); animation: sh 2.5s ease-in-out infinite; }
+  @keyframes sh { 0% { left: -100%; } 50%, 100% { left: 200%; } }
+</style>
+</head>
+<body>
+
+<div class="scene" id="scene">
+  <div class="card" id="card">
+    <!-- FRONT -->
+    <div class="face front">
+      <div class="front__grain"></div><div class="front__holo"></div><div class="front__shimmer"></div><div class="front__wm">G</div>
+      <div class="front__top"><div class="front__logo">blesk</div><div class="front__issue">ISSUE #0000<br>MARCH 2026</div></div>
+      <div class="front__body">
+        <div class="front__ava"><div class="front__ava-ring"></div>G<div class="front__ava-hover">Фото</div></div>
+        <div class="front__name">gotblesk</div>
+        <div class="front__tag">#0000</div>
+        <div class="front__status"><div class="front__dot"></div> В сети</div>
+      </div>
+      <!-- Slide to edit -->
+      <div class="slider" id="sliderFront">
+        <div class="slider__track"><div class="slider__hint-bg"></div></div>
+        <div class="slider__text">потяни → редактировать</div>
+        <div class="slider__thumb" id="thumbFront"><span class="slider__thumb-arrow">→</span></div>
+      </div>
+    </div>
+
+    <!-- BACK -->
+    <div class="face back">
+      <div class="back__head">
+        <div class="back__ava">G</div>
+        <div><div class="back__name">gotblesk</div><div class="back__sub">#0000 · с марта 2026</div></div>
+      </div>
+      <div class="back__scroll">
+        <div class="cell" id="cE"><div class="cell__main" onclick="tog('cE')"><div class="cell__ico" style="background:rgba(74,222,128,0.08);color:#4ade80;">✉</div><div class="cell__info"><div class="cell__key">Email</div><div class="cell__val">mxkarov@mail.ru <div class="cell__dot" style="background:#4ade80;box-shadow:0 0 6px rgba(74,222,128,0.4);"></div></div></div><span class="cell__chev">›</span></div><div class="cell__drawer"><div class="cell__drawer-inner"><div class="cell__hint">Email подтверждён</div></div></div></div>
+        <div class="cell" id="cP"><div class="cell__main" onclick="tog('cP')"><div class="cell__ico" style="background:rgba(245,158,11,0.06);color:#f59e0b;">📱</div><div class="cell__info"><div class="cell__key">Телефон</div><div class="cell__val" style="opacity:0.3;">Не привязан</div></div><span class="cell__chev">›</span></div><div class="cell__drawer"><div class="cell__drawer-inner"><div class="cell__hint">Скоро</div></div></div></div>
+        <div class="cell" id="cW"><div class="cell__main" onclick="tog('cW')"><div class="cell__ico" style="background:rgba(200,255,0,0.05);color:#c8ff00;">🔒</div><div class="cell__info"><div class="cell__key">Пароль</div><div class="cell__val">●●●●●●●●</div></div><span class="cell__chev">›</span></div><div class="cell__drawer"><div class="cell__drawer-inner"><input class="cell__input" type="password" placeholder="Текущий" onclick="event.stopPropagation()"><input class="cell__input" type="password" placeholder="Новый (мин. 8)" onclick="event.stopPropagation()"><input class="cell__input" type="password" placeholder="Повторите" onclick="event.stopPropagation()"><input class="cell__input" placeholder="Код из email" onclick="event.stopPropagation()"><div class="cell__btns"><button class="cell__btn cell__btn--go" onclick="event.stopPropagation()">Подтвердить</button><button class="cell__btn cell__btn--x" onclick="event.stopPropagation();tog('cW')">Отмена</button></div></div></div></div>
+        <div class="back__bio"><textarea class="back__bio-ta" rows="2" placeholder="О себе..." onclick="event.stopPropagation()">Дизайнер, создатель blesk.</textarea><div class="back__bio-bar"><span class="back__bio-n">42/200</span></div></div>
+        <button class="back__save" onclick="event.stopPropagation()">Сохранить</button>
+      </div>
+      <!-- Slide to go back -->
+      <div class="slider slider--back" id="sliderBack" style="bottom: 8px;">
+        <div class="slider__track"><div class="slider__hint-bg"></div></div>
+        <div class="slider__text">← потяни назад</div>
+        <div class="slider__thumb" id="thumbBack"><span class="slider__thumb-arrow">←</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="hint">Потяни ползунок чтобы перевернуть · Двигай мышь для 3D</div>
+
+<script>
+  const scene = document.getElementById('scene');
+  const card = document.getElementById('card');
+  let flipped = false, tiltX = 0, tiltY = 0;
+
+  function tog(id) { document.getElementById(id).classList.toggle('cell--open'); }
+
+  // 3D tilt
+  scene.addEventListener('mousemove', (e) => {
+    const r = scene.getBoundingClientRect();
+    tiltX = ((e.clientX - r.left) / r.width - 0.5) * 7;
+    tiltY = -((e.clientY - r.top) / r.height - 0.5) * 4;
+    upd();
+  });
+  scene.addEventListener('mouseleave', () => { tiltX = 0; tiltY = 0; upd(); });
+
+  function upd() { card.style.transform = `rotateY(${(flipped ? 180 : 0) + tiltX}deg) rotateX(${tiltY}deg)`; }
+
+  function doFlip() {
+    flipped = !flipped;
+    card.classList.add('card--flip');
+    upd();
+    setTimeout(() => card.classList.remove('card--flip'), 800);
+  }
+
+  // Slider logic
+  function initSlider(sliderId, thumbId, direction) {
+    const slider = document.getElementById(sliderId);
+    const thumb = document.getElementById(thumbId);
+    let dragging = false, startX = 0, thumbX = 0;
+    const maxX = 200 - 30 - 6; // slider width - thumb width - padding
+
+    thumb.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      startX = e.clientX;
+      thumbX = 0;
+      thumb.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    thumb.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      e.stopPropagation();
+      const dx = e.clientX - startX;
+
+      if (direction === 'right') {
+        thumbX = Math.max(0, Math.min(dx, maxX));
+        thumb.style.transform = `translateX(${thumbX}px)`;
+      } else {
+        thumbX = Math.max(0, Math.min(-dx, maxX));
+        thumb.style.transform = `translateX(${-thumbX}px)`;
+      }
+
+      // Progress feedback — thumb glows more as it moves
+      const progress = thumbX / maxX;
+      thumb.style.boxShadow = `0 0 ${4 + progress * 16}px rgba(200,255,0,${0.1 + progress * 0.3})`;
+      thumb.style.borderColor = `rgba(200,255,0,${0.3 + progress * 0.5})`;
+    });
+
+    thumb.addEventListener('pointerup', (e) => {
+      if (!dragging) return;
+      dragging = false;
+      e.stopPropagation();
+      const progress = thumbX / maxX;
+
+      if (progress > 0.65) {
+        // Success — flip!
+        doFlip();
+      }
+
+      // Reset thumb
+      thumb.style.transform = '';
+      thumb.style.boxShadow = '';
+      thumb.style.borderColor = '';
+    });
+  }
+
+  initSlider('sliderFront', 'thumbFront', 'right');
+  initSlider('sliderBack', 'thumbBack', 'left');
+</script>
+</body>
+</html>

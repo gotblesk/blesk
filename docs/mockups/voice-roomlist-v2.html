@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Voice Rooms v2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Manrope', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; padding: 30px 20px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+
+  .head { display: flex; align-items: center; justify-content: space-between; width: 560px; }
+  .head__title { font-size: 18px; font-weight: 800; letter-spacing: -0.03em; }
+  .head__btn { padding: 6px 14px; border-radius: 10px; border: 1px solid rgba(200,255,0,0.15); background: rgba(200,255,0,0.05); color: #c8ff00; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+
+  /* ═══════ GRID 2 COLUMNS ═══════ */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 560px; }
+
+  /* ═══════ ROOM CARD ═══════ */
+  .rc {
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    background: rgba(14,12,24,0.8);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .rc:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.08); box-shadow: 0 12px 36px rgba(0,0,0,0.3); }
+
+  /* Top section — dark with subtle accent */
+  .rc__top {
+    height: 80px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Ambient glow — subtle hue from room, not solid gradient */
+  .rc__glow {
+    position: absolute; inset: 0;
+    opacity: 0.08;
+    pointer-events: none;
+  }
+
+  /* Performers */
+  .rc__perfs {
+    position: relative; z-index: 1;
+    display: flex; gap: 8px; align-items: center;
+  }
+
+  .rc__perf-ava {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; color: #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+    position: relative;
+  }
+
+  .rc__perf--speaking .rc__perf-ava {
+    box-shadow: 0 0 16px rgba(74,222,128,0.25);
+  }
+  .rc__perf--speaking .rc__perf-ava::after {
+    content: ''; position: absolute; inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(74,222,128,0.3);
+    animation: sp 1.5s ease-in-out infinite;
+  }
+  @keyframes sp { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+
+  .rc__perf-more { font-size: 9px; color: rgba(255,255,255,0.15); }
+
+  /* Empty — icon */
+  .rc__empty-ico {
+    font-size: 20px; opacity: 0.06;
+    position: relative; z-index: 1;
+    animation: emFloat 4s ease-in-out infinite;
+  }
+  @keyframes emFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+  /* Bottom section */
+  .rc__bottom {
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .rc__name-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .rc__name { font-size: 13px; font-weight: 800; letter-spacing: -0.02em; }
+  .rc--here .rc__name { color: #c8ff00; }
+  .rc--empty .rc__name { color: rgba(255,255,255,0.3); }
+
+  /* Status row — minimal, no pills */
+  .rc__status-row {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .rc__status {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; color: rgba(255,255,255,0.2);
+  }
+
+  /* Live dot */
+  .rc__live-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 6px rgba(74,222,128,0.3);
+    animation: ld 1.5s ease-in-out infinite;
+  }
+  @keyframes ld { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .rc__status-live { color: #4ade80; font-weight: 600; }
+
+  /* Mini wave — subtle */
+  .rc__wave { display: flex; gap: 1px; align-items: center; height: 8px; margin-left: 2px; }
+  .rc__wave-bar { width: 1.5px; border-radius: 1px; background: rgba(74,222,128,0.25); animation: wv 1.2s ease-in-out infinite; }
+  @keyframes wv { 0%, 100% { height: 2px; } 50% { height: 7px; } }
+
+  /* Join — simple text button */
+  .rc__join {
+    padding: 0; border: none; background: none;
+    font-size: 10px; font-weight: 700;
+    font-family: inherit; cursor: pointer;
+    transition: all 0.1s;
+  }
+  .rc__join--go { color: rgba(255,255,255,0.35); }
+  .rc__join--go:hover { color: rgba(255,255,255,0.6); }
+  .rc__join--here { color: rgba(200,255,0,0.25); cursor: default; }
+
+  /* Room accents — thin top line */
+  .rc__accent {
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 1.5px;
+    opacity: 0.4;
+    z-index: 2;
+  }
+
+  .rc--here { border-color: rgba(200,255,0,0.08); }
+  .rc--empty { opacity: 0.55; }
+  .rc--empty:hover { opacity: 0.75; }
+</style>
+</head>
+<body>
+
+  <div class="head">
+    <span class="head__title">Голосовые комнаты</span>
+    <button class="head__btn">+ Создать</button>
+  </div>
+
+  <div class="grid">
+
+    <!-- Room 1: Live, 3 people -->
+    <div class="rc">
+      <div class="rc__accent" style="background: linear-gradient(90deg, transparent, #4ade80, transparent);"></div>
+      <div class="rc__top">
+        <div class="rc__glow" style="background: radial-gradient(circle at 50% 50%, rgba(167,139,250,0.4), transparent 70%);"></div>
+        <div class="rc__perfs">
+          <div class="rc__perf--speaking"><div class="rc__perf-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div></div>
+          <div><div class="rc__perf-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div></div>
+          <div><div class="rc__perf-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div></div>
+        </div>
+      </div>
+      <div class="rc__bottom">
+        <div class="rc__name-row">
+          <span class="rc__name">Общая</span>
+        </div>
+        <div class="rc__status-row">
+          <div class="rc__status">
+            <div class="rc__live-dot"></div>
+            <span class="rc__status-live">3 на сцене</span>
+            <div class="rc__wave">
+              <div class="rc__wave-bar" style="animation-delay:0s;"></div>
+              <div class="rc__wave-bar" style="animation-delay:0.1s;"></div>
+              <div class="rc__wave-bar" style="animation-delay:0.2s;"></div>
+              <div class="rc__wave-bar" style="animation-delay:0.15s;"></div>
+            </div>
+          </div>
+          <button class="rc__join rc__join--go">Войти →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room 2: Here, empty -->
+    <div class="rc rc--here">
+      <div class="rc__accent" style="background: linear-gradient(90deg, transparent, #c8ff00, transparent);"></div>
+      <div class="rc__top">
+        <div class="rc__glow" style="background: radial-gradient(circle at 50% 50%, rgba(200,255,0,0.3), transparent 70%);"></div>
+        <div class="rc__empty-ico">🎧</div>
+      </div>
+      <div class="rc__bottom">
+        <div class="rc__name-row">
+          <span class="rc__name">Студия</span>
+        </div>
+        <div class="rc__status-row">
+          <div class="rc__status">Вы здесь</div>
+          <button class="rc__join rc__join--here">Здесь</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room 3: Empty -->
+    <div class="rc rc--empty">
+      <div class="rc__top">
+        <div class="rc__glow" style="background: radial-gradient(circle at 50% 50%, rgba(56,189,248,0.2), transparent 70%);"></div>
+        <div class="rc__empty-ico">🎵</div>
+      </div>
+      <div class="rc__bottom">
+        <div class="rc__name-row">
+          <span class="rc__name">Музыка</span>
+        </div>
+        <div class="rc__status-row">
+          <div class="rc__status">Пусто</div>
+          <button class="rc__join rc__join--go">Войти →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room 4: Live, 1 person -->
+    <div class="rc">
+      <div class="rc__accent" style="background: linear-gradient(90deg, transparent, #4ade80, transparent);"></div>
+      <div class="rc__top">
+        <div class="rc__glow" style="background: radial-gradient(circle at 50% 50%, rgba(74,222,128,0.2), transparent 70%);"></div>
+        <div class="rc__perfs">
+          <div><div class="rc__perf-ava" style="background:linear-gradient(135deg,#4ade80,#22c55e);">N</div></div>
+        </div>
+      </div>
+      <div class="rc__bottom">
+        <div class="rc__name-row">
+          <span class="rc__name">Игры</span>
+        </div>
+        <div class="rc__status-row">
+          <div class="rc__status">
+            <div class="rc__live-dot"></div>
+            <span class="rc__status-live">1 на сцене</span>
+          </div>
+          <button class="rc__join rc__join--go">Войти →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room 5: Empty -->
+    <div class="rc rc--empty">
+      <div class="rc__top">
+        <div class="rc__glow" style="background: radial-gradient(circle at 50% 50%, rgba(239,68,68,0.15), transparent 70%);"></div>
+        <div class="rc__empty-ico">🔥</div>
+      </div>
+      <div class="rc__bottom">
+        <div class="rc__name-row">
+          <span class="rc__name">Тест</span>
+        </div>
+        <div class="rc__status-row">
+          <div class="rc__status">Пусто</div>
+          <button class="rc__join rc__join--go">Войти →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room 6: Empty -->
+    <div class="rc rc--empty">
+      <div class="rc__top">
+        <div class="rc__glow" style="background: radial-gradient(circle at 50% 50%, rgba(245,158,11,0.15), transparent 70%);"></div>
+        <div class="rc__empty-ico">🎮</div>
+      </div>
+      <div class="rc__bottom">
+        <div class="rc__name-row">
+          <span class="rc__name">gemoglobin</span>
+        </div>
+        <div class="rc__status-row">
+          <div class="rc__status">Пусто</div>
+          <button class="rc__join rc__join--go">Войти →</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

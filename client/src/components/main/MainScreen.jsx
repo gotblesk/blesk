@@ -107,14 +107,13 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     useChatStore.getState().openChat(chatId);
   }, [activeChatId]);
 
-  // Закрыть текущий чат
+  // Закрыть текущий чат (остаёмся в chat view с sidebar)
   const handleCloseChat = useCallback(() => {
     soundWindowClose();
     if (activeChatId) {
       useChatStore.getState().closeChat(activeChatId);
     }
     setActiveChatId(null);
-    setView('nebula');
   }, [activeChatId]);
 
   // Переключение secondary views
@@ -325,7 +324,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
       {/* ═══════ MODALS ═══════ */}
       {/* Настройки — модалка поверх всего */}
-      <SettingsScreen open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsScreen open={settingsOpen} onClose={() => setSettingsOpen(false)} onLogout={onLogout} />
 
       <AboutScreen open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <FeedbackScreen open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
@@ -394,6 +393,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
       <DynamicIsland
         user={currentUser}
         isAdmin={isAdmin}
+        activeNav={secondaryView}
         onNavigate={switchToView}
         onOpenProfile={() => setProfileOpen(true)}
         onOpenSearch={(query) => { setSpotlightOpen(true); }}

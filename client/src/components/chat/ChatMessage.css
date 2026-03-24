@@ -5,7 +5,12 @@
   gap: 8px;
   max-width: min(72%, 600px);
   min-width: 0;
-  animation: msgAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chat-message {
+    animation: msgAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
 }
 
 .chat-message--own {
@@ -50,7 +55,7 @@
 /* ===== Time ===== */
 .chat-message__time {
   font-size: 10px;
-  color: rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.35);
   padding: 1px 12px;
 }
 
@@ -91,7 +96,7 @@
   -webkit-backdrop-filter: blur(20px);
   position: relative;
   word-break: break-word;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* Specular highlight */
@@ -166,6 +171,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .chat-message__particle {
@@ -195,13 +201,14 @@
   border-radius: 10px;
   background: rgba(255,255,255,0.04);
   cursor: pointer;
+  min-width: 0;
 }
 
 .chat-message__reply-bar {
   width: 3px;
   border-radius: 2px;
   flex-shrink: 0;
-  background: var(--sender-hue-color, #c8ff00);
+  background: var(--sender-hue-color, var(--accent, #c8ff00));
 }
 
 .chat-message__reply-name {
@@ -216,7 +223,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 240px;
+  max-width: 100%;
 }
 
 /* ===== Read receipt ===== */
@@ -227,6 +234,7 @@
   color: rgba(200,255,0,0.3);
   width: 12px;
   height: 12px;
+  z-index: 2;
 }
 
 /* Sweep glow on bubble when read */

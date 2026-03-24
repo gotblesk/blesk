@@ -116,21 +116,37 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
     const filename = req.userId + ext;
     const finalPath = path.join(avatarDir, filename);
 
+    // Атомарная замена: сначала rename в temp, потом удалить старые, потом rename в final
+    const tempPath = path.join(avatarDir, `${req.userId}.tmp`);
+    fs.renameSync(req.file.path, tempPath);
+
     // Удалить старые аватары других форматов
     for (const e of ['.jpg', '.png', '.webp']) {
       if (e !== ext) {
         const old = path.join(avatarDir, req.userId + e);
-        if (fs.existsSync(old)) fs.unlinkSync(old);
+        try { fs.unlinkSync(old); } catch {}
       }
     }
 
-    // Переместить загруженный файл
-    fs.renameSync(req.file.path, finalPath);
+    // Атомарный rename из temp в финальный путь
+    fs.renameSync(tempPath, finalPath);
 
     await prisma.user.update({
       where: { id: req.userId },
       data: { avatar: filename },
     });
+
+    // Оповестить участников общих комнат об обновлении аватара
+    const io = req.app.locals.io;
+    if (io) {
+      const participations = await prisma.roomParticipant.findMany({
+        where: { userId: req.userId },
+        select: { roomId: true },
+      });
+      for (const p of participations) {
+        io.to(p.roomId).emit('user:updated', { userId: req.userId, avatar: filename });
+      }
+    }
 
     res.json({ avatar: filename });
   } catch (err) {

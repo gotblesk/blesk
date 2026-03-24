@@ -115,7 +115,9 @@ router.get('/:id/messages', authenticate, async (req, res) => {
 
     const where = { roomId: id };
     if (before) {
-      const beforeMsg = await prisma.message.findUnique({ where: { id: before } });
+      const beforeMsg = await prisma.message.findFirst({
+        where: { id: before, roomId: id },
+      });
       if (beforeMsg) {
         where.createdAt = { lt: beforeMsg.createdAt };
       }

@@ -1,3 +1,4 @@
+import React from 'react';
 import { motion } from 'framer-motion';
 import MediaMessage from '../chat/MediaMessage';
 import './ChannelPost.css';
@@ -20,7 +21,7 @@ function formatTime(dateStr) {
   return `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} ${time}`;
 }
 
-export default function ChannelPost({ post, index = 0 }) {
+const ChannelPost = React.memo(function ChannelPost({ post, index = 0 }) {
   const authorName = post.user?.username || post.username || 'Автор';
   const hue = (authorName.charCodeAt(0) * 37) % 360;
   const isLong = (post.text?.length || 0) > 200;
@@ -57,4 +58,6 @@ export default function ChannelPost({ post, index = 0 }) {
       </div>
     </motion.article>
   );
-}
+});
+
+export default ChannelPost;

@@ -1,4 +1,11 @@
 require('dotenv').config();
+
+// Валидация критичных переменных окружения
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
+  console.error('FATAL: JWT_SECRET must be set and at least 16 characters');
+  process.exit(1);
+}
+
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -9,13 +16,17 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 const httpServer = createServer(app);
 
-// Socket.io с CORS
-// CORS origin: Electron отправляет origin: null, поэтому разрешаем все origins
-// Безопасность обеспечивается JWT авторизацией, не CORS
-const corsOrigin = process.env.CLIENT_URL || '*';
+// CORS: разрешаем запросы без origin (Electron, мобильные) + явные origins
+const corsHandler = (origin, callback) => {
+  // Electron и мобильные приложения отправляют origin: null/undefined
+  if (!origin) return callback(null, true);
+  const allowed = [process.env.CLIENT_URL, 'http://localhost:5173', 'http://localhost:3000'].filter(Boolean);
+  if (allowed.includes(origin)) return callback(null, true);
+  callback(null, false);
+};
 
 const io = new Server(httpServer, {
-  cors: { origin: corsOrigin, methods: ['GET', 'POST'] },
+  cors: { origin: corsHandler, methods: ['GET', 'POST'], credentials: true },
 });
 
 const path = require('path');
@@ -24,8 +35,20 @@ const path = require('path');
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   crossOriginEmbedderPolicy: false,
+  strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      mediaSrc: ["'self'", 'blob:'],
+    },
+  },
 }));
-app.use(cors({ origin: corsOrigin }));
+app.use(cors({ origin: corsHandler, credentials: true }));
 app.use(express.json({ limit: '100kb' }));
 
 // Статика — аватары и загрузки (разрешаем cross-origin для Electron)

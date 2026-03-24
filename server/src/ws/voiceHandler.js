@@ -84,20 +84,23 @@ function cleanupPeer(peer) {
   // Закрыть все consumers
   if (peer.consumers) {
     for (const consumer of peer.consumers.values()) {
-      consumer.close();
+      try { consumer.close(); } catch {}
     }
+    peer.consumers.clear();
   }
   // Закрыть все producers
   if (peer.producers) {
     for (const producer of peer.producers.values()) {
-      producer.close();
+      try { producer.close(); } catch {}
     }
+    peer.producers.clear();
   }
   // Закрыть все transports
   if (peer.transports) {
     for (const transport of peer.transports.values()) {
-      transport.close();
+      try { transport.close(); } catch {}
     }
+    peer.transports.clear();
   }
 }
 
@@ -277,6 +280,13 @@ function voiceHandler(io, socket) {
         return callback?.({ error: 'Транспорт не найден' });
       }
 
+      // Валидация типа видео-продюсера
+      if (kind === 'video' && (!appData || !['camera', 'screen'].includes(appData.type))) {
+        return callback?.({ error: 'Invalid video producer type' });
+      }
+      if (!appData) appData = {};
+      if (!appData.type) appData.type = kind === 'audio' ? 'audio' : 'camera';
+
       const producer = await transport.produce({ kind, rtpParameters, appData: appData || {} });
       peer.producers.set(producer.id, producer);
 
@@ -326,12 +336,7 @@ function voiceHandler(io, socket) {
       }
 
       if (!recvTransport) {
-        // Фоллбэк: последний созданный транспорт
-        recvTransport = Array.from(peer.transports.values()).pop();
-      }
-
-      if (!recvTransport) {
-        return callback?.({ error: 'Нет транспорта для приёма' });
+        return callback?.({ error: 'No recv transport found' });
       }
 
       const consumer = await recvTransport.consume({
@@ -474,7 +479,7 @@ function voiceHandler(io, socket) {
       if (room.peers.has(userId)) roomIds.push(roomId);
     }
     for (const roomId of roomIds) {
-      leaveRoom(io, socket, userId, roomId);
+      try { leaveRoom(io, socket, userId, roomId); } catch {}
     }
     // Очистить rate limits отключившегося пользователя
     voiceChatRateLimits.delete(userId);

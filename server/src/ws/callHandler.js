@@ -19,6 +19,10 @@ function cleanupCall(io, chatId) {
     clearTimeout(call.timeout);
     call.timeout = null;
   }
+  if (call.maxDurationTimeout) {
+    clearTimeout(call.maxDurationTimeout);
+    call.maxDurationTimeout = null;
+  }
 
   activeCalls.delete(chatId);
 }
@@ -89,6 +93,12 @@ function callHandler(io, socket) {
       }
       activeCalls.set(chatId, call);
 
+      // Макс. длительность звонка — 4 часа
+      const MAX_CALL_DURATION = 4 * 60 * 60 * 1000;
+      call.maxDurationTimeout = setTimeout(() => {
+        cleanupCall(io, chatId);
+      }, MAX_CALL_DURATION);
+
       // Данные для входящего звонка
       const incomingData = {
         chatId,
@@ -110,9 +120,13 @@ function callHandler(io, socket) {
       }
 
       // Таймаут 30 секунд — если никто не принял
-      call.timeout = setTimeout(() => {
+      call.timeout = setTimeout(async () => {
         const activeCall = activeCalls.get(chatId);
-        if (!activeCall || activeCall.participants.size > 1) return;
+        if (!activeCall || activeCall.participants.size >= 2) return;
+
+        // Re-fetch свежие данные (chatInfo из замыкания может быть устаревшей)
+        const freshChatInfo = await getChatInfo(chatId);
+        if (!freshChatInfo) { cleanupCall(io, chatId); return; }
 
         // Уведомить звонящего о пропущенном
         const callerSocket = findUserSocket(io, activeCall.callerId);
@@ -121,7 +135,7 @@ function callHandler(io, socket) {
         }
 
         // Уведомить остальных
-        for (const participantId of chatInfo.participantIds) {
+        for (const participantId of freshChatInfo.participantIds) {
           if (participantId === activeCall.callerId) continue;
           const targetSocket = findUserSocket(io, participantId);
           if (targetSocket) {
@@ -162,8 +176,11 @@ function callHandler(io, socket) {
       // Добавить в участники
       call.participants.add(userId);
 
+      // Подтверждение принимающему
+      socket.emit('call:accept-confirmed', { chatId, userId });
+
       // Сбросить таймаут при первом принятии (звонящий уже в participants)
-      if (call.timeout && call.participants.size === 2) {
+      if (call.timeout && call.participants.size >= 2) {
         clearTimeout(call.timeout);
         call.timeout = null;
       }
@@ -223,6 +240,10 @@ function callHandler(io, socket) {
   // ═══ Завершить звонок (выйти) ═══
   socket.on('call:end', async ({ chatId }) => {
     if (!chatId || typeof chatId !== 'string') return socket.emit('call:error', { error: 'Некорректный chatId' });
+    const call = activeCalls.get(chatId);
+    if (!call || (!call.participants.has(userId) && call.callerId !== userId)) {
+      return socket.emit('call:error', { chatId, error: 'Вы не участник этого звонка' });
+    }
     handleCallEnd(io, socket, userId, chatId);
   });
 

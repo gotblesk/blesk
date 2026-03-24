@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Voice Room List v2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Manrope', sans-serif; background: #08060f; color: rgba(255,255,255,0.85); min-height: 100vh; padding: 30px 20px; display: flex; flex-direction: column; align-items: center; gap: 50px; }
+  .label { font-size: 10px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .ctitle { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .cdesc { font-size: 12px; color: rgba(255,255,255,0.3); max-width: 500px; text-align: center; line-height: 1.4; margin-bottom: 16px; }
+  .sep { width: 100%; max-width: 600px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT E: VINYL SHELVES
+     Комнаты как пластинки на полке
+     ═══════════════════════════════════════ */
+  .le {
+    width: 560px; padding: 20px;
+  }
+
+  .le__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding: 0 4px; }
+  .le__title { font-size: 16px; font-weight: 800; }
+  .le__create { padding: 5px 12px; border-radius: 8px; border: none; background: rgba(200,255,0,0.06); color: #c8ff00; font-size: 10px; font-weight: 700; font-family: inherit; cursor: pointer; }
+
+  .le__shelf { display: flex; gap: 12px; align-items: flex-end; }
+
+  .le__disc {
+    width: 120px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .le__disc:hover { transform: translateY(-12px); }
+
+  .le__disc-vinyl {
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    position: relative;
+    margin-bottom: -20px;
+    z-index: 1;
+    opacity: 0;
+    transition: all 0.3s;
+    background: conic-gradient(from 0deg, #111 0deg, #1a1a2e 30deg, #111 60deg, #1a1a2e 90deg, #111 120deg, #1a1a2e 150deg, #111 180deg);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .le__disc:hover .le__disc-vinyl { opacity: 1; margin-bottom: -30px; transform: rotate(15deg); }
+
+  .le__disc-vinyl-center {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800;
+  }
+
+  .le__disc-vinyl::after {
+    content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 8px; height: 8px; border-radius: 50%; background: #08060f;
+  }
+
+  .le__disc-sleeve {
+    width: 120px; height: 120px;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex; flex-direction: column;
+    justify-content: flex-end;
+    position: relative;
+    overflow: hidden;
+    z-index: 2;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+
+  .le__disc-name { font-size: 12px; font-weight: 800; position: relative; z-index: 1; }
+  .le__disc-meta { font-size: 8px; color: rgba(255,255,255,0.3); position: relative; z-index: 1; margin-top: 2px; }
+
+  .le__disc-avas { display: flex; margin-top: 6px; position: relative; z-index: 1; }
+  .le__disc-ava { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; color: #fff; border: 1.5px solid rgba(0,0,0,0.3); margin-left: -4px; }
+  .le__disc-ava:first-child { margin-left: 0; }
+
+  /* Live pulse on sleeve edge */
+  .le__disc--live .le__disc-sleeve::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, #4ade80, transparent);
+    opacity: 0.5;
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT F: RADIO STATIONS
+     Комнаты как радиостанции с частотой
+     ═══════════════════════════════════════ */
+  .lf {
+    width: 460px;
+    border-radius: 22px;
+    background: rgba(14,12,24,0.7);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(255,255,255,0.05);
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Scan lines overlay */
+  .lf::before {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.005) 3px, rgba(255,255,255,0.005) 4px);
+    pointer-events: none; z-index: 0;
+  }
+
+  .lf__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; position: relative; z-index: 1; }
+  .lf__title { font-size: 14px; font-weight: 800; }
+  .lf__create { padding: 4px 10px; border-radius: 6px; border: none; background: rgba(200,255,0,0.06); color: #c8ff00; font-size: 9px; font-weight: 700; font-family: inherit; cursor: pointer; }
+
+  /* Frequency display */
+  .lf__freq-bar {
+    height: 40px; margin-bottom: 14px;
+    background: rgba(255,255,255,0.01);
+    border-radius: 10px;
+    display: flex; align-items: center;
+    padding: 0 14px;
+    position: relative; z-index: 1;
+    overflow: hidden;
+  }
+
+  .lf__freq-wave {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; gap: 1px;
+  }
+
+  .lf__freq-line {
+    width: 1px; background: rgba(74,222,128,0.15);
+    animation: freqLine 2s ease-in-out infinite;
+  }
+  @keyframes freqLine { 0%, 100% { height: 4px; } 50% { height: 28px; } }
+
+  .lf__freq-tuner {
+    position: absolute;
+    width: 3px; height: 100%;
+    background: #c8ff00;
+    border-radius: 1.5px;
+    left: 30%;
+    box-shadow: 0 0 8px rgba(200,255,0,0.3);
+    z-index: 2;
+  }
+
+  .lf__freq-label {
+    position: absolute; top: 4px; right: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; color: rgba(200,255,0,0.4);
+    z-index: 2;
+  }
+
+  .lf__list { display: flex; flex-direction: column; gap: 3px; position: relative; z-index: 1; }
+
+  .lf__station {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .lf__station:hover { background: rgba(255,255,255,0.025); }
+
+  .lf__station--live { background: rgba(74,222,128,0.015); }
+
+  /* Frequency number */
+  .lf__station-freq {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px; font-weight: 700;
+    color: rgba(255,255,255,0.08);
+    width: 50px; text-align: right;
+    flex-shrink: 0;
+  }
+  .lf__station--live .lf__station-freq { color: rgba(74,222,128,0.3); }
+  .lf__station--tuned .lf__station-freq { color: rgba(200,255,0,0.5); }
+
+  .lf__station-info { flex: 1; min-width: 0; }
+  .lf__station-name { font-size: 13px; font-weight: 700; }
+  .lf__station-meta { font-size: 9px; color: rgba(255,255,255,0.2); margin-top: 1px; display: flex; align-items: center; gap: 4px; }
+
+  .lf__station-wave { display: flex; gap: 1.5px; align-items: center; height: 8px; }
+  .lf__station-wave-bar { width: 1.5px; border-radius: 1px; background: rgba(74,222,128,0.35); animation: freqLine 1.2s ease-in-out infinite; }
+
+  .lf__station-avas { display: flex; flex-shrink: 0; }
+  .lf__station-ava { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; color: #fff; border: 1.5px solid rgba(14,12,24,0.8); margin-left: -4px; }
+  .lf__station-ava:first-child { margin-left: 0; }
+
+  .lf__station-action { padding: 4px 10px; border-radius: 6px; border: none; font-size: 9px; font-weight: 700; font-family: inherit; cursor: pointer; flex-shrink: 0; }
+  .lf__station-action--tune { background: rgba(74,222,128,0.08); color: #4ade80; }
+  .lf__station-action--tuned { background: rgba(200,255,0,0.04); color: rgba(200,255,0,0.3); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT G: STAGE / THEATER
+     Комнаты как сцены. Участники = зрители
+     ═══════════════════════════════════════ */
+  .lg {
+    width: 520px; padding: 16px;
+  }
+
+  .lg__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .lg__title { font-size: 16px; font-weight: 800; }
+  .lg__create { padding: 5px 12px; border-radius: 8px; border: none; background: rgba(200,255,0,0.06); color: #c8ff00; font-size: 10px; font-weight: 700; font-family: inherit; cursor: pointer; }
+
+  .lg__stages { display: flex; flex-direction: column; gap: 8px; }
+
+  .lg__stage {
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    background: rgba(255,255,255,0.01);
+    border: 1px solid rgba(255,255,255,0.03);
+  }
+  .lg__stage:hover { background: rgba(255,255,255,0.02); transform: translateY(-2px); }
+
+  /* Stage area — gradient "spotlight" */
+  .lg__stage-top {
+    height: 70px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Spotlight effect */
+  .lg__stage-spot {
+    position: absolute;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    top: -40px;
+    filter: blur(30px);
+    opacity: 0.15;
+  }
+
+  /* Avatars on "stage" */
+  .lg__stage-performers {
+    display: flex; gap: 12px;
+    position: relative; z-index: 1;
+  }
+
+  .lg__stage-perf {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+
+  .lg__stage-perf-ava {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    position: relative;
+  }
+
+  /* Speaking spotlight */
+  .lg__stage-perf--speaking .lg__stage-perf-ava::after {
+    content: ''; position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(74,222,128,0.3);
+    animation: spotSpeak 1.5s ease-in-out infinite;
+  }
+  @keyframes spotSpeak { 0%, 100% { opacity: 0.3; box-shadow: 0 0 4px rgba(74,222,128,0.1); } 50% { opacity: 0.7; box-shadow: 0 0 12px rgba(74,222,128,0.2); } }
+
+  .lg__stage-perf-name { font-size: 7px; font-weight: 700; color: rgba(255,255,255,0.4); }
+
+  /* Info bar */
+  .lg__stage-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+  }
+
+  .lg__stage-bar-left { display: flex; align-items: center; gap: 8px; }
+  .lg__stage-name { font-size: 13px; font-weight: 800; }
+  .lg__stage-count { font-size: 9px; color: rgba(255,255,255,0.15); }
+
+  .lg__stage-live {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 9px; font-weight: 700; color: #4ade80;
+  }
+  .lg__stage-live-dot { width: 5px; height: 5px; border-radius: 50%; background: #4ade80; animation: ldot 1.5s ease-in-out infinite; }
+  @keyframes ldot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .lg__stage-join {
+    padding: 5px 12px; border-radius: 8px; border: none;
+    font-size: 10px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+  .lg__stage-join--go { background: rgba(74,222,128,0.08); color: #4ade80; }
+  .lg__stage-join--here { background: rgba(200,255,0,0.04); color: rgba(200,255,0,0.3); }
+
+  /* Empty stage */
+  .lg__stage--empty .lg__stage-top { height: 40px; }
+  .lg__stage--empty .lg__stage-name { color: rgba(255,255,255,0.2); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT H: AUDIO METERS
+     Комнаты как VU-метры в студии звукозаписи
+     ═══════════════════════════════════════ */
+  .lh {
+    width: 500px;
+    border-radius: 20px;
+    background: rgba(14,12,24,0.6);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(255,255,255,0.05);
+    padding: 18px;
+  }
+
+  .lh__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .lh__title { font-size: 15px; font-weight: 800; }
+  .lh__create { padding: 5px 12px; border-radius: 8px; border: none; background: rgba(200,255,0,0.06); color: #c8ff00; font-size: 10px; font-weight: 700; font-family: inherit; cursor: pointer; }
+
+  .lh__rooms { display: flex; flex-direction: column; gap: 4px; }
+
+  .lh__room {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.015);
+    cursor: pointer;
+    transition: all 0.12s;
+    position: relative;
+  }
+  .lh__room:hover { background: rgba(255,255,255,0.03); }
+
+  /* VU meter — vertical bars */
+  .lh__vu {
+    display: flex; gap: 2px; align-items: flex-end;
+    height: 32px; flex-shrink: 0;
+  }
+
+  .lh__vu-bar {
+    width: 4px; border-radius: 2px;
+    transition: height 0.3s;
+  }
+
+  /* Active room — bars animated */
+  .lh__room--live .lh__vu-bar { animation: vuBounce 0.8s ease-in-out infinite; }
+  @keyframes vuBounce { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+
+  .lh__room-info { flex: 1; min-width: 0; }
+  .lh__room-name { font-size: 13px; font-weight: 700; }
+  .lh__room-meta { font-size: 9px; color: rgba(255,255,255,0.2); margin-top: 2px; }
+
+  .lh__room-avas { display: flex; flex-shrink: 0; }
+  .lh__room-ava { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; color: #fff; border: 1.5px solid rgba(14,12,24,0.8); margin-left: -5px; }
+  .lh__room-ava:first-child { margin-left: 0; }
+
+  .lh__room-join { padding: 5px 12px; border-radius: 8px; border: none; font-size: 10px; font-weight: 700; font-family: inherit; cursor: pointer; flex-shrink: 0; }
+  .lh__room-join--go { background: rgba(74,222,128,0.08); color: #4ade80; }
+  .lh__room-join--here { background: rgba(200,255,0,0.04); color: rgba(200,255,0,0.3); }
+
+  /* dB label */
+  .lh__room-db {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; color: rgba(255,255,255,0.08);
+    flex-shrink: 0; min-width: 30px; text-align: right;
+  }
+  .lh__room--live .lh__room-db { color: rgba(74,222,128,0.3); }
+</style>
+</head>
+<body>
+
+  <!-- ═══════ CONCEPT E: VINYL ═══════ -->
+  <div style="text-align:center;">
+    <div class="label">Концепт E</div>
+    <div class="ctitle">Vinyl Shelves</div>
+    <div class="cdesc">Комнаты как пластинки на полке. При hover — пластинка выезжает из обложки и вращается. Каждая обложка — уникальный gradient. Аватарки участников на обложке.</div>
+  </div>
+
+  <div class="le">
+    <div class="le__head"><span class="le__title">Голосовые</span><button class="le__create">+ Создать</button></div>
+    <div class="le__shelf">
+      <div class="le__disc le__disc--live">
+        <div class="le__disc-vinyl"><div class="le__disc-vinyl-center" style="background:#4ade80;">🎵</div></div>
+        <div class="le__disc-sleeve" style="background:linear-gradient(135deg,#1e1b4b,#3b0764);">
+          <div class="le__disc-name">Общая</div>
+          <div class="le__disc-meta">● 3 онлайн</div>
+          <div class="le__disc-avas">
+            <div class="le__disc-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+            <div class="le__disc-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+            <div class="le__disc-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+          </div>
+        </div>
+      </div>
+      <div class="le__disc">
+        <div class="le__disc-vinyl"><div class="le__disc-vinyl-center" style="background:#c8ff00;">🎵</div></div>
+        <div class="le__disc-sleeve" style="background:linear-gradient(135deg,#0f172a,#1e3a5f);">
+          <div class="le__disc-name" style="color:#c8ff00;">Студия</div>
+          <div class="le__disc-meta">Вы здесь</div>
+        </div>
+      </div>
+      <div class="le__disc le__disc--live">
+        <div class="le__disc-vinyl"><div class="le__disc-vinyl-center" style="background:#4ade80;">🎵</div></div>
+        <div class="le__disc-sleeve" style="background:linear-gradient(135deg,#14532d,#052e16);">
+          <div class="le__disc-name">Музыка</div>
+          <div class="le__disc-meta">● 1</div>
+          <div class="le__disc-avas">
+            <div class="le__disc-ava" style="background:linear-gradient(135deg,#4ade80,#22c55e);">N</div>
+          </div>
+        </div>
+      </div>
+      <div class="le__disc">
+        <div class="le__disc-vinyl"><div class="le__disc-vinyl-center" style="background:rgba(255,255,255,0.1);">🎵</div></div>
+        <div class="le__disc-sleeve" style="background:linear-gradient(135deg,#1a1a2e,#16213e);">
+          <div class="le__disc-name" style="color:rgba(255,255,255,0.25);">Игры</div>
+          <div class="le__disc-meta">Пусто</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT F: RADIO ═══════ -->
+  <div style="text-align:center;">
+    <div class="label">Концепт F</div>
+    <div class="ctitle">Radio Stations</div>
+    <div class="cdesc">Комнаты как радиостанции с частотой. Визуализация частот сверху. Scan-lines overlay. Каждая комната — станция с номером (88.1, 92.4...). Tuner indicator на активной.</div>
+  </div>
+
+  <div class="lf">
+    <div class="lf__head"><span class="lf__title">Станции</span><button class="lf__create">+ Новая</button></div>
+    <div class="lf__freq-bar">
+      <div class="lf__freq-wave">
+        <div class="lf__freq-line" style="height:8px;animation-delay:0s;"></div>
+        <div class="lf__freq-line" style="height:16px;animation-delay:0.05s;"></div>
+        <div class="lf__freq-line" style="height:6px;animation-delay:0.1s;"></div>
+        <div class="lf__freq-line" style="height:24px;animation-delay:0.15s;"></div>
+        <div class="lf__freq-line" style="height:10px;animation-delay:0.2s;"></div>
+        <div class="lf__freq-line" style="height:18px;animation-delay:0.25s;"></div>
+        <div class="lf__freq-line" style="height:8px;animation-delay:0.3s;"></div>
+        <div class="lf__freq-line" style="height:14px;animation-delay:0.35s;"></div>
+        <div class="lf__freq-line" style="height:6px;animation-delay:0.4s;"></div>
+        <div class="lf__freq-line" style="height:20px;animation-delay:0.45s;"></div>
+        <div class="lf__freq-line" style="height:12px;animation-delay:0.5s;"></div>
+        <div class="lf__freq-line" style="height:8px;animation-delay:0.55s;"></div>
+        <div class="lf__freq-line" style="height:26px;animation-delay:0.6s;"></div>
+        <div class="lf__freq-line" style="height:10px;animation-delay:0.65s;"></div>
+        <div class="lf__freq-line" style="height:16px;animation-delay:0.7s;"></div>
+        <div class="lf__freq-line" style="height:6px;animation-delay:0.75s;"></div>
+        <div class="lf__freq-line" style="height:22px;animation-delay:0.8s;"></div>
+        <div class="lf__freq-line" style="height:8px;animation-delay:0.85s;"></div>
+        <div class="lf__freq-line" style="height:14px;animation-delay:0.9s;"></div>
+        <div class="lf__freq-line" style="height:10px;animation-delay:0.95s;"></div>
+      </div>
+      <div class="lf__freq-tuner"></div>
+      <div class="lf__freq-label">FM 92.4</div>
+    </div>
+    <div class="lf__list">
+      <div class="lf__station lf__station--live">
+        <span class="lf__station-freq">88.1</span>
+        <div class="lf__station-info">
+          <div class="lf__station-name">Общая</div>
+          <div class="lf__station-meta">3 в эфире <div class="lf__station-wave"><div class="lf__station-wave-bar" style="animation-delay:0s;"></div><div class="lf__station-wave-bar" style="animation-delay:0.1s;"></div><div class="lf__station-wave-bar" style="animation-delay:0.2s;"></div><div class="lf__station-wave-bar" style="animation-delay:0.3s;"></div></div></div>
+        </div>
+        <div class="lf__station-avas">
+          <div class="lf__station-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+          <div class="lf__station-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+          <div class="lf__station-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+        </div>
+        <button class="lf__station-action lf__station-action--tune">Tune In</button>
+      </div>
+      <div class="lf__station lf__station--tuned">
+        <span class="lf__station-freq">92.4</span>
+        <div class="lf__station-info">
+          <div class="lf__station-name" style="color:#c8ff00;">Студия</div>
+          <div class="lf__station-meta" style="color:rgba(200,255,0,0.2);">Настроено</div>
+        </div>
+        <button class="lf__station-action lf__station-action--tuned">On Air</button>
+      </div>
+      <div class="lf__station lf__station--live">
+        <span class="lf__station-freq">95.7</span>
+        <div class="lf__station-info">
+          <div class="lf__station-name">Музыка</div>
+          <div class="lf__station-meta">1 в эфире</div>
+        </div>
+        <div class="lf__station-avas">
+          <div class="lf__station-ava" style="background:linear-gradient(135deg,#4ade80,#22c55e);">N</div>
+        </div>
+        <button class="lf__station-action lf__station-action--tune">Tune In</button>
+      </div>
+      <div class="lf__station">
+        <span class="lf__station-freq">101.3</span>
+        <div class="lf__station-info">
+          <div class="lf__station-name" style="color:rgba(255,255,255,0.2);">Игры</div>
+          <div class="lf__station-meta">Тишина</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT G: STAGE ═══════ -->
+  <div style="text-align:center;">
+    <div class="label">Концепт G</div>
+    <div class="ctitle">Stage / Theater</div>
+    <div class="cdesc">Каждая комната — сцена со "прожектором". Участники стоят на сцене. Speaking — spotlight эффект. Пустые комнаты — тёмная сцена. При hover — сцена подсвечивается.</div>
+  </div>
+
+  <div class="lg">
+    <div class="lg__head"><span class="lg__title">Голосовые сцены</span><button class="lg__create">+ Создать</button></div>
+    <div class="lg__stages">
+      <div class="lg__stage">
+        <div class="lg__stage-top">
+          <div class="lg__stage-spot" style="background:#7c3aed;left:30%;"></div>
+          <div class="lg__stage-spot" style="background:#3b82f6;left:60%;"></div>
+          <div class="lg__stage-performers">
+            <div class="lg__stage-perf lg__stage-perf--speaking">
+              <div class="lg__stage-perf-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+              <span class="lg__stage-perf-name">Vohog</span>
+            </div>
+            <div class="lg__stage-perf">
+              <div class="lg__stage-perf-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+              <span class="lg__stage-perf-name">Den</span>
+            </div>
+            <div class="lg__stage-perf">
+              <div class="lg__stage-perf-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+              <span class="lg__stage-perf-name">shkirtil</span>
+            </div>
+          </div>
+        </div>
+        <div class="lg__stage-bar">
+          <div class="lg__stage-bar-left">
+            <span class="lg__stage-name">Общая</span>
+            <span class="lg__stage-count">3 на сцене</span>
+          </div>
+          <div class="lg__stage-live"><div class="lg__stage-live-dot"></div> Live</div>
+          <button class="lg__stage-join lg__stage-join--go">Войти</button>
+        </div>
+      </div>
+
+      <div class="lg__stage">
+        <div class="lg__stage-top" style="height:50px;">
+          <div class="lg__stage-spot" style="background:#c8ff00;left:50%;opacity:0.1;"></div>
+          <div class="lg__stage-performers">
+            <div class="lg__stage-perf">
+              <div class="lg__stage-perf-ava" style="background:linear-gradient(135deg,#c8ff00,#a0cc00);color:#000;">G</div>
+              <span class="lg__stage-perf-name" style="color:#c8ff00;">Вы</span>
+            </div>
+          </div>
+        </div>
+        <div class="lg__stage-bar">
+          <div class="lg__stage-bar-left">
+            <span class="lg__stage-name" style="color:#c8ff00;">Студия</span>
+          </div>
+          <button class="lg__stage-join lg__stage-join--here">Здесь</button>
+        </div>
+      </div>
+
+      <div class="lg__stage lg__stage--empty">
+        <div class="lg__stage-top" style="height:30px;"></div>
+        <div class="lg__stage-bar">
+          <div class="lg__stage-bar-left"><span class="lg__stage-name">Игры</span><span class="lg__stage-count">Пусто</span></div>
+          <button class="lg__stage-join lg__stage-join--go" style="opacity:0.3;">Войти</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT H: VU METERS ═══════ -->
+  <div style="text-align:center;">
+    <div class="label">Концепт H</div>
+    <div class="ctitle">Audio Meters (VU)</div>
+    <div class="cdesc">Каждая комната с VU-метром — реальная громкость в реалтайме. Полоски bouncing для live. dB значение справа. Студийная эстетика звукозаписи.</div>
+  </div>
+
+  <div class="lh">
+    <div class="lh__head"><span class="lh__title">Голосовые</span><button class="lh__create">+ Создать</button></div>
+    <div class="lh__rooms">
+      <div class="lh__room lh__room--live">
+        <div class="lh__vu">
+          <div class="lh__vu-bar" style="height:20px;background:#4ade80;animation-delay:0s;"></div>
+          <div class="lh__vu-bar" style="height:28px;background:#4ade80;animation-delay:0.1s;"></div>
+          <div class="lh__vu-bar" style="height:16px;background:#c8ff00;animation-delay:0.2s;"></div>
+          <div class="lh__vu-bar" style="height:32px;background:#4ade80;animation-delay:0.3s;"></div>
+          <div class="lh__vu-bar" style="height:12px;background:#c8ff00;animation-delay:0.4s;"></div>
+        </div>
+        <div class="lh__room-info">
+          <div class="lh__room-name">Общая</div>
+          <div class="lh__room-meta">3 участника</div>
+        </div>
+        <div class="lh__room-avas">
+          <div class="lh__room-ava" style="background:linear-gradient(135deg,#e879f9,#7c3aed);">V</div>
+          <div class="lh__room-ava" style="background:linear-gradient(135deg,#60a5fa,#3b82f6);">D</div>
+          <div class="lh__room-ava" style="background:linear-gradient(135deg,#f59e0b,#d97706);">S</div>
+        </div>
+        <span class="lh__room-db">-6dB</span>
+        <button class="lh__room-join lh__room-join--go">Войти</button>
+      </div>
+      <div class="lh__room" style="border:1px dashed rgba(200,255,0,0.06);">
+        <div class="lh__vu">
+          <div class="lh__vu-bar" style="height:4px;background:rgba(200,255,0,0.2);"></div>
+          <div class="lh__vu-bar" style="height:4px;background:rgba(200,255,0,0.2);"></div>
+          <div class="lh__vu-bar" style="height:4px;background:rgba(200,255,0,0.2);"></div>
+          <div class="lh__vu-bar" style="height:4px;background:rgba(200,255,0,0.2);"></div>
+          <div class="lh__vu-bar" style="height:4px;background:rgba(200,255,0,0.2);"></div>
+        </div>
+        <div class="lh__room-info">
+          <div class="lh__room-name" style="color:#c8ff00;">Студия</div>
+          <div class="lh__room-meta" style="color:rgba(200,255,0,0.2);">Вы здесь</div>
+        </div>
+        <span class="lh__room-db" style="color:rgba(200,255,0,0.2);">—</span>
+        <button class="lh__room-join lh__room-join--here">Здесь</button>
+      </div>
+      <div class="lh__room lh__room--live">
+        <div class="lh__vu">
+          <div class="lh__vu-bar" style="height:10px;background:#4ade80;animation-delay:0.15s;"></div>
+          <div class="lh__vu-bar" style="height:18px;background:#4ade80;animation-delay:0.25s;"></div>
+          <div class="lh__vu-bar" style="height:8px;background:#c8ff00;animation-delay:0.35s;"></div>
+          <div class="lh__vu-bar" style="height:14px;background:#4ade80;animation-delay:0.45s;"></div>
+          <div class="lh__vu-bar" style="height:6px;background:#c8ff00;animation-delay:0.55s;"></div>
+        </div>
+        <div class="lh__room-info">
+          <div class="lh__room-name">Музыка</div>
+          <div class="lh__room-meta">1 участник</div>
+        </div>
+        <div class="lh__room-avas">
+          <div class="lh__room-ava" style="background:linear-gradient(135deg,#4ade80,#22c55e);">N</div>
+        </div>
+        <span class="lh__room-db">-12dB</span>
+        <button class="lh__room-join lh__room-join--go">Войти</button>
+      </div>
+      <div class="lh__room">
+        <div class="lh__vu">
+          <div class="lh__vu-bar" style="height:2px;background:rgba(255,255,255,0.04);"></div>
+          <div class="lh__vu-bar" style="height:2px;background:rgba(255,255,255,0.04);"></div>
+          <div class="lh__vu-bar" style="height:2px;background:rgba(255,255,255,0.04);"></div>
+          <div class="lh__vu-bar" style="height:2px;background:rgba(255,255,255,0.04);"></div>
+          <div class="lh__vu-bar" style="height:2px;background:rgba(255,255,255,0.04);"></div>
+        </div>
+        <div class="lh__room-info">
+          <div class="lh__room-name" style="color:rgba(255,255,255,0.2);">Игры</div>
+          <div class="lh__room-meta">Тишина</div>
+        </div>
+        <span class="lh__room-db">—</span>
+        <button class="lh__room-join lh__room-join--go" style="opacity:0.3;">Войти</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

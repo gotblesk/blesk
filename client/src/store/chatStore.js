@@ -10,6 +10,30 @@ function getHeaders() {
   };
 }
 
+async function fetchWithAuth(url, options = {}) {
+  const res = await fetch(url, { ...options, headers: { ...getHeaders(), ...options.headers } });
+  if (res.status === 401) {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) {
+      const refreshRes = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (refreshRes.ok) {
+        const data = await refreshRes.json();
+        localStorage.setItem('token', data.token);
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        return fetch(url, { ...options, headers: { ...getHeaders(), ...options.headers } });
+      }
+    }
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    window.location.reload();
+  }
+  return res;
+}
+
 export const useChatStore = create((set, get) => ({
   chats: [],
   activeChats: new Set(),
@@ -27,7 +51,7 @@ export const useChatStore = create((set, get) => ({
     if (get().loadingChatList) return Promise.resolve();
     set({ loadingChatList: true });
     try {
-      const res = await fetch(`${API_URL}/api/chats`, { headers: getHeaders() });
+      const res = await fetchWithAuth(`${API_URL}/api/chats`);
       if (!res.ok) throw new Error();
       const chats = await res.json();
       set({ chats, chatsInitialized: true });
@@ -194,12 +218,12 @@ export const useChatStore = create((set, get) => ({
           : c
       );
 
-      // Сортируем чаты: новые сообщения наверху
-      chats.sort((a, b) => {
-        const tA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
-        const tB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
-        return tB - tA;
-      });
+      // Поднимаем чат с новым сообщением наверх (O(N) вместо O(N log N))
+      const idx = chats.findIndex((c) => c.id === chatId);
+      if (idx > 0) {
+        const [chat] = chats.splice(idx, 1);
+        chats.unshift(chat);
+      }
 
       return {
         messages: { ...state.messages, [chatId]: [...existing, message] },
@@ -221,12 +245,15 @@ export const useChatStore = create((set, get) => ({
   },
 
   setUserOnline: (userId, status) => {
-    set((state) => ({
+    const state = get();
+    const resolvedStatus = status || 'online';
+    if (state.onlineUsers.includes(userId) && state.userStatuses[userId] === resolvedStatus) return;
+    set({
       onlineUsers: state.onlineUsers.includes(userId)
         ? state.onlineUsers
         : [...state.onlineUsers, userId],
-      userStatuses: { ...state.userStatuses, [userId]: status || 'online' },
-    }));
+      userStatuses: { ...state.userStatuses, [userId]: resolvedStatus },
+    });
   },
 
   setUserOffline: (userId) => {
@@ -275,6 +302,18 @@ export const useChatStore = create((set, get) => ({
     set((state) => ({
       chats: state.chats.filter((c) => c.id !== chatId),
       activeChats: new Set([...state.activeChats].filter((id) => id !== chatId)),
+    }));
+  },
+
+  // Обновить аватар пользователя во всех чатах
+  updateUserAvatar: (userId, avatar) => {
+    set((state) => ({
+      chats: state.chats.map((chat) => {
+        if (chat.otherUser?.id === userId) {
+          return { ...chat, otherUser: { ...chat.otherUser, avatar } };
+        }
+        return chat;
+      }),
     }));
   },
 }));

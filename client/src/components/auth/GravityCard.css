@@ -141,7 +141,7 @@
   right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  opacity: 0.2;
+  opacity: 0.4;
   cursor: pointer;
   transition: opacity 0.2s;
   background: none;

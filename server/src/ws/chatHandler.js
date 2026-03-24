@@ -33,6 +33,12 @@ setInterval(() => {
     while (ts.length > 0 && now - ts[0] > RATE_LIMIT_WINDOW) ts.shift();
     if (ts.length === 0) messageRateLimits.delete(uid);
   }
+  // Чистка typingRateLimits — записи старше 10 секунд
+  for (const [key, timestamp] of typingRateLimits) {
+    if (now - timestamp > 10000) {
+      typingRateLimits.delete(key);
+    }
+  }
 }, 60000);
 
 function chatHandler(io, socket) {
@@ -100,21 +106,24 @@ function chatHandler(io, socket) {
     if (text.length > 4000) return; // Лимит длины сообщения
     if (encrypted !== undefined && typeof encrypted !== 'boolean') return;
 
-    // Rate limiting — макс 5 сообщений за 3 секунды
-    if (isRateLimited(userId)) {
-      socket.emit('message:error', { tempId, error: 'Слишком быстро! Подождите немного.' });
-      return;
-    }
-
-    // Сообщение отправлено — сбросить таймаут набора текста
-    clearTypingTimeout(chatId);
-
     try {
-      // Проверяем что пользователь участник чата
+      // Сначала авторизация — проверяем что пользователь участник чата
       const participant = await prisma.roomParticipant.findUnique({
         where: { roomId_userId: { roomId: chatId, userId } },
       });
-      if (!participant) return;
+      if (!participant) {
+        socket.emit('message:error', { tempId, error: 'Вы не участник этого чата' });
+        return;
+      }
+
+      // Потом rate limiting — макс 5 сообщений за 3 секунды
+      if (isRateLimited(userId)) {
+        socket.emit('message:error', { tempId, error: 'Слишком быстро! Подождите немного.' });
+        return;
+      }
+
+      // Сообщение отправлено — сбросить таймаут набора текста
+      clearTypingTimeout(chatId);
 
       // Сохраняем в БД
       const msgData = {
@@ -164,11 +173,12 @@ function chatHandler(io, socket) {
         replyTo: message.replyTo || null,
       });
 
-      // Проверяем упоминания (@username)
+      // Проверяем упоминания (@username) — макс 5 на сообщение
+      const MAX_MENTIONS = 5;
       const mentionRegex = /@(\w+)/g;
       let match;
       const mentionedUsernames = new Set();
-      while ((match = mentionRegex.exec(text)) !== null) {
+      while ((match = mentionRegex.exec(text)) !== null && mentionedUsernames.size < MAX_MENTIONS) {
         mentionedUsernames.add(match[1]);
       }
 
@@ -229,8 +239,14 @@ function chatHandler(io, socket) {
     if (text.length > 4000) return;
 
     try {
-      const message = await prisma.message.findUnique({ where: { id: messageId } });
+      const [message, participant] = await Promise.all([
+        prisma.message.findUnique({ where: { id: messageId } }),
+        prisma.roomParticipant.findUnique({
+          where: { roomId_userId: { roomId: chatId, userId } },
+        }),
+      ]);
       if (!message || message.userId !== userId || message.roomId !== chatId) return;
+      if (!participant) return;
 
       await prisma.message.update({
         where: { id: messageId },

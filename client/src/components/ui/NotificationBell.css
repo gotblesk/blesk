@@ -27,7 +27,7 @@
 
 .rs-bell__badge {
   position: absolute; top: -3px; right: -3px;
-  min-width: 15px; height: 15px; padding: 0 3px;
+  min-width: 15px; max-width: 28px; height: 15px; padding: 0 3px;
   border-radius: 8px;
   background: var(--danger); color: #fff;
   font-size: 8px; font-weight: 800;
@@ -79,7 +79,7 @@
 
 /* ═══════ BACKDROP ═══════ */
 .rs-bg {
-  position: fixed; inset: 0; z-index: 240;
+  position: fixed; inset: 0; z-index: var(--z-notification, 300);
   background: rgba(0,0,0,0.18);
 }
 
@@ -87,7 +87,7 @@
 /* ═══════ CARD STACK ═══════ */
 .rs-stack {
   position: fixed;
-  z-index: 250;
+  z-index: calc(var(--z-notification, 300) + 1);
   pointer-events: none;
   transition: filter 0.3s, opacity 0.3s;
 }
@@ -263,6 +263,7 @@
   justify-content: center;
   gap: 8px;
   padding: 28px;
+  min-height: 120px;
   cursor: default;
 }
 
@@ -278,7 +279,7 @@
   position: fixed;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 260;
+  z-index: calc(var(--z-notification, 300) + 2);
   width: 380px;
 }
 
@@ -420,7 +421,7 @@
   border-color: rgba(0,0,0,0.08);
 }
 [data-theme="light"] .rs-card:hover { box-shadow: 0 16px 48px rgba(0,0,0,0.12); }
-[data-theme="light"] .rs-card__time { color: rgba(0,0,0,0.2); }
+[data-theme="light"] .rs-card__time { color: rgba(0,0,0,0.35); }
 [data-theme="light"] .rs-card__desc { color: rgba(0,0,0,0.35); }
 [data-theme="light"] .rs-card__icon { background: rgba(0,0,0,0.04); }
 [data-theme="light"] .rs-card__x { background: rgba(0,0,0,0.04); color: rgba(0,0,0,0.3); }
@@ -439,4 +440,3 @@
 [data-theme="light"] .rs-exp__close { background: rgba(0,0,0,0.04); color: rgba(0,0,0,0.3); }
 [data-theme="light"] .rs-exp__date { color: rgba(0,0,0,0.3); }
 [data-theme="light"] .rs-exp__body { color: rgba(0,0,0,0.5); }
-[data-theme="light"] .rs-card__time { color: rgba(0,0,0,0.35); }

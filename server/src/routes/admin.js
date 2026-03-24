@@ -57,6 +57,10 @@ router.get('/users', authenticate, requireAdmin, async (req, res) => {
     limit = Math.min(100, Math.max(1, parseInt(limit) || 50));
     const skip = (page - 1) * limit;
 
+    if (search && search.length > 100) {
+      return res.status(400).json({ error: 'Слишком длинный поиск' });
+    }
+
     const where = {};
     if (search) where.username = { contains: search, mode: 'insensitive' };
     if (role) where.role = role;

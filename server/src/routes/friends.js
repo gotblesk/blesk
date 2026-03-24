@@ -11,6 +11,14 @@ router.post('/request', authenticate, requireVerified, async (req, res) => {
     if (!targetId) return res.status(400).json({ error: 'Укажите userId' });
     if (targetId === req.userId) return res.status(400).json({ error: 'Нельзя добавить себя' });
 
+    // Лимит: макс 20 неотвеченных заявок
+    const pendingCount = await prisma.friendRequest.count({
+      where: { senderId: req.userId, status: 'pending' },
+    });
+    if (pendingCount >= 20) {
+      return res.status(429).json({ error: 'Слишком много неотвеченных заявок' });
+    }
+
     // Проверяем что пользователь существует
     const target = await prisma.user.findUnique({
       where: { id: targetId },
@@ -294,6 +302,13 @@ router.delete('/:friendId', authenticate, async (req, res) => {
     }
 
     await prisma.friendRequest.delete({ where: { id: request.id } });
+
+    // Оповестить обоих пользователей об удалении из друзей
+    const io = req.app.locals.io;
+    if (io) {
+      const otherUserId = request.senderId === req.userId ? request.receiverId : request.senderId;
+      io.emit('friend:removed', { userId: req.userId, friendId: otherUserId });
+    }
 
     res.json({ ok: true });
   } catch (err) {

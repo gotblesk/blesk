@@ -190,7 +190,7 @@
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.015);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   position: relative;
 }
 
@@ -325,7 +325,7 @@
   left: 50%;
   transform: translateX(-50%);
   border: 6px solid transparent;
-  border-top-color: rgba(255, 255, 255, 0.08);
+  border-top-color: rgba(14, 12, 24, 0.92);
 }
 
 @keyframes vr-popup-in {
@@ -462,4 +462,10 @@
 
 [data-theme="light"] .vr__screen {
   border-bottom-color: rgba(0, 0, 0, 0.04);
+}
+
+/* ═══════ RESPONSIVE ═══════ */
+@media (max-width: 600px) {
+  .vr__grid { grid-template-columns: repeat(2, 1fr); }
+  .vr__user-icons { right: -4px; bottom: -4px; }
 }

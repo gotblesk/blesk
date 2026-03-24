@@ -92,7 +92,14 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       const rejected = arr.length - valid.length;
       alert(`${rejected} файл(ов) отклонено: максимальный размер 10 МБ`);
     }
-    setPendingFiles((prev) => [...prev, ...valid].slice(0, 10));
+    setPendingFiles((prev) => {
+      const totalSize = prev.reduce((sum, f) => sum + f.size, 0) + valid.reduce((sum, f) => sum + f.size, 0);
+      if (totalSize > 50 * 1024 * 1024) {
+        alert('Общий размер файлов не может превышать 50 МБ');
+        return prev;
+      }
+      return [...prev, ...valid].slice(0, 10);
+    });
   }, []);
 
   const removeFile = useCallback((index) => {

@@ -568,7 +568,7 @@ router.post('/change-password/request', authenticate, async (req, res) => {
     markEmailCodeSent(changePasswordLimits, user.email);
 
     await sendVerificationCode(user.email, code);
-    res.json({ success: true, email: user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') });
+    res.json({ success: true, message: 'Код отправлен на вашу почту' });
   } catch (err) {
     console.error('change-password/request error:', err);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });

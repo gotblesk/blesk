@@ -4,7 +4,7 @@
   bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 200;
+  z-index: var(--z-overlay, 100);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -281,6 +281,9 @@
 }
 
 .island__btn:hover { background: rgba(255, 255, 255, 0.04); }
+.island__btn--active { background: rgba(200, 255, 0, 0.06); }
+.island__btn--active .island__btn-icon { color: var(--accent, #c8ff00); background: rgba(200, 255, 0, 0.1); }
+.island__btn--active .island__btn-label { color: var(--accent, #c8ff00); }
 .island__btn:active { transform: scale(.92) !important; }
 
 /* Stagger */
@@ -316,6 +319,7 @@
 
 .island__btn-badge {
   min-width: clamp(14px, 0.9vw, 18px);
+  max-width: 24px;
   height: clamp(14px, 0.9vw, 18px);
   border-radius: clamp(7px, 0.45vw, 9px);
   font-size: clamp(7px, 0.45vw, 9px);
@@ -325,6 +329,8 @@
   justify-content: center;
   padding: 0 3px;
   flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: rgba(200, 255, 0, 0.15);
   color: #c8ff00;
 }
@@ -433,7 +439,7 @@
 }
 
 .island-search--open {
-  width: 260px;
+  width: clamp(200px, 60vw, 260px);
   border-radius: 20px;
   gap: 8px;
   padding: 0 12px;
@@ -652,6 +658,9 @@
 [data-theme="light"] .island__dot { background: var(--online); }
 [data-theme="light"] .island__btn { color: rgba(0, 0, 0, 0.35); }
 [data-theme="light"] .island__btn:hover { color: rgba(0, 0, 0, 0.6); }
+[data-theme="light"] .island__btn--active { background: rgba(200, 255, 0, 0.1); }
+[data-theme="light"] .island__btn--active .island__btn-icon { color: #8ba600; background: rgba(200, 255, 0, 0.15); }
+[data-theme="light"] .island__btn--active .island__btn-label { color: #8ba600; }
 [data-theme="light"] .island__btn-label { color: rgba(0, 0, 0, 0.4); }
 [data-theme="light"] .island__btn-icon { color: rgba(0, 0, 0, 0.4); }
 [data-theme="light"] .island__sep { background: rgba(0, 0, 0, 0.08); }

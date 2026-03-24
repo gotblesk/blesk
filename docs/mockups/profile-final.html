@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Final Profile Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #08060f;
+    color: rgba(255,255,255,0.85);
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 60px;
+  }
+  .label { font-size: 11px; font-weight: 800; color: #c8ff00; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .ctitle { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 6px; }
+  .cdesc { font-size: 13px; color: rgba(255,255,255,0.35); max-width: 460px; text-align: center; line-height: 1.5; margin-bottom: 24px; }
+  .sep { width: 100%; max-width: 500px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT M: POLAROID STACK
+     Профиль как стопка полароидных снимков
+     ═══════════════════════════════════════ */
+  .pol-scene {
+    width: 340px;
+    height: 440px;
+    position: relative;
+    perspective: 800px;
+  }
+
+  .pol {
+    position: absolute;
+    width: 280px;
+    background: #f5f2ea;
+    border-radius: 4px;
+    padding: 16px 16px 50px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+  }
+
+  /* Stacked polaroids */
+  .pol--back {
+    left: 40px; top: 10px;
+    transform: rotate(6deg);
+    z-index: 1;
+  }
+  .pol-scene:hover .pol--back { transform: rotate(12deg) translateX(30px) translateY(-10px); }
+
+  .pol--mid {
+    left: 20px; top: 20px;
+    transform: rotate(-3deg);
+    z-index: 2;
+  }
+  .pol-scene:hover .pol--mid { transform: rotate(-8deg) translateX(-20px) translateY(-5px); }
+
+  .pol--front {
+    left: 30px; top: 30px;
+    transform: rotate(1deg);
+    z-index: 3;
+  }
+  .pol-scene:hover .pol--front { transform: rotate(0deg) translateY(-15px) scale(1.02); }
+
+  .pol__photo {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 80px; font-weight: 900;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pol--front .pol__photo { background: linear-gradient(135deg, #7c3aed, #a855f7, #e879f9); color: rgba(255,255,255,0.9); }
+  .pol--mid .pol__photo { background: linear-gradient(135deg, #1e3a5f, #2563eb); color: rgba(255,255,255,0.15); }
+  .pol--back .pol__photo { background: linear-gradient(135deg, #1a1a2e, #2d2d44); color: rgba(255,255,255,0.05); }
+
+  /* Handwritten text */
+  .pol__text {
+    position: absolute;
+    bottom: 12px;
+    left: 16px; right: 16px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a2e;
+    transform: rotate(-2deg);
+  }
+
+  .pol__sub {
+    font-size: 10px;
+    color: rgba(26,26,46,0.4);
+    margin-top: 2px;
+  }
+
+  /* Data on middle polaroid */
+  .pol--mid .pol__photo {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.5);
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    align-items: flex-start;
+    justify-content: flex-end;
+  }
+
+  .pol__data-row {
+    display: flex; align-items: center; gap: 6px;
+    width: 100%;
+  }
+  .pol__data-key { font-size: 9px; color: rgba(255,255,255,0.25); text-transform: uppercase; min-width: 45px; }
+  .pol__data-val { font-size: 11px; color: rgba(255,255,255,0.6); }
+  .pol__data-badge { font-size: 8px; padding: 1px 5px; border-radius: 3px; background: rgba(74,222,128,0.15); color: #4ade80; }
+
+  /* Back polaroid — bio */
+  .pol--back .pol__photo {
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.3);
+    font-style: italic;
+    padding: 20px;
+    line-height: 1.6;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .pol-hint {
+    position: absolute;
+    bottom: 0;
+    left: 50%; transform: translateX(-50%);
+    font-size: 10px;
+    color: rgba(255,255,255,0.12);
+    white-space: nowrap;
+  }
+
+  /* ═══════════════════════════════════════
+     CONCEPT N: GAME CHARACTER STATS
+     RPG character sheet
+     ═══════════════════════════════════════ */
+  .rpg {
+    width: 420px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: rgba(12,10,22,0.9);
+    border: 2px solid rgba(200,255,0,0.1);
+    box-shadow: 0 0 30px rgba(200,255,0,0.03), 0 20px 60px rgba(0,0,0,0.4);
+    position: relative;
+  }
+
+  /* Pixel-art corners */
+  .rpg::before, .rpg::after {
+    content: '';
+    position: absolute;
+    width: 8px; height: 8px;
+    border: 2px solid rgba(200,255,0,0.2);
+  }
+  .rpg::before { top: 4px; left: 4px; border-right: none; border-bottom: none; }
+  .rpg::after { bottom: 4px; right: 4px; border-left: none; border-top: none; }
+
+  .rpg__header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px;
+    border-bottom: 2px solid rgba(200,255,0,0.06);
+  }
+
+  .rpg__ava {
+    width: 64px; height: 64px;
+    border-radius: 4px;
+    border: 2px solid rgba(200,255,0,0.2);
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 800; color: #fff;
+    image-rendering: pixelated;
+  }
+
+  .rpg__info { flex: 1; }
+
+  .rpg__name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #c8ff00;
+    text-shadow: 0 0 10px rgba(200,255,0,0.2);
+  }
+
+  .rpg__class {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 2px;
+  }
+
+  .rpg__level {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(200,255,0,0.08);
+    border: 1px solid rgba(200,255,0,0.15);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #c8ff00;
+    margin-top: 6px;
+  }
+
+  /* Stats bars */
+  .rpg__stats {
+    padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .rpg__stat {
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .rpg__stat-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    min-width: 60px;
+  }
+
+  .rpg__stat-bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 1px;
+    background: rgba(255,255,255,0.04);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .rpg__stat-fill {
+    height: 100%;
+    border-radius: 1px;
+    position: relative;
+  }
+
+  /* Pixel animation on bar */
+  .rpg__stat-fill::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: 4px;
+    animation: statPulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes statPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  .rpg__stat-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 30px;
+    text-align: right;
+  }
+
+  /* Inventory — bottom section */
+  .rpg__inv {
+    padding: 12px 20px 16px;
+    border-top: 2px solid rgba(200,255,0,0.06);
+  }
+
+  .rpg__inv-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: rgba(200,255,0,0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .rpg__inv-grid {
+    display: flex; gap: 6px;
+  }
+
+  .rpg__inv-slot {
+    width: 44px; height: 44px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.12s;
+    position: relative;
+  }
+
+  .rpg__inv-slot:hover {
+    border-color: rgba(200,255,0,0.2);
+    background: rgba(200,255,0,0.03);
+    transform: translateY(-2px);
+  }
+
+  .rpg__inv-slot-label {
+    position: absolute;
+    bottom: -14px;
+    font-size: 7px;
+    color: rgba(255,255,255,0.15);
+    white-space: nowrap;
+  }
+
+  .rpg__actions {
+    padding: 0 20px 16px;
+    display: flex; gap: 6px;
+  }
+
+  .rpg__btn {
+    flex: 1;
+    padding: 9px;
+    border-radius: 3px;
+    border: 2px solid;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .rpg__btn--primary {
+    border-color: rgba(200,255,0,0.3);
+    background: rgba(200,255,0,0.06);
+    color: #c8ff00;
+  }
+  .rpg__btn--primary:hover { background: rgba(200,255,0,0.12); border-color: rgba(200,255,0,0.5); }
+
+  .rpg__btn--ghost {
+    border-color: rgba(255,255,255,0.06);
+    background: transparent;
+    color: rgba(255,255,255,0.3);
+  }
+  .rpg__btn--ghost:hover { border-color: rgba(255,255,255,0.12); }
+
+  /* ═══════════════════════════════════════
+     CONCEPT O: TICKET / BOARDING PASS
+     Посадочный талон
+     ═══════════════════════════════════════ */
+  .ticket {
+    width: 420px;
+    display: flex;
+    background: rgba(14,12,24,0.9);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+    position: relative;
+    transition: transform 0.15s;
+  }
+  .ticket:hover { transform: perspective(800px) rotateY(2deg); }
+
+  /* Tear line */
+  .ticket::before {
+    content: '';
+    position: absolute;
+    top: 10px; bottom: 10px;
+    right: 120px;
+    width: 1px;
+    background: repeating-linear-gradient(
+      180deg,
+      rgba(255,255,255,0.08) 0px,
+      rgba(255,255,255,0.08) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+    z-index: 2;
+  }
+
+  /* Notches */
+  .ticket__notch-top, .ticket__notch-bottom {
+    position: absolute;
+    right: 112px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #08060f;
+    z-index: 3;
+  }
+  .ticket__notch-top { top: -8px; }
+  .ticket__notch-bottom { bottom: -8px; }
+
+  .ticket__main {
+    flex: 1;
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  .ticket__header {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .ticket__ava {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 800; color: #fff;
+  }
+
+  .ticket__name-block {}
+  .ticket__name { font-size: 18px; font-weight: 800; letter-spacing: -0.03em; }
+  .ticket__route {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.2);
+    margin-top: 2px;
+  }
+
+  .ticket__fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .ticket__field {}
+  .ticket__field-key {
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.15);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 3px;
+  }
+  .ticket__field-val {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .ticket__bio {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    font-style: italic;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .ticket__btn {
+    padding: 9px;
+    border-radius: 10px;
+    border: none;
+    background: #c8ff00;
+    color: #000;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* Stub — right side */
+  .ticket__stub {
+    width: 120px;
+    padding: 16px;
+    display: flex; flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.01);
+  }
+
+  .ticket__barcode {
+    width: 40px;
+    display: flex; flex-direction: column; gap: 2px;
+    transform: rotate(0deg);
+  }
+
+  .ticket__bar {
+    width: 100%;
+    border-radius: 1px;
+    background: rgba(255,255,255,0.15);
+  }
+
+  .ticket__stub-id {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.4);
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+    letter-spacing: 0.1em;
+  }
+
+  .ticket__stub-label {
+    font-size: 7px;
+    color: rgba(255,255,255,0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    writing-mode: vertical-lr;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ═══════ CONCEPT M: POLAROID ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт M</div>
+    <div class="ctitle">Polaroid Stack</div>
+    <div class="cdesc">Три полароидных снимка стопкой: фронт — аватар, средний — данные, задний — bio. При hover раскладываются веером. Тёплый аналоговый фил.</div>
+  </div>
+
+  <div class="pol-scene">
+    <div class="pol pol--back">
+      <div class="pol__photo">"Дизайнер, создатель blesk. Люблю минимализм и красивые интерфейсы."</div>
+      <div class="pol__text">О себе <div class="pol__sub">bio / about</div></div>
+    </div>
+    <div class="pol pol--mid">
+      <div class="pol__photo">
+        <div class="pol__data-row"><span class="pol__data-key">email</span><span class="pol__data-val">mxkarov@mail.ru</span><span class="pol__data-badge">✓</span></div>
+        <div class="pol__data-row"><span class="pol__data-key">phone</span><span class="pol__data-val" style="opacity:0.3;">—</span></div>
+        <div class="pol__data-row"><span class="pol__data-key">pass</span><span class="pol__data-val" style="color:#c8ff00;">change →</span></div>
+      </div>
+      <div class="pol__text">Данные <div class="pol__sub">account data</div></div>
+    </div>
+    <div class="pol pol--front">
+      <div class="pol__photo">G</div>
+      <div class="pol__text">gotblesk #0000 <div class="pol__sub">member since march 2026</div></div>
+    </div>
+    <div class="pol-hint">hover чтобы разложить</div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT N: RPG ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт N</div>
+    <div class="ctitle">RPG Character Sheet</div>
+    <div class="cdesc">Профиль как карточка персонажа в RPG. Статы в виде полосок (email verified = 100%, phone = 0%). Инвентарь — слоты с иконками. Пиксельная эстетика.</div>
+  </div>
+
+  <div class="rpg">
+    <div class="rpg__header">
+      <div class="rpg__ava">G</div>
+      <div class="rpg__info">
+        <div class="rpg__name">gotblesk</div>
+        <div class="rpg__class">CLASS: Designer · REALM: blesk · ID: #0000</div>
+        <div class="rpg__level">LVL 1 · Bronze</div>
+      </div>
+    </div>
+
+    <div class="rpg__stats">
+      <div class="rpg__stat">
+        <span class="rpg__stat-name">Email</span>
+        <div class="rpg__stat-bar">
+          <div class="rpg__stat-fill" style="width: 100%; background: linear-gradient(90deg, #22c55e, #4ade80);"></div>
+        </div>
+        <span class="rpg__stat-val" style="color: #4ade80;">✓</span>
+      </div>
+      <div class="rpg__stat">
+        <span class="rpg__stat-name">Phone</span>
+        <div class="rpg__stat-bar">
+          <div class="rpg__stat-fill" style="width: 0%; background: #f59e0b;"></div>
+        </div>
+        <span class="rpg__stat-val" style="color: rgba(255,255,255,0.15);">—</span>
+      </div>
+      <div class="rpg__stat">
+        <span class="rpg__stat-name">Passwd</span>
+        <div class="rpg__stat-bar">
+          <div class="rpg__stat-fill" style="width: 75%; background: linear-gradient(90deg, #c8ff00, #a0cc00);"></div>
+        </div>
+        <span class="rpg__stat-val" style="color: #c8ff00;">str</span>
+      </div>
+      <div class="rpg__stat">
+        <span class="rpg__stat-name">Bio</span>
+        <div class="rpg__stat-bar">
+          <div class="rpg__stat-fill" style="width: 21%; background: linear-gradient(90deg, #a78bfa, #7c3aed);"></div>
+        </div>
+        <span class="rpg__stat-val" style="color: #a78bfa;">42</span>
+      </div>
+    </div>
+
+    <div class="rpg__inv">
+      <div class="rpg__inv-title">Inventory</div>
+      <div class="rpg__inv-grid">
+        <div class="rpg__inv-slot" style="border-color: rgba(74,222,128,0.2); color: #4ade80;">✉<div class="rpg__inv-slot-label">email</div></div>
+        <div class="rpg__inv-slot" style="opacity: 0.3;">📱<div class="rpg__inv-slot-label">phone</div></div>
+        <div class="rpg__inv-slot" style="border-color: rgba(200,255,0,0.15); color: #c8ff00;">🔒<div class="rpg__inv-slot-label">pass</div></div>
+        <div class="rpg__inv-slot" style="border-color: rgba(167,139,250,0.15); color: #a78bfa;">📝<div class="rpg__inv-slot-label">bio</div></div>
+        <div class="rpg__inv-slot" style="border-style: dashed; opacity: 0.2;">+<div class="rpg__inv-slot-label">empty</div></div>
+      </div>
+    </div>
+
+    <div class="rpg__actions">
+      <button class="rpg__btn rpg__btn--primary">[ EDIT ]</button>
+      <button class="rpg__btn rpg__btn--ghost">[ SAVE ]</button>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ═══════ CONCEPT O: TICKET ═══════ -->
+  <div style="text-align: center;">
+    <div class="label">Концепт O</div>
+    <div class="ctitle">Boarding Pass</div>
+    <div class="cdesc">Профиль как посадочный талон с отрывным корешком. Штрихкод справа, перфорация, полукруглые вырезы. Данные как на авиабилете.</div>
+  </div>
+
+  <div class="ticket">
+    <div class="ticket__notch-top"></div>
+    <div class="ticket__notch-bottom"></div>
+
+    <div class="ticket__main">
+      <div class="ticket__header">
+        <div class="ticket__ava">G</div>
+        <div class="ticket__name-block">
+          <div class="ticket__name">gotblesk</div>
+          <div class="ticket__route">ORIGIN: blesk · DEST: everywhere · SINCE: 03.2026</div>
+        </div>
+      </div>
+
+      <div class="ticket__fields">
+        <div class="ticket__field">
+          <div class="ticket__field-key">Email</div>
+          <div class="ticket__field-val">mxkarov@mail.ru</div>
+        </div>
+        <div class="ticket__field">
+          <div class="ticket__field-key">Status</div>
+          <div class="ticket__field-val" style="color: #4ade80;">● Verified</div>
+        </div>
+        <div class="ticket__field">
+          <div class="ticket__field-key">Phone</div>
+          <div class="ticket__field-val" style="opacity: 0.3;">Not linked</div>
+        </div>
+        <div class="ticket__field">
+          <div class="ticket__field-key">Password</div>
+          <div class="ticket__field-val" style="color: #c8ff00;">Change →</div>
+        </div>
+      </div>
+
+      <div class="ticket__bio">"Дизайнер, создатель blesk."</div>
+      <button class="ticket__btn">Редактировать</button>
+    </div>
+
+    <div class="ticket__stub">
+      <div class="ticket__barcode">
+        <div class="ticket__bar" style="height: 3px;"></div>
+        <div class="ticket__bar" style="height: 5px;"></div>
+        <div class="ticket__bar" style="height: 2px;"></div>
+        <div class="ticket__bar" style="height: 6px;"></div>
+        <div class="ticket__bar" style="height: 3px;"></div>
+        <div class="ticket__bar" style="height: 4px;"></div>
+        <div class="ticket__bar" style="height: 2px;"></div>
+        <div class="ticket__bar" style="height: 5px;"></div>
+        <div class="ticket__bar" style="height: 3px;"></div>
+        <div class="ticket__bar" style="height: 6px;"></div>
+        <div class="ticket__bar" style="height: 2px;"></div>
+        <div class="ticket__bar" style="height: 4px;"></div>
+      </div>
+      <div class="ticket__stub-id">#0000</div>
+      <div class="ticket__stub-label">blesk pass</div>
+    </div>
+  </div>
+
+</body>
+</html>

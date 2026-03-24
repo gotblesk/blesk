@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Pin, Lock, CheckCheck } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import MediaMessage from './MediaMessage';
@@ -13,7 +13,7 @@ function countEmojis(text) {
   return matches ? matches.length : 0;
 }
 
-export default function ChatMessage({
+const ChatMessage = React.memo(function ChatMessage({
   message,
   isOwn,
   groupPosition = 'solo',
@@ -175,4 +175,6 @@ export default function ChatMessage({
       </div>
     </div>
   );
-}
+});
+
+export default ChatMessage;
