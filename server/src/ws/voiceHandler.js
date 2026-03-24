@@ -38,6 +38,30 @@ setInterval(() => {
   }
 }, 60000);
 
+// Rate limiter для voice signaling events (userId → [timestamps])
+const voiceSignalRateLimits = new Map();
+const VOICE_SIGNAL_WINDOW = 10000; // 10 секунд
+const VOICE_SIGNAL_MAX = 30; // 30 событий за 10 секунд
+
+function isVoiceSignalRateLimited(uid) {
+  const now = Date.now();
+  let timestamps = voiceSignalRateLimits.get(uid);
+  if (!timestamps) { timestamps = []; voiceSignalRateLimits.set(uid, timestamps); }
+  while (timestamps.length > 0 && now - timestamps[0] > VOICE_SIGNAL_WINDOW) timestamps.shift();
+  if (timestamps.length >= VOICE_SIGNAL_MAX) return true;
+  timestamps.push(now);
+  return false;
+}
+
+// Чистка voice signal rate limits
+setInterval(() => {
+  const now = Date.now();
+  for (const [uid, ts] of voiceSignalRateLimits) {
+    while (ts.length > 0 && now - ts[0] > VOICE_SIGNAL_WINDOW) ts.shift();
+    if (ts.length === 0) voiceSignalRateLimits.delete(uid);
+  }
+}, 60000);
+
 // PeerData = { socketId, username, hue, muted, deafened, transports: Map, producers: Map, consumers: Map }
 
 // Получить или создать комнату с mediasoup Router
@@ -193,13 +217,17 @@ function voiceHandler(io, socket) {
   // ═══ Создать WebRTC транспорт ═══
   socket.on('voice:createTransport', async ({ roomId, direction }, callback) => {
     try {
+      if (isVoiceSignalRateLimited(userId)) return callback?.({ error: 'Слишком много запросов' });
       const room = voiceRooms.get(roomId);
       if (!room || !room.peers.has(userId)) {
         return callback?.({ error: 'Не в комнате' });
       }
 
+      // Валидация направления
+      if (direction && !['send', 'recv'].includes(direction)) {
+        return callback?.({ error: 'Недопустимое направление транспорта' });
+      }
       const { transport, params } = await createWebRtcTransport(room.router);
-      // Сохранить направление транспорта (send/recv) в appData
       transport.appData.direction = direction || 'send';
       const peer = room.peers.get(userId);
       peer.transports.set(transport.id, transport);
@@ -214,6 +242,7 @@ function voiceHandler(io, socket) {
   // ═══ Подключить транспорт (DTLS) ═══
   socket.on('voice:connectTransport', async ({ roomId, transportId, dtlsParameters }, callback) => {
     try {
+      if (isVoiceSignalRateLimited(userId)) return callback?.({ error: 'Слишком много запросов' });
       const room = voiceRooms.get(roomId);
       if (!room || !room.peers.has(userId)) {
         return callback?.({ error: 'Не в комнате' });
@@ -236,6 +265,7 @@ function voiceHandler(io, socket) {
   // ═══ Начать отправку аудио/видео (produce) ═══
   socket.on('voice:produce', async ({ roomId, transportId, kind, rtpParameters, appData }, callback) => {
     try {
+      if (isVoiceSignalRateLimited(userId)) return callback?.({ error: 'Слишком много запросов' });
       const room = voiceRooms.get(roomId);
       if (!room || !room.peers.has(userId)) {
         return callback?.({ error: 'Не в комнате' });
@@ -273,6 +303,7 @@ function voiceHandler(io, socket) {
   // ═══ Получить аудио другого участника (consume) ═══
   socket.on('voice:consume', async ({ roomId, producerId, rtpCapabilities }, callback) => {
     try {
+      if (isVoiceSignalRateLimited(userId)) return callback?.({ error: 'Слишком много запросов' });
       const room = voiceRooms.get(roomId);
       if (!room || !room.peers.has(userId)) {
         return callback?.({ error: 'Не в комнате' });
@@ -445,6 +476,9 @@ function voiceHandler(io, socket) {
     for (const roomId of roomIds) {
       leaveRoom(io, socket, userId, roomId);
     }
+    // Очистить rate limits отключившегося пользователя
+    voiceChatRateLimits.delete(userId);
+    voiceSignalRateLimits.delete(userId);
   });
 }
 

@@ -1,481 +1,386 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Zap, UserCheck, MessageCircle, Bell, BellOff, Trash2, Check, X, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Bell, BellOff, Check, X, AlertTriangle, Trash2, LogIn, Zap, User, UserCheck, MessageCircle, AtSign, Sparkles } from 'lucide-react';
+import Avatar from './Avatar';
 import { useNotificationStore } from '../../store/notificationStore';
 import API_URL from '../../config';
-import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './NotificationBell.css';
 
-const TABS = [
-  { id: 'all', label: 'Все' },
-  { id: 'mention', label: '@' },
-  { id: 'friend', label: <User size={14} strokeWidth={1.5} /> },
-  { id: 'system', label: <Zap size={14} strokeWidth={1.5} /> },
-];
+const TYPES = {
+  system:          { icon: Zap,           color: '#c8ff00' },
+  login:           { icon: LogIn,         color: '#60a5fa' },
+  mention:         { icon: AtSign,        color: '#f59e0b' },
+  friend_request:  { icon: User,          color: '#a78bfa' },
+  friend_accepted: { icon: UserCheck,     color: '#4ade80' },
+  message:         { icon: MessageCircle, color: '#38bdf8' },
+};
+const getT = t => TYPES[t] || TYPES.system;
 
-const MIN_W = 320;
-const MIN_H = 300;
-const DEFAULT_W = 420;
-const DEFAULT_H = 520;
-const SNAP_DIST = 20;
-const TOP_BOUND = 72;
-const EDGE_PAD = 8;
+function timeAgo(d) {
+  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+  if (m < 1) return 'сейчас';
+  if (m < 60) return `${m}м`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}ч`;
+  return `${Math.floor(h / 24)}д`;
+}
 
-const EDGES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
-
-function typeIcon(type) {
-  switch (type) {
-    case 'mention': return '@';
-    case 'friend_request': return <User size={14} strokeWidth={1.5} />;
-    case 'friend_accepted': return <UserCheck size={14} strokeWidth={1.5} />;
-    case 'system': return <Zap size={14} strokeWidth={1.5} />;
-    case 'message': return <MessageCircle size={14} strokeWidth={1.5} />;
-    default: return <Bell size={14} strokeWidth={1.5} />;
+function smartGroup(list) {
+  const out = [];
+  for (const n of list) {
+    const prev = out[out.length - 1];
+    if (prev && prev.type === n.type && prev.title === n.title && n.type !== 'friend_request') {
+      prev.count++;
+      prev.ids.push(n.id);
+      prev.unread = prev.unread || !n.isRead;
+    } else {
+      out.push({ ...n, count: 1, ids: [n.id], unread: !n.isRead });
+    }
   }
+  return out;
 }
 
-function timeAgo(date) {
-  const now = Date.now();
-  const diff = now - new Date(date).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'только что';
-  if (minutes < 60) return `${minutes} мин`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} ч`;
-  const days = Math.floor(hours / 24);
-  return `${days} д`;
-}
+// Card rotation pattern
+const ROTATIONS = [-2, 1.2, -0.8, 1.5, -0.5, 1.8, -1.2, 0.6];
 
-function clampPos(x, y, w, h) {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  return {
-    x: Math.min(Math.max(x, EDGE_PAD), vw - w - EDGE_PAD),
-    y: Math.min(Math.max(y, TOP_BOUND), vh - h - EDGE_PAD),
-  };
-}
-
-function snapPos(x, y, w, h) {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  let sx = x, sy = y;
-  if (Math.abs(x - EDGE_PAD) < SNAP_DIST) sx = EDGE_PAD;
-  if (Math.abs(x + w - (vw - EDGE_PAD)) < SNAP_DIST) sx = vw - EDGE_PAD - w;
-  if (Math.abs(y - TOP_BOUND) < SNAP_DIST) sy = TOP_BOUND;
-  if (Math.abs(y + h - (vh - EDGE_PAD)) < SNAP_DIST) sy = vh - EDGE_PAD - h;
-  return { x: sx, y: sy };
+// Calculate Y offsets dynamically based on card heights
+function calcOffsets(items) {
+  const offsets = [0];
+  let acc = 0;
+  for (let i = 0; i < items.length - 1; i++) {
+    const isFriend = items[i].type === 'friend_request' && items[i].unread;
+    const isFirst = i === 0;
+    const h = isFriend ? 130 : (isFirst ? 78 : 62); // hero taller, first has toolbar
+    acc -= (h + 10);
+    offsets.push(acc);
+  }
+  return offsets;
 }
 
 export default function NotificationBell({ onOpenChat }) {
-  const [activeTab, setActiveTab] = useState('all');
+  const [open, setOpen] = useState(false);
   const [shaking, setShaking] = useState(false);
-  const prevCountRef = useRef(0);
-
-  // open / closed — простое состояние
-  const [isOpen, setIsOpen] = useState(false);
-  // CSS-класс для анимации: '' → 'entering' → 'open' → 'leaving' → ''
-  const [animClass, setAnimClass] = useState('');
-  // transform-origin для эффекта «вырастания из колокольчика»
-  const [originStyle, setOriginStyle] = useState({});
-
-  // Позиция и размер окна
-  const [winPos, setWinPos] = useState({ x: 0, y: 0 });
-  const [winSize, setWinSize] = useState({ w: DEFAULT_W, h: DEFAULT_H });
-
-  // Блокировка drag сразу после открытия
-  const dragLockRef = useRef(false);
-
+  const [expanded, setExpanded] = useState(null);
+  const closingDetailRef = useRef(false);
+  const prevCnt = useRef(0);
   const bellRef = useRef(null);
-  const windowRef = useRef(null);
-  const dragRef = useRef({ active: false });
-  const resizeRef = useRef({ active: false });
-  const closingTimerRef = useRef(null);
+  const [anchor, setAnchor] = useState(null);
 
-  const {
-    notifications,
-    unreadCount,
-    fetchNotifications,
-    markAsRead,
-    markAllAsRead,
-    clearAll,
-    removeNotification,
-  } = useNotificationStore();
+  const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead, clearAll, removeNotification } = useNotificationStore();
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
-
-  // Shake при новом уведомлении
   useEffect(() => {
-    if (unreadCount > prevCountRef.current && prevCountRef.current >= 0) {
-      setShaking(true);
-      const t = setTimeout(() => setShaking(false), 700);
-      return () => clearTimeout(t);
-    }
-    prevCountRef.current = unreadCount;
+    if (unreadCount > prevCnt.current && prevCnt.current >= 0) { setShaking(true); const t = setTimeout(() => setShaking(false), 700); return () => clearTimeout(t); }
+    prevCnt.current = unreadCount;
   }, [unreadCount]);
+  useEffect(() => { if (!open) return; const h = e => { if (e.key === 'Escape') setOpen(false); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [open]);
 
-  // Escape закрывает (через ref чтобы избежать temporal dead zone)
-  const handleCloseRef = useRef(null);
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e) => { if (e.key === 'Escape') handleCloseRef.current?.(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isOpen]);
+  const grouped = useMemo(() => smartGroup(notifications), [notifications]);
 
-  // Клик вне окна закрывает
-  useEffect(() => {
-    if (!isOpen || animClass !== 'open') return;
-    const handler = (e) => {
-      if (
-        windowRef.current && !windowRef.current.contains(e.target) &&
-        bellRef.current && !bellRef.current.contains(e.target)
-      ) {
-        handleClose();
-      }
-    };
-    // Задержка чтобы текущий клик не сработал
-    const t = setTimeout(() => window.addEventListener('pointerdown', handler), 50);
-    return () => { clearTimeout(t); window.removeEventListener('pointerdown', handler); };
-  }, [isOpen, animClass]);
-
-  // Вычислить transform-origin относительно окна
-  const calcOrigin = useCallback((winX, winY) => {
-    if (!bellRef.current) return 'top right';
-    const bell = bellRef.current.getBoundingClientRect();
-    // Центр колокольчика относительно окна
-    const ox = bell.left + bell.width / 2 - winX;
-    const oy = bell.top + bell.height / 2 - winY;
-    return `${ox}px ${oy}px`;
-  }, []);
-
-  // Открытие
   const handleOpen = useCallback(() => {
-    // Очистить таймер закрытия если есть
-    if (closingTimerRef.current) {
-      clearTimeout(closingTimerRef.current);
-      closingTimerRef.current = null;
-    }
-
-    const finalPos = (() => {
-      if (!bellRef.current) return { x: 100, y: TOP_BOUND + 8 };
-      const rect = bellRef.current.getBoundingClientRect();
-      return clampPos(rect.right - DEFAULT_W, rect.bottom + 8, DEFAULT_W, DEFAULT_H);
-    })();
-
-    setWinPos(finalPos);
-    setWinSize({ w: DEFAULT_W, h: DEFAULT_H });
-    setOriginStyle({ transformOrigin: calcOrigin(finalPos.x, finalPos.y) });
-
-    // Заблокировать drag на 300ms после открытия
-    dragLockRef.current = true;
-    setTimeout(() => { dragLockRef.current = false; }, 300);
-
-    setIsOpen(true);
-    setAnimClass('entering');
-  }, [calcOrigin]);
-
-  // entering → open: ждём пока DOM отрисует entering, потом переключаем
-  useEffect(() => {
-    if (animClass !== 'entering') return;
-    // Форсируем reflow
-    if (windowRef.current) void windowRef.current.offsetHeight;
-    const t = setTimeout(() => setAnimClass('open'), 20);
-    return () => clearTimeout(t);
-  }, [animClass]);
-
-  // Закрытие (+ обновляем ref для Escape handler)
-  const handleClose = useCallback(() => {
-    if (!isOpen) return;
-
-    // Пересчитать origin для обратной анимации
-    const origin = calcOrigin(winPos.x, winPos.y);
-    setOriginStyle({ transformOrigin: origin });
-
-    setAnimClass('leaving');
-    closingTimerRef.current = setTimeout(() => {
-      setIsOpen(false);
-      setAnimClass('');
-      closingTimerRef.current = null;
-    }, 300);
-  }, [isOpen, calcOrigin, winPos]);
-  handleCloseRef.current = handleClose;
-
-  // Клик по колокольчику — toggle
-  const handleBellClick = useCallback(() => {
-    if (!isOpen) {
-      handleOpen();
-    } else if (animClass === 'open') {
-      handleClose();
-    }
-    // Во время entering/leaving — игнорируем
-  }, [isOpen, animClass, handleOpen, handleClose]);
-
-  // === DRAG по хедеру ===
-  const handleDragDown = useCallback((e) => {
-    if (dragLockRef.current) return;
-    if (e.target.closest('.bell-window__close') || e.target.closest('.bell-header__read-all')) return;
-    dragRef.current = {
-      active: true,
-      startX: e.clientX, startY: e.clientY,
-      startWinX: winPos.x, startWinY: winPos.y,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.preventDefault();
-  }, [winPos]);
-
-  const handleDragMove = useCallback((e) => {
-    if (!dragRef.current.active) return;
-    const d = dragRef.current;
-    const clamped = clampPos(d.startWinX + e.clientX - d.startX, d.startWinY + e.clientY - d.startY, winSize.w, winSize.h);
-    const snapped = snapPos(clamped.x, clamped.y, winSize.w, winSize.h);
-    setWinPos(snapped);
-  }, [winSize]);
-
-  const handleDragUp = useCallback(() => { dragRef.current.active = false; }, []);
-
-  // === RESIZE по краям ===
-  const handleResizeDown = useCallback((e, edge) => {
-    e.stopPropagation();
-    resizeRef.current = {
-      active: true, edge,
-      startX: e.clientX, startY: e.clientY,
-      startWinX: winPos.x, startWinY: winPos.y,
-      startW: winSize.w, startH: winSize.h,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.preventDefault();
-  }, [winPos, winSize]);
-
-  const handleResizeMove = useCallback((e) => {
-    const r = resizeRef.current;
-    if (!r.active) return;
-    const dx = e.clientX - r.startX;
-    const dy = e.clientY - r.startY;
-    let { startWinX: x, startWinY: y, startW: w, startH: h } = r;
-    const edge = r.edge;
-
-    if (edge.includes('e')) w = r.startW + dx;
-    if (edge.includes('w')) { w = r.startW - dx; x = r.startWinX + dx; }
-    if (edge.includes('s')) h = r.startH + dy;
-    if (edge === 'n' || edge === 'ne' || edge === 'nw') { h = r.startH - dy; y = r.startWinY + dy; }
-
-    if (w < MIN_W) { if (edge.includes('w')) x = r.startWinX + r.startW - MIN_W; w = MIN_W; }
-    if (h < MIN_H) { if (edge === 'n' || edge === 'ne' || edge === 'nw') y = r.startWinY + r.startH - MIN_H; h = MIN_H; }
-
-    const clamped = clampPos(x, y, w, h);
-    setWinPos(clamped);
-    setWinSize({ w, h });
+    if (bellRef.current) setAnchor(bellRef.current.getBoundingClientRect());
+    setOpen(true);
   }, []);
 
-  const handleResizeUp = useCallback(() => { resizeRef.current.active = false; }, []);
+  // Click outside
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => {
+      if (closingDetailRef.current) return;
+      if (bellRef.current?.contains(e.target)) return;
+      const stack = document.querySelector('.rs-stack');
+      if (stack && stack.contains(e.target)) return;
+      const detail = document.querySelector('.rs-detail');
+      if (detail && detail.contains(e.target)) return;
+      setOpen(false);
+    };
+    const t = setTimeout(() => window.addEventListener('pointerdown', h), 80);
+    return () => { clearTimeout(t); window.removeEventListener('pointerdown', h); };
+  }, [open]);
 
-  // Фильтрация
-  const filtered = activeTab === 'all'
-    ? notifications
-    : notifications.filter((n) => {
-        if (activeTab === 'friend') return n.type === 'friend_request' || n.type === 'friend_accepted';
-        return n.type === activeTab;
-      });
-
-  const handleItemClick = useCallback((notification) => {
-    if (!notification.isRead) markAsRead(notification.id);
-    if (notification.roomId && onOpenChat) {
-      onOpenChat(notification.roomId, null);
-      handleClose();
-    }
-  }, [markAsRead, onOpenChat, handleClose]);
-
-  // Предотвращаем двойные клики на accept/decline
-  const processingFriendRef = useRef(new Set());
-
-  const handleAcceptFriend = useCallback(async (notification, e) => {
-    e.stopPropagation();
-    if (processingFriendRef.current.has(notification.id)) return;
-    processingFriendRef.current.add(notification.id);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${token}` } });
-      const requests = await res.json();
-      const request = requests.find((r) => r.senderId === notification.fromUserId);
-      if (request) {
-        const acceptRes = await fetch(`${API_URL}/api/friends/requests/${request.id}/accept`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-        const data = await acceptRes.json();
-        if (data.ok && data.roomId && onOpenChat) { onOpenChat(data.roomId, null); handleClose(); }
-      }
-      markAsRead(notification.id);
-    } catch (err) { console.error('Accept friend error:', err); }
-    finally { processingFriendRef.current.delete(notification.id); }
-  }, [markAsRead, onOpenChat, handleClose]);
-
-  const handleDeclineFriend = useCallback(async (notification, e) => {
-    e.stopPropagation();
-    if (processingFriendRef.current.has(notification.id)) return;
-    processingFriendRef.current.add(notification.id);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${token}` } });
-      const requests = await res.json();
-      const request = requests.find((r) => r.senderId === notification.fromUserId);
-      if (request) {
-        await fetch(`${API_URL}/api/friends/requests/${request.id}/decline`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-      }
-      markAsRead(notification.id);
-    } catch (err) { console.error('Decline friend error:', err); }
-    finally { processingFriendRef.current.delete(notification.id); }
+  // Friend actions
+  const procRef = useRef(new Set());
+  const acceptFriend = useCallback(async (n, e) => {
+    e.stopPropagation(); if (procRef.current.has(n.id)) return; procRef.current.add(n.id);
+    try { const tk = localStorage.getItem('token'); const r = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${tk}` } }); const reqs = await r.json(); const rq = reqs.find(x => x.senderId === n.fromUserId); if (rq) { const r2 = await fetch(`${API_URL}/api/friends/requests/${rq.id}/accept`, { method: 'POST', headers: { Authorization: `Bearer ${tk}` } }); const d = await r2.json(); if (d.ok && d.roomId && onOpenChat) { onOpenChat(d.roomId, null); setOpen(false); } } markAsRead(n.id); } catch {} finally { procRef.current.delete(n.id); }
+  }, [markAsRead, onOpenChat]);
+  const declineFriend = useCallback(async (n, e) => {
+    e.stopPropagation(); if (procRef.current.has(n.id)) return; procRef.current.add(n.id);
+    try { const tk = localStorage.getItem('token'); const r = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${tk}` } }); const reqs = await r.json(); const rq = reqs.find(x => x.senderId === n.fromUserId); if (rq) await fetch(`${API_URL}/api/friends/requests/${rq.id}/decline`, { method: 'POST', headers: { Authorization: `Bearer ${tk}` } }); markAsRead(n.id); } catch {} finally { procRef.current.delete(n.id); }
   }, [markAsRead]);
 
-  // Подтверждение очистки
   const [confirmClear, setConfirmClear] = useState(false);
-  const confirmTimerRef = useRef(null);
+  const confirmT = useRef(null);
+  const doClear = useCallback(() => { if (!confirmClear) { setConfirmClear(true); confirmT.current = setTimeout(() => setConfirmClear(false), 3000); return; } clearTimeout(confirmT.current); setConfirmClear(false); clearAll(); }, [confirmClear, clearAll]);
+  useEffect(() => () => clearTimeout(confirmT.current), []);
 
-  const handleClearAll = useCallback(() => {
-    if (!confirmClear) {
-      setConfirmClear(true);
-      // Автосброс через 3 секунды
-      confirmTimerRef.current = setTimeout(() => setConfirmClear(false), 3000);
-      return;
-    }
-    clearTimeout(confirmTimerRef.current);
-    setConfirmClear(false);
-    clearAll();
-  }, [confirmClear, clearAll]);
+  // Stack position
+  const cardW = 320;
+  const stackX = anchor ? Math.min(Math.max(12, anchor.left + anchor.width / 2 - cardW / 2), window.innerWidth - cardW - 12) : 100;
+  const stackBottom = anchor ? (window.innerHeight - anchor.top + 14) : 70;
+  const offsets = useMemo(() => calcOffsets(grouped), [grouped]);
+  const totalStackH = offsets.length > 0 ? Math.abs(offsets[offsets.length - 1]) + 120 : 120;
 
-  // Cleanup таймера
-  useEffect(() => () => clearTimeout(confirmTimerRef.current), []);
+  const closeDetail = useCallback(() => {
+    closingDetailRef.current = true;
+    setExpanded(null);
+    setTimeout(() => { closingDetailRef.current = false; }, 400);
+  }, []);
 
-  const bellClasses = [
-    'bell-trigger',
-    isOpen && 'bell-trigger--active',
-    shaking && 'bell-trigger--shake',
-    !isOpen && unreadCount > 0 && 'bell-trigger--has-unread',
-  ].filter(Boolean).join(' ');
+  const bellCls = ['rs-bell', open && 'rs-bell--on', shaking && 'rs-bell--shake', !open && unreadCount > 0 && 'rs-bell--glow'].filter(Boolean).join(' ');
 
   return (
     <>
-      <button ref={bellRef} className={bellClasses} onClick={handleBellClick}>
-        <Bell size={18} strokeWidth={1.5} />
+      <button ref={bellRef} className={bellCls} onClick={() => open ? setOpen(false) : handleOpen()}>
+        <Bell size={17} strokeWidth={1.5} />
         {unreadCount > 0 && (
-          <span className="bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+          <motion.span className="rs-bell__badge" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </motion.span>
         )}
       </button>
 
-      {isOpen && (
-        <div
-          ref={windowRef}
-          className={`bell-window bell-window--${animClass}`}
-          style={{
-            left: winPos.x,
-            top: winPos.y,
-            width: winSize.w,
-            height: winSize.h,
-            ...originStyle,
-          }}
-        >
-          {/* Resize edges */}
-          {animClass === 'open' && EDGES.map((edge) => (
-            <div
-              key={edge}
-              className={`bell-resize bell-resize--${edge}`}
-              onPointerDown={(e) => handleResizeDown(e, edge)}
-              onPointerMove={handleResizeMove}
-              onPointerUp={handleResizeUp}
-            />
-          ))}
+      {createPortal(
+        <AnimatePresence>
+          {open && (
+            <>
+              {/* Light backdrop */}
+              <motion.div className="rs-bg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { if (expanded || closingDetailRef.current) { closeDetail(); } else { setOpen(false); } }} />
 
-          {/* Specular highlight */}
-          <div className="bell-window__shine" />
-
-          {/* Хедер — drag zone */}
-          <div
-            className="bell-header"
-            onPointerDown={handleDragDown}
-            onPointerMove={handleDragMove}
-            onPointerUp={handleDragUp}
-          >
-            <span className="bell-header__title">Уведомления</span>
-            <div className="bell-header__actions">
-              {notifications.length > 0 && (
-                <button
-                  className={`bell-header__read-all ${confirmClear ? 'bell-header__read-all--confirm' : ''}`}
-                  onClick={(e) => { e.stopPropagation(); handleClearAll(); }}
-                  title={confirmClear ? 'Нажмите ещё раз для подтверждения' : 'Очистить все'}
-                >
-                  {confirmClear ? <><AlertTriangle size={14} strokeWidth={1.5} /> Точно?</> : <Trash2 size={14} strokeWidth={1.5} />}
-                </button>
-              )}
-              {unreadCount > 0 && (
-                <button className="bell-header__read-all" onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}>
-                  <Check size={14} strokeWidth={2} /> Все
-                </button>
-              )}
-              <button className="bell-window__close" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
-                <X size={14} strokeWidth={2} />
-              </button>
-            </div>
-          </div>
-
-          {/* Контент */}
-          <div className={`bell-content ${animClass === 'open' ? 'bell-content--visible' : ''}`}>
-            <div className="bell-tabs">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  className={`bell-tab ${activeTab === tab.id ? 'bell-tab--active' : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="bell-list">
-              {filtered.length === 0 ? (
-                <div className="bell-empty">
-                  <div className="bell-empty__icon"><BellOff size={18} strokeWidth={1.5} /></div>
-                  <div className="bell-empty__text">Нет уведомлений</div>
-                </div>
-              ) : (
-                filtered.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`bell-item ${!n.isRead ? 'bell-item--unread' : ''}`}
-                    onClick={() => handleItemClick(n)}
-                  >
-                    {n.fromUser ? (
-                      <div className="bell-item__avatar" style={{ background: getAvatarColor(getAvatarHue(n.fromUser)) }}>
-                        {(n.fromUser.username || '?')[0].toUpperCase()}
-                      </div>
-                    ) : (
-                      <div className="bell-item__avatar bell-item__avatar--system">{typeIcon(n.type)}</div>
-                    )}
-                    <div className="bell-item__content">
-                      <div className="bell-item__title">{n.title}</div>
-                      {n.body && <div className="bell-item__body">{n.body}</div>}
-                      {n.type === 'friend_request' && !n.isRead && (
-                        <div className="bell-item__actions">
-                          <button className="bell-item__action bell-item__action--accept" onClick={(e) => handleAcceptFriend(n, e)}>Принять</button>
-                          <button className="bell-item__action bell-item__action--decline" onClick={(e) => handleDeclineFriend(n, e)}>Отклонить</button>
-                        </div>
-                      )}
-                      <div className="bell-item__time">{timeAgo(n.createdAt)}</div>
-                    </div>
-                    <button
-                      className="bell-item__delete"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeNotification(n.id);
-                      }}
-                      title="Удалить"
+              {/* Card stack */}
+              <motion.div
+                className={`rs-stack ${expanded ? 'rs-stack--dimmed' : ''}`}
+                style={{ left: stackX, bottom: stackBottom, width: cardW }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, y: 40, scale: 0.8, filter: 'blur(8px)' }}
+                transition={{ duration: 0.25, ease: [0.4, 0, 1, 1] }}
+              >
+                <AnimatePresence mode="popLayout">
+                  {grouped.length === 0 ? (
+                    <motion.div
+                      key="empty"
+                      className="rs-card rs-card--empty"
+                      initial={{ opacity: 0, y: 40, scale: 0.8 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 40, scale: 0.8 }}
+                      transition={{ type: 'spring', damping: 22, stiffness: 300 }}
                     >
-                      <X size={14} strokeWidth={2} />
-                    </button>
-                    {!n.isRead && <div className="bell-item__dot" />}
-                  </div>
-                ))
-              )}
-            </div>
+                      <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}>
+                        <Sparkles size={20} strokeWidth={1} style={{ color: 'var(--accent)' }} />
+                      </motion.div>
+                      <span className="rs-card__empty-text">Всё спокойно</span>
+                    </motion.div>
+                  ) : (
+                    grouped.map((item, i) => (
+                      <RSCard
+                        key={item.ids[0]}
+                        item={item}
+                        index={i}
+                        total={grouped.length}
+                        yOffset={offsets[i] || 0}
+                        rotation={ROTATIONS[i % ROTATIONS.length]}
+                        isFirst={i === 0}
+                        onItemClick={() => { if (!item.isRead) markAsRead(item.id); setExpanded(item); }}
+                        onAccept={acceptFriend}
+                        onDecline={declineFriend}
+                        onRemove={() => item.ids.forEach(id => removeNotification(id))}
+                        unreadCount={unreadCount}
+                        onMarkAll={markAllAsRead}
+                        onClearAll={doClear}
+                        confirmClear={confirmClear}
+                        notifCount={notifications.length}
+                      />
+                    ))
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              {/* Expanded notification detail */}
+              <AnimatePresence>
+                {expanded && (
+                  <motion.div
+                    className="rs-detail"
+                    initial={{ opacity: 0, scale: 0.8, y: 40 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.85, y: 30 }}
+                    transition={{ type: 'spring', damping: 22, stiffness: 280, mass: 0.7 }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <ExpandedCard
+                      item={expanded}
+                      onClose={closeDetail}
+                      onOpenChat={(roomId) => { setExpanded(null); setOpen(false); onOpenChat?.(roomId, null); }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
+  );
+}
+
+// ═══════ RADIAL STACK CARD ═══════
+function RSCard({ item, index, total, yOffset, rotation, isFirst, onItemClick, onAccept, onDecline, onRemove, unreadCount, onMarkAll, onClearAll, confirmClear, notifCount }) {
+  const cfg = getT(item.type);
+  const Icon = cfg.icon;
+  const isFriend = item.type === 'friend_request' && item.unread;
+
+  return (
+    <motion.div
+      className={`rs-card ${item.unread ? 'rs-card--unread' : ''} ${isFriend ? 'rs-card--hero' : ''}`}
+      style={{ '--card-color': cfg.color, zIndex: total - index }}
+      initial={{ opacity: 0, y: 80, scale: 0.6, rotate: 0, x: index % 2 === 0 ? -20 : 20 }}
+      animate={{ opacity: 1, y: yOffset, scale: 1, rotate: rotation, x: 0 }}
+      exit={{ opacity: 0, y: 80, scale: 0.5, rotate: rotation * 3, filter: 'blur(6px)' }}
+      transition={{ delay: index * 0.06, type: 'spring', damping: 18, stiffness: 250, mass: 0.8 }}
+      layout
+      whileHover={{ y: yOffset - 6, scale: 1.03, rotate: 0, zIndex: 50, boxShadow: '0 20px 56px rgba(0,0,0,0.5)' }}
+      whileTap={{ scale: 0.97 }}
+      onClick={!isFriend ? onItemClick : undefined}
+    >
+      {/* Actions integrated into first card */}
+      {isFirst && (unreadCount > 0 || notifCount > 0) && (
+        <div className="rs-card__toolbar">
+          {unreadCount > 0 && <span className="rs-card__new-count">{unreadCount} новых</span>}
+          <div className="rs-card__toolbar-btns">
+            {notifCount > 0 && (
+              <motion.button className={`rs-tbtn ${confirmClear ? 'rs-tbtn--red' : ''}`} onClick={e => { e.stopPropagation(); onClearAll(); }} whileTap={{ scale: 0.85 }}>
+                {confirmClear ? <><AlertTriangle size={10} /> Точно?</> : <><Trash2 size={10} /> Очистить</>}
+              </motion.button>
+            )}
+            {unreadCount > 0 && (
+              <motion.button className="rs-tbtn" onClick={e => { e.stopPropagation(); onMarkAll(); }} whileTap={{ scale: 0.85 }}>
+                <Check size={10} /> Прочитать
+              </motion.button>
+            )}
           </div>
         </div>
       )}
-    </>
+      {/* Accent top edge */}
+      {item.unread && (
+        <motion.div
+          className="rs-card__edge"
+          style={{ background: `linear-gradient(90deg, transparent, ${cfg.color}, transparent)` }}
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ delay: index * 0.05 + 0.2, duration: 0.4 }}
+        />
+      )}
+
+      <div className="rs-card__main">
+        {/* Avatar / Icon */}
+        {item.fromUser ? (
+          <div className="rs-card__ava-wrap">
+            <Avatar user={item.fromUser} size={isFriend ? 38 : 30} />
+            {item.unread && <div className="rs-card__ava-ring" style={{ borderColor: cfg.color }} />}
+          </div>
+        ) : (
+          <div className="rs-card__icon" style={{ color: cfg.color }}>
+            <Icon size={14} />
+          </div>
+        )}
+
+        <div className="rs-card__body">
+          <div className="rs-card__top">
+            <span className="rs-card__title">
+              {item.title}
+              {item.count > 1 && <span className="rs-card__mult" style={{ color: cfg.color }}> ×{item.count}</span>}
+            </span>
+            <span className="rs-card__time">{timeAgo(item.createdAt)}</span>
+          </div>
+          {item.body && <span className="rs-card__desc">{item.body}</span>}
+        </div>
+
+        <motion.button className="rs-card__x" onClick={e => { e.stopPropagation(); onRemove(); }} whileTap={{ scale: 0.7 }}>
+          <X size={10} />
+        </motion.button>
+      </div>
+
+      {/* Friend request buttons */}
+      {isFriend && (
+        <div className="rs-card__btns">
+          <motion.button className="rs-btn rs-btn--yes" onClick={e => onAccept(item, e)} whileTap={{ scale: 0.93 }} whileHover={{ y: -1 }}>
+            <Check size={13} /> Принять
+          </motion.button>
+          <motion.button className="rs-btn rs-btn--no" onClick={e => onDecline(item, e)} whileTap={{ scale: 0.93 }}>
+            Нет
+          </motion.button>
+        </div>
+      )}
+
+      {/* Accent glow bar */}
+      {item.unread && <div className="rs-card__glow" style={{ background: cfg.color }} />}
+    </motion.div>
+  );
+}
+
+// ═══════ EXPANDED DETAIL CARD ═══════
+function ExpandedCard({ item, onClose, onOpenChat }) {
+  const cfg = getT(item.type);
+  const Icon = cfg.icon;
+
+  const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  const d = new Date(item.createdAt);
+  const fullDate = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+  return (
+    <div className="rs-exp">
+      {/* Top accent line */}
+      <div className="rs-exp__accent" style={{ background: `linear-gradient(90deg, transparent, ${cfg.color}, transparent)` }} />
+
+      {/* Close */}
+      <motion.button className="rs-exp__close" onClick={e => { e.stopPropagation(); onClose(); }} whileHover={{ rotate: 90 }} whileTap={{ scale: 0.8 }}>
+        <X size={15} />
+      </motion.button>
+
+      {/* Header */}
+      <div className="rs-exp__header">
+        {item.fromUser ? (
+          <div className="rs-exp__ava">
+            <Avatar user={item.fromUser} size={48} />
+            <div className="rs-exp__ava-ring" style={{ borderColor: cfg.color }} />
+          </div>
+        ) : (
+          <div className="rs-exp__type-icon" style={{ color: cfg.color, background: `${cfg.color}12` }}>
+            <Icon size={22} />
+          </div>
+        )}
+        <div className="rs-exp__info">
+          <span className="rs-exp__title">{item.title}</span>
+          <span className="rs-exp__date">{fullDate}</span>
+        </div>
+      </div>
+
+      {/* Body */}
+      {item.body && (
+        <div className="rs-exp__body">
+          {item.body}
+        </div>
+      )}
+
+      {/* Type badge */}
+      <div className="rs-exp__badge" style={{ color: cfg.color, background: `${cfg.color}10`, borderColor: `${cfg.color}20` }}>
+        <Icon size={12} />
+        {item.type === 'friend_request' ? 'Заявка в друзья' :
+         item.type === 'friend_accepted' ? 'Новый друг' :
+         item.type === 'mention' ? 'Упоминание' :
+         item.type === 'message' ? 'Сообщение' :
+         item.type === 'login' ? 'Безопасность' : 'Система'}
+        {item.count > 1 && ` ×${item.count}`}
+      </div>
+
+      {/* Action */}
+      {item.roomId && (
+        <motion.button className="rs-exp__action" onClick={() => onOpenChat(item.roomId)} whileTap={{ scale: 0.95 }} whileHover={{ y: -1 }}>
+          <MessageCircle size={14} /> Перейти к чату
+        </motion.button>
+      )}
+    </div>
   );
 }

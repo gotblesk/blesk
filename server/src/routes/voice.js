@@ -215,9 +215,37 @@ router.delete('/rooms/:id/kick/:userId', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'Нет доступа' });
     }
 
+    const kickedUserId = req.params.userId;
+
     await prisma.roomParticipant.deleteMany({
-      where: { roomId: room.id, userId: req.params.userId },
+      where: { roomId: room.id, userId: kickedUserId },
     });
+
+    // Очистить mediasoup peer и отключить сокет из комнаты
+    const voiceRoom = voiceRooms.get(room.id);
+    if (voiceRoom && voiceRoom.peers.has(kickedUserId)) {
+      const peer = voiceRoom.peers.get(kickedUserId);
+      cleanupPeer(peer);
+      voiceRoom.peers.delete(kickedUserId);
+
+      // Уведомить кикнутого и остальных
+      const io = req.app.locals.io;
+      if (io) {
+        for (const [, s] of io.sockets.sockets) {
+          if (s.userId === kickedUserId) {
+            s.emit('voice:kicked', { roomId: room.id });
+            s.leave(`voice:${room.id}`);
+          }
+        }
+        io.to(`voice:${room.id}`).emit('voice:user-left', { userId: kickedUserId });
+      }
+
+      // Очистить пустую комнату
+      if (voiceRoom.peers.size === 0) {
+        voiceRoom.router.close();
+        voiceRooms.delete(room.id);
+      }
+    }
 
     res.json({ ok: true });
   } catch (err) {

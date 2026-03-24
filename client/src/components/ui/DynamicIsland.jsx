@@ -4,6 +4,7 @@ import { useChatStore } from '../../store/chatStore';
 import { useVoiceStore } from '../../store/voiceStore';
 import { Search, Users, Mic, Radio, Settings, Sparkles, X } from 'lucide-react';
 import Avatar from './Avatar';
+import NotificationBell from './NotificationBell';
 import './DynamicIsland.css';
 
 export default function DynamicIsland({
@@ -247,6 +248,9 @@ export default function DynamicIsland({
             <button className="island-search__go" onClick={handleSearchSubmit}>→</button>
           </div>
         </div>
+
+        {/* ═══════ NOTIFICATION BELL ═══════ */}
+        <NotificationBell />
       </div>
 
       {/* ═══════ STATUS MENU ═══════ */}

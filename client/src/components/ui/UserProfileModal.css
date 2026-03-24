@@ -1,203 +1,333 @@
-/* ===== Overlay ===== */
-.upm-overlay {
+/* ═══════ USER PROFILE MODAL ═══════ */
+
+.uprof-overlay {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 1000;
-  animation: upm-fade-in 0.2s ease;
 }
 
-/* ===== Card ===== */
-.upm-card {
+/* ═══════ CARD — Double Layer Glass ═══════ */
+.uprof {
   position: relative;
-  width: 340px;
-  padding: 32px;
+  width: 320px;
+  border-radius: 24px;
+  overflow: hidden;
+  transition: transform 0.15s ease-out;
+  will-change: transform;
+
+  /* Outer glass */
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.3),
+    0 0 0 0.5px rgba(255, 255, 255, 0.06) inset;
+}
+
+/* Specular highlight */
+.uprof::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Hue glow */
+.uprof__glow {
+  position: absolute;
+  top: -40px;
+  left: -20%;
+  right: -20%;
+  height: 140px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══════ CLOSE ═══════ */
+.uprof__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+  transition: background 0.15s, color 0.15s;
+}
+.uprof__close:hover { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8); }
+
+/* ═══════ CONTENT ═══════ */
+.uprof__content {
+  position: relative;
+  z-index: 1;
+  padding: 28px 24px 22px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  animation: upm-scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  gap: 10px;
 }
 
-/* ===== Close button ===== */
-.upm-close {
-  position: absolute;
-  top: 12px;
-  right: 14px;
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 22px;
-  cursor: pointer;
-  line-height: 1;
-  padding: 4px 6px;
-  border-radius: 8px;
-  transition: color 0.15s, background 0.15s;
+/* ═══════ AVATAR + RING ═══════ */
+.uprof__avatar-wrap {
+  position: relative;
+  margin-bottom: 2px;
 }
 
-.upm-close:hover {
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-/* ===== Avatar ===== */
-.upm-avatar {
-  width: 80px;
-  height: 80px;
+.uprof__ring {
+  padding: 3px;
   border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.uprof__ring--online {
+  border-color: rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.15);
+}
+
+/* ═══════ IDENTITY ═══════ */
+.uprof__identity {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  font-weight: 700;
-  color: #fff;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-  flex-shrink: 0;
-}
-
-.upm-avatar img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-/* ===== Name + tag ===== */
-.upm-name {
-  font-size: 20px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
+  align-items: baseline;
+  gap: 4px;
   text-align: center;
 }
 
-.upm-tag {
-  font-size: 14px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.35);
-  margin-left: 2px;
+.uprof__name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
 }
 
-/* ===== Status row ===== */
-.upm-status-row {
+.uprof__tag {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ═══════ STATUS ═══════ */
+.uprof__status {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.upm-dot {
-  width: 8px;
-  height: 8px;
+.uprof__dot {
+  width: 7px; height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
+.uprof__dot--online { background: #4ade80; box-shadow: 0 0 8px rgba(74, 222, 128, 0.4); }
+.uprof__dot--dnd { background: #ef4444; }
+.uprof__dot--invisible,
+.uprof__dot--offline { background: rgba(255, 255, 255, 0.2); }
 
-.upm-custom-status {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
+.uprof__status-text {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
-/* ===== Bio ===== */
-.upm-bio {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+.uprof__lastseen {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+
+/* ═══════ CUSTOM STATUS ═══════ */
+.uprof__custom {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  font-style: italic;
+  text-align: center;
+  max-width: 260px;
+}
+
+/* ═══════ BIO ═══════ */
+.uprof__bio {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
   text-align: center;
   margin: 0;
-  line-height: 1.45;
-  max-width: 280px;
+  line-height: 1.5;
+  max-width: 260px;
   word-break: break-word;
 }
 
-/* ===== Date ===== */
-.upm-date {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.25);
+/* ═══════ CHIPS ═══════ */
+.uprof__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-/* ===== Actions ===== */
-.upm-actions {
+.uprof__chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ═══════ DIVIDER ═══════ */
+.uprof__divider {
+  width: 80%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  margin: 4px 0;
+}
+
+/* ═══════ ACTIONS ═══════ */
+.uprof__actions {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 2px;
 }
 
-.upm-btn {
+.uprof__btn {
   width: 100%;
   padding: 10px 0;
   border-radius: 14px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
   border: none;
-}
-
-.upm-btn:active {
-  transform: scale(0.97);
-}
-
-.upm-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.upm-btn--primary {
-  background: var(--accent);
-  color: var(--accent-text);
-}
-
-.upm-btn--primary:hover:not(:disabled) {
-  opacity: 0.88;
-}
-
-.upm-btn--outline {
-  background: transparent;
-  color: var(--accent);
-  border: 1.5px solid rgba(200, 255, 0, 0.4);
-}
-
-.upm-btn--outline:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: rgba(200, 255, 0, 0.06);
-}
-
-/* ===== Loading ===== */
-.upm-loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 180px;
+  gap: 7px;
+  font-family: inherit;
+  transition: box-shadow 0.2s;
 }
 
-.upm-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid rgba(255, 255, 255, 0.12);
+.uprof__btn--primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.uprof__btn--primary:hover { box-shadow: 0 4px 20px rgba(200, 255, 0, 0.15); }
+
+.uprof__btn--outline {
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid rgba(200, 255, 0, 0.3);
+}
+.uprof__btn--outline:hover { border-color: var(--accent); background: rgba(200, 255, 0, 0.04); }
+
+.uprof__btn--sent {
+  background: rgba(74, 222, 128, 0.06);
+  color: var(--online);
+  font-weight: 500;
+  cursor: default;
+}
+
+/* ═══════ LOADING ═══════ */
+.uprof__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  position: relative;
+  z-index: 1;
+}
+
+.uprof__spinner {
+  width: 24px; height: 24px;
+  border: 2.5px solid rgba(255, 255, 255, 0.08);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: upm-spin 0.7s linear infinite;
 }
 
-/* ===== Animations ===== */
-@keyframes upm-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+/* ═══════ LIGHT THEME ═══════ */
+[data-theme="light"] .uprof-overlay {
+  background: rgba(0, 0, 0, 0.2);
 }
 
-@keyframes upm-scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+[data-theme="light"] .uprof {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.12),
+    0 0 0 0.5px rgba(255, 255, 255, 0.8) inset;
 }
 
-@keyframes upm-spin {
-  to { transform: rotate(360deg); }
+[data-theme="light"] .uprof::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+}
+
+[data-theme="light"] .uprof__close {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.3);
+}
+[data-theme="light"] .uprof__close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .uprof__ring {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .uprof__dot--invisible,
+[data-theme="light"] .uprof__dot--offline {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .uprof__custom {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .uprof__bio {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .uprof__chip {
+  color: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .uprof__divider {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent);
+}
+
+[data-theme="light"] .uprof__lastseen {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .uprof__btn--outline {
+  border-color: rgba(74, 140, 0, 0.3);
+}
+[data-theme="light"] .uprof__btn--outline:hover {
+  border-color: var(--accent);
+  background: rgba(74, 140, 0, 0.04);
+}
+
+[data-theme="light"] .uprof__btn--sent {
+  background: rgba(74, 222, 128, 0.08);
 }

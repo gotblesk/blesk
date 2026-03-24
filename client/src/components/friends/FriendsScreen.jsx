@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Users, Inbox, Search, Check, X } from 'lucide-react';
-import Glass from '../ui/Glass';
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Users, Inbox, Search, Check, X, UserPlus } from 'lucide-react';
+import Avatar from '../ui/Avatar';
 import UserProfileModal from '../ui/UserProfileModal';
 import API_URL from '../../config';
-import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './FriendsScreen.css';
 
-// Хук для дебаунса поискового запроса
 function useDebounce(value, delay) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -16,19 +15,22 @@ function useDebounce(value, delay) {
   return debounced;
 }
 
-// Аватар на основе hue пользователя
-function UserAvatar({ username, hue, online }) {
-  const letter = username ? username[0].toUpperCase() : '?';
-  const computedHue = getAvatarHue({ username, hue });
-  const bg = getAvatarColor(computedHue);
+const TABS = [
+  { id: 'friends', label: 'Друзья' },
+  { id: 'requests', label: 'Заявки' },
+  { id: 'search', label: 'Поиск' },
+];
 
-  return (
-    <div className="friends-avatar" style={{ background: bg }}>
-      <span className="friends-avatar__letter">{letter}</span>
-      {online && <span className="friends-avatar__online" />}
-    </div>
-  );
-}
+const tabV = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.08 } },
+};
+
+const itemV = {
+  hidden: { opacity: 0, y: 8 },
+  visible: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.25, ease: [0.16, 1, 0.3, 1] } }),
+};
 
 export default function FriendsScreen({ onBack, onOpenChat }) {
   const [tab, setTab] = useState('friends');
@@ -39,400 +41,216 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
   const [sentRequests, setSentRequests] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  // id пользователя для модалки профиля
   const [profileUserId, setProfileUserId] = useState(null);
-  const indicatorRef = useRef(null);
-  const tabsRef = useRef(null);
+  const [filter, setFilter] = useState('all'); // 'all' | 'online'
 
   const debouncedQuery = useDebounce(searchQuery, 300);
 
-  // Всегда свежий токен (не кешировать в замыкании)
   const getHeaders = () => ({
     'Content-Type': 'application/json',
     Authorization: `Bearer ${localStorage.getItem('token')}`,
   });
 
-  // Позиция индикатора табов
-  useEffect(() => {
-    if (!tabsRef.current || !indicatorRef.current) return;
-    const tabs = tabsRef.current.querySelectorAll('.friends-tab');
-    const idx = tab === 'friends' ? 0 : tab === 'requests' ? 1 : 2;
-    const activeTab = tabs[idx];
-    if (activeTab) {
-      indicatorRef.current.style.left = `${activeTab.offsetLeft}px`;
-      indicatorRef.current.style.width = `${activeTab.offsetWidth}px`;
-    }
-  }, [tab]);
-
-  // Загрузка друзей
   const loadFriends = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/friends`, { headers: getHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setFriends(data);
-      }
-    } catch {
-      setError('Не удалось загрузить друзей');
-    }
+      if (res.ok) setFriends(await res.json());
+    } catch { setError('Не удалось загрузить друзей'); }
   }, []);
 
-  // Загрузка входящих заявок
   const loadPending = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: getHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setPending(data);
-      }
-    } catch {
-      setError('Не удалось загрузить заявки');
-    }
+      if (res.ok) setPending(await res.json());
+    } catch { setError('Не удалось загрузить заявки'); }
   }, []);
 
-  // При смене таба — обновляем данные (не при первом рендере, т.к. монтирование уже загрузило)
-  const initialTabRef = useRef(true);
+  useEffect(() => { loadFriends(); loadPending(); }, []);
+
   useEffect(() => {
-    if (initialTabRef.current) {
-      initialTabRef.current = false;
-      return;
-    }
-
-    let isCancelled = false;
-
-    setError('');
-    if (tab === 'friends') {
-      loadFriends().catch(() => { if (!isCancelled) setError('Не удалось загрузить друзей'); });
-    }
-    if (tab === 'requests') {
-      loadPending().catch(() => { if (!isCancelled) setError('Не удалось загрузить заявки'); });
-    }
-
-    return () => { isCancelled = true; };
-  }, [tab]);
-
-  // Загружаем друзей и заявки при монтировании (для badge и списка)
-  useEffect(() => {
-    let isCancelled = false;
-
-    loadFriends().catch(() => { if (!isCancelled) setError('Не удалось загрузить друзей'); });
-    loadPending().catch(() => { if (!isCancelled) setError('Не удалось загрузить заявки'); });
-
-    return () => { isCancelled = true; };
-  }, []);
-
-  // Поиск пользователей
-  useEffect(() => {
-    if (tab !== 'search') return;
-    if (debouncedQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
+    if (tab !== 'search' || debouncedQuery.length < 2) { setSearchResults([]); return; }
     let cancelled = false;
     setLoading(true);
-
     fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(debouncedQuery)}`, { headers: getHeaders() })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setSearchResults(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Ошибка поиска');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setSearchResults(data); })
+      .catch(() => { if (!cancelled) setError('Ошибка поиска'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [debouncedQuery, tab]);
 
-  // Отправить заявку в друзья
   const sendRequest = async (userId) => {
     try {
-      const res = await fetch(`${API_URL}/api/friends/request`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ userId }),
-      });
-      if (res.ok) {
-        setSentRequests((prev) => new Set(prev).add(userId));
-      } else {
-        const data = await res.json();
-        setError(data.error || 'Не удалось отправить заявку');
-      }
-    } catch {
-      setError('Ошибка соединения');
-    }
+      const res = await fetch(`${API_URL}/api/friends/request`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ userId }) });
+      if (res.ok) setSentRequests(prev => new Set(prev).add(userId));
+      else { const d = await res.json(); setError(d.error || 'Ошибка'); }
+    } catch { setError('Ошибка соединения'); }
   };
 
-  // Принять заявку
-  const acceptRequest = async (requestId) => {
+  const acceptRequest = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/friends/requests/${requestId}/accept`, {
-        method: 'POST',
-        headers: getHeaders(),
-      });
-      if (res.ok) {
-        setPending((prev) => prev.filter((r) => r.id !== requestId));
-        loadFriends();
-      }
-    } catch {
-      setError('Не удалось принять заявку');
-    }
+      const res = await fetch(`${API_URL}/api/friends/requests/${id}/accept`, { method: 'POST', headers: getHeaders() });
+      if (res.ok) { setPending(p => p.filter(r => r.id !== id)); loadFriends(); }
+    } catch { setError('Ошибка'); }
   };
 
-  // Отклонить заявку
-  const declineRequest = async (requestId) => {
+  const declineRequest = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/friends/requests/${requestId}/decline`, {
-        method: 'POST',
-        headers: getHeaders(),
-      });
-      if (res.ok) {
-        setPending((prev) => prev.filter((r) => r.id !== requestId));
-      }
-    } catch {
-      setError('Не удалось отклонить заявку');
-    }
+      const res = await fetch(`${API_URL}/api/friends/requests/${id}/decline`, { method: 'POST', headers: getHeaders() });
+      if (res.ok) setPending(p => p.filter(r => r.id !== id));
+    } catch { setError('Ошибка'); }
   };
 
-  // Проверка — уже в друзьях?
-  const isFriend = (userId) => friends.some((f) => f.id === userId);
+  const isFriend = (userId) => friends.some(f => f.id === userId);
+
+  const filteredFriends = filter === 'online'
+    ? friends.filter(f => f.status === 'online')
+    : friends;
 
   return (
-    <div className="friends-screen section-enter">
-      <div className="friends-screen__header">
-        <button className="friends-screen__back" onClick={onBack}>
-          ← Назад
-        </button>
-        <div className="friends-screen__title">Друзья</div>
+    <div className="fr">
+      {/* Header */}
+      <div className="fr__header">
+        <div className="fr__title">Друзья</div>
+        <div className="fr__count">{friends.length}</div>
       </div>
 
-      {/* Табы */}
-      <div className="friends-tabs" ref={tabsRef}>
-        <div className="friends-tab-indicator" ref={indicatorRef} />
-        <button
-          className={`friends-tab ${tab === 'friends' ? 'friends-tab--active' : ''}`}
-          onClick={() => setTab('friends')}
-        >
-          Друзья
-        </button>
-        <button
-          className={`friends-tab ${tab === 'requests' ? 'friends-tab--active' : ''}`}
-          onClick={() => setTab('requests')}
-        >
-          Заявки
-          {pending.length > 0 && (
-            <span className="friends-tab__badge">{pending.length}</span>
-          )}
-        </button>
-        <button
-          className={`friends-tab ${tab === 'search' ? 'friends-tab--active' : ''}`}
-          onClick={() => setTab('search')}
-        >
-          Поиск
-        </button>
+      {/* Tabs */}
+      <div className="fr__tabs">
+        {TABS.map(t => (
+          <button key={t.id} className={`fr__tab ${tab === t.id ? 'fr__tab--active' : ''}`} onClick={() => setTab(t.id)}>
+            {t.label}
+            {t.id === 'requests' && pending.length > 0 && <span className="fr__badge">{pending.length}</span>}
+            {tab === t.id && <motion.div className="fr__tab-pill" layoutId="frTabPill" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />}
+          </button>
+        ))}
       </div>
 
-      {/* Ошибка */}
-      {error && (
-        <div className="friends-error">
-          <span className="friends-error__icon">!</span>
-          {error}
-        </div>
-      )}
-
-      {/* Контент */}
-      <div className="friends-content">
-        {/* Список друзей */}
-        {tab === 'friends' && (
-          <div className="friends-list">
-            {friends.length === 0 ? (
-              <div className="friends-empty">
-                <div className="friends-empty__icon"><Users size={32} strokeWidth={1.5} /></div>
-                <div className="friends-empty__text">Пока нет друзей</div>
-                <div className="friends-empty__hint">
-                  Найди людей во вкладке «Поиск»
-                </div>
-              </div>
-            ) : (
-              friends.map((friend, i) => (
-                <Glass
-                  key={friend.id}
-                  depth={1}
-                  radius={14}
-                  hover
-                  className="friends-card"
-                  style={{ animationDelay: `${i * 0.04}s`, cursor: 'pointer' }}
-                  onClick={() => setProfileUserId(friend.id)}
-                >
-                  <UserAvatar
-                    username={friend.username}
-                    hue={friend.hue}
-                    online={friend.status === 'online'}
-                  />
-                  <div className="friends-card__info">
-                    <div className="friends-card__name">
-                      {friend.username}
-                      <span className="friends-card__tag">{friend.tag?.startsWith('#') ? friend.tag : `#${friend.tag}`}</span>
-                    </div>
-                    <div className={`friends-card__status friends-card__status--${friend.status === 'online' ? 'online' : 'offline'}`}>
-                      {friend.status === 'online' ? 'В сети' : 'Не в сети'}
-                    </div>
-                  </div>
-                </Glass>
-              ))
-            )}
-          </div>
+      {/* Error */}
+      <AnimatePresence>
+        {error && (
+          <motion.div className="fr__error" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+            {error}
+            <button className="fr__error-close" onClick={() => setError('')}><X size={14} /></button>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* Входящие заявки */}
-        {tab === 'requests' && (
-          <div className="friends-list">
-            {pending.length === 0 ? (
-              <div className="friends-empty">
-                <div className="friends-empty__icon"><Inbox size={32} strokeWidth={1.5} /></div>
-                <div className="friends-empty__text">Нет входящих заявок</div>
-                <div className="friends-empty__hint">
-                  Когда кто-то добавит вас — заявка появится здесь
-                </div>
+      {/* Content */}
+      <div className="fr__body">
+        <AnimatePresence mode="wait">
+          {tab === 'friends' && (
+            <motion.div key="friends" variants={tabV} initial="initial" animate="animate" exit="exit">
+              {/* Online filter */}
+              <div className="fr__filter">
+                <button className={`fr__filter-btn ${filter === 'all' ? 'fr__filter-btn--active' : ''}`} onClick={() => setFilter('all')}>Все</button>
+                <button className={`fr__filter-btn ${filter === 'online' ? 'fr__filter-btn--active' : ''}`} onClick={() => setFilter('online')}>
+                  Онлайн
+                  <span className="fr__filter-dot" />
+                </button>
               </div>
-            ) : (
-              pending.map((req, i) => (
-                <Glass
-                  key={req.id}
-                  depth={1}
-                  radius={14}
-                  className="friends-card"
-                  style={{ animationDelay: `${i * 0.04}s` }}
-                >
-                  {/* Клик по аватару/имени открывает профиль отправителя */}
-                  <div
-                    style={{ display: 'contents', cursor: 'pointer' }}
-                    onClick={() => setProfileUserId(req.sender.id)}
-                  >
-                    <UserAvatar
-                      username={req.sender.username}
-                      hue={req.sender.hue}
-                    />
-                    <div className="friends-card__info">
-                      <div className="friends-card__name">
-                        {req.sender.username}
-                        <span className="friends-card__tag">{req.sender.tag?.startsWith('#') ? req.sender.tag : `#${req.sender.tag}`}</span>
+
+              {filteredFriends.length === 0 ? (
+                <EmptyState icon={<Users size={28} />} text={filter === 'online' ? 'Нет друзей онлайн' : 'Пока нет друзей'} hint="Найди людей во вкладке Поиск" />
+              ) : (
+                <div className="fr__list">
+                  {filteredFriends.map((friend, i) => (
+                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfileUserId(friend.id)} whileHover={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                      <Avatar user={friend} size={36} showOnline={friend.status === 'online'} />
+                      <div className="fr__item-info">
+                        <div className="fr__item-name">{friend.username}<span className="fr__item-tag">{friend.tag}</span></div>
+                        <div className={`fr__item-status ${friend.status === 'online' ? 'fr__item-status--on' : ''}`}>
+                          {friend.status === 'online' ? 'В сети' : 'Не в сети'}
+                        </div>
                       </div>
-                      <div className="friends-card__hint">Хочет добавить вас в друзья</div>
-                    </div>
-                  </div>
-                  <div className="friends-card__actions">
-                    <button
-                      className="friends-action friends-action--accept"
-                      onClick={() => acceptRequest(req.id)}
-                      title="Принять"
-                    >
-                      <Check size={16} strokeWidth={2} />
-                    </button>
-                    <button
-                      className="friends-action friends-action--decline"
-                      onClick={() => declineRequest(req.id)}
-                      title="Отклонить"
-                    >
-                      <X size={16} strokeWidth={2} />
-                    </button>
-                  </div>
-                </Glass>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* Поиск */}
-        {tab === 'search' && (
-          <div className="friends-search">
-            <div className="friends-search__wrap">
-              <input
-                className="friends-search__input"
-                type="text"
-                placeholder="Введите имя пользователя..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-                spellCheck="false"
-              />
-              {loading && <div className="friends-search__spinner" />}
-            </div>
-
-            <div className="friends-list">
-              {searchQuery.length > 0 && searchQuery.length < 2 && (
-                <div className="friends-empty">
-                  <div className="friends-empty__hint">Минимум 2 символа для поиска</div>
+                    </motion.div>
+                  ))}
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {tab === 'requests' && (
+            <motion.div key="requests" variants={tabV} initial="initial" animate="animate" exit="exit">
+              {pending.length === 0 ? (
+                <EmptyState icon={<Inbox size={28} />} text="Нет входящих заявок" hint="Когда кто-то добавит вас — заявка появится здесь" />
+              ) : (
+                <div className="fr__list">
+                  {pending.map((req, i) => (
+                    <motion.div key={req.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible">
+                      <div className="fr__item-click" onClick={() => setProfileUserId(req.sender.id)}>
+                        <Avatar user={req.sender} size={36} />
+                        <div className="fr__item-info">
+                          <div className="fr__item-name">{req.sender.username}</div>
+                          <div className="fr__item-hint">Хочет добавить вас в друзья</div>
+                        </div>
+                      </div>
+                      <div className="fr__item-actions">
+                        <motion.button className="fr__act fr__act--accept" onClick={() => acceptRequest(req.id)} whileTap={{ scale: 0.9 }} title="Принять">
+                          <Check size={16} />
+                        </motion.button>
+                        <motion.button className="fr__act fr__act--decline" onClick={() => declineRequest(req.id)} whileTap={{ scale: 0.9 }} title="Отклонить">
+                          <X size={16} />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {tab === 'search' && (
+            <motion.div key="search" variants={tabV} initial="initial" animate="animate" exit="exit">
+              <div className="fr__search-wrap">
+                <Search size={15} className="fr__search-icon" />
+                <input className="fr__search" placeholder="Введите имя..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus spellCheck={false} />
+                {loading && <div className="fr__spinner" />}
+              </div>
 
               {debouncedQuery.length >= 2 && !loading && searchResults.length === 0 && (
-                <div className="friends-empty">
-                  <div className="friends-empty__icon"><Search size={32} strokeWidth={1.5} /></div>
-                  <div className="friends-empty__text">Никого не найдено</div>
-                  <div className="friends-empty__hint">
-                    Попробуйте другой запрос
-                  </div>
-                </div>
+                <EmptyState icon={<Search size={28} />} text="Никого не найдено" hint="Попробуйте другой запрос" />
               )}
 
-              {searchResults.map((user, i) => (
-                <Glass
-                  key={user.id}
-                  depth={1}
-                  radius={14}
-                  className="friends-card"
-                  style={{ animationDelay: `${i * 0.04}s` }}
-                >
-                  {/* Клик по аватару/имени открывает профиль */}
-                  <div
-                    style={{ display: 'contents', cursor: 'pointer' }}
-                    onClick={() => setProfileUserId(user.id)}
-                  >
-                    <UserAvatar
-                      username={user.username}
-                      hue={user.hue}
-                      online={user.status === 'online'}
-                    />
-                    <div className="friends-card__info">
-                      <div className="friends-card__name">
-                        {user.username}
-                        <span className="friends-card__tag">{user.tag?.startsWith('#') ? user.tag : `#${user.tag}`}</span>
+              <div className="fr__list">
+                {searchResults.map((user, i) => (
+                  <motion.div key={user.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible">
+                    <div className="fr__item-click" onClick={() => setProfileUserId(user.id)}>
+                      <Avatar user={user} size={36} showOnline={user.status === 'online'} />
+                      <div className="fr__item-info">
+                        <div className="fr__item-name">{user.username}<span className="fr__item-tag">{user.tag}</span></div>
                       </div>
                     </div>
-                  </div>
-                  <div className="friends-card__actions">
-                    {isFriend(user.id) ? (
-                      <span className="friends-badge friends-badge--friend">Уже в друзьях</span>
-                    ) : sentRequests.has(user.id) ? (
-                      <span className="friends-badge friends-badge--sent">Отправлено</span>
-                    ) : (
-                      <button
-                        className="friends-action friends-action--add"
-                        onClick={() => sendRequest(user.id)}
-                      >
-                        Добавить
-                      </button>
-                    )}
-                  </div>
-                </Glass>
-              ))}
-            </div>
-          </div>
-        )}
+                    <div className="fr__item-actions">
+                      {isFriend(user.id) ? (
+                        <span className="fr__label fr__label--friend">Друг</span>
+                      ) : sentRequests.has(user.id) ? (
+                        <span className="fr__label fr__label--sent">Отправлено</span>
+                      ) : (
+                        <motion.button className="fr__act fr__act--add" onClick={() => sendRequest(user.id)} whileTap={{ scale: 0.9 }}>
+                          <UserPlus size={14} /> Добавить
+                        </motion.button>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Модалка профиля пользователя */}
-      <UserProfileModal
-        userId={profileUserId}
-        open={!!profileUserId}
-        onClose={() => setProfileUserId(null)}
-        onAddFriend={(id) => sendRequest(id)}
-        onOpenChat={(chatId) => { setProfileUserId(null); onOpenChat?.(chatId, null); }}
-      />
+      <UserProfileModal userId={profileUserId} open={!!profileUserId} onClose={() => setProfileUserId(null)} onAddFriend={sendRequest} onOpenChat={(chatId) => { setProfileUserId(null); onOpenChat?.(chatId, null); }} />
     </div>
+  );
+}
+
+function EmptyState({ icon, text, hint }) {
+  return (
+    <motion.div className="fr__empty" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+      <div className="fr__empty-icon">{icon}</div>
+      <div className="fr__empty-text">{text}</div>
+      {hint && <div className="fr__empty-hint">{hint}</div>}
+    </motion.div>
   );
 }

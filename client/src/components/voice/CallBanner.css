@@ -1,89 +1,133 @@
-.call-banner {
+/* ═══════ CALL BANNER — Floating Pill ═══════ */
+
+.cb-zone {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0;
+  position: relative;
+  z-index: 10;
+}
+
+.cb-pill {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: rgba(74, 222, 128, 0.12);
-  border-bottom: 1px solid rgba(74, 222, 128, 0.2);
+  gap: 8px;
+  padding: 6px 14px 6px 10px;
+  border-radius: 100px;
   cursor: pointer;
-  transition: background 0.2s;
+  position: relative;
+  overflow: hidden;
+
+  background: rgba(74,222,128,0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(74,222,128,0.15);
+  box-shadow: 0 2px 12px rgba(74,222,128,0.08);
+  transition: box-shadow 0.2s;
 }
 
-.call-banner:hover {
-  background: rgba(74, 222, 128, 0.18);
+.cb-pill:hover {
+  box-shadow: 0 4px 20px rgba(74,222,128,0.12);
 }
 
-.call-banner__indicator {
-  width: 8px;
-  height: 8px;
+/* Pulsing ring behind dot */
+.cb-pill__pulse {
+  position: absolute;
+  left: 10px; top: 50%;
+  transform: translateY(-50%);
+  width: 18px; height: 18px;
   border-radius: 50%;
-  background: var(--online);
-  animation: cb-pulse 1.5s ease-in-out infinite;
+  background: rgba(74,222,128,0.15);
+  animation: cbPulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes cbPulse {
+  0%, 100% { transform: translateY(-50%) scale(1); opacity: 0.6; }
+  50% { transform: translateY(-50%) scale(1.6); opacity: 0; }
+}
+
+/* Green dot */
+.cb-pill__dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74,222,128,0.5);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* Icon */
+.cb-pill__icon {
+  color: #4ade80;
+  display: flex;
   flex-shrink: 0;
 }
 
-.call-banner__info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.call-banner__text {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--online);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.call-banner__video-icon {
-  flex-shrink: 0;
-}
-
-.call-banner__meta {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.call-banner__join {
-  background: var(--online);
-  color: var(--accent-text);
-  border: none;
-  padding: 5px 14px;
-  border-radius: 12px;
+/* Timer */
+.cb-pill__time {
+  font-family: 'Space Mono', 'JetBrains Mono', monospace;
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.15s, opacity 0.15s;
+  color: rgba(74,222,128,0.8);
   flex-shrink: 0;
+  min-width: 28px;
 }
 
-.call-banner__join:hover {
-  transform: scale(1.05);
+/* Expanded section */
+.cb-pill__expand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.call-banner__join:active {
-  transform: scale(0.95);
+.cb-pill__count {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.35);
 }
 
-@keyframes cb-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+.cb-pill__count::before {
+  content: '';
+  display: inline-block;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  margin-right: 4px;
+  vertical-align: middle;
 }
 
-/* Светлая тема */
-[data-theme="light"] .call-banner {
-  background: rgba(74, 222, 128, 0.08);
-  border-bottom-color: rgba(74, 222, 128, 0.15);
+.cb-pill__join {
+  padding: 4px 12px;
+  border-radius: 100px;
+  border: none;
+  background: #4ade80;
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: box-shadow 0.12s;
+  white-space: nowrap;
 }
 
-[data-theme="light"] .call-banner:hover {
-  background: rgba(74, 222, 128, 0.14);
+.cb-pill__join:hover {
+  box-shadow: 0 2px 10px rgba(74,222,128,0.25);
 }
 
-[data-theme="light"] .call-banner__meta {
-  color: rgba(0, 0, 0, 0.4);
+/* ═══════ LIGHT THEME ═══════ */
+[data-theme="light"] .cb-pill {
+  background: rgba(74,222,128,0.06);
+  border-color: rgba(74,222,128,0.12);
+}
+
+[data-theme="light"] .cb-pill__time {
+  color: rgba(22,163,74,0.7);
+}
+
+[data-theme="light"] .cb-pill__count {
+  color: rgba(0,0,0,0.3);
 }

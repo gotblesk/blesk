@@ -31,7 +31,7 @@ export default function AdminFeedback() {
     if (typeFilter) filters.type = typeFilter;
     if (statusFilter) filters.status = statusFilter;
     fetchFeedbacks(page, filters);
-  }, [page]);
+  }, [page, typeFilter, statusFilter, fetchFeedbacks]);
 
   const handleStatus = async (id, status) => {
     await updateFeedback(id, status);

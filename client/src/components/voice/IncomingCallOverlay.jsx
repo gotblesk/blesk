@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
 import { Video, Phone } from 'lucide-react';
+import API_URL from '../../config';
 import './IncomingCallOverlay.css';
 
 export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
@@ -21,6 +22,8 @@ export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
   const hue = getAvatarHue({ hue: call.callerHue, username: call.callerName });
   const isGroup = call.type === 'group';
   const displayName = isGroup ? call.chatName : call.callerName;
+  const callerAvatar = call.callerAvatar;
+  const [imgError, setImgError] = useState(false);
 
   return (
     <div className="incoming-call-overlay">
@@ -33,9 +36,18 @@ export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
           <div className="incoming-call-overlay__pulse incoming-call-overlay__pulse--delayed" style={{ background: `hsla(${hue}, 70%, 50%, 0.2)` }} />
           <div
             className="incoming-call-overlay__avatar"
-            style={{ background: getAvatarGradient(hue) }}
+            style={(!callerAvatar || imgError) ? { background: getAvatarGradient(hue) } : {}}
           >
-            {(call.callerName || '?')[0].toUpperCase()}
+            {callerAvatar && !imgError ? (
+              <img
+                src={`${API_URL}/uploads/avatars/${callerAvatar}`}
+                alt=""
+                onError={() => setImgError(true)}
+                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              (call.callerName || '?')[0].toUpperCase()
+            )}
           </div>
         </div>
 

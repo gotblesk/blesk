@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
+import { Orbit, Activity } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import Avatar from '../ui/Avatar';
@@ -30,7 +31,7 @@ const DEBUG_CHATS = [
 const USE_DEBUG = false; // Переключить на false для продакшена
 
 // ═══════ NEBULA VIEW — Physics chat cards ═══════
-export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user }) {
+export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOpenOrbit, onOpenVibe, user }) {
   const realChats = useChatStore(s => s.chats);
   const onlineUsers = useChatStore(s => s.onlineUsers);
   const loadingChatList = useChatStore(s => s.loadingChatList);
@@ -208,6 +209,8 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     const b = bodiesRef.current[bodyIndex];
     if (!b) return;
     e.preventDefault();
+    // Захватить указатель — события идут на этот элемент даже когда курсор за его пределами
+    e.target.setPointerCapture(e.pointerId);
     b.drag = true;
     b.t0 = Date.now();
     b.mx0 = e.clientX;
@@ -225,7 +228,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     const px = b.x, py = b.y;
     const hw = sizeRef.current.w / 2, hh = sizeRef.current.h / 2;
     b.x = Math.max(hw, Math.min(window.innerWidth - hw, e.clientX - b.ox));
-    b.y = Math.max(55 + hh, Math.min(window.innerHeight - hh, e.clientY - b.oy));
+    b.y = Math.max(hh, Math.min(window.innerHeight - hh, e.clientY - b.oy));
     b.vh.push({ dx: b.x - px, dy: b.y - py, t: Date.now() });
     if (b.vh.length > 6) b.vh.shift();
 
@@ -243,6 +246,8 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
   const handlePointerUp = useCallback((e, bodyIndex) => {
     const b = bodiesRef.current[bodyIndex];
     if (!b || !b.drag) return;
+    // Отпустить захват указателя
+    try { e.target.releasePointerCapture(e.pointerId); } catch {}
     b.drag = false;
     const dt = Date.now() - b.t0;
     const dd = Math.hypot(e.clientX - b.mx0, e.clientY - b.my0);
@@ -312,13 +317,23 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
   }, [getGrid, savePositions]);
 
   // ═══════ INIT BODIES ═══════
+  // Инициализация только при изменении ID чатов (не при каждом обновлении lastMessage)
+  const chatIdsRef = useRef('');
   useEffect(() => {
     if (!chats.length) return;
+    const newIds = chats.slice(0, 12).map(c => c.id).join(',');
+    if (newIds === chatIdsRef.current && bodiesRef.current.length > 0) return;
+    chatIdsRef.current = newIds;
+
     const saved = loadPositions();
     const grid = getGrid();
 
     bodiesRef.current = chats.slice(0, 12).map((chat, i) => {
-      const pos = saved?.[chat.id] || grid[i] || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      // Сохранить текущую позицию если body уже существует
+      const existing = bodiesRef.current.find(b => b.chatId === chat.id);
+      const pos = existing
+        ? { x: existing.x, y: existing.y }
+        : (saved?.[chat.id] || grid[i] || { x: window.innerWidth / 2, y: window.innerHeight / 2 });
       return {
         chatId: chat.id,
         x: Math.max(sizeRef.current.w / 2, Math.min(window.innerWidth - sizeRef.current.w / 2, pos.x)),
@@ -351,7 +366,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
 
   // ═══════ GET HUE FOR CHAT ═══════
   const getChatHue = (chat) => {
-    if (chat.type === 'personal' && chat.otherUser) {
+    if (chat.type === 'chat' && chat.otherUser) {
       // Hash username to get consistent hue
       let hash = 0;
       const name = chat.otherUser.username || '';
@@ -367,7 +382,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
   };
 
   const getChatName = (chat) => {
-    if (chat.type === 'personal' && chat.otherUser) return chat.otherUser.username;
+    if (chat.otherUser?.username) return chat.otherUser.username;
     return chat.name || 'Чат';
   };
 
@@ -377,7 +392,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
   };
 
   const isOnline = (chat) => {
-    if (chat.type === 'personal' && chat.otherUser) {
+    if (chat.otherUser) {
       return onlineUsers.includes(chat.otherUser.id);
     }
     return false;
@@ -442,13 +457,6 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
         </defs>
       </svg>
 
-      {/* Topbar */}
-      <div className="nebula-topbar">
-        <span className="nebula-topbar__logo">blesk</span>
-        <span className="nebula-topbar__hint">Клик = открыть · Кинь = попрыгунчик · Перетащи = расставить</span>
-        <button className="nebula-topbar__reset" onClick={handleReset}>Сбросить</button>
-      </div>
-
       {/* Metaball layer */}
       <div className="nebula-metaball">
         {chats.slice(0, 12).map((chat, i) => (
@@ -459,7 +467,15 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
               width: sizeRef.current.w, height: sizeRef.current.h,
               background: getChatColor(chat),
             }}
-            ref={el => { if (bodiesRef.current[i]) bodiesRef.current[i].blob = el; }}
+            ref={el => {
+            if (bodiesRef.current[i]) {
+              bodiesRef.current[i].blob = el;
+              if (el) {
+                const b = bodiesRef.current[i];
+                el.style.transform = `translate(${b.x - sizeRef.current.w / 2}px, ${b.y - sizeRef.current.h / 2}px)`;
+              }
+            }
+          }}
           />
         ))}
       </div>
@@ -469,10 +485,23 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
         <div
           key={chat.id}
           className="nebula-card"
-          ref={el => { if (bodiesRef.current[i]) bodiesRef.current[i].el = el; }}
+          ref={el => {
+            if (bodiesRef.current[i]) {
+              bodiesRef.current[i].el = el;
+              if (el) {
+                const b = bodiesRef.current[i];
+                el.style.transform = `translate(${b.x - sizeRef.current.w / 2}px, ${b.y - sizeRef.current.h / 2}px)`;
+              }
+            }
+          }}
           onPointerDown={e => handlePointerDown(e, i)}
           onPointerMove={e => handlePointerMove(e, i)}
           onPointerUp={e => handlePointerUp(e, i)}
+          onPointerCancel={e => handlePointerUp(e, i)}
+          onLostPointerCapture={e => {
+            const b = bodiesRef.current[i];
+            if (b?.drag) { b.drag = false; b.vx = 0; b.vy = 0; }
+          }}
           style={{ touchAction: 'none' }}
         >
           <div className="nebula-card__inner">

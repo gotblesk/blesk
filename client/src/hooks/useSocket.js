@@ -136,6 +136,11 @@ export function useSocket() {
     // ═══ Уведомления ═══
     socket.on('notification:new', (notification) => {
       useNotificationStore.getState().addNotification(notification);
+      // Фильтрация по типу уведомления
+      const ns = useSettingsStore.getState();
+      const type = notification.type;
+      if (type === 'friend_request' && !ns.notifFriends) return;
+      if (type === 'mention' && !ns.notifMentions) return;
       soundNotification(notification.fromUser?.hue || 0);
     });
 
@@ -188,6 +193,14 @@ export function useSocket() {
     socket.on('call:error', ({ chatId, error }) => {
       console.error('Call error:', chatId, error);
       useCallStore.getState().clearActiveCall();
+    });
+
+    // ═══ Бан аккаунта ═══
+    socket.on('auth:banned', ({ reason }) => {
+      console.warn('Аккаунт заблокирован:', reason);
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      window.location.reload();
     });
 
     // ═══ Групповые события ═══

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Maximize, Minimize } from 'lucide-react';
+import { Maximize } from 'lucide-react';
 import { useVoiceStore } from '../../store/voiceStore';
+import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VideoGrid.css';
 
 export default function VideoGrid({ participants }) {
@@ -15,11 +16,9 @@ export default function VideoGrid({ participants }) {
     }
   }, [localCameraStream]);
 
-  // Разделяем потоки на экран и камеры
-  const screenEntries = [];
+  // Камеры участников (без screen share — screen share теперь в VoiceRoom)
   const cameraEntries = [];
   for (const [userId, streams] of Object.entries(videoStreams)) {
-    if (streams.screen) screenEntries.push({ userId, stream: streams.screen });
     if (streams.camera) cameraEntries.push({ userId, stream: streams.camera });
   }
 
@@ -28,47 +27,50 @@ export default function VideoGrid({ participants }) {
     return p?.username || 'Участник';
   };
 
-  return (
-    <div className="video-grid">
-      {/* Экран — на всю ширину */}
-      {screenEntries.map(({ userId, stream }) => (
-        <VideoTile
-          key={`screen-${userId}`}
-          stream={stream}
-          label={`${getUserName(userId)} — экран`}
-          className="video-grid__screen"
-        />
-      ))}
+  const getPeer = (userId) => {
+    return participants?.find((p) => p.id === userId || p.userId === userId);
+  };
 
+  // Не рендерим если нет камер
+  if (cameraEntries.length === 0 && !localCameraStream) return null;
+
+  const colClass = cameraEntries.length <= 1 ? 'vg__cameras--1'
+    : cameraEntries.length === 2 ? 'vg__cameras--2'
+    : 'vg__cameras--3';
+
+  return (
+    <div className="vg" style={{ position: 'relative' }}>
       {/* Камеры участников */}
-      <div className="video-grid__cameras">
-        {cameraEntries.map(({ userId, stream }) => (
-          <VideoTile
-            key={`cam-${userId}`}
-            stream={stream}
-            label={getUserName(userId)}
-          />
-        ))}
-      </div>
+      {cameraEntries.length > 0 && (
+        <div className={`vg__cameras ${colClass}`}>
+          {cameraEntries.map(({ userId, stream }) => (
+            <CameraTile
+              key={`cam-${userId}`}
+              stream={stream}
+              name={getUserName(userId)}
+              peer={getPeer(userId)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Локальная камера — PiP */}
       {localCameraStream && (
-        <div className="video-grid__local-pip">
+        <div className="vg__pip">
           <video
             ref={localVideoRef}
             autoPlay
             muted
             playsInline
-            className="video-grid__video"
           />
-          <span className="video-grid__label">Вы</span>
+          <span className="vg__pip-label">Вы</span>
         </div>
       )}
     </div>
   );
 }
 
-function VideoTile({ stream, label, className = '' }) {
+function CameraTile({ stream, name, peer }) {
   const videoRef = useRef(null);
   const tileRef = useRef(null);
 
@@ -82,7 +84,7 @@ function VideoTile({ stream, label, className = '' }) {
     };
   }, [stream]);
 
-  const toggleFullscreen = useCallback(() => {
+  const toggleFs = useCallback(() => {
     const el = tileRef.current;
     if (!el) return;
     if (document.fullscreenElement === el) {
@@ -93,16 +95,11 @@ function VideoTile({ stream, label, className = '' }) {
   }, []);
 
   return (
-    <div ref={tileRef} className={`video-grid__tile ${className}`}>
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        className="video-grid__video"
-      />
-      <span className="video-grid__label">{label}</span>
-      <button className="video-grid__fullscreen" onClick={toggleFullscreen} title="Полный экран">
-        <Maximize size={16} strokeWidth={1.5} />
+    <div ref={tileRef} className="vg__cam-tile">
+      <video ref={videoRef} autoPlay playsInline />
+      <span className="vg__tile-label">{name}</span>
+      <button className="vg__tile-fs" onClick={toggleFs} title="Полный экран">
+        <Maximize size={12} strokeWidth={1.5} />
       </button>
     </div>
   );

@@ -27,6 +27,7 @@ const fragmentShader = `
   uniform vec3 uColor2;
   uniform vec3 uColor3;
   uniform float uSubtle;
+  uniform vec3 uBgColor;
   varying vec2 vUv;
 
   // Smooth min for metaball blending
@@ -95,7 +96,7 @@ const fragmentShader = `
       t += d * 0.8;
     }
 
-    vec3 col = vec3(0.031, 0.024, 0.059); // #08060f background
+    vec3 col = uBgColor;
 
     if (d < 0.05) {
       // Hit — compute normal for coloring
@@ -120,11 +121,17 @@ const fragmentShader = `
       float diff = max(dot(n, normalize(vec3(1.0, 1.0, 1.0))), 0.0);
       float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
 
-      col = blobCol * (diff * 0.4 + 0.1) + rim * blobCol * 0.3;
-      col *= uSubtle;
+      vec3 surface = blobCol * (diff * 0.4 + 0.1) + rim * blobCol * 0.3;
+      surface *= uSubtle;
+      // Смешать с фоном — в светлой теме шары полупрозрачные
+      float bgLum = dot(uBgColor, vec3(0.299, 0.587, 0.114));
+      float blobAlpha = bgLum > 0.5 ? 0.3 : 1.0;
+      col = mix(uBgColor, surface, blobAlpha);
     } else {
       // Glow around metaballs (soft falloff)
-      float glow = exp(-d * 1.5) * 0.15 * uSubtle;
+      float bgLum2 = dot(uBgColor, vec3(0.299, 0.587, 0.114));
+      float glowMult = bgLum2 > 0.5 ? 0.05 : 0.15; // Слабее в светлой теме
+      float glow = exp(-d * 1.5) * glowMult * uSubtle;
       float time = uTime * 0.3;
       vec3 glowCol = mix(uColor1, uColor2, sin(time) * 0.5 + 0.5);
       col += glowCol * glow;
@@ -150,7 +157,7 @@ const targetColor2 = new THREE.Color().setHSL(0.52, 0.6, 0.4);
 const DEFAULT_C1_H = 0.22, DEFAULT_C1_S = 0.7, DEFAULT_C1_L = 0.45;
 const DEFAULT_C2_H = 0.52, DEFAULT_C2_S = 0.6, DEFAULT_C2_L = 0.4;
 
-function MetaballScene({ ambientHue, subtle }) {
+function MetaballScene({ ambientHue, subtle, theme }) {
   const meshRef = useRef();
   const { size } = useThree();
 
@@ -162,6 +169,7 @@ function MetaballScene({ ambientHue, subtle }) {
     uColor2: { value: new THREE.Color('#00d4ff').multiplyScalar(0.4) }, // cyan
     uColor3: { value: new THREE.Color('#ff006a').multiplyScalar(0.4) }, // pink
     uSubtle: { value: subtle ? 0.5 : 0.8 },
+    uBgColor: { value: new THREE.Color(0.031, 0.024, 0.059) },
   }), []);
 
   // Mouse tracking
@@ -192,17 +200,50 @@ function MetaballScene({ ambientHue, subtle }) {
     }
   }, [size]);
 
+  // Обновить фон при смене темы — читаем напрямую из DOM
+  const getTheme = () => document.documentElement.getAttribute('data-theme') || 'dark';
+  const prevThemeRef = useRef(getTheme());
+
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     const mat = meshRef.current.material;
     mat.uniforms.uTime.value += delta;
+    // Плавный переход цвета фона при смене темы
+    const targetBg = getTheme() === 'light'
+      ? { r: 0.929, g: 0.918, b: 0.953 } // #edeaf3
+      : { r: 0.031, g: 0.024, b: 0.059 }; // #08060f
+    const bg = mat.uniforms.uBgColor.value;
+    bg.r += (targetBg.r - bg.r) * 0.15;
+    bg.g += (targetBg.g - bg.g) * 0.15;
+    bg.b += (targetBg.b - bg.b) * 0.15;
     // Smooth mouse lerp
     mat.uniforms.uMouse.value.x += (mousePos.x - mat.uniforms.uMouse.value.x) * 0.05;
     mat.uniforms.uMouse.value.y += (mousePos.y - mat.uniforms.uMouse.value.y) * 0.05;
-    // Smooth color lerp — плавное переливание между цветами чатов
-    const lerpSpeed = 0.02;
-    mat.uniforms.uColor1.value.lerp(targetColor1, lerpSpeed);
-    mat.uniforms.uColor2.value.lerp(targetColor2, lerpSpeed);
+    // Цвета metaballs — пастельные для светлой темы
+    const curTheme = getTheme();
+    const isLight = curTheme === 'light';
+    const themeJustChanged = curTheme !== prevThemeRef.current;
+    if (themeJustChanged) {
+      prevThemeRef.current = curTheme;
+      // Мгновенный переход цветов при смене темы
+      if (isLight) {
+        mat.uniforms.uColor1.value.set('#b8e060');
+        mat.uniforms.uColor2.value.set('#7ec8e3');
+        mat.uniforms.uColor3.value.set('#d4a0e0');
+      } else {
+        mat.uniforms.uColor1.value.copy(targetColor1);
+        mat.uniforms.uColor2.value.copy(targetColor2);
+      }
+    } else {
+      // Обычный медленный lerp между ambient hue цветами
+      if (isLight) {
+        mat.uniforms.uColor1.value.lerp(new THREE.Color('#b8e060'), 0.02);
+        mat.uniforms.uColor2.value.lerp(new THREE.Color('#7ec8e3'), 0.02);
+      } else {
+        mat.uniforms.uColor1.value.lerp(targetColor1, 0.02);
+        mat.uniforms.uColor2.value.lerp(targetColor2, 0.02);
+      }
+    }
   });
 
   return (
@@ -242,6 +283,7 @@ function useIdleBreathing(enabled) {
 // ═══════ MAIN COMPONENT ═══════
 export default function MetaballBackground({ subtle = false, ambientHue = null }) {
   const animatedBg = useSettingsStore((s) => s.animatedBg);
+  const theme = useSettingsStore((s) => s.theme);
 
   useIdleBreathing(animatedBg);
 
@@ -260,7 +302,7 @@ export default function MetaballBackground({ subtle = false, ambientHue = null }
         gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }}
         style={{ width: '100%', height: '100%' }}
       >
-        <MetaballScene ambientHue={ambientHue} subtle={subtle} />
+        <MetaballScene ambientHue={ambientHue} subtle={subtle} theme={theme} />
       </Canvas>
     </div>
   );

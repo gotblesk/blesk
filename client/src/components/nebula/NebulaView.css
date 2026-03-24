@@ -61,6 +61,50 @@
   color: var(--accent, #c8ff00);
 }
 
+/* ═══════ QUICK ACTIONS ═══════ */
+.nebula-actions {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  gap: 8px;
+}
+
+.nebula-actions__btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-family: 'Manrope', -apple-system, sans-serif;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.nebula-actions__btn:hover {
+  background: rgba(200, 255, 0, 0.06);
+  border-color: rgba(200, 255, 0, 0.15);
+  color: var(--accent, #c8ff00);
+}
+
+[data-theme="light"] .nebula-actions__btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .nebula-actions__btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.7);
+}
+
 /* ═══════ METABALL LAYER ═══════ */
 .nebula-metaball {
   position: absolute;

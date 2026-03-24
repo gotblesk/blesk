@@ -41,7 +41,7 @@ export default function AdminServerSettings() {
     {
       icon: <Wifi size={18} />,
       label: 'WebSocket-подключения',
-      value: serverConfig?.socketConnections ?? '---',
+      value: serverConfig?.connectedSockets ?? '---',
     },
     {
       icon: <Database size={18} />,

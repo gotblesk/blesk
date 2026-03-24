@@ -49,7 +49,7 @@ export default function AdminLogs() {
     if (dateFrom) filters.from = dateFrom;
     if (dateTo) filters.to = dateTo;
     fetchLogs(page, filters);
-  }, [page]);
+  }, [page, actionFilter, dateFrom, dateTo, fetchLogs]);
 
   return (
     <div className="admin-section">

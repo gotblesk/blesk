@@ -4,12 +4,12 @@ import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
 const STAT_CARDS = [
-  { key: 'onlineCount', label: 'Онлайн', icon: <Wifi size={18} /> },
-  { key: 'usersCount', label: 'Пользователи', icon: <Users size={18} /> },
+  { key: 'usersOnline', label: 'Онлайн', icon: <Wifi size={18} /> },
+  { key: 'usersTotal', label: 'Пользователи', icon: <Users size={18} /> },
   { key: 'messagesToday', label: 'Сообщения сегодня', icon: <MessageSquare size={18} /> },
-  { key: 'channelsCount', label: 'Каналы', icon: <Radio size={18} /> },
-  { key: 'reportsCount', label: 'Жалобы', icon: <AlertTriangle size={18} /> },
-  { key: 'feedbackCount', label: 'Обратная связь', icon: <MessageCircle size={18} /> },
+  { key: 'channelsTotal', label: 'Каналы', icon: <Radio size={18} /> },
+  { key: 'reportsNew', label: 'Жалобы', icon: <AlertTriangle size={18} /> },
+  { key: 'feedbackNew', label: 'Обратная связь', icon: <MessageCircle size={18} /> },
 ];
 
 export default function AdminOverview() {

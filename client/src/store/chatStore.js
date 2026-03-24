@@ -101,7 +101,10 @@ export const useChatStore = create((set, get) => ({
     set((state) => {
       const next = new Set(state.activeChats);
       next.delete(chatId);
-      return { activeChats: next };
+      // Очистить сообщения неактивных чатов для экономии памяти
+      const newMessages = { ...state.messages };
+      delete newMessages[chatId];
+      return { activeChats: next, messages: newMessages };
     });
   },
 

@@ -48,3 +48,12 @@
   background: rgba(239, 68, 68, 0.9);
   color: #fff;
 }
+
+/* Light theme */
+[data-theme="light"] .titlebar__btn {
+  color: rgba(0, 0, 0, 0.3);
+}
+[data-theme="light"] .titlebar__btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.6);
+}

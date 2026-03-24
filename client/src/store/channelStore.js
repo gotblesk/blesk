@@ -148,6 +148,18 @@ export const useChannelStore = create((set, get) => ({
     });
   },
 
+  // Обновить канал локально (после загрузки аватара/обложки)
+  updateChannelLocal: (channelId, data) => {
+    set((state) => ({
+      channels: state.channels.map((c) =>
+        c.id === channelId ? { ...c, ...data, channelMeta: { ...c.channelMeta, ...data } } : c
+      ),
+      myChannels: state.myChannels.map((c) =>
+        c.id === channelId ? { ...c, ...data, channelMeta: { ...c.channelMeta, ...data } } : c
+      ),
+    }));
+  },
+
   // Установить активный канал
   setActiveChannel: (id) => set({ activeChannelId: id }),
 }));

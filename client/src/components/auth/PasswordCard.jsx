@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Lock, ShieldCheck, Eye, EyeOff, Check } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 import GravityCard from './GravityCard';
 import StrengthDots, { getPasswordScore } from './StrengthDots';
 
@@ -15,53 +14,12 @@ export default function PasswordCard({
   error,
   errorKey = 0,
 }) {
-  const [phase, setPhase] = useState('create'); // 'create' | 'confirm'
   const [showPassword, setShowPassword] = useState(false);
   const confirmRef = useRef(null);
   const score = getPasswordScore(password);
 
-  // Reset phase when password is cleared (e.g. mode switch)
-  useEffect(() => {
-    if (!password) {
-      setPhase('create');
-    }
-  }, [password]);
-
-  // Auto-transition to confirm phase
-  function handleKeyDown(e) {
-    if ((e.key === 'Tab' || e.key === 'Enter') && password.length >= 8 && score >= 3) {
-      e.preventDefault();
-      setPhase('confirm');
-    }
-  }
-
-  // Focus confirm input when phase changes
-  useEffect(() => {
-    if (phase === 'confirm') {
-      setTimeout(() => confirmRef.current?.focus(), 100);
-    }
-  }, [phase]);
-
-  // Check match when confirming
-  const matched = phase === 'confirm' && confirmPassword && password === confirmPassword;
-  const mismatch = phase === 'confirm' && confirmPassword && password !== confirmPassword;
-
-  const isCreate = phase === 'create';
-
-  const icon = isCreate
-    ? <Lock size={16} stroke={error ? '#ef4444' : '#c8ff00'} />
-    : matched
-      ? <Check size={16} stroke="#4ade80" />
-      : <ShieldCheck size={16} stroke={mismatch ? '#ef4444' : '#c8ff00'} />;
-
-  const title = isCreate ? 'Придумай пароль' : 'Подтверди пароль';
-  const subtitle = isCreate
-    ? 'Минимум 8 символов'
-    : matched
-      ? 'Пароли совпадают'
-      : mismatch
-        ? undefined
-        : 'Повтори ввод';
+  const matched = confirmPassword && password === confirmPassword;
+  const mismatch = confirmPassword && password !== confirmPassword;
 
   const cardError = mismatch ? 'Пароли не совпадают' : error;
 
@@ -70,83 +28,47 @@ export default function PasswordCard({
       tilt={tilt}
       index={index}
       dimmed={dimmed}
-      icon={icon}
-      title={title}
-      subtitle={subtitle}
+      icon={<Lock size={16} stroke={cardError ? '#ef4444' : matched ? '#4ade80' : '#c8ff00'} />}
+      title="Пароль"
+      subtitle="Минимум 8 символов"
       error={cardError}
       errorKey={errorKey}
     >
-      <AnimatePresence mode="wait">
-        {isCreate ? (
-          <motion.div
-            key="create"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="g-input-wrap">
-              <input
-                className="g-input"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Пароль"
-                value={password}
-                onChange={(e) => onPasswordChange(e.target.value)}
-                onKeyDown={handleKeyDown}
-                aria-label="Пароль"
-              />
-              <button
-                type="button"
-                className="g-input-action"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            <StrengthDots password={password} />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="confirm"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="g-input-wrap">
-              <input
-                ref={confirmRef}
-                className="g-input"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Повтори пароль"
-                value={confirmPassword}
-                onChange={(e) => onConfirmChange(e.target.value)}
-                aria-label="Подтверждение пароля"
-              />
-              <button
-                type="button"
-                className="g-input-action"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => { setPhase('create'); onConfirmChange(''); }}
-              style={{
-                background: 'none', border: 'none', color: 'rgba(200,255,0,0.4)',
-                fontSize: '11px', marginTop: '8px', cursor: 'pointer',
-                fontFamily: 'Manrope', padding: 0,
-              }}
-            >
-              ← Изменить пароль
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Поле пароля */}
+      <div className="g-input-wrap">
+        <input
+          className="g-input"
+          type={showPassword ? 'text' : 'password'}
+          placeholder="Придумай пароль"
+          value={password}
+          onChange={(e) => onPasswordChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); confirmRef.current?.focus(); } }}
+          aria-label="Пароль"
+        />
+        <button
+          type="button"
+          className="g-input-action"
+          onClick={() => setShowPassword(!showPassword)}
+          aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+        >
+          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+      <StrengthDots password={password} />
+
+      {/* Поле подтверждения — всегда видно */}
+      <div className="g-input-wrap" style={{ marginTop: '10px' }}>
+        <input
+          ref={confirmRef}
+          className="g-input"
+          type={showPassword ? 'text' : 'password'}
+          placeholder="Повтори пароль"
+          value={confirmPassword}
+          onChange={(e) => onConfirmChange(e.target.value)}
+          aria-label="Подтверждение пароля"
+          style={matched ? { borderColor: 'rgba(74,222,128,0.3)' } : mismatch ? { borderColor: 'rgba(239,68,68,0.3)' } : {}}
+        />
+      </div>
     </GravityCard>
   );
 }

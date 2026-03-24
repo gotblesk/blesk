@@ -18,7 +18,7 @@ export default function AdminBroadcast() {
     setSending(false);
     setConfirmModal(false);
     if (data) {
-      setResult({ ok: true, msg: `Рассылка отправлена: ${data.sentTo ?? '?'} пользователей` });
+      setResult({ ok: true, msg: `Рассылка отправлена: ${data.notified ?? '?'} пользователей` });
       setVersion('');
       setChangelog('');
     } else {

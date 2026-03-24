@@ -1,199 +1,147 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, ChevronDown, ChevronUp, Megaphone, Loader } from 'lucide-react';
-import Glass from '../ui/Glass';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Search, Loader, Radio } from 'lucide-react';
 import ChannelCard from './ChannelCard';
 import CreateChannelModal from './CreateChannelModal';
 import { useChannelStore } from '../../store/channelStore';
 import { getCurrentUserId } from '../../utils/auth';
 import './ChannelBrowser.css';
 
-const SORT_TABS = [
-  { key: 'popular', label: 'Популярные' },
-  { key: 'growing', label: 'Растущие' },
-  { key: 'new', label: 'Новые' },
+const CATEGORIES = [
+  { key: null, label: 'Все', icon: '✦', color: '#c8ff00' },
+  { key: 'news', label: 'Новости', icon: '📡', color: '#3b82f6' },
+  { key: 'gaming', label: 'Игры', icon: '🎮', color: '#8b5cf6' },
+  { key: 'music', label: 'Музыка', icon: '🎵', color: '#ec4899' },
+  { key: 'art', label: 'Арт', icon: '🎨', color: '#f59e0b' },
+  { key: 'tech', label: 'Тех', icon: '⚡', color: '#06b6d4' },
+  { key: 'other', label: 'Ещё', icon: '···', color: '#6b7280' },
 ];
 
-const CATEGORIES = [
-  { key: 'news', label: 'Новости' },
-  { key: 'gaming', label: 'Игры' },
-  { key: 'music', label: 'Музыка' },
-  { key: 'art', label: 'Арт' },
-  { key: 'tech', label: 'Технологии' },
-  { key: 'other', label: 'Другое' },
-];
+const cardV = {
+  hidden: { opacity: 0, y: 16, scale: 0.96 },
+  visible: (i) => ({
+    opacity: 1, y: 0, scale: 1,
+    transition: { delay: i * 0.05, duration: 0.45, ease: [0.16, 1, 0.3, 1] },
+  }),
+};
 
 export default function ChannelBrowser({ onOpenChannel }) {
-  const [sort, setSort] = useState('popular');
   const [category, setCategory] = useState(null);
   const [search, setSearch] = useState('');
-  const [myOpen, setMyOpen] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const {
-    channels,
-    myChannels,
-    loadingBrowse,
-    loadBrowse,
-    loadMyChannels,
-    subscribe,
-    unsubscribe,
-  } = useChannelStore();
-
+  const { channels, myChannels, loadingBrowse, loadBrowse, loadMyChannels, subscribe, unsubscribe } = useChannelStore();
   const userId = getCurrentUserId();
 
-  useEffect(() => {
-    loadMyChannels();
-  }, [loadMyChannels]);
+  useEffect(() => { loadMyChannels(); }, [loadMyChannels]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      loadBrowse({ sort, category, search: search.trim() || undefined });
+      loadBrowse({ sort: 'popular', category, search: search.trim() || undefined });
     }, search ? 300 : 0);
     return () => clearTimeout(timeout);
-  }, [sort, category, search, loadBrowse]);
+  }, [category, search, loadBrowse]);
 
-  const handleOpen = useCallback((id) => {
-    onOpenChannel?.(id);
-  }, [onOpenChannel]);
-
-  const handleAction = useCallback((channel) => {
-    const isOwned = channel.ownerId === userId;
-    const isSub = channel.isSubscribed || myChannels.some((c) => c.id === channel.id);
-    if (isOwned || isSub) {
-      handleOpen(channel.id);
-    }
-  }, [userId, myChannels, handleOpen]);
+  const handleOpen = useCallback((id) => { onOpenChannel?.(id); }, [onOpenChannel]);
 
   const handleSubscribeToggle = useCallback((channel) => {
     const isSub = channel.isSubscribed || myChannels.some((c) => c.id === channel.id);
-    if (isSub) {
-      unsubscribe(channel.id);
-    } else {
-      subscribe(channel.id);
-    }
+    if (isSub) unsubscribe(channel.id);
+    else subscribe(channel.id);
   }, [myChannels, subscribe, unsubscribe]);
 
+  const allChannels = channels.map((ch) => {
+    const isOwned = ch.ownerId === userId;
+    const isSub = ch.isSubscribed || myChannels.some((c) => c.id === ch.id);
+    return { ...ch, isOwned, isSub };
+  });
+
+  // Card variant for masonry height variation
+  const getVariant = (ch, i) => {
+    if (ch.isOwned) return 'featured';
+    if (ch.isSub && i % 3 === 0) return 'tall';
+    if (ch.subscribersCount > 50) return 'tall';
+    if (ch.description) return 'medium';
+    return 'compact';
+  };
+
   return (
-    <div className="channel-browser section-enter">
-      {/* Шапка */}
-      <div className="channel-browser__header">
-        <h2 className="channel-browser__title">Каналы</h2>
-        <button className="channel-browser__create" onClick={() => setCreateOpen(true)}>
-          <Plus size={18} strokeWidth={2} />
-        </button>
+    <div className="mo">
+      <div className="mo__head">
+        <h2 className="mo__title">Каналы</h2>
+        <motion.button className="mo__create" onClick={() => setCreateOpen(true)} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.9 }}>
+          <span className="mo__create-bg" />
+          <span className="mo__create-ray" />
+          <span className="mo__create-icon"><Plus size={13} strokeWidth={3} /></span>
+          <span className="mo__create-text">Создать</span>
+        </motion.button>
       </div>
 
-      {/* Поиск */}
-      <div className="channel-browser__search-wrap">
-        <Search size={16} strokeWidth={1.5} className="channel-browser__search-icon" />
-        <input
-          className="channel-browser__search"
-          placeholder="Найти канал..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="mo__search-wrap">
+        <Search size={15} strokeWidth={1.5} className="mo__search-icon" />
+        <input className="mo__search" placeholder="Найти канал..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      {/* Сортировка */}
-      <div className="channel-browser__tabs">
-        {SORT_TABS.map((tab) => (
-          <Glass
-            key={tab.key}
-            depth={sort === tab.key ? 2 : 1}
-            radius={10}
-            className={`channel-browser__tab ${sort === tab.key ? 'channel-browser__tab--active' : ''}`}
-            onClick={() => setSort(tab.key)}
-          >
-            {tab.label}
-          </Glass>
-        ))}
+      <div className="mo__cats">
+        {CATEGORIES.map((cat) => {
+          const isActive = category === cat.key;
+          return (
+            <motion.button
+              key={cat.key ?? 'all'}
+              className={`mo__cat ${isActive ? 'mo__cat--active' : ''}`}
+              style={{ '--cat-color': cat.color }}
+              onClick={() => setCategory(cat.key)}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.9 }}
+              layout
+            >
+              <span className="mo__cat-icon">{cat.icon}</span>
+              <span className="mo__cat-label">{cat.label}</span>
+              {isActive && <motion.div className="mo__cat-bar" layoutId="catBar" />}
+            </motion.button>
+          );
+        })}
       </div>
 
-      {/* Категории */}
-      <div className="channel-browser__categories">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.key}
-            className={`channel-browser__chip ${category === cat.key ? 'channel-browser__chip--active' : ''}`}
-            onClick={() => setCategory(category === cat.key ? null : cat.key)}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="channel-browser__body">
-        {/* Мои каналы */}
-        {myChannels.length > 0 && (
-          <div className="channel-browser__section">
-            <button className="channel-browser__section-toggle" onClick={() => setMyOpen(!myOpen)}>
-              <span className="channel-browser__section-label">Мои каналы</span>
-              {myOpen ? <ChevronUp size={16} strokeWidth={1.5} /> : <ChevronDown size={16} strokeWidth={1.5} />}
-            </button>
-            {myOpen && (
-              <div className="channel-browser__grid">
-                {myChannels.map((ch) => (
-                  <ChannelCard
-                    key={ch.id}
-                    channel={ch}
-                    onOpen={handleOpen}
-                    isSubscribed={true}
-                    isOwned={ch.ownerId === userId}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Обзор */}
-        <div className="channel-browser__section">
-          <div className="channel-browser__section-label">Обзор</div>
-          {loadingBrowse ? (
-            <div className="channel-browser__loading">
-              <Loader size={20} strokeWidth={1.5} className="channel-browser__spinner" />
-            </div>
-          ) : channels.length === 0 ? (
-            <div className="channel-browser__empty">
-              <Megaphone size={32} strokeWidth={1.5} />
-              <span>Каналы не найдены</span>
-            </div>
-          ) : (
-            <div className="channel-browser__grid">
-              {channels.map((ch) => {
-                const isOwned = ch.ownerId === userId;
-                const isSub = ch.isSubscribed || myChannels.some((c) => c.id === ch.id);
-                return (
-                  <ChannelCard
-                    key={ch.id}
-                    channel={ch}
-                    onOpen={() => {
-                      if (isOwned || isSub) {
-                        handleOpen(ch.id);
-                      } else {
-                        handleSubscribeToggle(ch);
-                      }
-                    }}
-                    isSubscribed={isSub}
-                    isOwned={isOwned}
-                  />
-                );
-              })}
-            </div>
-          )}
+      {loadingBrowse && allChannels.length === 0 && (
+        <div className="mo__loader">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+            <Loader size={20} strokeWidth={1.5} />
+          </motion.div>
         </div>
+      )}
+
+      {!loadingBrowse && allChannels.length === 0 && (
+        <motion.div className="mo__empty" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="mo__empty-icon"><Radio size={28} strokeWidth={1.2} /></div>
+          <span>Каналы не найдены</span>
+          <span className="mo__empty-hint">Создай первый!</span>
+        </motion.div>
+      )}
+
+      <div className="mo__grid">
+        {allChannels.map((ch, i) => (
+          <motion.div key={ch.id} custom={i} variants={cardV} initial="hidden" animate="visible" className="mo__grid-item">
+            <ChannelCard
+              channel={ch}
+              variant={getVariant(ch, i)}
+              isSubscribed={ch.isSub}
+              isOwned={ch.isOwned}
+              onOpen={() => { if (ch.isOwned || ch.isSub) handleOpen(ch.id); else handleSubscribeToggle(ch); }}
+              onSubscribe={() => handleSubscribeToggle(ch)}
+            />
+          </motion.div>
+        ))}
       </div>
 
-      {/* Модалка создания */}
-      {createOpen && (
-        <CreateChannelModal
-          onClose={() => setCreateOpen(false)}
-          onCreated={(ch) => {
-            setCreateOpen(false);
-            handleOpen(ch.id);
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {createOpen && (
+          <CreateChannelModal
+            onClose={() => setCreateOpen(false)}
+            onCreated={(ch) => { setCreateOpen(false); handleOpen(ch.id); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

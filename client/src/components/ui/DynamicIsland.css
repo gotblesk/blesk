@@ -649,4 +649,25 @@
 }
 
 [data-theme="light"] .island__nick { color: rgba(0, 0, 0, 0.6); }
+[data-theme="light"] .island__dot { background: var(--online); }
+[data-theme="light"] .island__btn { color: rgba(0, 0, 0, 0.35); }
+[data-theme="light"] .island__btn:hover { color: rgba(0, 0, 0, 0.6); }
 [data-theme="light"] .island__btn-label { color: rgba(0, 0, 0, 0.4); }
+[data-theme="light"] .island__btn-icon { color: rgba(0, 0, 0, 0.4); }
+[data-theme="light"] .island__sep { background: rgba(0, 0, 0, 0.08); }
+[data-theme="light"] .island-search {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.4);
+}
+[data-theme="light"] .island-search:hover { background: rgba(0, 0, 0, 0.06); }
+[data-theme="light"] .island-search__input { color: var(--text); }
+[data-theme="light"] .island-search__input::placeholder { color: rgba(0, 0, 0, 0.3); }
+[data-theme="light"] .island-status-menu {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .island-status-opt { color: var(--text); }
+[data-theme="light"] .island-status-opt:hover { background: rgba(0, 0, 0, 0.03); }
+[data-theme="light"] .island-shimmer { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); }

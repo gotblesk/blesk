@@ -21,7 +21,7 @@ export default function AdminDatabase() {
 
   useEffect(() => {
     if (selectedTable) fetchDbTable(selectedTable, page);
-  }, [page]);
+  }, [page, selectedTable, fetchDbTable]);
 
   return (
     <div className="admin-section">

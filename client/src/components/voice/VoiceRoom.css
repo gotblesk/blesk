@@ -1,149 +1,324 @@
-.voice-room {
-  padding: 24px;
-  max-width: 600px;
-  margin: 0 auto;
+/* ═══════════════════════════════════════
+   VoiceRoom — In-Room View (Redesign)
+   ═══════════════════════════════════════ */
+
+.vr {
   width: 100%;
-}
-
-.voice-room__title {
-  font-size: 18px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
-  text-align: center;
-  margin-bottom: 32px;
-  letter-spacing: -0.3px;
-}
-
-.voice-room__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 20px;
-  justify-items: center;
-}
-
-.voice-room__empty {
-  grid-column: 1 / -1;
-  text-align: center;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.25);
-  padding: 40px 0;
-}
-
-/* Участник */
-.voice-participant {
+  max-width: 640px;
+  margin: 0 auto;
+  border-radius: 22px;
+  background: rgba(14, 12, 24, 0.7);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* ─── Header ─── */
+.vr__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+}
+
+.vr__head-left {
+  display: flex;
   align-items: center;
   gap: 8px;
-  position: relative;
-  animation: participantIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 0;
 }
 
-.voice-participant--clickable {
-  cursor: pointer;
-}
-
-@keyframes participantIn {
-  from {
-    opacity: 0;
-    transform: scale(0.8) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.voice-participant__avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  transition: box-shadow 0.2s;
-  border: 2px solid transparent;
-}
-
-.voice-participant__avatar--speaking {
-  border-color: var(--online);
-}
-
-.voice-participant__letter {
-  font-size: 24px;
-  font-weight: 700;
-  color: #fff;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-/* Иконки мута/деафен */
-.voice-participant__mute-icon,
-.voice-participant__deafen-icon {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--danger);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  border: 2px solid var(--bg);
-}
-
-.voice-participant__deafen-icon {
-  background: #f59e0b;
-}
-
-.voice-participant__name {
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
-  max-width: 80px;
-  text-align: center;
+.vr__head-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: -0.03em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Индикатор громкости */
-.voice-participant__level {
-  width: 48px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
+.vr__head-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 7px;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
-.voice-participant__level-bar {
+.vr__head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Quality bars */
+.vr__qual {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  height: 12px;
+}
+
+.vr__qual-bar {
+  width: 3px;
+  border-radius: 1px;
+  transition: background 0.3s;
+}
+
+/* ─── Screen Share Area ─── */
+.vr__screen {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0a0816;
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+}
+
+.vr__screen video {
+  width: 100%;
   height: 100%;
-  border-radius: 2px;
-  transition: width 0.1s linear, background 0.2s;
+  object-fit: contain;
+  background: #000;
 }
 
-/* Попап громкости пользователя */
-.volume-popup {
+.vr__screen-badge {
   position: absolute;
-  bottom: calc(100% + 12px);
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  font-size: 9px;
+  font-weight: 700;
+  color: #ef4444;
+  z-index: 2;
+}
+
+.vr__screen-rec {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: vr-rec 1s ease-in-out infinite;
+}
+
+@keyframes vr-rec {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.vr__screen-name {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.6);
+  z-index: 2;
+}
+
+.vr__screen-fs {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  z-index: 2;
+}
+
+.vr__screen:hover .vr__screen-fs {
+  opacity: 1;
+}
+
+.vr__screen-fs:hover {
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ─── Participants Grid ─── */
+.vr__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 12px;
+  flex: 1;
+  align-content: start;
+}
+
+.vr__empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.2);
+  padding: 40px 0;
+}
+
+/* ─── User Tile ─── */
+.vr__user {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.015);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.vr__user:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.vr__user--self {
+  border: 1px dashed rgba(200, 255, 0, 0.15);
+}
+
+.vr__user--self .vr__user-name {
+  color: var(--accent, #c8ff00);
+}
+
+/* Avatar */
+.vr__user-ava {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  position: relative;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+/* Audio level ring */
+.vr__user-level {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  pointer-events: none;
+}
+
+.vr__user--speaking .vr__user-level {
+  border-color: rgba(74, 222, 128, 0.5);
+}
+
+.vr__user--speaking .vr__user-ava {
+  box-shadow: 0 0 16px rgba(74, 222, 128, 0.25);
+}
+
+/* Name */
+.vr__user-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+/* Status icons (muted/deaf/cam) */
+.vr__user-icons {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  display: flex;
+  gap: 2px;
+}
+
+.vr__user-ico {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(14, 12, 24, 0.9);
+}
+
+.vr__user-ico--muted {
+  background: #ef4444;
+  color: #fff;
+}
+
+.vr__user-ico--deaf {
+  background: #f59e0b;
+  color: #fff;
+}
+
+.vr__user-ico--cam {
+  background: #38bdf8;
+  color: #fff;
+}
+
+/* ─── Camera in tile ─── */
+.vr__user-cam {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1a1530;
+}
+
+.vr__user-cam video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ─── Volume Popup ─── */
+.vr__vol-popup {
+  position: absolute;
+  bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  width: 180px;
-  padding: 12px 14px;
+  width: 176px;
+  padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(14, 12, 24, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  z-index: 100;
-  animation: volumePopupIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  animation: vr-popup-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Стрелочка попапа */
-.volume-popup::after {
+.vr__vol-popup::after {
   content: '';
   position: absolute;
   top: 100%;
@@ -153,86 +328,138 @@
   border-top-color: rgba(255, 255, 255, 0.08);
 }
 
-@keyframes volumePopupIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(6px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
-  }
+@keyframes vr-popup-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.96); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 }
 
-.volume-popup__name {
-  font-size: 12px;
+.vr__vol-name {
+  font-size: 11px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.volume-popup__slider-row {
+.vr__vol-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.volume-popup__value {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  min-width: 36px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-/* Слайдер громкости */
-.volume-popup__slider {
+.vr__vol-slider {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.1);
   outline: none;
   cursor: pointer;
 }
 
-.volume-popup__slider::-webkit-slider-thumb {
+.vr__vol-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: var(--accent);
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 0 6px rgba(200, 255, 0, 0.4);
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-
-.volume-popup__slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 10px rgba(200, 255, 0, 0.6);
-}
-
-.volume-popup__slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent, #c8ff00);
   border: none;
   cursor: pointer;
   box-shadow: 0 0 6px rgba(200, 255, 0, 0.4);
 }
 
-.volume-popup__slider::-moz-range-track {
-  height: 4px;
+.vr__vol-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent, #c8ff00);
+  border: none;
+  cursor: pointer;
+}
+
+.vr__vol-slider::-moz-range-track {
+  height: 3px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.1);
   border: none;
+}
+
+.vr__vol-value {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent, #c8ff00);
+  min-width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ─── Animations ─── */
+.vr__user-enter {
+  animation: vr-user-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes vr-user-in {
+  from { opacity: 0; transform: scale(0.85) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ─── Light Theme ─── */
+[data-theme="light"] .vr {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .vr__head {
+  border-bottom-color: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .vr__head-name {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .vr__head-count {
+  color: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .vr__user {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .vr__user:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .vr__user-name {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .vr__user--self {
+  border-color: rgba(74, 140, 0, 0.2);
+}
+
+[data-theme="light"] .vr__user--self .vr__user-name {
+  color: var(--accent);
+}
+
+[data-theme="light"] .vr__user-ico {
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .vr__vol-popup {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .vr__vol-name {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .vr__screen {
+  border-bottom-color: rgba(0, 0, 0, 0.04);
 }

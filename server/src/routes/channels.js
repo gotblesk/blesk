@@ -1,9 +1,30 @@
 const { Router } = require('express');
 const crypto = require('crypto');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const sharp = require('sharp');
 const prisma = require('../db');
 const { authenticate, requireVerified } = require('../middleware/auth');
+const { validateFile } = require('../services/fileValidator');
 
 const router = Router();
+
+// Директория для аватаров каналов
+const avatarDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
+if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
+
+const tempDir = path.join(__dirname, '..', '..', 'uploads', 'temp');
+if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+const channelImageUpload = multer({
+  dest: tempDir,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
 
 const VALID_CATEGORIES = ['gaming', 'music', 'art', 'tech', 'education', 'entertainment', 'news', 'sports', 'science', 'other'];
 
@@ -279,6 +300,106 @@ router.patch('/:id', async (req, res) => {
   } catch (err) {
     console.error('PATCH /channels/:id error:', err);
     res.status(500).json({ error: 'Ошибка обновления канала' });
+  }
+});
+
+// ─── POST /:id/avatar — загрузить аватар канала (owner) ───
+router.post('/:id/avatar', channelImageUpload.single('avatar'), async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+
+    const channel = await prisma.room.findUnique({ where: { id } });
+    if (!channel || channel.type !== 'channel') {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Канал не найден' });
+    }
+    if (channel.ownerId !== userId) {
+      fs.unlinkSync(req.file.path);
+      return res.status(403).json({ error: 'Только владелец может менять аватар' });
+    }
+
+    const validation = await validateFile(req.file.path, req.file.originalname, req.file.mimetype, req.file.size);
+    if (!validation.ok || !validation.mime.startsWith('image/')) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Недопустимый формат изображения' });
+    }
+
+    const MIME_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+    const ext = MIME_EXT[validation.mime] || '.jpg';
+    const filename = `channel-${id}${ext}`;
+    const finalPath = path.join(avatarDir, filename);
+
+    // Удалить старые форматы
+    for (const e of ['.jpg', '.png', '.webp']) {
+      if (e !== ext) {
+        const old = path.join(avatarDir, `channel-${id}${e}`);
+        if (fs.existsSync(old)) fs.unlinkSync(old);
+      }
+    }
+
+    fs.renameSync(req.file.path, finalPath);
+
+    const avatarUrl = `/uploads/avatars/${filename}`;
+    await prisma.channelMeta.update({ where: { roomId: id }, data: { avatarUrl } });
+
+    res.json({ avatarUrl });
+  } catch (err) {
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    console.error('POST /channels/:id/avatar error:', err);
+    res.status(500).json({ error: 'Ошибка загрузки аватара' });
+  }
+});
+
+// ─── POST /:id/cover — загрузить обложку канала (owner) ───
+router.post('/:id/cover', channelImageUpload.single('cover'), async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+
+    const channel = await prisma.room.findUnique({ where: { id } });
+    if (!channel || channel.type !== 'channel') {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Канал не найден' });
+    }
+    if (channel.ownerId !== userId) {
+      fs.unlinkSync(req.file.path);
+      return res.status(403).json({ error: 'Только владелец может менять обложку' });
+    }
+
+    const validation = await validateFile(req.file.path, req.file.originalname, req.file.mimetype, req.file.size);
+    if (!validation.ok || !validation.mime.startsWith('image/')) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Недопустимый формат изображения' });
+    }
+
+    // Resize cover to max 1200px width
+    const coverFilename = `channel-${id}-cover.jpg`;
+    const coverPath = path.join(avatarDir, coverFilename);
+
+    // Удалить старую обложку
+    if (fs.existsSync(coverPath)) fs.unlinkSync(coverPath);
+
+    await sharp(req.file.path)
+      .resize({ width: 1200, withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toFile(coverPath);
+
+    // Удалить temp файл
+    fs.unlinkSync(req.file.path);
+
+    const coverUrl = `/uploads/avatars/${coverFilename}`;
+    await prisma.channelMeta.update({ where: { roomId: id }, data: { coverUrl } });
+
+    res.json({ coverUrl });
+  } catch (err) {
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    console.error('POST /channels/:id/cover error:', err);
+    res.status(500).json({ error: 'Ошибка загрузки обложки' });
   }
 });
 

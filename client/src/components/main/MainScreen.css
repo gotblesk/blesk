@@ -25,6 +25,14 @@
   overflow: hidden;
 }
 
+/* ═══════ ANIMATED CONTENT WRAPPER ═══════ */
+.main-layout__animated {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* ═══════ SECTION ANIMATION ═══════ */
 .section-enter {
   animation: sectionIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);

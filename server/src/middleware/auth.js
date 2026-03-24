@@ -77,4 +77,9 @@ async function requireVerified(req, res, next) {
   }
 }
 
-module.exports = { authenticate, generateTokens, verifyRefreshToken, requireVerified };
+// Инвалидировать кеш бана (вызывать при бане/разбане)
+function invalidateBanCache(userId) {
+  banCache.delete(userId);
+}
+
+module.exports = { authenticate, generateTokens, verifyRefreshToken, requireVerified, invalidateBanCache };

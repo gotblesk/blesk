@@ -4,6 +4,13 @@ const { authenticate } = require('../middleware/auth');
 
 const router = Router();
 
+// Санитизация текста — защита от XSS
+function sanitizeText(str) {
+  return str.replace(/[<>"'`&]/g, (ch) => ({
+    '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '`': '&#x60;', '&': '&amp;',
+  }[ch]));
+}
+
 // POST /api/feedback — создать обратную связь
 router.post('/', authenticate, async (req, res) => {
   try {
@@ -30,9 +37,9 @@ router.post('/', authenticate, async (req, res) => {
       data: {
         userId: req.userId,
         type,
-        text: text.trim(),
-        appVersion: appVersion || 'unknown',
-        osInfo: osInfo || 'unknown',
+        text: sanitizeText(text.trim()),
+        appVersion: sanitizeText((appVersion || 'unknown').slice(0, 50)),
+        osInfo: sanitizeText((osInfo || 'unknown').slice(0, 200)),
       },
     });
 

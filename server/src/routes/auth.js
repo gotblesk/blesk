@@ -2,7 +2,7 @@ const { Router } = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
-const { generateTokens, verifyRefreshToken } = require('../middleware/auth');
+const { authenticate, generateTokens, verifyRefreshToken } = require('../middleware/auth');
 const { generateCode, sendVerificationCode } = require('../services/email');
 
 const router = Router();
@@ -15,6 +15,11 @@ const resendCodeLimits = new Map();
 const forgotPasswordLimits = new Map();
 const changePasswordLimits = new Map();
 const EMAIL_CODE_COOLDOWN = 60000; // 60 секунд
+
+// Защита от перебора кодов: email → { attempts, lockedUntil }
+const codeAttempts = new Map();
+const MAX_CODE_ATTEMPTS = 5; // макс 5 попыток
+const CODE_LOCKOUT_MS = 10 * 60 * 1000; // блокировка на 10 минут
 
 // Проверить rate limit для конкретного эндпоинта
 function isEmailCodeRateLimited(limitsMap, email) {
@@ -31,6 +36,31 @@ function markEmailCodeSent(limitsMap, email) {
   limitsMap.set(email, Date.now());
 }
 
+// Проверить блокировку по попыткам ввода кода
+function isCodeLocked(email) {
+  const entry = codeAttempts.get(email);
+  if (!entry) return false;
+  if (entry.lockedUntil && Date.now() < entry.lockedUntil) return true;
+  if (entry.lockedUntil && Date.now() >= entry.lockedUntil) {
+    codeAttempts.delete(email);
+    return false;
+  }
+  return false;
+}
+
+// Записать неудачную попытку ввода кода
+function recordFailedAttempt(email) {
+  let entry = codeAttempts.get(email);
+  if (!entry) { entry = { attempts: 0, lockedUntil: null }; codeAttempts.set(email, entry); }
+  entry.attempts++;
+  if (entry.attempts >= MAX_CODE_ATTEMPTS) {
+    entry.lockedUntil = Date.now() + CODE_LOCKOUT_MS;
+  }
+}
+
+// Сбросить счётчик при успешном вводе кода
+function clearAttempts(email) { codeAttempts.delete(email); }
+
 // Чистка rate-limit Maps раз в 5 минут
 setInterval(() => {
   const now = Date.now();
@@ -38,6 +68,10 @@ setInterval(() => {
     for (const [email, ts] of map) {
       if (now - ts > EMAIL_CODE_COOLDOWN) map.delete(email);
     }
+  }
+  // Чистка устаревших блокировок
+  for (const [email, entry] of codeAttempts) {
+    if (entry.lockedUntil && now >= entry.lockedUntil) codeAttempts.delete(email);
   }
 }, 300000);
 
@@ -176,12 +210,9 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/verify-email
-router.post('/verify-email', async (req, res) => {
+router.post('/verify-email', authenticate, async (req, res) => {
   try {
-    const userId = getUserIdFromToken(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Требуется авторизация' });
-    }
+    const userId = req.userId;
 
     const { code } = req.body;
     if (!code) {
@@ -197,6 +228,11 @@ router.post('/verify-email', async (req, res) => {
       return res.json({ success: true, message: 'Email уже подтверждён' });
     }
 
+    // Защита от перебора кодов
+    if (isCodeLocked(user.email)) {
+      return res.status(429).json({ error: 'Слишком много попыток. Подождите 10 минут.' });
+    }
+
     // Ищем актуальный код
     const emailCode = await prisma.emailCode.findFirst({
       where: {
@@ -209,6 +245,7 @@ router.post('/verify-email', async (req, res) => {
     });
 
     if (!emailCode) {
+      recordFailedAttempt(user.email);
       return res.status(400).json({ error: 'Неверный или просроченный код' });
     }
 
@@ -224,6 +261,7 @@ router.post('/verify-email', async (req, res) => {
       }),
     ]);
 
+    clearAttempts(user.email);
     res.json({ success: true });
   } catch (err) {
     console.error('Ошибка верификации email:', err);
@@ -232,12 +270,9 @@ router.post('/verify-email', async (req, res) => {
 });
 
 // POST /api/auth/resend-code
-router.post('/resend-code', async (req, res) => {
+router.post('/resend-code', authenticate, async (req, res) => {
   try {
-    const userId = getUserIdFromToken(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Требуется авторизация' });
-    }
+    const userId = req.userId;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.email) {
@@ -354,6 +389,11 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ error: 'Пользователь не найден' });
     }
 
+    // Забаненный пользователь не может обновить токен
+    if (user.banned) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован', bannedReason: user.bannedReason });
+    }
+
     const tokens = generateTokens(user.id);
     res.json(tokens);
   } catch (err) {
@@ -363,24 +403,13 @@ router.post('/refresh', async (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/me', async (req, res) => {
+router.get('/me', authenticate, async (req, res) => {
   try {
-    const userId = getUserIdFromToken(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Требуется авторизация' });
-    }
+    const userId = req.userId;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' });
-    }
-
-    // Забаненный юзер не может использовать приложение
-    if (user.banned) {
-      return res.status(403).json({
-        error: 'Аккаунт заблокирован',
-        bannedReason: user.bannedReason || 'Нарушение правил',
-      });
     }
 
     res.json({
@@ -467,6 +496,11 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Неверный код' });
     }
 
+    // Защита от перебора кодов
+    if (isCodeLocked(email)) {
+      return res.status(429).json({ error: 'Слишком много попыток. Подождите 10 минут.' });
+    }
+
     // Проверить код
     const emailCode = await prisma.emailCode.findFirst({
       where: {
@@ -479,6 +513,7 @@ router.post('/reset-password', async (req, res) => {
     });
 
     if (!emailCode) {
+      recordFailedAttempt(email);
       return res.status(400).json({ error: 'Неверный или просроченный код' });
     }
 
@@ -495,6 +530,7 @@ router.post('/reset-password', async (req, res) => {
       }),
     ]);
 
+    clearAttempts(email);
     res.json({ success: true });
   } catch (err) {
     console.error('reset-password error:', err);
@@ -505,10 +541,9 @@ router.post('/reset-password', async (req, res) => {
 // ═══ Смена пароля в профиле ═══
 
 // POST /api/auth/change-password — запросить код для смены пароля
-router.post('/change-password/request', async (req, res) => {
+router.post('/change-password/request', authenticate, async (req, res) => {
   try {
-    const userId = getUserIdFromToken(req);
-    if (!userId) return res.status(401).json({ error: 'Требуется авторизация' });
+    const userId = req.userId;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.email) {
@@ -541,10 +576,9 @@ router.post('/change-password/request', async (req, res) => {
 });
 
 // POST /api/auth/change-password/confirm — подтвердить код и сменить пароль
-router.post('/change-password/confirm', async (req, res) => {
+router.post('/change-password/confirm', authenticate, async (req, res) => {
   try {
-    const userId = getUserIdFromToken(req);
-    if (!userId) return res.status(401).json({ error: 'Требуется авторизация' });
+    const userId = req.userId;
 
     const { code, currentPassword, newPassword } = req.body;
     if (!code || !currentPassword || !newPassword) {
@@ -563,6 +597,11 @@ router.post('/change-password/confirm', async (req, res) => {
       return res.status(400).json({ error: 'Неверный текущий пароль' });
     }
 
+    // Защита от перебора кодов
+    if (isCodeLocked(user.email)) {
+      return res.status(429).json({ error: 'Слишком много попыток. Подождите 10 минут.' });
+    }
+
     // Проверить код
     const emailCode = await prisma.emailCode.findFirst({
       where: {
@@ -575,6 +614,7 @@ router.post('/change-password/confirm', async (req, res) => {
     });
 
     if (!emailCode) {
+      recordFailedAttempt(user.email);
       return res.status(400).json({ error: 'Неверный или просроченный код' });
     }
 
@@ -591,6 +631,7 @@ router.post('/change-password/confirm', async (req, res) => {
       }),
     ]);
 
+    clearAttempts(user.email);
     res.json({ success: true });
   } catch (err) {
     console.error('change-password/confirm error:', err);
@@ -599,10 +640,9 @@ router.post('/change-password/confirm', async (req, res) => {
 });
 
 // POST /api/auth/keys — сохранить публичный ключ E2E шифрования
-router.post('/keys', async (req, res) => {
+router.post('/keys', authenticate, async (req, res) => {
   try {
-    const userId = getUserIdFromToken(req);
-    if (!userId) return res.status(401).json({ error: 'Требуется авторизация' });
+    const userId = req.userId;
 
     const { publicKey } = req.body;
     if (!publicKey || typeof publicKey !== 'string' || publicKey.length > 100) {

@@ -191,6 +191,8 @@ model ChannelMeta {
   isPublic        Boolean  @default(true) @map("is_public")
   subscriberCount Int      @default(0) @map("subscriber_count")
   postCount       Int      @default(0) @map("post_count")
+  avatarUrl       String?  @map("avatar_url")
+  coverUrl        String?  @map("cover_url")
   createdAt       DateTime @default(now()) @map("created_at")
 
   @@map("channel_meta")

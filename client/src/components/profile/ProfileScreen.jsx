@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { Mail, Smartphone, Lock, Camera, X, Check } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Smartphone, Lock, Camera, X, Check, Eye, EyeOff, ChevronRight } from 'lucide-react';
 import API_URL from '../../config';
 import Avatar from '../ui/Avatar';
 import AvatarCropModal from './AvatarCropModal';
+import { getAvatarHue } from '../../utils/avatar';
 import './ProfileScreen.css';
 
 export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
@@ -10,25 +12,16 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
-
-  // Email verification
   const [emailCode, setEmailCode] = useState('');
-  const [emailStep, setEmailStep] = useState('display'); // display | verify
+  const [emailStep, setEmailStep] = useState('display');
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState('');
-
-  // Password visibility
   const [showPwCurrent, setShowPwCurrent] = useState(false);
   const [showPwNew, setShowPwNew] = useState(false);
   const [showPwConfirm, setShowPwConfirm] = useState(false);
-
-  // Avatar upload
   const fileInputRef = useRef(null);
   const [cropImage, setCropImage] = useState(null);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-
-  // Password change
-  const [pwStep, setPwStep] = useState('idle'); // idle | code | confirm
+  const [pwStep, setPwStep] = useState('idle');
   const [pwCurrent, setPwCurrent] = useState('');
   const [pwNew, setPwNew] = useState('');
   const [pwConfirm, setPwConfirm] = useState('');
@@ -38,523 +31,347 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState(false);
 
-  // Загрузить текущие данные при открытии
+  // Flip state
+  const [flipped, setFlipped] = useState(false);
+  const [flipAnim, setFlipAnim] = useState(false);
+  // 3D tilt
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const sceneRef = useRef(null);
+  // Expanded cells
+  const [openCell, setOpenCell] = useState(null);
+
   useEffect(() => {
     if (open && user) {
-      setBio(user.bio || '');
-      setSaved(false);
-      setSaveError('');
-      setEmailStep('display');
-      setEmailCode('');
-      setEmailError('');
-      setPwStep('idle');
-      setPwCurrent('');
-      setPwNew('');
-      setPwConfirm('');
-      setPwCode('');
-      setPwEmail('');
-      setPwError('');
-      setPwSuccess(false);
-      setShowPwCurrent(false);
-      setShowPwNew(false);
-      setShowPwConfirm(false);
+      setBio(user.bio || ''); setSaved(false); setSaveError('');
+      setEmailStep('display'); setEmailCode(''); setEmailError('');
+      setPwStep('idle'); setPwCurrent(''); setPwNew(''); setPwConfirm('');
+      setPwCode(''); setPwEmail(''); setPwError(''); setPwSuccess(false);
+      setShowPwCurrent(false); setShowPwNew(false); setShowPwConfirm(false);
+      setFlipped(false); setOpenCell(null);
     }
   }, [open, user]);
 
-  // Escape закрывает
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => {
-      if (e.key === 'Escape') onClose?.();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    const h = e => { if (e.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
   }, [open, onClose]);
 
+  // 3D tilt
+  const handleMouseMove = useCallback((e) => {
+    if (!sceneRef.current) return;
+    const r = sceneRef.current.getBoundingClientRect();
+    setTilt({
+      x: ((e.clientX - r.left) / r.width - 0.5) * 7,
+      y: -((e.clientY - r.top) / r.height - 0.5) * 4,
+    });
+  }, []);
+  const handleMouseLeave = useCallback(() => setTilt({ x: 0, y: 0 }), []);
+
+  // Flip
+  const doFlip = useCallback(() => {
+    setFlipped(f => !f);
+    setFlipAnim(true);
+    setTimeout(() => setFlipAnim(false), 800);
+  }, []);
+
+  // Handlers
+  const getH = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
+
   const handleSave = async () => {
-    setSaving(true);
-    setSaveError('');
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/users/me`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ bio }),
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        onUserUpdate?.(updated);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-      } else {
-        setSaveError('Не удалось сохранить');
-      }
-    } catch {
-      setSaveError('Нет подключения к серверу');
-    } finally {
-      setSaving(false);
-    }
+    setSaving(true); setSaveError('');
+    try { const res = await fetch(`${API_URL}/api/users/me`, { method: 'PUT', headers: getH(), body: JSON.stringify({ bio }) }); if (res.ok) { onUserUpdate?.(await res.json()); setSaved(true); setTimeout(() => setSaved(false), 2000); } else setSaveError('Ошибка'); } catch { setSaveError('Нет подключения'); } finally { setSaving(false); }
   };
-
-  // Отправить код подтверждения на email
   const handleSendEmailCode = async () => {
-    setEmailError('');
-    setEmailSending(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/auth/resend-code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setEmailStep('verify');
-      } else {
-        setEmailError(data.error || 'Ошибка');
-      }
-    } catch {
-      setEmailError('Не удалось отправить код');
-    } finally {
-      setEmailSending(false);
-    }
+    setEmailError(''); setEmailSending(true);
+    try { const res = await fetch(`${API_URL}/api/auth/resend-code`, { method: 'POST', headers: getH() }); if (res.ok) setEmailStep('verify'); else setEmailError((await res.json()).error || 'Ошибка'); } catch { setEmailError('Ошибка'); } finally { setEmailSending(false); }
   };
-
-  // Верифицировать email
   const handleVerifyEmail = async () => {
-    setEmailError('');
-    setEmailSending(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/auth/verify-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ code: emailCode }),
-      });
-      const data = await res.json();
-      if (res.ok || data.success) {
-        onUserUpdate?.({ emailVerified: true });
-        setEmailStep('display');
-        setEmailCode('');
-      } else {
-        setEmailError(data.error || 'Неверный код');
-      }
-    } catch {
-      setEmailError('Ошибка верификации');
-    } finally {
-      setEmailSending(false);
-    }
+    setEmailError(''); setEmailSending(true);
+    try { const res = await fetch(`${API_URL}/api/auth/verify-email`, { method: 'POST', headers: getH(), body: JSON.stringify({ code: emailCode }) }); const d = await res.json(); if (res.ok || d.success) { onUserUpdate?.({ emailVerified: true }); setEmailStep('display'); setEmailCode(''); } else setEmailError(d.error || 'Неверный код'); } catch { setEmailError('Ошибка'); } finally { setEmailSending(false); }
   };
-
-  // Запросить код для смены пароля
   const handlePwRequest = async () => {
-    setPwError('');
-    setPwLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/auth/change-password/request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setPwEmail(data.email || '');
-        setPwStep('code');
-      } else {
-        setPwError(data.error || 'Ошибка');
-      }
-    } catch {
-      setPwError('Не удалось отправить код');
-    } finally {
-      setPwLoading(false);
-    }
+    setPwError(''); setPwLoading(true);
+    try { const res = await fetch(`${API_URL}/api/auth/change-password/request`, { method: 'POST', headers: getH() }); const d = await res.json(); if (res.ok) { setPwEmail(d.email || ''); setPwStep('code'); } else setPwError(d.error || 'Ошибка'); } catch { setPwError('Ошибка'); } finally { setPwLoading(false); }
   };
-
-  // Подтвердить смену пароля
   const handlePwConfirm = async () => {
     setPwError('');
     if (!pwCurrent) { setPwError('Введите текущий пароль'); return; }
-    if (pwNew.length < 8) { setPwError('Новый пароль — минимум 8 символов'); return; }
+    if (pwNew.length < 8) { setPwError('Минимум 8 символов'); return; }
     if (pwNew !== pwConfirm) { setPwError('Пароли не совпадают'); return; }
     if (pwCode.length < 6) { setPwError('Введите код'); return; }
-
     setPwLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/auth/change-password/confirm`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          code: pwCode,
-          currentPassword: pwCurrent,
-          newPassword: pwNew,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setPwSuccess(true);
-        setPwStep('idle');
-        setPwCurrent('');
-        setPwNew('');
-        setPwConfirm('');
-        setPwCode('');
-        setTimeout(() => setPwSuccess(false), 3000);
-      } else {
-        setPwError(data.error || 'Ошибка');
-      }
-    } catch {
-      setPwError('Ошибка подключения');
-    } finally {
-      setPwLoading(false);
-    }
+    try { const res = await fetch(`${API_URL}/api/auth/change-password/confirm`, { method: 'POST', headers: getH(), body: JSON.stringify({ code: pwCode, currentPassword: pwCurrent, newPassword: pwNew }) }); if (res.ok) { setPwSuccess(true); setPwStep('idle'); setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwCode(''); setTimeout(() => setPwSuccess(false), 3000); } else setPwError((await res.json()).error || 'Ошибка'); } catch { setPwError('Ошибка'); } finally { setPwLoading(false); }
   };
-
-  // Обработка выбора файла для аватара
   const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setSaveError('Файл слишком большой (макс. 5 МБ)');
-      return;
-    }
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setSaveError('Формат не поддерживается (JPG, PNG, WebP)');
-      return;
-    }
-    setCropImage(URL.createObjectURL(file));
-    e.target.value = '';
+    const f = e.target.files?.[0]; if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { setSaveError('Макс. 5 МБ'); return; }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) { setSaveError('JPG, PNG, WebP'); return; }
+    setCropImage(URL.createObjectURL(f)); e.target.value = '';
   };
-
-  // Загрузить обрезанный аватар
   const handleAvatarSave = async (blob) => {
-    setAvatarUploading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const formData = new FormData();
-      formData.append('avatar', blob, 'avatar.jpg');
-      const res = await fetch(`${API_URL}/api/users/me/avatar`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        onUserUpdate?.({ avatar: data.avatar });
-        setCropImage(null);
-      } else {
-        setCropImage(null);
-        setSaveError('Ошибка загрузки аватара');
-      }
-    } catch {
-      setCropImage(null);
-      setSaveError('Нет подключения к серверу');
-    } finally {
-      setAvatarUploading(false);
-    }
+    try { const fd = new FormData(); fd.append('avatar', blob, 'avatar.jpg'); const res = await fetch(`${API_URL}/api/users/me/avatar`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: fd }); if (res.ok) onUserUpdate?.({ avatar: (await res.json()).avatar }); } catch {} finally { setCropImage(null); }
   };
 
-  if (!open) return null;
+  const hue = user ? getAvatarHue(user) : 200;
+  const flipDeg = (flipped ? 180 : 0) + tilt.x;
+  const cardStyle = {
+    transform: `rotateY(${flipDeg}deg) rotateX(${tilt.y}deg)`,
+    transition: flipAnim ? 'transform 0.75s cubic-bezier(0.16, 1, 0.3, 1)' : 'transform 0.12s ease-out',
+  };
+
+  const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  const since = user?.createdAt ? (() => { const d = new Date(user.createdAt); return `с ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; })() : '';
 
   return (
-    <div className="profile-overlay" onClick={onClose}>
+    <AnimatePresence>
+      {open && (
+        <motion.div className="pf-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+          <div className="pf-scene" ref={sceneRef} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} onClick={e => e.stopPropagation()}>
+            <div className="pf-card" style={cardStyle}>
+
+              {/* ═══════ FRONT ═══════ */}
+              <div className="pf-face pf-front">
+                {/* Blurred avatar background */}
+                {user?.avatar && (
+                  <div className="pf-front__bg" style={{ backgroundImage: `url(${API_URL}/uploads/avatars/${user.avatar})` }} />
+                )}
+                <div className="pf-front__grain" />
+                <div className="pf-front__holo" />
+                <div className="pf-front__shimmer" />
+                <div className="pf-front__wm">{(user?.username || 'G')[0].toUpperCase()}</div>
+
+                <div className="pf-front__top">
+                  <span className="pf-front__logo">blesk</span>
+                  <span className="pf-front__issue">ISSUE {user?.tag || '#0000'}<br/>{since.toUpperCase()}</span>
+                </div>
+
+                <div className="pf-front__body">
+                  <div className="pf-front__ava" onClick={() => fileInputRef.current?.click()}>
+                    <Avatar user={user} size={110} />
+                    <div className="pf-front__ava-ring" />
+                    <div className="pf-front__ava-hover"><Camera size={16} /> Фото</div>
+                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileSelect} hidden />
+                  <div className="pf-front__name">{user?.username}</div>
+                  <div className="pf-front__tag">{user?.tag}</div>
+                  {user?.status === 'online' && (
+                    <div className="pf-front__status"><div className="pf-front__dot" /> В сети</div>
+                  )}
+                </div>
+
+                <SlideToFlip label="потяни → редактировать" direction="right" onFlip={doFlip} />
+              </div>
+
+              {/* ═══════ BACK ═══════ */}
+              <div className="pf-face pf-back">
+                <div className="pf-back__inner">
+                <div className="pf-back__head">
+                  <div className="pf-back__ava"><Avatar user={user} size={48} /></div>
+                  <div>
+                    <div className="pf-back__name">{user?.username}</div>
+                    <div className="pf-back__sub">{user?.tag} · {since}</div>
+                  </div>
+                </div>
+
+                <div className="pf-back__scroll">
+                  {/* Email */}
+                  <ProfileCell
+                    icon={<Mail size={15} />}
+                    iconBg="rgba(74,222,128,0.08)"
+                    iconColor="#4ade80"
+                    label="Email"
+                    value={user?.email || 'Не указан'}
+                    dot={user?.emailVerified ? '#4ade80' : null}
+                    isOpen={openCell === 'email'}
+                    onToggle={() => setOpenCell(openCell === 'email' ? null : 'email')}
+                  >
+                    {user?.emailVerified ? (
+                      <span className="pf-cell__hint">Email подтверждён</span>
+                    ) : emailStep === 'display' ? (
+                      <motion.button className="pf-cell__action" onClick={handleSendEmailCode} disabled={emailSending} whileTap={{ scale: 0.95 }}>
+                        {emailSending ? '...' : 'Отправить код подтверждения'}
+                      </motion.button>
+                    ) : (
+                      <>
+                        <span className="pf-cell__hint">Код отправлен на {user?.email}</span>
+                        <div className="pf-cell__row">
+                          <input className="pf-cell__input pf-cell__input--sm" value={emailCode} onChange={e => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Код" maxLength={6} autoFocus onClick={e => e.stopPropagation()} />
+                          <motion.button className="pf-cell__action" onClick={handleVerifyEmail} disabled={emailSending || emailCode.length < 4} whileTap={{ scale: 0.95 }}>ОК</motion.button>
+                        </div>
+                        {emailError && <span className="pf-cell__err">{emailError}</span>}
+                      </>
+                    )}
+                  </ProfileCell>
+
+                  {/* Phone */}
+                  <ProfileCell
+                    icon={<Smartphone size={15} />}
+                    iconBg="rgba(245,158,11,0.06)"
+                    iconColor="#f59e0b"
+                    label="Телефон"
+                    value={user?.phone || 'Не привязан'}
+                    muted={!user?.phone}
+                    isOpen={openCell === 'phone'}
+                    onToggle={() => setOpenCell(openCell === 'phone' ? null : 'phone')}
+                  >
+                    <span className="pf-cell__hint">Привязка скоро будет доступна</span>
+                  </ProfileCell>
+
+                  {/* Password */}
+                  <ProfileCell
+                    icon={<Lock size={15} />}
+                    iconBg="rgba(200,255,0,0.05)"
+                    iconColor="#c8ff00"
+                    label="Пароль"
+                    value="●●●●●●●●"
+                    isOpen={openCell === 'pass'}
+                    onToggle={() => { setOpenCell(openCell === 'pass' ? null : 'pass'); if (pwStep === 'idle' && !pwSuccess) handlePwRequest(); }}
+                  >
+                    {pwSuccess ? (
+                      <span className="pf-cell__ok"><Check size={13} /> Пароль изменён</span>
+                    ) : pwStep === 'code' ? (
+                      <>
+                        <span className="pf-cell__hint">Код на {pwEmail}</span>
+                        <PwInput value={pwCurrent} onChange={setPwCurrent} show={showPwCurrent} toggle={() => setShowPwCurrent(p => !p)} placeholder="Текущий пароль" />
+                        <PwInput value={pwNew} onChange={setPwNew} show={showPwNew} toggle={() => setShowPwNew(p => !p)} placeholder="Новый (мин. 8)" />
+                        <PwInput value={pwConfirm} onChange={setPwConfirm} show={showPwConfirm} toggle={() => setShowPwConfirm(p => !p)} placeholder="Повторите" />
+                        <input className="pf-cell__input" value={pwCode} onChange={e => setPwCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Код из email" maxLength={6} onClick={e => e.stopPropagation()} />
+                        {pwError && <span className="pf-cell__err">{pwError}</span>}
+                        <div className="pf-cell__row">
+                          <motion.button className="pf-cell__action" onClick={handlePwConfirm} disabled={pwLoading} whileTap={{ scale: 0.95 }}>{pwLoading ? '...' : 'Подтвердить'}</motion.button>
+                          <motion.button className="pf-cell__action pf-cell__action--ghost" onClick={() => { setPwStep('idle'); setPwError(''); setOpenCell(null); }} whileTap={{ scale: 0.95 }}>Отмена</motion.button>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="pf-cell__hint">{pwLoading ? 'Отправляем код...' : 'Нажмите чтобы сменить пароль'}</span>
+                    )}
+                  </ProfileCell>
+
+                  {/* Bio */}
+                  <div className="pf-back__bio">
+                    <textarea className="pf-back__bio-ta" value={bio} onChange={e => setBio(e.target.value.slice(0, 200))} placeholder="О себе..." rows={2} onClick={e => e.stopPropagation()} />
+                    <div className="pf-back__bio-bar">
+                      <span className="pf-back__bio-n">{bio.length}/200</span>
+                    </div>
+                  </div>
+
+                  {saveError && <span className="pf-cell__err">{saveError}</span>}
+
+                  <motion.button className="pf-back__save" onClick={handleSave} disabled={saving} whileTap={{ scale: 0.97 }}>
+                    {saving ? '...' : saved ? <><Check size={13} /> Сохранено</> : 'Сохранить'}
+                  </motion.button>
+                </div>
+
+                </div>{/* close pf-back__inner */}
+                <SlideToFlip label="← потяни назад" direction="left" onFlip={doFlip} />
+              </div>
+            </div>
+          </div>
+
+          {cropImage && <AvatarCropModal imageSrc={cropImage} onClose={() => setCropImage(null)} onSave={handleAvatarSave} />}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ═══════ SLIDE TO FLIP ═══════
+function SlideToFlip({ label, direction, onFlip }) {
+  const thumbRef = useRef(null);
+  const trackRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+  const startXRef = useRef(0);
+  const [thumbX, setThumbX] = useState(0);
+  const [glow, setGlow] = useState(0);
+
+  const maxX = 164; // track width - thumb
+
+  const handleDown = (e) => {
+    e.stopPropagation();
+    setDragging(true);
+    startXRef.current = e.clientX || e.touches?.[0]?.clientX || 0;
+    thumbRef.current?.setPointerCapture?.(e.pointerId);
+  };
+
+  const handleMove = (e) => {
+    if (!dragging) return;
+    e.stopPropagation();
+    const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
+    const dx = clientX - startXRef.current;
+    const val = direction === 'right' ? Math.max(0, Math.min(dx, maxX)) : Math.max(0, Math.min(-dx, maxX));
+    setThumbX(direction === 'right' ? val : -val);
+    setGlow(Math.abs(val) / maxX);
+  };
+
+  const handleUp = (e) => {
+    if (!dragging) return;
+    e.stopPropagation();
+    setDragging(false);
+    if (glow > 0.6) onFlip();
+    setThumbX(0);
+    setGlow(0);
+  };
+
+  return (
+    <div className="pf-slider" onClick={e => e.stopPropagation()}>
+      <div className="pf-slider__track" ref={trackRef}>
+        <div className="pf-slider__hint-bg" />
+      </div>
+      <span className="pf-slider__text">{label}</span>
       <div
-        className="profile-card"
-        onClick={(e) => e.stopPropagation()}
+        ref={thumbRef}
+        className={`pf-slider__thumb ${direction === 'left' ? 'pf-slider__thumb--right' : ''}`}
+        style={{
+          transform: `translateX(${thumbX}px)`,
+          boxShadow: glow > 0 ? `0 0 ${4 + glow * 16}px rgba(200,255,0,${0.1 + glow * 0.3})` : 'none',
+          borderColor: `rgba(200,255,0,${0.3 + glow * 0.5})`,
+        }}
+        onPointerDown={handleDown}
+        onPointerMove={handleMove}
+        onPointerUp={handleUp}
       >
-        <div className="profile-card__shine" />
+        <span className="pf-slider__arrow">{direction === 'right' ? '→' : '←'}</span>
+      </div>
+    </div>
+  );
+}
 
-        <button className="profile-close" onClick={onClose}>
-          <X size={16} strokeWidth={2} />
-        </button>
-
-        {/* Аватар */}
-        <div className="profile-avatar-area">
-          <Avatar user={user} size="xl" className="profile-avatar" onClick={() => fileInputRef.current?.click()}>
-            <div className="profile-avatar__camera"><Camera size={20} strokeWidth={1.5} /></div>
-          </Avatar>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
-        </div>
-
-        {/* Модальное окно кропа */}
-        {cropImage && (
-          <AvatarCropModal
-            imageSrc={cropImage}
-            onClose={() => setCropImage(null)}
-            onSave={handleAvatarSave}
-          />
-        )}
-
-        {/* Имя и тег */}
-        <div className="profile-username">{user?.username}</div>
-        <div className="profile-tag">{user?.tag}</div>
-
-        <div className="profile-sep" />
-
-        {/* Email */}
-        <div className="profile-field">
-          <label className="profile-field__label"><Mail size={14} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Email</label>
-          {emailStep === 'display' && (
-            <div className="profile-email-row">
-              <span className="profile-email-value">
-                {user?.email || 'Не указан'}
-              </span>
-              {user?.email && !user?.emailVerified && (
-                <button
-                  className="profile-email-btn"
-                  onClick={handleSendEmailCode}
-                  disabled={emailSending}
-                >
-                  {emailSending ? '...' : 'Подтвердить'}
-                </button>
-              )}
-              {user?.email && user?.emailVerified && (
-                <span className="profile-email-verified"><Check size={14} strokeWidth={2} /> Подтверждён</span>
-              )}
-            </div>
-          )}
-
-          {emailStep === 'verify' && (
-            <div className="profile-email-verify">
-              <div className="profile-email-hint">
-                Код отправлен на {user?.email}
-              </div>
-              <div className="profile-email-code-row">
-                <input
-                  type="text"
-                  className="profile-email-code-input"
-                  value={emailCode}
-                  onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="Код..."
-                  maxLength={6}
-                  autoFocus
-                />
-                <button
-                  className="profile-email-btn"
-                  onClick={handleVerifyEmail}
-                  disabled={emailSending || emailCode.length < 4}
-                >
-                  {emailSending ? '...' : 'ОК'}
-                </button>
-                <button
-                  className="profile-email-btn profile-email-btn--cancel"
-                  onClick={() => { setEmailStep('display'); setEmailCode(''); setEmailError(''); }}
-                >
-                  <X size={14} strokeWidth={2} />
-                </button>
-              </div>
-              {emailError && <div className="profile-email-error">{emailError}</div>}
-            </div>
-          )}
-        </div>
-
-        {/* Телефон (пока только отображение) */}
-        <div className="profile-field">
-          <label className="profile-field__label"><Smartphone size={14} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Телефон</label>
-          <div className="profile-email-row">
-            <span className="profile-email-value">
-              {user?.phone || 'Не привязан'}
-            </span>
-            {!user?.phone && (
-              <span className="profile-email-hint-text">Скоро</span>
-            )}
+// ═══════ CELL ═══════
+function ProfileCell({ icon, iconBg, iconColor, label, value, dot, muted, isOpen, onToggle, children }) {
+  return (
+    <div className={`pf-cell ${isOpen ? 'pf-cell--open' : ''}`}>
+      <div className="pf-cell__main" onClick={onToggle}>
+        <div className="pf-cell__ico" style={{ background: iconBg, color: iconColor }}>{icon}</div>
+        <div className="pf-cell__info">
+          <div className="pf-cell__key">{label}</div>
+          <div className={`pf-cell__val ${muted ? 'pf-cell__val--muted' : ''}`}>
+            {value}
+            {dot && <span className="pf-cell__dot" style={{ background: dot, boxShadow: `0 0 6px ${dot}` }} />}
           </div>
         </div>
-
-        {/* Смена пароля */}
-        <div className="profile-field">
-          <label className="profile-field__label"><Lock size={14} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Пароль</label>
-
-          {pwStep === 'idle' && !pwSuccess && (
-            <button
-              className="profile-pw-link"
-              onClick={handlePwRequest}
-              disabled={pwLoading}
-            >
-              {pwLoading ? '...' : 'Сменить пароль →'}
-            </button>
-          )}
-
-          {pwSuccess && (
-            <div className="profile-pw-success"><Check size={14} strokeWidth={2} /> Пароль изменён</div>
-          )}
-
-          {pwStep === 'code' && (
-            <div className="profile-pw-form">
-              <div className="profile-email-hint">
-                Код отправлен на {pwEmail}
-              </div>
-
-              <div className="profile-pw-input-wrap">
-                <input
-                  type={showPwCurrent ? 'text' : 'password'}
-                  className="profile-pw-input"
-                  value={pwCurrent}
-                  onChange={(e) => setPwCurrent(e.target.value)}
-                  placeholder="Текущий пароль"
-                />
-                <button
-                  type="button"
-                  className="profile-eye-toggle"
-                  onClick={() => setShowPwCurrent(!showPwCurrent)}
-                  tabIndex={-1}
-                >
-                  {showPwCurrent ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                      <line x1="1" y1="1" x2="23" y2="23"/>
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  )}
-                </button>
-              </div>
-              <div className="profile-pw-input-wrap">
-                <input
-                  type={showPwNew ? 'text' : 'password'}
-                  className="profile-pw-input"
-                  value={pwNew}
-                  onChange={(e) => setPwNew(e.target.value)}
-                  placeholder="Новый пароль (мин. 8)"
-                />
-                <button
-                  type="button"
-                  className="profile-eye-toggle"
-                  onClick={() => setShowPwNew(!showPwNew)}
-                  tabIndex={-1}
-                >
-                  {showPwNew ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                      <line x1="1" y1="1" x2="23" y2="23"/>
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  )}
-                </button>
-              </div>
-              <div className="profile-pw-input-wrap">
-                <input
-                  type={showPwConfirm ? 'text' : 'password'}
-                  className="profile-pw-input"
-                  value={pwConfirm}
-                  onChange={(e) => setPwConfirm(e.target.value)}
-                  placeholder="Повторите новый"
-                />
-                <button
-                  type="button"
-                  className="profile-eye-toggle"
-                  onClick={() => setShowPwConfirm(!showPwConfirm)}
-                  tabIndex={-1}
-                >
-                  {showPwConfirm ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                      <line x1="1" y1="1" x2="23" y2="23"/>
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  )}
-                </button>
-              </div>
-              <input
-                type="text"
-                className="profile-email-code-input"
-                value={pwCode}
-                onChange={(e) => setPwCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Код из email"
-                maxLength={6}
-                style={{ marginTop: 8 }}
-              />
-
-              {pwError && <div className="profile-email-error">{pwError}</div>}
-
-              <div className="profile-pw-actions">
-                <button
-                  className="profile-email-btn"
-                  onClick={handlePwConfirm}
-                  disabled={pwLoading}
-                >
-                  {pwLoading ? '...' : 'Подтвердить'}
-                </button>
-                <button
-                  className="profile-email-btn profile-email-btn--cancel"
-                  onClick={() => {
-                    setPwStep('idle');
-                    setPwError('');
-                    setPwCurrent('');
-                    setPwNew('');
-                    setPwConfirm('');
-                    setPwCode('');
-                  }}
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="profile-sep" />
-
-        {/* Bio */}
-        <div className="profile-field">
-          <label className="profile-field__label">О себе</label>
-          <textarea
-            className="profile-field__textarea"
-            value={bio}
-            onChange={(e) => setBio(e.target.value.slice(0, 200))}
-            placeholder="Расскажи о себе..."
-            rows={3}
-          />
-          <div className="profile-field__counter">{bio.length}/200</div>
-        </div>
-
-        <div className="profile-sep" />
-
-        {/* Ошибка сохранения */}
-        {saveError && (
-          <div className="profile-save-error">{saveError}</div>
-        )}
-
-        {/* Кнопка сохранения */}
-        <button
-          className={`profile-save ${saved ? 'profile-save--done' : ''}`}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Сохраняю...' : saved ? <><Check size={14} strokeWidth={2} /> Сохранено</> : 'Сохранить'}
-        </button>
+        <motion.div className="pf-cell__chev" animate={{ rotate: isOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronRight size={14} />
+        </motion.div>
       </div>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div className="pf-cell__drawer" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+            <div className="pf-cell__drawer-inner">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ═══════ PW INPUT ═══════
+function PwInput({ value, onChange, show, toggle, placeholder }) {
+  return (
+    <div className="pf-cell__pw-wrap">
+      <input className="pf-cell__input" type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} onClick={e => e.stopPropagation()} />
+      <button className="pf-cell__eye" onClick={e => { e.stopPropagation(); toggle(); }} type="button" tabIndex={-1}>{show ? <EyeOff size={13} /> : <Eye size={13} />}</button>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import MainScreen from './components/main/MainScreen';
 import UpdateToast from './components/ui/UpdateToast';
 import MetaballFilter from './components/ui/MetaballFilter';
 import { ensureKeyPair, clearCache } from './utils/cryptoService';
+import { useSettingsStore } from './store/settingsStore';
 import { useChatStore } from './store/chatStore';
 import { useNotificationStore } from './store/notificationStore';
 import { useVoiceStore } from './store/voiceStore';
@@ -19,6 +20,36 @@ export default function App() {
   const [checking, setChecking] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
   const [needsVerify, setNeedsVerify] = useState(null); // { user, token, refreshToken }
+
+  // Применить настройки к CSS custom properties
+  const accentColor = useSettingsStore((s) => s.accentColor);
+  const fontSize = useSettingsStore((s) => s.fontSize);
+  const reducedMotion = useSettingsStore((s) => s.reducedMotion);
+  const highContrast = useSettingsStore((s) => s.highContrast);
+
+  const theme = useSettingsStore((s) => s.theme);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (accentColor) {
+      // В светлой теме затемняем яркие акцентные цвета для читаемости
+      if (theme === 'light') {
+        const darkVersions = {
+          '#c8ff00': '#6ab300',
+          '#00d4ff': '#009ec7',
+          '#ff6b6b': '#e04444',
+          '#a855f7': '#8b5cf6',
+          '#ffffff': '#666666',
+        };
+        root.style.setProperty('--accent', darkVersions[accentColor] || accentColor);
+      } else {
+        root.style.setProperty('--accent', accentColor);
+      }
+    }
+    if (fontSize) root.style.setProperty('--font-size-base', fontSize + 'px');
+    root.classList.toggle('reduced-motion', !!reducedMotion);
+    root.classList.toggle('high-contrast', !!highContrast);
+  }, [accentColor, fontSize, reducedMotion, highContrast, theme]);
 
   // Слушаем maximize/unmaximize от Electron
   useEffect(() => {
@@ -138,7 +169,7 @@ export default function App() {
     // Очистить E2E ключи и кеши
     clearCache();
     // Полная очистка всех Zustand stores
-    useChatStore.setState({ chats: [], messages: {}, activeChats: new Set(), onlineUsers: [], userStatuses: {}, typingUsers: {} });
+    useChatStore.setState({ chats: [], messages: {}, activeChats: new Set(), onlineUsers: [], userStatuses: {}, typingUsers: {}, chatsInitialized: false, loadingChatList: false, loadingChats: new Set(), customStatuses: {} });
     useNotificationStore.setState({ notifications: [], unreadCount: 0 });
     useVoiceStore.getState().clearCurrentRoom();
     useVoiceStore.setState({ rooms: [], loading: false, userVolumes: {} });

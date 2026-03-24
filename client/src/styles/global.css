@@ -71,28 +71,28 @@
 
 /* Светлая тема v3 — контраст + читаемость */
 [data-theme="light"] {
-  --bg: #f0eef5;
-  --accent: #4a8c00;
+  --bg: #edeaf3;
+  --accent: #6ab300;
   --accent-text: #111118;
   --text: #1a1a2e;
-  --text-muted: rgba(26, 26, 46, 0.65);
+  --text-muted: rgba(26, 26, 46, 0.55);
   --online: #16a34a;
   --danger: #dc2626;
 
-  --glass-bg: rgba(255, 255, 255, 0.78);
-  --glass-border: rgba(0, 0, 0, 0.12);
-  --glass-hover: rgba(255, 255, 255, 0.88);
-  --glass-shadow: rgba(0, 0, 0, 0.14);
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --glass-hover: rgba(255, 255, 255, 0.92);
+  --glass-shadow: rgba(0, 0, 0, 0.12);
 
   --scrollbar-thumb: rgba(0, 0, 0, 0.18);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
 
   /* Double Layer Glass — light */
-  --dl-outer-bg: rgba(255, 255, 255, 0.3);
-  --dl-inner-bg: rgba(255, 255, 255, 0.5);
-  --dl-border: rgba(0, 0, 0, 0.04);
-  --dl-inner-shadow-top: rgba(255, 255, 255, 0.7);
-  --dl-inner-shadow-bottom: rgba(0, 0, 0, 0.03);
+  --dl-outer-bg: rgba(255, 255, 255, 0.5);
+  --dl-inner-bg: rgba(255, 255, 255, 0.65);
+  --dl-border: rgba(0, 0, 0, 0.06);
+  --dl-inner-shadow-top: rgba(255, 255, 255, 0.8);
+  --dl-inner-shadow-bottom: rgba(0, 0, 0, 0.04);
 }
 
 /* Анимация смены темы */
@@ -159,6 +159,24 @@ a:focus-visible {
   }
 }
 
+/* Ручное включение reduced motion через настройки */
+.reduced-motion *, .reduced-motion *::before, .reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Высокий контраст */
+.high-contrast {
+  --text: rgba(255, 255, 255, 1) !important;
+  --text-muted: rgba(255, 255, 255, 0.7) !important;
+}
+[data-theme="light"].high-contrast {
+  --text: rgba(0, 0, 0, 1) !important;
+  --text-muted: rgba(0, 0, 0, 0.7) !important;
+}
+
 .app {
   width: 100vw;
   height: 100vh;
@@ -216,9 +234,9 @@ a:focus-visible {
 
 /* Окно чата */
 [data-theme="light"] .chat-view {
-  background: rgba(245, 243, 250, 0.85);
-  border-color: rgba(0, 0, 0, 0.1);
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  background: transparent;
+  border-color: rgba(0, 0, 0, 0.04);
+  box-shadow: none;
 }
 
 [data-theme="light"] .chat-view--focused {

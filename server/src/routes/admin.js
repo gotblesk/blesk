@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const crypto = require('crypto');
 const prisma = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, invalidateBanCache } = require('../middleware/auth');
 const { requireAdmin, logAdminAction } = require('../middleware/adminAuth');
 
 const router = Router();
@@ -144,6 +144,11 @@ router.patch('/users/:id', authenticate, requireAdmin, async (req, res) => {
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Пользователь не найден' });
 
+    // Нельзя менять роль другого админа (защита от эскалации привилегий)
+    if (changes.role && existing.role === 'admin' && id !== req.adminUser.id) {
+      return res.status(403).json({ error: 'Нельзя менять роль другого администратора' });
+    }
+
     if (changes.username) {
       const dup = await prisma.user.findFirst({ where: { username: changes.username, NOT: { id } } });
       if (dup) return res.status(409).json({ error: 'Имя пользователя занято' });
@@ -175,6 +180,9 @@ router.post('/users/:id/ban', authenticate, requireAdmin, async (req, res) => {
       data: { banned: true, bannedAt: new Date(), bannedReason: reason, bannedBy: req.adminUser.id },
     });
 
+    // Инвалидировать кеш бана — бан применяется мгновенно
+    invalidateBanCache(id);
+
     // Дисконнект всех сокетов забаненного юзера
     const io = req.app.locals.io;
     if (io) {
@@ -205,6 +213,9 @@ router.post('/users/:id/unban', authenticate, requireAdmin, async (req, res) => 
       where: { id },
       data: { banned: false, bannedAt: null, bannedReason: null, bannedBy: null },
     });
+
+    // Инвалидировать кеш бана — разбан применяется мгновенно
+    invalidateBanCache(id);
 
     await logAdminAction(req.adminUser.id, 'user.unban', 'user', id);
     res.json({ ok: true });
@@ -294,7 +305,7 @@ router.post('/tags', authenticate, requireAdmin, async (req, res) => {
     if (existing) return res.status(409).json({ error: 'Тег с таким именем уже существует' });
 
     const validTypes = ['system', 'achievement', 'seasonal', 'community'];
-    const validRarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+    const validRarities = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 
     const tag = await prisma.tag.create({
       data: {

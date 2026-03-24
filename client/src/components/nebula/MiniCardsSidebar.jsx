@@ -1,21 +1,22 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Home } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import Avatar from '../ui/Avatar';
 import './MiniCardsSidebar.css';
 
-// ═══════ SIDEBAR — Magnetic Edge + Glass Island ═══════
 export default function MiniCardsSidebar({ activeChatId, onSelectChat, onBack }) {
   const chats = useChatStore(s => s.chats);
   const onlineUsers = useChatStore(s => s.onlineUsers);
+  const [backHover, setBackHover] = useState(false);
 
   const getChatName = (chat) => {
-    if (chat.type === 'personal' && chat.otherUser) return chat.otherUser.username;
+    if (chat.otherUser?.username) return chat.otherUser.username;
     return chat.name || 'Чат';
   };
 
   const isOnline = (chat) => {
-    if (chat.type === 'personal' && chat.otherUser) {
-      return onlineUsers.includes(chat.otherUser.id);
-    }
+    if (chat.otherUser) return onlineUsers.includes(chat.otherUser.id);
     return false;
   };
 
@@ -30,26 +31,17 @@ export default function MiniCardsSidebar({ activeChatId, onSelectChat, onBack })
     const d = new Date(chat.lastMessage.createdAt);
     const now = new Date();
     const isToday = d.toDateString() === now.toDateString();
-    if (isToday) {
-      return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    }
+    if (isToday) return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === yesterday.toDateString()) {
-      return 'вчера';
-    }
+    if (d.toDateString() === yesterday.toDateString()) return 'вчера';
     return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
   };
 
   const cardContent = (chat, active) => (
     <>
       <div className="mini-card__avatar">
-        <Avatar
-          username={getChatName(chat)}
-          avatarUrl={chat.otherUser?.avatar}
-          size={active ? 38 : 34}
-          showOnline={isOnline(chat)}
-        />
+        <Avatar username={getChatName(chat)} avatarUrl={chat.otherUser?.avatar} size={active ? 38 : 34} showOnline={isOnline(chat)} />
       </div>
       <div className="mini-card__info">
         <div className="mini-card__name">{getChatName(chat)}</div>
@@ -57,18 +49,55 @@ export default function MiniCardsSidebar({ activeChatId, onSelectChat, onBack })
       </div>
       <div className="mini-card__meta">
         <span className="mini-card__time">{getLastTime(chat)}</span>
-        {chat.unreadCount > 0 && (
-          <span className="mini-card__badge">{chat.unreadCount}</span>
-        )}
+        {chat.unreadCount > 0 && <span className="mini-card__badge">{chat.unreadCount}</span>}
       </div>
     </>
   );
 
   return (
     <div className="mini-sidebar">
-      <button className="mini-sidebar__back" onClick={onBack} title="Назад к Nebula">
-        ← назад
-      </button>
+      {/* Back button with morph animation */}
+      <motion.button
+        className="mini-sidebar__back"
+        onClick={onBack}
+        onHoverStart={() => setBackHover(true)}
+        onHoverEnd={() => setBackHover(false)}
+        whileTap={{ scale: 0.92 }}
+        title="Назад к Nebula"
+      >
+        <motion.div
+          className="mini-sidebar__back-inner"
+          animate={{ width: backHover ? 120 : 36 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+        >
+          <AnimatePresence mode="wait">
+            {backHover ? (
+              <motion.div
+                key="expanded"
+                className="mini-sidebar__back-content"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.1 }}
+              >
+                <ArrowLeft size={14} strokeWidth={2} />
+                <span>Назад</span>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="icon"
+                className="mini-sidebar__back-content"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.1 }}
+              >
+                <Home size={14} strokeWidth={1.5} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </motion.button>
 
       <div className="mini-sidebar__list">
         {chats.length === 0 && (

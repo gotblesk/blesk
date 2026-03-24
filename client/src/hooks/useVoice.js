@@ -322,7 +322,15 @@ export function useVoice(socketRef) {
 
         // Создать Send Transport
         socket.emit('voice:createTransport', { roomId, direction: 'send' }, async (res) => {
-          if (res.error) return;
+          if (res.error) {
+            // Освободить микрофон при ошибке создания транспорта
+            if (localStreamRef.current) {
+              localStreamRef.current.getTracks().forEach((t) => t.stop());
+              localStreamRef.current = null;
+            }
+            clearCurrentRoom();
+            return;
+          }
 
           const sendTransport = device.createSendTransport(res.params);
           sendTransportRef.current = sendTransport;
@@ -648,8 +656,18 @@ export function useVoice(socketRef) {
     try {
       if (cameraProducerRef.current) return;
       if (!sendTransportRef.current) return;
+      // Читаем настройки качества
+      const { cameraResolution, cameraFps } = (() => {
+        try { const s = JSON.parse(localStorage.getItem('blesk-settings') || '{}'); return { cameraResolution: s.cameraResolution || '720p', cameraFps: s.cameraFps || 30 }; }
+        catch { return { cameraResolution: '720p', cameraFps: 30 }; }
+      })();
+      const resMap = { '480p': { w: 640, h: 480 }, '720p': { w: 1280, h: 720 }, '1080p': { w: 1920, h: 1080 }, '1440p': { w: 2560, h: 1440 } };
+      const res = resMap[cameraResolution] || resMap['720p'];
+      const bitrateMap = { '480p': 800000, '720p': 1500000, '1080p': 3000000, '1440p': 5000000 };
+      const bitrate = bitrateMap[cameraResolution] || 1500000;
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, frameRate: 30 },
+        video: { width: { ideal: res.w }, height: { ideal: res.h }, frameRate: { ideal: cameraFps } },
       });
       localCameraStreamRef.current = stream;
       useVoiceStore.getState().setLocalCameraStream(stream);
@@ -657,7 +675,7 @@ export function useVoice(socketRef) {
       const producer = await sendTransportRef.current.produce({
         track,
         appData: { type: 'camera' },
-        encodings: [{ maxBitrate: 1500000 }],
+        encodings: [{ maxBitrate: bitrate }],
         codecOptions: { videoGoogleStartBitrate: 1000 },
       });
       cameraProducerRef.current = producer;
@@ -687,10 +705,22 @@ export function useVoice(socketRef) {
   // ═══ Видео: демонстрация экрана ═══
   const enableScreenShare = useCallback(async () => {
     try {
+      if (screenProducerRef.current) return;
       if (!sendTransportRef.current) return;
+      // Читаем настройки качества
+      const { screenResolution, screenFps } = (() => {
+        try { const s = JSON.parse(localStorage.getItem('blesk-settings') || '{}'); return { screenResolution: s.screenResolution || '1080p', screenFps: s.screenFps || 30 }; }
+        catch { return { screenResolution: '1080p', screenFps: 30 }; }
+      })();
+      const resMap = { '720p': { w: 1280, h: 720 }, '1080p': { w: 1920, h: 1080 }, '1440p': { w: 2560, h: 1440 } };
+      const res = resMap[screenResolution] || resMap['1080p'];
+      const bitrateMap = { '720p': 1500000, '1080p': 2500000, '1440p': 4000000 };
+      const bitrate = bitrateMap[screenResolution] || 2500000;
+      // 60fps doubles bitrate
+      const finalBitrate = screenFps >= 60 ? bitrate * 1.5 : bitrate;
+
       let stream;
       if (window.blesk?.screen?.getSources) {
-        // Electron — получить источники через preload bridge
         const sources = await window.blesk.screen.getSources();
         if (!sources || !sources.length) return;
         stream = await navigator.mediaDevices.getUserMedia({
@@ -699,18 +729,17 @@ export function useVoice(socketRef) {
             mandatory: {
               chromeMediaSource: 'desktop',
               chromeMediaSourceId: sources[0].id,
-              minWidth: 1280,
-              maxWidth: 1920,
-              minHeight: 720,
-              maxHeight: 1080,
-              maxFrameRate: 15,
+              minWidth: res.w * 0.5,
+              maxWidth: res.w,
+              minHeight: res.h * 0.5,
+              maxHeight: res.h,
+              maxFrameRate: screenFps,
             },
           },
         });
       } else {
-        // Браузер — стандартный getDisplayMedia
         stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { max: 15 } },
+          video: { width: { ideal: res.w }, height: { ideal: res.h }, frameRate: { ideal: screenFps, max: screenFps } },
         });
       }
       localScreenStreamRef.current = stream;
@@ -719,7 +748,7 @@ export function useVoice(socketRef) {
       const producer = await sendTransportRef.current.produce({
         track,
         appData: { type: 'screen' },
-        encodings: [{ maxBitrate: 2500000 }],
+        encodings: [{ maxBitrate: finalBitrate }],
         codecOptions: { videoGoogleStartBitrate: 1000 },
       });
       screenProducerRef.current = producer;

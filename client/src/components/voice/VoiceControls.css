@@ -1,197 +1,213 @@
-.voice-controls {
+/* ═══════════════════════════════════════
+   VoiceControls — Floating Pill Bar
+   ═══════════════════════════════════════ */
+
+.vc {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 56px;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 100;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background: rgba(14, 12, 22, 0.95);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  animation: voiceControlsIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  gap: 6px;
+  padding: 6px 8px 6px 14px;
+  border-radius: 100px;
+  background: rgba(14, 12, 24, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  animation: vc-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  width: fit-content;
+  max-width: calc(100vw - 32px);
 }
 
-@keyframes voiceControlsIn {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+@keyframes vc-in {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
 }
 
-/* Левая часть — инфо */
-.voice-controls__info {
+/* ─── Info section (left) ─── */
+.vc__info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
-  flex: 1;
+  margin-right: 4px;
   min-width: 0;
 }
 
-.voice-controls__info:hover .voice-controls__room-name {
-  color: var(--accent);
+.vc__info:hover .vc__room {
+  color: var(--accent, #c8ff00);
 }
 
-/* Сигнал */
-.voice-controls__signal {
-  width: 28px;
-  height: 28px;
+/* Quality bars */
+.vc__qual {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  gap: 1px;
+  height: 10px;
+  flex-shrink: 0;
 }
 
-/* Сигнал — SVG-индикатор качества */
-.voice-controls__signal svg {
-  display: block;
+.vc__qual-bar {
+  width: 2.5px;
+  border-radius: 1px;
+  transition: background 0.3s;
 }
 
-/* Информация о комнате */
-.voice-controls__room {
-  min-width: 0;
-}
-
-.voice-controls__room-name {
-  font-size: 13px;
-  font-weight: 600;
+/* Room name */
+.vc__room {
+  font-size: 11px;
+  font-weight: 700;
   color: rgba(255, 255, 255, 0.85);
-  transition: color 0.15s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 120px;
+  transition: color 0.15s;
 }
 
-.voice-controls__room-count {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+.vc__count {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
 }
 
-/* Мини-аватары */
-.voice-controls__avatars {
+/* Mini avatars */
+.vc__avas {
   display: flex;
-  margin-left: auto;
-  margin-right: 12px;
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
-.voice-controls__mini-av {
-  width: 24px;
-  height: 24px;
+.vc__mini-ava {
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 8px;
+  font-weight: 800;
   color: #fff;
-  border: 2px solid rgba(14, 12, 22, 0.95);
-  margin-left: -6px;
+  border: 1.5px solid rgba(14, 12, 24, 0.85);
+  margin-left: -5px;
   transition: box-shadow 0.2s;
 }
 
-.voice-controls__mini-av:first-child {
+.vc__mini-ava:first-child {
   margin-left: 0;
 }
 
-.voice-controls__mini-av--speaking {
-  box-shadow: 0 0 8px currentColor;
+.vc__mini-ava--speaking {
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
 }
 
-/* Кнопки */
-.voice-controls__buttons {
-  display: flex;
-  gap: 6px;
+/* Separator */
+.vc__sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 2px;
+  flex-shrink: 0;
 }
 
-.voice-controls__btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+/* ─── Buttons ─── */
+.vc__btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.12s;
+  flex-shrink: 0;
+  padding: 0;
 }
 
-.voice-controls__btn--on {
+.vc__btn:hover {
+  transform: scale(1.08);
+}
+
+.vc__btn:active {
+  transform: scale(0.95);
+}
+
+.vc__btn--on {
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.55);
 }
 
-.voice-controls__btn--on:hover {
+.vc__btn--on:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.75);
 }
 
-.voice-controls__btn--off {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+.vc__btn--active {
+  background: rgba(200, 255, 0, 0.1);
+  color: var(--accent, #c8ff00);
 }
 
-.voice-controls__btn--off:hover {
-  background: rgba(239, 68, 68, 0.25);
+.vc__btn--active:hover {
+  background: rgba(200, 255, 0, 0.18);
 }
 
-.voice-controls__btn--active {
-  background: rgba(200, 255, 0, 0.15);
-  color: var(--accent);
-  border: 1px solid rgba(200, 255, 0, 0.25);
+.vc__btn--muted {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
 }
 
-.voice-controls__btn--active:hover {
-  background: rgba(200, 255, 0, 0.25);
+.vc__btn--muted:hover {
+  background: rgba(239, 68, 68, 0.2);
 }
 
-.voice-controls__btn--disconnect {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
-}
-
-.voice-controls__btn--disconnect:hover {
-  background: var(--danger);
+.vc__btn--end {
+  background: #ef4444;
   color: #fff;
 }
 
-/* Светлая тема */
-[data-theme="light"] .voice-controls {
-  background: rgba(255, 255, 255, 0.92);
-  border-top-color: rgba(0, 0, 0, 0.08);
+.vc__btn--end:hover {
+  background: #dc2626;
 }
 
-[data-theme="light"] .voice-controls__room-name {
+/* ─── Light Theme ─── */
+[data-theme="light"] .vc {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .vc__room {
   color: rgba(0, 0, 0, 0.85);
 }
 
-[data-theme="light"] .voice-controls__room-count {
-  color: rgba(0, 0, 0, 0.4);
+[data-theme="light"] .vc__count {
+  color: rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="light"] .voice-controls__mini-av {
-  border-color: rgba(255, 255, 255, 0.92);
+[data-theme="light"] .vc__mini-ava {
+  border-color: rgba(255, 255, 255, 0.9);
 }
 
-[data-theme="light"] .voice-controls__btn--on {
+[data-theme="light"] .vc__sep {
   background: rgba(0, 0, 0, 0.06);
-  color: rgba(0, 0, 0, 0.6);
 }
 
-[data-theme="light"] .voice-controls__btn--on:hover {
+[data-theme="light"] .vc__btn--on {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .vc__btn--on:hover {
   background: rgba(0, 0, 0, 0.1);
-  color: rgba(0, 0, 0, 0.8);
+  color: rgba(0, 0, 0, 0.7);
 }
 
-[data-theme="light"] .voice-controls__btn--active {
-  background: rgba(74, 140, 0, 0.15);
-  border-color: rgba(74, 140, 0, 0.3);
+[data-theme="light"] .vc__btn--active {
+  background: rgba(74, 140, 0, 0.12);
   color: var(--accent);
 }

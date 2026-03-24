@@ -186,7 +186,7 @@
 
 /* ═══════ LIGHT THEME ═══════ */
 [data-theme="light"] .welcome-card__inner {
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.7);
   border-color: rgba(0, 0, 0, 0.06);
 }
 
@@ -194,6 +194,35 @@
   color: rgba(0, 0, 0, 0.85);
 }
 
+[data-theme="light"] .welcome-card__name {
+  color: var(--accent, #4a8c00);
+}
+
 [data-theme="light"] .welcome-card__desc {
-  color: rgba(0, 0, 0, 0.4);
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .welcome-card__desc strong {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .welcome-card__btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .welcome-card__btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .welcome-card__btn-label {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .welcome-card__btn-hint {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .welcome-card__footer {
+  color: rgba(0, 0, 0, 0.15);
 }

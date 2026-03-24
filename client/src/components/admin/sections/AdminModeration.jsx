@@ -24,7 +24,7 @@ export default function AdminModeration() {
 
   useEffect(() => {
     fetchReports(page, statusFilter);
-  }, [page]);
+  }, [page, statusFilter, fetchReports]);
 
   const handleStatus = async (id, status) => {
     await updateReport(id, status);

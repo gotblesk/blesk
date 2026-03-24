@@ -185,6 +185,18 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
       } catch { /* thumbnail failed, ok */ }
     }
 
+    // Валидация replyToId — должен быть из того же чата (защита от IDOR)
+    let validReplyToId = undefined;
+    if (replyToId) {
+      const replyMsg = await prisma.message.findUnique({
+        where: { id: replyToId },
+        select: { roomId: true },
+      });
+      if (replyMsg && replyMsg.roomId === chatId) {
+        validReplyToId = replyToId;
+      }
+    }
+
     // Создание сообщения + вложения в одной транзакции
     const message = await prisma.message.create({
       data: {
@@ -192,7 +204,7 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
         userId,
         text: text?.trim() || '',
         type: 'media',
-        replyToId: replyToId || undefined,
+        replyToId: validReplyToId,
         attachments: {
           create: [{
             filename: sanitizeFilename(req.file.originalname),

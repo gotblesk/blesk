@@ -15,6 +15,7 @@ import { getCurrentUserId } from '../../utils/auth';
 import uploadFile from '../../utils/uploadFile';
 import { encryptMessage, fetchPublicKey } from '../../utils/cryptoService';
 import { getHueFromString } from '../../utils/hueIdentity';
+import UserProfileModal from '../ui/UserProfileModal';
 import './ChatView.css';
 
 // Resize edges
@@ -48,6 +49,7 @@ export default function ChatView({
   const [editingMsg, setEditingMsg] = useState(null);
   const [membersOpen, setMembersOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [profileUserId, setProfileUserId] = useState(null);
   const initialUnreadRef = useRef(null);
 
   // Drag/pull state
@@ -415,6 +417,7 @@ export default function ChatView({
           typingUsernames={typingInChat.length ? ['печатает'] : []}
           onCall={onCall}
           onMembers={chat.type === 'group' ? () => setMembersOpen(true) : undefined}
+          onAvatarClick={() => { if (chat.otherUser?.id) setProfileUserId(chat.otherUser.id); }}
         />
         {/* Кнопка закрытия */}
         <button
@@ -525,6 +528,7 @@ export default function ChatView({
           socketRef={socketRef}
         />
       )}
+      <UserProfileModal userId={profileUserId} open={!!profileUserId} onClose={() => setProfileUserId(null)} />
     </div>
   );
 }

@@ -153,6 +153,9 @@ router.post('/', authenticate, requireVerified, async (req, res) => {
       if (participantIds.length < 1) {
         return res.status(400).json({ error: 'Добавьте хотя бы одного участника' });
       }
+      if (participantIds.length > 99) {
+        return res.status(400).json({ error: 'Максимум 99 участников в группе' });
+      }
       if (!name || name.trim().length === 0 || name.trim().length > 50) {
         return res.status(400).json({ error: 'Название группы: 1-50 символов' });
       }
@@ -543,6 +546,13 @@ router.post('/:id/messages/:msgId/pin', authenticate, async (req, res) => {
 // Пометить чат как прочитанный
 router.post('/:id/read', authenticate, async (req, res) => {
   try {
+    // Проверить что пользователь — участник чата
+    const participant = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId: req.params.id, userId: req.userId } },
+    });
+    if (!participant) {
+      return res.status(403).json({ error: 'Нет доступа' });
+    }
     await prisma.roomParticipant.update({
       where: { roomId_userId: { roomId: req.params.id, userId: req.userId } },
       data: { lastReadAt: new Date() },

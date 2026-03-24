@@ -25,23 +25,48 @@
   border-radius: 1px;
 }
 
-/* ═══════ BACK BUTTON ═══════ */
+/* ═══════ BACK BUTTON — Morph Pill ═══════ */
 .mini-sidebar__back {
-  width: 100%;
-  padding: 8px 14px;
+  padding: 6px 10px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.2);
-  font-size: 14px;
-  text-align: left;
   cursor: pointer;
-  transition: color 0.15s;
   margin-bottom: 4px;
-  font-family: 'Manrope', sans-serif;
+  display: flex;
+  align-items: center;
 }
 
-.mini-sidebar__back:hover {
-  color: rgba(255, 255, 255, 0.5);
+.mini-sidebar__back-inner {
+  height: 36px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mini-sidebar__back:hover .mini-sidebar__back-inner {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.mini-sidebar__back-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
+.mini-sidebar__back:hover .mini-sidebar__back-content {
+  color: var(--text);
 }
 
 /* ═══════ CHAT LIST ═══════ */
@@ -208,34 +233,49 @@
 
 /* ═══════ LIGHT THEME ═══════ */
 [data-theme="light"] .mini-sidebar {
-  background: rgba(255, 255, 255, 0.5);
-  border-right-color: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.55);
+  border-right-color: rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 [data-theme="light"] .mini-card:hover .mini-card__content {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 [data-theme="light"] .mini-card--active .mini-card__content {
-  background: rgba(255, 255, 255, 0.4);
-  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="light"] .mini-card__active-inner {
-  background: rgba(255, 255, 255, 0.5);
-  border-top-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.6);
+  border-top-color: rgba(255, 255, 255, 0.7);
 }
 
 [data-theme="light"] .mini-card__name {
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(0, 0, 0, 0.75);
 }
 
 [data-theme="light"] .mini-card--active .mini-card__name {
-  color: rgba(0, 0, 0, 0.85);
+  color: rgba(0, 0, 0, 0.9);
 }
 
 [data-theme="light"] .mini-card__preview {
-  color: rgba(0, 0, 0, 0.3);
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .mini-card__time {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .mini-sidebar__back-inner {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .mini-sidebar__back:hover .mini-sidebar__back-inner {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 @media (prefers-reduced-motion: reduce) {

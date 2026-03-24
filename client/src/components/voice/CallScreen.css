@@ -1,0 +1,405 @@
+/* ═══════════════════════════════════════
+   CALL SCREEN — Resizable Adaptive
+   ═══════════════════════════════════════ */
+
+.cs {
+  position: fixed;
+  z-index: 180;
+  border-radius: 22px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  min-height: 200px;
+
+  background: rgba(10,8,18,0.92);
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 32px 100px rgba(0,0,0,0.5);
+}
+
+.cs--max { border-radius: 0; border: none; z-index: 210; }
+
+/* ═══════ BACKGROUND ═══════ */
+.cs__bg {
+  position: absolute; inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(50px) saturate(1.3) brightness(0.3);
+  transform: scale(1.4);
+  z-index: 0;
+}
+
+.cs__bg::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(10,8,18,0.4), rgba(10,8,18,0.2) 40%, rgba(10,8,18,0.5));
+}
+
+.cs__bg--gradient { filter: none; transform: none; opacity: 0.6; }
+
+.cs__overlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 35%, transparent 20%, rgba(10,8,18,0.6) 70%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Particles */
+.cs__particles {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(1px 1px at 15% 25%, rgba(255,255,255,0.08) 0%, transparent 100%),
+    radial-gradient(1px 1px at 75% 65%, rgba(255,255,255,0.06) 0%, transparent 100%),
+    radial-gradient(1px 1px at 45% 80%, rgba(200,255,0,0.04) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 15%, rgba(255,255,255,0.05) 0%, transparent 100%);
+  animation: csDrift 10s ease-in-out infinite alternate;
+}
+@keyframes csDrift { 0% { transform: translate(0,0); } 100% { transform: translate(4px, -6px); } }
+
+/* ═══════ HEADER — drag zone ═══════ */
+.cs__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
+  cursor: grab;
+  user-select: none;
+  position: relative;
+  z-index: 5;
+}
+.cs__header:active { cursor: grabbing; }
+
+.cs__status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600;
+  color: rgba(255,255,255,0.4);
+}
+
+.cs__status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #4ade80;
+  animation: csPulse 1.5s ease-in-out infinite;
+}
+@keyframes csPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.cs__header-r { display: flex; align-items: center; gap: 8px; }
+
+.cs__time {
+  font-family: 'Space Mono', 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 600;
+  color: rgba(74,222,128,0.6);
+}
+
+.cs__max {
+  width: 26px; height: 26px; border-radius: 7px;
+  border: none; background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.3);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.cs__max:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
+
+/* ═══════ BODY ═══════ */
+.cs__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+  z-index: 5;
+  min-height: 0;
+  padding: 0 16px;
+}
+
+/* Avatar zone */
+.cs__ava-zone {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.cs__ava {
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(0,0,0,0.3);
+  position: relative;
+  z-index: 2;
+}
+
+.cs__ava .avatar { border-radius: 50% !important; }
+
+/* Expanding rings */
+.cs__ring {
+  position: absolute; border-radius: 50%;
+  border: 1px solid;
+  z-index: 1;
+}
+.cs__ring--1 { inset: -20px; animation: csRing 3s ease-out infinite 0s; }
+.cs__ring--2 { inset: -40px; animation: csRing 3s ease-out infinite 1s; }
+.cs__ring--3 { inset: -60px; animation: csRing 3s ease-out infinite 2s; }
+
+@keyframes csRing {
+  0% { transform: scale(0.85); opacity: 0.5; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+/* Sound wave */
+.cs__wave {
+  display: flex; align-items: center; gap: 3px;
+  height: 22px;
+}
+
+.cs__wave-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: rgba(200,255,0,0.35);
+  animation: csWave 1.2s ease-in-out infinite;
+}
+
+@keyframes csWave {
+  0%, 100% { height: 4px; }
+  50% { height: 18px; }
+}
+
+.cs__name {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.4);
+  text-align: center;
+}
+
+.cs--compact .cs__name { font-size: 14px; }
+
+.cs__label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+}
+
+/* ═══════ ACTIONS ═══════ */
+.cs__actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px 18px;
+  position: relative;
+  z-index: 5;
+}
+
+.cs__actions--compact { gap: 8px; padding: 8px 12px 12px; }
+
+.cs__btn {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: all 0.12s;
+  position: relative;
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.6);
+}
+
+.cs--compact .cs__btn { width: 38px; height: 38px; }
+
+.cs__btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); transform: scale(1.06); }
+
+.cs__btn--active {
+  background: rgba(200,255,0,0.1);
+  border-color: rgba(200,255,0,0.15);
+  color: #c8ff00;
+}
+
+.cs__btn--end {
+  width: 56px; height: 56px;
+  background: #ef4444;
+  border-color: rgba(239,68,68,0.3);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(239,68,68,0.25);
+}
+.cs--compact .cs__btn--end { width: 42px; height: 42px; }
+.cs__btn--end:hover { box-shadow: 0 6px 28px rgba(239,68,68,0.35); background: #dc2626; }
+
+.cs__btn-label {
+  font-size: 8px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.25);
+  position: absolute;
+  bottom: -16px;
+  white-space: nowrap;
+}
+
+/* ═══════ QUALITY PANEL ═══════ */
+.cs__quality {
+  position: absolute;
+  top: 44px; right: 12px;
+  width: 220px;
+  border-radius: 14px;
+  background: rgba(14,12,24,0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  z-index: 20;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.cs__quality-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; font-weight: 700; color: var(--text);
+}
+
+.cs__quality-x {
+  border: none; background: none; color: rgba(255,255,255,0.3);
+  font-size: 16px; cursor: pointer; padding: 0 2px;
+}
+
+.cs__quality-sec {
+  display: flex; flex-direction: column; gap: 5px;
+}
+
+.cs__quality-label {
+  font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.2);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.cs__quality-row { display: flex; gap: 3px; }
+
+.cs__qo {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.02);
+  color: rgba(255,255,255,0.4);
+  font-size: 10px; font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.1s;
+  text-align: center;
+}
+.cs__qo:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); }
+.cs__qo--on {
+  background: rgba(200,255,0,0.08);
+  border-color: rgba(200,255,0,0.15);
+  color: #c8ff00;
+}
+
+[data-theme="light"] .cs__quality { background: rgba(255,255,255,0.92); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .cs__quality-label { color: rgba(0,0,0,0.3); }
+[data-theme="light"] .cs__qo { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.04); color: rgba(0,0,0,0.4); }
+[data-theme="light"] .cs__qo:hover { background: rgba(0,0,0,0.04); }
+[data-theme="light"] .cs__qo--on { background: rgba(74,140,0,0.06); border-color: rgba(74,140,0,0.12); color: var(--accent); }
+
+/* ═══════ VIDEO ZONES ═══════ */
+
+/* Screen share — fills main area */
+.cs__screen-zone {
+  flex: 1;
+  width: 100%;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  margin: 0 8px;
+  min-height: 0;
+}
+
+.cs__screen-video {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+/* Remote video — fills main area */
+.cs__video-zone {
+  flex: 1;
+  width: 100%;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0a0816;
+  margin: 0 8px;
+  min-height: 0;
+}
+
+.cs__remote-video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+/* PiP — small local camera in corner */
+.cs__pip {
+  position: absolute;
+  bottom: 80px; right: 16px;
+  width: 120px; height: 90px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  border: 2px solid rgba(255,255,255,0.1);
+  z-index: 8;
+  cursor: grab;
+  transition: box-shadow 0.15s;
+}
+.cs__pip:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
+
+.cs__pip-video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* mirror */
+}
+
+/* Local preview — when only your camera, centered below avatar */
+.cs__local-preview {
+  width: 140px; height: 105px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  border: 1.5px solid rgba(255,255,255,0.08);
+  margin-top: -4px;
+}
+
+.cs__local-video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+/* ═══════ RESIZE EDGES ═══════ */
+.cs__edge { position: absolute; z-index: 10; }
+.cs__edge--n { top: -4px; left: 12px; right: 12px; height: 8px; cursor: n-resize; }
+.cs__edge--s { bottom: -4px; left: 12px; right: 12px; height: 8px; cursor: s-resize; }
+.cs__edge--e { right: -4px; top: 12px; bottom: 12px; width: 8px; cursor: e-resize; }
+.cs__edge--w { left: -4px; top: 12px; bottom: 12px; width: 8px; cursor: w-resize; }
+.cs__edge--ne { top: -4px; right: -4px; width: 16px; height: 16px; cursor: ne-resize; }
+.cs__edge--nw { top: -4px; left: -4px; width: 16px; height: 16px; cursor: nw-resize; }
+.cs__edge--se { bottom: -4px; right: -4px; width: 16px; height: 16px; cursor: se-resize; }
+.cs__edge--sw { bottom: -4px; left: -4px; width: 16px; height: 16px; cursor: sw-resize; }
+
+/* ═══════ LIGHT THEME ═══════ */
+[data-theme="light"] .cs {
+  background: rgba(245,243,250,0.92);
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 32px 80px rgba(0,0,0,0.12);
+}
+
+[data-theme="light"] .cs__bg { brightness: 0.6; }
+[data-theme="light"] .cs__overlay { background: radial-gradient(ellipse at 50% 35%, transparent 20%, rgba(245,243,250,0.5) 70%); }
+[data-theme="light"] .cs__status { color: rgba(0,0,0,0.4); }
+[data-theme="light"] .cs__time { color: rgba(22,163,74,0.6); }
+[data-theme="light"] .cs__max { background: rgba(0,0,0,0.04); color: rgba(0,0,0,0.3); }
+[data-theme="light"] .cs__name { color: rgba(0,0,0,0.85); text-shadow: none; }
+[data-theme="light"] .cs__label { color: rgba(0,0,0,0.35); }
+[data-theme="light"] .cs__btn { background: rgba(0,0,0,0.04); color: rgba(0,0,0,0.5); border-color: rgba(0,0,0,0.04); }
+[data-theme="light"] .cs__btn:hover { background: rgba(0,0,0,0.07); }
+[data-theme="light"] .cs__btn-label { color: rgba(0,0,0,0.25); }

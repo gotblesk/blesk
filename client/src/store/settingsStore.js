@@ -32,6 +32,24 @@ const DEFAULTS = {
   animatedBg: true,
   compactMessages: false,
   e2eEnabled: true,
+  accentColor: '#c8ff00',
+  fontSize: 14,
+  language: 'ru',
+  launchOnStartup: false,
+  // Чат
+  chatBubbleStyle: 'bubbles', // 'bubbles' | 'minimal' | 'classic'
+  showAvatarsInChat: true,
+  timeFormat: '24h', // '12h' | '24h'
+  enterToSend: true,
+  // Видео качество
+  cameraResolution: '720p', // '480p' | '720p' | '1080p' | '1440p'
+  cameraFps: 30, // 30 | 60
+  screenResolution: '1080p', // '720p' | '1080p' | '1440p'
+  screenFps: 30, // 30 | 60
+  // Доступность
+  reducedMotion: false,
+  highContrast: false,
+  largeControls: false,
 };
 
 // Загрузить из localStorage

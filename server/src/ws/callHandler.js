@@ -69,7 +69,7 @@ function callHandler(io, socket) {
       // Данные звонящего
       const caller = await prisma.user.findUnique({
         where: { id: userId },
-        select: { username: true, hue: true },
+        select: { username: true, hue: true, avatar: true },
       });
 
       // Создать запись активного звонка
@@ -95,6 +95,7 @@ function callHandler(io, socket) {
         callerId: userId,
         callerName: caller.username,
         callerHue: caller.hue,
+        callerAvatar: caller.avatar,
         type: chatInfo.type,
         chatName: chatInfo.room.name,
       };

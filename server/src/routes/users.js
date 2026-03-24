@@ -38,7 +38,7 @@ router.get('/search', authenticate, async (req, res) => {
 
     const users = await prisma.user.findMany({
       where: {
-        username: { contains: q },
+        username: { contains: q, mode: 'insensitive' },
         id: { not: req.userId },
       },
       select: { id: true, username: true, tag: true, hue: true, avatar: true, status: true },
