@@ -144,6 +144,11 @@ router.patch('/users/:id', authenticate, requireAdmin, async (req, res) => {
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Пользователь не найден' });
 
+    if (changes.username) {
+      const dup = await prisma.user.findFirst({ where: { username: changes.username, NOT: { id } } });
+      if (dup) return res.status(409).json({ error: 'Имя пользователя занято' });
+    }
+
     const user = await prisma.user.update({ where: { id }, data: changes });
     await logAdminAction(req.adminUser.id, 'user.edit', 'user', id, { changes });
 
@@ -329,6 +334,11 @@ router.patch('/tags/:id', authenticate, requireAdmin, async (req, res) => {
 
     const existing = await prisma.tag.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Тег не найден' });
+
+    if (changes.name) {
+      const dupTag = await prisma.tag.findFirst({ where: { name: changes.name, NOT: { id } } });
+      if (dupTag) return res.status(409).json({ error: 'Тег с таким именем уже существует' });
+    }
 
     const tag = await prisma.tag.update({ where: { id }, data: changes });
     await logAdminAction(req.adminUser.id, 'tag.edit', 'tag', id, { changes });
@@ -558,6 +568,7 @@ router.delete('/channels/:id', authenticate, requireAdmin, async (req, res) => {
 
     // Каскадное удаление связанных данных
     await prisma.$transaction([
+      prisma.attachment.deleteMany({ where: { message: { roomId: id } } }),
       prisma.channelSubscriber.deleteMany({ where: { channelId: id } }),
       prisma.channelMeta.deleteMany({ where: { roomId: id } }),
       prisma.message.deleteMany({ where: { roomId: id } }),
@@ -620,32 +631,32 @@ router.post('/broadcast-update', async (req, res) => {
       if (socket.userId) connectedUserIds.add(socket.userId);
     }
 
-    const notifMap = new Map();
-    for (const uid of connectedUserIds) {
-      const notification = await prisma.notification.create({
-        data: {
-          userId: uid,
-          type: 'system',
-          title: `Обновление ${version}`,
-          body: changelog || 'Доступна новая версия blesk. Перезапустите приложение для обновления.',
-        },
-        include: {
-          fromUser: { select: { id: true, username: true, hue: true, avatar: true } },
-        },
-      });
-      notifMap.set(uid, notification);
-    }
+    const onlineUserIds = [...connectedUserIds];
+    const notifData = onlineUserIds.map(uid => ({
+      userId: uid,
+      type: 'system',
+      title: `Доступно обновление ${version}`,
+      body: changelog || 'Доступна новая версия blesk. Перезапустите приложение для обновления.',
+    }));
+    await prisma.notification.createMany({ data: notifData });
 
+    // Отправить socket-события подключённым пользователям
     const notifiedSockets = new Set();
     for (const [, socket] of io.sockets.sockets) {
-      if (socket.userId && notifMap.has(socket.userId)) {
+      if (socket.userId && connectedUserIds.has(socket.userId)) {
         if (!notifiedSockets.has(socket.userId)) {
-          socket.emit('notification:new', notifMap.get(socket.userId));
+          socket.emit('notification:new', {
+            type: 'system',
+            title: `Доступно обновление ${version}`,
+            body: changelog || 'Доступна новая версия blesk. Перезапустите приложение для обновления.',
+          });
           notifiedSockets.add(socket.userId);
         }
         socket.emit('app:update-available', { version, changelog });
       }
     }
+
+    await logAdminAction('system', 'broadcast.update', 'system', null, { version, notified: connectedUserIds.size });
 
     res.json({ ok: true, notified: connectedUserIds.size, version });
   } catch (err) {
@@ -676,7 +687,7 @@ const TABLE_MAP = {
 
 // Поля, которые скрываем для каждой таблицы
 const HIDDEN_FIELDS = {
-  users: ['passwordHash', 'publicKey'],
+  users: ['passwordHash', 'publicKey', 'email', 'phone'],
 };
 
 // ─── GET /db/:table ─── данные таблицы (read-only) ───

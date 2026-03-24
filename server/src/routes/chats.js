@@ -421,6 +421,10 @@ router.delete('/:id/members/:userId', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Участник не найден в группе' });
     }
 
+    if (isSelf && target.role === 'owner') {
+      return res.status(403).json({ error: 'Владелец не может покинуть группу' });
+    }
+
     if (!isSelf) {
       // Удаление другого — только owner/admin
       const requester = await prisma.roomParticipant.findUnique({

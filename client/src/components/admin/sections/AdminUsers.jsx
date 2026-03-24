@@ -37,12 +37,18 @@ export default function AdminUsers() {
     debounceRef.current = setTimeout(() => {
       setPage(1);
       doFetch(1);
+      setDetailUser(null);
     }, 300);
     return () => clearTimeout(debounceRef.current);
   }, [search, roleFilter, statusFilter]);
 
+  // Начальная загрузка + пагинация
+  const prevPageRef = useRef(page);
   useEffect(() => {
-    doFetch(page);
+    if (prevPageRef.current !== page) {
+      prevPageRef.current = page;
+      doFetch(page);
+    }
   }, [page]);
 
   useEffect(() => {

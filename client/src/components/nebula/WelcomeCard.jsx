@@ -1,13 +1,12 @@
-import { Users, Compass, UserCircle } from 'lucide-react';
+import { Users, Compass, UserCircle, Hand } from 'lucide-react';
 import './WelcomeCard.css';
 
-// ═══════ WELCOME CARD — для новых пользователей ═══════
 export default function WelcomeCard({ username, onAction }) {
   return (
     <div className="welcome-card">
       <div className="welcome-card__inner">
         <div className="welcome-card__header">
-          <span className="welcome-card__wave">👋</span>
+          <span className="welcome-card__wave"><Hand size={24} /></span>
           <h2 className="welcome-card__title">
             Привет, <span className="welcome-card__name">{username}</span>!
           </h2>

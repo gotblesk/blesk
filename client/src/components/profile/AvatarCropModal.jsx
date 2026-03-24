@@ -40,11 +40,16 @@ export default function AvatarCropModal({ imageSrc, onClose, onSave }) {
     setCroppedArea(croppedPixels);
   }, []);
 
-  // Escape для закрытия
+  // Escape для закрытия (stopImmediatePropagation чтобы ProfileScreen не закрылся)
   useEffect(() => {
-    const handleEsc = (e) => { if (e.key === 'Escape') onClose?.(); };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation();
+        onClose?.();
+      }
+    };
+    window.addEventListener('keydown', handleEsc, true);
+    return () => window.removeEventListener('keydown', handleEsc, true);
   }, [onClose]);
 
   const handleSave = async () => {

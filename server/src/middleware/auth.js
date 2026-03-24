@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const prisma = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -6,8 +7,12 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+// Кеш банов: userId → { banned, ts }
+const banCache = new Map();
+const BAN_CACHE_TTL = 60000; // 60 секунд
+
 // Проверка JWT токена (только access, refresh не принимается)
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Требуется авторизация' });
@@ -21,6 +26,17 @@ function authenticate(req, res, next) {
       return res.status(401).json({ error: 'Недействительный токен' });
     }
     req.userId = payload.userId;
+
+    // Проверка бана с кешем (не делать запрос при каждом вызове)
+    const cached = banCache.get(payload.userId);
+    if (!cached || Date.now() - cached.ts > BAN_CACHE_TTL) {
+      const u = await prisma.user.findUnique({ where: { id: payload.userId }, select: { banned: true } });
+      banCache.set(payload.userId, { banned: u?.banned || false, ts: Date.now() });
+      if (u?.banned) return res.status(403).json({ error: 'Аккаунт заблокирован' });
+    } else if (cached.banned) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован' });
+    }
+
     next();
   } catch {
     return res.status(401).json({ error: 'Недействительный токен' });
@@ -46,8 +62,6 @@ function verifyRefreshToken(token) {
 }
 
 // Middleware: требует подтверждённый email (для чувствительных маршрутов)
-const prisma = require('../db');
-
 async function requireVerified(req, res, next) {
   try {
     const user = await prisma.user.findUnique({

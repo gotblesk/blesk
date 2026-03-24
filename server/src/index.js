@@ -83,7 +83,7 @@ const channelRoutes = require('./routes/channels');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/channels', chatLimiter, channelRoutes);
-app.use('/api/chats', uploadLimiter, uploadRoutes);
+app.use('/api/chats', chatLimiter, uploadRoutes);
 app.use('/api/chats', chatLimiter, chatRoutes);
 app.use('/api/users', chatLimiter, userRoutes);
 app.use('/api/notifications', chatLimiter, notificationRoutes);

@@ -16,6 +16,7 @@ export const useChatStore = create((set, get) => ({
   messages: {},
   loadingChats: new Set(),
   loadingChatList: false,
+  chatsInitialized: false,
   onlineUsers: [],
   userStatuses: {}, // { [userId]: 'online' | 'dnd' | 'invisible' }
   customStatuses: {}, // { [userId]: 'текст статуса' }
@@ -29,9 +30,10 @@ export const useChatStore = create((set, get) => ({
       const res = await fetch(`${API_URL}/api/chats`, { headers: getHeaders() });
       if (!res.ok) throw new Error();
       const chats = await res.json();
-      set({ chats });
+      set({ chats, chatsInitialized: true });
     } catch (err) {
       console.error('Ошибка загрузки чатов:', err);
+      set({ chatsInitialized: true });
     } finally {
       set({ loadingChatList: false });
     }

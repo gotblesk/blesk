@@ -34,6 +34,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
   const realChats = useChatStore(s => s.chats);
   const onlineUsers = useChatStore(s => s.onlineUsers);
   const loadingChatList = useChatStore(s => s.loadingChatList);
+  const chatsInitialized = useChatStore(s => s.chatsInitialized);
   const loadChats = useChatStore(s => s.loadChats);
   const chats = USE_DEBUG && realChats.length === 0 ? DEBUG_CHATS : realChats;
 
@@ -413,7 +414,11 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
     else if (onNavigate) onNavigate(action);
   }, [onNavigate, onOpenProfile]);
 
-  if (!chats.length && !loadingChatList) {
+  if (!chatsInitialized || loadingChatList) {
+    return <div className="nebula" />;
+  }
+
+  if (!chats.length) {
     return (
       <div className="nebula">
         <WelcomeCard
@@ -422,10 +427,6 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, user
         />
       </div>
     );
-  }
-
-  if (!chats.length && loadingChatList) {
-    return <div className="nebula" />;
   }
 
   return (

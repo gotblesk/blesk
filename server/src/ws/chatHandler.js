@@ -388,6 +388,13 @@ function chatHandler(io, socket) {
       typingTimeouts.delete(key);
     }
 
+    // Очистить typingRateLimits для отключившегося пользователя
+    for (const key of typingRateLimits.keys()) {
+      if (key.startsWith(`${userId}:`)) {
+        typingRateLimits.delete(key);
+      }
+    }
+
     // Если невидимка — не оповещать об офлайне (для других и так не был виден)
     if (socket.userStatus !== 'invisible') {
       // Оповестить только тех, кто в одних комнатах

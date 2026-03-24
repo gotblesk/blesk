@@ -86,17 +86,17 @@ export default function ChatView({
     setTimeout(onClose, 300);
   }, [closing, onClose]);
 
-  // Загрузить сообщения
+  // Загрузить сообщения (только при смене chatId)
   useEffect(() => {
     if (chatId) {
+      const c = useChatStore.getState().chats.find((ch) => ch.id === chatId);
       if (initialUnreadRef.current === null) {
-        const c = chats.find((ch) => ch.id === chatId);
         initialUnreadRef.current = c?.unreadCount || 0;
       }
       openChat(chatId);
       markAsRead(chatId);
     }
-  }, [chatId, openChat, markAsRead, chats]);
+  }, [chatId]); // eslint-disable-line
 
   // Скролл к последнему сообщению (только если пользователь уже внизу)
   const messagesContainerRef = useRef(null);

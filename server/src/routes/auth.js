@@ -299,6 +299,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Неверное имя или пароль' });
     }
 
+    if (user.banned) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован', bannedReason: user.bannedReason });
+    }
+
     const tokens = generateTokens(user.id);
 
     // Системное уведомление о входе

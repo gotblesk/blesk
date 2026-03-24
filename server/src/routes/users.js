@@ -216,18 +216,29 @@ router.put('/me', authenticate, async (req, res) => {
           }
         }
 
+        // Отправлять события только участникам общих комнат
+        const participations = await prisma.roomParticipant.findMany({
+          where: { userId: req.userId },
+          select: { roomId: true },
+        });
+        const roomIds = participations.map(p => p.roomId);
+
         if (data.status === 'invisible') {
-          // При переключении на невидимку — показать всем что ушёл в офлайн
-          io.emit('user:offline', { userId: req.userId });
+          // При переключении на невидимку — показать участникам общих комнат что ушёл в офлайн
+          for (const roomId of roomIds) {
+            io.to(roomId).emit('user:offline', { userId: req.userId });
+          }
         } else {
           // Для DND и online — показать статус
-          io.emit('user:statusChange', {
-            userId: req.userId,
-            status: data.status,
-            customStatus: data.customStatus || user.customStatus,
-          });
-          // Если был invisible → стал online/dnd — показать как вошёл
-          io.emit('user:online', { userId: req.userId, status: data.status });
+          for (const roomId of roomIds) {
+            io.to(roomId).emit('user:statusChange', {
+              userId: req.userId,
+              status: data.status,
+              customStatus: data.customStatus || user.customStatus,
+            });
+            // Если был invisible → стал online/dnd — показать как вошёл
+            io.to(roomId).emit('user:online', { userId: req.userId, status: data.status });
+          }
         }
       }
     }

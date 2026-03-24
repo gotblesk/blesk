@@ -43,6 +43,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
     if (open && user) {
       setBio(user.bio || '');
       setSaved(false);
+      setSaveError('');
       setEmailStep('display');
       setEmailCode('');
       setEmailError('');
