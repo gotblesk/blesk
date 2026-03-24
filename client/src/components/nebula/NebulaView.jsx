@@ -100,6 +100,13 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
   // ═══════ LOAD/SAVE POSITIONS ═══════
   const loadPositions = useCallback(() => {
     try {
+      // Сбросить позиции при смене версии (карточки могли измениться)
+      const ver = localStorage.getItem('blesk_nebula_ver');
+      if (ver !== '0.6.2') {
+        localStorage.removeItem('blesk_nebula');
+        localStorage.setItem('blesk_nebula_ver', '0.6.2');
+        return null;
+      }
       const saved = JSON.parse(localStorage.getItem('blesk_nebula'));
       if (saved) {
         // Clamp to current window bounds
