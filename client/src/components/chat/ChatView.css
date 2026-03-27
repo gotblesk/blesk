@@ -184,9 +184,10 @@
   transition: opacity 0.15s;
 }
 
-/* [BUG 1] НЕ flex — virtualizer использует position: absolute */
+/* Virtualizer scroll container */
 .chat-view__messages {
   flex: 1;
+  min-height: 0; /* КРИТИЧНО: без этого flex-child не clamp overflow */
   position: relative;
   padding: 8px 20px 12px;
   overflow-y: auto;
@@ -194,11 +195,12 @@
   scroll-behavior: smooth;
 }
 
-/* Scroll-to-bottom кнопка */
+/* Scroll-to-bottom кнопка — внутри .chat-view (position: relative) */
 .chat-view__scroll-down {
   position: absolute;
-  bottom: 80px;
-  right: 20px;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 36px;
   height: 36px;
   border-radius: 50%;
