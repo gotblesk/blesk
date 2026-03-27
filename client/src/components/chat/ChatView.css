@@ -28,10 +28,15 @@
   border: none;
   box-shadow: none;
   overflow: hidden;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  /* Полупрозрачный фон чтобы blob-ы не мешали чтению */
+  background: rgba(8, 6, 15, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   padding-bottom: 0;
+}
+
+[data-theme="light"] .chat-view--inline {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 /* Скролл-контейнер в inline — достаточный отступ снизу для input + island */
