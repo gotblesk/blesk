@@ -4,7 +4,8 @@ const ALLOWED_MIME = new Set([
   'image/jpeg', 'image/png', 'image/gif', 'image/webp',
   'application/pdf', 'application/zip', 'application/x-zip-compressed',
   'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain', 'video/mp4', 'video/webm', 'audio/mpeg', 'audio/ogg',
+  // [CRIT-2] audio/webm добавлен для голосовых сообщений
+  'text/plain', 'video/mp4', 'video/webm', 'audio/mpeg', 'audio/ogg', 'audio/webm',
 ]);
 
 const BLOCKED_EXT = new Set([

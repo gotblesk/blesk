@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useChannelStore } from '../../store/channelStore';
@@ -22,6 +22,13 @@ const childV = {
 };
 
 export default function CreateChannelModal({ onClose, onCreated }) {
+  // [IMP-13] Escape для закрытия модалки
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [onClose]);
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('other');
@@ -50,8 +57,10 @@ export default function CreateChannelModal({ onClose, onCreated }) {
   }, []);
 
   const handleCreate = async () => {
-    if (!name.trim()) {
-      setError('Введите название');
+    // [IMP-6] Предотвращение double-submit + [IMP-12] мин длина
+    if (loading) return;
+    if (!name.trim() || name.trim().length < 2) {
+      setError(name.trim().length < 2 ? 'Минимум 2 символа' : 'Введите название');
       return;
     }
     setLoading(true);
@@ -98,7 +107,7 @@ export default function CreateChannelModal({ onClose, onCreated }) {
           <div
             className="ccm__glare"
             style={{
-              background: `radial-gradient(ellipse at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.06) 0%, transparent 60%)`,
+              background: `radial-gradient(ellipse at ${glare.x}% ${glare.y}%, var(--glare-color) 0%, transparent 60%)`,
             }}
           />
           <div className="ccm__inner">

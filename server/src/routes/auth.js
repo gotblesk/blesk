@@ -2,7 +2,8 @@ const { Router } = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
-const { authenticate, generateTokens, verifyRefreshToken } = require('../middleware/auth');
+const { authenticate, generateTokens, verifyRefreshToken, hashRefreshToken } = require('../middleware/auth');
+const crypto = require('crypto');
 const { generateCode, sendVerificationCode } = require('../services/email');
 
 const router = Router();
@@ -18,8 +19,13 @@ const EMAIL_CODE_COOLDOWN = 60000; // 60 секунд
 
 // Защита от перебора кодов: email → { attempts, lockedUntil }
 const codeAttempts = new Map();
-const MAX_CODE_ATTEMPTS = 5; // макс 5 попыток
-const CODE_LOCKOUT_MS = 10 * 60 * 1000; // блокировка на 10 минут
+const MAX_CODE_ATTEMPTS = 5;
+const CODE_LOCKOUT_MS = 10 * 60 * 1000;
+
+// [HIGH-1] Защита от brute-force логина: username → { attempts, lockedUntil }
+const loginAttempts = new Map();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 минут
 
 // Проверить rate limit для конкретного эндпоинта
 function isEmailCodeRateLimited(limitsMap, email) {
@@ -73,7 +79,18 @@ setInterval(() => {
   for (const [email, entry] of codeAttempts) {
     if (entry.lockedUntil && now >= entry.lockedUntil) codeAttempts.delete(email);
   }
+  // Чистка login lockout
+  for (const [user, entry] of loginAttempts) {
+    if (entry.lockedUntil && now >= entry.lockedUntil) loginAttempts.delete(user);
+  }
 }, 300000);
+
+// [IMP-6] Очистка просроченных email кодов — раз в час
+setInterval(async () => {
+  try {
+    await prisma.emailCode.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+  } catch {}
+}, 60 * 60 * 1000);
 
 // Генерация тега #0001–#9999
 function generateTag() {
@@ -144,19 +161,26 @@ router.post('/register', async (req, res) => {
     if (password.length < 8) {
       return res.status(400).json({ error: 'Пароль: минимум 8 символов' });
     }
+    // [MED-2] Проверка сложности: минимум 2 класса символов
+    const hasLower = /[a-zа-яё]/.test(password);
+    const hasUpper = /[A-ZА-ЯЁ]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    const hasSpecial = /[^a-zA-Zа-яА-ЯёЁ0-9]/.test(password);
+    const classes = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+    if (classes < 2) {
+      return res.status(400).json({ error: 'Пароль должен содержать минимум 2 типа символов (буквы, цифры, спецсимволы)' });
+    }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
       return res.status(400).json({ error: 'Только латиница, цифры и _' });
     }
 
-    // Проверка уникальности username и email
-    const existingUser = await prisma.user.findUnique({ where: { username } });
-    if (existingUser) {
-      return res.status(409).json({ error: 'Это имя уже занято' });
-    }
-
-    const existingEmail = await prisma.user.findUnique({ where: { email } });
-    if (existingEmail) {
-      return res.status(409).json({ error: 'Этот email уже используется' });
+    // [HIGH-4] Проверка уникальности — единое сообщение (без enumeration)
+    const [existingUser, existingEmail] = await Promise.all([
+      prisma.user.findUnique({ where: { username } }),
+      prisma.user.findUnique({ where: { email } }),
+    ]);
+    if (existingUser || existingEmail) {
+      return res.status(409).json({ error: 'Имя пользователя или email уже заняты' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -189,6 +213,17 @@ router.post('/register', async (req, res) => {
     }
 
     const tokens = generateTokens(user.id);
+
+    // [CRIT-2] Сохранить refresh token в БД
+    try {
+      await prisma.refreshToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashRefreshToken(tokens.refreshToken),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+    } catch {}
 
     res.status(201).json({
       user: {
@@ -321,24 +356,50 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Имя пользователя и пароль обязательны' });
     }
 
+    // [HIGH-1] Проверить lockout по имени
+    const lockEntry = loginAttempts.get(username);
+    if (lockEntry && lockEntry.lockedUntil && Date.now() < lockEntry.lockedUntil) {
+      const waitMin = Math.ceil((lockEntry.lockedUntil - Date.now()) / 60000);
+      return res.status(429).json({ error: `Слишком много попыток. Подождите ${waitMin} мин.` });
+    }
+
     const user = await prisma.user.findUnique({ where: { username } });
     if (!user) {
-      // Константное время ответа — bcrypt на фиктивном хеше, чтобы атакующий
-      // не мог определить существование пользователя по времени ответа
       await bcrypt.compare(password, '$2b$12$invalidhashpaddingtomakeitsamelengthasbcrypt');
       return res.status(401).json({ error: 'Неверное имя или пароль' });
     }
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      return res.status(401).json({ error: 'Неверное имя или пароль' });
-    }
-
+    // [HIGH-7] Бан-проверка ПЕРЕД проверкой пароля
     if (user.banned) {
       return res.status(403).json({ error: 'Аккаунт заблокирован', bannedReason: user.bannedReason });
     }
 
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      // [HIGH-1] Записать неудачную попытку
+      let entry = loginAttempts.get(username);
+      if (!entry) { entry = { attempts: 0, lockedUntil: null }; loginAttempts.set(username, entry); }
+      entry.attempts++;
+      if (entry.attempts >= MAX_LOGIN_ATTEMPTS) {
+        entry.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+      }
+      return res.status(401).json({ error: 'Неверное имя или пароль' });
+    }
+
+    // Успешный вход — сбросить счётчик
+    loginAttempts.delete(username);
+
+    // [CRIT-2] Генерировать токены и сохранить refresh в БД
     const tokens = generateTokens(user.id);
+    try {
+      await prisma.refreshToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashRefreshToken(tokens.refreshToken),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+    } catch {}
 
     // Системное уведомление о входе
     try {
@@ -371,7 +432,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/refresh
+// [CRIT-2] POST /api/auth/refresh — с ротацией и ревокацией
 router.post('/refresh', async (req, res) => {
   try {
     const { refreshToken } = req.body;
@@ -384,21 +445,58 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ error: 'Недействительный refresh token' });
     }
 
+    // Проверить что токен есть в БД (не отозван)
+    const tokenHash = hashRefreshToken(refreshToken);
+    const storedToken = await prisma.refreshToken.findUnique({ where: { tokenHash } });
+    if (!storedToken) {
+      // Токен не найден — возможно уже использован (token reuse attack)
+      // Инвалидировать ВСЕ токены пользователя для безопасности
+      await prisma.refreshToken.deleteMany({ where: { userId: payload.userId } });
+      return res.status(401).json({ error: 'Refresh token отозван' });
+    }
+
+    // Удалить использованный токен (ротация)
+    await prisma.refreshToken.delete({ where: { id: storedToken.id } });
+
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден' });
     }
 
-    // Забаненный пользователь не может обновить токен
     if (user.banned) {
       return res.status(403).json({ error: 'Аккаунт заблокирован', bannedReason: user.bannedReason });
     }
 
+    // Новые токены (ротация — новый refresh каждый раз)
     const tokens = generateTokens(user.id);
+
+    // Сохранить новый refresh в БД
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashRefreshToken(tokens.refreshToken),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
     res.json(tokens);
   } catch (err) {
     console.error('Ошибка обновления токена:', err);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// POST /api/auth/logout — инвалидация refresh token
+router.post('/logout', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      const tokenHash = hashRefreshToken(refreshToken);
+      await prisma.refreshToken.deleteMany({ where: { tokenHash } });
+    }
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: true }); // Logout всегда "успешен"
   }
 });
 
@@ -528,6 +626,8 @@ router.post('/reset-password', async (req, res) => {
         where: { id: emailCode.id },
         data: { used: true },
       }),
+      // [HIGH-2] Инвалидировать ВСЕ refresh tokens при смене пароля
+      prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
     ]);
 
     clearAttempts(email);
@@ -629,6 +729,8 @@ router.post('/change-password/confirm', authenticate, async (req, res) => {
         where: { id: emailCode.id },
         data: { used: true },
       }),
+      // [HIGH-2] Инвалидировать ВСЕ сессии при смене пароля
+      prisma.refreshToken.deleteMany({ where: { userId } }),
     ]);
 
     clearAttempts(user.email);
@@ -645,13 +747,39 @@ router.post('/keys', authenticate, async (req, res) => {
     const userId = req.userId;
 
     const { publicKey } = req.body;
-    if (!publicKey || typeof publicKey !== 'string' || publicKey.length > 100) {
+    // X25519 public key = 32 bytes → base64 = 44 chars
+    if (!publicKey || typeof publicKey !== 'string' || publicKey.length !== 44) {
       return res.status(400).json({ error: 'Некорректный ключ' });
+    }
+    // Проверить что это валидный base64
+    try {
+      const decoded = Buffer.from(publicKey, 'base64');
+      if (decoded.length !== 32) {
+        return res.status(400).json({ error: 'Ключ должен быть ровно 32 байта' });
+      }
+    } catch {
+      return res.status(400).json({ error: 'Некорректный формат ключа' });
     }
     await prisma.user.update({
       where: { id: userId },
       data: { publicKey },
     });
+
+    // Уведомить всех участников общих чатов о смене ключа
+    try {
+      const io = req.app.locals.io;
+      if (io) {
+        // Найти все комнаты где пользователь участвует
+        const rooms = await prisma.roomParticipant.findMany({
+          where: { userId },
+          select: { roomId: true },
+        });
+        for (const { roomId } of rooms) {
+          io.to(roomId).emit('user:keyChanged', { userId });
+        }
+      }
+    } catch { /* Не критично */ }
+
     res.json({ ok: true });
   } catch (err) {
     console.error('keys error:', err);

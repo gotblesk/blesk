@@ -260,14 +260,19 @@
 </div>
 
 <script>
-(function() {
+(async function() {
   'use strict';
 
-  // ═══════ VERSION ═══════
+  // ═══════ VERSION (async) ═══════
   try {
-    const ver = window.splashApi?.version?.();
+    const ver = await window.splashApi?.version?.();
     if (ver) document.getElementById('version').textContent = 'v' + ver;
   } catch(e) {}
+
+  // ═══════ EXPAND-OUT from main process ═══════
+  window.splashApi?.onExpandOut?.(() => {
+    document.getElementById('splash').classList.add('expand-out');
+  });
 
   // ═══════ STATUS ROTATION ═══════
   const STATUSES = [

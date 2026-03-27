@@ -28,7 +28,7 @@ export default function PasswordCard({
       tilt={tilt}
       index={index}
       dimmed={dimmed}
-      icon={<Lock size={16} stroke={cardError ? '#ef4444' : matched ? '#4ade80' : '#c8ff00'} />}
+      icon={<span style={{ color: cardError ? 'var(--danger)' : matched ? 'var(--online)' : 'var(--accent)' }}><Lock size={16} stroke="currentColor" /></span>}
       title="Пароль"
       subtitle="Минимум 8 символов"
       error={cardError}
@@ -66,7 +66,7 @@ export default function PasswordCard({
           value={confirmPassword}
           onChange={(e) => onConfirmChange(e.target.value)}
           aria-label="Подтверждение пароля"
-          style={matched ? { borderColor: 'rgba(74,222,128,0.3)' } : mismatch ? { borderColor: 'rgba(239,68,68,0.3)' } : {}}
+          style={matched ? { borderColor: 'color-mix(in srgb, var(--online) 30%, transparent)' } : mismatch ? { borderColor: 'color-mix(in srgb, var(--danger) 30%, transparent)' } : {}}
         />
       </div>
     </GravityCard>

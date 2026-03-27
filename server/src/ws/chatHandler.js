@@ -44,6 +44,27 @@ setInterval(() => {
 function chatHandler(io, socket) {
   const userId = socket.userId;
 
+  // [CRIT-1] Периодическая ревалидация токена (каждые 10 минут)
+  const jwt = require('jsonwebtoken');
+  const JWT_SECRET = process.env.JWT_SECRET;
+  const tokenRecheckInterval = setInterval(async () => {
+    try {
+      const token = socket.handshake.auth?.token;
+      if (!token) { socket.disconnect(true); return; }
+      jwt.verify(token, JWT_SECRET);
+      // Проверить бан
+      const u = await prisma.user.findUnique({ where: { id: userId }, select: { banned: true } });
+      if (!u || u.banned) {
+        socket.emit('auth:banned', { reason: 'Аккаунт заблокирован' });
+        socket.disconnect(true);
+      }
+    } catch {
+      // Токен истёк — отключить
+      socket.disconnect(true);
+    }
+  }, 10 * 60 * 1000);
+  socket.on('disconnect', () => clearInterval(tokenRecheckInterval));
+
   // При подключении — join во все комнаты пользователя
   async function joinUserRooms() {
     const participations = await prisma.roomParticipant.findMany({
@@ -101,10 +122,14 @@ function chatHandler(io, socket) {
   }
 
   // Отправка сообщения
-  socket.on('message:send', async ({ chatId, text, tempId, replyToId, encrypted }) => {
-    if (!chatId || typeof text !== 'string' || !text.trim()) return;
-    if (text.length > 4000) return; // Лимит длины сообщения
+  // [HIGH-1] shieldHeader проходит транзитом; callback для ACK
+  socket.on('message:send', async ({ chatId, text, tempId, replyToId, encrypted, shieldHeader }, callback) => {
+    // [MED-5] Валидация размера payload
+    if (!chatId || typeof chatId !== 'string' || chatId.length > 36) return;
+    if (typeof text !== 'string' || !text.trim()) return;
+    if (text.length > 4000) return;
     if (encrypted !== undefined && typeof encrypted !== 'boolean') return;
+    if (shieldHeader && JSON.stringify(shieldHeader).length > 10000) return;
 
     try {
       // Сначала авторизация — проверяем что пользователь участник чата
@@ -113,6 +138,13 @@ function chatHandler(io, socket) {
       });
       if (!participant) {
         socket.emit('message:error', { tempId, error: 'Вы не участник этого чата' });
+        return;
+      }
+
+      // [CRIT-3] Каналы — только owner/admin могут публиковать через message:send
+      const room = await prisma.room.findUnique({ where: { id: chatId }, select: { type: true } });
+      if (room?.type === 'channel' && !['owner', 'admin'].includes(participant.role)) {
+        socket.emit('message:error', { tempId, error: 'Нет прав на публикацию в канале' });
         return;
       }
 
@@ -159,8 +191,8 @@ function chatHandler(io, socket) {
         },
       });
 
-      // Отправляем всем в комнате
-      io.to(chatId).emit('message:new', {
+      // Отправляем всем в комнате (shieldHeader передаётся транзитом)
+      const emitData = {
         id: message.id,
         tempId,
         chatId: message.roomId,
@@ -171,7 +203,12 @@ function chatHandler(io, socket) {
         encrypted: message.encrypted,
         createdAt: message.createdAt,
         replyTo: message.replyTo || null,
-      });
+      };
+      // Shield header — только для первого сообщения X3DH (транзит)
+      if (shieldHeader && typeof shieldHeader === 'object') {
+        emitData.shieldHeader = shieldHeader;
+      }
+      io.to(chatId).emit('message:new', emitData);
 
       // Проверяем упоминания (@username) — макс 5 на сообщение
       const MAX_MENTIONS = 5;
@@ -233,8 +270,8 @@ function chatHandler(io, socket) {
     }
   });
 
-  // Редактирование сообщения
-  socket.on('message:edit', async ({ messageId, chatId, text }) => {
+  // Редактирование сообщения (поддержка E2E encrypted flag)
+  socket.on('message:edit', async ({ messageId, chatId, text, encrypted }) => {
     if (!messageId || !chatId || !text?.trim()) return;
     if (text.length > 4000) return;
 
@@ -248,12 +285,20 @@ function chatHandler(io, socket) {
       if (!message || message.userId !== userId || message.roomId !== chatId) return;
       if (!participant) return;
 
+      const updateData = { text: text.trim() };
+      // Сохранить флаг encrypted если передан (для E2E)
+      if (encrypted !== undefined) updateData.encrypted = !!encrypted;
+
       await prisma.message.update({
         where: { id: messageId },
-        data: { text: text.trim() },
+        data: updateData,
       });
 
-      io.to(chatId).emit('message:edited', { messageId, chatId, text: text.trim(), editedAt: new Date() });
+      io.to(chatId).emit('message:edited', {
+        messageId, chatId, text: text.trim(),
+        encrypted: updateData.encrypted ?? message.encrypted ?? false,
+        editedAt: new Date(),
+      });
     } catch (err) {
       console.error('message:edit error:', err);
     }
@@ -284,7 +329,22 @@ function chatHandler(io, socket) {
 
       // Удалить вложения
       await prisma.attachment.deleteMany({ where: { messageId } });
-      await prisma.message.delete({ where: { id: messageId } });
+
+      // [CRIT-4] Phantom Messages — шум ТОЧНО того же размера что и оригинал
+      if (message.encrypted) {
+        const crypto = require('crypto');
+        // Генерировать raw bytes нужной длины, затем кодировать в base64 того же размера
+        const originalLen = Buffer.byteLength(message.text, 'utf8');
+        // base64(N bytes) = ceil(N/3)*4 chars. Нужно N raw bytes чтобы base64 был >= originalLen
+        const rawBytes = Math.ceil(originalLen * 3 / 4);
+        const phantomNoise = crypto.randomBytes(rawBytes).toString('base64').slice(0, originalLen);
+        await prisma.message.update({
+          where: { id: messageId },
+          data: { text: phantomNoise, type: 'phantom' },
+        });
+      } else {
+        await prisma.message.delete({ where: { id: messageId } });
+      }
 
       io.to(chatId).emit('message:deleted', { messageId, chatId });
     } catch (err) {
@@ -301,6 +361,16 @@ function chatHandler(io, socket) {
       typingTimeouts.delete(key);
     }
   }
+
+  // ═══ Read Receipts ═══
+  socket.on('message:read', ({ chatId, messageIds }) => {
+    if (!chatId || !Array.isArray(messageIds) || messageIds.length === 0) return;
+    if (!socket.rooms.has(chatId)) return;
+    // Лимит: макс 100 сообщений за раз
+    const ids = messageIds.slice(0, 100);
+    // Отправить другим участникам комнаты
+    socket.to(chatId).emit('message:readBy', { chatId, messageIds: ids, userId });
+  });
 
   // Typing indicators — только если пользователь в этой Socket.io комнате
   socket.on('typing:start', ({ chatId }) => {
@@ -331,8 +401,10 @@ function chatHandler(io, socket) {
   });
 
   // Публикация поста в канал через сокет (текстовый)
+  // [IMP-10] Валидация channelId
   socket.on('channel:post', async ({ channelId, text, tempId }) => {
-    if (!channelId || !text?.trim()) return;
+    if (!channelId || typeof channelId !== 'string' || channelId.length > 36) return;
+    if (!text?.trim()) return;
     if (text.length > 4000) return;
 
     if (isRateLimited(userId)) {
@@ -394,7 +466,7 @@ function chatHandler(io, socket) {
 
   // Disconnect
   socket.on('disconnect', async () => {
-    // Очистить таймауты набора текста (собираем ключи чтобы не мутировать Map)
+    // Очистить таймауты набора текста
     const keysToDelete = [];
     for (const [key] of typingTimeouts) {
       if (key.startsWith(`${userId}:`)) keysToDelete.push(key);
@@ -404,26 +476,30 @@ function chatHandler(io, socket) {
       typingTimeouts.delete(key);
     }
 
-    // Очистить typingRateLimits для отключившегося пользователя
+    // Очистить typingRateLimits
     for (const key of typingRateLimits.keys()) {
       if (key.startsWith(`${userId}:`)) {
         typingRateLimits.delete(key);
       }
     }
 
-    // Если невидимка — не оповещать об офлайне (для других и так не был виден)
+    // [HIGH-2] Использовать сохранённый список комнат (socket.rooms пуст после disconnect)
     if (socket.userStatus !== 'invisible') {
-      // Оповестить только тех, кто в одних комнатах
-      const rooms = Array.from(socket.rooms).filter((r) => r !== socket.id);
+      const rooms = socket.joinedRoomIds || [];
       for (const roomId of rooms) {
-        socket.to(roomId).emit('user:offline', { userId });
+        io.to(roomId).emit('user:offline', { userId });
       }
     }
+
     try {
-      // Сохраняем offline только если не invisible/dnd (чтобы сохранить статус при переподключении)
+      // [CRIT-2] ВСЕГДА обновлять lastSeenAt + статус (предотвращает zombie online)
       const savedStatus = socket.userStatus;
       if (savedStatus === 'invisible' || savedStatus === 'dnd') {
-        // Оставить как было — не менять на offline
+        // Оставить статус, но обновить lastSeenAt
+        await prisma.user.update({
+          where: { id: userId },
+          data: { lastSeenAt: new Date() },
+        });
       } else {
         await prisma.user.update({
           where: { id: userId },
@@ -433,8 +509,16 @@ function chatHandler(io, socket) {
     } catch {}
   });
 
-  // Запускаем join
-  joinUserRooms().catch(console.error);
+  // [CRIT-4] Запускаем join — при ошибке отключаем сокет
+  joinUserRooms()
+    .then(() => {
+      // [HIGH-2] Сохранить список комнат ДО disconnect (после disconnect socket.rooms пуст)
+      socket.joinedRoomIds = Array.from(socket.rooms).filter((r) => r !== socket.id);
+    })
+    .catch((err) => {
+      console.error('joinUserRooms failed, disconnecting:', err);
+      socket.disconnect(true);
+    });
 }
 
 module.exports = { chatHandler };

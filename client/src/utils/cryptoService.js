@@ -75,6 +75,9 @@ async function getSharedKey(otherPublicKeyB64, roomId) {
   const otherPublicKey = decodeBase64(otherPublicKeyB64);
   const shared = nacl.box.before(otherPublicKey, secretKey);
 
+  // Обнулить приватный ключ из памяти после использования
+  secretKey.fill(0);
+
   if (roomId) sharedKeyCache.set(roomId, shared);
   return shared;
 }
@@ -112,10 +115,17 @@ export async function decryptMessage(payload, senderPublicKeyB64, roomId) {
     const sharedKey = await getSharedKey(senderPublicKeyB64, roomId);
     if (!sharedKey) return null;
 
-    const [nonceB64, cipherB64] = payload.split('.');
+    // Разделить payload на nonce и ciphertext по первой точке
+    const dotIndex = payload.indexOf('.');
+    if (dotIndex === -1) return null;
+    const nonceB64 = payload.substring(0, dotIndex);
+    const cipherB64 = payload.substring(dotIndex + 1);
     if (!nonceB64 || !cipherB64) return null;
 
     const nonce = decodeBase64(nonceB64);
+    // Nonce для nacl.box должен быть ровно 24 байта
+    if (nonce.length !== 24) return null;
+
     const ciphertext = decodeBase64(cipherB64);
     const decrypted = nacl.box.open.after(ciphertext, nonce, sharedKey);
 
@@ -127,9 +137,61 @@ export async function decryptMessage(payload, senderPublicKeyB64, roomId) {
 
 // Очистить кеши и ключи (при логауте)
 export function clearCache() {
+  // Обнулить shared keys перед очисткой
+  for (const key of sharedKeyCache.values()) {
+    if (key instanceof Uint8Array) key.fill(0);
+  }
   sharedKeyCache.clear();
   publicKeyCache.clear();
   // Удалить ключи из localStorage (на случай если остались от старых версий)
   localStorage.removeItem('blesk-secret-key');
   localStorage.removeItem('blesk-public-key');
+}
+
+// Инвалидировать кеш ключей для конкретного пользователя (при смене ключа)
+export function invalidateKeyCache(userId, roomId) {
+  publicKeyCache.delete(userId);
+  if (roomId) {
+    const old = sharedKeyCache.get(roomId);
+    if (old instanceof Uint8Array) old.fill(0);
+    sharedKeyCache.delete(roomId);
+  }
+}
+
+// Инвалидировать все shared keys для пользователя (перебор по roomId)
+export function invalidateUserKeys(userId) {
+  publicKeyCache.delete(userId);
+  // Shared key кеш — по roomId, нужно знать roomId
+  // При смене ключа безопаснее очистить весь кеш
+  for (const key of sharedKeyCache.values()) {
+    if (key instanceof Uint8Array) key.fill(0);
+  }
+  sharedKeyCache.clear();
+}
+
+// Получить fingerprint ключа (SHA-256, первые 16 символов hex)
+export async function getKeyFingerprint(publicKeyB64) {
+  if (!publicKeyB64) return null;
+  try {
+    const keyBytes = decodeBase64(publicKeyB64);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', keyBytes);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    // Формат: XXXX XXXX XXXX XXXX (16 hex символов = 8 байт)
+    return hex.slice(0, 16).replace(/(.{4})/g, '$1 ').trim();
+  } catch {
+    return null;
+  }
+}
+
+// Получить fingerprint своего ключа
+export async function getMyFingerprint() {
+  const pubKey = getPublicKeyB64();
+  return getKeyFingerprint(pubKey);
+}
+
+// Получить fingerprint ключа собеседника
+export async function getPeerFingerprint(userId) {
+  const pubKey = await fetchPublicKey(userId);
+  return getKeyFingerprint(pubKey);
 }

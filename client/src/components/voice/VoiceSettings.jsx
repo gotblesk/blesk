@@ -95,8 +95,11 @@ export default function VoiceSettings() {
         animRef.current = requestAnimationFrame(updateLevel);
       }
       updateLevel();
-    } catch {
-      // Ошибка доступа
+    } catch (err) {
+      // [Баг #8] Показать ошибку доступа к микрофону
+      if (err.name === 'NotAllowedError') {
+        useVoiceStore.getState().setMediaError?.('Нет доступа к микрофону. Проверьте разрешения ОС.');
+      }
     }
   };
 

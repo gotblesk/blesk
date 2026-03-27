@@ -62,9 +62,9 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               <div
                 className="spotlight-status__dot"
                 style={{
-                  background: user?.status === 'dnd' ? '#ef4444'
-                    : user?.status === 'invisible' ? '#6b7280'
-                    : '#4ade80',
+                  background: user?.status === 'dnd' ? 'var(--danger)'
+                    : user?.status === 'invisible' ? 'var(--offline)'
+                    : 'var(--online)',
                 }}
               />
               {user?.customStatus || (user?.status === 'dnd' ? 'Не беспокоить' : user?.status === 'invisible' ? 'Невидимка' : 'В сети')}
@@ -89,7 +89,7 @@ export default function SpotlightProfile({ user, onNavigate, onLogout }) {
               style={{ transitionDelay: '0.13s' }}
               onClick={() => handleAction('status')}
             >
-              <div className="spotlight-item__icon"><div style={{ width: 10, height: 10, borderRadius: '50%', background: user?.status === 'dnd' ? '#ef4444' : user?.status === 'invisible' ? '#6b7280' : '#4ade80' }} /></div>
+              <div className="spotlight-item__icon"><div style={{ width: 10, height: 10, borderRadius: '50%', background: user?.status === 'dnd' ? 'var(--danger)' : user?.status === 'invisible' ? 'var(--offline)' : 'var(--online)' }} /></div>
               <div className="spotlight-item__info">
                 <div className="spotlight-item__label">Изменить статус</div>
                 <div className="spotlight-item__hint">{user?.customStatus || (user?.status === 'dnd' ? 'Не беспокоить' : user?.status === 'invisible' ? 'Невидимка' : 'В сети')}</div>

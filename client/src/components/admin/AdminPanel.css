@@ -318,7 +318,7 @@
 }
 
 .admin-select option {
-  background: #1a1a2e;
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -644,44 +644,44 @@
 /* ═══════ LIGHT THEME ═══════ */
 
 [data-theme="light"] .admin-nav-item:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--light-surface-hover, #f0f2f5);
 }
 
 [data-theme="light"] .admin-nav-item--active {
-  background: rgba(200, 255, 0, 0.12);
+  background: var(--light-accent-light, #ede9fe);
 }
 
 [data-theme="light"] .admin-table th {
-  border-bottom-color: rgba(0, 0, 0, 0.08);
+  border-bottom-color: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .admin-table td {
-  border-bottom-color: rgba(0, 0, 0, 0.06);
+  border-bottom-color: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .admin-table tr:hover td {
-  background: rgba(0, 0, 0, 0.02);
+  background: var(--light-surface-hover, #f0f2f5);
 }
 
 [data-theme="light"] .admin-search,
 [data-theme="light"] .admin-select,
 [data-theme="light"] .admin-input,
 [data-theme="light"] .admin-textarea {
-  border-color: rgba(0, 0, 0, 0.1);
-  background: rgba(0, 0, 0, 0.03);
+  border-color: var(--light-border, #e5e7eb);
+  background: var(--bg-input);
 }
 
 [data-theme="light"] .admin-btn--ghost {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg-input);
 }
 
 [data-theme="light"] .admin-btn--ghost:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .admin-pagination__btn {
-  border-color: rgba(0, 0, 0, 0.1);
-  background: rgba(0, 0, 0, 0.03);
+  border-color: var(--light-border, #e5e7eb);
+  background: var(--light-surface-hover, #f0f2f5);
 }
 
 [data-theme="light"] .admin-select option {

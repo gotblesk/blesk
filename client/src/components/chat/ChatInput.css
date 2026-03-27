@@ -137,8 +137,13 @@
   overflow-y: auto;
 }
 
+.chat-input__textarea:focus-visible {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .chat-input__textarea::-webkit-scrollbar { width: 3px; }
-.chat-input__textarea::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+.chat-input__textarea::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb, rgba(255,255,255,0.08)); border-radius: 2px; }
 
 .chat-input__textarea::placeholder {
   color: rgba(255,255,255,0.25);
@@ -283,70 +288,216 @@
   display: none;
 }
 
-/* Drag-and-drop состояние */
+/* Drag-and-drop состояние — видимый overlay */
 .chat-input-zone--drag-over {
-  background: rgba(200,255,0,0.04);
+  background: rgba(200,255,0,0.06);
   border-radius: 24px;
+  position: relative;
+}
+.chat-input-zone--drag-over::after {
+  content: 'Перетащите файлы сюда';
+  position: absolute;
+  inset: 0;
+  border: 1.5px dashed rgba(200,255,0,0.4);
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(200,255,0,0.6);
+  background: rgba(200,255,0,0.04);
+  pointer-events: none;
+  z-index: 5;
 }
 
 /* Light theme */
 [data-theme="light"] .chat-input-compact {
-  background: rgba(255,255,255,0.5);
-  border-color: rgba(0,0,0,0.06);
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .chat-input-compact__hint {
-  color: rgba(0,0,0,0.35);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .chat-input__outer {
-  background: rgba(255,255,255,0.4);
-  border-color: rgba(0,0,0,0.06);
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .chat-input__inner {
-  background: rgba(255,255,255,0.5);
+  background: var(--light-surface, #ffffff);
 }
 
 [data-theme="light"] .chat-input__textarea {
-  color: rgba(0,0,0,0.85);
+  color: var(--light-text-primary, #111827);
 }
 
 [data-theme="light"] .chat-input__textarea::placeholder {
-  color: rgba(0,0,0,0.3);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .chat-input__outer--focused {
-  border-color: rgba(74,140,0,0.15);
-  box-shadow: 0 0 20px rgba(74,140,0,0.06);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
 }
 
 [data-theme="light"] .chat-input__tool-btn {
-  color: rgba(0,0,0,0.3);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .chat-input__tool-btn:hover {
-  background: rgba(0,0,0,0.05);
-  color: rgba(0,0,0,0.5);
+  background: var(--bg-input);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .chat-input__reply-preview {
-  background: rgba(255,255,255,0.4);
-  border-color: rgba(0,0,0,0.06);
+  background: var(--light-surface-hover, #f0f2f5);
+  border-color: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .chat-input__reply-text {
-  color: rgba(0,0,0,0.45);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .chat-input__reply-close {
-  background: rgba(0,0,0,0.05);
-  color: rgba(0,0,0,0.3);
+  background: var(--bg-input);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .chat-input-compact__mic {
-  background: rgba(0,0,0,0.05);
-  color: rgba(0,0,0,0.35);
+  background: var(--bg-input);
+  color: var(--light-text-tertiary, #9ca3af);
+}
+
+/* Emoji picker */
+.chat-input__emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 8px;
+  z-index: var(--z-dropdown, 50);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.chat-input__emoji-picker em-emoji-picker {
+  --rgb-background: 18, 16, 28;
+  --rgb-input: 30, 28, 42;
+  --rgb-color: 255, 255, 255;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+
+[data-theme="light"] .chat-input__emoji-picker em-emoji-picker {
+  --rgb-background: 255, 255, 255;
+  --rgb-input: 240, 242, 245;
+  --rgb-color: 17, 24, 39;
+  border: 1px solid var(--border, #e5e7eb);
+}
+
+.chat-input__tool-btn--active {
+  color: var(--accent) !important;
+}
+
+/* Recording UI */
+.chat-input__recording {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--danger);
+  border-radius: 20px;
+  backdrop-filter: blur(12px);
+}
+
+.chat-input__recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: recordPulse 1s ease-in-out infinite;
+}
+
+@keyframes recordPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.chat-input__recording-time {
+  font-family: var(--font-mono, monospace);
+  font-size: 14px;
+  color: var(--text);
+  min-width: 36px;
+}
+
+.chat-input__recording-label {
+  color: var(--text-muted);
+  font-size: 13px;
+  flex: 1;
+}
+
+.chat-input__recording-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-input__recording-cancel {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chat-input__recording-cancel:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.chat-input__recording-stop {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--danger);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.chat-input__recording-stop:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+[data-theme="light"] .chat-input__recording {
+  background: var(--light-surface, #fff);
+  border-color: var(--danger);
+}
+
+[data-theme="light"] .chat-input__recording-cancel {
+  background: rgba(0,0,0,0.04);
+}
+
+.chat-input__tool-btn--mic {
+  color: var(--text-muted);
+  transition: color 0.15s;
+}
+
+.chat-input__tool-btn--mic:hover {
+  color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -354,4 +505,5 @@
   .chat-input-expanded {
     transition: none;
   }
+  .chat-input__recording-dot { animation: none; opacity: 1; }
 }

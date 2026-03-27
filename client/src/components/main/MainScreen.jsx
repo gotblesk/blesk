@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MetaballBackground from '../ui/MetaballBackground';
 import NebulaView from '../nebula/NebulaView';
@@ -24,6 +24,7 @@ import AdminPanel from '../admin/AdminPanel';
 import UpdateBanner from '../ui/UpdateBanner';
 import SpotlightSearch from '../ui/SpotlightSearch';
 import { soundTabSwitch, soundWindowOpen, soundWindowClose, soundVoiceJoin, soundVoiceLeave, soundRingtoneStop } from '../../utils/sounds';
+import { initializeShield } from '../../utils/shieldService';
 import { useSocket } from '../../hooks/useSocket';
 import { useVoice } from '../../hooks/useVoice';
 import { useChatStore } from '../../store/chatStore';
@@ -70,12 +71,53 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     }
   }, []);
 
+  // blesk Shield — инициализация E2E
+  useEffect(() => {
+    initializeShield().catch(() => {});
+  }, []);
+
+  // [CRIT-3] Deep links — обработка blesk:// из main process
+  useEffect(() => {
+    if (!window.blesk) return;
+    window.blesk.onDeepLink?.(({ action, param }) => {
+      if (action === 'chat' && param) handleOpenChat(param);
+      if (action === 'invite' && param) {
+        // Обработка инвайта — открыть URL с параметром
+        console.log('Deep link invite:', param);
+      }
+      if (action === 'channel' && param) {
+        switchToView('channels');
+      }
+    });
+  }, []); // eslint-disable-line
+
+  // [CRIT-3] Клик по системному уведомлению → открыть чат
+  useEffect(() => {
+    if (!window.blesk) return;
+    window.blesk.onNotificationOpenChat?.((chatId) => {
+      if (chatId) handleOpenChat(chatId);
+    });
+  }, []); // eslint-disable-line
+
+  // [CRIT-4] DND из трея → синхронизировать с settingsStore
+  useEffect(() => {
+    if (!window.blesk) return;
+    window.blesk.onDnd?.((enabled) => {
+      useSettingsStore.setState({ dnd: enabled });
+    });
+  }, []);
+
   const { chats } = useChatStore();
+  const isConnected = useChatStore((s) => s.isConnected);
   const voiceRoomId = useVoiceStore((s) => s.currentRoomId);
   const cameraOn = useVoiceStore((s) => s.cameraOn);
   const screenShareOn = useVoiceStore((s) => s.screenShareOn);
-  const muted = useVoiceStore((s) => s.muted);
-  const deafened = useVoiceStore((s) => s.deafened);
+  // [Баг #26] Правильные ключи store — isMuted/isDeafened вместо muted/deafened
+  const muted = useVoiceStore((s) => s.isMuted);
+  const deafened = useVoiceStore((s) => s.isDeafened);
+  // [Баг #10] Получить видеостримы для CallScreen
+  const localCameraStream = useVoiceStore((s) => s.localCameraStream);
+  const videoStreams = useVoiceStore((s) => s.videoStreams);
   const incomingCall = useCallStore((s) => s.incomingCall);
   const activeCall = useCallStore((s) => s.activeCall);
 
@@ -178,9 +220,8 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     settings: () => switchToView('settings'),
   });
 
-  // ═══════ AMBIENT HUE ═══════
-  // Hue Identity: фон меняет цвет под активного собеседника
-  const getAmbientHue = () => {
+  // [IMP-2] Ambient hue — мемоизирован
+  const ambientHue = useMemo(() => {
     if (!activeChatId) return null;
     const chat = chats.find(c => c.id === activeChatId);
     if (!chat?.otherUser) return null;
@@ -188,12 +229,12 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     const name = chat.otherUser.username || '';
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
     return Math.abs(hash) % 360;
-  };
+  }, [activeChatId, chats]);
 
   // ═══════ RENDER ═══════
   return (
-    <div className="main-screen">
-      <MetaballBackground subtle ambientHue={getAmbientHue()} />
+    <main className="main-screen">
+      <MetaballBackground subtle ambientHue={ambientHue} />
 
       {/* ═══════ NEBULA VIEW (главное меню) ═══════ */}
       {view === 'nebula' && !secondaryView && (
@@ -218,6 +259,14 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
           <div className="main-layout__content">
             <AnimatePresence mode="wait">
+              {/* Empty state: нет выбранного чата */}
+              {!secondaryView && !activeChatId && (
+                <motion.div key="no-chat" className="main-layout__animated" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, opacity: 0.35 }}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Выберите чат, чтобы начать общение</span>
+                </motion.div>
+              )}
+
               {/* Чат */}
               {!secondaryView && activeChatId && (
                 <motion.div key="chat" className="main-layout__animated" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
@@ -355,6 +404,9 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
         {activeCall && (() => {
           const callChat = chats.find(c => c.id === activeCall.chatId);
           if (!callChat || callChat.type === 'group') return null;
+          // [Баг #10] Достать удалённые стримы для собеседника
+          const otherUserId = callChat.otherUser?.id;
+          const remoteStreams = otherUserId ? videoStreams[otherUserId] : null;
           return (
             <CallScreen
               key="call-screen"
@@ -368,6 +420,9 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
               onToggleVideo={() => cameraOn ? disableCamera() : enableCamera()}
               onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
               screenShareOn={screenShareOn}
+              localVideoStream={localCameraStream}
+              remoteVideoStream={remoteStreams?.camera || null}
+              remoteScreenStream={remoteStreams?.screen || null}
               onEndCall={() => {
                 soundVoiceLeave();
                 leaveCall(activeCall.chatId);
@@ -379,6 +434,20 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
       </AnimatePresence>
 
       {/* Обновление */}
+      {/* [CRIT-2] Офлайн-индикатор */}
+      {!isConnected && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0,
+          zIndex: 9999, padding: '6px 0',
+          background: 'rgba(239,68,68,0.9)',
+          color: '#fff', textAlign: 'center',
+          fontSize: 12, fontWeight: 700,
+          backdropFilter: 'blur(8px)',
+        }}>
+          Нет соединения с сервером. Переподключение...
+        </div>
+      )}
+
       <UpdateBanner socketRef={socketRef} />
 
       {/* Spotlight Search (Ctrl+K) */}
@@ -427,6 +496,6 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
           onScreenShareToggle={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
         />
       )}
-    </div>
+    </main>
   );
 }

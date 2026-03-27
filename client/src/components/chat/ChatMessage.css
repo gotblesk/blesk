@@ -145,6 +145,21 @@
 .chat-message--first.chat-message--own .chat-message__bubble-outer { border-radius: 22px 22px 6px 22px; }
 .chat-message--first.chat-message--own .chat-message__bubble-inner { border-radius: 19px 19px 4px 19px; }
 
+/* [IMP-3] Pending — полупрозрачное */
+.chat-message--pending { opacity: 0.5; }
+.chat-message--pending .chat-message__time { color: rgba(255,255,255,0.15); }
+
+/* [CRIT-1] Failed — красная рамка, клик для retry */
+.chat-message--failed .chat-message__bubble-outer {
+  border-color: rgba(239,68,68,0.3) !important;
+}
+.chat-message--failed .chat-message__bubble-inner {
+  background: rgba(239,68,68,0.06) !important;
+}
+.chat-message--failed .chat-message__time {
+  color: #ef4444 !important;
+}
+
 /* Mid — own */
 .chat-message--mid.chat-message--own .chat-message__bubble-outer { border-radius: 22px 6px 6px 22px; }
 .chat-message--mid.chat-message--own .chat-message__bubble-inner { border-radius: 19px 4px 4px 19px; }
@@ -334,31 +349,92 @@
   }
 }
 
-/* ===== Light theme ===== */
+/* ===== Light theme v4 ===== */
 [data-theme="light"] .chat-message--other .chat-message__bubble-outer {
-  background: var(--sender-bubble-bg-light, rgba(0,0,0,0.04));
-  border-color: var(--sender-bubble-border-light, rgba(0,0,0,0.06));
+  background: #ffffff;
+  border-color: var(--light-border, #e5e7eb);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 [data-theme="light"] .chat-message--other .chat-message__bubble-inner {
-  background: var(--sender-bubble-inner-bg-light, rgba(0,0,0,0.06));
-  border-top-color: rgba(255,255,255,0.4);
+  background: rgba(255, 255, 255, 0.95);
+  border-top-color: rgba(255,255,255,0.6);
 }
 
 [data-theme="light"] .chat-message--own .chat-message__bubble-outer {
-  background: rgba(74,140,0,0.06);
-  border-color: rgba(74,140,0,0.1);
+  background: #7c3aed;
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
 }
 
 [data-theme="light"] .chat-message--own .chat-message__bubble-inner {
-  background: rgba(74,140,0,0.1);
-  border-top-color: rgba(255,255,255,0.5);
+  background: rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255,255,255,0.2);
+}
+
+[data-theme="light"] .chat-message--own .chat-message__bubble-inner,
+[data-theme="light"] .chat-message--own .chat-message__text {
+  color: #ffffff;
 }
 
 [data-theme="light"] .chat-message__time {
-  color: rgba(0,0,0,0.25);
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .chat-message--own .chat-message__time {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 [data-theme="light"] .chat-message__bubble-inner::before {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
 }
+
+/* ═══════ СТИЛЬ СООБЩЕНИЙ: minimal ═══════ */
+.chat-message--style-minimal .chat-message__bubble-outer {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0;
+}
+.chat-message--style-minimal .chat-message__bubble-inner {
+  background: transparent !important;
+  border: none !important;
+  padding: 4px 0;
+  border-radius: 0 !important;
+}
+.chat-message--style-minimal .chat-message__bubble-inner::before { display: none; }
+.chat-message--style-minimal.chat-message--other .chat-message__bubble-inner {
+  border-left: 2px solid var(--accent, #c8ff00) !important;
+  padding-left: 10px;
+  border-radius: 0 !important;
+}
+.chat-message--style-minimal.chat-message--own .chat-message__bubble-inner {
+  background: transparent !important;
+  color: var(--text);
+  border-right: 2px solid var(--accent, #c8ff00) !important;
+  padding-right: 10px;
+  border-radius: 0 !important;
+}
+[data-theme="light"] .chat-message--style-minimal.chat-message--own .chat-message__bubble-inner {
+  color: var(--text, #111827);
+}
+
+/* ═══════ СТИЛЬ СООБЩЕНИЙ: classic ═══════ */
+.chat-message--style-classic .chat-message__bubble-outer {
+  border-radius: 4px !important;
+}
+.chat-message--style-classic .chat-message__bubble-inner {
+  border-radius: 4px !important;
+  padding: 8px 12px;
+}
+.chat-message--style-classic .chat-message__bubble-inner::before { display: none; }
+.chat-message--style-classic.chat-message--other .chat-message__bubble-outer {
+  border-radius: 4px !important;
+}
+.chat-message--style-classic.chat-message--own .chat-message__bubble-outer {
+  border-radius: 4px !important;
+}
+
+/* ═══════ Скрытые аватары — убираем отступ ═══════ */
+.chat-message--no-avatars { gap: 0; }
+.chat-message--no-avatars .chat-message__avatar { display: none !important; }

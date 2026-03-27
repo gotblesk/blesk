@@ -9,5 +9,5 @@
 .attach-preview__item:hover .attach-preview__remove { opacity: 1; }
 .attach-preview__progress { position: absolute; bottom: 0; left: 0; height: 2px; background: var(--accent); border-radius: 0 0 10px 10px; transition: width 0.2s; }
 
-[data-theme="light"] .attach-preview__item { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); }
-[data-theme="light"] .attach-preview__icon { background: rgba(0,0,0,0.04); }
+[data-theme="light"] .attach-preview__item { background: var(--light-surface-hover, #f0f2f5); border-color: var(--light-border, #e5e7eb); }
+[data-theme="light"] .attach-preview__icon { background: var(--bg-input); }

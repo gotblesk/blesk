@@ -1,9 +1,12 @@
 import { useState, useCallback } from 'react';
-import { BellOff, Pin, Trash2, UserX } from 'lucide-react';
+import { BellOff, CheckCheck, Trash2, UserX } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import ContextMenu from '../ui/ContextMenu';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
 import { useChatStore } from '../../store/chatStore';
+import { getCurrentUserId } from '../../utils/auth';
+import API_URL from '../../config';
 import './ChatCard.css';
 
 function GroupAvatar({ participants }) {
@@ -25,6 +28,7 @@ function GroupAvatar({ participants }) {
 
 export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, cardRef }) {
   const [ctxMenu, setCtxMenu] = useState(null);
+  const [dangerConfirm, setDangerConfirm] = useState(false);
   const isGroup = chat.type === 'group';
   const user = chat.otherUser;
 
@@ -52,14 +56,34 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
     useChatStore.getState().markAsRead(chat.id);
   }, [chat.id]);
 
+  const handleDangerAction = useCallback(async () => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+    try {
+      if (isGroup) {
+        await fetch(`${API_URL}/api/chats/${chat.id}/members/${userId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+      } else {
+        await fetch(`${API_URL}/api/chats/${chat.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+      }
+      useChatStore.getState().removeChat(chat.id);
+    } catch {}
+    setDangerConfirm(false);
+  }, [chat.id, isGroup]);
+
   const displayName = isGroup ? chat.name : (user?.username || chat.name);
 
   const ctxItems = [
-    { label: 'Отметить прочитанным', icon: <Pin size={14} strokeWidth={1.5} />, onClick: handleMarkRead },
+    { label: 'Отметить прочитанным', icon: <CheckCheck size={14} strokeWidth={1.5} />, onClick: handleMarkRead },
     { divider: true },
     { label: 'Без звука', icon: <BellOff size={14} strokeWidth={1.5} />, onClick: () => {} },
     { divider: true },
-    { label: isGroup ? 'Покинуть группу' : 'Удалить чат', icon: <Trash2 size={14} strokeWidth={1.5} />, danger: true, onClick: () => {} },
+    { label: isGroup ? 'Покинуть группу' : 'Удалить чат', icon: <Trash2 size={14} strokeWidth={1.5} />, danger: true, onClick: () => setDangerConfirm(true) },
   ];
 
   return (
@@ -112,6 +136,17 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
           onClose={() => setCtxMenu(null)}
         />
       )}
+      <ConfirmDialog
+        open={dangerConfirm}
+        title={isGroup ? 'Покинуть группу?' : 'Удалить чат?'}
+        message={isGroup
+          ? 'Вы больше не сможете видеть сообщения этой группы'
+          : 'Чат будет удалён безвозвратно'}
+        confirmText={isGroup ? 'Покинуть' : 'Удалить'}
+        danger
+        onConfirm={handleDangerAction}
+        onCancel={() => setDangerConfirm(false)}
+      />
     </>
   );
 }

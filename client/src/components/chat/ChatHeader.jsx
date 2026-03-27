@@ -1,9 +1,10 @@
-import { Phone, MoreHorizontal } from 'lucide-react';
+import { Phone, Video, Search, MoreHorizontal } from 'lucide-react';
 import Avatar from '../ui/Avatar';
+import { ShieldBadge } from '../ui/ShieldFingerprint';
 import { formatLastSeen } from '../../utils/time';
 import './ChatHeader.css';
 
-export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames, onCall, onMembers, onAvatarClick }) {
+export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames, onCall, onVideoCall, onSearch, onMembers, onAvatarClick, shieldActive }) {
   const isGroup = chat.type === 'group';
   const otherUser = chat.otherUser;
 
@@ -27,7 +28,7 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
   return (
     <div className="chat-header-zone">
       <div className="chat-header-island">
-        {/* Avatar — clickable, visually separated */}
+        {/* Avatar */}
         <div
           className="chat-header__ava"
           onClick={e => { e.stopPropagation(); onAvatarClick?.(); }}
@@ -37,18 +38,35 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
         </div>
 
         <div className="chat-header__info">
-          <span className="chat-header__name">{chatName}</span>
+          <div className="chat-header__name-row">
+            <span className="chat-header__name">{chatName}</span>
+            {/* Shield badge для E2E чатов */}
+            {shieldActive && !isGroup && <ShieldBadge active onClick={() => {}} />}
+          </div>
           <span className="chat-header__status">{statusText}</span>
         </div>
 
         <div className="chat-header__actions">
-          {onCall && (
-            <button className="chat-header__btn" onClick={onCall} title="Позвонить">
-              <Phone />
+          {/* Поиск по чату */}
+          {onSearch && (
+            <button className="chat-header__btn" onClick={onSearch} title="Поиск" aria-label="Поиск по чату">
+              <Search size={18} strokeWidth={1.5} />
             </button>
           )}
-          <button className="chat-header__btn" onClick={isGroup ? onMembers : onAvatarClick} title={isGroup ? 'Участники' : 'Подробнее'}>
-            <MoreHorizontal />
+          {/* Голосовой звонок */}
+          {onCall && (
+            <button className="chat-header__btn" onClick={onCall} title="Голосовой звонок" aria-label="Позвонить">
+              <Phone size={18} strokeWidth={1.5} />
+            </button>
+          )}
+          {/* Видеозвонок */}
+          {onVideoCall && (
+            <button className="chat-header__btn" onClick={onVideoCall} title="Видеозвонок" aria-label="Видеозвонок">
+              <Video size={18} strokeWidth={1.5} />
+            </button>
+          )}
+          <button className="chat-header__btn" onClick={isGroup ? onMembers : onAvatarClick} title={isGroup ? 'Участники' : 'Подробнее'} aria-label={isGroup ? 'Участники группы' : 'Информация о чате'}>
+            <MoreHorizontal size={18} strokeWidth={1.5} />
           </button>
         </div>
       </div>

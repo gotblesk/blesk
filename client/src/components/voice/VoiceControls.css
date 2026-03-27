@@ -2,12 +2,13 @@
    VoiceControls — Floating Pill Bar
    ═══════════════════════════════════════ */
 
+/* [Баг #28] bottom увеличен чтобы не перекрываться с DynamicIsland */
 .vc {
   position: fixed;
-  bottom: 16px;
+  bottom: 72px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 50;
+  z-index: 110; /* выше DynamicIsland (100) */
   display: flex;
   align-items: center;
   gap: 6px;
@@ -24,7 +25,7 @@
 }
 
 @keyframes vc-in {
-  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  from { transform: translateX(-50%) translateY(30px); opacity: 0; }
   to { transform: translateX(-50%) translateY(0); opacity: 1; }
 }
 
@@ -124,7 +125,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: background 0.12s, color 0.12s, transform 0.12s;
   flex-shrink: 0;
   padding: 0;
 }
@@ -176,17 +177,17 @@
 
 /* ─── Light Theme ─── */
 [data-theme="light"] .vc {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(0, 0, 0, 0.06);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .vc__room {
-  color: rgba(0, 0, 0, 0.85);
+  color: var(--light-text-primary, #111827);
 }
 
 [data-theme="light"] .vc__count {
-  color: rgba(0, 0, 0, 0.3);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .vc__mini-ava {
@@ -194,20 +195,20 @@
 }
 
 [data-theme="light"] .vc__sep {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .vc__btn--on {
-  background: rgba(0, 0, 0, 0.06);
-  color: rgba(0, 0, 0, 0.5);
+  background: var(--bg-input);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .vc__btn--on:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: rgba(0, 0, 0, 0.7);
+  background: var(--light-border, #e5e7eb);
+  color: var(--light-text-primary, #111827);
 }
 
 [data-theme="light"] .vc__btn--active {
-  background: rgba(74, 140, 0, 0.12);
+  background: var(--light-accent-light, #ede9fe);
   color: var(--accent);
 }

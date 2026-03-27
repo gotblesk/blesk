@@ -20,8 +20,59 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024, files: 5 },
 });
 
+// [HIGH-3] Единая карта MIME → расширение (вместо дублирования)
+const MIME_EXT = {
+  'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
+  'video/mp4': '.mp4', 'video/webm': '.webm',
+  'audio/mpeg': '.mp3', 'audio/ogg': '.ogg', 'audio/webm': '.webm', // [CRIT-2]
+  'application/pdf': '.pdf', 'application/zip': '.zip', 'text/plain': '.txt',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+};
+
+/**
+ * [HIGH-1] Обработка изображений — EXIF stripping + thumbnail
+ * @returns {{ url, thumbnailUrl, width, height }}
+ */
+async function processImage(filePath, storedName, mime) {
+  const ext = MIME_EXT[mime] || '.bin';
+  const url = `/uploads/attachments/${storedName}`;
+  let thumbnailUrl = null;
+  let width = null;
+  let height = null;
+
+  if (!mime.startsWith('image/')) return { url, thumbnailUrl, width, height };
+
+  // [HIGH-1] Стрип EXIF/GPS metadata с оригинала (кроме GIF — sharp ломает анимацию)
+  if (mime !== 'image/gif') {
+    try {
+      const stripped = filePath + '.stripped';
+      await sharp(filePath).withMetadata(false).toFile(stripped);
+      fs.renameSync(stripped, filePath);
+    } catch { /* если sharp не справился — оставить как есть */ }
+  }
+
+  // Генерация превью (только для не-GIF)
+  if (mime !== 'image/gif') {
+    try {
+      const meta = await sharp(filePath).metadata();
+      width = meta.width;
+      height = meta.height;
+      const thumbName = `${path.basename(storedName, ext)}.jpg`;
+      await sharp(filePath)
+        .resize({ width: 400, withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toFile(path.join(thumbsDir, thumbName));
+      thumbnailUrl = `/uploads/thumbs/${thumbName}`;
+    } catch { /* thumbnail failed, ok */ }
+  }
+
+  return { url, thumbnailUrl, width, height };
+}
+
 // ─── Загрузка файла в канал (owner/admin) ───
 router.post('/channels/:channelId/upload', authenticate, upload.single('file'), async (req, res) => {
+  let finalPath = null;
   try {
     const { channelId } = req.params;
     const { text } = req.body;
@@ -45,38 +96,13 @@ router.post('/channels/:channelId/upload', authenticate, upload.single('file'), 
       return res.status(400).json({ error: validation.error });
     }
 
-    // Расширение из реального MIME, а не из user input
-    const MIME_EXT = {
-      'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
-      'video/mp4': '.mp4', 'video/webm': '.webm', 'audio/mpeg': '.mp3', 'audio/ogg': '.ogg',
-      'application/pdf': '.pdf', 'application/zip': '.zip', 'text/plain': '.txt',
-      'application/msword': '.doc',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-    };
     const ext = MIME_EXT[validation.mime] || '.bin';
     const storedName = `${crypto.randomUUID()}${ext}`;
-    const finalPath = path.join(attachDir, storedName);
+    finalPath = path.join(attachDir, storedName);
     fs.renameSync(req.file.path, finalPath);
 
-    const url = `/uploads/attachments/${storedName}`;
-    let thumbnailUrl = null;
-    let width = null;
-    let height = null;
-
-    // Генерация превью для изображений
-    if (validation.mime.startsWith('image/') && validation.mime !== 'image/gif') {
-      try {
-        const meta = await sharp(finalPath).metadata();
-        width = meta.width;
-        height = meta.height;
-        const thumbName = `${path.basename(storedName, ext)}.jpg`;
-        await sharp(finalPath)
-          .resize({ width: 400, withoutEnlargement: true })
-          .jpeg({ quality: 80 })
-          .toFile(path.join(thumbsDir, thumbName));
-        thumbnailUrl = `/uploads/thumbs/${thumbName}`;
-      } catch { /* thumbnail failed, ok */ }
-    }
+    // Обработка изображений (EXIF strip + thumbnail)
+    const media = await processImage(finalPath, storedName, validation.mime);
 
     // Создание сообщения + вложения + инкремент postCount
     const [message] = await prisma.$transaction([
@@ -92,10 +118,10 @@ router.post('/channels/:channelId/upload', authenticate, upload.single('file'), 
               storedName,
               mimeType: validation.mime,
               size: req.file.size,
-              url,
-              thumbnailUrl,
-              width,
-              height,
+              url: media.url,
+              thumbnailUrl: media.thumbnailUrl,
+              width: media.width,
+              height: media.height,
             }],
           },
         },
@@ -122,13 +148,16 @@ router.post('/channels/:channelId/upload', authenticate, upload.single('file'), 
 
     res.json({ message });
   } catch (err) {
+    // [MED-3] Очистить оба файла при ошибке
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    if (finalPath && fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
     console.error('channel upload error:', err);
     res.status(500).json({ error: 'Ошибка загрузки файла' });
   }
 });
 
 router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, res) => {
+  let finalPath = null;
   try {
     const { chatId } = req.params;
     const { text, replyToId } = req.body;
@@ -152,40 +181,15 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
       return res.status(400).json({ error: validation.error });
     }
 
-    // Расширение из реального MIME, а не из user input
-    const MIME_EXT = {
-      'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
-      'video/mp4': '.mp4', 'video/webm': '.webm', 'audio/mpeg': '.mp3', 'audio/ogg': '.ogg',
-      'application/pdf': '.pdf', 'application/zip': '.zip', 'text/plain': '.txt',
-      'application/msword': '.doc',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-    };
     const ext = MIME_EXT[validation.mime] || '.bin';
     const storedName = `${crypto.randomUUID()}${ext}`;
-    const finalPath = path.join(attachDir, storedName);
+    finalPath = path.join(attachDir, storedName);
     fs.renameSync(req.file.path, finalPath);
 
-    const url = `/uploads/attachments/${storedName}`;
-    let thumbnailUrl = null;
-    let width = null;
-    let height = null;
+    // Обработка изображений (EXIF strip + thumbnail)
+    const media = await processImage(finalPath, storedName, validation.mime);
 
-    // Генерация превью для изображений
-    if (validation.mime.startsWith('image/') && validation.mime !== 'image/gif') {
-      try {
-        const meta = await sharp(finalPath).metadata();
-        width = meta.width;
-        height = meta.height;
-        const thumbName = `${path.basename(storedName, ext)}.jpg`;
-        await sharp(finalPath)
-          .resize({ width: 400, withoutEnlargement: true })
-          .jpeg({ quality: 80 })
-          .toFile(path.join(thumbsDir, thumbName));
-        thumbnailUrl = `/uploads/thumbs/${thumbName}`;
-      } catch { /* thumbnail failed, ok */ }
-    }
-
-    // Валидация replyToId — должен быть из того же чата (защита от IDOR)
+    // Валидация replyToId — должен быть из того же чата
     let validReplyToId = undefined;
     if (replyToId) {
       const replyMsg = await prisma.message.findUnique({
@@ -197,7 +201,7 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
       }
     }
 
-    // Создание сообщения + вложения в одной транзакции
+    // Создание сообщения + вложения
     const message = await prisma.message.create({
       data: {
         roomId: chatId,
@@ -211,10 +215,10 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
             storedName,
             mimeType: validation.mime,
             size: req.file.size,
-            url,
-            thumbnailUrl,
-            width,
-            height,
+            url: media.url,
+            thumbnailUrl: media.thumbnailUrl,
+            width: media.width,
+            height: media.height,
           }],
         },
       },
@@ -231,9 +235,86 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
 
     res.json({ message });
   } catch (err) {
+    // [MED-3] Очистить оба файла при ошибке
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    if (finalPath && fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
     console.error('upload error:', err);
     res.status(500).json({ error: 'Ошибка загрузки файла' });
+  }
+});
+
+// [CRIT-1] Авторизованное скачивание файлов (вместо public static)
+router.get('/attachments/:filename', authenticate, async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    if (!filename || typeof filename !== 'string') return res.status(400).end();
+    // Защита от path traversal
+    const safeName = path.basename(filename);
+    if (safeName !== filename) return res.status(400).end();
+
+    // Проверить что пользователь участник чата с этим вложением
+    const attachment = await prisma.attachment.findFirst({
+      where: { storedName: safeName },
+      include: { message: { select: { roomId: true } } },
+    });
+    if (!attachment) return res.status(404).json({ error: 'Файл не найден' });
+
+    const participant = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId: attachment.message.roomId, userId: req.userId } },
+    });
+    if (!participant) return res.status(403).json({ error: 'Нет доступа' });
+
+    const filePath = path.join(attachDir, safeName);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Файл не найден' });
+
+    // [HIGH-4] Content-Disposition с оригинальным именем файла
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.filename)}"`);
+    res.setHeader('Content-Type', attachment.mimeType);
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error('attachment download error:', err);
+    res.status(500).json({ error: 'Ошибка скачивания' });
+  }
+});
+
+// [IMP-5] Авторизованное скачивание thumbnails с room membership check
+router.get('/thumbs/:filename', authenticate, async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    if (!filename || typeof filename !== 'string') return res.status(400).end();
+    const safeName = path.basename(filename);
+    if (safeName !== filename) return res.status(400).end();
+
+    // Проверить что пользователь участник чата с этим thumbnail
+    // Thumb name = UUID.jpg, attachment storedName = UUID.ext
+    const uuidPart = safeName.replace(/\.[^.]+$/, '');
+    const attachment = await prisma.attachment.findFirst({
+      where: { storedName: { startsWith: uuidPart } },
+      include: { message: { select: { roomId: true } } },
+    });
+    if (attachment) {
+      const participant = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId: attachment.message.roomId, userId: req.userId } },
+      });
+      if (!participant) {
+        // Проверить подписку (для каналов)
+        const sub = await prisma.channelSubscriber.findUnique({
+          where: { channelId_userId: { channelId: attachment.message.roomId, userId: req.userId } },
+        });
+        if (!sub) return res.status(403).end();
+      }
+    }
+
+    const filePath = path.join(thumbsDir, safeName);
+    if (!fs.existsSync(filePath)) return res.status(404).end();
+
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(filePath);
+  } catch {
+    res.status(500).end();
   }
 });
 

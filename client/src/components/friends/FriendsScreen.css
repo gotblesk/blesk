@@ -66,7 +66,7 @@
   display: flex; align-items: center; gap: 6px;
 }
 .fr__tab:hover { color: var(--text); }
-.fr__tab--active { color: #000; }
+.fr__tab--active { color: var(--accent-text, #08060f); }
 
 .fr__tab-pill {
   position: absolute;
@@ -305,18 +305,18 @@
 .fr__empty-hint { font-size: 11px; color: var(--text-muted); }
 
 /* ═══════ LIGHT THEME ═══════ */
-[data-theme="light"] .fr__back { background: rgba(0,0,0,0.04); }
-[data-theme="light"] .fr__back:hover { background: rgba(0,0,0,0.07); }
-[data-theme="light"] .fr__count { background: rgba(0,0,0,0.04); }
+[data-theme="light"] .fr__back { background: var(--bg-input); }
+[data-theme="light"] .fr__back:hover { background: var(--light-border, #e5e7eb); }
+[data-theme="light"] .fr__count { background: var(--bg-input); }
 [data-theme="light"] .fr__tab:hover { color: var(--text); }
-[data-theme="light"] .fr__filter-btn:hover { background: rgba(0,0,0,0.03); }
-[data-theme="light"] .fr__filter-btn--active { background: rgba(0,0,0,0.06); }
-[data-theme="light"] .fr__item:hover { background: rgba(0,0,0,0.02); }
+[data-theme="light"] .fr__filter-btn:hover { background: var(--light-surface-hover, #f0f2f5); }
+[data-theme="light"] .fr__filter-btn--active { background: var(--light-accent-tint, #f5f3ff); }
+[data-theme="light"] .fr__item:hover { background: var(--light-surface-hover, #f0f2f5); }
 [data-theme="light"] .fr__search {
-  background: rgba(0,0,0,0.03);
-  border-color: rgba(0,0,0,0.06);
+  background: var(--bg-input);
+  border-color: var(--light-border, #e5e7eb);
 }
-[data-theme="light"] .fr__search::placeholder { color: rgba(0,0,0,0.25); }
-[data-theme="light"] .fr__search:focus { border-color: rgba(74,140,0,0.2); background: rgba(74,140,0,0.02); }
-[data-theme="light"] .fr__label--sent { background: rgba(0,0,0,0.03); }
-[data-theme="light"] .fr__act--add { border-color: rgba(74,140,0,0.2); background: rgba(74,140,0,0.06); }
+[data-theme="light"] .fr__search::placeholder { color: var(--light-text-tertiary, #9ca3af); }
+[data-theme="light"] .fr__search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); background: #ffffff; }
+[data-theme="light"] .fr__label--sent { background: var(--light-surface-hover, #f0f2f5); }
+[data-theme="light"] .fr__act--add { border-color: rgba(124,58,237,0.2); background: var(--light-accent-tint, #f5f3ff); }

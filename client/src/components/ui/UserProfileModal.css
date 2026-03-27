@@ -268,8 +268,8 @@
 }
 
 [data-theme="light"] .uprof {
-  background: rgba(255, 255, 255, 0.75);
-  border-color: rgba(0, 0, 0, 0.06);
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
   box-shadow:
     0 24px 80px rgba(0, 0, 0, 0.12),
     0 0 0 0.5px rgba(255, 255, 255, 0.8) inset;
@@ -280,52 +280,52 @@
 }
 
 [data-theme="light"] .uprof__close {
-  background: rgba(0, 0, 0, 0.04);
-  color: rgba(0, 0, 0, 0.3);
+  background: var(--bg-input);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 [data-theme="light"] .uprof__close:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: rgba(0, 0, 0, 0.7);
+  background: rgba(239,68,68,0.1);
+  color: var(--danger);
 }
 
 [data-theme="light"] .uprof__ring {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.06);
+  background: var(--light-surface-hover, #f0f2f5);
+  border-color: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .uprof__dot--invisible,
 [data-theme="light"] .uprof__dot--offline {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .uprof__custom {
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .uprof__bio {
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .uprof__chip {
-  color: rgba(0, 0, 0, 0.4);
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.04);
+  color: var(--light-text-secondary, #4b5563);
+  background: var(--light-surface-hover, #f0f2f5);
+  border-color: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .uprof__divider {
-  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent);
+  background: linear-gradient(90deg, transparent, var(--light-border, #e5e7eb), transparent);
 }
 
 [data-theme="light"] .uprof__lastseen {
-  color: rgba(0, 0, 0, 0.3);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .uprof__btn--outline {
-  border-color: rgba(74, 140, 0, 0.3);
+  border-color: rgba(124, 58, 237, 0.3);
 }
 [data-theme="light"] .uprof__btn--outline:hover {
   border-color: var(--accent);
-  background: rgba(74, 140, 0, 0.04);
+  background: var(--light-accent-tint, #f5f3ff);
 }
 
 [data-theme="light"] .uprof__btn--sent {

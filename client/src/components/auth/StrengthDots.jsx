@@ -14,9 +14,9 @@ export function getPasswordScore(pass) {
 const LABELS = ['', 'Слабый', 'Слабый', 'Средний', 'Сильный', 'Сильный'];
 
 function dotColor(score) {
-  if (score <= 2) return '#ef4444';
-  if (score === 3) return '#eab308';
-  return '#c8ff00';
+  if (score <= 2) return 'var(--danger)';
+  if (score === 3) return 'var(--warning)';
+  return 'var(--accent)';
 }
 
 export default function StrengthDots({ password }) {
@@ -35,8 +35,8 @@ export default function StrengthDots({ password }) {
           animate={{
             scale: 1,
             opacity: 1,
-            backgroundColor: i < score ? color : 'rgba(255,255,255,0.06)',
-            boxShadow: i < score ? `0 0 8px ${color}40` : 'none',
+            backgroundColor: i < score ? color : 'var(--disabled-bg)',
+            boxShadow: i < score ? `0 0 8px color-mix(in srgb, ${color} 25%, transparent)` : 'none',
           }}
           transition={{ delay: i * 0.05, duration: 0.2 }}
         />
@@ -44,7 +44,7 @@ export default function StrengthDots({ password }) {
       {score > 0 && (
         <span
           className="strength-label"
-          style={{ color: `${color}80` }}
+          style={{ color: `color-mix(in srgb, ${color} 50%, transparent)` }}
         >
           {LABELS[score]}
         </span>

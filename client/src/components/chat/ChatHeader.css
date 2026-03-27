@@ -52,11 +52,17 @@
   gap: 1px;
 }
 
+.chat-header__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .chat-header__name {
   font-weight: 700;
   font-size: 13px;
   color: rgba(255,255,255,0.9);
-  max-width: 180px;
+  max-width: clamp(120px, 30vw, 280px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -105,27 +111,27 @@
 
 /* Light theme */
 [data-theme="light"] .chat-header-island {
-  background: rgba(255,255,255,0.55);
-  border-color: rgba(0,0,0,0.06);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
 
 [data-theme="light"] .chat-header__name {
-  color: rgba(0,0,0,0.85);
+  color: var(--light-text-primary, #111827);
 }
 
 [data-theme="light"] .chat-header__status {
-  color: rgba(0,0,0,0.4);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .chat-header__btn {
-  background: rgba(0,0,0,0.04);
-  color: rgba(0,0,0,0.35);
+  background: var(--bg-input);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .chat-header__btn:hover {
-  background: rgba(0,0,0,0.07);
-  color: rgba(0,0,0,0.55);
+  background: var(--light-border, #e5e7eb);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .chat-header__ava:hover {

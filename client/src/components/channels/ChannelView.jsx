@@ -19,12 +19,15 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
   const coverFileRef = useRef(null);
   const errorTimerRef = useRef(null);
 
-  const { posts, loadPosts, myChannels, channels } = useChannelStore();
+  const { posts, loadPosts, deletePost, loadingPosts, postsError, myChannels, channels } = useChannelStore();
   const channelPosts = posts[channelId] || [];
+  const isLoadingPosts = loadingPosts[channelId] || false;
+  const loadPostsError = postsError[channelId] || null;
 
   const userId = getCurrentUserId();
   const channel = myChannels.find((c) => c.id === channelId) || channels.find((c) => c.id === channelId);
   const isOwner = channel?.ownerId === userId;
+  const isAdmin = isOwner; // TODO: check RoomParticipant role from server
   const isSubscribed = channel?.isSubscribed || myChannels.some((c) => c.id === channelId);
   const hue = channel ? ((channel.name || '').charCodeAt(0) * 37) % 360 : 0;
   const subCount = channel?.subscribersCount ?? channel?.subscriberCount ?? 0;
@@ -174,12 +177,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
           <ArrowLeft size={18} strokeWidth={2} />
         </motion.button>
 
-        {/* Settings (owner) */}
-        {isOwner && (
-          <motion.button className="cv__settings" whileHover={{ scale: 1.1, rotate: 30 }} whileTap={{ scale: 0.9 }}>
-            <Settings size={16} strokeWidth={1.5} />
-          </motion.button>
-        )}
+        {/* Settings (owner) — TODO: connect to settings panel when implemented */}
 
         {/* Channel info overlay */}
         <div className="cv__hero-info">
@@ -237,8 +235,29 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
           </motion.div>
         ) : (
           (channelPosts ?? []).map((post, i) => (
-            <ChannelPost key={post.id} post={post} index={i} />
+            <ChannelPost
+              key={post.id}
+              post={post}
+              index={i}
+              isOwner={isAdmin}
+              onDelete={(postId) => deletePost(channelId, postId, socketRef)}
+            />
           ))
+        )}
+
+        {/* Loading state */}
+        {isLoadingPosts && channelPosts.length === 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 24, opacity: 0.4 }}>
+            <div style={{ width: 24, height: 24, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          </div>
+        )}
+
+        {/* Error state */}
+        {loadPostsError && channelPosts.length === 0 && (
+          <div style={{ textAlign: 'center', padding: 24, color: 'var(--danger)', fontSize: 13 }}>
+            {loadPostsError}
+            <button onClick={() => loadPosts(channelId)} style={{ display: 'block', margin: '8px auto', background: 'none', border: '1px solid var(--danger)', borderRadius: 8, padding: '4px 12px', color: 'var(--danger)', cursor: 'pointer', fontSize: 12 }}>Повторить</button>
+          </div>
         )}
       </div>
 

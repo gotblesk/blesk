@@ -50,6 +50,8 @@ const DEFAULTS = {
   reducedMotion: false,
   highContrast: false,
   largeControls: false,
+  // [CRIT-4] Не беспокоить
+  dnd: false,
 };
 
 // Загрузить из localStorage

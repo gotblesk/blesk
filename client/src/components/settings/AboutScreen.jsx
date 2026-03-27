@@ -151,7 +151,7 @@ export default function AboutScreen({ open, onClose }) {
         </a>
 
         <div className="about-footer">
-          Сделано с <Heart size={14} strokeWidth={1.5} fill="currentColor" style={{ color: '#4ade80', verticalAlign: 'middle', margin: '0 2px' }} /> и бессонными ночами
+          Сделано с <Heart size={14} strokeWidth={1.5} fill="currentColor" style={{ color: 'var(--online)', verticalAlign: 'middle', margin: '0 2px' }} /> и бессонными ночами
         </div>
       </div>
     </div>

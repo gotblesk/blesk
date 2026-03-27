@@ -108,6 +108,7 @@
 .g-btn:disabled {
   opacity: 0.65;
   pointer-events: none;
+  cursor: not-allowed;
 }
 
 .g-btn--loading {
@@ -141,7 +142,7 @@
 
 .auth-footer-link {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.5); /* Контраст повышен */
   background: none;
   border: none;
   cursor: pointer;
@@ -152,6 +153,11 @@
 
 .auth-footer-link:hover {
   color: rgba(200, 255, 0, 0.5);
+}
+
+.auth-footer-accent {
+  color: var(--accent);
+  opacity: 0.45;
 }
 
 .auth-footer-sep {
@@ -190,6 +196,11 @@
   color: var(--accent, #c8ff00);
 }
 
+.verify-code-cell:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .verify-resend {
   text-align: center;
   margin-top: 10px;
@@ -216,11 +227,83 @@
   color: var(--accent, #c8ff00);
 }
 
-/* ═══════ LIGHT THEME — VERIFY CODE ═══════ */
+/* ═══════ LIGHT THEME ═══════ */
+
+[data-theme="light"] .auth-tagline {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .auth-version {
+  color: var(--accent);
+  background: var(--accent-lighter);
+  border-color: rgba(124, 58, 237, 0.15);
+}
+
+[data-theme="light"] .auth-logo img {
+  filter: drop-shadow(0 0 30px rgba(124, 58, 237, 0.15));
+}
+
+[data-theme="light"] .g-btn {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: 0 4px 28px rgba(124, 58, 237, 0.25);
+}
+
+[data-theme="light"] .g-btn:hover {
+  box-shadow: 0 6px 36px rgba(124, 58, 237, 0.35);
+}
+
+[data-theme="light"] .g-btn::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+}
+
+[data-theme="light"] .g-spinner {
+  border-color: rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+}
+
+[data-theme="light"] .auth-footer-link {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .auth-footer-link:hover {
+  color: var(--accent);
+}
+
+[data-theme="light"] .auth-footer-sep {
+  background: var(--border);
+}
+
 [data-theme="light"] .verify-code-cell {
-  background: rgba(0,0,0,0.04);
-  border-color: rgba(0,0,0,0.08);
-  color: rgba(0,0,0,0.75);
+  background: var(--bg-input);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+[data-theme="light"] .verify-code-cell:focus,
+[data-theme="light"] .verify-code-cell.filled {
+  background: var(--accent-lighter);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+[data-theme="light"] .verify-resend {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .verify-resend-timer {
+  color: var(--accent);
+  opacity: 0.6;
+}
+
+[data-theme="light"] .verify-resend-btn {
+  color: var(--accent);
+  opacity: 0.7;
+}
+
+[data-theme="light"] .verify-resend-btn:hover {
+  color: var(--accent);
+  opacity: 1;
 }
 
 /* ═══════ BRAND INTRO ═══════ */

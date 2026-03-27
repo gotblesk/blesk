@@ -29,7 +29,7 @@ export default function ChannelCard({ channel, variant = 'compact', isSubscribed
   return (
     <motion.div
       className={`mc mc--${variant}`}
-      onClick={() => { if (isSubscribed || isOwned) onOpen?.(channel.id); }}
+      onClick={() => onOpen?.(channel.id)}
       whileHover={{ y: -4, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } }}
       whileTap={{ scale: 0.98 }}
       style={{ '--card-hue': hue, '--cat-color': catColor, cursor: (isSubscribed || isOwned) ? 'pointer' : 'default' }}

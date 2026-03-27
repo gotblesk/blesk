@@ -477,7 +477,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={-1.5}
                   index={0}
-                  icon={<User size={16} stroke="#c8ff00" />}
+                  icon={<span style={{ color: 'var(--accent)' }}><User size={16} stroke="currentColor" /></span>}
                   title="Кто ты?"
                   subtitle="Имя в мире blesk"
                   error={error && error.includes('Имя') ? error : null}
@@ -487,7 +487,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                     <input
                       className="g-input"
                       type="text"
-                      placeholder="username"
+                      placeholder="имя пользователя"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       autoComplete="off"
@@ -501,9 +501,9 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={1}
                   index={1}
-                  icon={<Lock size={16} stroke="#c8ff00" />}
-                  title="Докажи"
-                  subtitle="Твой секрет"
+                  icon={<span style={{ color: 'var(--accent)' }}><Lock size={16} stroke="currentColor" /></span>}
+                  title="Пароль"
+                  subtitle="Введите пароль"
                   error={error && !error.includes('Имя') ? error : null}
                   errorKey={errorKey}
                 >
@@ -570,7 +570,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={-1.5}
                   index={0}
-                  icon={<User size={16} stroke="#c8ff00" />}
+                  icon={<span style={{ color: 'var(--accent)' }}><User size={16} stroke="currentColor" /></span>}
                   title="Придумай имя"
                   subtitle="Твой ник в blesk"
                   error={error && error.includes('Имя') ? error : null}
@@ -580,7 +580,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                     <input
                       className="g-input"
                       type="text"
-                      placeholder="username"
+                      placeholder="имя пользователя"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       autoComplete="off"
@@ -594,7 +594,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={1}
                   index={1}
-                  icon={<Mail size={16} stroke="#c8ff00" />}
+                  icon={<span style={{ color: 'var(--accent)' }}><Mail size={16} stroke="currentColor" /></span>}
                   title="Куда писать?"
                   subtitle="Для подтверждения"
                   error={error && error.includes('email') ? error : null}
@@ -637,7 +637,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
 
                 <div className="auth-footer">
                   <button type="button" className="auth-footer-link" onClick={() => switchMode('login')}>
-                    Уже есть аккаунт? <span style={{ color: 'rgba(200,255,0,0.45)' }}>Войти</span>
+                    Уже есть аккаунт? <span className="auth-footer-accent">Войти</span>
                   </button>
                 </div>
               </motion.form>
@@ -656,7 +656,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<Mail size={16} stroke="#4ade80" />}
+                  icon={<span style={{ color: 'var(--online)' }}><Mail size={16} stroke="currentColor" /></span>}
                   title="Проверь почту"
                   subtitle={`Код отправлен на ${maskedEmail}`}
                   error={verifyError}
@@ -701,7 +701,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<Mail size={16} stroke="#00d4ff" />}
+                  icon={<span style={{ color: 'var(--info)' }}><Mail size={16} stroke="currentColor" /></span>}
                   title="Вспомним?"
                   subtitle="Email для восстановления"
                   error={forgotError}
@@ -734,7 +734,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
 
                 <div className="auth-footer">
                   <button type="button" className="auth-footer-link" onClick={() => switchMode('login')}>
-                    Вспомнили? <span style={{ color: 'rgba(200,255,0,0.45)' }}>Войти</span>
+                    Вспомнили? <span className="auth-footer-accent">Войти</span>
                   </button>
                 </div>
               </motion.form>
@@ -753,7 +753,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<KeyRound size={16} stroke="#c8ff00" />}
+                  icon={<span style={{ color: 'var(--accent)' }}><KeyRound size={16} stroke="currentColor" /></span>}
                   title="Проверь почту"
                   subtitle={`Код отправлен на ${forgotEmail}`}
                   error={forgotError}
@@ -788,7 +788,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                   <GravityCard
                     tilt={0}
                     index={0}
-                    icon={<KeyRound size={16} stroke="#4ade80" />}
+                    icon={<span style={{ color: 'var(--online)' }}><KeyRound size={16} stroke="currentColor" /></span>}
                     title="Готово!"
                     subtitle="Пароль успешно изменён. Перенаправляем..."
                   >

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Smartphone, Lock, Camera, X, Check, Eye, EyeOff, ChevronRight } from 'lucide-react';
+import { Mail, Smartphone, Lock, Camera, X, Check, Eye, EyeOff, ChevronRight, Pencil } from 'lucide-react';
 import API_URL from '../../config';
 import Avatar from '../ui/Avatar';
 import AvatarCropModal from './AvatarCropModal';
@@ -161,6 +161,9 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                   )}
                 </div>
 
+                <button className="pf-front__edit-btn" onClick={(e) => { e.stopPropagation(); doFlip(); }} title="Редактировать">
+                  <Pencil size={14} />
+                </button>
                 <SlideToFlip label="потяни → редактировать" direction="right" onFlip={doFlip} />
               </div>
 
@@ -179,11 +182,11 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                   {/* Email */}
                   <ProfileCell
                     icon={<Mail size={15} />}
-                    iconBg="rgba(74,222,128,0.08)"
-                    iconColor="#4ade80"
+                    iconBg="color-mix(in srgb, var(--online) 8%, transparent)"
+                    iconColor="var(--online)"
                     label="Email"
                     value={user?.email || 'Не указан'}
-                    dot={user?.emailVerified ? '#4ade80' : null}
+                    dot={user?.emailVerified ? 'var(--online)' : null}
                     isOpen={openCell === 'email'}
                     onToggle={() => setOpenCell(openCell === 'email' ? null : 'email')}
                   >
@@ -208,8 +211,8 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                   {/* Phone */}
                   <ProfileCell
                     icon={<Smartphone size={15} />}
-                    iconBg="rgba(245,158,11,0.06)"
-                    iconColor="#f59e0b"
+                    iconBg="color-mix(in srgb, var(--edit-color) 6%, transparent)"
+                    iconColor="var(--edit-color)"
                     label="Телефон"
                     value={user?.phone || 'Не привязан'}
                     muted={!user?.phone}
@@ -222,8 +225,8 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                   {/* Password */}
                   <ProfileCell
                     icon={<Lock size={15} />}
-                    iconBg="rgba(200,255,0,0.05)"
-                    iconColor="#c8ff00"
+                    iconBg="color-mix(in srgb, var(--accent) 5%, transparent)"
+                    iconColor="var(--accent)"
                     label="Пароль"
                     value="●●●●●●●●"
                     isOpen={openCell === 'pass'}
@@ -325,8 +328,8 @@ function SlideToFlip({ label, direction, onFlip }) {
         className={`pf-slider__thumb ${direction === 'left' ? 'pf-slider__thumb--right' : ''}`}
         style={{
           transform: `translateX(${thumbX}px)`,
-          boxShadow: glow > 0 ? `0 0 ${4 + glow * 16}px rgba(200,255,0,${0.1 + glow * 0.3})` : 'none',
-          borderColor: `rgba(200,255,0,${0.3 + glow * 0.5})`,
+          boxShadow: glow > 0 ? `0 0 ${4 + glow * 16}px color-mix(in srgb, var(--accent) ${Math.round((0.1 + glow * 0.3) * 100)}%, transparent)` : 'none',
+          borderColor: `color-mix(in srgb, var(--accent) ${Math.round((0.3 + glow * 0.5) * 100)}%, transparent)`,
         }}
         onPointerDown={handleDown}
         onPointerMove={handleMove}

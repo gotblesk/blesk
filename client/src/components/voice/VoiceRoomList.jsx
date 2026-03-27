@@ -32,6 +32,8 @@ export default function VoiceRoomList({ onJoinRoom }) {
   const inviteToRoom = useVoiceStore((s) => s.inviteToRoom);
   const kickFromRoom = useVoiceStore((s) => s.kickFromRoom);
   const currentRoomId = useVoiceStore((s) => s.currentRoomId);
+  // [CRIT-5] Реактивная подписка на participants для speaking indicators
+  const voiceParticipants = useVoiceStore((s) => s.participants);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLimit, setNewLimit] = useState(10);
@@ -176,7 +178,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
               {/* Accent line */}
               {(isLive || isHere) && (
                 <div className="vrl__card-accent" style={{
-                  background: `linear-gradient(90deg, transparent, ${isHere ? '#c8ff00' : '#4ade80'}, transparent)`
+                  background: `linear-gradient(90deg, transparent, ${isHere ? 'var(--accent)' : 'var(--online)'}, transparent)`
                 }} />
               )}
 
@@ -201,7 +203,9 @@ export default function VoiceRoomList({ onJoinRoom }) {
                 {participants.length > 0 ? (
                   <div className="vrl__card-avatars">
                     {participants.slice(0, 5).map((p, pi) => {
-                      const speaking = useVoiceStore.getState().participants[p.userId]?.speaking;
+                      // [CRIT-5] Реактивный speaking через подписку
+                      const voiceP = voiceParticipants[p.userId];
+                      const speaking = voiceP?.speaking && !voiceP?.muted;
                       return (
                         <motion.div
                           key={p.userId}
@@ -423,7 +427,7 @@ function CreateRoomModal({ newName, setNewName, newLimit, setNewLimit, onClose, 
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         >
-          <div className="vrl__modal-glare" style={{ background: `radial-gradient(ellipse at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.06) 0%, transparent 60%)` }} />
+          <div className="vrl__modal-glare" style={{ background: `radial-gradient(ellipse at ${glare.x}% ${glare.y}%, var(--glare-color) 0%, transparent 60%)` }} />
           <div className="vrl__modal-inner-glass">
             <motion.div className="vrl__modal-head" custom={0} variants={childV} initial="hidden" animate="visible">
               <div className="vrl__modal-title-row">

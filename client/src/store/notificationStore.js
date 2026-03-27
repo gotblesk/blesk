@@ -25,22 +25,8 @@ export const useNotificationStore = create((set, get) => ({
       } else {
         throw new Error('empty');
       }
-    } catch (err) {
-      // DEV: тестовые уведомления когда сервер недоступен
-      if (get().notifications.length === 0) {
-        const now = Date.now();
-        const mock = [
-          { id: 'mock-1', type: 'friend_request', title: 'shkirtil хочет дружить', body: 'Заявка в друзья', fromUser: { username: 'shkirtil', hue: 280 }, fromUserId: 'u1', isRead: false, createdAt: new Date(now - 120000).toISOString() },
-          { id: 'mock-2', type: 'message', title: 'Vohog', body: 'Привет! Как дела?', fromUser: { username: 'Vohog', hue: 350 }, roomId: 'r1', isRead: false, createdAt: new Date(now - 300000).toISOString() },
-          { id: 'mock-3', type: 'mention', title: 'Упоминание в #общий', body: '@gotblesk посмотри это', fromUser: { username: 'Den', hue: 200 }, roomId: 'r2', isRead: false, createdAt: new Date(now - 600000).toISOString() },
-          { id: 'mock-4', type: 'friend_accepted', title: 'Den теперь ваш друг', body: null, fromUser: { username: 'Den', hue: 200 }, isRead: true, createdAt: new Date(now - 3600000).toISOString() },
-          { id: 'mock-5', type: 'system', title: 'Новый вход', body: 'Вход в аккаунт выполнен', isRead: true, createdAt: new Date(now - 7200000).toISOString() },
-          { id: 'mock-6', type: 'system', title: 'Новый вход', body: 'Вход в аккаунт выполнен', isRead: true, createdAt: new Date(now - 86400000).toISOString() },
-          { id: 'mock-7', type: 'system', title: 'Новый вход', body: 'Вход в аккаунт выполнен', isRead: true, createdAt: new Date(now - 172800000).toISOString() },
-          { id: 'mock-8', type: 'friend_request', title: 'NovaPlayer хочет дружить', body: 'Заявка в друзья', fromUser: { username: 'NovaPlayer', hue: 120 }, fromUserId: 'u2', isRead: false, createdAt: new Date(now - 5400000).toISOString() },
-        ];
-        set({ notifications: mock, unreadCount: mock.filter(n => !n.isRead).length });
-      }
+    } catch {
+      // [IMP-5] Не показывать mock данные в production
     }
   },
 
@@ -60,7 +46,10 @@ export const useNotificationStore = create((set, get) => ({
     let updated = [notification, ...state.notifications];
     if (updated.length > 50) updated = updated.slice(0, 50);
 
-    set({ notifications: updated, unreadCount: state.unreadCount + 1 });
+    const newCount = state.unreadCount + 1;
+    set({ notifications: updated, unreadCount: newCount });
+    // [CRIT-1] Sync badge с taskbar
+    window.blesk?.setBadge?.(newCount);
   },
 
   // Пометить одно как прочитанное
@@ -77,6 +66,8 @@ export const useNotificationStore = create((set, get) => ({
         ),
         unreadCount: Math.max(0, state.unreadCount - 1),
       }));
+      // [CRIT-1] Badge sync
+      window.blesk?.setBadge?.(Math.max(0, get().unreadCount));
     } catch (err) {
       console.error('markAsRead error:', err);
     }
@@ -94,6 +85,7 @@ export const useNotificationStore = create((set, get) => ({
         notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
         unreadCount: 0,
       }));
+      window.blesk?.setBadge?.(0);
     } catch (err) {
       console.error('markAllAsRead error:', err);
     }
@@ -108,9 +100,10 @@ export const useNotificationStore = create((set, get) => ({
         headers: { Authorization: `Bearer ${token}` },
       });
       set({ notifications: [], unreadCount: 0 });
+      window.blesk?.setBadge?.(0);
     } catch (err) {
-      // Если endpoint не существует — просто очищаем локально
       set({ notifications: [], unreadCount: 0 });
+      window.blesk?.setBadge?.(0);
     }
   },
 

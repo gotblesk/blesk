@@ -121,10 +121,15 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
     return null;
   }, []);
 
+  // [IMP-7] Debounced save — не блокировать main thread из RAF
+  const saveTimerRef = useRef(null);
   const savePositions = useCallback(() => {
-    const pos = {};
-    bodiesRef.current.forEach(b => { pos[b.chatId] = { x: b.x, y: b.y }; });
-    localStorage.setItem('blesk_nebula', JSON.stringify(pos));
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const pos = {};
+      bodiesRef.current.forEach(b => { pos[b.chatId] = { x: b.x, y: b.y }; });
+      localStorage.setItem('blesk_nebula', JSON.stringify(pos));
+    }, 500);
   }, []);
 
   // ═══════ PHYSICS TICK ═══════
@@ -485,6 +490,10 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
                 const b = bodiesRef.current[i];
                 el.style.transform = `translate(${b.x - sizeRef.current.w / 2}px, ${b.y - sizeRef.current.h / 2}px)`;
               }
+            } else if (el) {
+              const grid = getGrid();
+              const pos = grid[i] || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+              el.style.transform = `translate(${pos.x - sizeRef.current.w / 2}px, ${pos.y - sizeRef.current.h / 2}px)`;
             }
           }}
           />
@@ -503,6 +512,11 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
                 const b = bodiesRef.current[i];
                 el.style.transform = `translate(${b.x - sizeRef.current.w / 2}px, ${b.y - sizeRef.current.h / 2}px)`;
               }
+            } else if (el) {
+              // Bodies not ready yet — use grid fallback to avoid (0,0) bunching
+              const grid = getGrid();
+              const pos = grid[i] || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+              el.style.transform = `translate(${pos.x - sizeRef.current.w / 2}px, ${pos.y - sizeRef.current.h / 2}px)`;
             }
           }}
           onPointerDown={e => handlePointerDown(e, i)}
@@ -527,7 +541,8 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
               <div className="nebula-card__preview">{getPreview(chat)}</div>
             </div>
             <div className="nebula-card__meta">
-              {getTime(chat) && <span className="nebula-card__time">{getTime(chat)}</span>}
+              {/* [IMP-3] Один вызов вместо двух */}
+              {(() => { const t = getTime(chat); return t ? <span className="nebula-card__time">{t}</span> : null; })()}
               {chat.unreadCount > 0 && (
                 <span className="nebula-card__badge">{chat.unreadCount}</span>
               )}

@@ -10,18 +10,21 @@ function getIcon(mime) {
 }
 
 function formatSize(bytes) {
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+  const b = Number(bytes); // [HIGH-7] BigInt → Number
+  if (b < 1024) return `${b} Б`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} КБ`;
+  return `${(b / (1024 * 1024)).toFixed(1)} МБ`;
 }
 
 export default function MediaMessage({ attachments, onImageClick }) {
   return (
     <div className="media-msg">
       {attachments.map((a) => {
+        const src = `${API_URL}${a.thumbnailUrl || a.url}`;
+        const fullSrc = `${API_URL}${a.url}`;
+
+        // Изображения
         if (a.mimeType.startsWith('image/')) {
-          const src = `${API_URL}${a.thumbnailUrl || a.url}`;
-          const fullSrc = `${API_URL}${a.url}`;
           return (
             <img
               key={a.id}
@@ -33,6 +36,45 @@ export default function MediaMessage({ attachments, onImageClick }) {
             />
           );
         }
+
+        // [MED-4] Видео — инлайн-плеер
+        if (a.mimeType.startsWith('video/')) {
+          return (
+            <div key={a.id} className="media-msg__video-wrap">
+              <video
+                src={fullSrc}
+                controls
+                preload="metadata"
+                className="media-msg__video"
+              />
+              <div className="media-msg__video-info">
+                <span className="media-msg__file-name">{a.filename}</span>
+                <span className="media-msg__file-size">{formatSize(a.size)}</span>
+              </div>
+            </div>
+          );
+        }
+
+        // [MED-4] Аудио — инлайн-плеер (голосовые сообщения и аудиофайлы)
+        if (a.mimeType.startsWith('audio/')) {
+          return (
+            <div key={a.id} className="media-msg__audio-wrap">
+              <audio
+                src={fullSrc}
+                controls
+                preload="metadata"
+                className="media-msg__audio"
+              />
+              <div className="media-msg__audio-info">
+                <span className="media-msg__file-name">{a.filename}</span>
+                <span className="media-msg__file-size">{formatSize(a.size)}</span>
+              </div>
+            </div>
+          );
+        }
+
+        // Остальные файлы — карточка скачивания
+        // [HIGH-4] download={a.filename} сохраняет оригинальное имя
         return (
           <div key={a.id} className="media-msg__file">
             <div className="media-msg__file-icon">{getIcon(a.mimeType)}</div>
@@ -41,7 +83,8 @@ export default function MediaMessage({ attachments, onImageClick }) {
               <span className="media-msg__file-size">{formatSize(a.size)}</span>
             </div>
             <a
-              href={`${API_URL}${a.url}`}
+              href={fullSrc}
+              download={a.filename}
               target="_blank"
               rel="noopener noreferrer"
               className="media-msg__download"

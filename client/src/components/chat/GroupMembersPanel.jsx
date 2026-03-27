@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Crown } from 'lucide-react';
 import Glass from '../ui/Glass';
 import UserProfileModal from '../ui/UserProfileModal';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import API_URL from '../../config';
 import { getCurrentUserId } from '../../utils/auth';
 import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
@@ -12,6 +13,7 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
   const [loading, setLoading] = useState(true);
   // id пользователя для модалки профиля
   const [profileUserId, setProfileUserId] = useState(null);
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
 
   const loadMembers = async () => {
     try {
@@ -111,7 +113,7 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
         )}
 
         {!isOwner && (
-          <button className="group-members-panel__leave" onClick={handleLeave}>
+          <button className="group-members-panel__leave" onClick={() => setLeaveConfirm(true)}>
             Покинуть группу
           </button>
         )}
@@ -122,6 +124,15 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
         userId={profileUserId}
         open={!!profileUserId}
         onClose={() => setProfileUserId(null)}
+      />
+      <ConfirmDialog
+        open={leaveConfirm}
+        title="Покинуть группу?"
+        message="Вы больше не сможете видеть сообщения этой группы"
+        confirmText="Покинуть"
+        danger
+        onConfirm={() => { setLeaveConfirm(false); handleLeave(); }}
+        onCancel={() => setLeaveConfirm(false)}
       />
     </div>
   );

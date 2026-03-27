@@ -155,7 +155,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
               ) : (
                 <div className="fr__list">
                   {filteredFriends.map((friend, i) => (
-                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfileUserId(friend.id)} whileHover={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfileUserId(friend.id)} whileHover={{ backgroundColor: 'var(--hover-bg)' }}>
                       <Avatar user={friend} size={36} showOnline={friend.status === 'online'} />
                       <div className="fr__item-info">
                         <div className="fr__item-name">{friend.username}<span className="fr__item-tag">{friend.tag}</span></div>

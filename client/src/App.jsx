@@ -27,30 +27,44 @@ export default function App() {
   const fontSize = useSettingsStore((s) => s.fontSize);
   const reducedMotion = useSettingsStore((s) => s.reducedMotion);
   const highContrast = useSettingsStore((s) => s.highContrast);
+  const largeControls = useSettingsStore((s) => s.largeControls);
 
   const theme = useSettingsStore((s) => s.theme);
 
   useEffect(() => {
     const root = document.documentElement;
     if (accentColor) {
-      // В светлой теме затемняем яркие акцентные цвета для читаемости
       if (theme === 'light') {
-        const darkVersions = {
-          '#c8ff00': '#6ab300',
-          '#00d4ff': '#009ec7',
-          '#ff6b6b': '#e04444',
-          '#a855f7': '#8b5cf6',
-          '#ffffff': '#666666',
+        // В светлой теме маппим яркие цвета в контрастные версии
+        const lightMappings = {
+          '#c8ff00': { accent: '#7c3aed', text: '#ffffff' },
+          '#00d4ff': { accent: '#0284c7', text: '#ffffff' },
+          '#ff6b6b': { accent: '#dc2626', text: '#ffffff' },
+          '#a855f7': { accent: '#7c3aed', text: '#ffffff' },
+          '#ffffff': { accent: '#6c757d', text: '#ffffff' },
         };
-        root.style.setProperty('--accent', darkVersions[accentColor] || accentColor);
+        const mapped = lightMappings[accentColor] || { accent: accentColor, text: '#ffffff' };
+        root.style.setProperty('--accent', mapped.accent);
+        root.style.setProperty('--accent-text', mapped.text);
       } else {
+        // Тёмная тема — оригинальный акцент
         root.style.setProperty('--accent', accentColor);
+        // Текст на акценте: для лайма и светлых цветов — тёмный
+        const darkTextColors = {
+          '#c8ff00': '#08060f',
+          '#00d4ff': '#08060f',
+          '#ff6b6b': '#ffffff',
+          '#a855f7': '#ffffff',
+          '#ffffff': '#08060f',
+        };
+        root.style.setProperty('--accent-text', darkTextColors[accentColor] || '#08060f');
       }
     }
     if (fontSize) root.style.setProperty('--font-size-base', fontSize + 'px');
     root.classList.toggle('reduced-motion', !!reducedMotion);
     root.classList.toggle('high-contrast', !!highContrast);
-  }, [accentColor, fontSize, reducedMotion, highContrast, theme]);
+    root.classList.toggle('large-controls', !!largeControls);
+  }, [accentColor, fontSize, reducedMotion, highContrast, largeControls, theme]);
 
   // Слушаем maximize/unmaximize от Electron
   useEffect(() => {

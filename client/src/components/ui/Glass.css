@@ -127,22 +127,26 @@
 }
 
 /* ═══════ LIGHT THEME ═══════ */
-[data-theme="light"] .glass--depth-0 { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
-[data-theme="light"] .glass--depth-1 { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); }
-[data-theme="light"] .glass--depth-2 { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1); }
-[data-theme="light"] .glass--depth-3 { box-shadow: 0 8px 36px rgba(0, 0, 0, 0.12); }
+/* Белые поверхности + тени для глубины вместо прозрачности */
+[data-theme="light"] .glass--depth-0 { box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
+[data-theme="light"] .glass--depth-1 { box-shadow: var(--shadow-md); border: 1px solid var(--border); }
+[data-theme="light"] .glass--depth-2 { box-shadow: var(--shadow-md); border: 1px solid var(--border); }
+[data-theme="light"] .glass--depth-3 { box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
 
-[data-theme="light"] .glass--depth-0 .glass__outer { background: rgba(255, 255, 255, 0.25); }
-[data-theme="light"] .glass--depth-0 .glass__inner { background: rgba(255, 255, 255, 0.4); }
+[data-theme="light"] .glass--depth-0 .glass__outer { background: rgba(255, 255, 255, 0.92); }
+[data-theme="light"] .glass--depth-0 .glass__inner { background: rgba(255, 255, 255, 0.97); }
 
-[data-theme="light"] .glass--depth-2 .glass__outer { background: rgba(255, 255, 255, 0.35); }
-[data-theme="light"] .glass--depth-2 .glass__inner { background: rgba(255, 255, 255, 0.6); }
+[data-theme="light"] .glass--depth-1 .glass__outer { background: rgba(255, 255, 255, 0.93); }
+[data-theme="light"] .glass--depth-1 .glass__inner { background: rgba(255, 255, 255, 0.97); }
 
-[data-theme="light"] .glass--depth-3 .glass__outer { background: rgba(255, 255, 255, 0.4); }
-[data-theme="light"] .glass--depth-3 .glass__inner { background: rgba(255, 255, 255, 0.65); }
+[data-theme="light"] .glass--depth-2 .glass__outer { background: rgba(255, 255, 255, 0.95); }
+[data-theme="light"] .glass--depth-2 .glass__inner { background: rgba(255, 255, 255, 0.98); }
+
+[data-theme="light"] .glass--depth-3 .glass__outer { background: rgba(255, 255, 255, 0.96); }
+[data-theme="light"] .glass--depth-3 .glass__inner { background: rgba(255, 255, 255, 0.99); }
 
 [data-theme="light"] .glass--hover:hover .glass__edge {
-  border-color: rgba(74, 140, 0, 0.2);
+  border-color: rgba(124, 58, 237, 0.25);
 }
 
 /* ═══════ REDUCED MOTION ═══════ */

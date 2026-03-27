@@ -13,12 +13,16 @@ export const useChannelStore = create((set, get) => ({
   myChannels: [],
   posts: {},
   loadingBrowse: false,
+  // Loading/error states для постов
+  loadingPosts: {},   // { [channelId]: true }
+  postsError: {},     // { [channelId]: string }
+  browseError: null,  // string | null
   activeChannelId: null,
 
   // Загрузить каналы для обзора
   loadBrowse: async ({ sort, category, search } = {}) => {
     if (get().loadingBrowse) return;
-    set({ loadingBrowse: true });
+    set({ loadingBrowse: true, browseError: null });
     try {
       const params = new URLSearchParams();
       if (sort) params.set('sort', sort);
@@ -28,11 +32,12 @@ export const useChannelStore = create((set, get) => ({
       const res = await fetch(`${API_URL}/api/channels${qs ? `?${qs}` : ''}`, {
         headers: getHeaders(),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error('Не удалось загрузить каналы');
       const data = await res.json();
       set({ channels: data.channels ?? data ?? [] });
     } catch (err) {
       console.error('Ошибка загрузки каналов:', err);
+      set({ browseError: err.message || 'Ошибка загрузки' });
     } finally {
       set({ loadingBrowse: false });
     }
@@ -52,19 +57,38 @@ export const useChannelStore = create((set, get) => ({
     }
   },
 
-  // Загрузить посты канала
+  // Загрузить посты канала (с loading/error states)
   loadPosts: async (channelId) => {
+    set((state) => ({
+      loadingPosts: { ...state.loadingPosts, [channelId]: true },
+      postsError: { ...state.postsError, [channelId]: null },
+    }));
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/posts`, {
         headers: getHeaders(),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error('Не удалось загрузить посты');
       const data = await res.json();
-      set((state) => ({
-        posts: { ...state.posts, [channelId]: (data.posts ?? data ?? []).reverse() },
-      }));
+      const incoming = (data.posts ?? data ?? []).reverse();
+      // Merge с существующими (не перезаписывать socket-полученные)
+      set((state) => {
+        const existing = state.posts[channelId] || [];
+        const existingIds = new Set(existing.map(p => p.id));
+        const merged = [...existing.filter(p => !incoming.some(i => i.id === p.id)), ...incoming];
+        merged.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        return {
+          posts: { ...state.posts, [channelId]: merged },
+        };
+      });
     } catch (err) {
       console.error('Ошибка загрузки постов:', err);
+      set((state) => ({
+        postsError: { ...state.postsError, [channelId]: err.message || 'Ошибка' },
+      }));
+    } finally {
+      set((state) => ({
+        loadingPosts: { ...state.loadingPosts, [channelId]: false },
+      }));
     }
   },
 
@@ -75,8 +99,10 @@ export const useChannelStore = create((set, get) => ({
         method: 'POST',
         headers: getHeaders(),
       });
-      if (!res.ok) throw new Error();
-      // Обновить списки
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Ошибка подписки');
+      }
       get().loadMyChannels();
       set((state) => ({
         channels: state.channels.map((c) =>
@@ -87,6 +113,7 @@ export const useChannelStore = create((set, get) => ({
       }));
     } catch (err) {
       console.error('Ошибка подписки:', err);
+      throw err;
     }
   },
 
@@ -148,7 +175,24 @@ export const useChannelStore = create((set, get) => ({
     });
   },
 
-  // Обновить канал локально (после загрузки аватара/обложки)
+  // Удалить пост локально (после подтверждения с сервера)
+  deletePost: async (channelId, postId, socketRef) => {
+    try {
+      if (socketRef?.current) {
+        socketRef.current.emit('message:delete', { messageId: postId, chatId: channelId });
+      }
+      set((state) => ({
+        posts: {
+          ...state.posts,
+          [channelId]: (state.posts[channelId] || []).filter(p => p.id !== postId),
+        },
+      }));
+    } catch (err) {
+      console.error('Ошибка удаления поста:', err);
+    }
+  },
+
+  // Обновить канал локально
   updateChannelLocal: (channelId, data) => {
     set((state) => ({
       channels: state.channels.map((c) =>
@@ -168,6 +212,5 @@ export const useChannelStore = create((set, get) => ({
     }));
   },
 
-  // Установить активный канал
   setActiveChannel: (id) => set({ activeChannelId: id }),
 }));

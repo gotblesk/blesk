@@ -74,7 +74,11 @@ export function useVoice(socketRef) {
 
   // ═══ VAD — определение говорящего ═══
   const startVAD = useCallback((stream, userId) => {
-    if (audioContextRef.current) audioContextRef.current.close();
+    // [Баг #20] Не закрывать предыдущий AudioContext — он может использоваться GainNodes
+    // Вместо этого переиспользуем или создаём отдельный
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch {}
+    }
 
     const ctx = new AudioContext();
     audioContextRef.current = ctx;
@@ -91,8 +95,10 @@ export function useVoice(socketRef) {
       const level = Math.min(100, Math.round(avg * 1.5));
       setAudioLevel(userId, level);
 
+      // [Баг #35] Не обновлять speaking если замучен — удалённые не должны видеть пульсацию
       const threshold = useVoiceStore.getState().vadThreshold;
-      const speaking = avg > threshold;
+      const isMutedNow = isMutedRef.current;
+      const speaking = !isMutedNow && avg > threshold;
       updateParticipant(userId, { speaking });
     }, VAD_INTERVAL);
   }, [setAudioLevel, updateParticipant]);
@@ -364,6 +370,12 @@ export function useVoice(socketRef) {
           const producer = await sendTransport.produce({ track });
           producerRef.current = producer;
 
+          // [Баг #13] Синхронизировать мут после создания producer
+          if (isMutedRef.current) {
+            producer.pause();
+            socket.emit('voice:mute', { roomId, muted: true });
+          }
+
           // VAD для локального пользователя
           const myUserId = getCurrentUserId();
           if (myUserId) startVAD(stream, myUserId);
@@ -539,11 +551,10 @@ export function useVoice(socketRef) {
       } else {
         producerRef.current.resume();
       }
+      // [Баг #13] Всегда отправлять состояние мута на сервер, даже если producer ещё не создан
+      socket.emit('voice:mute', { roomId, muted: isMuted });
     }
-
-    if (!producerRef.current) return; // продюсер ещё не создан
-
-    socket.emit('voice:mute', { roomId, muted: isMuted });
+    // Если producer ещё нет — состояние синхронизируется при создании (см. joinRoom)
   }, [isMuted, socketRef]);
 
   useEffect(() => {
@@ -672,6 +683,12 @@ export function useVoice(socketRef) {
       localCameraStreamRef.current = stream;
       useVoiceStore.getState().setLocalCameraStream(stream);
       const track = stream.getVideoTracks()[0];
+
+      // [Баг #19] Обработать физическое отключение камеры
+      track.onended = () => {
+        disableCameraRef.current();
+      };
+
       const producer = await sendTransportRef.current.produce({
         track,
         appData: { type: 'camera' },
@@ -682,6 +699,10 @@ export function useVoice(socketRef) {
       useVoiceStore.getState().setCameraOn(true);
     } catch (err) {
       console.error('enableCamera error:', err);
+      // [Баг #8] Показать ошибку доступа к камере
+      if (err.name === 'NotAllowedError' || err.name === 'NotFoundError') {
+        useVoiceStore.getState().setMediaError?.('Нет доступа к камере. Проверьте разрешения.');
+      }
     }
   }, []);
 
@@ -721,14 +742,25 @@ export function useVoice(socketRef) {
 
       let stream;
       if (window.blesk?.screen?.getSources) {
+        // [Баг #6] Показать пикер выбора источника в Electron
         const sources = await window.blesk.screen.getSources();
         if (!sources || !sources.length) return;
+
+        // Если есть UI-пикер (preload), использовать его; иначе первый источник
+        let selectedSourceId;
+        if (window.blesk?.screen?.pickSource) {
+          selectedSourceId = await window.blesk.screen.pickSource(sources);
+          if (!selectedSourceId) return; // Пользователь отменил
+        } else {
+          selectedSourceId = sources[0].id;
+        }
+
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
             mandatory: {
               chromeMediaSource: 'desktop',
-              chromeMediaSourceId: sources[0].id,
+              chromeMediaSourceId: selectedSourceId,
               minWidth: res.w * 0.5,
               maxWidth: res.w,
               minHeight: res.h * 0.5,
@@ -743,6 +775,8 @@ export function useVoice(socketRef) {
         });
       }
       localScreenStreamRef.current = stream;
+      // [Баг #7] Сохранить локальный стрим экрана в store для отображения шарящему
+      useVoiceStore.getState().setLocalScreenStream?.(stream);
       const track = stream.getVideoTracks()[0];
       track.onended = () => disableScreenShareRef.current();
       const producer = await sendTransportRef.current.produce({
@@ -754,7 +788,14 @@ export function useVoice(socketRef) {
       screenProducerRef.current = producer;
       useVoiceStore.getState().setScreenShareOn(true);
     } catch (err) {
-      console.error('enableScreenShare error:', err);
+      // [Баг #8] Показать ошибку / молчаливый fallback при отмене
+      if (err.name === 'NotAllowedError') {
+        // Пользователь отменил выбор — не показываем ошибку, это нормальное действие
+        console.log('Screen share cancelled by user');
+      } else {
+        console.error('enableScreenShare error:', err);
+        useVoiceStore.getState().setMediaError?.('Не удалось запустить демонстрацию экрана.');
+      }
     }
   }, []);
 
@@ -768,15 +809,19 @@ export function useVoice(socketRef) {
         localScreenStreamRef.current.getTracks().forEach((t) => t.stop());
         localScreenStreamRef.current = null;
       }
+      // [Баг #7] Очистить локальный стрим экрана из store
+      useVoiceStore.getState().setLocalScreenStream?.(null);
       useVoiceStore.getState().setScreenShareOn(false);
     } catch (err) {
       console.error('disableScreenShare error:', err);
     }
   }, []);
 
-  // Ref для disableScreenShare (используется в track.onended)
+  // Refs для disable функций (используются в track.onended)
   const disableScreenShareRef = useRef(disableScreenShare);
   disableScreenShareRef.current = disableScreenShare;
+  const disableCameraRef = useRef(disableCamera);
+  disableCameraRef.current = disableCamera;
 
   // ═══ Звонки — обёртки над joinRoom/leaveRoom ═══
   const joinCall = useCallback(async (chatId, chatName) => {

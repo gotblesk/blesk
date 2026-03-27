@@ -59,14 +59,14 @@
 }
 
 [data-theme="light"] .link-preview {
-  background: rgba(0,0,0,0.04);
-  border-color: rgba(0,0,0,0.06);
+  background: var(--light-surface-hover, #f0f2f5);
+  border-color: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .link-preview__desc {
-  color: rgba(0,0,0,0.45);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .link-preview__domain {
-  color: rgba(0,0,0,0.3);
+  color: var(--light-text-tertiary, #9ca3af);
 }

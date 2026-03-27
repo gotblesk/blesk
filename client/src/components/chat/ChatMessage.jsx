@@ -4,6 +4,7 @@ import Avatar from '../ui/Avatar';
 import MediaMessage from './MediaMessage';
 import useMessageActions from './MessageActionsPill';
 import { getHueStyles } from '../../utils/hueIdentity';
+import { useSettingsStore } from '../../store/settingsStore';
 import './ChatMessage.css';
 
 const EMOJI_ONLY_RE = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]{1,3}$/u;
@@ -45,9 +46,15 @@ const ChatMessage = React.memo(function ChatMessage({
     }
   }, [isRead]);
 
+  // Настройки из store
+  const bubbleStyle = useSettingsStore((s) => s.chatBubbleStyle);
+  const showAvatarsSetting = useSettingsStore((s) => s.showAvatarsInChat);
+  const timeFormat = useSettingsStore((s) => s.timeFormat);
+
   const time = new Date(message.createdAt).toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: timeFormat === '12h',
   });
 
   // Системные сообщения — простой текст по центру
@@ -63,7 +70,7 @@ const ChatMessage = React.memo(function ChatMessage({
   const isEmojiOnly = text.length > 0 && EMOJI_ONLY_RE.test(text.trim());
   const emojiCount = isEmojiOnly ? countEmojis(text.trim()) : 0;
 
-  const showAvatar = !isOwn && (groupPosition === 'last' || groupPosition === 'solo');
+  const showAvatar = showAvatarsSetting && !isOwn && (groupPosition === 'last' || groupPosition === 'solo');
   const showName = !isOwn && (groupPosition === 'first' || groupPosition === 'solo');
   const showTime = groupPosition === 'last' || groupPosition === 'solo';
 
@@ -73,7 +80,10 @@ const ChatMessage = React.memo(function ChatMessage({
     'chat-message',
     isOwn ? 'chat-message--own' : 'chat-message--other',
     `chat-message--${groupPosition}`,
+    `chat-message--style-${bubbleStyle || 'bubbles'}`,
+    !showAvatarsSetting ? 'chat-message--no-avatars' : '',
     message.pending ? 'chat-message--pending' : '',
+    message.failed ? 'chat-message--failed' : '',
     message.pinned ? 'chat-message--pinned' : '',
     isEmojiOnly ? `chat-message--emoji-only chat-message--emoji-${emojiCount}` : '',
   ].filter(Boolean).join(' ');
@@ -102,11 +112,11 @@ const ChatMessage = React.memo(function ChatMessage({
       className={classes}
       style={isOwn ? undefined : hueStyles}
     >
-      {/* Аватар — только для last/solo чужих сообщений */}
-      {!isOwn && showAvatar && (
+      {/* Аватар — только для last/solo чужих сообщений (если включены) */}
+      {!isOwn && showAvatarsSetting && showAvatar && (
         <Avatar user={{ username: senderName, avatar: message.user?.avatar }} size="sm" className="chat-message__avatar" />
       )}
-      {!isOwn && !showAvatar && (
+      {!isOwn && showAvatarsSetting && !showAvatar && (
         <div className="chat-message__avatar chat-message__avatar--hidden" />
       )}
 
@@ -126,7 +136,14 @@ const ChatMessage = React.memo(function ChatMessage({
           <div className={`chat-message__bubble-outer ${readGlowClass}`}>
             <div className="chat-message__bubble-inner">
               {replyTo && (
-                <div className="chat-message__reply-quote" onClick={handleReplyClick}>
+                <div
+                  className="chat-message__reply-quote"
+                  onClick={handleReplyClick}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleReplyClick()}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Перейти к сообщению от ${replyTo.user?.username || 'пользователя'}`}
+                >
                   <div className="chat-message__reply-bar" />
                   <div>
                     <div className="chat-message__reply-name">

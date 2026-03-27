@@ -199,7 +199,7 @@ export default function OrbitPanel({ open, onClose, onOpenChat }) {
               <div>
                 <div className="orbit-peek__name">{peekChat.user.username}</div>
                 <div className="orbit-peek__status">
-                  {peekChat.isOnline ? <><span style={{width:8,height:8,borderRadius:'50%',background:'#4ade80',display:'inline-block',marginRight:4}} /> онлайн</> : <><span style={{width:8,height:8,borderRadius:'50%',background:'#6b7280',display:'inline-block',marginRight:4}} /> офлайн</>}
+                  {peekChat.isOnline ? <><span style={{width:8,height:8,borderRadius:'50%',background:'var(--online)',display:'inline-block',marginRight:4}} /> онлайн</> : <><span style={{width:8,height:8,borderRadius:'50%',background:'var(--offline)',display:'inline-block',marginRight:4}} /> офлайн</>}
                 </div>
               </div>
             </div>

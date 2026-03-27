@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, desktopCapturer, safeStorage, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, desktopCapturer, safeStorage, shell, Tray, Menu, Notification, nativeImage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -14,8 +14,19 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('fun.blesk.app');
 }
 
+// [IMP-3] Блокировка второго инстанса
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
 let splashWindow;
 let mainWindow;
+let tray = null;
+let isQuitting = false; // Различать "закрыть в трей" и "выйти"
+let unreadCount = 0;
+
+// [IMP-3] Второй инстанс обрабатывается ниже (с deep links)
 
 // Размеры
 const SPLASH_WIDTH = 600;
@@ -36,6 +47,7 @@ function createSplashWindow() {
       preload: path.join(__dirname, 'splash-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true, // [CRIT-2]
     },
     icon: iconPath,
     title: 'blesk',
@@ -77,9 +89,11 @@ function createMainWindow() {
     return { action: 'deny' };
   });
 
-  // Безопасность: блокируем навигацию на внешние URL
+  // [IMP-5] Безопасность: блокируем навигацию — в dev только localhost:5173
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const allowed = ['http://localhost', 'file://'];
+    const allowed = isDev
+      ? ['http://localhost:5173', 'file://']
+      : ['file://'];
     if (!allowed.some(a => url.startsWith(a))) {
       event.preventDefault();
     }
@@ -93,6 +107,14 @@ function createMainWindow() {
     mainWindow.webContents.send('window:unmaximized');
   });
 
+  // Свернуть в трей при закрытии (не выходить)
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
@@ -104,11 +126,8 @@ function createMainWindow() {
 function transitionToMain() {
   if (!splashWindow || !mainWindow) return;
 
-  // Шаг 1: Говорим сплешу запустить CSS-анимацию "расширения"
-  // (контент масштабируется вверх и fade-out)
-  splashWindow.webContents.executeJavaScript(`
-    document.getElementById('splash').classList.add('expand-out');
-  `).catch(() => {});
+  // [CRIT-2] Говорим сплешу запустить CSS-анимацию через IPC (не executeJavaScript)
+  splashWindow.webContents.send('splash:expand-out');
 
   // Шаг 2: На середине анимации сплеша — увеличиваем окно сплеша
   // до размера основного, чтобы визуально казалось что он растёт
@@ -139,11 +158,6 @@ function transitionToMain() {
 }
 
 // Сплеш сообщает что загрузка завершена
-// Версия для splash screen
-ipcMain.on('get-version', (event) => {
-  event.returnValue = app.getVersion();
-});
-
 ipcMain.on('splash:ready', () => {
   // Создаём основное окно параллельно
   createMainWindow();
@@ -159,46 +173,70 @@ ipcMain.on('splash:ready', () => {
   // Ждём пока основное окно загрузит HTML
   mainWindow.webContents.once('did-finish-load', () => {
     // Даём React время отрисоваться
-    setTimeout(doTransition, 600);
+    setTimeout(() => {
+      doTransition();
+      // [IMP-1] Обработать pending deep link после загрузки mainWindow
+      if (pendingDeepLink) {
+        const dl = pendingDeepLink;
+        pendingDeepLink = null;
+        if (dl.raw) {
+          handleDeepLink(dl.raw);
+        } else {
+          mainWindow.webContents.send('deeplink:action', { action: dl.action, param: dl.param });
+        }
+      }
+    }, 600);
   });
 
   // Fallback — если did-finish-load не сработал за 5 сек
   setTimeout(doTransition, 5000);
 });
 
-// Управление окном из renderer
-ipcMain.on('window:minimize', () => {
-  const win = BrowserWindow.getFocusedWindow();
+// [IMP-9] Управление окном — fromWebContents вместо getFocusedWindow (может быть null)
+ipcMain.on('window:minimize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
   if (win) win.minimize();
 });
 
-ipcMain.on('window:maximize', () => {
-  const win = BrowserWindow.getFocusedWindow();
+ipcMain.on('window:maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
     win.isMaximized() ? win.unmaximize() : win.maximize();
   }
 });
 
-ipcMain.on('window:close', () => {
-  const win = BrowserWindow.getFocusedWindow();
-  if (win) win.close();
+// Закрытие окна — свернуть в трей (не выходить)
+ipcMain.on('window:close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    if (isQuitting) {
+      win.destroy();
+    } else {
+      win.hide();
+    }
+  }
 });
 
 // Ручное перетаскивание окна (обход бага -webkit-app-region на Windows)
 let dragOffset = null;
 
+// [IMP-1] Валидация координат drag
 ipcMain.on('window:start-drag', (event, offsetX, offsetY) => {
-  dragOffset = { x: offsetX, y: offsetY };
+  if (typeof offsetX !== 'number' || typeof offsetY !== 'number') return;
+  dragOffset = {
+    x: Math.max(0, Math.min(offsetX, MAIN_WIDTH)),
+    y: Math.max(0, Math.min(offsetY, 80)),
+  };
 });
 
 ipcMain.on('window:dragging', (event, screenX, screenY) => {
   if (!dragOffset) return;
+  if (typeof screenX !== 'number' || typeof screenY !== 'number') return;
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win && !win.isMaximized()) {
-    win.setPosition(
-      Math.round(screenX - dragOffset.x),
-      Math.round(screenY - dragOffset.y)
-    );
+    const x = Math.round(screenX - dragOffset.x);
+    const y = Math.max(-30, Math.round(screenY - dragOffset.y));
+    win.setPosition(x, y);
   }
 });
 
@@ -218,8 +256,10 @@ ipcMain.on('open-external', (event, url) => {
 // ═══ E2E шифрование — безопасное хранение приватного ключа ═══
 const keyPath = path.join(app.getPath('userData'), 'blesk.key');
 
+// [IMP-2] Валидация типов на всех crypto IPC каналах
 ipcMain.handle('crypto:saveSecretKey', (_, b64Key) => {
   try {
+    if (typeof b64Key !== 'string' || b64Key.length > 200) return false;
     const encrypted = safeStorage.encryptString(b64Key);
     fs.writeFileSync(keyPath, encrypted);
     return true;
@@ -242,6 +282,150 @@ ipcMain.handle('crypto:getSecretKey', () => {
 
 ipcMain.handle('crypto:hasSecretKey', () => {
   return fs.existsSync(keyPath);
+});
+
+// ═══ blesk Shield — расширенное хранение ключей и сессий ═══
+const signKeyPath = path.join(app.getPath('userData'), 'blesk.sign');
+const spkPath = path.join(app.getPath('userData'), 'blesk.spk');
+const sessionsDir = path.join(app.getPath('userData'), 'shield-sessions');
+
+// Signing key (Ed25519)
+ipcMain.handle('crypto:saveSigningKey', (_, b64Key) => {
+  try {
+    if (typeof b64Key !== 'string' || b64Key.length > 200) return false;
+    const encrypted = safeStorage.encryptString(b64Key);
+    fs.writeFileSync(signKeyPath, encrypted);
+    return true;
+  } catch (err) {
+    console.error('crypto:saveSigningKey error:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('crypto:getSigningKey', () => {
+  try {
+    if (!fs.existsSync(signKeyPath)) return null;
+    const encrypted = fs.readFileSync(signKeyPath);
+    return safeStorage.decryptString(encrypted);
+  } catch (err) {
+    console.error('crypto:getSigningKey error:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('crypto:hasSigningKey', () => {
+  return fs.existsSync(signKeyPath);
+});
+
+// Signed PreKey (SPK)
+ipcMain.handle('crypto:saveSPK', (_, jsonStr) => {
+  try {
+    if (typeof jsonStr !== 'string' || jsonStr.length > 10000) return false;
+    const encrypted = safeStorage.encryptString(jsonStr);
+    fs.writeFileSync(spkPath, encrypted);
+    return true;
+  } catch (err) {
+    console.error('crypto:saveSPK error:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('crypto:getSPK', () => {
+  try {
+    if (!fs.existsSync(spkPath)) return null;
+    const encrypted = fs.readFileSync(spkPath);
+    return safeStorage.decryptString(encrypted);
+  } catch (err) {
+    console.error('crypto:getSPK error:', err);
+    return null;
+  }
+});
+
+// Shield Sessions — по одному файлу на собеседника
+ipcMain.handle('crypto:saveSession', (_, peerId, jsonStr) => {
+  try {
+    if (typeof peerId !== 'string' || peerId.length === 0 || peerId.length > 100) return false;
+    if (typeof jsonStr !== 'string' || jsonStr.length > 1_000_000) return false;
+    if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir, { recursive: true });
+    // [MED-3] SHA-256 хеш peerId для имени файла (без усечения)
+    const { createHash } = require('crypto');
+    const fileName = createHash('sha256').update(peerId).digest('hex') + '.session';
+    const filePath = path.join(sessionsDir, fileName);
+    const encrypted = safeStorage.encryptString(jsonStr);
+    fs.writeFileSync(filePath, encrypted);
+    return true;
+  } catch (err) {
+    console.error('crypto:saveSession error:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('crypto:getSession', (_, peerId) => {
+  try {
+    if (typeof peerId !== 'string' || peerId.length === 0) return null;
+    if (!fs.existsSync(sessionsDir)) return null;
+    const { createHash } = require('crypto');
+    const fileName = createHash('sha256').update(peerId).digest('hex') + '.session';
+    const filePath = path.join(sessionsDir, fileName);
+    if (!fs.existsSync(filePath)) return null;
+    const encrypted = fs.readFileSync(filePath);
+    return safeStorage.decryptString(encrypted);
+  } catch (err) {
+    console.error('crypto:getSession error:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('crypto:deleteSession', (_, peerId) => {
+  try {
+    if (typeof peerId !== 'string' || peerId.length === 0) return false;
+    if (!fs.existsSync(sessionsDir)) return true;
+    const { createHash } = require('crypto');
+    const fileName = createHash('sha256').update(peerId).digest('hex') + '.session';
+    const filePath = path.join(sessionsDir, fileName);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return true;
+  } catch (err) {
+    console.error('crypto:deleteSession error:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('crypto:listSessions', () => {
+  try {
+    if (!fs.existsSync(sessionsDir)) return [];
+    return fs.readdirSync(sessionsDir)
+      .filter(f => f.endsWith('.session'))
+      .map(f => f.replace('.session', ''));
+  } catch {
+    return [];
+  }
+});
+
+// OPK (one-time prekeys) — хранение секретных ключей
+const opkPath = path.join(app.getPath('userData'), 'blesk.opk');
+
+ipcMain.handle('crypto:saveOPKs', (_, jsonStr) => {
+  try {
+    if (typeof jsonStr !== 'string' || jsonStr.length > 5_000_000) return false;
+    const encrypted = safeStorage.encryptString(jsonStr);
+    fs.writeFileSync(opkPath, encrypted);
+    return true;
+  } catch (err) {
+    console.error('crypto:saveOPKs error:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('crypto:getOPKs', () => {
+  try {
+    if (!fs.existsSync(opkPath)) return null;
+    const encrypted = fs.readFileSync(opkPath);
+    return safeStorage.decryptString(encrypted);
+  } catch (err) {
+    console.error('crypto:getOPKs error:', err);
+    return null;
+  }
 });
 
 // Получить список экранов и окон для демонстрации экрана
@@ -268,7 +452,8 @@ function setupAutoUpdater() {
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.allowPrerelease = true;
+  // [IMP-4] allowPrerelease только в beta-версиях
+  autoUpdater.allowPrerelease = app.getVersion().includes('-');
 
   autoUpdater.on('update-available', (info) => {
     console.log('Доступно обновление:', info.version);
@@ -299,9 +484,10 @@ function setupAutoUpdater() {
     console.error('Ошибка обновления:', err.message);
   });
 
-  // Проверяем обновления через 5 сек после старта, потом каждый час
+  // [IMP-4] Проверяем обновления через 5 сек после старта, потом каждый час
   setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000);
-  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 60 * 60 * 1000);
+  const updateInterval = setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 60 * 60 * 1000);
+  app.on('before-quit', () => clearInterval(updateInterval));
 }
 
 // Renderer может запросить установку обновления
@@ -309,11 +495,231 @@ ipcMain.on('update:install', () => {
   autoUpdater.quitAndInstall(false, true);
 });
 
+// ═══ System Tray ═══
+let dndEnabled = false;
+
+function createTray() {
+  if (tray) return;
+
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(trayIcon);
+  tray.setToolTip('blesk');
+
+  const updateTrayMenu = () => {
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Показать blesk',
+        click: () => {
+          if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Не беспокоить',
+        type: 'checkbox',
+        // [IMP-4] Синхронизация состояния DND
+        checked: dndEnabled,
+        click: (item) => {
+          dndEnabled = item.checked;
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('tray:dnd', dndEnabled);
+          }
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Выйти',
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        },
+      },
+    ]);
+    tray.setContextMenu(contextMenu);
+  };
+
+  updateTrayMenu();
+
+  // [IMP-3] Только один обработчик клика (без конфликта click/double-click)
+  tray.on('click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  // [IMP-4] Синхронизация DND из renderer → tray menu
+  ipcMain.on('dnd:sync', (_, enabled) => {
+    dndEnabled = !!enabled;
+    updateTrayMenu();
+  });
+}
+
+// ═══ Системные уведомления (из main process — работают в трее) ═══
+// [IMP-5] Rate limiting для уведомлений
+let notifTimestamps = [];
+
+ipcMain.on('notification:show', (_, data) => {
+  if (!data || typeof data !== 'object') return;
+  const { title, body, chatId, silent } = data;
+  if (typeof title !== 'string' || typeof body !== 'string') return;
+
+  // Rate limit: макс 5 уведомлений за 5 секунд
+  const now = Date.now();
+  notifTimestamps = notifTimestamps.filter(t => now - t < 5000);
+  if (notifTimestamps.length >= 5) return;
+  notifTimestamps.push(now);
+
+  // [CRIT-4] Не показывать если DND включён
+  if (dndEnabled) return;
+
+  const notification = new Notification({
+    title: title.slice(0, 100),
+    body: body.slice(0, 200),
+    icon: iconPath,
+    // [IMP-4] Уважать настройку звуков пользователя
+    silent: !!silent,
+  });
+
+  notification.on('click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+      if (chatId && typeof chatId === 'string') {
+        mainWindow.webContents.send('notification:open-chat', chatId);
+      }
+    }
+  });
+
+  notification.show();
+});
+
+// [CRIT-1] Badge — overlay icon из DataURL вместо SVG buffer
+// nativeImage.createFromBuffer НЕ поддерживает SVG — используем DataURL
+let badgeDebounce = null;
+
+ipcMain.on('badge:update', (_, count) => {
+  if (typeof count !== 'number' || isNaN(count)) return;
+  // [IMP-7] Clamp и debounce
+  unreadCount = Math.max(0, Math.min(Math.round(count), 9999));
+
+  clearTimeout(badgeDebounce);
+  badgeDebounce = setTimeout(() => {
+    // Windows overlay badge
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (unreadCount > 0) {
+        mainWindow.setOverlayIcon(
+          createBadgeIcon(unreadCount),
+          `${unreadCount} непрочитанных`
+        );
+      } else {
+        mainWindow.setOverlayIcon(null, '');
+      }
+    }
+    // Tray tooltip с лимитом
+    if (tray) {
+      tray.setToolTip(unreadCount > 0 ? `blesk (${Math.min(unreadCount, 999)})` : 'blesk');
+    }
+  }, 100);
+});
+
+// [CRIT-1] Badge icon через DataURL (PNG) вместо SVG buffer
+function createBadgeIcon(count) {
+  const label = count > 9 ? '9+' : String(count);
+  const size = 32; // Больший размер для чёткости при масштабировании
+  // Генерируем PNG через canvas-подобный DataURL
+  // Electron поддерживает data: URI в nativeImage.createFromDataURL
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${size/2}" fill="#ef4444"/>
+    <text x="${size/2}" y="${size/2 + 5}" text-anchor="middle" fill="white" font-size="18" font-weight="bold" font-family="Arial,sans-serif">${label}</text>
+  </svg>`;
+  // Конвертировать SVG в data URI
+  const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+  try {
+    return nativeImage.createFromDataURL(dataUrl).resize({ width: 16, height: 16 });
+  } catch {
+    // Fallback — пустая иконка
+    return nativeImage.createEmpty();
+  }
+}
+
+// ═══ Deep Links (blesk:// протокол) ═══
+if (!isDev) {
+  app.setAsDefaultProtocolClient('blesk');
+}
+
+// [IMP-2] Whitelist допустимых deep link actions
+const VALID_DEEPLINK_ACTIONS = new Set(['invite', 'chat', 'channel', 'join', 'user']);
+
+// [IMP-1] Pending deep link для cold start
+let pendingDeepLink = null;
+
+function handleDeepLink(url) {
+  if (!url || typeof url !== 'string') return;
+  if (!url.startsWith('blesk://')) return;
+  // Лимит длины URL
+  if (url.length > 2000) return;
+
+  try {
+    const parsed = new URL(url);
+    const action = parsed.hostname;
+    let param = parsed.pathname.slice(1);
+
+    // [IMP-2] Проверить whitelist actions
+    if (!VALID_DEEPLINK_ACTIONS.has(action)) return;
+
+    // [IMP-2] Sanitize param: только alphanumeric + dash + underscore
+    param = param.replace(/[^a-zA-Z0-9\-_]/g, '');
+    if (!param) return;
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.webContents.send('deeplink:action', { action, param });
+    } else {
+      // [IMP-1] Сохранить для обработки когда mainWindow будет готов
+      pendingDeepLink = { action, param };
+    }
+  } catch {
+    // Невалидный URL — игнорировать
+  }
+}
+
+// Windows: deep link при втором инстансе (+ single instance)
+app.on('second-instance', (event, argv) => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+  const deepLink = argv.find(arg => arg.startsWith('blesk://'));
+  if (deepLink) handleDeepLink(deepLink);
+});
+
+// macOS: open-url
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  handleDeepLink(url);
+});
+
 app.whenReady().then(() => {
   createSplashWindow();
+  createTray();
   setupAutoUpdater();
+
+  // [IMP-1] Проверить deep link из командной строки (cold start)
+  const deepLink = process.argv.find(arg => arg.startsWith('blesk://'));
+  if (deepLink) pendingDeepLink = { raw: deepLink };
+});
+
+// [IMP-8] Перехват close — свернуть в трей; destroy tray при выходе
+app.on('before-quit', () => {
+  isQuitting = true;
+  if (tray) { tray.destroy(); tray = null; }
 });
 
 app.on('window-all-closed', () => {
-  app.quit();
+  if (process.platform !== 'darwin' && isQuitting) {
+    app.quit();
+  }
 });

@@ -175,10 +175,12 @@ export default function DynamicIsland({
           {/* Expanded */}
           <div className="island__expanded">
             {/* Status dot */}
+            {/* [IMP-9] Статус с aria-label */}
             <button
               className="island__status"
               onClick={(e) => { e.stopPropagation(); if (statusMenuOpen) closeStatusMenu(); else setStatusMenuOpen(true); }}
               title="Сменить статус"
+              aria-label={`Статус: ${userStatus === 'online' ? 'В сети' : userStatus === 'dnd' ? 'Не беспокоить' : userStatus === 'invisible' ? 'Невидимка' : 'Офлайн'}. Нажмите для смены`}
             >
               <div className={`island__status-dot island__status-dot--${userStatus}`} />
             </button>
@@ -195,7 +197,8 @@ export default function DynamicIsland({
               <button className={`island__btn ${activeNav === 'voice' ? 'island__btn--active' : ''}`} onClick={(e) => handleNav(e, 'voice')}>
                 <div className="island__btn-icon island__btn-icon--voice"><Mic size={14} /></div>
                 <span className="island__btn-label">Голос</span>
-                {voiceRoomId && <span className="island__btn-badge">●</span>}
+                {/* [IMP-10] Голосовая комната — aria-label вместо только цветной точки */}
+                {voiceRoomId && <span className="island__btn-badge" aria-label="В голосовой комнате">●</span>}
               </button>
 
               <button className={`island__btn ${activeNav === 'channels' ? 'island__btn--active' : ''}`} onClick={(e) => handleNav(e, 'channels')}>
@@ -210,7 +213,8 @@ export default function DynamicIsland({
                 </button>
               )}
 
-              <button className="island__btn" onClick={(e) => handleNav(e, 'settings')}>
+              {/* [CRIT-6] aria-label для settings */}
+              <button className="island__btn" onClick={(e) => handleNav(e, 'settings')} aria-label="Настройки">
                 <div className="island__btn-icon island__btn-icon--settings"><Settings size={14} /></div>
               </button>
             </div>
@@ -247,7 +251,7 @@ export default function DynamicIsland({
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
             />
-            <button className="island-search__go" onClick={handleSearchSubmit}>→</button>
+            <button className="island-search__go" onClick={handleSearchSubmit} aria-label="Найти">→</button>
           </div>
         </div>
 

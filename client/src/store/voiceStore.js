@@ -42,10 +42,20 @@ export const useVoiceStore = create((set, get) => ({
   // { [userId]: { camera: MediaStream | null, screen: MediaStream | null } }
   videoStreams: {},
 
+  // Локальный стрим демонстрации экрана
+  localScreenStream: null,
+  // Ошибка доступа к медиа (камера/экран)
+  mediaError: null,
+
   // Включить/выключить камеру
   setCameraOn: (on) => set({ cameraOn: on }),
   setScreenShareOn: (on) => set({ screenShareOn: on }),
   setLocalCameraStream: (stream) => set({ localCameraStream: stream }),
+  // [Баг #7] Хранить локальный стрим экрана
+  setLocalScreenStream: (stream) => set({ localScreenStream: stream }),
+  // [Баг #8] Ошибка медиа-разрешений
+  setMediaError: (error) => set({ mediaError: error }),
+  clearMediaError: () => set({ mediaError: null }),
 
   // Установить видеопоток удалённого участника
   setVideoStream: (userId, type, stream) => {
@@ -265,7 +275,9 @@ export const useVoiceStore = create((set, get) => ({
       cameraOn: false,
       screenShareOn: false,
       localCameraStream: null,
+      localScreenStream: null,
       videoStreams: {},
+      mediaError: null,
     });
   },
 

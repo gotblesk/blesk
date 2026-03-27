@@ -170,33 +170,33 @@
 }
 
 [data-theme="light"] .avatar-crop-card {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: rgba(0, 0, 0, 0.12);
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.15);
 }
 
 [data-theme="light"] .avatar-crop__title {
-  color: rgba(0, 0, 0, 0.85);
+  color: var(--light-text-primary, #111827);
 }
 
 [data-theme="light"] .avatar-crop__area {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg-input);
 }
 
 [data-theme="light"] .avatar-crop__zoom-slider {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .avatar-crop__zoom-value {
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .avatar-crop__btn--cancel {
-  background: rgba(0, 0, 0, 0.05);
-  color: rgba(0, 0, 0, 0.5);
+  background: var(--bg-input);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .avatar-crop__btn--cancel:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: rgba(0, 0, 0, 0.7);
+  background: var(--light-border, #e5e7eb);
+  color: var(--light-text-primary, #111827);
 }

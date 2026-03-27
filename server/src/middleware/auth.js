@@ -1,15 +1,23 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const prisma = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET не задан в .env — сервер не может запуститься безопасно');
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET не задан или слишком короткий (мин. 32 символа)');
+  process.exit(1);
+}
+
+// Отдельный секрет для refresh токенов (обязателен)
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+if (!JWT_REFRESH_SECRET || JWT_REFRESH_SECRET.length < 32) {
+  console.error('FATAL: JWT_REFRESH_SECRET не задан или < 32 символов');
   process.exit(1);
 }
 
 // Кеш банов: userId → { banned, ts }
 const banCache = new Map();
-const BAN_CACHE_TTL = 60000; // 60 секунд
+const BAN_CACHE_TTL = 60000;
 
 // Проверка JWT токена (только access, refresh не принимается)
 async function authenticate(req, res, next) {
@@ -21,13 +29,12 @@ async function authenticate(req, res, next) {
   const token = header.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    // Refresh токен не должен использоваться как access
     if (payload.type === 'refresh') {
       return res.status(401).json({ error: 'Недействительный токен' });
     }
     req.userId = payload.userId;
 
-    // Проверка бана с кешем (не делать запрос при каждом вызове)
+    // Проверка бана с кешем
     const cached = banCache.get(payload.userId);
     if (!cached || Date.now() - cached.ts > BAN_CACHE_TTL) {
       const u = await prisma.user.findUnique({ where: { id: payload.userId }, select: { banned: true } });
@@ -43,17 +50,17 @@ async function authenticate(req, res, next) {
   }
 }
 
-// Генерация токенов
+// [CRIT-1] Генерация токенов с раздельными секретами
 function generateTokens(userId) {
   const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '15m' });
-  const refreshToken = jwt.sign({ userId, type: 'refresh' }, JWT_SECRET, { expiresIn: '7d' });
+  const refreshToken = jwt.sign({ userId, type: 'refresh' }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
   return { token, refreshToken };
 }
 
-// Проверка refresh токена
+// [CRIT-1] Проверка refresh токена отдельным секретом
 function verifyRefreshToken(token) {
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_REFRESH_SECRET);
     if (payload.type !== 'refresh') return null;
     return payload;
   } catch {
@@ -61,7 +68,12 @@ function verifyRefreshToken(token) {
   }
 }
 
-// Middleware: требует подтверждённый email (для чувствительных маршрутов)
+// [CRIT-2] Хеширование refresh токена для хранения в БД
+function hashRefreshToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+// Middleware: требует подтверждённый email
 async function requireVerified(req, res, next) {
   try {
     const user = await prisma.user.findUnique({
@@ -77,9 +89,9 @@ async function requireVerified(req, res, next) {
   }
 }
 
-// Инвалидировать кеш бана (вызывать при бане/разбане)
+// Инвалидировать кеш бана
 function invalidateBanCache(userId) {
   banCache.delete(userId);
 }
 
-module.exports = { authenticate, generateTokens, verifyRefreshToken, requireVerified, invalidateBanCache };
+module.exports = { authenticate, generateTokens, verifyRefreshToken, hashRefreshToken, requireVerified, invalidateBanCache };

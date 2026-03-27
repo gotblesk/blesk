@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState, useCallback, Fragment } from 'react';
+import React, { useEffect, useRef, useState, useCallback, Fragment, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useChatStore } from '../../store/chatStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import ChatHeader from './ChatHeader';
@@ -14,8 +15,10 @@ import { MIN_WIDTH, MIN_HEIGHT } from '../../hooks/useWindowManager';
 import { getCurrentUserId } from '../../utils/auth';
 import uploadFile from '../../utils/uploadFile';
 import { encryptMessage, fetchPublicKey } from '../../utils/cryptoService';
+import { shieldEncrypt, isShieldReady } from '../../utils/shieldService';
 import { getHueFromString } from '../../utils/hueIdentity';
 import UserProfileModal from '../ui/UserProfileModal';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import './ChatView.css';
 
 // Resize edges
@@ -38,11 +41,15 @@ export default function ChatView({
 }) {
   // Inline mode — встроен в layout без windowState
   const isInline = !windowState;
-  const { messages, chats, onlineUsers, userStatuses, typingUsers, openChat, markAsRead } = useChatStore();
+  // [CRIT-2] Гранулярные селекторы вместо подписки на весь store
+  const EMPTY = [];
+  const chatMessages = useChatStore((s) => s.messages[chatId] ?? EMPTY);
+  const chat = useChatStore((s) => s.chats.find((c) => c.id === chatId));
+  const onlineUsers = useChatStore((s) => s.onlineUsers);
+  const userStatuses = useChatStore((s) => s.userStatuses);
+  const typingUsers = useChatStore((s) => s.typingUsers);
   const showTyping = useSettingsStore((s) => s.showTyping);
   const compactMessages = useSettingsStore((s) => s.compactMessages);
-  const chatMessages = messages[chatId] || [];
-  const chat = chats.find((c) => c.id === chatId);
   const messagesEndRef = useRef(null);
   const viewRef = useRef(null);
   const [replyTo, setReplyTo] = useState(null);
@@ -50,6 +57,7 @@ export default function ChatView({
   const [membersOpen, setMembersOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const initialUnreadRef = useRef(null);
 
   // Drag/pull state
@@ -95,19 +103,31 @@ export default function ChatView({
       if (initialUnreadRef.current === null) {
         initialUnreadRef.current = c?.unreadCount || 0;
       }
-      openChat(chatId);
-      markAsRead(chatId);
+      useChatStore.getState().openChat(chatId);
+      useChatStore.getState().markAsRead(chatId, socketRef);
     }
   }, [chatId]); // eslint-disable-line
 
   // Скролл к последнему сообщению (только если пользователь уже внизу)
   const messagesContainerRef = useRef(null);
   const isNearBottomRef = useRef(true);
+  const [showScrollDown, setShowScrollDown] = useState(false);
+
+  // [CRIT-1] Виртуализация списка сообщений
+  const messageCount = chatMessages.length;
+  const virtualizer = useVirtualizer({
+    count: messageCount,
+    getScrollElement: () => messagesContainerRef.current,
+    estimateSize: () => 60, // Средняя высота сообщения (px)
+    overscan: 10,
+  });
 
   const handleMessagesScroll = useCallback(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
-    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    isNearBottomRef.current = near;
+    setShowScrollDown(!near);
   }, []);
 
   useEffect(() => {
@@ -275,20 +295,56 @@ export default function ChatView({
     const { e2eEnabled } = useSettingsStore.getState();
     if (e2eEnabled && chat?.type === 'chat' && chat?.otherUser?.id) {
       try {
-        const otherPubKey = await fetchPublicKey(chat.otherUser.id);
-        if (otherPubKey) {
-          const encrypted = await encryptMessage(text, otherPubKey, chatId);
-          if (encrypted) {
-            payload.text = encrypted;
+        // blesk Shield (Double Ratchet) — приоритетный путь
+        if (isShieldReady()) {
+          const shieldResult = await shieldEncrypt(chat.otherUser.id, text);
+          if (shieldResult) {
+            payload.text = shieldResult.text;
             payload.encrypted = true;
+            if (shieldResult.shieldHeader) payload.shieldHeader = shieldResult.shieldHeader;
+          } else {
+            // Fallback на legacy если Shield не смог (у собеседника нет Shield)
+            const otherPubKey = await fetchPublicKey(chat.otherUser.id);
+            if (otherPubKey) {
+              const encrypted = await encryptMessage(text, otherPubKey, chatId);
+              if (encrypted) {
+                payload.text = encrypted;
+                payload.encrypted = true;
+              }
+            }
+          }
+        } else {
+          // Legacy encryption
+          const otherPubKey = await fetchPublicKey(chat.otherUser.id);
+          if (otherPubKey) {
+            const encrypted = await encryptMessage(text, otherPubKey, chatId);
+            if (encrypted) {
+              payload.text = encrypted;
+              payload.encrypted = true;
+            }
           }
         }
       } catch (err) {
         console.error('E2E encrypt error:', err);
+        return; // Не отправлять при ошибке шифрования
       }
     }
 
-    socketRef.current?.emit('message:send', payload);
+    // [HIGH-1] ACK callback + [IMP-4] timeout для ACK
+    const sendTempId = payload.tempId;
+    const ackTimeout = setTimeout(() => {
+      // Если confirmMessage не пришёл за 10 секунд — пометить как failed
+      const msgs = useChatStore.getState().messages[chatId];
+      const pending = msgs?.find(m => m.tempId === sendTempId && m.pending);
+      if (pending) useChatStore.getState().failMessage(sendTempId, chatId);
+    }, 10000);
+
+    socketRef.current?.emit('message:send', payload, (ack) => {
+      clearTimeout(ackTimeout);
+      if (ack?.error) {
+        useChatStore.getState().failMessage(sendTempId, chatId);
+      }
+    });
     setReplyTo(null);
   };
 
@@ -304,6 +360,9 @@ export default function ChatView({
         text = undefined;
       } catch (err) {
         console.error('Ошибка загрузки файла:', err);
+        // [HIGH-6] Показать ошибку пользователю
+        const errMsg = err?.response?.data?.error || err?.message || 'Не удалось загрузить файл';
+        window.blesk?.notify?.('blesk', errMsg);
       }
     }
     setReplyTo(null);
@@ -325,23 +384,56 @@ export default function ChatView({
     socketRef.current?.emit('typing:stop', { chatId });
   }, [showTyping, chatId, socketRef]);
 
+  // [CRIT-3] Стабильные callbacks для ChatMessage (не ломают React.memo)
+  const handleReplyStable = useCallback((msg) => setReplyTo(msg), []);
+  const handleReactStable = useCallback(() => {}, []);
+  const handleEditStable = useCallback((msg) => { setEditingMsg(msg); setReplyTo(null); }, []);
+  const handleDeleteStable = useCallback((msgId) => setDeleteConfirm(msgId), []);
+
   // Редактирование сообщения — заполнить input текстом
   const handleEdit = useCallback((msg) => {
     setEditingMsg(msg);
     setReplyTo(null);
   }, []);
 
-  // Отправка отредактированного сообщения
-  const handleEditSend = useCallback((newText) => {
+  // Отправка отредактированного сообщения (с E2E если включено)
+  const handleEditSend = useCallback(async (newText) => {
     if (!editingMsg || !newText.trim()) return;
-    socketRef.current?.emit('message:edit', { messageId: editingMsg.id, chatId, text: newText.trim() });
-    setEditingMsg(null);
-  }, [editingMsg, chatId, socketRef]);
+    const text = newText.trim();
+    const payload = { messageId: editingMsg.id, chatId, text };
 
-  // Удаление сообщения
+    // [E2E] Шифровать отредактированное сообщение если оригинал был зашифрован
+    const { e2eEnabled } = useSettingsStore.getState();
+    if (e2eEnabled && editingMsg.encrypted && chat?.type === 'chat' && chat?.otherUser?.id) {
+      try {
+        const otherPubKey = await fetchPublicKey(chat.otherUser.id);
+        if (otherPubKey) {
+          const encrypted = await encryptMessage(text, otherPubKey, chatId);
+          if (encrypted) {
+            payload.text = encrypted;
+            payload.encrypted = true;
+          }
+        }
+      } catch (err) {
+        console.error('E2E encrypt edit error:', err);
+      }
+    }
+
+    socketRef.current?.emit('message:edit', payload);
+    setEditingMsg(null);
+  }, [editingMsg, chatId, socketRef, chat]);
+
+  // Удаление сообщения (через подтверждение)
   const handleDelete = useCallback((messageId) => {
-    socketRef.current?.emit('message:delete', { messageId, chatId });
-  }, [chatId, socketRef]);
+    setDeleteConfirm(messageId);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (deleteConfirm) {
+      socketRef.current?.emit('message:delete', { messageId: deleteConfirm, chatId });
+      setDeleteConfirm(null);
+    }
+  }, [deleteConfirm, chatId, socketRef]);
 
   if (!chat) return null;
 
@@ -439,55 +531,81 @@ export default function ChatView({
         <CallBanner activeCall={activeCall} onJoin={onJoinCall} />
       )}
 
+      {/* Виртуализированный список сообщений */}
       <div
         className={`chat-view__messages ${compactMessages ? 'chat-view__messages--compact' : ''}`}
         ref={messagesContainerRef}
         onScroll={handleMessagesScroll}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-label="Сообщения"
       >
-        {(chatMessages ?? []).map((msg, idx) => {
-          const isOwn = msg.userId === userId.current;
-          const prev = chatMessages[idx - 1];
-          const next = chatMessages[idx + 1];
-          const prevSame = prev && prev.userId === msg.userId;
-          const nextSame = next && next.userId === msg.userId;
+        {/* Empty state: нет сообщений */}
+        {messageCount === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, opacity: 0.4 }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            <span style={{ fontSize: 13 }}>Начните разговор — напишите первое сообщение</span>
+          </div>
+        )}
 
-          let groupPosition = 'solo';
-          if (prevSame && nextSame) groupPosition = 'mid';
-          else if (!prevSame && nextSame) groupPosition = 'first';
-          else if (prevSame && !nextSame) groupPosition = 'last';
+        <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const idx = virtualRow.index;
+            const msg = chatMessages[idx];
+            if (!msg) return null;
 
-          const showGap = prev && prev.userId !== msg.userId;
+            const isOwn = msg.userId === userId.current;
+            const prev = chatMessages[idx - 1];
+            const next = chatMessages[idx + 1];
+            const prevSame = prev && prev.userId === msg.userId;
+            const nextSame = next && next.userId === msg.userId;
 
-          // Разделитель дат
-          const showDateSep = !prev ||
-            new Date(msg.createdAt).toDateString() !== new Date(prev.createdAt).toDateString();
+            let groupPosition = 'solo';
+            if (prevSame && nextSame) groupPosition = 'mid';
+            else if (!prevSame && nextSame) groupPosition = 'first';
+            else if (prevSame && !nextSame) groupPosition = 'last';
 
-          // Hue identity
-          const hue = getHueFromString(msg.user?.username || msg.userId || '');
+            const showGap = prev && prev.userId !== msg.userId;
+            const showDateSep = !prev ||
+              new Date(msg.createdAt).toDateString() !== new Date(prev.createdAt).toDateString();
+            const hue = getHueFromString(msg.user?.username || msg.userId || '');
 
-          return (
-            <Fragment key={msg.id}>
-              {showDateSep && <DateSeparator date={msg.createdAt} />}
-              {firstUnreadId === msg.id && <UnreadDivider />}
-              {showGap && !showDateSep && <div className="chat-view__group-gap" />}
-              <ChatMessage
-                message={msg}
-                isOwn={isOwn}
-                groupPosition={groupPosition}
-                hue={hue}
-                senderName={msg.user?.username || 'Unknown'}
-                isRead={msg.readBy?.includes?.(chat.otherUser?.id) || false}
-                onReply={() => setReplyTo(msg)}
-                onReact={() => { /* TODO: система реакций */ }}
-                onEdit={() => handleEdit(msg)}
-                onDelete={() => handleDelete(msg.id)}
-                onImageClick={setLightboxSrc}
-              />
-            </Fragment>
-          );
-        })}
+            return (
+              <div
+                key={msg.id || msg.tempId || idx}
+                data-index={idx}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                {showDateSep && <DateSeparator date={msg.createdAt} />}
+                {firstUnreadId === msg.id && <UnreadDivider />}
+                {showGap && !showDateSep && <div className="chat-view__group-gap" />}
+                <ChatMessage
+                  message={msg}
+                  isOwn={isOwn}
+                  groupPosition={groupPosition}
+                  hue={hue}
+                  senderName={msg.user?.username || 'Unknown'}
+                  isRead={msg.readBy?.includes?.(chat?.otherUser?.id) || false}
+                  onReply={handleReplyStable}
+                  onReact={handleReactStable}
+                  onEdit={handleEditStable}
+                  onDelete={handleDeleteStable}
+                  onImageClick={setLightboxSrc}
+                />
+              </div>
+            );
+          })}
+        </div>
 
-        {/* Typing bubble */}
+        {/* Typing bubble — после виртуализированного списка */}
         {typingInChat.length > 0 && typingInChat[0] && (
           <TypingBubble
             user={typingInChat[0]}
@@ -497,6 +615,17 @@ export default function ChatView({
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Scroll-to-bottom кнопка */}
+      {showScrollDown && (
+        <button
+          className="chat-view__scroll-down"
+          onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          aria-label="К последним сообщениям"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      )}
 
       <ChatInput
         onSend={editingMsg ? handleEditSend : handleSend}
@@ -534,6 +663,15 @@ export default function ChatView({
         />
       )}
       <UserProfileModal userId={profileUserId} open={!!profileUserId} onClose={() => setProfileUserId(null)} />
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Удалить сообщение?"
+        message="Сообщение будет удалено безвозвратно"
+        confirmText="Удалить"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

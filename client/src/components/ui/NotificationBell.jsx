@@ -7,6 +7,8 @@ import { useNotificationStore } from '../../store/notificationStore';
 import API_URL from '../../config';
 import './NotificationBell.css';
 
+// Decorative icon colors — hardcoded hex intentional (used in inline styles/gradients,
+// these are category accent colors that stay consistent across themes)
 const TYPES = {
   system:          { icon: Zap,           color: '#c8ff00' },
   login:           { icon: LogIn,         color: '#60a5fa' },
@@ -74,7 +76,21 @@ export default function NotificationBell({ onOpenChat }) {
     if (unreadCount > prevCnt.current && prevCnt.current >= 0) { setShaking(true); const t = setTimeout(() => setShaking(false), 700); return () => clearTimeout(t); }
     prevCnt.current = unreadCount;
   }, [unreadCount]);
-  useEffect(() => { if (!open) return; const h = e => { if (e.key === 'Escape') setOpen(false); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [open]);
+  // [IMP-7 A2] Esc: сначала закрыть expanded card, потом панель
+  useEffect(() => {
+    if (!open) return;
+    const h = e => {
+      if (e.key === 'Escape') {
+        if (expanded !== null) {
+          closeDetail();
+        } else {
+          setOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open, expanded]);
 
   const grouped = useMemo(() => smartGroup(notifications), [notifications]);
 

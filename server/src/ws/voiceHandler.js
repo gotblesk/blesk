@@ -124,8 +124,9 @@ function voiceHandler(io, socket) {
 
       if (isCall) {
         const chatId = roomId.slice(5); // убрать 'call:'
-        // Проверить что звонок действительно активен
-        if (!activeCalls.has(chatId)) {
+        // [HIGH-5] Проверить что звонок активен (с grace period)
+        const activeCall = activeCalls.get(chatId);
+        if (!activeCall) {
           return callback?.({ error: 'Нет активного звонка' });
         }
         const participant = await prisma.roomParticipant.findUnique({
@@ -394,6 +395,8 @@ function voiceHandler(io, socket) {
 
   // ═══ Мут/анмут ═══
   socket.on('voice:mute', ({ roomId, muted }) => {
+    // [HIGH-3] Rate limiting для mute/deafen
+    if (isVoiceSignalRateLimited(userId)) return;
     const room = voiceRooms.get(roomId);
     if (!room || !room.peers.has(userId)) return;
 
@@ -416,6 +419,8 @@ function voiceHandler(io, socket) {
 
   // ═══ Деафен ═══
   socket.on('voice:deafen', ({ roomId, deafened }) => {
+    // [HIGH-3] Rate limiting
+    if (isVoiceSignalRateLimited(userId)) return;
     const room = voiceRooms.get(roomId);
     if (!room || !room.peers.has(userId)) return;
 
@@ -454,7 +459,8 @@ function voiceHandler(io, socket) {
       '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '`': '&#x60;', '&': '&amp;'
     }[ch]));
     const message = {
-      id: `vc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      // [MED-3] Криптографически стойкий ID вместо Math.random()
+      id: `vc_${require('crypto').randomUUID()}`,
       userId,
       username: peer.username,
       hue: peer.hue,

@@ -127,28 +127,28 @@
 
 /* Светлая тема */
 [data-theme="light"] .update-banner {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(200, 255, 0, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  background: var(--light-surface, #ffffff);
+  border-color: rgba(124, 58, 237, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="light"] .update-banner__title {
-  color: rgba(0, 0, 0, 0.85);
+  color: var(--light-text-primary, #111827);
 }
 
 [data-theme="light"] .update-banner__changelog {
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .update-banner__close {
-  background: rgba(0, 0, 0, 0.05);
-  color: rgba(0, 0, 0, 0.35);
+  background: var(--bg-input);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .update-banner__downloading {
-  color: #5a7a00;
+  color: #7c3aed;
 }
 
 [data-theme="light"] .update-banner__speed {
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--light-text-secondary, #4b5563);
 }

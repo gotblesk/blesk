@@ -82,20 +82,21 @@
 }
 
 [data-theme="light"] .incoming-call-overlay__card {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.12);
 }
 
 [data-theme="light"] .incoming-call-overlay__name {
-  color: rgba(0, 0, 0, 0.85);
+  color: var(--light-text-primary, #111827);
 }
 
 [data-theme="light"] .incoming-call-overlay__label {
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .incoming-call-overlay__video-icon {
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 .incoming-call-overlay__label {

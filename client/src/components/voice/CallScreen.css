@@ -2,11 +2,12 @@
    CALL SCREEN — Resizable Adaptive
    ═══════════════════════════════════════ */
 
+/* [Баг #9] z-index поднят выше VoiceChat (201) */
 .cs {
   position: fixed;
-  z-index: 180;
+  z-index: 220;
   border-radius: 22px;
-  overflow: hidden;
+  overflow: visible; /* [Баг #29] Не обрезать подписи кнопок */
   display: flex;
   flex-direction: column;
   min-width: 240px;
@@ -17,7 +18,7 @@
   box-shadow: 0 32px 100px rgba(0,0,0,0.5);
 }
 
-.cs--max { border-radius: 0; border: none; z-index: 210; }
+.cs--max { border-radius: 0; border: none; z-index: 230; overflow: hidden; }
 
 /* ═══════ BACKGROUND ═══════ */
 .cs__bg {
@@ -95,7 +96,7 @@
   border: none; background: rgba(255,255,255,0.04);
   color: rgba(255,255,255,0.3);
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: all 0.12s;
+  transition: background 0.12s, color 0.12s;
 }
 .cs__max:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
 
@@ -200,7 +201,7 @@
   justify-content: center;
   gap: 2px;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: background 0.12s, color 0.12s, transform 0.12s, box-shadow 0.12s;
   position: relative;
   background: rgba(255,255,255,0.06);
   backdrop-filter: blur(8px);
@@ -228,13 +229,13 @@
 .cs--compact .cs__btn--end { width: 42px; height: 42px; }
 .cs__btn--end:hover { box-shadow: 0 6px 28px rgba(239,68,68,0.35); background: #dc2626; }
 
+/* [Баг #29] Подписи кнопок — normal flow вместо absolute, чтобы не обрезались */
 .cs__btn-label {
   font-size: 8px;
   font-weight: 600;
   color: rgba(255,255,255,0.25);
-  position: absolute;
-  bottom: -16px;
   white-space: nowrap;
+  margin-top: -2px;
 }
 
 /* ═══════ QUALITY PANEL ═══════ */
@@ -284,7 +285,7 @@
   font-size: 10px; font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.1s;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
   text-align: center;
 }
 .cs__qo:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); }
@@ -294,11 +295,11 @@
   color: #c8ff00;
 }
 
-[data-theme="light"] .cs__quality { background: rgba(255,255,255,0.92); border-color: rgba(0,0,0,0.06); }
-[data-theme="light"] .cs__quality-label { color: rgba(0,0,0,0.3); }
-[data-theme="light"] .cs__qo { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.04); color: rgba(0,0,0,0.4); }
-[data-theme="light"] .cs__qo:hover { background: rgba(0,0,0,0.04); }
-[data-theme="light"] .cs__qo--on { background: rgba(74,140,0,0.06); border-color: rgba(74,140,0,0.12); color: var(--accent); }
+[data-theme="light"] .cs__quality { background: var(--light-surface, #ffffff); border-color: var(--light-border, #e5e7eb); }
+[data-theme="light"] .cs__quality-label { color: var(--light-text-tertiary, #9ca3af); }
+[data-theme="light"] .cs__qo { background: var(--light-surface-hover, #f0f2f5); border-color: var(--light-border, #e5e7eb); color: var(--light-text-secondary, #4b5563); }
+[data-theme="light"] .cs__qo:hover { background: var(--bg-input); }
+[data-theme="light"] .cs__qo--on { background: var(--light-accent-tint, #f5f3ff); border-color: rgba(124,58,237,0.2); color: var(--accent); }
 
 /* ═══════ VIDEO ZONES ═══════ */
 
@@ -332,10 +333,67 @@
   min-height: 0;
 }
 
+/* [Баг #34] object-fit: contain — не обрезать лицо при нестандартном aspect ratio */
 .cs__remote-video {
   width: 100%; height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 16px;
+  background: #0a0816;
+}
+
+/* [Баг #33] Кнопка fullscreen для экрана */
+.cs__screen-fs {
+  position: absolute;
+  bottom: 8px; right: 8px;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+.cs__screen-zone:hover .cs__screen-fs { opacity: 1; }
+.cs__screen-fs:hover { background: rgba(0,0,0,0.7); color: #fff; }
+
+/* Индикатор загрузки удалённого видео */
+.cs__video-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10,8,18,0.6);
+  z-index: 2;
+}
+.cs__video-spinner {
+  width: 28px; height: 28px;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-top-color: rgba(200,255,0,0.6);
+  border-radius: 50%;
+  animation: csSpin 0.8s linear infinite;
+}
+@keyframes csSpin { to { transform: rotate(360deg); } }
+
+/* Ошибка доступа к камере/экрану */
+.cs__media-error {
+  position: absolute;
+  top: 42px; left: 12px; right: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.2);
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 600;
+  z-index: 20;
+  cursor: pointer;
+  text-align: center;
 }
 
 /* PiP — small local camera in corner */
@@ -388,18 +446,19 @@
 
 /* ═══════ LIGHT THEME ═══════ */
 [data-theme="light"] .cs {
-  background: rgba(245,243,250,0.92);
-  border-color: rgba(0,0,0,0.06);
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
   box-shadow: 0 32px 80px rgba(0,0,0,0.12);
 }
 
-[data-theme="light"] .cs__bg { brightness: 0.6; }
-[data-theme="light"] .cs__overlay { background: radial-gradient(ellipse at 50% 35%, transparent 20%, rgba(245,243,250,0.5) 70%); }
-[data-theme="light"] .cs__status { color: rgba(0,0,0,0.4); }
+/* [Баг #37] brightness — не CSS-свойство, исправлено на filter */
+[data-theme="light"] .cs__bg { filter: blur(50px) saturate(1.3) brightness(0.6); }
+[data-theme="light"] .cs__overlay { background: radial-gradient(ellipse at 50% 35%, transparent 20%, rgba(255,255,255,0.5) 70%); }
+[data-theme="light"] .cs__status { color: var(--light-text-secondary, #4b5563); }
 [data-theme="light"] .cs__time { color: rgba(22,163,74,0.6); }
-[data-theme="light"] .cs__max { background: rgba(0,0,0,0.04); color: rgba(0,0,0,0.3); }
-[data-theme="light"] .cs__name { color: rgba(0,0,0,0.85); text-shadow: none; }
-[data-theme="light"] .cs__label { color: rgba(0,0,0,0.35); }
-[data-theme="light"] .cs__btn { background: rgba(0,0,0,0.04); color: rgba(0,0,0,0.5); border-color: rgba(0,0,0,0.04); }
-[data-theme="light"] .cs__btn:hover { background: rgba(0,0,0,0.07); }
-[data-theme="light"] .cs__btn-label { color: rgba(0,0,0,0.25); }
+[data-theme="light"] .cs__max { background: var(--bg-input); color: var(--light-text-tertiary, #9ca3af); }
+[data-theme="light"] .cs__name { color: var(--light-text-primary, #111827); text-shadow: none; }
+[data-theme="light"] .cs__label { color: var(--light-text-tertiary, #9ca3af); }
+[data-theme="light"] .cs__btn { background: var(--bg-input); color: var(--light-text-secondary, #4b5563); border-color: var(--light-border, #e5e7eb); }
+[data-theme="light"] .cs__btn:hover { background: var(--light-border, #e5e7eb); }
+[data-theme="light"] .cs__btn-label { color: var(--light-text-tertiary, #9ca3af); }

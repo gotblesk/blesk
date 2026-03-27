@@ -303,11 +303,15 @@ router.delete('/:friendId', authenticate, async (req, res) => {
 
     await prisma.friendRequest.delete({ where: { id: request.id } });
 
-    // Оповестить обоих пользователей об удалении из друзей
+    // [CRIT-4] Оповестить ТОЛЬКО двух пользователей (не broadcast всем)
     const io = req.app.locals.io;
     if (io) {
       const otherUserId = request.senderId === req.userId ? request.receiverId : request.senderId;
-      io.emit('friend:removed', { userId: req.userId, friendId: otherUserId });
+      for (const [, s] of io.sockets.sockets) {
+        if (s.userId === req.userId || s.userId === otherUserId) {
+          s.emit('friend:removed', { userId: req.userId, friendId: otherUserId });
+        }
+      }
     }
 
     res.json({ ok: true });

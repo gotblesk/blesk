@@ -114,6 +114,11 @@ export default function SpotlightSearch({ open, onClose, onNavigate, onOpenChat 
           </div>
         )}
 
+        {/* [EMPTY-1] Empty state для поиска */}
+        {results.length === 0 && query?.trim().length > 0 && (
+          <div className="spotlight__empty">Ничего не найдено</div>
+        )}
+
         <div className="spotlight__footer">
           <span className="spotlight__hint-key">Enter</span> выбрать
           <span className="spotlight__hint-key">Esc</span> закрыть

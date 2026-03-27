@@ -163,22 +163,22 @@
 
 /* Light theme */
 [data-theme="light"] .chat-row:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--light-surface-hover, #f0f2f5);
 }
 
 [data-theme="light"] .chat-row:active {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--bg-input);
 }
 
 [data-theme="light"] .chat-row--open {
-  background: rgba(74, 140, 0, 0.1);
-  border-color: rgba(74, 140, 0, 0.2);
+  background: var(--light-accent-tint, #f5f3ff);
+  border-color: rgba(124, 58, 237, 0.2);
 }
 
 [data-theme="light"] .chat-row__time {
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .chat-card__group-circle {
-  border-color: rgba(0, 0, 0, 0.12);
+  border-color: var(--light-border, #e5e7eb);
 }

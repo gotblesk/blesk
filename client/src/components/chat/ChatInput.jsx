@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowUp, Paperclip, Smile, Mic, X } from 'lucide-react';
+import { ArrowUp, Paperclip, X, Smile, Mic } from 'lucide-react';
+import Picker from '@emoji-mart/react';
+import data from '@emoji-mart/data';
 import AttachmentPreview from './AttachmentPreview';
 import { soundSend } from '../../utils/sounds';
+import { useSettingsStore } from '../../store/settingsStore';
 import './ChatInput.css';
 
 export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTypingStop, replyTo, onCancelReply, editingMsg, onCancelEdit }) {
@@ -9,8 +12,11 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
   const [dragOver, setDragOver] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [isFocused, setIsFocused] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
 
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef(null);
@@ -18,6 +24,11 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const fileInputRef = useRef(null);
   const sendBtnRef = useRef(null);
   const blurTimeoutRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
+
+  const theme = useSettingsStore(s => s.theme);
 
   // Очистить typing timeout при unmount
   useEffect(() => {
@@ -34,8 +45,25 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         onTypingStop?.();
         typingRef.current = false;
       }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream?.getTracks().forEach(t => t.stop());
+      }
+      clearInterval(recordingTimerRef.current);
     };
   }, [onTypingStop]);
+
+  // Закрыть emoji picker при клике вне
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.chat-input__emoji-picker') && !e.target.closest('.chat-input__tool-btn')) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
 
   // Если есть replyTo — раскрыть и фокус
   useEffect(() => {
@@ -138,10 +166,19 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     clearTimeout(typingTimeoutRef.current);
   };
 
+  // [IMP-5] getState() вместо подписки — не вызывает ре-рендер
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    if (e.key === 'Enter') {
+      const enterToSend = useSettingsStore.getState().enterToSend;
+      if (enterToSend && !e.shiftKey) {
+        // Enter = отправка, Shift+Enter = новая строка
+        e.preventDefault();
+        handleSend();
+      } else if (!enterToSend && (e.ctrlKey || e.metaKey)) {
+        // Ctrl+Enter = отправка, Enter = новая строка
+        e.preventDefault();
+        handleSend();
+      }
     }
     if (e.key === 'Escape' && editingMsg) {
       onCancelEdit?.();
@@ -217,12 +254,102 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
 
   const handleBlur = () => {
     setIsFocused(false);
-    // Сворачиваем только если пустой текст и нет файлов
-    blurTimeoutRef.current = setTimeout(() => {
-      if (!text.trim() && !pendingFiles.length) {
-        setIsExpanded(false);
-      }
-    }, 200);
+  };
+
+  // Emoji picker
+  const handleEmojiSelect = (emoji) => {
+    const sym = emoji.native;
+    if (!sym) return;
+    const el = inputRef.current;
+    if (el) {
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const newText = text.slice(0, start) + sym + text.slice(end);
+      setText(newText);
+      setTimeout(() => {
+        el.selectionStart = el.selectionEnd = start + sym.length;
+        el.focus();
+      }, 0);
+    } else {
+      setText(prev => prev + sym);
+    }
+  };
+
+  // Voice recording
+  const formatRecordTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // [Баг #36] Максимальная длина голосового сообщения — 5 минут
+  const MAX_VOICE_DURATION = 300;
+
+  const startRecording = async () => {
+    try {
+      // [Баг #11] Полные audio constraints — как в useVoice.getLocalStream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+        },
+      });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+        onSendFiles?.([file], '');
+        stream.getTracks().forEach(t => t.stop());
+        setRecordingTime(0);
+        clearInterval(recordingTimerRef.current);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(t => {
+          // [Баг #36] Автоостановка при достижении максимальной длины
+          if (t + 1 >= MAX_VOICE_DURATION) {
+            stopRecording();
+            return t;
+          }
+          return t + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error('Mic access denied:', err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    clearInterval(recordingTimerRef.current);
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream?.getTracks().forEach(t => t.stop());
+    }
+    setIsRecording(false);
+    setRecordingTime(0);
+    clearInterval(recordingTimerRef.current);
+    audioChunksRef.current = [];
   };
 
   return (
@@ -261,9 +388,9 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       {/* Превью редактирования */}
       {editingMsg && (
         <div className="chat-input__reply-preview">
-          <div className="chat-input__reply-bar" style={{ background: '#f59e0b' }} />
+          <div className="chat-input__reply-bar" style={{ background: 'var(--edit-color)' }} />
           <div>
-            <div className="chat-input__reply-name" style={{ color: '#f59e0b' }}>Редактирование</div>
+            <div className="chat-input__reply-name" style={{ color: 'var(--edit-color)' }}>Редактирование</div>
             <div className="chat-input__reply-text">
               {editingMsg.text?.slice(0, 60) || ''}
               {editingMsg.text && editingMsg.text.length > 60 ? '...' : ''}
@@ -284,21 +411,45 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         onChange={handleFileSelect}
       />
 
+      {/* Emoji picker popup */}
+      {showEmojiPicker && (
+        <div className="chat-input__emoji-picker">
+          <Picker
+            data={data}
+            onEmojiSelect={handleEmojiSelect}
+            theme={theme === 'dark' ? 'dark' : 'light'}
+            locale="ru"
+            previewPosition="none"
+            skinTonePosition="search"
+            set="native"
+            perLine={8}
+            maxFrequentRows={2}
+          />
+        </div>
+      )}
+
       {/* Morph container — grid stack for crossfade */}
       <div className="chat-input-morph">
-        {/* Compact state */}
-        <div
-          className={`chat-input-compact ${isExpanded ? 'chat-input-compact--hidden' : ''}`}
-          onClick={expandAndFocus}
-        >
-          <span className="chat-input-compact__hint">Написать...</span>
-          <button className="chat-input-compact__mic" onClick={(e) => e.stopPropagation()}>
-            <Mic />
-          </button>
-        </div>
+        {/* Recording state */}
+        {isRecording && (
+          <div className="chat-input__recording">
+            <div className="chat-input__recording-dot" />
+            <span className="chat-input__recording-time">{formatRecordTime(recordingTime)}</span>
+            <span className="chat-input__recording-label">Запись...</span>
+            <div className="chat-input__recording-actions">
+              <button className="chat-input__recording-cancel" onClick={cancelRecording} title="Отменить">
+                <X size={16} />
+              </button>
+              <button className="chat-input__recording-stop" onClick={stopRecording} title="Отправить">
+                <ArrowUp size={16} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Expanded state */}
-        <div className={`chat-input-expanded ${isExpanded ? 'chat-input-expanded--visible' : ''}`}>
+        {!isRecording && (
+        <div className={`chat-input-expanded chat-input-expanded--visible`}>
           <div className={`chat-input__outer ${isFocused ? 'chat-input__outer--focused' : ''}`}>
             <div className="chat-input__inner">
               <textarea
@@ -315,15 +466,28 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
               />
               <div className="chat-input__tools">
                 <button
+                  className={`chat-input__tool-btn ${showEmojiPicker ? 'chat-input__tool-btn--active' : ''}`}
+                  onClick={() => setShowEmojiPicker(v => !v)}
+                  title="Эмодзи"
+                >
+                  <Smile size={18} />
+                </button>
+                <button
                   className="chat-input__tool-btn"
                   onClick={() => fileInputRef.current?.click()}
                   title="Прикрепить файл"
                 >
                   <Paperclip />
                 </button>
-                <button className="chat-input__tool-btn" title="Эмодзи">
-                  <Smile />
-                </button>
+                {!text.trim() && !pendingFiles.length && (
+                  <button
+                    className="chat-input__tool-btn chat-input__tool-btn--mic"
+                    onClick={startRecording}
+                    title="Голосовое сообщение"
+                  >
+                    <Mic size={18} />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -331,10 +495,12 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
             ref={sendBtnRef}
             className="chat-input__send"
             onClick={handleSend}
+            aria-label="Отправить сообщение"
           >
             <ArrowUp />
           </button>
         </div>
+        )}
       </div>
     </div>
   );

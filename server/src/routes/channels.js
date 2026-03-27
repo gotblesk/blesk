@@ -8,7 +8,15 @@ const prisma = require('../db');
 const { authenticate, requireVerified } = require('../middleware/auth');
 const { validateFile } = require('../services/fileValidator');
 
+const rateLimit = require('express-rate-limit');
 const router = Router();
+
+// Rate limiter для загрузок аватаров/обложек каналов
+const channelUploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Слишком много загрузок.' },
+});
 
 // Директория для аватаров каналов
 const avatarDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
@@ -95,7 +103,11 @@ router.get('/', async (req, res) => {
       channelMeta: { isPublic: true },
     };
 
+    // [IMP-3] Валидация категории против whitelist
     if (category && category !== 'all') {
+      if (!VALID_CATEGORIES.includes(category)) {
+        return res.status(400).json({ error: 'Недопустимая категория' });
+      }
       where.channelMeta.category = category;
     }
 
@@ -188,6 +200,15 @@ router.get('/:id', async (req, res) => {
       where: { channelId_userId: { channelId: id, userId } },
     });
 
+    // [CRIT-1] Приватный канал — доступ только для owner/подписчиков/участников
+    if (channel.channelMeta && !channel.channelMeta.isPublic) {
+      const hasAccess = channel.ownerId === userId || !!subscription ||
+        !!(await prisma.roomParticipant.findUnique({
+          where: { roomId_userId: { roomId: id, userId } },
+        }));
+      if (!hasAccess) return res.status(403).json({ error: 'Нет доступа к приватному каналу' });
+    }
+
     res.json({
       ...channel,
       isSubscribed: !!subscription,
@@ -208,13 +229,26 @@ router.post('/', requireVerified, async (req, res) => {
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Название канала обязательно' });
     }
-
+    // [IMP-4] Минимальная длина
+    if (name.trim().length < 2) {
+      return res.status(400).json({ error: 'Название слишком короткое (мин 2)' });
+    }
     if (name.trim().length > 64) {
       return res.status(400).json({ error: 'Название слишком длинное (макс 64)' });
+    }
+    // [IMP-3] Валидация длины описания
+    if (description && description.length > 500) {
+      return res.status(400).json({ error: 'Описание слишком длинное (макс 500)' });
     }
 
     if (category && !VALID_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: 'Недопустимая категория канала' });
+    }
+
+    // [CRIT-4] Лимит каналов на пользователя
+    const ownedCount = await prisma.room.count({ where: { type: 'channel', ownerId: userId } });
+    if (ownedCount >= 10) {
+      return res.status(400).json({ error: 'Достигнут лимит каналов (макс. 10)' });
     }
 
     // Создать Room + ChannelMeta + RoomParticipant в транзакции
@@ -279,7 +313,10 @@ router.patch('/:id', async (req, res) => {
       }
       updates.name = name.trim();
     }
-    if (description !== undefined) metaUpdates.description = description.trim();
+    if (description !== undefined) {
+      if (description.length > 500) return res.status(400).json({ error: 'Описание слишком длинное (макс 500)' });
+      metaUpdates.description = description.trim();
+    }
     if (category) {
       if (!VALID_CATEGORIES.includes(category)) {
         return res.status(400).json({ error: 'Недопустимая категория канала' });
@@ -304,7 +341,8 @@ router.patch('/:id', async (req, res) => {
 });
 
 // ─── POST /:id/avatar — загрузить аватар канала (owner) ───
-router.post('/:id/avatar', channelImageUpload.single('avatar'), async (req, res) => {
+// [CRIT-3] channelUploadLimiter вместо chatLimiter для загрузок
+router.post('/:id/avatar', channelUploadLimiter, channelImageUpload.single('avatar'), async (req, res) => {
   try {
     const userId = req.userId;
     const { id } = req.params;
@@ -354,7 +392,7 @@ router.post('/:id/avatar', channelImageUpload.single('avatar'), async (req, res)
 });
 
 // ─── POST /:id/cover — загрузить обложку канала (owner) ───
-router.post('/:id/cover', channelImageUpload.single('cover'), async (req, res) => {
+router.post('/:id/cover', channelUploadLimiter, channelImageUpload.single('cover'), async (req, res) => {
   try {
     const userId = req.userId;
     const { id } = req.params;
@@ -416,6 +454,11 @@ router.post('/:id/subscribe', async (req, res) => {
     });
     if (!channel || channel.type !== 'channel') {
       return res.status(404).json({ error: 'Канал не найден' });
+    }
+
+    // [CRIT-2] Приватный канал — нельзя подписаться без приглашения
+    if (channel.channelMeta && !channel.channelMeta.isPublic && channel.ownerId !== userId) {
+      return res.status(403).json({ error: 'Нельзя подписаться на приватный канал без приглашения' });
     }
 
     // Проверить нет ли уже подписки
@@ -524,9 +567,10 @@ router.get('/:id/posts', async (req, res) => {
 
     // Запрос постов с курсором
     const where = { roomId: id };
-    if (before) {
+    // [IMP-6] Строгая валидация курсора
+    if (before && typeof before === 'string') {
       const d = new Date(before);
-      if (!isNaN(d.getTime())) {
+      if (!isNaN(d.getTime()) && d.getTime() > 0 && d <= new Date()) {
         where.createdAt = { lt: d };
       }
     }

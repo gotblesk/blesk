@@ -9,5 +9,5 @@
 .media-msg__download { color: var(--accent); flex-shrink: 0; padding: 4px; border-radius: 6px; transition: background 0.15s; display: flex; }
 .media-msg__download:hover { background: rgba(200,255,0,0.1); }
 
-[data-theme="light"] .media-msg__file { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); }
-[data-theme="light"] .media-msg__download:hover { background: rgba(74,140,0,0.1); }
+[data-theme="light"] .media-msg__file { background: var(--light-surface-hover, #f0f2f5); border-color: var(--light-border, #e5e7eb); }
+[data-theme="light"] .media-msg__download:hover { background: rgba(124,58,237,0.1); }

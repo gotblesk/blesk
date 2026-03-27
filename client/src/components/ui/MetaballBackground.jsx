@@ -123,22 +123,24 @@ const fragmentShader = `
 
       vec3 surface = blobCol * (diff * 0.4 + 0.1) + rim * blobCol * 0.3;
       surface *= uSubtle;
-      // Смешать с фоном — в светлой теме шары полупрозрачные
+      // Смешать с фоном — в светлой теме шары почти невидимые
       float bgLum = dot(uBgColor, vec3(0.299, 0.587, 0.114));
-      float blobAlpha = bgLum > 0.5 ? 0.3 : 1.0;
+      float blobAlpha = bgLum > 0.5 ? 0.015 : 1.0;
       col = mix(uBgColor, surface, blobAlpha);
     } else {
       // Glow around metaballs (soft falloff)
       float bgLum2 = dot(uBgColor, vec3(0.299, 0.587, 0.114));
-      float glowMult = bgLum2 > 0.5 ? 0.05 : 0.15; // Слабее в светлой теме
+      float glowMult = bgLum2 > 0.5 ? 0.004 : 0.15;
       float glow = exp(-d * 1.5) * glowMult * uSubtle;
       float time = uTime * 0.3;
       vec3 glowCol = mix(uColor1, uColor2, sin(time) * 0.5 + 0.5);
       col += glowCol * glow;
     }
 
-    // Vignette
-    float vig = 1.0 - length(vUv - 0.5) * 0.8;
+    // Vignette — почти отключена в светлой теме
+    float bgLumV = dot(uBgColor, vec3(0.299, 0.587, 0.114));
+    float vigStrength = bgLumV > 0.5 ? 0.03 : 0.8;
+    float vig = 1.0 - length(vUv - 0.5) * vigStrength;
     col *= vig;
 
     // Dithering to prevent color banding
@@ -153,6 +155,9 @@ const fragmentShader = `
 // Целевые цвета для плавной интерполяции (мутабельные)
 const targetColor1 = new THREE.Color().setHSL(0.22, 0.7, 0.45);
 const targetColor2 = new THREE.Color().setHSL(0.52, 0.6, 0.4);
+// [IMP-1] Light theme constants — hoisted чтобы не аллоцировать 120 раз/сек в useFrame
+const LIGHT_C1 = new THREE.Color('#a78bfa');
+const LIGHT_C2 = new THREE.Color('#818cf8');
 // Дефолтные цвета (иммутабельные копии)
 const DEFAULT_C1_H = 0.22, DEFAULT_C1_S = 0.7, DEFAULT_C1_L = 0.45;
 const DEFAULT_C2_H = 0.52, DEFAULT_C2_S = 0.6, DEFAULT_C2_L = 0.4;
@@ -161,15 +166,19 @@ function MetaballScene({ ambientHue, subtle, theme }) {
   const meshRef = useRef();
   const { size } = useThree();
 
+  // Инициализируем цвета под текущую тему сразу
+  const initTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  const initIsLight = initTheme === 'light';
+
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2(size.width, size.height) },
     uMouse: { value: new THREE.Vector2(0, 0) },
-    uColor1: { value: new THREE.Color('#c8ff00').multiplyScalar(0.5) }, // green
-    uColor2: { value: new THREE.Color('#00d4ff').multiplyScalar(0.4) }, // cyan
-    uColor3: { value: new THREE.Color('#ff006a').multiplyScalar(0.4) }, // pink
+    uColor1: { value: initIsLight ? new THREE.Color('#a78bfa') : new THREE.Color('#c8ff00').multiplyScalar(0.5) },
+    uColor2: { value: initIsLight ? new THREE.Color('#818cf8') : new THREE.Color('#00d4ff').multiplyScalar(0.4) },
+    uColor3: { value: initIsLight ? new THREE.Color('#c084fc') : new THREE.Color('#ff006a').multiplyScalar(0.4) },
     uSubtle: { value: subtle ? 0.5 : 0.8 },
-    uBgColor: { value: new THREE.Color(0.031, 0.024, 0.059) },
+    uBgColor: { value: initIsLight ? new THREE.Color(0.941, 0.949, 0.961) : new THREE.Color(0.031, 0.024, 0.059) },
   }), []);
 
   // Mouse tracking
@@ -208,14 +217,23 @@ function MetaballScene({ ambientHue, subtle, theme }) {
     if (!meshRef.current) return;
     const mat = meshRef.current.material;
     mat.uniforms.uTime.value += delta;
-    // Плавный переход цвета фона при смене темы
-    const targetBg = getTheme() === 'light'
-      ? { r: 0.929, g: 0.918, b: 0.953 } // #edeaf3
+    // Переход цвета фона при смене темы
+    const curThemeNow = getTheme();
+    const targetBg = curThemeNow === 'light'
+      ? { r: 0.941, g: 0.949, b: 0.961 } // #f0f2f5
       : { r: 0.031, g: 0.024, b: 0.059 }; // #08060f
     const bg = mat.uniforms.uBgColor.value;
-    bg.r += (targetBg.r - bg.r) * 0.15;
-    bg.g += (targetBg.g - bg.g) * 0.15;
-    bg.b += (targetBg.b - bg.b) * 0.15;
+    const bgDist = Math.abs(bg.r - targetBg.r) + Math.abs(bg.g - targetBg.g) + Math.abs(bg.b - targetBg.b);
+    if (bgDist > 0.3) {
+      // Большая разница = тема только что сменилась — быстрый переход
+      bg.r += (targetBg.r - bg.r) * 0.5;
+      bg.g += (targetBg.g - bg.g) * 0.5;
+      bg.b += (targetBg.b - bg.b) * 0.5;
+    } else {
+      bg.r += (targetBg.r - bg.r) * 0.15;
+      bg.g += (targetBg.g - bg.g) * 0.15;
+      bg.b += (targetBg.b - bg.b) * 0.15;
+    }
     // Smooth mouse lerp
     mat.uniforms.uMouse.value.x += (mousePos.x - mat.uniforms.uMouse.value.x) * 0.05;
     mat.uniforms.uMouse.value.y += (mousePos.y - mat.uniforms.uMouse.value.y) * 0.05;
@@ -227,18 +245,18 @@ function MetaballScene({ ambientHue, subtle, theme }) {
       prevThemeRef.current = curTheme;
       // Мгновенный переход цветов при смене темы
       if (isLight) {
-        mat.uniforms.uColor1.value.set('#b8e060');
-        mat.uniforms.uColor2.value.set('#7ec8e3');
-        mat.uniforms.uColor3.value.set('#d4a0e0');
+        mat.uniforms.uColor1.value.set('#a78bfa');
+        mat.uniforms.uColor2.value.set('#818cf8');
+        mat.uniforms.uColor3.value.set('#c084fc');
       } else {
         mat.uniforms.uColor1.value.copy(targetColor1);
         mat.uniforms.uColor2.value.copy(targetColor2);
       }
     } else {
-      // Обычный медленный lerp между ambient hue цветами
+      // [IMP-1] Hoisted constants — не аллоцировать в useFrame
       if (isLight) {
-        mat.uniforms.uColor1.value.lerp(new THREE.Color('#b8e060'), 0.02);
-        mat.uniforms.uColor2.value.lerp(new THREE.Color('#7ec8e3'), 0.02);
+        mat.uniforms.uColor1.value.lerp(LIGHT_C1, 0.02);
+        mat.uniforms.uColor2.value.lerp(LIGHT_C2, 0.02);
       } else {
         mat.uniforms.uColor1.value.lerp(targetColor1, 0.02);
         mat.uniforms.uColor2.value.lerp(targetColor2, 0.02);

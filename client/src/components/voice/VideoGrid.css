@@ -145,13 +145,13 @@
 
 /* ─── Light Theme ─── */
 [data-theme="light"] .vg {
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--light-surface-hover, #f0f2f5);
 }
 
 [data-theme="light"] .vg__cam-tile {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg-input);
 }
 
 [data-theme="light"] .vg__pip {
-  border-color: rgba(0, 0, 0, 0.12);
+  border-color: var(--light-border, #e5e7eb);
 }

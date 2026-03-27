@@ -6,9 +6,10 @@ import { useCallStore } from '../store/callStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { getCurrentUserId } from '../utils/auth';
-import { decryptMessage, fetchPublicKey } from '../utils/cryptoService';
+import { decryptMessage, fetchPublicKey, invalidateUserKeys } from '../utils/cryptoService';
+import { shieldDecrypt, replenishOPKs } from '../utils/shieldService';
 import API_URL from '../config';
-import { soundReceive, soundNotification, soundRingtoneStart, soundRingtoneStop, soundCallAccepted, soundCallEnded } from '../utils/sounds';
+import { soundReceive, soundNotification, soundRingtoneStart, soundRingtoneStop, soundCallAccepted, soundCallEnded, soundCallDeclined } from '../utils/sounds';
 
 export function useSocket() {
   const socketRef = useRef(null);
@@ -22,10 +23,13 @@ export function useSocket() {
 
     let hasConnectedOnce = false;
 
+    // [IMP-2] Exponential backoff для reconnect
     const socket = io(API_URL, {
       auth: { token, showOnline },
       reconnection: true,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 30000,
+      randomizationFactor: 0.5,
       reconnectionAttempts: Infinity,
     });
 
@@ -33,13 +37,32 @@ export function useSocket() {
 
     const userId = getCurrentUserId();
 
-    // Ресинк состояния при переподключении (не первый коннект)
-    socket.on('connect', () => {
+    // [CRIT-2] Отслеживание состояния подключения
+    const handleConnect = () => {
+      // Обновить состояние подключения
+      useChatStore.setState({ isConnected: true });
+
       if (hasConnectedOnce) {
+        // [CRIT-4] Ресинк: загрузить чаты + обновить открытые
         useChatStore.getState().loadChats?.();
+        // Перезагрузить сообщения для всех активных чатов (delta fetch)
+        const activeChats = useChatStore.getState().activeChats;
+        for (const chatId of activeChats) {
+          useChatStore.getState().refreshChat?.(chatId);
+        }
       }
       hasConnectedOnce = true;
-    });
+    };
+    socket.on('connect', handleConnect);
+
+    // [CRIT-2] Офлайн-индикатор + [IMP-5] Очистка звонков
+    const handleDisconnect = (reason) => {
+      useChatStore.setState({ isConnected: false });
+      // [IMP-5] Очистить состояние звонка при дисконнекте
+      useCallStore.getState().clearActiveCall();
+      useCallStore.getState().clearIncomingCall();
+    };
+    socket.on('disconnect', handleDisconnect);
 
     // При ошибке подключения — обновить токен и переподключиться
     const handleConnectError = (err) => {
@@ -62,13 +85,24 @@ export function useSocket() {
       // Расшифровать E2E сообщение от другого пользователя
       if (msg.encrypted && msg.userId !== userId) {
         try {
-          const senderPubKey = await fetchPublicKey(msg.userId);
-          if (senderPubKey) {
-            const plaintext = await decryptMessage(msg.text, senderPubKey, msg.chatId);
+          // blesk Shield (Double Ratchet) — приоритет
+          if (msg.text?.startsWith('SHIELD:1:')) {
+            const plaintext = await shieldDecrypt(msg.userId, msg.text, msg.shieldHeader);
             if (plaintext) {
               msg.text = plaintext;
             } else {
-              msg.text = 'Не удалось расшифровать';
+              msg.text = 'Не удалось расшифровать (Shield)';
+            }
+          } else {
+            // Legacy decryption
+            const senderPubKey = await fetchPublicKey(msg.userId);
+            if (senderPubKey) {
+              const plaintext = await decryptMessage(msg.text, senderPubKey, msg.chatId);
+              if (plaintext) {
+                msg.text = plaintext;
+              } else {
+                msg.text = 'Не удалось расшифровать';
+              }
             }
           }
         } catch {
@@ -82,20 +116,27 @@ export function useSocket() {
       } else {
         useChatStore.getState().receiveMessage(msg);
 
-        // Звук входящего сообщения (не для своих с другого устройства)
-        if (msg.userId !== userId) {
-          soundReceive();
+        // [CRIT-2, IMP-1] Звук — только если не DND и чат не открыт
+        const s = useSettingsStore.getState();
+        if (msg.userId !== userId && !s.dnd) {
+          const activeChats = useChatStore.getState().activeChats;
+          const chatId = msg.chatId || msg.roomId;
+          // Не играть звук если пользователь сейчас в этом чате и окно видимо
+          if (!activeChats.has(chatId) || document.hidden) {
+            soundReceive();
+          }
         }
 
-        // Уведомления для входящих сообщений
-        const s = useSettingsStore.getState();
-        if (s.notifications && s.notifMessages && document.hidden) {
-          try {
-            new Notification(msg.user?.username || 'blesk', {
-              body: msg.encrypted ? 'Зашифрованное сообщение' : (msg.text?.slice(0, 100) || 'Новое сообщение'),
-              silent: !s.sounds,
-            });
-          } catch { /* Notification API недоступен */ }
+        // Уведомления через main process (работают в трее)
+        if (s.notifications && s.notifMessages && !s.dnd && document.hidden) {
+          const title = msg.user?.username || 'blesk';
+          const body = msg.encrypted ? 'Зашифрованное сообщение' : (msg.text?.slice(0, 100) || 'Новое сообщение');
+          // [IMP-4] Передать silent флаг
+          if (window.blesk?.notify) {
+            window.blesk.notify(title, body, msg.chatId || msg.roomId, !s.sounds);
+          } else {
+            try { new Notification(title, { body, silent: !s.sounds }); } catch {}
+          }
         }
       }
     };
@@ -106,14 +147,33 @@ export function useSocket() {
     };
 
     // ═══ Редактирование/удаление сообщений ═══
-    const handleMessageEdited = ({ messageId, chatId, text, editedAt }) => {
+    // [E2E] Расшифровать отредактированные E2E сообщения
+    const handleMessageEdited = async ({ messageId, chatId, text, encrypted, editedAt }) => {
+      let decryptedText = text;
+      if (encrypted) {
+        try {
+          // Найти отправителя сообщения из store
+          const msgs = useChatStore.getState().messages[chatId];
+          const originalMsg = msgs?.find((m) => m.id === messageId);
+          if (originalMsg && originalMsg.userId !== userId) {
+            const senderPubKey = await fetchPublicKey(originalMsg.userId);
+            if (senderPubKey) {
+              const plain = await decryptMessage(text, senderPubKey, chatId);
+              if (plain) decryptedText = plain;
+              else decryptedText = 'Не удалось расшифровать';
+            }
+          }
+        } catch {
+          decryptedText = 'Ошибка расшифровки';
+        }
+      }
       useChatStore.setState((state) => {
         const msgs = state.messages[chatId];
         if (!msgs) return state;
         return {
           messages: {
             ...state.messages,
-            [chatId]: msgs.map((m) => m.id === messageId ? { ...m, text, editedAt } : m),
+            [chatId]: msgs.map((m) => m.id === messageId ? { ...m, text: decryptedText, editedAt, encrypted: encrypted || m.encrypted } : m),
           },
         };
       });
@@ -145,6 +205,11 @@ export function useSocket() {
       if (uid && avatar) {
         useChatStore.getState().updateUserAvatar(uid, avatar);
       }
+    };
+
+    // [E2E] Инвалидация кеша ключей при смене ключа собеседника
+    const handleUserKeyChanged = ({ userId: uid }) => {
+      if (uid) invalidateUserKeys(uid);
     };
 
     // Удаление из друзей — перезагрузить чаты
@@ -189,10 +254,31 @@ export function useSocket() {
       }
     };
 
+    // [IMP-8] Read Receipts — O(N) с Set вместо O(N×M)
+    const handleMessageReadBy = ({ chatId, messageIds, userId: readerId }) => {
+      useChatStore.setState((state) => {
+        const msgs = state.messages[chatId];
+        if (!msgs) return state;
+        const idsSet = new Set(messageIds);
+        return {
+          messages: {
+            ...state.messages,
+            [chatId]: msgs.map(m => {
+              if (!idsSet.has(m.id)) return m;
+              if (m.readBy?.includes(readerId)) return m; // Уже прочитано
+              return { ...m, readBy: [...(m.readBy || []), readerId] };
+            }),
+          },
+        };
+      });
+    };
+
     // ═══ Уведомления ═══
     const handleNotificationNew = (notification) => {
       useNotificationStore.getState().addNotification(notification);
       const ns = useSettingsStore.getState();
+      // [CRIT-3] DND подавляет все звуки уведомлений
+      if (ns.dnd) return;
       const type = notification.type;
       if (type === 'friend_request' && !ns.notifFriends) return;
       if (type === 'mention' && !ns.notifMentions) return;
@@ -201,18 +287,31 @@ export function useSocket() {
 
     // ═══ Звонки ═══
     const handleCallIncoming = (data) => {
-      useCallStore.getState().setIncomingCall(data);
+      // [Баг #2] Игнорировать входящий звонок если уже в звонке
+      const store = useCallStore.getState();
+      if (store.activeCall) return;
+      store.setIncomingCall(data);
       soundRingtoneStart();
     };
 
-    const handleCallAccepted = ({ chatId, userId: uid }) => {
+    // [Баг #2] Сигнал "занято" — собеседник в другом звонке
+    const handleCallBusy = ({ chatId }) => {
+      soundRingtoneStop();
+      const store = useCallStore.getState();
+      if (store.activeCall?.chatId === chatId) {
+        store.clearActiveCall();
+      }
+    };
+
+    const handleCallAccepted = ({ chatId, userId: uid, startedAt }) => {
       soundRingtoneStop();
       soundCallAccepted();
       const store = useCallStore.getState();
       if (store.activeCall?.chatId === chatId) {
         store.addCallParticipant(uid);
-        if (store.activeCall.status === 'ringing') {
-          store.setActiveCall({ ...store.activeCall, status: 'active' });
+        // [Баг #18] Синхронизировать startedAt от сервера для обоих клиентов
+        if (store.activeCall.status === 'ringing' || startedAt) {
+          store.setActiveCall({ ...store.activeCall, status: 'active', startedAt: startedAt || Date.now() });
         }
       }
     };
@@ -220,6 +319,8 @@ export function useSocket() {
     const handleCallDeclined = ({ chatId }) => {
       const store = useCallStore.getState();
       if (store.activeCall?.chatId === chatId) {
+        soundRingtoneStop();
+        soundCallDeclined(); // [IMP-2] Звук отклонённого звонка
         store.clearActiveCall();
       }
     };
@@ -230,6 +331,7 @@ export function useSocket() {
       useCallStore.getState().clearIncomingCall();
     };
 
+    // [Баг #3] call:cancelled очищает входящий звонок + рингтон
     const handleCallCancelled = () => {
       soundRingtoneStop();
       useCallStore.getState().clearIncomingCall();
@@ -243,11 +345,18 @@ export function useSocket() {
       soundRingtoneStop();
       soundCallEnded();
       useCallStore.getState().clearActiveCall();
+      useCallStore.getState().clearIncomingCall(); // [Баг #3] Очистить и входящий звонок
     };
 
     const handleCallError = ({ chatId, error }) => {
       console.error('Call error:', chatId, error);
+      soundRingtoneStop();
       useCallStore.getState().clearActiveCall();
+    };
+
+    // ═══ Shield: пополнение OPK ═══
+    const handleShieldOpkLow = () => {
+      replenishOPKs(50).catch(() => {});
     };
 
     // ═══ Бан аккаунта ═══
@@ -288,16 +397,19 @@ export function useSocket() {
     socket.on('message:error', handleMessageError);
     socket.on('message:edited', handleMessageEdited);
     socket.on('message:deleted', handleMessageDeleted);
+    socket.on('message:readBy', handleMessageReadBy);
     socket.on('user:online', handleUserOnline);
     socket.on('user:offline', handleUserOffline);
     socket.on('user:statusChange', handleUserStatusChange);
     socket.on('user:updated', handleUserUpdated);
+    socket.on('user:keyChanged', handleUserKeyChanged);
     socket.on('friend:removed', handleFriendRemoved);
     socket.on('channel:deleted', handleChannelDeleted);
     socket.on('typing:start', handleTypingStart);
     socket.on('typing:stop', handleTypingStop);
     socket.on('notification:new', handleNotificationNew);
     socket.on('call:incoming', handleCallIncoming);
+    socket.on('call:busy', handleCallBusy);
     socket.on('call:accepted', handleCallAccepted);
     socket.on('call:declined', handleCallDeclined);
     socket.on('call:missed', handleCallMissed);
@@ -306,6 +418,7 @@ export function useSocket() {
     socket.on('call:ended', handleCallEnded);
     socket.on('call:error', handleCallError);
     socket.on('auth:banned', handleAuthBanned);
+    socket.on('shield:opk-low', handleShieldOpkLow);
     socket.on('group:member-added', handleGroupMemberAdded);
     socket.on('group:member-removed', handleGroupMemberRemoved);
     socket.on('group:updated', handleGroupUpdated);
@@ -315,21 +428,26 @@ export function useSocket() {
       // Очистить все таймеры typing auto-clear
       typingTimersRef.current.forEach((timer) => clearTimeout(timer));
       typingTimersRef.current.clear();
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
       socket.off('connect_error', handleConnectError);
       socket.off('message:new', handleMessageNew);
       socket.off('message:error', handleMessageError);
       socket.off('message:edited', handleMessageEdited);
       socket.off('message:deleted', handleMessageDeleted);
+      socket.off('message:readBy', handleMessageReadBy);
       socket.off('user:online', handleUserOnline);
       socket.off('user:offline', handleUserOffline);
       socket.off('user:statusChange', handleUserStatusChange);
       socket.off('user:updated', handleUserUpdated);
+      socket.off('user:keyChanged', handleUserKeyChanged);
       socket.off('friend:removed', handleFriendRemoved);
       socket.off('channel:deleted', handleChannelDeleted);
       socket.off('typing:start', handleTypingStart);
       socket.off('typing:stop', handleTypingStop);
       socket.off('notification:new', handleNotificationNew);
       socket.off('call:incoming', handleCallIncoming);
+      socket.off('call:busy', handleCallBusy);
       socket.off('call:accepted', handleCallAccepted);
       socket.off('call:declined', handleCallDeclined);
       socket.off('call:missed', handleCallMissed);
@@ -338,6 +456,7 @@ export function useSocket() {
       socket.off('call:ended', handleCallEnded);
       socket.off('call:error', handleCallError);
       socket.off('auth:banned', handleAuthBanned);
+      socket.off('shield:opk-low', handleShieldOpkLow);
       socket.off('group:member-added', handleGroupMemberAdded);
       socket.off('group:member-removed', handleGroupMemberRemoved);
       socket.off('group:updated', handleGroupUpdated);

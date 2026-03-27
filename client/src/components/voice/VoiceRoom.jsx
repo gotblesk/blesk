@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, forwardRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Maximize } from 'lucide-react';
 import { useVoiceStore } from '../../store/voiceStore';
 import UserProfileModal from '../ui/UserProfileModal';
@@ -39,7 +39,6 @@ export default function VoiceRoom({ socketRef }) {
   const [profileUserId, setProfileUserId] = useState(null);
   const popupRef = useRef(null);
   const participantRefs = useRef({});
-  const screenRef = useRef(null);
   const currentUserId = useRef(getCurrentUserId());
 
   // Клик по участнику — попап громкости (не для себя)
@@ -84,16 +83,7 @@ export default function VoiceRoom({ socketRef }) {
     return p?.username || 'Участник';
   };
 
-  // Fullscreen для screen share
-  const toggleScreenFs = useCallback(() => {
-    const el = screenRef.current;
-    if (!el) return;
-    if (document.fullscreenElement === el) {
-      document.exitFullscreen().catch(() => {});
-    } else {
-      el.requestFullscreen().catch(() => {});
-    }
-  }, []);
+  // [Баг #23] Fullscreen теперь внутри каждого ScreenShareTile (свой ref)
 
   return (
     <div className="vr">
@@ -109,13 +99,12 @@ export default function VoiceRoom({ socketRef }) {
       </div>
 
       {/* Screen share — full width 16:9 */}
+      {/* [Баг #23] Каждый ScreenShareTile имеет свой внутренний ref */}
       {screenEntries.map(({ userId, stream }) => (
         <ScreenShareTile
           key={`screen-${userId}`}
           stream={stream}
           name={getUserName(userId)}
-          ref={screenRef}
-          onFullscreen={toggleScreenFs}
         />
       ))}
 
@@ -165,7 +154,7 @@ export default function VoiceRoom({ socketRef }) {
                 style={{
                   background: getAvatarColor(getAvatarHue(peer)),
                   boxShadow: isSpeaking
-                    ? `0 0 ${14 + level * 0.3}px rgba(74, 222, 128, 0.3)`
+                    ? `0 0 ${14 + level * 0.3}px color-mix(in srgb, var(--online) 30%, transparent)`
                     : 'none',
                 }}
               >
@@ -220,9 +209,10 @@ export default function VoiceRoom({ socketRef }) {
   );
 }
 
-// Screen share tile с video ref
-const ScreenShareTile = forwardRef(function ScreenShareTile({ stream, name, onFullscreen }, ref) {
+// [Баг #23] Screen share tile с собственным внутренним ref для fullscreen
+function ScreenShareTile({ stream, name }) {
   const videoRef = useRef(null);
+  const containerRef = useRef(null);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -234,17 +224,27 @@ const ScreenShareTile = forwardRef(function ScreenShareTile({ stream, name, onFu
     };
   }, [stream]);
 
+  const toggleFs = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (document.fullscreenElement === el) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      el.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
   return (
-    <div className="vr__screen" ref={ref}>
+    <div className="vr__screen" ref={containerRef}>
       <video ref={videoRef} autoPlay playsInline />
       <div className="vr__screen-badge">
         <div className="vr__screen-rec" />
         {name} демонстрирует
       </div>
       <div className="vr__screen-name">{name} — экран</div>
-      <button className="vr__screen-fs" onClick={onFullscreen} title="Полный экран">
+      <button className="vr__screen-fs" onClick={toggleFs} title="Полный экран">
         <Maximize size={14} strokeWidth={1.5} />
       </button>
     </div>
   );
-});
+}

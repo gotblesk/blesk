@@ -59,11 +59,27 @@ contextBridge.exposeInMainWorld('blesk', {
     getSources: () => ipcRenderer.invoke('screen:getSources'),
   },
 
-  // E2E шифрование — безопасное хранение ключей
+  // E2E шифрование — безопасное хранение ключей (legacy + blesk Shield)
   crypto: {
+    // Legacy identity key
     saveSecretKey: (b64) => ipcRenderer.invoke('crypto:saveSecretKey', b64),
     getSecretKey: () => ipcRenderer.invoke('crypto:getSecretKey'),
     hasSecretKey: () => ipcRenderer.invoke('crypto:hasSecretKey'),
+    // blesk Shield — signing key (Ed25519)
+    saveSigningKey: (b64) => ipcRenderer.invoke('crypto:saveSigningKey', b64),
+    getSigningKey: () => ipcRenderer.invoke('crypto:getSigningKey'),
+    hasSigningKey: () => ipcRenderer.invoke('crypto:hasSigningKey'),
+    // blesk Shield — signed prekey (SPK)
+    saveSPK: (json) => ipcRenderer.invoke('crypto:saveSPK', json),
+    getSPK: () => ipcRenderer.invoke('crypto:getSPK'),
+    // blesk Shield — sessions per peer
+    saveSession: (peerId, json) => ipcRenderer.invoke('crypto:saveSession', peerId, json),
+    getSession: (peerId) => ipcRenderer.invoke('crypto:getSession', peerId),
+    deleteSession: (peerId) => ipcRenderer.invoke('crypto:deleteSession', peerId),
+    listSessions: () => ipcRenderer.invoke('crypto:listSessions'),
+    // blesk Shield — one-time prekeys
+    saveOPKs: (json) => ipcRenderer.invoke('crypto:saveOPKs', json),
+    getOPKs: () => ipcRenderer.invoke('crypto:getOPKs'),
   },
 
   // Безопасное открытие внешних ссылок (только http/https)
@@ -72,6 +88,49 @@ contextBridge.exposeInMainWorld('blesk', {
       ipcRenderer.send('open-external', url);
     }
   },
+
+  // [IMP-4] Системные уведомления (через main process — работают в трее)
+  notify: (title, body, chatId, silent) => {
+    ipcRenderer.send('notification:show', { title, body, chatId, silent: !!silent });
+  },
+
+  // Badge (непрочитанные в таскбаре)
+  setBadge: (count) => {
+    ipcRenderer.send('badge:update', count);
+  },
+
+  // DND sync из renderer → tray menu
+  syncDnd: (enabled) => {
+    ipcRenderer.send('dnd:sync', enabled);
+  },
+
+  // [CRIT-2] Подписки с deregister — предотвращение утечки listeners
+  onDeepLink: (() => {
+    let prev = null;
+    return (cb) => {
+      if (prev) ipcRenderer.off('deeplink:action', prev);
+      prev = (_, data) => cb(data);
+      ipcRenderer.on('deeplink:action', prev);
+    };
+  })(),
+
+  onNotificationOpenChat: (() => {
+    let prev = null;
+    return (cb) => {
+      if (prev) ipcRenderer.off('notification:open-chat', prev);
+      prev = (_, chatId) => cb(chatId);
+      ipcRenderer.on('notification:open-chat', prev);
+    };
+  })(),
+
+  onDnd: (() => {
+    let prev = null;
+    return (cb) => {
+      if (prev) ipcRenderer.off('tray:dnd', prev);
+      prev = (_, enabled) => cb(enabled);
+      ipcRenderer.on('tray:dnd', prev);
+    };
+  })(),
 
   // Платформа
   platform: process.platform,

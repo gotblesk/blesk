@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Home } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import Avatar from '../ui/Avatar';
 import './MiniCardsSidebar.css';
 
-export default function MiniCardsSidebar({ activeChatId, onSelectChat, onBack }) {
+// [IMP-4] React.memo — не ре-рендерить при изменениях в других компонентах
+export default memo(function MiniCardsSidebar({ activeChatId, onSelectChat, onBack }) {
   const chats = useChatStore(s => s.chats);
   const onlineUsers = useChatStore(s => s.onlineUsers);
   const [backHover, setBackHover] = useState(false);
@@ -131,4 +132,4 @@ export default function MiniCardsSidebar({ activeChatId, onSelectChat, onBack })
       </div>
     </div>
   );
-}
+});

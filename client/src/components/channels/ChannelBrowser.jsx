@@ -14,7 +14,7 @@ const CATEGORIES = [
   { key: 'music', label: 'Музыка', icon: Music, color: '#ec4899' },
   { key: 'art', label: 'Арт', icon: Palette, color: '#f59e0b' },
   { key: 'tech', label: 'Тех', icon: Cpu, color: '#06b6d4' },
-  { key: 'other', label: 'Ещё', icon: MoreHorizontal, color: '#6b7280' },
+  { key: 'other', label: 'Другое', icon: MoreHorizontal, color: '#6b7280' },
 ];
 
 const cardV = {
@@ -30,7 +30,7 @@ export default function ChannelBrowser({ onOpenChannel }) {
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { channels, myChannels, loadingBrowse, loadBrowse, loadMyChannels, subscribe, unsubscribe } = useChannelStore();
+  const { channels, myChannels, loadingBrowse, browseError, loadBrowse, loadMyChannels, subscribe, unsubscribe } = useChannelStore();
   const userId = getCurrentUserId();
 
   useEffect(() => { loadMyChannels(); }, [loadMyChannels]);
@@ -111,11 +111,20 @@ export default function ChannelBrowser({ onOpenChannel }) {
         </div>
       )}
 
-      {!loadingBrowse && allChannels.length === 0 && (
-        <motion.div className="mo__empty" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onClick={() => setCreateOpen(true)} style={{ cursor: 'pointer' }}>
+      {/* Error state */}
+      {browseError && !loadingBrowse && allChannels.length === 0 && (
+        <div style={{ textAlign: 'center', padding: 24, color: 'var(--danger)', fontSize: 13 }}>
+          {browseError}
+          <button onClick={() => loadBrowse({ category, search })} style={{ display: 'block', margin: '8px auto', background: 'none', border: '1px solid var(--danger)', borderRadius: 8, padding: '4px 12px', color: 'var(--danger)', cursor: 'pointer', fontSize: 12 }}>Повторить</button>
+        </div>
+      )}
+
+      {/* Empty states */}
+      {!loadingBrowse && !browseError && allChannels.length === 0 && (
+        <motion.div className="mo__empty" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onClick={search.trim() ? undefined : () => setCreateOpen(true)} style={{ cursor: search.trim() ? 'default' : 'pointer' }}>
           <div className="mo__empty-icon"><Radio size={28} strokeWidth={1.2} /></div>
-          <span>Каналы не найдены</span>
-          <span className="mo__empty-hint">Создай первый!</span>
+          <span>{search.trim() ? `Ничего не найдено по запросу «${search.trim().slice(0, 30)}»` : 'Каналы не найдены'}</span>
+          {!search.trim() && <span className="mo__empty-hint">Создай первый!</span>}
         </motion.div>
       )}
 
@@ -127,7 +136,7 @@ export default function ChannelBrowser({ onOpenChannel }) {
               variant={getVariant(ch, i)}
               isSubscribed={ch.isSub}
               isOwned={ch.isOwned}
-              onOpen={() => { if (ch.isOwned || ch.isSub) handleOpen(ch.id); }}
+              onOpen={() => handleOpen(ch.id)}
               onSubscribe={() => handleSubscribeToggle(ch)}
             />
           </motion.div>

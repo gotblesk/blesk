@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getCurrentUserId } from '../utils/auth';
 import { decryptMessage, fetchPublicKey } from '../utils/cryptoService';
+import { getCachedMessages, setCachedMessages, appendCachedMessage, updateCachedMessage, removeCachedMessage } from '../utils/messageCache';
 import API_URL from '../config';
 
 function getHeaders() {
@@ -39,6 +40,10 @@ export const useChatStore = create((set, get) => ({
   activeChats: new Set(),
   messages: {},
   loadingChats: new Set(),
+  // [CRIT-2] Состояние подключения
+  isConnected: true,
+  // [MED-4] Version counter для предотвращения stale fetch overwrite
+  _chatLoadVersions: {},
   loadingChatList: false,
   chatsInitialized: false,
   onlineUsers: [],
@@ -69,22 +74,36 @@ export const useChatStore = create((set, get) => ({
     const { messages, loadingChats } = get();
     if (messages[chatId] || loadingChats.has(chatId)) return;
 
-    set((state) => ({ loadingChats: new Set([...state.loadingChats, chatId]) }));
+    // [CRIT-3] Мгновенно загрузить из IndexedDB кеша (показать пока ждём сервер)
+    try {
+      const cached = await getCachedMessages(chatId);
+      if (cached && cached.length > 0 && !get().messages[chatId]) {
+        set((state) => ({ messages: { ...state.messages, [chatId]: cached } }));
+      }
+    } catch {}
+
+    // [MED-4] Version counter — обнаруживать stale ответы
+    const versions = get()._chatLoadVersions;
+    const loadVersion = (versions[chatId] || 0) + 1;
+    set((state) => ({
+      loadingChats: new Set([...state.loadingChats, chatId]),
+      _chatLoadVersions: { ...state._chatLoadVersions, [chatId]: loadVersion },
+    }));
 
     try {
-      const res = await fetch(`${API_URL}/api/chats/${chatId}/messages`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/chats/${chatId}/messages?limit=200`, { headers: getHeaders() });
       if (!res.ok) throw new Error();
       const msgs = await res.json();
 
+      // [MED-4] Проверить что это актуальный запрос (не stale)
+      if (get()._chatLoadVersions[chatId] !== loadVersion) return;
+
       // Расшифровать E2E сообщения из истории
-      // Для личного чата shared key одинаковый в обе стороны,
-      // но нужен публичный ключ собеседника (не свой)
       const myId = getCurrentUserId();
       const hasEncrypted = msgs.some((m) => m.encrypted);
       let otherPubKey = null;
 
       if (hasEncrypted) {
-        // Найти ID собеседника: сначала из сообщений, потом из списка чатов
         let otherUserId = msgs.find((m) => m.userId !== myId)?.userId;
         if (!otherUserId) {
           const chat = get().chats.find((c) => c.id === chatId);
@@ -107,9 +126,15 @@ export const useChatStore = create((set, get) => ({
         }
       }
 
+      // [MED-4] Финальная проверка перед записью
+      if (get()._chatLoadVersions[chatId] !== loadVersion) return;
+
       set((state) => ({
         messages: { ...state.messages, [chatId]: msgs },
       }));
+
+      // [CRIT-3] Сохранить в IndexedDB кеш
+      setCachedMessages(chatId, msgs).catch(() => {});
     } catch (err) {
       console.error('Ошибка загрузки сообщений:', err);
     } finally {
@@ -119,6 +144,28 @@ export const useChatStore = create((set, get) => ({
         return { loadingChats: next };
       });
     }
+  },
+
+  // [CRIT-4] Обновить сообщения в уже открытом чате (после reconnect)
+  refreshChat: async (chatId) => {
+    try {
+      const existing = get().messages[chatId];
+      if (!existing) return;
+      const res = await fetch(`${API_URL}/api/chats/${chatId}/messages?limit=200`, { headers: getHeaders() });
+      if (!res.ok) return;
+      const msgs = await res.json();
+      // Merge: добавить только новые сообщения (без дублирования)
+      const existingIds = new Set(existing.map(m => m.id).filter(Boolean));
+      const newMsgs = msgs.filter(m => !existingIds.has(m.id));
+      if (newMsgs.length === 0) return;
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [chatId]: [...(state.messages[chatId] || []), ...newMsgs]
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+        },
+      }));
+    } catch {}
   },
 
   closeChat: (chatId) => {
@@ -166,24 +213,35 @@ export const useChatStore = create((set, get) => ({
     }));
   },
 
-  // Пометить сообщение как ошибочное (убрать из списка)
-  // chatId — если передан, ищем только в этом чате (оптимизация)
+  // [CRIT-1] Пометить сообщение как failed (не удалять — пользователь может retry)
   failMessage: (tempId, chatId) => {
     set((state) => {
+      const markFailed = (msgs) =>
+        msgs.map((m) => m.tempId === tempId ? { ...m, pending: false, failed: true } : m);
+
       if (chatId && state.messages[chatId]) {
         return {
-          messages: {
-            ...state.messages,
-            [chatId]: state.messages[chatId].filter((m) => m.tempId !== tempId),
-          },
+          messages: { ...state.messages, [chatId]: markFailed(state.messages[chatId]) },
         };
       }
-      // Fallback: поиск по всем чатам
       const newMessages = {};
       for (const [cid, msgs] of Object.entries(state.messages)) {
-        newMessages[cid] = msgs.filter((m) => m.tempId !== tempId);
+        newMessages[cid] = markFailed(msgs);
       }
       return { messages: newMessages };
+    });
+  },
+
+  // Удалить failed сообщение вручную
+  removeFailedMessage: (tempId, chatId) => {
+    set((state) => {
+      if (!chatId || !state.messages[chatId]) return state;
+      return {
+        messages: {
+          ...state.messages,
+          [chatId]: state.messages[chatId].filter((m) => m.tempId !== tempId),
+        },
+      };
     });
   },
 
@@ -225,21 +283,47 @@ export const useChatStore = create((set, get) => ({
         chats.unshift(chat);
       }
 
+      // [CRIT-3] Кешировать новое сообщение в IndexedDB
+      appendCachedMessage(chatId, message).catch(() => {});
+
+      // [CRIT-4] Ограничить массив в памяти — не более 500 сообщений
+      let updatedMsgs = [...existing, message];
+      if (updatedMsgs.length > 500) updatedMsgs = updatedMsgs.slice(-400);
+
       return {
-        messages: { ...state.messages, [chatId]: [...existing, message] },
+        messages: { ...state.messages, [chatId]: updatedMsgs },
         chats,
       };
     });
   },
 
-  markAsRead: async (chatId) => {
+  markAsRead: async (chatId, socketRef) => {
     try {
       await fetch(`${API_URL}/api/chats/${chatId}/read`, {
         method: 'POST',
         headers: getHeaders(),
       });
+
+      // [Read Receipts] Собрать ID непрочитанных сообщений и отправить read receipt
+      const msgs = get().messages[chatId] || [];
+      const myId = getCurrentUserId();
+      const unreadIds = msgs
+        .filter(m => m.id && m.userId !== myId && !m.readBy?.includes(myId))
+        .map(m => m.id);
+
+      if (unreadIds.length > 0 && socketRef?.current) {
+        socketRef.current.emit('message:read', { chatId, messageIds: unreadIds });
+      }
+
+      // Обновить локальный readBy
       set((state) => ({
         chats: state.chats.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)),
+        messages: {
+          ...state.messages,
+          [chatId]: (state.messages[chatId] || []).map(m =>
+            unreadIds.includes(m.id) ? { ...m, readBy: [...(m.readBy || []), myId] } : m
+          ),
+        },
       }));
     } catch {}
   },

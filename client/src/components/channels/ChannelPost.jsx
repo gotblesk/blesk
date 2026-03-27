@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { Trash2 } from 'lucide-react';
 import MediaMessage from '../chat/MediaMessage';
+import API_URL from '../../config';
 import './ChannelPost.css';
 
 function formatTime(dateStr) {
@@ -21,10 +23,23 @@ function formatTime(dateStr) {
   return `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} ${time}`;
 }
 
-const ChannelPost = React.memo(function ChannelPost({ post, index = 0 }) {
+const ChannelPost = React.memo(function ChannelPost({ post, index = 0, isOwner, onDelete }) {
   const authorName = post.user?.username || post.username || 'Автор';
   const hue = (authorName.charCodeAt(0) * 37) % 360;
   const isLong = (post.text?.length || 0) > 200;
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Аватар автора
+  const avatarUrl = post.user?.avatar ? `${API_URL}/uploads/avatars/${post.user.avatar}` : null;
+
+  const handleDelete = useCallback(() => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 3000); // Сбросить через 3 сек
+      return;
+    }
+    onDelete?.(post.id);
+  }, [confirmDelete, onDelete, post.id]);
 
   return (
     <motion.article
@@ -33,17 +48,35 @@ const ChannelPost = React.memo(function ChannelPost({ post, index = 0 }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.3), ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* Left accent line from author hue */}
+      {/* Left accent line */}
       <div className="cp__accent" style={{ background: `linear-gradient(180deg, hsl(${hue}, 60%, 50%), hsl(${(hue + 30) % 360}, 50%, 35%))` }} />
 
       <div className="cp__content">
-        {/* Header: avatar + name + time */}
+        {/* Header */}
         <div className="cp__head">
-          <div className="cp__ava" style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 55%), hsl(${(hue + 40) % 360}, 60%, 45%))` }}>
-            {(authorName || '?')[0].toUpperCase()}
+          {/* Реальный аватар или fallback на initials */}
+          <div className="cp__ava" style={!avatarUrl ? { background: `linear-gradient(135deg, hsl(${hue}, 70%, 55%), hsl(${(hue + 40) % 360}, 60%, 45%))` } : {}}>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="cp__ava-img" onError={(e) => { e.target.style.display = 'none'; }} />
+            ) : null}
+            <span className="cp__ava-letter">{(authorName || '?')[0].toUpperCase()}</span>
           </div>
           <span className="cp__name">{authorName}</span>
           <span className="cp__time">{formatTime(post.createdAt)}</span>
+          {post.editedAt && <span className="cp__edited">ред.</span>}
+
+          {/* Delete action for owner */}
+          {isOwner && (
+            <button
+              className={`cp__delete ${confirmDelete ? 'cp__delete--confirm' : ''}`}
+              onClick={handleDelete}
+              title={confirmDelete ? 'Нажмите ещё раз для удаления' : 'Удалить пост'}
+              aria-label="Удалить пост"
+            >
+              <Trash2 size={13} strokeWidth={1.5} />
+              {confirmDelete && <span className="cp__delete-label">Удалить?</span>}
+            </button>
+          )}
         </div>
 
         {/* Text */}

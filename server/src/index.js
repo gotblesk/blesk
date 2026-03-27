@@ -27,7 +27,33 @@ const corsHandler = (origin, callback) => {
 
 const io = new Server(httpServer, {
   cors: { origin: corsHandler, methods: ['GET', 'POST'], credentials: true },
+  // [CRIT-3] maxHttpBufferSize для защиты от oversized payloads
+  maxHttpBufferSize: 1e6, // 1MB макс. размер WebSocket пакета
 });
+
+// [CRIT-3] Redis adapter — для горизонтального масштабирования
+// Подключается автоматически если установлена переменная REDIS_URL
+if (process.env.REDIS_URL) {
+  try {
+    const { createAdapter } = require('@socket.io/redis-adapter');
+    const { createClient } = require('redis');
+    const pubClient = createClient({ url: process.env.REDIS_URL });
+    const subClient = pubClient.duplicate();
+    Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+      io.adapter(createAdapter(pubClient, subClient));
+      console.log('Redis adapter подключён для Socket.io');
+    }).catch((err) => {
+      console.warn('Redis adapter не удалось подключить:', err.message);
+      console.log('Работаем в single-instance режиме');
+    });
+  } catch {
+    // @socket.io/redis-adapter не установлен — работаем без него
+    console.log('Socket.io: single-instance mode (Redis adapter не установлен)');
+  }
+}
+
+// Передать io в app для доступа из REST routes
+app.set('io', io);
 
 const path = require('path');
 
@@ -50,13 +76,16 @@ app.use(helmet({
 }));
 app.use(cors({ origin: corsHandler, credentials: true }));
 app.use(express.json({ limit: '100kb' }));
+// [IMP-2] Trust proxy для корректного rate limiting за Cloudflare
+app.set('trust proxy', 1);
 
-// Статика — аватары и загрузки (разрешаем cross-origin для Electron)
-app.use('/uploads', (req, res, next) => {
+// [CRIT-1] Аватары — публичные (без auth), вложения — через auth routes в upload.js
+app.use('/uploads/avatars', (req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Access-Control-Allow-Origin', '*');
   next();
-}, express.static(path.join(__dirname, '..', 'uploads')));
+}, express.static(path.join(__dirname, '..', 'uploads', 'avatars')));
+// Attachments и thumbs обслуживаются через авторизованные endpoints в upload.js
 
 // Rate limiting — раздельные лимиты
 const authLimiter = rateLimit({
@@ -103,10 +132,12 @@ const voiceRoutes = require('./routes/voice');
 const internalRoutes = require('./routes/admin');
 const uploadRoutes = require('./routes/upload');
 const channelRoutes = require('./routes/channels');
+const shieldRoutes = require('./routes/shield');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/channels', chatLimiter, channelRoutes);
-app.use('/api/chats', chatLimiter, uploadRoutes);
+// [CRIT-3] uploadLimiter вместо chatLimiter для файлов
+app.use('/api/chats', uploadLimiter, uploadRoutes);
 app.use('/api/chats', chatLimiter, chatRoutes);
 app.use('/api/users', chatLimiter, userRoutes);
 app.use('/api/notifications', chatLimiter, notificationRoutes);
@@ -114,6 +145,7 @@ app.use('/api/friends', chatLimiter, friendRoutes);
 app.use('/api/feedback', chatLimiter, feedbackRoutes);
 app.use('/api/voice', voiceLimiter, voiceRoutes);
 app.use('/api/internal', internalLimiter, internalRoutes);
+app.use('/api/shield', chatLimiter, shieldRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {
@@ -124,22 +156,65 @@ app.get('/api/health', (req, res) => {
 const { socketAuth } = require('./ws/authMiddleware');
 const { chatHandler } = require('./ws/chatHandler');
 const { voiceHandler } = require('./ws/voiceHandler');
-const { callHandler } = require('./ws/callHandler');
+const { callHandler, setUserSockets: setCallUserSockets } = require('./ws/callHandler');
 const { createWorkers } = require('./services/mediasoup');
 
 io.use(socketAuth);
 
+// [HIGH-4] Глобальный Map<userId, Set<socket>> — O(1) поиск сокетов по userId
+const userSockets = new Map();
+
+// Утилита для поиска сокетов пользователя (используется всеми handlers)
+function findUserSockets(targetUserId) {
+  return userSockets.get(targetUserId) || new Set();
+}
+function findUserSocket(targetUserId) {
+  const sockets = userSockets.get(targetUserId);
+  if (!sockets || sockets.size === 0) return null;
+  return sockets.values().next().value;
+}
+
+// Передать userSockets в callHandler для O(1) поиска
+setCallUserSockets(userSockets);
+
 io.on('connection', (socket) => {
-  console.log(`🟢 ${socket.userId} подключился`);
+  const uid = socket.userId;
+
+  // Добавить в userSockets
+  if (!userSockets.has(uid)) userSockets.set(uid, new Set());
+  userSockets.get(uid).add(socket);
+
+  socket.on('disconnect', () => {
+    const sockets = userSockets.get(uid);
+    if (sockets) {
+      sockets.delete(socket);
+      if (sockets.size === 0) userSockets.delete(uid);
+    }
+  });
+
   chatHandler(io, socket);
   voiceHandler(io, socket);
   callHandler(io, socket);
+});
+
+// [CRIT-1 A1] Глобальный Express error handler
+app.use((err, req, res, next) => {
+  console.error('Express error:', err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    error: process.env.NODE_ENV === 'production' ? 'Внутренняя ошибка сервера' : err.message,
+  });
 });
 
 // Запуск сервера с mediasoup
 const PORT = process.env.PORT || 3000;
 
 (async () => {
+  // [IMP-6 A1] Валидация ADMIN_SECRET
+  if (!process.env.ADMIN_SECRET || process.env.ADMIN_SECRET.length < 16) {
+    console.warn('WARNING: ADMIN_SECRET не задан или слишком короткий — admin broadcast отключён');
+  }
+
   try {
     await createWorkers();
     console.log('mediasoup Workers запущены');
@@ -153,11 +228,13 @@ const PORT = process.env.PORT || 3000;
   });
 })();
 
-// Глобальные обработчики ошибок — предотвращают падение сервера
+// [IMP-3 A1] Graceful crash — exit на fatal errors (PM2 перезапустит)
 process.on('uncaughtException', (err) => {
-  console.error('⚠️ Uncaught Exception:', err);
+  console.error('FATAL uncaughtException:', err);
+  process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('⚠️ Unhandled Rejection:', reason);
+  console.error('FATAL unhandledRejection:', reason);
+  process.exit(1);
 });

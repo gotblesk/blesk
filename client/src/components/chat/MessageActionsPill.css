@@ -53,17 +53,18 @@
 }
 
 [data-theme="light"] .msg-actions-pill {
-  background: rgba(255,255,255,0.8);
-  border-color: rgba(0,0,0,0.08);
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
 [data-theme="light"] .msg-actions-pill__btn {
-  color: rgba(0,0,0,0.5);
+  color: var(--light-text-secondary, #4b5563);
 }
 
 [data-theme="light"] .msg-actions-pill__btn:hover {
-  background: rgba(0,0,0,0.06);
-  color: rgba(0,0,0,0.8);
+  background: var(--light-surface-hover, #f0f2f5);
+  color: var(--light-text-primary, #111827);
 }
 
 @media (prefers-reduced-motion: reduce) {

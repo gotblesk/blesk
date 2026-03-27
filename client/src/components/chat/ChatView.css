@@ -195,6 +195,38 @@
   scroll-behavior: smooth;
 }
 
+/* Scroll-to-bottom кнопка */
+.chat-view__scroll-down {
+  position: absolute;
+  bottom: 80px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(14,12,24,0.85);
+  backdrop-filter: blur(12px);
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  transition: background 0.15s, color 0.15s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.chat-view__scroll-down:hover {
+  background: rgba(200,255,0,0.1);
+  color: var(--accent, #c8ff00);
+  border-color: rgba(200,255,0,0.2);
+}
+[data-theme="light"] .chat-view__scroll-down {
+  background: rgba(255,255,255,0.9);
+  border-color: var(--light-border, #e5e7eb);
+  color: var(--light-text-secondary, #4b5563);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
 /* Компактный режим сообщений */
 .chat-view__messages--compact {
   padding: 8px 16px;
