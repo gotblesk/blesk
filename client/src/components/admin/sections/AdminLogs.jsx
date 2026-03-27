@@ -111,10 +111,10 @@ export default function AdminLogs() {
                       </span>
                     </td>
                     <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-                      {log.targetType ? `${log.targetType} #${log.targetId}` : '---'}
+                      {log.targetType ? `${String(log.targetType)} #${String(log.targetId || '')}` : '---'}
                     </td>
                     <td style={{ color: 'var(--text-muted)', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {log.details || '---'}
+                      {typeof log.details === 'string' ? log.details : (log.details ? JSON.stringify(log.details) : '---')}
                     </td>
                   </tr>
                 ))}
