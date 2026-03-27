@@ -106,12 +106,32 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   };
   const handleFileSelect = (e) => {
     const f = e.target.files?.[0]; if (!f) return;
-    if (f.size > 5 * 1024 * 1024) { setSaveError('Макс. 5 МБ'); return; }
+    if (f.size > 15 * 1024 * 1024) { setSaveError('Макс. 15 МБ'); return; }
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) { setSaveError('JPG, PNG, WebP'); return; }
     setCropImage(URL.createObjectURL(f)); e.target.value = '';
   };
+  // [BUG 2] Avatar upload с error handling (раньше catch {} глотал ошибки)
   const handleAvatarSave = async (blob) => {
-    try { const fd = new FormData(); fd.append('avatar', blob, 'avatar.jpg'); const res = await fetch(`${API_URL}/api/users/me/avatar`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: fd }); if (res.ok) onUserUpdate?.({ avatar: (await res.json()).avatar }); } catch {} finally { setCropImage(null); }
+    try {
+      const fd = new FormData();
+      fd.append('avatar', blob, 'avatar.jpg');
+      const res = await fetch(`${API_URL}/api/users/me/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: fd,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onUserUpdate?.({ avatar: data.avatar });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setSaveError(err.error || 'Ошибка загрузки аватара');
+      }
+    } catch {
+      setSaveError('Нет подключения к серверу');
+    } finally {
+      setCropImage(null);
+    }
   };
 
   const hue = user ? getAvatarHue(user) : 200;

@@ -7,7 +7,7 @@ import './AvatarCropModal.css';
 function getCroppedBlob(imageSrc, pixelCrop) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // [BUG 6] Не ставить crossOrigin на blob URL — ломает загрузку в Electron
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const size = Math.min(pixelCrop.width, pixelCrop.height);

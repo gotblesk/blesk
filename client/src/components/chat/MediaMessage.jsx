@@ -3,9 +3,10 @@ import API_URL from '../../config';
 import './MediaMessage.css';
 
 function getIcon(mime) {
-  if (mime.startsWith('video/')) return <Film size={20} strokeWidth={1.5} />;
-  if (mime.startsWith('audio/')) return <Music size={20} strokeWidth={1.5} />;
-  if (mime.includes('zip')) return <Archive size={20} strokeWidth={1.5} />;
+  const m = mime || '';
+  if (m.startsWith('video/')) return <Film size={20} strokeWidth={1.5} />;
+  if (m.startsWith('audio/')) return <Music size={20} strokeWidth={1.5} />;
+  if (m.includes('zip')) return <Archive size={20} strokeWidth={1.5} />;
   return <FileText size={20} strokeWidth={1.5} />;
 }
 
@@ -22,9 +23,15 @@ export default function MediaMessage({ attachments, onImageClick }) {
       {attachments.map((a) => {
         const src = `${API_URL}${a.thumbnailUrl || a.url}`;
         const fullSrc = `${API_URL}${a.url}`;
+        // [BUG 3] Guard against null/undefined mimeType + fallback по расширению
+        const mime = a.mimeType || '';
+        const isImage = mime.startsWith('image/') ||
+          (!mime && /\.(jpe?g|png|gif|webp|avif|bmp)$/i.test(a.filename || ''));
+        const isVideo = mime.startsWith('video/');
+        const isAudio = mime.startsWith('audio/');
 
         // Изображения
-        if (a.mimeType.startsWith('image/')) {
+        if (isImage) {
           return (
             <img
               key={a.id}
@@ -38,7 +45,7 @@ export default function MediaMessage({ attachments, onImageClick }) {
         }
 
         // [MED-4] Видео — инлайн-плеер
-        if (a.mimeType.startsWith('video/')) {
+        if (isVideo) {
           return (
             <div key={a.id} className="media-msg__video-wrap">
               <video
@@ -56,7 +63,7 @@ export default function MediaMessage({ attachments, onImageClick }) {
         }
 
         // [MED-4] Аудио — инлайн-плеер (голосовые сообщения и аудиофайлы)
-        if (a.mimeType.startsWith('audio/')) {
+        if (isAudio) {
           return (
             <div key={a.id} className="media-msg__audio-wrap">
               <audio

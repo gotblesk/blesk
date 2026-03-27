@@ -118,7 +118,7 @@ export default function ChatView({
   const virtualizer = useVirtualizer({
     count: messageCount,
     getScrollElement: () => messagesContainerRef.current,
-    estimateSize: () => 60, // Средняя высота сообщения (px)
+    estimateSize: () => 52, // Средняя высота сообщения (bubble + padding)
     overscan: 10,
   });
 
@@ -130,11 +130,12 @@ export default function ChatView({
     setShowScrollDown(!near);
   }, []);
 
+  // [BUG 5] Скролл через virtualizer API вместо scrollIntoView
   useEffect(() => {
-    if (isNearBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isNearBottomRef.current && messageCount > 0) {
+      virtualizer.scrollToIndex(messageCount - 1, { behavior: 'smooth' });
     }
-  }, [chatMessages.length]);
+  }, [chatMessages.length]); // eslint-disable-line
 
   // Escape — закрыть только focused окно
   useEffect(() => {
