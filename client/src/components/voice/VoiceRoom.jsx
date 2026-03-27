@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Maximize } from 'lucide-react';
+import { Maximize, MicOff, HeadphoneOff } from 'lucide-react';
 import { useVoiceStore } from '../../store/voiceStore';
 import UserProfileModal from '../ui/UserProfileModal';
 import VoiceChat from './VoiceChat';
@@ -170,12 +170,12 @@ export default function VoiceRoom({ socketRef }) {
                   )}
                   {peer.muted && (
                     <div className="vr__user-ico vr__user-ico--muted">
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      <MicOff size={8} strokeWidth={3} />
                     </div>
                   )}
                   {peer.deafened && (
                     <div className="vr__user-ico vr__user-ico--deaf">
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      <HeadphoneOff size={8} strokeWidth={3} />
                     </div>
                   )}
                 </div>

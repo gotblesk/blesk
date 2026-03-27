@@ -88,12 +88,15 @@ export default function SettingsScreen({ open, onClose, onLogout }) {
   const { toggle, setValue } = settings;
   const version = useAppVersion();
 
+  // Escape закрывает настройки ТОЛЬКО если нет открытых ConfirmDialog
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e) => {
+      if (e.key === 'Escape' && !logoutConfirm) onClose();
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+  }, [open, onClose, logoutConfirm]);
 
   useEffect(() => {
     if (!open) { setLogoClicks(0); setEasterEgg(false); }

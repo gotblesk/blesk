@@ -68,10 +68,13 @@ export default function VoiceRoomList({ onJoinRoom }) {
       .finally(() => setFriendsLoading(false));
   }, [inviting]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [isCreating, setIsCreating] = useState(false);
   const handleCreate = async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || isCreating) return;
     setError('');
+    setIsCreating(true);
     const result = await createRoom(newName.trim(), newLimit);
+    setIsCreating(false);
     if (result?.room) { setNewName(''); setNewLimit(10); setShowCreateModal(false); }
     else if (result?.error) setError(result.error);
   };
@@ -259,7 +262,8 @@ export default function VoiceRoomList({ onJoinRoom }) {
                     ) : isLive ? (
                       <span className="vrl__card-status-live">
                         <span className="vrl__card-dot" />
-                        {room.participantCount} {room.participantCount === 1 ? 'участник' : 'в голосе'}
+                        {/* Используем реальное количество из массива, не серверный счётчик */}
+                        {participants.length || room.participantCount} {(participants.length || room.participantCount) === 1 ? 'участник' : 'в голосе'}
                       </span>
                     ) : (
                       <span className="vrl__card-status-empty">Пусто</span>
