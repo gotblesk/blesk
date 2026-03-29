@@ -1,21 +1,22 @@
 /* ═══════════════════════════════════════
-   VoiceRoom — In-Room View (Redesign)
+   VoiceRoom — FaceTime Style Redesign
    ═══════════════════════════════════════ */
 
 .vr {
-  width: 100%;
-  max-width: 640px;
+  width: 80%;
+  max-width: 960px;
   margin: auto;
-  border-radius: 22px;
-  background: rgba(14, 12, 24, 0.7);
+  border-radius: 28px;
+  background: rgba(14, 12, 24, 0.6);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 120px);
+  max-height: calc(100vh - 140px);
+  min-height: 400px;
 }
 
 /* ─── Header ─── */
@@ -23,22 +24,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 18px 24px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
 }
 
 .vr__head-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
 .vr__head-name {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
   letter-spacing: -0.03em;
   white-space: nowrap;
   overflow: hidden;
@@ -46,32 +47,32 @@
 }
 
 .vr__head-count {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.04);
-  padding: 2px 7px;
-  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 3px 9px;
+  border-radius: 10px;
   flex-shrink: 0;
 }
 
 .vr__head-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 /* Quality bars */
 .vr__qual {
   display: flex;
   align-items: flex-end;
-  gap: 1.5px;
-  height: 12px;
+  gap: 2px;
+  height: 14px;
 }
 
 .vr__qual-bar {
-  width: 3px;
-  border-radius: 1px;
+  width: 3.5px;
+  border-radius: 1.5px;
   transition: background 0.3s;
 }
 
@@ -94,24 +95,24 @@
 
 .vr__screen-badge {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 10px;
+  left: 10px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 6px;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.15);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: #ef4444;
   z-index: 2;
 }
 
 .vr__screen-rec {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #ef4444;
   animation: vr-rec 1s ease-in-out infinite;
@@ -124,12 +125,12 @@
 
 .vr__screen-name {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
-  font-size: 10px;
+  bottom: 10px;
+  left: 10px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
   background: rgba(0, 0, 0, 0.5);
   color: rgba(255, 255, 255, 0.6);
   z-index: 2;
@@ -137,11 +138,11 @@
 
 .vr__screen-fs {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   border: none;
   background: rgba(0, 0, 0, 0.4);
   color: rgba(255, 255, 255, 0.5);
@@ -163,112 +164,122 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
-/* ─── Participants Grid ─── */
+/* ─── Participants Grid — FaceTime-style large cards ─── */
 .vr__grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  padding: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 20px 24px;
   flex: 1;
-  align-content: start;
+  align-content: center;
+  overflow-y: auto;
 }
 
 .vr__empty {
   grid-column: 1 / -1;
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   color: rgba(255, 255, 255, 0.2);
-  padding: 40px 0;
+  padding: 60px 0;
 }
 
-/* ─── User Tile ─── */
+/* ─── User Tile — Large FaceTime card ─── */
 .vr__user {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 8px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.015);
+  gap: 10px;
+  padding: 24px 16px 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.025);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.2s, transform 0.2s, border-color 0.2s;
   position: relative;
+  border: 1px solid transparent;
 }
 
 .vr__user:hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(255, 255, 255, 0.05);
+  transform: scale(1.02);
+}
+
+.vr__user--speaking {
+  border-color: rgba(74, 222, 128, 0.2);
+  background: rgba(74, 222, 128, 0.04);
 }
 
 .vr__user--self {
-  border: 1px dashed rgba(200, 255, 0, 0.15);
+  border: 1px dashed rgba(200, 255, 0, 0.2);
 }
 
 .vr__user--self .vr__user-name {
   color: var(--accent, #c8ff00);
 }
 
-/* Avatar */
+/* Avatar — larger */
 .vr__user-ava {
-  width: 44px;
-  height: 44px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 800;
   color: #fff;
   position: relative;
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition: box-shadow 0.3s, transform 0.3s;
 }
 
 /* Audio level ring */
 .vr__user-level {
   position: absolute;
-  inset: -3px;
+  inset: -4px;
   border-radius: 50%;
-  border: 2px solid transparent;
+  border: 2.5px solid transparent;
   transition: border-color 0.15s, box-shadow 0.15s;
   pointer-events: none;
 }
 
 .vr__user--speaking .vr__user-level {
   border-color: rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.15);
 }
 
 .vr__user--speaking .vr__user-ava {
-  box-shadow: 0 0 16px rgba(74, 222, 128, 0.25);
+  box-shadow: 0 0 24px rgba(74, 222, 128, 0.25);
+  transform: scale(1.05);
 }
 
 /* Name */
 .vr__user-name {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.7);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 80px;
+  max-width: 120px;
 }
 
 /* Status icons (muted/deaf/cam) */
 .vr__user-icons {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
+  bottom: -3px;
+  right: calc(50% - 20px);
   display: flex;
-  gap: 2px;
+  gap: 3px;
 }
 
 .vr__user-ico {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid rgba(14, 12, 24, 0.9);
+  border: 2px solid rgba(14, 12, 24, 0.9);
 }
 
 .vr__user-ico--muted {
@@ -290,7 +301,7 @@
 .vr__user-cam {
   width: 100%;
   aspect-ratio: 4 / 3;
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: hidden;
   background: #1a1530;
 }
@@ -304,12 +315,12 @@
 /* ─── Volume Popup ─── */
 .vr__vol-popup {
   position: absolute;
-  bottom: calc(100% + 10px);
+  bottom: calc(100% + 12px);
   left: 50%;
   transform: translateX(-50%);
-  width: 176px;
-  padding: 10px 12px;
-  border-radius: 14px;
+  width: 200px;
+  padding: 12px 14px;
+  border-radius: 16px;
   background: rgba(14, 12, 24, 0.92);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -325,7 +336,7 @@
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border: 6px solid transparent;
+  border: 7px solid transparent;
   border-top-color: rgba(14, 12, 24, 0.92);
 }
 
@@ -335,10 +346,10 @@
 }
 
 .vr__vol-name {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -348,14 +359,14 @@
 .vr__vol-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .vr__vol-slider {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.1);
   outline: none;
@@ -365,18 +376,18 @@
 .vr__vol-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--accent, #c8ff00);
   border: none;
   cursor: pointer;
-  box-shadow: 0 0 6px rgba(200, 255, 0, 0.4);
+  box-shadow: 0 0 8px rgba(200, 255, 0, 0.4);
 }
 
 .vr__vol-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--accent, #c8ff00);
   border: none;
@@ -384,28 +395,28 @@
 }
 
 .vr__vol-slider::-moz-range-track {
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.1);
   border: none;
 }
 
 .vr__vol-value {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--accent, #c8ff00);
-  min-width: 32px;
+  min-width: 36px;
   text-align: right;
   flex-shrink: 0;
 }
 
 /* ─── Animations ─── */
 .vr__user-enter {
-  animation: vr-user-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: vr-user-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes vr-user-in {
-  from { opacity: 0; transform: scale(0.85) translateY(8px); }
+  from { opacity: 0; transform: scale(0.85) translateY(12px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
@@ -413,6 +424,7 @@
 [data-theme="light"] .vr {
   background: var(--light-surface, #ffffff);
   border-color: var(--light-border, #e5e7eb);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="light"] .vr__head {
@@ -429,11 +441,11 @@
 }
 
 [data-theme="light"] .vr__user {
-  background: var(--light-surface-hover, #f0f2f5);
+  background: rgba(0, 0, 0, 0.02);
 }
 
 [data-theme="light"] .vr__user:hover {
-  background: var(--bg-input);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 [data-theme="light"] .vr__user-name {
@@ -446,6 +458,11 @@
 
 [data-theme="light"] .vr__user--self .vr__user-name {
   color: var(--accent);
+}
+
+[data-theme="light"] .vr__user--speaking {
+  border-color: rgba(74, 222, 128, 0.2);
+  background: rgba(74, 222, 128, 0.03);
 }
 
 [data-theme="light"] .vr__user-ico {
@@ -470,7 +487,15 @@
 }
 
 /* ═══════ RESPONSIVE ═══════ */
-@media (max-width: 600px) {
-  .vr__grid { grid-template-columns: repeat(2, 1fr); }
-  .vr__user-icons { right: -4px; bottom: -4px; }
+@media (max-width: 700px) {
+  .vr { width: 95%; border-radius: 20px; }
+  .vr__grid { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 16px; }
+  .vr__user-ava { width: 56px; height: 56px; font-size: 22px; }
+  .vr__user { padding: 16px 12px 14px; }
+  .vr__user-icons { right: calc(50% - 16px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vr__user-enter { animation: none; }
+  .vr__user--speaking .vr__user-ava { transform: none; }
 }

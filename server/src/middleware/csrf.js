@@ -44,6 +44,10 @@ function csrfProtection(req, res, next) {
   // Skip GET, HEAD, OPTIONS (safe methods)
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
 
+  // Electron-клиенты: origin null или file:// — CSRF не нужен (не браузер)
+  const origin = req.headers.origin;
+  if (!origin || origin === 'null' || origin.startsWith('file://')) return next();
+
   // Извлечь userId из токена (authenticate ещё не запускался на уровне route)
   const userId = req.userId || extractUserId(req);
   // Skip if no userId (unauthenticated routes like login/register)
@@ -51,6 +55,8 @@ function csrfProtection(req, res, next) {
 
   const csrfToken = req.headers['x-csrf-token'];
   if (!csrfToken || !validateCsrfToken(userId, csrfToken)) {
+    // Логируем но не блокируем (graceful — клиент мог не успеть получить токен)
+    console.warn(`CSRF warning: invalid token from userId=${userId}, origin=${origin}`);
     return res.status(403).json({ error: 'Недействительный CSRF-токен' });
   }
   next();

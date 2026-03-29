@@ -15,9 +15,9 @@
 }
 
 /* Центрирование input при широком экране */
-@media (min-width: 600px) {
+@media (min-width: 900px) {
   .chat-view--inline .chat-input-zone {
-    max-width: 856px;
+    max-width: 956px;
     left: 50%;
     transform: translateX(-50%);
   }
