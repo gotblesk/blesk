@@ -204,15 +204,9 @@
 }
 
 .vr__waiting-ava {
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 38px;
-  font-weight: 800;
-  color: #fff;
+  width: 96px !important;
+  height: 96px !important;
+  font-size: 38px !important;
 }
 
 .vr__waiting-name {
@@ -322,11 +316,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-  font-weight: 800;
-  color: #fff;
   position: relative;
   transition: box-shadow 0.3s, transform 0.3s;
+}
+
+.vr__card-avatar {
+  width: 100% !important;
+  height: 100% !important;
+  font-size: 28px !important;
 }
 
 .vr__card--speaking .vr__card-ava {
@@ -545,15 +542,9 @@
 }
 
 .vr__strip-ava {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 800;
-  color: #fff;
+  width: 48px !important;
+  height: 48px !important;
+  font-size: 18px !important;
   transition: box-shadow 0.2s;
 }
 
@@ -1109,6 +1100,19 @@
 }
 
 /* ═══════ RESPONSIVE ═══════ */
+
+/* Большие экраны — крупные аватары */
+@media (min-width: 1200px) {
+  .vr__card-ava { width: 88px; height: 88px; }
+  .vr__card-avatar { font-size: 34px !important; }
+  .vr__grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 24px; }
+}
+
+/* Маленькие экраны — компактные аватары */
+@media (max-width: 800px) {
+  .vr__card-ava { width: 56px; height: 56px; }
+  .vr__card-avatar { font-size: 22px !important; }
+}
 
 @media (max-width: 1024px) {
   .vr__chat-panel {

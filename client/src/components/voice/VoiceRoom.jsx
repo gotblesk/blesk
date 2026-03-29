@@ -11,7 +11,7 @@ import Avatar from '../ui/Avatar';
 import VoiceChat from './VoiceChat';
 import VideoGrid from './VideoGrid';
 import { getCurrentUserId } from '../../utils/auth';
-import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
+import { getAvatarHue } from '../../utils/avatar';
 import { getAuthHeaders } from '../../utils/authFetch';
 import API_URL from '../../config';
 import './VoiceRoom.css';
@@ -185,14 +185,13 @@ function ParticipantCard({ userId, peer, isSelf, isSpeaking, level, hasCam, onVo
       <div
         className="vr__card-ava"
         style={{
-          background: getAvatarColor(getAvatarHue(peer)),
           boxShadow: isSpeaking
             ? `0 0 ${20 + level * 0.4}px rgba(80,220,100,0.4)`
             : 'none',
         }}
       >
         <div className="vr__card-ring" />
-        {(peer.username || 'U')[0].toUpperCase()}
+        <Avatar user={peer} size={72} className="vr__card-avatar" />
       </div>
 
       <div className="vr__card-name">
@@ -229,12 +228,7 @@ function ParticipantStrip({ participantList, videoStreams, currentUserId, audioL
             className={`vr__strip-item ${isSpeaking ? 'vr__strip-item--speaking' : ''}`}
             title={isSelf ? 'Вы' : peer.username}
           >
-            <div
-              className="vr__strip-ava"
-              style={{ background: getAvatarColor(getAvatarHue(peer)) }}
-            >
-              {(peer.username || 'U')[0].toUpperCase()}
-            </div>
+            <Avatar user={peer} size={48} className="vr__strip-ava" />
             <span className="vr__strip-name">{isSelf ? 'Вы' : peer.username}</span>
           </div>
         );
@@ -395,12 +389,7 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
             <div className="vr__waiting">
               <div className="vr__waiting-ava-wrap">
                 <div className="vr__waiting-ring" />
-                <div
-                  className="vr__waiting-ava"
-                  style={{ background: getAvatarColor(getAvatarHue(participantList[0]?.[1] || {})) }}
-                >
-                  {(participantList[0]?.[1]?.username || 'U')[0].toUpperCase()}
-                </div>
+                <Avatar user={participantList[0]?.[1] || {}} size={96} className="vr__waiting-ava" />
               </div>
               <div className="vr__waiting-name">
                 {participantList[0]?.[1]?.username || 'Вы'}

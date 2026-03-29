@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileText, DownloadSimple, FilmStrip, MusicNote, Archive, ImageBroken } from '@phosphor-icons/react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { FileText, DownloadSimple, FilmStrip, MusicNote, Archive, ImageBroken, Play, Pause } from '@phosphor-icons/react';
 import API_URL from '../../config';
 import './MediaMessage.css';
 
@@ -36,6 +36,84 @@ function ImageWithFallback({ src, fullSrc, filename, onImageClick }) {
       loading="lazy"
       onError={() => setBroken(true)}
     />
+  );
+}
+
+function formatTime(sec) {
+  const s = Math.floor(sec || 0);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r < 10 ? '0' : ''}${r}`;
+}
+
+function VoiceMessage({ src }) {
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef(null);
+  const rafRef = useRef(null);
+
+  const updateProgress = useCallback(() => {
+    const el = audioRef.current;
+    if (el && el.duration) {
+      setProgress((el.currentTime / el.duration) * 100);
+    }
+    if (playing) rafRef.current = requestAnimationFrame(updateProgress);
+  }, [playing]);
+
+  useEffect(() => {
+    if (playing) {
+      rafRef.current = requestAnimationFrame(updateProgress);
+    }
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [playing, updateProgress]);
+
+  const toggle = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (playing) { el.pause(); }
+    else { el.play(); }
+    setPlaying(!playing);
+  };
+
+  const handleEnded = () => {
+    setPlaying(false);
+    setProgress(0);
+  };
+
+  const handleLoaded = () => {
+    const el = audioRef.current;
+    if (el && el.duration && isFinite(el.duration)) setDuration(el.duration);
+  };
+
+  const handleBarClick = (e) => {
+    const el = audioRef.current;
+    if (!el || !el.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    el.currentTime = ratio * el.duration;
+    setProgress(ratio * 100);
+  };
+
+  return (
+    <div className="media-msg__voice">
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        onEnded={handleEnded}
+        onLoadedMetadata={handleLoaded}
+      />
+      <button className="media-msg__voice-play" onClick={toggle}>
+        {playing ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
+      </button>
+      <div className="media-msg__voice-wave" onClick={handleBarClick}>
+        <div className="media-msg__voice-progress" style={{ width: `${progress}%` }} />
+      </div>
+      <span className="media-msg__voice-time">
+        {formatTime(playing ? (audioRef.current?.currentTime || 0) : duration)}
+      </span>
+    </div>
   );
 }
 
@@ -90,7 +168,12 @@ export default function MediaMessage({ attachments, onImageClick }) {
           );
         }
 
-        // [MED-4] Аудио — инлайн-плеер (голосовые сообщения и аудиофайлы)
+        // Голосовые сообщения — компактный плеер
+        if (isAudio && (a.filename?.startsWith('voice-') || mime.includes('webm') || mime.includes('ogg'))) {
+          return <VoiceMessage key={a.id} src={fullSrc} />;
+        }
+
+        // Аудиофайлы (музыка и т.д.) — стандартный плеер
         if (isAudio) {
           return (
             <div key={a.id} className="media-msg__audio-wrap">

@@ -4,12 +4,19 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const sharp = require('sharp');
+const rateLimit = require('express-rate-limit');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { validateFile, sanitizeFilename } = require('../services/fileValidator');
 const { scanFile } = require('../services/fileScanner');
 
 const router = Router();
+
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Слишком много загрузок.' },
+});
 
 const attachDir = path.join(__dirname, '..', '..', 'uploads', 'attachments');
 const thumbsDir = path.join(__dirname, '..', '..', 'uploads', 'thumbs');
@@ -72,7 +79,7 @@ async function processImage(filePath, storedName, mime) {
 }
 
 // ─── Загрузка файла в канал (owner/admin) ───
-router.post('/channels/:channelId/upload', authenticate, upload.single('file'), async (req, res) => {
+router.post('/channels/:channelId/upload', uploadLimiter, authenticate, upload.single('file'), async (req, res) => {
   let finalPath = null;
   try {
     const { channelId } = req.params;
@@ -165,7 +172,7 @@ router.post('/channels/:channelId/upload', authenticate, upload.single('file'), 
   }
 });
 
-router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, res) => {
+router.post('/:chatId/upload', uploadLimiter, authenticate, upload.single('file'), async (req, res) => {
   let finalPath = null;
   try {
     const { chatId } = req.params;

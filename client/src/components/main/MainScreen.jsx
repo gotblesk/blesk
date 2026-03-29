@@ -33,11 +33,12 @@ import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useHotkeys } from '../../hooks/useHotkeys';
-import { WifiSlash } from '@phosphor-icons/react';
+import { WifiSlash, ChatCircle } from '@phosphor-icons/react';
 import './MainScreen.css';
 
 // Офлайн-баннер с временем последнего соединения и анимированными точками
-const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt }) {
+// Не показывается первые 4 секунды после монтирования (ждём первое подключение)
+const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt, visible }) {
   const [elapsed, setElapsed] = useState('');
 
   useEffect(() => {
@@ -53,10 +54,15 @@ const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt }) {
     return () => clearInterval(id);
   }, [lastConnectedAt]);
 
+  if (!visible) return null;
+
+  // Если ещё не было успешного подключения — показать "Подключение..."
+  const isConnecting = !lastConnectedAt;
+
   return (
     <div className="offline-banner">
       <WifiSlash size={14} weight="regular" />
-      <span>Нет соединения{elapsed ? ` \u00b7 последний раз ${elapsed}` : ''}</span>
+      <span>{isConnecting ? 'Подключение...' : `Нет соединения${elapsed ? ` \u00b7 последний раз ${elapsed}` : ''}`}</span>
       <div className="offline-banner__dots">
         <div className="offline-banner__dot" />
         <div className="offline-banner__dot" />
@@ -142,6 +148,13 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   const { chats } = useChatStore();
   const isConnected = useChatStore((s) => s.isConnected);
   const lastConnectedAt = useChatStore((s) => s.lastConnectedAt);
+
+  // Задержка перед показом офлайн-баннера (4 сек после монтирования)
+  const [bannerReady, setBannerReady] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setBannerReady(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
   const voiceRoomId = useVoiceStore((s) => s.currentRoomId);
   const cameraOn = useVoiceStore((s) => s.cameraOn);
   const screenShareOn = useVoiceStore((s) => s.screenShareOn);
@@ -342,9 +355,9 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
             <AnimatePresence mode="wait">
               {/* Empty state: нет выбранного чата */}
               {!secondaryView && !activeChatId && (
-                <motion.div key="no-chat" className="main-layout__animated" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, opacity: 0.35 }}>
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>Выберите чат, чтобы начать общение</span>
+                <motion.div key="no-chat" className="main-layout__animated main-layout__empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <ChatCircle size={40} weight="duotone" />
+                  <span>Выберите чат, чтобы начать общение</span>
                 </motion.div>
               )}
 
@@ -524,7 +537,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
       {/* Обновление */}
       {/* [CRIT-2] Офлайн-баннер */}
-      {!isConnected && <OfflineBanner lastConnectedAt={lastConnectedAt} />}
+      {!isConnected && <OfflineBanner lastConnectedAt={lastConnectedAt} visible={bannerReady} />}
 
       <UpdateBanner socketRef={socketRef} />
 

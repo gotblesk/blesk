@@ -139,9 +139,9 @@ const { csrfProtection } = require('./middleware/csrf');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/channels', chatLimiter, csrfProtection, channelRoutes);
-// [CRIT-3] uploadLimiter вместо chatLimiter для файлов
-app.use('/api/chats', uploadLimiter, csrfProtection, uploadRoutes);
+// [CRIT-3] uploadLimiter только для upload-эндпоинтов (не для всех /api/chats)
 app.use('/api/chats', chatLimiter, csrfProtection, chatRoutes);
+app.use('/api/chats', csrfProtection, uploadRoutes);
 app.use('/api/users', chatLimiter, csrfProtection, userRoutes);
 app.use('/api/notifications', chatLimiter, csrfProtection, notificationRoutes);
 app.use('/api/friends', chatLimiter, csrfProtection, friendRoutes);

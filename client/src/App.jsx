@@ -38,7 +38,7 @@ export default function App() {
       if (theme === 'light') {
         // В светлой теме маппим яркие цвета в контрастные версии
         const lightMappings = {
-          '#c8ff00': { accent: '#7c3aed', text: '#ffffff' },
+          '#c8ff00': { accent: '#6b8e00', text: '#ffffff' },
           '#00d4ff': { accent: '#0284c7', text: '#ffffff' },
           '#ff6b6b': { accent: '#dc2626', text: '#ffffff' },
           '#a855f7': { accent: '#7c3aed', text: '#ffffff' },

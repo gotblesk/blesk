@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Envelope, DeviceMobile, Lock, Camera, X, Check, Eye, EyeSlash, CaretRight, PencilSimple } from '@phosphor-icons/react';
+import { Envelope, DeviceMobile, Lock, Camera, X, Check, Eye, EyeSlash, CaretRight, PencilSimple, User } from '@phosphor-icons/react';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
 import Avatar from '../ui/Avatar';
@@ -10,6 +10,8 @@ import './ProfileScreen.css';
 
 export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   const [bio, setBio] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [nickError, setNickError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -43,7 +45,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
   useEffect(() => {
     if (open && user) {
-      setBio(user.bio || ''); setSaved(false); setSaveError('');
+      setBio(user.bio || ''); setNickname(user.username || ''); setNickError(''); setSaved(false); setSaveError('');
       setEmailStep('display'); setEmailCode(''); setEmailError('');
       setPwStep('idle'); setPwCurrent(''); setPwNew(''); setPwConfirm('');
       setPwCode(''); setPwEmail(''); setPwError(''); setPwSuccess(false);
@@ -81,8 +83,14 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   const getH = () => ({ 'Content-Type': 'application/json', ...getAuthHeaders() });
 
   const handleSave = async () => {
-    setSaving(true); setSaveError('');
-    try { const res = await fetch(`${API_URL}/api/users/me`, { method: 'PUT', headers: getH(), credentials: 'include', body: JSON.stringify({ bio }) }); if (res.ok) { onUserUpdate?.(await res.json()); setSaved(true); setTimeout(() => setSaved(false), 2000); } else setSaveError('Ошибка'); } catch { setSaveError('Нет подключения'); } finally { setSaving(false); }
+    setSaving(true); setSaveError(''); setNickError('');
+    const body = { bio };
+    if (nickname.trim() && nickname.trim() !== user?.username) {
+      if (nickname.trim().length < 2) { setNickError('Минимум 2 символа'); setSaving(false); return; }
+      if (nickname.trim().length > 32) { setNickError('Максимум 32 символа'); setSaving(false); return; }
+      body.username = nickname.trim();
+    }
+    try { const res = await fetch(`${API_URL}/api/users/me`, { method: 'PUT', headers: getH(), credentials: 'include', body: JSON.stringify(body) }); if (res.ok) { const data = await res.json(); onUserUpdate?.(data); setSaved(true); setTimeout(() => setSaved(false), 2000); } else { const err = await res.json().catch(() => ({})); if (err.error?.includes('ник') || err.error?.includes('username')) setNickError(err.error); else setSaveError(err.error || 'Ошибка'); } } catch { setSaveError('Нет подключения'); } finally { setSaving(false); }
   };
   const handleSendEmailCode = async () => {
     setEmailError(''); setEmailSending(true);
@@ -162,8 +170,6 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                 <div className="pf-front__grain" />
                 <div className="pf-front__holo" />
                 <div className="pf-front__shimmer" />
-                <div className="pf-front__wm">{(user?.username || 'G')[0].toUpperCase()}</div>
-
                 <div className="pf-front__top">
                   <span className="pf-front__logo">blesk</span>
                   <span className="pf-front__issue">ISSUE {user?.tag || '#0000'}<br/>{since.toUpperCase()}</span>
@@ -201,6 +207,20 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                 </div>
 
                 <div className="pf-back__scroll">
+                  {/* Nickname */}
+                  <div className="pf-back__nick">
+                    <div className="pf-back__nick-label"><User size={13} weight="regular" /> Никнейм</div>
+                    <input
+                      className="pf-back__nick-input"
+                      value={nickname}
+                      onChange={e => setNickname(e.target.value.slice(0, 32))}
+                      placeholder="Никнейм"
+                      maxLength={32}
+                      onClick={e => e.stopPropagation()}
+                    />
+                    {nickError && <span className="pf-cell__err">{nickError}</span>}
+                  </div>
+
                   {/* Email */}
                   <ProfileCell
                     icon={<Envelope size={15} weight="regular" />}

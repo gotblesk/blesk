@@ -54,8 +54,8 @@ export const useChatStore = create((set, get) => ({
   pinnedChats: loadPinnedChats(),
   messages: {},
   loadingChats: new Set(),
-  // [CRIT-2] Состояние подключения
-  isConnected: true,
+  // [CRIT-2] Состояние подключения (false до первого connect)
+  isConnected: false,
   lastConnectedAt: null,
   // [MED-4] Version counter для предотвращения stale fetch overwrite
   _chatLoadVersions: {},

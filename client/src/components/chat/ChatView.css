@@ -194,7 +194,7 @@
   flex: 1;
   min-height: 0; /* КРИТИЧНО: без этого flex-child не clamp overflow */
   position: relative;
-  padding: 12px 28px 16px;
+  padding: 12px 20px 16px;
   overflow-y: auto;
   overflow-x: hidden;
   scroll-behavior: smooth;

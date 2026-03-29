@@ -168,12 +168,15 @@ export default function ChatView({
     const prevCount = prevMessageCountRef.current;
     prevMessageCountRef.current = messageCount;
 
-    // Первая загрузка — всегда скролл к концу
+    // Первая загрузка — всегда мгновенный скролл к концу (без анимации)
     if (prevCount === 0 && messageCount > 0) {
-      // Даём virtualizer время обсчитать размеры
+      // Два rAF: первый — virtualizer обсчитывает размеры, второй — скролл
       requestAnimationFrame(() => {
         if (!isMountedRef.current) return;
-        virtualizer.scrollToIndex(messageCount - 1, { align: 'end' });
+        requestAnimationFrame(() => {
+          if (!isMountedRef.current) return;
+          virtualizer.scrollToIndex(messageCount - 1, { align: 'end', behavior: 'auto' });
+        });
       });
       return;
     }
