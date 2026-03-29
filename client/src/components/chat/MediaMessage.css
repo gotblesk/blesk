@@ -76,9 +76,6 @@
 [data-theme="light"] .media-msg__voice-time {
   color: rgba(0,0,0,0.4);
 }
-[data-theme="light"] .media-msg__voice-time {
-  color: rgba(0,0,0,0.4);
-}
 
 [data-theme="light"] .media-msg__file { background: var(--light-surface-hover, #f0f2f5); border-color: var(--light-border, #e5e7eb); }
 [data-theme="light"] .media-msg__file--broken { background: rgba(239,68,68,0.04); border-color: rgba(239,68,68,0.12); }

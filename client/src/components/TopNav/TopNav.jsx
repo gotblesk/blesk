@@ -1,19 +1,22 @@
-import { memo } from 'react';
-import { List, ChatCircle, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bell, GearSix } from '@phosphor-icons/react';
+import { memo, useMemo } from 'react';
+import { List, ChatCircle, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bell, GearSix, ShieldStar } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import './TopNav.css';
 
-const TABS = [
+const BASE_TABS = [
   { id: 'chats', label: 'Чаты', icon: ChatCircle },
   { id: 'voice', label: 'Голос', icon: Microphone },
   { id: 'channels', label: 'Каналы', icon: Megaphone },
   { id: 'friends', label: 'Друзья', icon: UsersThree },
 ];
 
-export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, onSearch, onSettings }) {
+const ADMIN_TAB = { id: 'admin', label: 'Админ', icon: ShieldStar };
+
+export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, onSearch, onSettings, isAdmin }) {
   const totalUnread = useChatStore(s => s.chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0));
-  const unreadNotifs = useNotificationStore ? useNotificationStore(s => s.unreadCount) : 0;
+  const unreadNotifs = useNotificationStore(s => s.unreadCount);
+  const tabs = useMemo(() => isAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS, [isAdmin]);
 
   return (
     <nav className="top-nav" onDoubleClick={e => e.stopPropagation()}>
@@ -26,7 +29,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
         </button>
 
         <div className="top-nav__tabs">
-          {TABS.map(tab => {
+          {tabs.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             const showBadge = tab.id === 'chats' && totalUnread > 0;

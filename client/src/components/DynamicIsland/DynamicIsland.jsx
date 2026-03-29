@@ -105,7 +105,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
         <AnimatePresence mode="wait">
           {/* LOADING */}
           {state === 'loading' && (
-            <motion.div key="loading" className="di__inner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="loading" className="di__inner" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
               <div className="di__shimmer" />
               <span className="di__loading-text">Подключение...</span>
             </motion.div>
@@ -113,7 +113,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
 
           {/* IDLE */}
           {state === 'idle' && (
-            <motion.div key="idle" className="di__inner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="idle" className="di__inner" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.12 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
               <div className={`di__dot di__dot--${userStatus}`} />
               <span className="di__nick">{user?.username || 'blesk'}</span>
             </motion.div>

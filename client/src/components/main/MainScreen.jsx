@@ -187,11 +187,12 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
   // Переключить чат в sidebar
   const handleSelectChat = useCallback((chatId) => {
-    if (chatId === activeChatId) return;
+    if (chatId === activeChatId && activeTab === 'chats') return;
     soundTabSwitch();
     setActiveChatId(chatId);
+    setActiveTab('chats');
     useChatStore.getState().openChat(chatId);
-  }, [activeChatId]);
+  }, [activeChatId, activeTab]);
 
   // Закрыть текущий чат (остаёмся в chats tab)
   const handleCloseChat = useCallback(() => {
@@ -373,6 +374,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
             onToggleSidebar={handleToggleSidebar}
             onSearch={() => setSpotlightOpen(true)}
             onSettings={() => setSettingsOpen(true)}
+            isAdmin={isAdmin}
           />
         }
         sidebar={

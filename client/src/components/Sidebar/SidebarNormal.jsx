@@ -73,7 +73,7 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
   return (
     <div className="sn">
       <div className="sn__search">
-        <MagnifyingGlass size={14} weight="bold" style={{ color: 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
+        <MagnifyingGlass size={14} weight="bold" className="sn__search-icon" />
         <input
           className="sn__search-input"
           placeholder="Поиск..."

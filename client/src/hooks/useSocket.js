@@ -43,9 +43,10 @@ export function useSocket() {
       // Обновить состояние подключения
       useChatStore.setState({ isConnected: true, lastConnectedAt: Date.now() });
 
+      // Загрузить чаты при каждом (пере)подключении
+      useChatStore.getState().loadChats?.();
+
       if (hasConnectedOnce) {
-        // [CRIT-4] Ресинк: загрузить чаты + обновить открытые
-        useChatStore.getState().loadChats?.();
         // Перезагрузить сообщения для всех активных чатов (delta fetch)
         const activeChats = useChatStore.getState().activeChats;
         for (const chatId of activeChats) {
