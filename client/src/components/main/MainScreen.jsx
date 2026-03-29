@@ -408,6 +408,11 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
             onOpenProfile={() => setProfileOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
             onLogout={onLogout}
+            onStatusChange={(status) => {
+              const socket = socketRef.current;
+              if (socket) socket.emit('user:status', { status });
+              setCurrentUser(prev => ({ ...prev, status }));
+            }}
           />
         }
         offline={
