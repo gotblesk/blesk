@@ -133,6 +133,16 @@
 .di__dot--dnd { background: var(--danger, #ef4444); box-shadow: 0 0 6px var(--danger, #ef444466); }
 .di__dot--invisible { background: rgba(255, 255, 255, 0.25); }
 
+/* Переподключение — оранжевая мигающая точка */
+.di__dot--reconnecting {
+  background: #f59e0b;
+  animation: dotReconnect 1.2s ease-in-out infinite;
+}
+@keyframes dotReconnect {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(245, 158, 11, 0.4); }
+  50% { opacity: 0.3; box-shadow: 0 0 2px rgba(245, 158, 11, 0.1); }
+}
+
 .di__nick {
   font-family: var(--font-body, -apple-system, sans-serif);
   font-size: 14px;

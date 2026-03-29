@@ -417,10 +417,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
           />
         }
         offline={
-          <OfflineBanner
-            lastConnectedAt={lastConnectedAt}
-            visible={bannerReady && !isConnected}
-          />
+          null /* Статус соединения показывается через Dynamic Island (точка + loading state) */
         }
       />
 
