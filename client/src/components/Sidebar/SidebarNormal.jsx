@@ -1,11 +1,17 @@
-import { useState, memo, useMemo } from 'react';
-import { MagnifyingGlass, PushPin } from '@phosphor-icons/react';
+import { useState, useEffect, memo, useMemo } from 'react';
+import { MagnifyingGlass, PushPin, ChatCircle } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import Avatar from '../ui/Avatar';
 import './Sidebar.css';
 
 export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectChat, onOpenChat }) {
   const [search, setSearch] = useState('');
+  const [initialLoad, setInitialLoad] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setInitialLoad(false), 1500);
+    return () => clearTimeout(t);
+  }, []);
   const chats = useChatStore(s => s.chats);
   const onlineUsers = useChatStore(s => s.onlineUsers);
   const pinnedChats = useChatStore(s => s.pinnedChats);
@@ -83,6 +89,19 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
       </div>
 
       <div className="sn__list">
+        {initialLoad && chats.length === 0 && (
+          <div className="sn__skeleton">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="sn__skeleton-item">
+                <div className="sn__skeleton-ava" />
+                <div className="sn__skeleton-lines">
+                  <div className="sn__skeleton-line sn__skeleton-line--w70" />
+                  <div className="sn__skeleton-line sn__skeleton-line--w50" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {pinned.length > 0 && (
           <div className="sn__section">
             <div className="sn__section-label">
@@ -93,8 +112,15 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
           </div>
         )}
         {rest.map(renderChat)}
-        {filtered.length === 0 && (
+        {filtered.length === 0 && search.trim() && (
           <div className="sn__empty">Ничего не найдено</div>
+        )}
+        {chats.length === 0 && !search.trim() && !initialLoad && (
+          <div className="sn__empty-state">
+            <ChatCircle size={40} weight="duotone" style={{ opacity: 0.12 }} />
+            <span>Нет чатов</span>
+            <span className="sn__empty-hint">Найдите друзей и начните переписку</span>
+          </div>
         )}
       </div>
     </div>

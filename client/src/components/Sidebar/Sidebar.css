@@ -61,6 +61,32 @@
 
 .sn__empty { text-align: center; padding: 32px 0; font-size: 12px; color: rgba(255, 255, 255, 0.12); }
 
+.sn__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 16px;
+  text-align: center;
+}
+.sn__empty-state span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.2);
+  font-weight: 500;
+}
+.sn__empty-hint {
+  font-size: 11px !important;
+  color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.sn__skeleton-item { display: flex; gap: 12px; padding: 10px; align-items: center; }
+.sn__skeleton-ava { width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.04); animation: skeletonPulse 1.5s ease-in-out infinite; flex-shrink: 0; }
+.sn__skeleton-lines { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.sn__skeleton-line { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.04); animation: skeletonPulse 1.5s ease-in-out infinite; }
+.sn__skeleton-line--w70 { width: 70%; }
+.sn__skeleton-line--w50 { width: 50%; animation-delay: 0.2s; }
+@keyframes skeletonPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
 /* ═══ LIGHT THEME ═══ */
 [data-theme="light"] .sidebar { background: rgba(255, 255, 255, 0.7); border-right-color: rgba(0, 0, 0, 0.06); }
 [data-theme="light"] .sc__item:hover { background: rgba(0, 0, 0, 0.03); }

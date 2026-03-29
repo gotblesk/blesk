@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { BellSlash, Checks, Trash, UserMinus, PushPin } from '@phosphor-icons/react';
+import { BellSlash, Checks, Trash, UserMinus, PushPin, Prohibit } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import ContextMenu from '../ui/ContextMenu';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -30,6 +30,7 @@ function GroupAvatar({ participants }) {
 export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, cardRef }) {
   const [ctxMenu, setCtxMenu] = useState(null);
   const [dangerConfirm, setDangerConfirm] = useState(false);
+  const [blockConfirm, setBlockConfirm] = useState(false);
   const isGroup = chat.type === 'group';
   const user = chat.otherUser;
 
@@ -86,14 +87,37 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
     useChatStore.getState().togglePinChat(chat.id);
   }, [chat.id]);
 
+  const handleMute = useCallback(async (duration) => {
+    try {
+      await fetch(`${API_URL}/api/chats/${chat.id}/mute`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({ duration }),
+      });
+    } catch (err) { console.error('Mute error:', err?.message); }
+  }, [chat.id]);
+
+  const handleBlock = useCallback(async () => {
+    try {
+      await fetch(`${API_URL}/api/users/${chat.otherUser?.id}/block`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders() },
+        credentials: 'include',
+      });
+    } catch (err) { console.error('Block error:', err?.message); }
+    setBlockConfirm(false);
+  }, [chat.otherUser?.id]);
+
   const ctxItems = [
     { label: isPinned ? 'Открепить' : 'Закрепить', icon: <PushPin size={14} />, onClick: handleTogglePin },
     { label: 'Отметить прочитанным', icon: <Checks size={14} />, onClick: handleMarkRead },
     { divider: true },
-    { label: 'Без звука', icon: <BellSlash size={14} />, onClick: () => {} },
+    { label: 'Без звука', icon: <BellSlash size={14} />, onClick: () => handleMute('forever') },
     { divider: true },
+    !isGroup && { label: 'Заблокировать', icon: <Prohibit size={14} />, danger: true, onClick: () => setBlockConfirm(true) },
     { label: isGroup ? 'Покинуть группу' : 'Удалить чат', icon: <Trash size={14} />, danger: true, onClick: () => setDangerConfirm(true) },
-  ];
+  ].filter(Boolean);
 
   return (
     <>
@@ -155,6 +179,15 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
         danger
         onConfirm={handleDangerAction}
         onCancel={() => setDangerConfirm(false)}
+      />
+      <ConfirmDialog
+        open={blockConfirm}
+        title={`Заблокировать ${displayName}?`}
+        message="Пользователь не сможет писать вам и звонить"
+        confirmText="Заблокировать"
+        danger
+        onConfirm={handleBlock}
+        onCancel={() => setBlockConfirm(false)}
       />
     </>
   );

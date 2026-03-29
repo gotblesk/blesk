@@ -39,6 +39,7 @@ const ChatMessage = React.memo(function ChatMessage({
   onDelete,
   onForward,
   onImageClick,
+  onRetry,
   reactions,
   currentUserId,
 }) {
@@ -245,7 +246,16 @@ const ChatMessage = React.memo(function ChatMessage({
               <Clock size={10} className="chat-message__pending-icon" title={message.offline ? 'Будет отправлено при подключении' : 'Отправка...'} />
             )}
             {message.failed && (
-              <ArrowClockwise size={10} className="chat-message__failed-icon" title="Не удалось отправить. Нажмите для повтора" />
+              <ArrowClockwise
+                size={10}
+                className="chat-message__failed-icon"
+                title="Не удалось отправить. Нажмите для повтора"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry?.(message);
+                }}
+                style={{ cursor: 'pointer' }}
+              />
             )}
             {time}
           </div>

@@ -471,6 +471,26 @@ export default function ChatView({
   const handleEditStable = useCallback((msg) => { setEditingMsg(msg); setReplyTo(null); }, []);
   const handleDeleteStable = useCallback((msgId) => setDeleteConfirm(msgId), []);
   const handleForwardStable = useCallback((msg) => setForwardMsg(msg), []);
+  const handleRetryStable = useCallback((msg) => {
+    const socket = socketRef.current;
+    if (socket && msg.text) {
+      useChatStore.setState(state => ({
+        messages: {
+          ...state.messages,
+          [chatId]: state.messages[chatId]?.map(m =>
+            m.id === msg.id || m.tempId === msg.tempId
+              ? { ...m, failed: false, pending: true }
+              : m
+          ),
+        },
+      }));
+      socket.emit('message:send', {
+        chatId,
+        text: msg.text,
+        tempId: msg.tempId || msg.id,
+      });
+    }
+  }, [chatId, socketRef]);
 
   // Редактирование сообщения — заполнить input текстом
   const handleEdit = useCallback((msg) => {
@@ -694,6 +714,7 @@ export default function ChatView({
                   onEdit={handleEditStable}
                   onDelete={handleDeleteStable}
                   onForward={handleForwardStable}
+                  onRetry={handleRetryStable}
                   onImageClick={setLightboxSrc}
                   reactions={allReactions[msg.id]}
                   currentUserId={userId.current}

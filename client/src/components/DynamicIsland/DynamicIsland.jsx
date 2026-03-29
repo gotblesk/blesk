@@ -8,6 +8,7 @@ import {
 import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
 import Avatar from '../ui/Avatar';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import './island.css';
 
 const spring = { type: 'spring', damping: 25, stiffness: 300, mass: 0.8 };
@@ -23,6 +24,8 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
   const isDeafened = useVoiceStore(s => s.isDeafened);
   const toggleMute = useVoiceStore(s => s.toggleMute);
   const toggleDeafen = useVoiceStore(s => s.toggleDeafen);
+
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
 
   // Call timer
   const [callElapsed, setCallElapsed] = useState(0);
@@ -91,6 +94,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
   const userStatus = user?.status || 'online';
 
   return (
+  <>
     <div
       className={`di di--${state}`}
       ref={islandRef}
@@ -115,7 +119,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
 
             {/* IDLE */}
             {state === 'idle' && (
-              <motion.div key="idle" className="di__inner" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.12 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
+              <motion.div key="idle" className="di__inner" title="Нажмите для профиля" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.12 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
                 <div className={`di__dot di__dot--${userStatus}`} />
                 <span className="di__nick">{user?.username || 'blesk'}</span>
               </motion.div>
@@ -150,13 +154,13 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
                   <span className="di__call-timer">{formatTimer(callElapsed)}</span>
                 </div>
                 <div className="di__call-btns">
-                  <button className={`di__call-btn di__call-btn--mic ${isMuted ? 'di__call-btn--on' : ''}`} onClick={e => { e.stopPropagation(); toggleMute(); }}>
+                  <button className={`di__call-btn di__call-btn--mic ${isMuted ? 'di__call-btn--on' : ''}`} title={isMuted ? 'Включить микрофон' : 'Выключить микрофон (Пробел)'} onClick={e => { e.stopPropagation(); toggleMute(); }}>
                     {isMuted ? <MicrophoneSlash size={16} /> : <Microphone size={16} />}
                   </button>
-                  <button className={`di__call-btn di__call-btn--deaf ${isDeafened ? 'di__call-btn--on' : ''}`} onClick={e => { e.stopPropagation(); toggleDeafen(); }}>
+                  <button className={`di__call-btn di__call-btn--deaf ${isDeafened ? 'di__call-btn--on' : ''}`} title={isDeafened ? 'Включить звук' : 'Выключить звук'} onClick={e => { e.stopPropagation(); toggleDeafen(); }}>
                     {isDeafened ? <SpeakerSlash size={16} /> : <Headphones size={16} />}
                   </button>
-                  <button className="di__call-btn di__call-btn--end" onClick={e => { e.stopPropagation(); onEndCall?.(); }}>
+                  <button className="di__call-btn di__call-btn--end" title="Завершить звонок" onClick={e => { e.stopPropagation(); onEndCall?.(); }}>
                     <PhoneDisconnect size={16} />
                   </button>
                 </div>
@@ -172,8 +176,8 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
                   <span className="di__in-name">{incomingCall.callerName}</span>
                 </div>
                 <div className="di__in-btns">
-                  <button className="di__in-btn di__in-btn--no" onClick={e => { e.stopPropagation(); onDeclineCall?.(); }}><X size={16} weight="bold" /></button>
-                  <button className="di__in-btn di__in-btn--yes" onClick={e => { e.stopPropagation(); onAcceptCall?.(); }}><Phone size={16} weight="fill" /></button>
+                  <button className="di__in-btn di__in-btn--no" title="Отклонить" onClick={e => { e.stopPropagation(); onDeclineCall?.(); }}><X size={16} weight="bold" /></button>
+                  <button className="di__in-btn di__in-btn--yes" title="Принять звонок (Enter)" onClick={e => { e.stopPropagation(); onAcceptCall?.(); }}><Phone size={16} weight="fill" /></button>
                 </div>
               </motion.div>
             )}
@@ -212,7 +216,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
                       <CaretDown size={10} style={{ color: 'rgba(255,255,255,0.2)' }} />
                     </div>
                   </div>
-                  <button className="di__prof-x" onClick={e => { e.stopPropagation(); closeProfile(); }}>&#10005;</button>
+                  <button className="di__prof-x" title="Закрыть" onClick={e => { e.stopPropagation(); closeProfile(); }}>&#10005;</button>
                 </div>
 
                 {/* Status selector */}
@@ -235,7 +239,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
                   <button className="di__prof-btn" onClick={e => { e.stopPropagation(); closeProfile(); onOpenSettings?.(); }}><GearSix size={18} /><span>Настройки</span></button>
                 </div>
 
-                <button className="di__prof-logout" onClick={e => { e.stopPropagation(); onLogout?.(); }}>
+                <button className="di__prof-logout" onClick={e => { e.stopPropagation(); setLogoutConfirm(true); }}>
                   <SignOut size={12} /> Выйти
                 </button>
               </motion.div>
@@ -244,5 +248,16 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
         </div>
       </motion.div>
     </div>
+
+    <ConfirmDialog
+      open={logoutConfirm}
+      title="Выйти из аккаунта?"
+      message="Вы будете перенаправлены на экран входа"
+      confirmText="Выйти"
+      danger
+      onConfirm={() => { setLogoutConfirm(false); onLogout?.(); }}
+      onCancel={() => setLogoutConfirm(false)}
+    />
+  </>
   );
 }
