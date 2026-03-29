@@ -424,7 +424,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
       {/* ═══════ MODALS ═══════ */}
       {/* Настройки — модалка поверх всего */}
-      <SettingsScreen open={settingsOpen} onClose={() => setSettingsOpen(false)} onLogout={onLogout} />
+      <SettingsScreen open={settingsOpen} onClose={() => setSettingsOpen(false)} onLogout={onLogout} onFeedback={() => setFeedbackOpen(true)} />
 
       <AboutScreen open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <FeedbackScreen open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />

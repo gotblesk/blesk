@@ -77,9 +77,9 @@ const staggerItem = {
 };
 
 /* ═══════ MAIN COMPONENT ═══════ */
-export default function SettingsScreen({ open, onClose, onLogout }) {
+export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) {
   const [tab, setTab] = useState(() => localStorage.getItem('blesk_settings_tab') || 'general');
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const openFeedback = onFeedback || (() => {});
   const [logoClicks, setLogoClicks] = useState(0);
   const [easterEgg, setEasterEgg] = useState(false);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
@@ -301,13 +301,12 @@ export default function SettingsScreen({ open, onClose, onLogout }) {
                     {tab === 'hotkeys' && <HotkeysTab />}
                     {tab === 'storage' && <StorageTab />}
                     {tab === 'accessibility' && <AccessibilityTab settings={settings} toggle={toggle} />}
-                    {tab === 'about' && <AboutTab version={version} logoClicks={logoClicks} easterEgg={easterEgg} handleLogoClick={handleLogoClick} setFeedbackOpen={setFeedbackOpen} />}
+                    {tab === 'about' && <AboutTab version={version} logoClicks={logoClicks} easterEgg={easterEgg} handleLogoClick={handleLogoClick} setFeedbackOpen={openFeedback} />}
                   </motion.div>
                 </AnimatePresence>
               </div>
             </div>
           </motion.div>
-          <FeedbackScreen open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
           <ConfirmDialog
             open={logoutConfirm}
             title="Выйти из аккаунта?"
