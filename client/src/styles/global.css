@@ -260,26 +260,23 @@ button, input, a, textarea, select {
   outline: none;
 }
 
-/* [WCAG 2.4.7] Фокус — ВСЕ интерактивные элементы */
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible,
-[role="button"]:focus-visible,
-[tabindex]:focus-visible {
-  outline: 1.5px solid rgba(200, 255, 0, 0.4);
+/* [WCAG 2.4.7] Фокус — только при навигации клавиатурой */
+:is(button, a, [role="button"], [tabindex]):focus-visible {
+  outline: 1.5px solid rgba(200, 255, 0, 0.25);
   outline-offset: 2px;
 }
+:is(button, a, [role="button"], [tabindex]):focus:not(:focus-visible) {
+  outline: none;
+}
+/* Инпуты — без outline, используют border-color при :focus */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
 
-[data-theme="light"] button:focus-visible,
-[data-theme="light"] a:focus-visible,
-[data-theme="light"] input:focus-visible,
-[data-theme="light"] textarea:focus-visible,
-[data-theme="light"] select:focus-visible,
-[data-theme="light"] [role="button"]:focus-visible,
-[data-theme="light"] [tabindex]:focus-visible {
-  outline-color: rgba(124, 58, 237, 0.4);
+[data-theme="light"] :is(button, a, [role="button"], [tabindex]):focus-visible {
+  outline-color: rgba(124, 58, 237, 0.25);
 }
 
 /* Idle "дыхание" glass-панелей (body.app-idle добавляется через AnimatedBackground) */

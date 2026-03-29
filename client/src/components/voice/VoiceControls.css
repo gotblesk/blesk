@@ -5,7 +5,7 @@
 /* [Баг #28] bottom увеличен чтобы не перекрываться с DynamicIsland */
 .vc {
   position: fixed;
-  bottom: 90px;
+  bottom: 140px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 110; /* выше DynamicIsland (100) */
@@ -21,7 +21,7 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
   animation: vc-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   width: fit-content;
-  max-width: 600px;
+  max-width: min(600px, calc(100vw - 32px));
 }
 
 @keyframes vc-in {

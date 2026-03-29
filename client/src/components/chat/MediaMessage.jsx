@@ -132,10 +132,18 @@ export default function MediaMessage({ attachments, onImageClick }) {
         const fullSrc = `${API_URL}${a.url}`;
         // [BUG 3] Guard against null/undefined mimeType + fallback по расширению
         const mime = a.mimeType || '';
+        // Голосовые сообщения — проверяем по имени файла ДО проверки MIME,
+        // потому что file-type может вернуть video/webm вместо audio/webm
+        const isVoice = a.filename?.startsWith('voice-') && /\.(webm|ogg)$/i.test(a.filename || '');
         const isImage = mime.startsWith('image/') ||
           (!mime && /\.(jpe?g|png|gif|webp|avif|bmp)$/i.test(a.filename || ''));
-        const isVideo = mime.startsWith('video/');
+        const isVideo = mime.startsWith('video/') && !isVoice;
         const isAudio = mime.startsWith('audio/');
+
+        // Голосовые сообщения — компактный плеер (до проверки video/image)
+        if (isVoice) {
+          return <VoiceMessage key={a.id} src={fullSrc} />;
+        }
 
         // Изображения
         if (isImage) {
@@ -166,11 +174,6 @@ export default function MediaMessage({ attachments, onImageClick }) {
               </div>
             </div>
           );
-        }
-
-        // Голосовые сообщения — компактный плеер
-        if (isAudio && (a.filename?.startsWith('voice-') || mime.includes('webm') || mime.includes('ogg'))) {
-          return <VoiceMessage key={a.id} src={fullSrc} />;
         }
 
         // Аудиофайлы (музыка и т.д.) — стандартный плеер

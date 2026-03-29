@@ -563,7 +563,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
       />
 
       {/* Voice Controls */}
-      {voiceRoomId && (
+      {voiceRoomId && !voiceExpanded && (
         <VoiceControls
           onLeave={() => {
             soundVoiceLeave();
