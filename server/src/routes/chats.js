@@ -607,4 +607,43 @@ router.post('/:id/read', authenticate, async (req, res) => {
   }
 });
 
+// Замьютить чат
+router.put('/:id/mute', authenticate, async (req, res) => {
+  try {
+    const { id: chatId } = req.params;
+    const { duration } = req.body; // 'forever' | '1h' | '8h' | '1d' | '1w'
+
+    let mutedUntil = null;
+    if (duration === '1h') mutedUntil = new Date(Date.now() + 3600000);
+    else if (duration === '8h') mutedUntil = new Date(Date.now() + 28800000);
+    else if (duration === '1d') mutedUntil = new Date(Date.now() + 86400000);
+    else if (duration === '1w') mutedUntil = new Date(Date.now() + 604800000);
+    // 'forever' → mutedUntil stays null
+
+    await prisma.roomParticipant.update({
+      where: { roomId_userId: { roomId: chatId, userId: req.userId } },
+      data: { isMuted: true, mutedUntil },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Mute chat error:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Размьютить чат
+router.put('/:id/unmute', authenticate, async (req, res) => {
+  try {
+    await prisma.roomParticipant.update({
+      where: { roomId_userId: { roomId: req.params.id, userId: req.userId } },
+      data: { isMuted: false, mutedUntil: null },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Unmute error:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 module.exports = router;

@@ -5,9 +5,6 @@ const messageRateLimits = new Map(); // userId → [timestamps]
 const typingTimeouts = new Map();
 // Throttle для typing:start: `${userId}:${chatId}` → timestamp
 const typingRateLimits = new Map();
-// Реакции на сообщения (in-memory, эфемерные до добавления DB модели)
-// messageId → { emoji: Set<userId> }
-const messageReactions = new Map();
 const RATE_LIMIT_WINDOW = 3000; // 3 секунды
 const RATE_LIMIT_MAX = 5; // 5 сообщений
 
@@ -218,6 +215,19 @@ function chatHandler(io, socket) {
       }
       io.to(chatId).emit('message:new', emitData);
 
+      // Фоновый скрапинг OG-данных для ссылок в сообщении
+      if (!encrypted) {
+        const urlMatch = text?.match(/(https?:\/\/[^\s]+)/);
+        if (urlMatch) {
+          const { fetchOgData } = require('../services/ogScraper');
+          fetchOgData(urlMatch[0]).then(ogData => {
+            if (ogData) {
+              io.to(chatId).emit('message:og', { messageId: message.id, chatId, linkPreview: ogData });
+            }
+          }).catch(() => {});
+        }
+      }
+
       // Проверяем упоминания (@username) — макс 5 на сообщение
       const MAX_MENTIONS = 5;
       const mentionRegex = /@(\w+)/g;
@@ -251,6 +261,14 @@ function chatHandler(io, socket) {
         });
 
         for (const mentioned of filteredMentions) {
+          // Проверить мьют чата у получателя
+          const mentionedParticipant = await prisma.roomParticipant.findUnique({
+            where: { roomId_userId: { roomId: chatId, userId: mentioned.id } },
+          });
+          const isChatMuted = mentionedParticipant?.isMuted &&
+            (!mentionedParticipant.mutedUntil || mentionedParticipant.mutedUntil > new Date());
+          if (isChatMuted) continue;
+
           const notification = await prisma.notification.create({
             data: {
               userId: mentioned.id,
@@ -427,48 +445,30 @@ function chatHandler(io, socket) {
       });
       if (!participant) return;
 
-      // Toggle реакции в in-memory Map
-      if (!messageReactions.has(messageId)) {
-        messageReactions.set(messageId, {});
-      }
-      const reactions = messageReactions.get(messageId);
-      if (!reactions[emoji]) {
-        reactions[emoji] = new Set();
-      }
-      if (reactions[emoji].has(userId)) {
-        reactions[emoji].delete(userId);
-        // Удалить пустой emoji
-        if (reactions[emoji].size === 0) delete reactions[emoji];
-        // Удалить пустой messageId
-        if (Object.keys(reactions).length === 0) messageReactions.delete(messageId);
+      // Toggle реакции в БД
+      const existing = await prisma.messageReaction.findUnique({
+        where: { messageId_userId_emoji: { messageId, userId, emoji } },
+      });
+
+      if (existing) {
+        await prisma.messageReaction.delete({ where: { id: existing.id } });
       } else {
-        reactions[emoji].add(userId);
+        await prisma.messageReaction.create({ data: { messageId, userId, emoji } });
       }
 
-      // Сериализовать для клиента — нужны username'ы
+      // Загрузить все реакции для этого сообщения
+      const allReactions = await prisma.messageReaction.findMany({
+        where: { messageId },
+        include: { user: { select: { id: true, username: true } } },
+      });
+
+      // Сериализовать для клиента
       const serialized = {};
-      const currentReactions = messageReactions.get(messageId) || {};
-      const allUserIds = new Set();
-      for (const userSet of Object.values(currentReactions)) {
-        for (const uid of userSet) allUserIds.add(uid);
-      }
-
-      // Загрузить username'ы пачкой
-      const users = allUserIds.size > 0
-        ? await prisma.user.findMany({
-            where: { id: { in: [...allUserIds] } },
-            select: { id: true, username: true },
-          })
-        : [];
-      const usernameMap = {};
-      for (const u of users) usernameMap[u.id] = u.username;
-
-      for (const [emo, userSet] of Object.entries(currentReactions)) {
-        serialized[emo] = {
-          count: userSet.size,
-          users: [...userSet].map((uid) => usernameMap[uid] || uid),
-          userIds: [...userSet],
-        };
+      for (const r of allReactions) {
+        if (!serialized[r.emoji]) serialized[r.emoji] = { count: 0, users: [], userIds: [] };
+        serialized[r.emoji].count++;
+        serialized[r.emoji].users.push(r.user.username);
+        serialized[r.emoji].userIds.push(r.user.id);
       }
 
       io.to(message.roomId).emit('message:reacted', {
@@ -482,23 +482,30 @@ function chatHandler(io, socket) {
   });
 
   // Пакетный запрос реакций для видимых сообщений
-  socket.on('message:reactions:get', ({ messageIds }) => {
+  socket.on('message:reactions:get', async ({ messageIds }) => {
     if (!Array.isArray(messageIds) || messageIds.length === 0) return;
     // Лимит: макс 100 сообщений за раз
     const ids = messageIds.slice(0, 100);
-    const result = {};
-    for (const msgId of ids) {
-      const reactions = messageReactions.get(msgId);
-      if (!reactions || Object.keys(reactions).length === 0) continue;
-      result[msgId] = {};
-      for (const [emo, userSet] of Object.entries(reactions)) {
-        result[msgId][emo] = {
-          count: userSet.size,
-          userIds: [...userSet],
-        };
+
+    try {
+      const allReactions = await prisma.messageReaction.findMany({
+        where: { messageId: { in: ids } },
+        include: { user: { select: { id: true, username: true } } },
+      });
+
+      const result = {};
+      for (const r of allReactions) {
+        if (!result[r.messageId]) result[r.messageId] = {};
+        if (!result[r.messageId][r.emoji]) result[r.messageId][r.emoji] = { count: 0, users: [], userIds: [] };
+        result[r.messageId][r.emoji].count++;
+        result[r.messageId][r.emoji].users.push(r.user.username);
+        result[r.messageId][r.emoji].userIds.push(r.user.id);
       }
+
+      socket.emit('message:reactions:batch', result);
+    } catch (err) {
+      console.error('message:reactions:get error:', err);
     }
-    socket.emit('message:reactions:batch', result);
   });
 
   // Пересылка сообщения в другой чат

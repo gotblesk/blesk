@@ -52,6 +52,21 @@ router.get('/search', authenticate, async (req, res) => {
   }
 });
 
+// Список заблокированных
+router.get('/blocked', authenticate, async (req, res) => {
+  try {
+    const blocked = await prisma.blockedUser.findMany({
+      where: { userId: req.userId },
+      include: { blocked: { select: { id: true, username: true, avatar: true, hue: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(blocked.map(b => b.blocked));
+  } catch (err) {
+    console.error('Get blocked error:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Профиль пользователя по id
 router.get('/:id', authenticate, async (req, res) => {
   try {
@@ -166,8 +181,25 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
 // Обновление профиля
 router.put('/me', authenticate, async (req, res) => {
   try {
-    const { bio, status, customStatus, hue, showLastSeen } = req.body;
+    const { username, bio, status, customStatus, hue, showLastSeen } = req.body;
     const data = {};
+
+    // Смена никнейма
+    if (username !== undefined) {
+      const name = String(username).trim();
+      if (name.length < 3 || name.length > 24) {
+        return res.status(400).json({ error: 'Имя от 3 до 24 символов' });
+      }
+      if (!/^[a-zA-Z0-9_а-яА-ЯёЁ]+$/.test(name)) {
+        return res.status(400).json({ error: 'Только буквы, цифры и подчёркивание' });
+      }
+      // Уникальность
+      const existing = await prisma.user.findFirst({ where: { username: name, NOT: { id: req.userId } } });
+      if (existing) {
+        return res.status(400).json({ error: 'Это имя уже занято' });
+      }
+      data.username = name;
+    }
 
     // Валидация полей
     if (bio !== undefined) {
@@ -269,6 +301,38 @@ router.put('/me', authenticate, async (req, res) => {
     res.json(user);
   } catch {
     res.status(500).json({ error: 'Ошибка обновления профиля' });
+  }
+});
+
+// Заблокировать пользователя
+router.post('/:id/block', authenticate, async (req, res) => {
+  try {
+    const { id: blockedId } = req.params;
+    if (blockedId === req.userId) return res.status(400).json({ error: 'Нельзя заблокировать себя' });
+
+    await prisma.blockedUser.upsert({
+      where: { userId_blockedId: { userId: req.userId, blockedId } },
+      create: { userId: req.userId, blockedId },
+      update: {},
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Block user error:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Разблокировать
+router.delete('/:id/block', authenticate, async (req, res) => {
+  try {
+    await prisma.blockedUser.deleteMany({
+      where: { userId: req.userId, blockedId: req.params.id },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Unblock error:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 

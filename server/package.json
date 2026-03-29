@@ -27,6 +27,7 @@
     "mediasoup": "^3.19.18",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.2",
+    "open-graph-scraper": "^6.11.0",
     "otplib": "^13.4.0",
     "qrcode": "^1.5.4",
     "sharp": "^0.34.5",

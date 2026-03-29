@@ -52,6 +52,9 @@ model User {
   resolvedReports        Report[]          @relation("ReportResolver")
   feedbacks              Feedback[]
   preKeyBundle           PreKeyBundle?
+  blockedUsers           BlockedUser[] @relation("blocker")
+  blockedByUsers         BlockedUser[] @relation("blocked")
+  reactions              MessageReaction[]
 
   @@map("users")
 }
@@ -136,6 +139,7 @@ model Message {
   replyTo   Message? @relation("MessageReplies", fields: [replyToId], references: [id])
   replies   Message[] @relation("MessageReplies")
   attachments Attachment[]
+  reactions   MessageReaction[]
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([roomId, createdAt])
@@ -167,6 +171,8 @@ model RoomParticipant {
   role       String   @default("member") // owner, admin, member
   joinedAt   DateTime @default(now()) @map("joined_at")
   lastReadAt DateTime @default(now()) @map("last_read_at")
+  isMuted    Boolean   @default(false) @map("is_muted")
+  mutedUntil DateTime? @map("muted_until")
   room       Room     @relation(fields: [roomId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
 
@@ -347,4 +353,34 @@ model Report {
   @@index([status])
   @@index([createdAt])
   @@map("reports")
+}
+
+model BlockedUser {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  blockedId String   @map("blocked_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User @relation("blocker", fields: [userId], references: [id])
+  blocked User @relation("blocked", fields: [blockedId], references: [id])
+
+  @@unique([userId, blockedId])
+  @@index([userId])
+  @@index([blockedId])
+  @@map("blocked_users")
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String   @map("message_id")
+  userId    String   @map("user_id")
+  emoji     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("message_reactions")
 }

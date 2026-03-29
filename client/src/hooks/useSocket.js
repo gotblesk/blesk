@@ -422,6 +422,15 @@ export function useSocket() {
       }));
     };
 
+    // ═══ Link Preview (OG) ═══
+    const handleMessageOg = ({ messageId, chatId, linkPreview }) => {
+      const state = useChatStore.getState();
+      const msgs = state.messages[chatId];
+      if (!msgs) return;
+      const updated = msgs.map(m => m.id === messageId ? { ...m, linkPreview } : m);
+      useChatStore.setState({ messages: { ...state.messages, [chatId]: updated } });
+    };
+
     // ═══ Закреплённые сообщения ═══
     const handleMessagePinned = ({ messageId, chatId, pinned }) => {
       const state = useChatStore.getState();
@@ -480,6 +489,7 @@ export function useSocket() {
     socket.on('message:reacted', handleMessageReacted);
     socket.on('message:reactions:batch', handleReactionsBatch);
     socket.on('message:pinned', handleMessagePinned);
+    socket.on('message:og', handleMessageOg);
 
     return () => {
       // Очистить все таймеры typing auto-clear
@@ -520,6 +530,7 @@ export function useSocket() {
       socket.off('message:reacted', handleMessageReacted);
       socket.off('message:reactions:batch', handleReactionsBatch);
       socket.off('message:pinned', handleMessagePinned);
+      socket.off('message:og', handleMessageOg);
       window.removeEventListener('online', handleBrowserOnline);
       window.removeEventListener('offline', handleBrowserOffline);
       socket.disconnect();
