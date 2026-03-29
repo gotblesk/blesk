@@ -10,6 +10,7 @@
   -webkit-backdrop-filter: blur(40px);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
   animation: ctxIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
 }
 
 @keyframes ctxIn {
@@ -35,7 +36,8 @@
   text-align: left;
 }
 
-.ctx-menu__item:hover {
+.ctx-menu__item:hover,
+.ctx-menu__item--focused {
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -80,7 +82,8 @@
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--light-border, #e5e7eb);
 }
 
-[data-theme="light"] .ctx-menu__item:hover {
+[data-theme="light"] .ctx-menu__item:hover,
+[data-theme="light"] .ctx-menu__item--focused {
   background: var(--light-surface-hover, #f0f2f5);
 }
 

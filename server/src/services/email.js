@@ -109,7 +109,7 @@ async function sendVerificationCode(email, code) {
         cid: 'blesk-logo',
       }];
     }
-  } catch {}
+  } catch (err) { console.error('Failed to attach email logo:', err.message); }
 
   try {
     await transporter.sendMail({

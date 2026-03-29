@@ -6,6 +6,7 @@ import UpdateToast from './components/ui/UpdateToast';
 import MetaballFilter from './components/ui/MetaballFilter';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import { ensureKeyPair, clearCache } from './utils/cryptoService';
+import { initCsrf, clearCsrf } from './utils/authFetch';
 import { useSettingsStore } from './store/settingsStore';
 import { useChatStore } from './store/chatStore';
 import { useNotificationStore } from './store/notificationStore';
@@ -82,6 +83,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ refreshToken }),
       });
       if (res.ok) {
@@ -90,7 +92,7 @@ export default function App() {
         if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
         return data.token;
       }
-    } catch {}
+    } catch (err) { console.error('App refreshToken:', err?.message || err); }
     return null;
   }
 
@@ -106,6 +108,7 @@ export default function App() {
 
       let res = await fetch(`${API_URL}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       }).catch(() => null);
 
       // Если токен истёк — пробуем обновить
@@ -114,12 +117,14 @@ export default function App() {
         if (newToken) {
           res = await fetch(`${API_URL}/api/auth/me`, {
             headers: { Authorization: `Bearer ${newToken}` },
+            credentials: 'include',
           }).catch(() => null);
         }
       }
 
       if (res && res.ok) {
         const data = await res.json();
+        await initCsrf();
         if (data.user.email && data.user.emailVerified === false) {
           setNeedsVerify({
             user: data.user,
@@ -164,6 +169,8 @@ export default function App() {
       localStorage.setItem('refreshToken', data.refreshToken);
     }
 
+    initCsrf();
+
     // Запускаем transition: auth collapse → main reveal
     setPendingUser(data.user);
     setTransition('collapsing');
@@ -181,6 +188,8 @@ export default function App() {
 
   const handleLogout = () => {
     setUser(null);
+    // Очистить CSRF-токен
+    clearCsrf();
     // Очистить E2E ключи и кеши
     clearCache();
     // Полная очистка всех Zustand stores

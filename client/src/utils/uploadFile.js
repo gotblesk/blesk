@@ -1,4 +1,5 @@
 import API_URL from '../config';
+import { getAuthHeaders } from './authFetch';
 
 export default function uploadFile(chatId, file, { text, replyToId, onProgress } = {}) {
   return new Promise((resolve, reject) => {
@@ -25,7 +26,9 @@ export default function uploadFile(chatId, file, { text, replyToId, onProgress }
     xhr.onerror = () => reject(new Error('Нет подключения'));
 
     xhr.open('POST', `${API_URL}/api/chats/${chatId}/upload`);
-    xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);
+    xhr.withCredentials = true;
+    const authH = getAuthHeaders();
+    if (authH.Authorization) xhr.setRequestHeader('Authorization', authH.Authorization);
     xhr.send(formData);
   });
 }

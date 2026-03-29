@@ -14,6 +14,15 @@
   right: 0;
 }
 
+/* Центрирование input при широком экране */
+@media (min-width: 600px) {
+  .chat-view--inline .chat-input-zone {
+    max-width: 856px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 /* Grid stack — both states occupy same space */
 .chat-input-morph {
   display: grid;
@@ -401,47 +410,51 @@
   color: var(--accent) !important;
 }
 
-/* Recording UI */
+/* Recording UI — replaces input area during hold-to-record */
 .chat-input__recording {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 12px 16px;
-  background: var(--glass-bg);
-  border: 1px solid var(--danger);
-  border-radius: 20px;
-  backdrop-filter: blur(12px);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 24px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: recFadeIn 0.15s ease both;
 }
 
-.chat-input__recording-dot {
-  width: 10px;
-  height: 10px;
+@keyframes recFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.chat-input__rec-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--danger);
-  animation: recordPulse 1s ease-in-out infinite;
+  background: #ef4444;
+  flex-shrink: 0;
+  animation: recDotPulse 1s ease-in-out infinite;
 }
 
-@keyframes recordPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.8); }
+@keyframes recDotPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50% { opacity: 0.5; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
 }
 
-.chat-input__recording-time {
-  font-family: var(--font-mono, monospace);
+.chat-input__rec-timer {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 14px;
-  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,0.85);
   min-width: 36px;
 }
 
-.chat-input__recording-label {
-  color: var(--text-muted);
+.chat-input__rec-hint {
+  color: rgba(255,255,255,0.35);
   font-size: 13px;
   flex: 1;
-}
-
-.chat-input__recording-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .chat-input__recording-cancel {
@@ -450,54 +463,90 @@
   border-radius: 50%;
   border: none;
   background: rgba(255,255,255,0.06);
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.4);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
 
 .chat-input__recording-cancel:hover {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: #ef4444;
 }
 
-.chat-input__recording-stop {
-  width: 32px;
-  height: 32px;
+/* Mic hold button (replaces send when input is empty) */
+.chat-input__mic-hold {
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  border: none;
-  background: var(--danger);
-  color: #fff;
-  cursor: pointer;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, transform 0.15s;
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
 }
 
-.chat-input__recording-stop:hover {
-  background: #dc2626;
-  transform: scale(1.05);
+.chat-input__mic-hold:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.6);
 }
 
+.chat-input__mic-hold:active {
+  transform: scale(0.92);
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.chat-input__mic-hold svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Light theme overrides */
 [data-theme="light"] .chat-input__recording {
-  background: var(--light-surface, #fff);
-  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="light"] .chat-input__rec-timer {
+  color: var(--light-text-primary, #111827);
+}
+
+[data-theme="light"] .chat-input__rec-hint {
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .chat-input__recording-cancel {
   background: rgba(0,0,0,0.04);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
-.chat-input__tool-btn--mic {
-  color: var(--text-muted);
-  transition: color 0.15s;
+[data-theme="light"] .chat-input__mic-hold {
+  background: rgba(0,0,0,0.04);
+  border-color: var(--light-border, #e5e7eb);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
-.chat-input__tool-btn--mic:hover {
-  color: var(--accent);
+[data-theme="light"] .chat-input__mic-hold:hover {
+  background: rgba(0,0,0,0.07);
+  color: var(--light-text-secondary, #4b5563);
+}
+
+[data-theme="light"] .chat-input__mic-hold:active {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -505,5 +554,6 @@
   .chat-input-expanded {
     transition: none;
   }
-  .chat-input__recording-dot { animation: none; opacity: 1; }
+  .chat-input__rec-dot { animation: none; opacity: 1; }
+  .chat-input__recording { animation: none; }
 }

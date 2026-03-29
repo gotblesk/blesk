@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import './StatusEditor.css';
 
 const PRESETS = [
@@ -33,13 +34,13 @@ export default function StatusEditor({ open, onClose, user, onUserUpdate }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/users/me`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(),
         },
+        credentials: 'include',
         body: JSON.stringify({ status: selected, customStatus: customText }),
       });
 

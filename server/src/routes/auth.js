@@ -5,10 +5,36 @@ const prisma = require('../db');
 const { authenticate, generateTokens, verifyRefreshToken, hashRefreshToken } = require('../middleware/auth');
 const crypto = require('crypto');
 const { generateCode, sendVerificationCode } = require('../services/email');
+const { authenticator } = require('otplib');
+const QRCode = require('qrcode');
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET не задан'); process.exit(1); }
+
+// httpOnly cookie helper — устанавливает access + refresh cookies
+function setAuthCookies(res, tokens) {
+  res.cookie('blesk_token', tokens.token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 15 * 60 * 1000, // 15 минут
+    path: '/',
+  });
+  res.cookie('blesk_refresh', tokens.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 дней
+    path: '/api/auth',
+  });
+}
+
+// Очистить auth cookies (при logout / смене пароля)
+function clearAuthCookies(res) {
+  res.clearCookie('blesk_token', { path: '/' });
+  res.clearCookie('blesk_refresh', { path: '/api/auth' });
+}
 
 // Раздельные rate-limit Maps для email-кодов по эндпоинтам (email → timestamp)
 // Чтобы resend-code, forgot-password и change-password/request не мешали друг другу
@@ -89,7 +115,7 @@ setInterval(() => {
 setInterval(async () => {
   try {
     await prisma.emailCode.deleteMany({ where: { expiresAt: { lt: new Date() } } });
-  } catch {}
+  } catch (err) { console.error('Failed to cleanup expired email codes:', err.message); }
 }, 60 * 60 * 1000);
 
 // Генерация тега #0001–#9999
@@ -127,19 +153,27 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// Извлечь userId из Bearer token (только access, refresh не принимается)
+// Извлечь userId из cookie или Bearer token (только access, refresh не принимается)
 function getUserIdFromToken(req) {
+  const cookieToken = req.cookies?.blesk_token;
   const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) return null;
+  const token = cookieToken || (header?.startsWith('Bearer ') ? header.slice(7) : null);
+  if (!token) return null;
   try {
-    const payload = jwt.verify(header.slice(7), JWT_SECRET);
-    // Refresh токен не должен использоваться как access
+    const payload = jwt.verify(token, JWT_SECRET);
     if (payload.type === 'refresh') return null;
     return payload.userId;
   } catch {
     return null;
   }
 }
+
+// GET /api/auth/csrf — получить CSRF-токен
+router.get('/csrf', authenticate, (req, res) => {
+  const { generateCsrfToken } = require('../middleware/csrf');
+  const token = generateCsrfToken(req.userId);
+  res.json({ csrfToken: token });
+});
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
@@ -223,7 +257,9 @@ router.post('/register', async (req, res) => {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
-    } catch {}
+    } catch (err) { console.error('Failed to save refresh token on register:', err.message); }
+
+    setAuthCookies(res, tokens);
 
     res.status(201).json({
       user: {
@@ -389,6 +425,12 @@ router.post('/login', async (req, res) => {
     // Успешный вход — сбросить счётчик
     loginAttempts.delete(username);
 
+    // Проверка 2FA
+    if (user.twoFactorEnabled) {
+      const tempToken = jwt.sign({ userId: user.id, type: '2fa_pending' }, JWT_SECRET, { expiresIn: '5m' });
+      return res.json({ requires2FA: true, tempToken });
+    }
+
     // [CRIT-2] Генерировать токены и сохранить refresh в БД
     const tokens = generateTokens(user.id);
     try {
@@ -399,7 +441,9 @@ router.post('/login', async (req, res) => {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
-    } catch {}
+    } catch (err) { console.error('Failed to save refresh token on login:', err.message); }
+
+    setAuthCookies(res, tokens);
 
     // Системное уведомление о входе
     try {
@@ -411,7 +455,7 @@ router.post('/login', async (req, res) => {
           body: 'Вход в аккаунт выполнен',
         },
       });
-    } catch {}
+    } catch (err) { console.error('Failed to create login notification:', err.message); }
 
     res.json({
       user: {
@@ -435,7 +479,8 @@ router.post('/login', async (req, res) => {
 // [CRIT-2] POST /api/auth/refresh — с ротацией и ревокацией
 router.post('/refresh', async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    // Принимаем из body ИЛИ из httpOnly cookie
+    const refreshToken = req.body.refreshToken || req.cookies?.blesk_refresh;
     if (!refreshToken) {
       return res.status(400).json({ error: 'Refresh token обязателен' });
     }
@@ -479,6 +524,8 @@ router.post('/refresh', async (req, res) => {
       },
     });
 
+    setAuthCookies(res, tokens);
+
     res.json(tokens);
   } catch (err) {
     console.error('Ошибка обновления токена:', err);
@@ -489,13 +536,16 @@ router.post('/refresh', async (req, res) => {
 // POST /api/auth/logout — инвалидация refresh token
 router.post('/logout', async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    // Принимаем из body ИЛИ из httpOnly cookie
+    const refreshToken = req.body.refreshToken || req.cookies?.blesk_refresh;
     if (refreshToken) {
       const tokenHash = hashRefreshToken(refreshToken);
       await prisma.refreshToken.deleteMany({ where: { tokenHash } });
     }
+    clearAuthCookies(res);
     res.json({ ok: true });
   } catch {
+    clearAuthCookies(res);
     res.json({ ok: true }); // Logout всегда "успешен"
   }
 });
@@ -527,6 +577,7 @@ router.get('/me', authenticate, async (req, res) => {
         role: user.role,
         banned: user.banned,
         bannedReason: user.bannedReason,
+        twoFactorEnabled: user.twoFactorEnabled,
         createdAt: user.createdAt,
       },
     });
@@ -631,6 +682,7 @@ router.post('/reset-password', async (req, res) => {
     ]);
 
     clearAttempts(email);
+    clearAuthCookies(res);
     res.json({ success: true });
   } catch (err) {
     console.error('reset-password error:', err);
@@ -734,9 +786,128 @@ router.post('/change-password/confirm', authenticate, async (req, res) => {
     ]);
 
     clearAttempts(user.email);
+    clearAuthCookies(res);
     res.json({ success: true });
   } catch (err) {
     console.error('change-password/confirm error:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// ═══ Двухфакторная аутентификация (TOTP) ═══
+
+// POST /api/auth/2fa/setup — начать настройку 2FA
+router.post('/2fa/setup', authenticate, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (user.twoFactorEnabled) return res.status(400).json({ error: '2FA уже включена' });
+
+    const secret = authenticator.generateSecret();
+    const otpauthUrl = authenticator.keyuri(user.username, 'blesk', secret);
+    const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+    // Сохраняем secret но НЕ активируем (ждём верификацию)
+    await prisma.user.update({ where: { id: req.userId }, data: { twoFactorSecret: secret } });
+
+    res.json({ qr: qrDataUrl, secret, manual: secret });
+  } catch (err) {
+    console.error('2fa/setup error:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// POST /api/auth/2fa/verify — подтвердить код и активировать 2FA
+router.post('/2fa/verify', authenticate, async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'Код обязателен' });
+
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user?.twoFactorSecret) return res.status(400).json({ error: 'Сначала настройте 2FA' });
+    if (user.twoFactorEnabled) return res.status(400).json({ error: '2FA уже активна' });
+
+    const valid = authenticator.check(code, user.twoFactorSecret);
+    if (!valid) return res.status(400).json({ error: 'Неверный код' });
+
+    await prisma.user.update({ where: { id: req.userId }, data: { twoFactorEnabled: true } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('2fa/verify error:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// POST /api/auth/2fa/disable — отключить 2FA
+router.post('/2fa/disable', authenticate, async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'Код обязателен для отключения' });
+
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user?.twoFactorEnabled) return res.status(400).json({ error: '2FA не включена' });
+
+    const valid = authenticator.check(code, user.twoFactorSecret);
+    if (!valid) return res.status(400).json({ error: 'Неверный код' });
+
+    await prisma.user.update({ where: { id: req.userId }, data: { twoFactorEnabled: false, twoFactorSecret: null } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('2fa/disable error:', err);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// POST /api/auth/2fa/login — завершить вход с 2FA кодом
+router.post('/2fa/login', async (req, res) => {
+  try {
+    const { tempToken, code } = req.body;
+    if (!tempToken || !code) return res.status(400).json({ error: 'Токен и код обязательны' });
+
+    let payload;
+    try {
+      payload = jwt.verify(tempToken, JWT_SECRET);
+    } catch {
+      return res.status(400).json({ error: 'Токен истёк или недействителен' });
+    }
+    if (payload.type !== '2fa_pending') return res.status(400).json({ error: 'Неверный токен' });
+
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    if (!user || !user.twoFactorEnabled) return res.status(400).json({ error: 'Ошибка' });
+
+    const valid = authenticator.check(code, user.twoFactorSecret);
+    if (!valid) return res.status(400).json({ error: 'Неверный код' });
+
+    const tokens = generateTokens(user.id);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await prisma.refreshToken.create({
+      data: { userId: user.id, tokenHash: hashRefreshToken(tokens.refreshToken), expiresAt },
+    }).catch(err => console.error('Failed to save refresh token:', err.message));
+
+    setAuthCookies(res, tokens);
+
+    // Системное уведомление о входе
+    try {
+      await prisma.notification.create({
+        data: { userId: user.id, type: 'system', title: 'Новый вход', body: 'Вход в аккаунт выполнен (2FA)' },
+      });
+    } catch (err) { console.error('Failed to create login notification:', err.message); }
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        tag: user.tag,
+        avatar: user.avatar,
+        hue: user.hue,
+        status: user.status,
+        email: user.email,
+        emailVerified: user.emailVerified,
+      },
+      ...tokens,
+    });
+  } catch (err) {
+    console.error('2fa/login error:', err);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });

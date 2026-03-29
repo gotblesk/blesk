@@ -4,6 +4,48 @@ const { authenticate, requireVerified } = require('../middleware/auth');
 
 const router = Router();
 
+// Поиск сообщений по тексту
+router.get('/search', authenticate, async (req, res) => {
+  try {
+    const { q, chatId } = req.query;
+
+    if (!q || q.length < 2 || q.length > 100) {
+      return res.status(400).json({ error: 'Параметр q: от 2 до 100 символов' });
+    }
+
+    // Комнаты пользователя (фильтр по участию)
+    const where = {
+      text: { contains: q, mode: 'insensitive' },
+      room: {
+        participants: { some: { userId: req.userId } },
+      },
+      encrypted: false,
+    };
+
+    if (chatId) {
+      where.roomId = chatId;
+    }
+
+    const messages = await prisma.message.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        text: true,
+        createdAt: true,
+        roomId: true,
+        user: { select: { username: true, avatar: true } },
+      },
+    });
+
+    res.json(messages);
+  } catch (err) {
+    console.error('GET /api/chats/search error:', err);
+    res.status(500).json({ error: 'Ошибка поиска' });
+  }
+});
+
 // Список чатов пользователя
 router.get('/', authenticate, async (req, res) => {
   try {
@@ -305,7 +347,7 @@ router.post('/', authenticate, requireVerified, async (req, res) => {
           }
         }
       }
-    } catch {}
+    } catch (err) { console.error('Failed to send new chat notification:', err.message); }
 
     res.status(201).json({ id: room.id, otherUser, existing: false });
   } catch (err) {

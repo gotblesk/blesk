@@ -17,19 +17,6 @@ function computeCardSize() {
 }
 const GAP = 8;
 
-// DEBUG: тестовые чаты для проверки Nebula (удалить в продакшене)
-const DEBUG_CHATS = [
-  { id: 'debug-1', type: 'personal', otherUser: { id: 'u1', username: 'Егор', avatar: null }, lastMessage: { text: 'видел новый дизайн?', username: 'Егор', createdAt: new Date().toISOString() }, unreadCount: 2 },
-  { id: 'debug-2', type: 'personal', otherUser: { id: 'u2', username: 'Дима', avatar: null }, lastMessage: { text: 'завтра в 15:00', username: 'Дима', createdAt: new Date().toISOString() }, unreadCount: 0 },
-  { id: 'debug-3', type: 'personal', otherUser: { id: 'u3', username: 'Катя', avatar: null }, lastMessage: { text: 'скинь ссылку', username: 'Катя', createdAt: new Date().toISOString() }, unreadCount: 3 },
-  { id: 'debug-4', type: 'group', name: 'CS Team', lastMessage: { text: 'Миха: го катку', username: 'Миха', createdAt: new Date().toISOString() }, unreadCount: 0 },
-  { id: 'debug-5', type: 'personal', otherUser: { id: 'u5', username: 'Алексей', avatar: null }, lastMessage: { text: 'как дела?', username: 'Алексей', createdAt: new Date().toISOString() }, unreadCount: 0 },
-  { id: 'debug-6', type: 'group', name: 'Студия', lastMessage: { text: '3 участника', username: '', createdAt: new Date().toISOString() }, unreadCount: 0 },
-  { id: 'debug-7', type: 'personal', otherUser: { id: 'u7', username: 'Маша', avatar: null }, lastMessage: { text: 'до завтра!', username: 'Маша', createdAt: new Date().toISOString() }, unreadCount: 0 },
-  { id: 'debug-8', type: 'group', name: 'GOTBLESK', lastMessage: { text: 'новый дроп...', username: '', createdAt: new Date().toISOString() }, unreadCount: 5 },
-];
-const USE_DEBUG = false; // Переключить на false для продакшена
-
 // ═══════ NEBULA VIEW — Physics chat cards ═══════
 export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOpenOrbit, onOpenVibe, user }) {
   const realChats = useChatStore(s => s.chats);
@@ -37,7 +24,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
   const loadingChatList = useChatStore(s => s.loadingChatList);
   const chatsInitialized = useChatStore(s => s.chatsInitialized);
   const loadChats = useChatStore(s => s.loadChats);
-  const chats = USE_DEBUG && realChats.length === 0 ? DEBUG_CHATS : realChats;
+  const chats = realChats;
 
   // Загрузить чаты при монтировании (если ещё не загружены)
   useEffect(() => {
@@ -46,28 +33,6 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
     }
   }, []); // eslint-disable-line
 
-  // Inject debug chats into store so ChatView can find them
-  useEffect(() => {
-    if (USE_DEBUG && realChats.length === 0) {
-      const store = useChatStore.getState();
-      DEBUG_CHATS.forEach(chat => {
-        if (!store.chats.find(c => c.id === chat.id)) {
-          store.addChat(chat);
-        }
-      });
-      // Add fake messages for each debug chat
-      const fakeMessages = {};
-      DEBUG_CHATS.forEach(chat => {
-        const otherName = chat.otherUser?.username || chat.name || 'Чат';
-        fakeMessages[chat.id] = [
-          { id: `m1-${chat.id}`, chatId: chat.id, userId: 'u-other', username: otherName, text: 'Привет! Как тебе новый дизайн blesk?', type: 'text', createdAt: new Date(Date.now() - 300000).toISOString() },
-          { id: `m2-${chat.id}`, chatId: chat.id, userId: 'me', username: user?.username || 'Я', text: 'Выглядит невероятно!', type: 'text', createdAt: new Date(Date.now() - 240000).toISOString() },
-          { id: `m3-${chat.id}`, chatId: chat.id, userId: 'u-other', username: otherName, text: chat.lastMessage?.text || 'Согласен', type: 'text', createdAt: new Date(Date.now() - 60000).toISOString() },
-        ];
-      });
-      useChatStore.setState(state => ({ messages: { ...state.messages, ...fakeMessages } }));
-    }
-  }, [realChats.length, user?.username]);
   const sizeRef = useRef(computeCardSize());
   const containerRef = useRef(null);
   const bodiesRef = useRef([]);
@@ -117,7 +82,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
         }
         return saved;
       }
-    } catch (e) {}
+    } catch (e) { console.error('NebulaView loadPositions:', e?.message || e); }
     return null;
   }, []);
 
@@ -260,7 +225,7 @@ export default function NebulaView({ onOpenChat, onNavigate, onOpenProfile, onOp
     const b = bodiesRef.current[bodyIndex];
     if (!b || !b.drag) return;
     // Отпустить захват указателя
-    try { e.target.releasePointerCapture(e.pointerId); } catch {}
+    try { e.target.releasePointerCapture(e.pointerId); } catch { /* may not be captured */ }
     b.drag = false;
     const dt = Date.now() - b.t0;
     const dd = Math.hypot(e.clientX - b.mx0, e.clientY - b.my0);

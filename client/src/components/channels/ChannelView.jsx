@@ -5,6 +5,7 @@ import ChannelPost from './ChannelPost';
 import { useChannelStore } from '../../store/channelStore';
 import { getCurrentUserId } from '../../utils/auth';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import './ChannelView.css';
 
 export default function ChannelView({ channelId, onBack, user, socketRef }) {
@@ -27,7 +28,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
   const userId = getCurrentUserId();
   const channel = myChannels.find((c) => c.id === channelId) || channels.find((c) => c.id === channelId);
   const isOwner = channel?.ownerId === userId;
-  const isAdmin = isOwner; // TODO: check RoomParticipant role from server
+  const isAdmin = isOwner || channel?.userRole === 'admin';
   const isSubscribed = channel?.isSubscribed || myChannels.some((c) => c.id === channelId);
   const hue = channel ? ((channel.name || '').charCodeAt(0) * 37) % 360 : 0;
   const subCount = channel?.subscribersCount ?? channel?.subscriberCount ?? 0;
@@ -58,7 +59,8 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/posts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({ text: trimmed }),
       });
       if (!res.ok) {
@@ -93,7 +95,8 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/upload`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { ...getAuthHeaders() },
+        credentials: 'include',
         body: formData,
       });
       if (!res.ok) throw new Error();
@@ -112,7 +115,8 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/avatar`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { ...getAuthHeaders() },
+        credentials: 'include',
         body: formData,
       });
       if (!res.ok) return;
@@ -131,7 +135,8 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/cover`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { ...getAuthHeaders() },
+        credentials: 'include',
         body: formData,
       });
       if (!res.ok) return;

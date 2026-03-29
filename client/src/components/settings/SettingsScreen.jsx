@@ -14,6 +14,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
 import useAppVersion from '../../hooks/useAppVersion';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import './SettingsScreen.css';
 
@@ -588,6 +589,234 @@ function VoiceTab() {
   );
 }
 
+function TwoFactorSection() {
+  const [status, setStatus] = useState('idle'); // idle, loading, setup, verify, enabled, disabling
+  const [qrUrl, setQrUrl] = useState('');
+  const [secret, setSecret] = useState('');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // Проверить текущий статус 2FA
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/auth/me`, {
+          headers: { ...getAuthHeaders() }, credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // twoFactorEnabled может приходить через /me если добавлен
+          // Пока используем отдельный запрос или проверяем поле
+          setIs2FAEnabled(!!data.user?.twoFactorEnabled);
+        }
+      } catch { /* игнорируем */ }
+      setChecking(false);
+    })();
+  }, []);
+
+  const handleSetup = async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/2fa/setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Ошибка'); setStatus('idle'); return; }
+      setQrUrl(data.qr);
+      setSecret(data.secret);
+      setStatus('setup');
+    } catch {
+      setError('Не удалось подключиться к серверу');
+      setStatus('idle');
+    }
+  };
+
+  const handleVerify = async () => {
+    if (!code || code.length !== 6) { setError('Введите 6-значный код'); return; }
+    setError('');
+    setStatus('loading');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/2fa/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Ошибка'); setStatus('setup'); return; }
+      setIs2FAEnabled(true);
+      setStatus('idle');
+      setCode('');
+      setQrUrl('');
+      setSecret('');
+    } catch {
+      setError('Не удалось подключиться к серверу');
+      setStatus('setup');
+    }
+  };
+
+  const handleDisable = async () => {
+    if (!code || code.length !== 6) { setError('Введите 6-значный код'); return; }
+    setError('');
+    setStatus('loading');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/2fa/disable`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Ошибка'); setStatus('disabling'); return; }
+      setIs2FAEnabled(false);
+      setStatus('idle');
+      setCode('');
+    } catch {
+      setError('Не удалось подключиться к серверу');
+      setStatus('disabling');
+    }
+  };
+
+  if (checking) return null;
+
+  return (
+    <SettingGroup title="Двухфакторная аутентификация">
+      <div style={{ padding: '12px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <Shield size={16} style={{ color: is2FAEnabled ? 'var(--online)' : 'var(--text-muted)' }} />
+          <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+            {is2FAEnabled ? '2FA включена' : '2FA отключена'}
+          </span>
+          <span style={{
+            fontSize: 11,
+            padding: '2px 8px',
+            borderRadius: 8,
+            background: is2FAEnabled ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255,255,255,0.06)',
+            color: is2FAEnabled ? 'var(--online)' : 'var(--text-muted)',
+          }}>
+            {is2FAEnabled ? 'Активна' : 'Не настроена'}
+          </span>
+        </div>
+
+        {/* QR-код и секрет при настройке */}
+        {status === 'setup' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            {qrUrl && <img src={qrUrl} alt="QR" style={{ width: 180, height: 180, borderRadius: 12, background: '#fff', padding: 8 }} />}
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', wordBreak: 'break-all', maxWidth: 260 }}>
+              Ручной ввод: <span style={{ color: 'var(--accent)', fontFamily: 'monospace', fontSize: 12 }}>{secret}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 260 }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                style={{
+                  flex: 1, padding: '8px 12px', borderRadius: 10, border: 'none',
+                  background: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)',
+                  fontSize: 14, fontFamily: 'monospace', textAlign: 'center', outline: 'none',
+                }}
+              />
+              <button
+                onClick={handleVerify}
+                disabled={status === 'loading'}
+                style={{
+                  padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                  background: 'var(--accent)', color: '#000', fontSize: 13, fontWeight: 600,
+                  opacity: status === 'loading' ? 0.5 : 1,
+                }}
+              >
+                {status === 'loading' ? '...' : 'Подтвердить'}
+              </button>
+            </div>
+            <button
+              onClick={() => { setStatus('idle'); setCode(''); setError(''); }}
+              style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              Отмена
+            </button>
+          </div>
+        )}
+
+        {/* Форма отключения */}
+        {status === 'disabling' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+              Введите код из приложения-аутентификатора
+            </div>
+            <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 260 }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                style={{
+                  flex: 1, padding: '8px 12px', borderRadius: 10, border: 'none',
+                  background: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)',
+                  fontSize: 14, fontFamily: 'monospace', textAlign: 'center', outline: 'none',
+                }}
+              />
+              <button
+                onClick={handleDisable}
+                style={{
+                  padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                  background: 'var(--danger)', color: '#fff', fontSize: 13, fontWeight: 600,
+                }}
+              >
+                Отключить
+              </button>
+            </div>
+            <button
+              onClick={() => { setStatus('idle'); setCode(''); setError(''); }}
+              style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              Отмена
+            </button>
+          </div>
+        )}
+
+        {/* Кнопки */}
+        {status === 'idle' && !is2FAEnabled && (
+          <button
+            onClick={handleSetup}
+            style={{
+              padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: 'var(--accent)', color: '#000', fontSize: 13, fontWeight: 600,
+            }}
+          >
+            Включить 2FA
+          </button>
+        )}
+
+        {status === 'idle' && is2FAEnabled && (
+          <button
+            onClick={() => { setStatus('disabling'); setCode(''); setError(''); }}
+            style={{
+              padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: 'rgba(239, 68, 68, 0.15)', color: 'var(--danger)', fontSize: 13, fontWeight: 600,
+            }}
+          >
+            Отключить 2FA
+          </button>
+        )}
+
+        {error && (
+          <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 8 }}>{error}</div>
+        )}
+      </div>
+    </SettingGroup>
+  );
+}
+
 function PrivacyTab({ settings, toggle }) {
   return (
     <div className="stg-tab">
@@ -604,7 +833,7 @@ function PrivacyTab({ settings, toggle }) {
             toggle('showLastSeen');
             fetch(`${API_URL}/api/users/me`, {
               method: 'PUT',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, credentials: 'include',
               body: JSON.stringify({ showLastSeen: next }),
             }).then(r => { if (!r.ok) toggle('showLastSeen'); }).catch(() => { toggle('showLastSeen'); });
           }} />
@@ -615,6 +844,7 @@ function PrivacyTab({ settings, toggle }) {
           <Toggle value={settings.e2eEnabled} onChange={() => toggle('e2eEnabled')} accent />
         </SettingRow>
       </SettingGroup>
+      <TwoFactorSection />
     </div>
   );
 }

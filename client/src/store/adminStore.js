@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import API_URL from '../config';
+import { getAuthHeaders } from '../utils/authFetch';
 
 function getHeaders() {
-  const token = localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+    ...getAuthHeaders(),
   };
 }
 
@@ -49,7 +49,7 @@ export const useAdminStore = create((set, get) => ({
   fetchStats: async () => {
     set({ loadingStats: true });
     try {
-      const res = await fetch(`${API_URL}/api/internal/stats`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/stats`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ stats: data });
@@ -61,7 +61,7 @@ export const useAdminStore = create((set, get) => ({
     set({ loadingUsers: true });
     try {
       const params = new URLSearchParams({ page, limit: 50, ...(search && { search }), ...filters });
-      const res = await fetch(`${API_URL}/api/internal/users?${params}`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/users?${params}`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ users: data.users, usersTotal: data.total, usersPage: data.page });
@@ -71,7 +71,7 @@ export const useAdminStore = create((set, get) => ({
 
   fetchUser: async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/internal/users/${id}`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/users/${id}`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ selectedUser: data });
@@ -82,7 +82,7 @@ export const useAdminStore = create((set, get) => ({
   updateUser: async (id, data) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/users/${id}`, {
-        method: 'PATCH', headers: getHeaders(), body: JSON.stringify(data),
+        method: 'PATCH', headers: getHeaders(), credentials: 'include', body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
@@ -97,7 +97,7 @@ export const useAdminStore = create((set, get) => ({
   banUser: async (id, reason) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/users/${id}/ban`, {
-        method: 'POST', headers: getHeaders(), body: JSON.stringify({ reason }),
+        method: 'POST', headers: getHeaders(), credentials: 'include', body: JSON.stringify({ reason }),
       });
       if (!res.ok) throw new Error();
       set((s) => ({
@@ -111,7 +111,7 @@ export const useAdminStore = create((set, get) => ({
   unbanUser: async (id) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/users/${id}/unban`, {
-        method: 'POST', headers: getHeaders(),
+        method: 'POST', headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) throw new Error();
       set((s) => ({
@@ -125,7 +125,7 @@ export const useAdminStore = create((set, get) => ({
   grantTag: async (userId, tagId) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/users/${userId}/tags`, {
-        method: 'POST', headers: getHeaders(), body: JSON.stringify({ tagId }),
+        method: 'POST', headers: getHeaders(), credentials: 'include', body: JSON.stringify({ tagId }),
       });
       if (!res.ok) throw new Error();
       return true;
@@ -135,7 +135,7 @@ export const useAdminStore = create((set, get) => ({
   revokeTag: async (userId, tagId) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/users/${userId}/tags/${tagId}`, {
-        method: 'DELETE', headers: getHeaders(),
+        method: 'DELETE', headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) throw new Error();
       return true;
@@ -145,7 +145,7 @@ export const useAdminStore = create((set, get) => ({
   fetchTags: async () => {
     set({ loadingTags: true });
     try {
-      const res = await fetch(`${API_URL}/api/internal/tags`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/tags`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ tags: data.tags || data });
@@ -156,7 +156,7 @@ export const useAdminStore = create((set, get) => ({
   createTag: async (data) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/tags`, {
-        method: 'POST', headers: getHeaders(), body: JSON.stringify(data),
+        method: 'POST', headers: getHeaders(), credentials: 'include', body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error();
       const tag = await res.json();
@@ -168,7 +168,7 @@ export const useAdminStore = create((set, get) => ({
   updateTag: async (id, data) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/tags/${id}`, {
-        method: 'PATCH', headers: getHeaders(), body: JSON.stringify(data),
+        method: 'PATCH', headers: getHeaders(), credentials: 'include', body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
@@ -180,7 +180,7 @@ export const useAdminStore = create((set, get) => ({
   deleteTag: async (id) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/tags/${id}`, {
-        method: 'DELETE', headers: getHeaders(),
+        method: 'DELETE', headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) throw new Error();
       set((s) => ({ tags: s.tags.filter((t) => t.id !== id) }));
@@ -192,7 +192,7 @@ export const useAdminStore = create((set, get) => ({
     set({ loadingReports: true });
     try {
       const params = new URLSearchParams({ page, limit: 50, ...(status && { status }) });
-      const res = await fetch(`${API_URL}/api/internal/reports?${params}`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/reports?${params}`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ reports: data.reports, reportsTotal: data.total });
@@ -203,7 +203,7 @@ export const useAdminStore = create((set, get) => ({
   updateReport: async (id, status) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/reports/${id}`, {
-        method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status }),
+        method: 'PATCH', headers: getHeaders(), credentials: 'include', body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error();
       set((s) => ({ reports: s.reports.map((r) => (r.id === id ? { ...r, status } : r)) }));
@@ -214,7 +214,7 @@ export const useAdminStore = create((set, get) => ({
   deleteMessage: async (id) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/messages/${id}`, {
-        method: 'DELETE', headers: getHeaders(),
+        method: 'DELETE', headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) throw new Error();
       return true;
@@ -225,7 +225,7 @@ export const useAdminStore = create((set, get) => ({
     set({ loadingLogs: true });
     try {
       const params = new URLSearchParams({ page, limit: 50, ...filters });
-      const res = await fetch(`${API_URL}/api/internal/logs?${params}`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/logs?${params}`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ logs: data.logs, logsTotal: data.total });
@@ -237,7 +237,7 @@ export const useAdminStore = create((set, get) => ({
     set({ loadingFeedbacks: true });
     try {
       const params = new URLSearchParams({ page, limit: 50, ...filters });
-      const res = await fetch(`${API_URL}/api/internal/feedback?${params}`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/feedback?${params}`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ feedbacks: data.feedbacks, feedbacksTotal: data.total });
@@ -248,7 +248,7 @@ export const useAdminStore = create((set, get) => ({
   updateFeedback: async (id, status) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/feedback/${id}`, {
-        method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status }),
+        method: 'PATCH', headers: getHeaders(), credentials: 'include', body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error();
       set((s) => ({ feedbacks: s.feedbacks.map((f) => (f.id === id ? { ...f, status } : f)) }));
@@ -259,7 +259,7 @@ export const useAdminStore = create((set, get) => ({
   fetchChannels: async () => {
     set({ loadingChannels: true });
     try {
-      const res = await fetch(`${API_URL}/api/internal/channels`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/channels`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ channels: data.channels || data });
@@ -270,7 +270,7 @@ export const useAdminStore = create((set, get) => ({
   deleteChannel: async (id) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/channels/${id}`, {
-        method: 'DELETE', headers: getHeaders(),
+        method: 'DELETE', headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) throw new Error();
       set((s) => ({ channels: s.channels.filter((c) => c.id !== id) }));
@@ -280,7 +280,7 @@ export const useAdminStore = create((set, get) => ({
 
   fetchDbTables: async () => {
     try {
-      const res = await fetch(`${API_URL}/api/internal/db/tables`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/db/tables`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ dbTables: data.tables || data });
@@ -291,7 +291,7 @@ export const useAdminStore = create((set, get) => ({
     set({ loadingDb: true, selectedTable: table });
     try {
       const params = new URLSearchParams({ page, limit: 50 });
-      const res = await fetch(`${API_URL}/api/internal/db/${table}?${params}`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/db/${table}?${params}`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ dbRows: data.rows, dbTotal: data.total, dbColumns: data.columns });
@@ -301,7 +301,7 @@ export const useAdminStore = create((set, get) => ({
 
   fetchServerConfig: async () => {
     try {
-      const res = await fetch(`${API_URL}/api/internal/server/config`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/internal/server/config`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ serverConfig: data });
@@ -311,7 +311,7 @@ export const useAdminStore = create((set, get) => ({
   broadcastUpdate: async (version, changelog) => {
     try {
       const res = await fetch(`${API_URL}/api/internal/broadcast-update`, {
-        method: 'POST', headers: getHeaders(), body: JSON.stringify({ version, changelog }),
+        method: 'POST', headers: getHeaders(), credentials: 'include', body: JSON.stringify({ version, changelog }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();

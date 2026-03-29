@@ -15,6 +15,8 @@
   "dependencies": {
     "@prisma/client": "^6.0.0",
     "bcrypt": "^5.1.0",
+    "clamscan": "^2.4.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "express": "^5.0.0",
@@ -25,6 +27,8 @@
     "mediasoup": "^3.19.18",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.2",
+    "otplib": "^13.4.0",
+    "qrcode": "^1.5.4",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.0"
   },

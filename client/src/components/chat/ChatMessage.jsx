@@ -1,13 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Pin, Lock, CheckCheck } from 'lucide-react';
+import { Pin, Lock, CheckCheck, PhoneCall, PhoneOff, PhoneMissed, Clock, RefreshCw } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import MediaMessage from './MediaMessage';
+import LinkPreviewCard from './LinkPreviewCard';
 import useMessageActions from './MessageActionsPill';
 import { getHueStyles } from '../../utils/hueIdentity';
 import { useSettingsStore } from '../../store/settingsStore';
 import './ChatMessage.css';
 
 const EMOJI_ONLY_RE = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]{1,3}$/u;
+const URL_RE = /https?:\/\/[^\s<>"']+/;
+const MEDIA_EXT_RE = /\.(png|jpe?g|gif|webp|svg|mp4|webm|mov|avi|mkv|bmp|ico|tiff?)(\?|#|$)/i;
+
+function extractPreviewUrl(text) {
+  if (!text) return null;
+  const match = text.match(URL_RE);
+  if (!match) return null;
+  const url = match[0];
+  if (MEDIA_EXT_RE.test(url)) return null;
+  return url;
+}
 
 function countEmojis(text) {
   const matches = text.match(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu);
@@ -25,7 +37,10 @@ const ChatMessage = React.memo(function ChatMessage({
   onReact,
   onEdit,
   onDelete,
+  onForward,
   onImageClick,
+  reactions,
+  currentUserId,
 }) {
   const [readAnimated, setReadAnimated] = useState(false);
   const prevReadRef = useRef(isRead);
@@ -33,9 +48,10 @@ const ChatMessage = React.memo(function ChatMessage({
   const { handleContextMenu, menu: actionsMenu } = useMessageActions({
     isOwn,
     onReply,
-    onReact,
+    onReact: (emoji) => onReact?.(message.id, emoji),
     onEdit: () => onEdit?.(message),
     onDelete: () => onDelete?.(message),
+    onForward: () => onForward?.(message),
   });
 
   // Анимация при переходе в "прочитано"
@@ -57,10 +73,22 @@ const ChatMessage = React.memo(function ChatMessage({
     hour12: timeFormat === '12h',
   });
 
-  // Системные сообщения — простой текст по центру
+  // Системные сообщения — простой текст по центру, иконки для звонков
   if (message.type === 'system') {
+    let callIcon = null;
+    const t = message.text || '';
+    if (t.includes('завершён')) {
+      callIcon = <PhoneCall size={14} strokeWidth={1.5} style={{ color: '#4ade80' }} />;
+    } else if (t.includes('Сброшенный')) {
+      callIcon = <PhoneOff size={14} strokeWidth={1.5} style={{ color: '#f59e0b' }} />;
+    } else if (t.includes('Пропущенный')) {
+      callIcon = <PhoneMissed size={14} strokeWidth={1.5} style={{ color: '#ef4444' }} />;
+    } else if (t.includes('Отменённый')) {
+      callIcon = <PhoneOff size={14} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.35)' }} />;
+    }
     return (
       <div id={`msg-${message.id}`} className="chat-message chat-message--system">
+        {callIcon}
         {message.text}
       </div>
     );
@@ -173,6 +201,14 @@ const ChatMessage = React.memo(function ChatMessage({
                 </span>
               )}
 
+              {(() => {
+                const preview = message.linkPreview;
+                const previewUrl = !preview ? extractPreviewUrl(text) : null;
+                if (preview) return <LinkPreviewCard preview={preview} />;
+                if (previewUrl) return <LinkPreviewCard preview={{ url: previewUrl, domain: new URL(previewUrl).hostname }} />;
+                return null;
+              })()}
+
               {message.attachments?.length > 0 && (
                 <MediaMessage attachments={message.attachments} onImageClick={onImageClick} />
               )}
@@ -184,8 +220,35 @@ const ChatMessage = React.memo(function ChatMessage({
           </div>
         )}
 
+        {reactions && Object.keys(reactions).length > 0 && (
+          <div className="chat-message__reactions">
+            {Object.entries(reactions).map(([emoji, data]) => {
+              const hasOwn = data.userIds?.includes(currentUserId);
+              return (
+                <button
+                  key={emoji}
+                  className={`chat-message__reaction ${hasOwn ? 'chat-message__reaction--own' : ''}`}
+                  onClick={() => onReact?.(message.id, emoji)}
+                  title={data.users?.join(', ') || ''}
+                >
+                  <span className="chat-message__reaction-emoji">{emoji}</span>
+                  <span className="chat-message__reaction-count">{data.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {showTime && (
-          <div className="chat-message__time">{time}</div>
+          <div className="chat-message__time">
+            {message.pending && (
+              <Clock size={10} strokeWidth={1.5} className="chat-message__pending-icon" title={message.offline ? 'Будет отправлено при подключении' : 'Отправка...'} />
+            )}
+            {message.failed && (
+              <RefreshCw size={10} strokeWidth={1.5} className="chat-message__failed-icon" title="Не удалось отправить. Нажмите для повтора" />
+            )}
+            {time}
+          </div>
         )}
 
         {actionsMenu}

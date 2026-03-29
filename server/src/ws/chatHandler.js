@@ -5,6 +5,9 @@ const messageRateLimits = new Map(); // userId → [timestamps]
 const typingTimeouts = new Map();
 // Throttle для typing:start: `${userId}:${chatId}` → timestamp
 const typingRateLimits = new Map();
+// Реакции на сообщения (in-memory, эфемерные до добавления DB модели)
+// messageId → { emoji: Set<userId> }
+const messageReactions = new Map();
 const RATE_LIMIT_WINDOW = 3000; // 3 секунды
 const RATE_LIMIT_MAX = 5; // 5 сообщений
 
@@ -49,7 +52,12 @@ function chatHandler(io, socket) {
   const JWT_SECRET = process.env.JWT_SECRET;
   const tokenRecheckInterval = setInterval(async () => {
     try {
-      const token = socket.handshake.auth?.token;
+      // Проверить cookie или auth.token
+      let token = socket.handshake.auth?.token;
+      if (!token && socket.handshake.headers?.cookie) {
+        const cookieMatch = socket.handshake.headers.cookie.match(/blesk_token=([^;]+)/);
+        if (cookieMatch) token = decodeURIComponent(cookieMatch[1]);
+      }
       if (!token) { socket.disconnect(true); return; }
       jwt.verify(token, JWT_SECRET);
       // Проверить бан
@@ -400,6 +408,179 @@ function chatHandler(io, socket) {
     socket.to(chatId).emit('typing:stop', { chatId, userId });
   });
 
+  // ═══ Реакции на сообщения ═══
+  socket.on('message:react', async ({ messageId, emoji }) => {
+    if (!messageId || typeof messageId !== 'string' || messageId.length > 36) return;
+    if (!emoji || typeof emoji !== 'string' || emoji.length > 2) return;
+
+    try {
+      // Проверить что сообщение существует и получить roomId
+      const message = await prisma.message.findUnique({
+        where: { id: messageId },
+        select: { roomId: true },
+      });
+      if (!message) return;
+
+      // Проверить что пользователь — участник комнаты
+      const participant = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId: message.roomId, userId } },
+      });
+      if (!participant) return;
+
+      // Toggle реакции в in-memory Map
+      if (!messageReactions.has(messageId)) {
+        messageReactions.set(messageId, {});
+      }
+      const reactions = messageReactions.get(messageId);
+      if (!reactions[emoji]) {
+        reactions[emoji] = new Set();
+      }
+      if (reactions[emoji].has(userId)) {
+        reactions[emoji].delete(userId);
+        // Удалить пустой emoji
+        if (reactions[emoji].size === 0) delete reactions[emoji];
+        // Удалить пустой messageId
+        if (Object.keys(reactions).length === 0) messageReactions.delete(messageId);
+      } else {
+        reactions[emoji].add(userId);
+      }
+
+      // Сериализовать для клиента — нужны username'ы
+      const serialized = {};
+      const currentReactions = messageReactions.get(messageId) || {};
+      const allUserIds = new Set();
+      for (const userSet of Object.values(currentReactions)) {
+        for (const uid of userSet) allUserIds.add(uid);
+      }
+
+      // Загрузить username'ы пачкой
+      const users = allUserIds.size > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: [...allUserIds] } },
+            select: { id: true, username: true },
+          })
+        : [];
+      const usernameMap = {};
+      for (const u of users) usernameMap[u.id] = u.username;
+
+      for (const [emo, userSet] of Object.entries(currentReactions)) {
+        serialized[emo] = {
+          count: userSet.size,
+          users: [...userSet].map((uid) => usernameMap[uid] || uid),
+          userIds: [...userSet],
+        };
+      }
+
+      io.to(message.roomId).emit('message:reacted', {
+        messageId,
+        chatId: message.roomId,
+        reactions: serialized,
+      });
+    } catch (err) {
+      console.error('message:react error:', err);
+    }
+  });
+
+  // Пакетный запрос реакций для видимых сообщений
+  socket.on('message:reactions:get', ({ messageIds }) => {
+    if (!Array.isArray(messageIds) || messageIds.length === 0) return;
+    // Лимит: макс 100 сообщений за раз
+    const ids = messageIds.slice(0, 100);
+    const result = {};
+    for (const msgId of ids) {
+      const reactions = messageReactions.get(msgId);
+      if (!reactions || Object.keys(reactions).length === 0) continue;
+      result[msgId] = {};
+      for (const [emo, userSet] of Object.entries(reactions)) {
+        result[msgId][emo] = {
+          count: userSet.size,
+          userIds: [...userSet],
+        };
+      }
+    }
+    socket.emit('message:reactions:batch', result);
+  });
+
+  // Пересылка сообщения в другой чат
+  socket.on('message:forward', async ({ messageId, targetChatId }, callback) => {
+    if (!messageId || typeof messageId !== 'string' || messageId.length > 36) {
+      return callback?.({ error: 'Неверный ID сообщения' });
+    }
+    if (!targetChatId || typeof targetChatId !== 'string' || targetChatId.length > 36) {
+      return callback?.({ error: 'Неверный ID чата' });
+    }
+
+    if (isRateLimited(userId)) {
+      return callback?.({ error: 'Слишком быстро! Подождите немного.' });
+    }
+
+    try {
+      // Найти оригинальное сообщение
+      const original = await prisma.message.findUnique({
+        where: { id: messageId },
+        include: {
+          user: { select: { username: true } },
+        },
+      });
+      if (!original || original.type === 'phantom') {
+        return callback?.({ error: 'Сообщение не найдено' });
+      }
+
+      // Проверить что пользователь участник обоих чатов
+      const [sourceParticipant, targetParticipant] = await Promise.all([
+        prisma.roomParticipant.findUnique({
+          where: { roomId_userId: { roomId: original.roomId, userId } },
+        }),
+        prisma.roomParticipant.findUnique({
+          where: { roomId_userId: { roomId: targetChatId, userId } },
+        }),
+      ]);
+
+      if (!sourceParticipant) {
+        return callback?.({ error: 'Нет доступа к исходному чату' });
+      }
+      if (!targetParticipant) {
+        return callback?.({ error: 'Нет доступа к целевому чату' });
+      }
+
+      // Не пересылать зашифрованные сообщения (E2E)
+      if (original.encrypted) {
+        return callback?.({ error: 'Нельзя переслать зашифрованное сообщение' });
+      }
+
+      // Создать новое сообщение с пометкой о пересылке
+      const forwardText = `[Переслано от ${original.user.username}]\n${original.text}`;
+
+      const message = await prisma.message.create({
+        data: {
+          roomId: targetChatId,
+          userId,
+          text: forwardText,
+          type: 'text',
+        },
+        include: {
+          user: { select: { id: true, username: true, hue: true } },
+        },
+      });
+
+      io.to(targetChatId).emit('message:new', {
+        id: message.id,
+        chatId: targetChatId,
+        userId: message.userId,
+        username: message.user.username,
+        hue: message.user.hue,
+        text: message.text,
+        createdAt: message.createdAt,
+        replyTo: null,
+      });
+
+      callback?.({ ok: true });
+    } catch (err) {
+      console.error('message:forward error:', err);
+      callback?.({ error: 'Не удалось переслать сообщение' });
+    }
+  });
+
   // Публикация поста в канал через сокет (текстовый)
   // [IMP-10] Валидация channelId
   socket.on('channel:post', async ({ channelId, text, tempId }) => {
@@ -483,18 +664,25 @@ function chatHandler(io, socket) {
       }
     }
 
-    // [HIGH-2] Использовать сохранённый список комнат (socket.rooms пуст после disconnect)
-    if (socket.userStatus !== 'invisible') {
-      const rooms = socket.joinedRoomIds || [];
-      for (const roomId of rooms) {
-        io.to(roomId).emit('user:offline', { userId });
-      }
-    }
-
     try {
       // [CRIT-2] ВСЕГДА обновлять lastSeenAt + статус (предотвращает zombie online)
-      const savedStatus = socket.userStatus;
-      if (savedStatus === 'invisible' || savedStatus === 'dnd') {
+      // Читаем актуальный статус из БД (socket.userStatus может быть устаревшим)
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { status: true },
+      });
+      const actualStatus = dbUser?.status || socket.userStatus || 'online';
+
+      // [HIGH-2] Использовать сохранённый список комнат (socket.rooms пуст после disconnect)
+      // Невидимки не оповещают — они никогда не были видны как online
+      if (actualStatus !== 'invisible') {
+        const rooms = socket.joinedRoomIds || [];
+        for (const roomId of rooms) {
+          io.to(roomId).emit('user:offline', { userId });
+        }
+      }
+
+      if (actualStatus === 'invisible' || actualStatus === 'dnd') {
         // Оставить статус, но обновить lastSeenAt
         await prisma.user.update({
           where: { id: userId },
@@ -506,7 +694,7 @@ function chatHandler(io, socket) {
           data: { status: 'offline', lastSeenAt: new Date() },
         });
       }
-    } catch {}
+    } catch (err) { console.error('Failed to update user status on disconnect:', err.message); }
   });
 
   // [CRIT-4] Запускаем join — при ошибке отключаем сокет

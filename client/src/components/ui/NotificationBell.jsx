@@ -5,6 +5,7 @@ import { Bell, BellOff, Check, X, AlertTriangle, Trash2, LogIn, Zap, User, UserC
 import Avatar from './Avatar';
 import { useNotificationStore } from '../../store/notificationStore';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import './NotificationBell.css';
 
 // Decorative icon colors — hardcoded hex intentional (used in inline styles/gradients,
@@ -120,11 +121,11 @@ export default function NotificationBell({ onOpenChat }) {
   const procRef = useRef(new Set());
   const acceptFriend = useCallback(async (n, e) => {
     e.stopPropagation(); if (procRef.current.has(n.id)) return; procRef.current.add(n.id);
-    try { const tk = localStorage.getItem('token'); const r = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${tk}` } }); const reqs = await r.json(); const rq = reqs.find(x => x.senderId === n.fromUserId); if (rq) { const r2 = await fetch(`${API_URL}/api/friends/requests/${rq.id}/accept`, { method: 'POST', headers: { Authorization: `Bearer ${tk}` } }); const d = await r2.json(); if (d.ok && d.roomId && onOpenChat) { onOpenChat(d.roomId, null); setOpen(false); } } markAsRead(n.id); } catch {} finally { procRef.current.delete(n.id); }
+    try { const r = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { ...getAuthHeaders() }, credentials: 'include' }); const reqs = await r.json(); const rq = reqs.find(x => x.senderId === n.fromUserId); if (rq) { const r2 = await fetch(`${API_URL}/api/friends/requests/${rq.id}/accept`, { method: 'POST', headers: { ...getAuthHeaders() }, credentials: 'include' }); const d = await r2.json(); if (d.ok && d.roomId && onOpenChat) { onOpenChat(d.roomId, null); setOpen(false); } } markAsRead(n.id); } catch (err) { console.error('NotificationBell acceptFriend:', err?.message || err); } finally { procRef.current.delete(n.id); }
   }, [markAsRead, onOpenChat]);
   const declineFriend = useCallback(async (n, e) => {
     e.stopPropagation(); if (procRef.current.has(n.id)) return; procRef.current.add(n.id);
-    try { const tk = localStorage.getItem('token'); const r = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { Authorization: `Bearer ${tk}` } }); const reqs = await r.json(); const rq = reqs.find(x => x.senderId === n.fromUserId); if (rq) await fetch(`${API_URL}/api/friends/requests/${rq.id}/decline`, { method: 'POST', headers: { Authorization: `Bearer ${tk}` } }); markAsRead(n.id); } catch {} finally { procRef.current.delete(n.id); }
+    try { const r = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: { ...getAuthHeaders() }, credentials: 'include' }); const reqs = await r.json(); const rq = reqs.find(x => x.senderId === n.fromUserId); if (rq) await fetch(`${API_URL}/api/friends/requests/${rq.id}/decline`, { method: 'POST', headers: { ...getAuthHeaders() }, credentials: 'include' }); markAsRead(n.id); } catch (err) { console.error('NotificationBell declineFriend:', err?.message || err); } finally { procRef.current.delete(n.id); }
   }, [markAsRead]);
 
   const [confirmClear, setConfirmClear] = useState(false);

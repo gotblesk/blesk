@@ -26,6 +26,7 @@ export function useSocket() {
     // [IMP-2] Exponential backoff для reconnect
     const socket = io(API_URL, {
       auth: { token, showOnline },
+      withCredentials: true,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 30000,
@@ -40,7 +41,7 @@ export function useSocket() {
     // [CRIT-2] Отслеживание состояния подключения
     const handleConnect = () => {
       // Обновить состояние подключения
-      useChatStore.setState({ isConnected: true });
+      useChatStore.setState({ isConnected: true, lastConnectedAt: Date.now() });
 
       if (hasConnectedOnce) {
         // [CRIT-4] Ресинк: загрузить чаты + обновить открытые
@@ -49,6 +50,35 @@ export function useSocket() {
         const activeChats = useChatStore.getState().activeChats;
         for (const chatId of activeChats) {
           useChatStore.getState().refreshChat?.(chatId);
+        }
+
+        // Повторная отправка неотправленных сообщений (failed + offline)
+        const allMessages = useChatStore.getState().messages;
+        for (const chatId of Object.keys(allMessages)) {
+          const msgs = allMessages[chatId];
+          if (!msgs) continue;
+          for (const msg of msgs) {
+            if (!msg.failed && !msg.offline) continue;
+            // Убрать failed/offline, поставить pending
+            useChatStore.setState((state) => {
+              const chatMsgs = state.messages[chatId];
+              if (!chatMsgs) return state;
+              return {
+                messages: {
+                  ...state.messages,
+                  [chatId]: chatMsgs.map((m) =>
+                    m.id === msg.id ? { ...m, failed: false, offline: false, pending: true } : m
+                  ),
+                },
+              };
+            });
+            // Переотправить
+            socket.emit('message:send', {
+              chatId,
+              text: msg.text,
+              tempId: msg.tempId || msg.id,
+            });
+          }
         }
       }
       hasConnectedOnce = true;
@@ -135,7 +165,7 @@ export function useSocket() {
           if (window.blesk?.notify) {
             window.blesk.notify(title, body, msg.chatId || msg.roomId, !s.sounds);
           } else {
-            try { new Notification(title, { body, silent: !s.sounds }); } catch {}
+            try { new Notification(title, { body, silent: !s.sounds }); } catch (err) { console.error('Notification create:', err?.message || err); }
           }
         }
       }
@@ -356,7 +386,7 @@ export function useSocket() {
 
     // ═══ Shield: пополнение OPK ═══
     const handleShieldOpkLow = () => {
-      replenishOPKs(50).catch(() => {});
+      replenishOPKs(50).catch(err => console.error('Shield replenishOPKs:', err?.message || err));
     };
 
     // ═══ Бан аккаунта ═══
@@ -377,6 +407,20 @@ export function useSocket() {
     };
     const handleGroupUpdated = () => useChatStore.getState().loadChats();
 
+    // ═══ Реакции ═══
+    const handleMessageReacted = ({ messageId, chatId, reactions }) => {
+      useChatStore.setState((state) => ({
+        reactions: { ...state.reactions, [messageId]: reactions },
+      }));
+    };
+
+    const handleReactionsBatch = ({ reactions: batch }) => {
+      if (!batch || typeof batch !== 'object') return;
+      useChatStore.setState((state) => ({
+        reactions: { ...state.reactions, ...batch },
+      }));
+    };
+
     // ═══ Закреплённые сообщения ═══
     const handleMessagePinned = ({ messageId, chatId, pinned }) => {
       const state = useChatStore.getState();
@@ -390,6 +434,16 @@ export function useSocket() {
         });
       }
     };
+
+    // ═══ Browser online/offline ═══
+    const handleBrowserOnline = () => {
+      if (socket && !socket.connected) socket.connect();
+    };
+    const handleBrowserOffline = () => {
+      useChatStore.setState({ isConnected: false });
+    };
+    window.addEventListener('online', handleBrowserOnline);
+    window.addEventListener('offline', handleBrowserOffline);
 
     // ═══ Регистрация обработчиков ═══
     socket.on('connect_error', handleConnectError);
@@ -422,6 +476,8 @@ export function useSocket() {
     socket.on('group:member-added', handleGroupMemberAdded);
     socket.on('group:member-removed', handleGroupMemberRemoved);
     socket.on('group:updated', handleGroupUpdated);
+    socket.on('message:reacted', handleMessageReacted);
+    socket.on('message:reactions:batch', handleReactionsBatch);
     socket.on('message:pinned', handleMessagePinned);
 
     return () => {
@@ -460,7 +516,11 @@ export function useSocket() {
       socket.off('group:member-added', handleGroupMemberAdded);
       socket.off('group:member-removed', handleGroupMemberRemoved);
       socket.off('group:updated', handleGroupUpdated);
+      socket.off('message:reacted', handleMessageReacted);
+      socket.off('message:reactions:batch', handleReactionsBatch);
       socket.off('message:pinned', handleMessagePinned);
+      window.removeEventListener('online', handleBrowserOnline);
+      window.removeEventListener('offline', handleBrowserOffline);
       socket.disconnect();
       socketRef.current = null;
     };

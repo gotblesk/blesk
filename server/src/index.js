@@ -10,6 +10,7 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
@@ -65,7 +66,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
@@ -75,6 +76,7 @@ app.use(helmet({
   },
 }));
 app.use(cors({ origin: corsHandler, credentials: true }));
+app.use(cookieParser());
 app.use(express.json({ limit: '100kb' }));
 // [IMP-2] Trust proxy для корректного rate limiting за Cloudflare
 app.set('trust proxy', 1);
@@ -133,19 +135,20 @@ const internalRoutes = require('./routes/admin');
 const uploadRoutes = require('./routes/upload');
 const channelRoutes = require('./routes/channels');
 const shieldRoutes = require('./routes/shield');
+const { csrfProtection } = require('./middleware/csrf');
 
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/channels', chatLimiter, channelRoutes);
+app.use('/api/channels', chatLimiter, csrfProtection, channelRoutes);
 // [CRIT-3] uploadLimiter вместо chatLimiter для файлов
-app.use('/api/chats', uploadLimiter, uploadRoutes);
-app.use('/api/chats', chatLimiter, chatRoutes);
-app.use('/api/users', chatLimiter, userRoutes);
-app.use('/api/notifications', chatLimiter, notificationRoutes);
-app.use('/api/friends', chatLimiter, friendRoutes);
-app.use('/api/feedback', chatLimiter, feedbackRoutes);
-app.use('/api/voice', voiceLimiter, voiceRoutes);
-app.use('/api/internal', internalLimiter, internalRoutes);
-app.use('/api/shield', chatLimiter, shieldRoutes);
+app.use('/api/chats', uploadLimiter, csrfProtection, uploadRoutes);
+app.use('/api/chats', chatLimiter, csrfProtection, chatRoutes);
+app.use('/api/users', chatLimiter, csrfProtection, userRoutes);
+app.use('/api/notifications', chatLimiter, csrfProtection, notificationRoutes);
+app.use('/api/friends', chatLimiter, csrfProtection, friendRoutes);
+app.use('/api/feedback', chatLimiter, csrfProtection, feedbackRoutes);
+app.use('/api/voice', voiceLimiter, csrfProtection, voiceRoutes);
+app.use('/api/internal', internalLimiter, csrfProtection, internalRoutes);
+app.use('/api/shield', chatLimiter, csrfProtection, shieldRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {
@@ -158,6 +161,7 @@ const { chatHandler } = require('./ws/chatHandler');
 const { voiceHandler } = require('./ws/voiceHandler');
 const { callHandler, setUserSockets: setCallUserSockets } = require('./ws/callHandler');
 const { createWorkers } = require('./services/mediasoup');
+const { initScanner } = require('./services/fileScanner');
 
 io.use(socketAuth);
 
@@ -223,9 +227,40 @@ const PORT = process.env.PORT || 3000;
     console.log('Голосовые комнаты будут недоступны');
   }
 
+  // ClamAV антивирусный сканер (graceful — если недоступен, файлы загружаются без проверки)
+  await initScanner();
+
   httpServer.listen(PORT, () => {
     console.log(`blesk server запущен на порту ${PORT}`);
   });
+
+  // Очистка expired refresh tokens каждые 6 часов
+  setInterval(async () => {
+    try {
+      const result = await prisma.refreshToken.deleteMany({
+        where: { expiresAt: { lt: new Date() } },
+      });
+      if (result.count > 0) {
+        console.log(`Очищено ${result.count} expired refresh tokens`);
+      }
+    } catch (err) {
+      console.error('Ошибка очистки refresh tokens:', err.message);
+    }
+  }, 6 * 60 * 60 * 1000);
+
+  // Очистка expired email codes каждые 2 часа
+  setInterval(async () => {
+    try {
+      const result = await prisma.emailCode.deleteMany({
+        where: { expiresAt: { lt: new Date() } },
+      });
+      if (result.count > 0) {
+        console.log(`Очищено ${result.count} expired email codes`);
+      }
+    } catch (err) {
+      console.error('Ошибка очистки email codes:', err.message);
+    }
+  }, 2 * 60 * 60 * 1000);
 })();
 
 // [IMP-3 A1] Graceful crash — exit на fatal errors (PM2 перезапустит)

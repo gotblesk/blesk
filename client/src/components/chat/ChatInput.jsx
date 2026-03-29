@@ -27,6 +27,8 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
+  const recordingStreamRef = useRef(null);
+  const recordingStartTimeRef = useRef(null);
 
   const theme = useSettingsStore(s => s.theme);
 
@@ -46,8 +48,13 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         typingRef.current = false;
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.ondataavailable = null;
+        mediaRecorderRef.current.onstop = null;
         mediaRecorderRef.current.stop();
-        mediaRecorderRef.current.stream?.getTracks().forEach(t => t.stop());
+      }
+      if (recordingStreamRef.current) {
+        recordingStreamRef.current.getTracks().forEach(t => t.stop());
+        recordingStreamRef.current = null;
       }
       clearInterval(recordingTimerRef.current);
     };
@@ -282,12 +289,19 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // [Баг #36] Максимальная длина голосового сообщения — 5 минут
-  const MAX_VOICE_DURATION = 300;
+  const MAX_VOICE_DURATION = 60;
+  const MIN_VOICE_DURATION = 1;
+
+  // Выбор MIME-типа с fallback
+  const getRecorderMimeType = () => {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      return 'audio/webm;codecs=opus';
+    }
+    return 'audio/webm';
+  };
 
   const startRecording = async () => {
     try {
-      // [Баг #11] Полные audio constraints — как в useVoice.getLocalStream
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -296,21 +310,33 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
           sampleRate: 48000,
         },
       });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+
+      const mimeType = getRecorderMimeType();
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
+      recordingStreamRef.current = stream;
       audioChunksRef.current = [];
+      recordingStartTimeRef.current = Date.now();
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
       mediaRecorder.onstop = () => {
+        const durationSec = (Date.now() - (recordingStartTimeRef.current || 0)) / 1000;
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
-        onSendFiles?.([file], '');
         stream.getTracks().forEach(t => t.stop());
-        setRecordingTime(0);
+        recordingStreamRef.current = null;
         clearInterval(recordingTimerRef.current);
+
+        // Отбрасываем слишком короткие записи
+        if (durationSec >= MIN_VOICE_DURATION && blob.size > 0) {
+          const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+          soundSend();
+          onSendFiles?.([file], '');
+        }
+
+        setRecordingTime(0);
       };
 
       mediaRecorder.start();
@@ -318,7 +344,6 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       setRecordingTime(0);
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(t => {
-          // [Баг #36] Автоостановка при достижении максимальной длины
           if (t + 1 >= MAX_VOICE_DURATION) {
             stopRecording();
             return t;
@@ -344,13 +369,43 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       mediaRecorderRef.current.ondataavailable = null;
       mediaRecorderRef.current.onstop = null;
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream?.getTracks().forEach(t => t.stop());
+    }
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach(t => t.stop());
+      recordingStreamRef.current = null;
     }
     setIsRecording(false);
     setRecordingTime(0);
     clearInterval(recordingTimerRef.current);
     audioChunksRef.current = [];
   };
+
+  // Hold-to-record handlers
+  const handleMicDown = (e) => {
+    e.preventDefault();
+    startRecording();
+  };
+
+  const handleMicUp = (e) => {
+    e.preventDefault();
+    if (isRecording) {
+      stopRecording();
+    }
+  };
+
+  // Глобальные mouseup/touchend — остановка записи даже если курсор ушёл с кнопки
+  useEffect(() => {
+    if (!isRecording) return;
+    const handleGlobalUp = () => {
+      if (isRecording) stopRecording();
+    };
+    window.addEventListener('mouseup', handleGlobalUp);
+    window.addEventListener('touchend', handleGlobalUp);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalUp);
+      window.removeEventListener('touchend', handleGlobalUp);
+    };
+  }, [isRecording]);
 
   return (
     <div
@@ -430,20 +485,15 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
 
       {/* Morph container — grid stack for crossfade */}
       <div className="chat-input-morph">
-        {/* Recording state */}
+        {/* Recording state — replaces entire input area */}
         {isRecording && (
           <div className="chat-input__recording">
-            <div className="chat-input__recording-dot" />
-            <span className="chat-input__recording-time">{formatRecordTime(recordingTime)}</span>
-            <span className="chat-input__recording-label">Запись...</span>
-            <div className="chat-input__recording-actions">
-              <button className="chat-input__recording-cancel" onClick={cancelRecording} title="Отменить">
-                <X size={16} />
-              </button>
-              <button className="chat-input__recording-stop" onClick={stopRecording} title="Отправить">
-                <ArrowUp size={16} />
-              </button>
-            </div>
+            <div className="chat-input__rec-dot" />
+            <span className="chat-input__rec-timer">{formatRecordTime(recordingTime)}</span>
+            <span className="chat-input__rec-hint">Отпустите для отправки</span>
+            <button className="chat-input__recording-cancel" onClick={cancelRecording} title="Отменить">
+              <X size={16} />
+            </button>
           </div>
         )}
 
@@ -479,26 +529,32 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
                 >
                   <Paperclip />
                 </button>
-                {!text.trim() && !pendingFiles.length && (
-                  <button
-                    className="chat-input__tool-btn chat-input__tool-btn--mic"
-                    onClick={startRecording}
-                    title="Голосовое сообщение"
-                  >
-                    <Mic size={18} />
-                  </button>
-                )}
               </div>
             </div>
           </div>
-          <button
-            ref={sendBtnRef}
-            className="chat-input__send"
-            onClick={handleSend}
-            aria-label="Отправить сообщение"
-          >
-            <ArrowUp />
-          </button>
+          {/* Mic button (input empty) или Send button (есть текст/файлы) */}
+          {!text.trim() && !pendingFiles.length ? (
+            <button
+              className="chat-input__mic-hold"
+              onMouseDown={handleMicDown}
+              onTouchStart={handleMicDown}
+              onMouseUp={handleMicUp}
+              onTouchEnd={handleMicUp}
+              aria-label="Голосовое сообщение (зажмите)"
+              title="Зажмите для записи"
+            >
+              <Mic size={18} />
+            </button>
+          ) : (
+            <button
+              ref={sendBtnRef}
+              className="chat-input__send"
+              onClick={handleSend}
+              aria-label="Отправить сообщение"
+            >
+              <ArrowUp />
+            </button>
+          )}
         </div>
         )}
       </div>

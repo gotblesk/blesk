@@ -282,7 +282,7 @@ router.delete('/rooms/:id', authenticate, async (req, res) => {
         cleanupPeer(peer);
       }
       // Закрыть mediasoup router
-      try { voiceRoom.router.close(); } catch {}
+      try { voiceRoom.router.close(); } catch (err) { console.error('Failed to close mediasoup router:', err.message); }
       voiceRooms.delete(room.id);
     }
 
@@ -295,6 +295,25 @@ router.delete('/rooms/:id', authenticate, async (req, res) => {
     console.error('DELETE /api/voice/rooms/:id error:', err);
     res.status(500).json({ error: 'Ошибка удаления комнаты' });
   }
+});
+
+// GET /api/voice/ice-servers — конфигурация ICE серверов
+router.get('/ice-servers', authenticate, (req, res) => {
+  const iceServers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ];
+
+  // TURN server (если настроен)
+  if (process.env.TURN_URL) {
+    iceServers.push({
+      urls: process.env.TURN_URL,
+      username: process.env.TURN_USERNAME || 'blesk',
+      credential: process.env.TURN_CREDENTIAL || '',
+    });
+  }
+
+  res.json({ iceServers });
 });
 
 module.exports = router;

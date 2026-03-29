@@ -16,7 +16,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
   // Phase: intro → form
   const [phase, setPhase] = useState(pendingVerification ? 'form' : 'intro');
 
-  // Mode: login | register | verify | forgot | forgot-code | forgot-reset
+  // Mode: login | register | verify | forgot | forgot-code | forgot-reset | 2fa
   const [mode, setMode] = useState(pendingVerification ? 'verify' : 'login');
 
   // Form state
@@ -30,6 +30,14 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
 
   // Password visibility
   const [showLoginPw, setShowLoginPw] = useState(false);
+
+  // 2FA state
+  const [tfaTempToken, setTfaTempToken] = useState('');
+  const [tfaCode, setTfaCode] = useState(['', '', '', '', '', '']);
+  const [tfaLoading, setTfaLoading] = useState(false);
+  const [tfaError, setTfaError] = useState('');
+  const [tfaErrorKey, setTfaErrorKey] = useState(0);
+  const tfaCodeRefs = useRef([]);
 
   // Forgot password state
   const [forgotEmail, setForgotEmail] = useState('');
@@ -85,6 +93,11 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     setVerifyErrorKey((k) => k + 1);
   };
 
+  const triggerTfaError = (msg) => {
+    setTfaError(msg);
+    setTfaErrorKey((k) => k + 1);
+  };
+
   // ═══════ VALIDATION ═══════
   const validate = () => {
     if (username.length < 3) {
@@ -133,6 +146,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       const res = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(body),
       });
 
@@ -140,6 +154,15 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
 
       if (!res.ok) {
         triggerError(data.error || 'Ошибка');
+        return;
+      }
+
+      // 2FA required
+      if (data.requires2FA) {
+        setTfaTempToken(data.tempToken);
+        setTfaCode(['', '', '', '', '', '']);
+        setTfaError('');
+        setMode('2fa');
         return;
       }
 
@@ -178,6 +201,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
           'Content-Type': 'application/json',
           Authorization: `Bearer ${verifyToken}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ code }),
       });
 
@@ -243,6 +267,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
           'Content-Type': 'application/json',
           Authorization: `Bearer ${verifyToken}`,
         },
+        credentials: 'include',
       });
       setResendTimer(60);
       setVerifyError('');
@@ -267,6 +292,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email: forgotEmail }),
       });
       const data = await res.json();
@@ -333,6 +359,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       const res = await fetch(`${API_URL}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           email: forgotEmail,
           code: forgotCode,
@@ -359,6 +386,66 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       triggerForgotError('Не удалось подключиться к серверу');
     } finally {
       setForgotLoading(false);
+    }
+  };
+
+  // ═══════ 2FA LOGIN ═══════
+  const submitTfaCode = useCallback(async (digits) => {
+    const code = digits.join('');
+    if (code.length !== 6) return;
+
+    setTfaLoading(true);
+    setTfaError('');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/2fa/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tempToken: tfaTempToken, code }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        triggerTfaError(data.error || 'Ошибка');
+        setTfaCode(['', '', '', '', '', '']);
+        setTimeout(() => tfaCodeRefs.current[0]?.focus(), 100);
+        return;
+      }
+
+      onLogin(data);
+    } catch {
+      triggerTfaError('Не удалось подключиться к серверу');
+    } finally {
+      setTfaLoading(false);
+    }
+  }, [tfaTempToken, onLogin]);
+
+  const handleTfaCodeInput = (index, value) => {
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, '').slice(0, 6).split('');
+      const newCode = [...tfaCode];
+      digits.forEach((d, i) => {
+        if (index + i < 6) newCode[index + i] = d;
+      });
+      setTfaCode(newCode);
+      const nextIdx = Math.min(index + digits.length, 5);
+      tfaCodeRefs.current[nextIdx]?.focus();
+      if (newCode.every((d) => d !== '')) submitTfaCode(newCode);
+      return;
+    }
+
+    const digit = value.replace(/\D/g, '');
+    const newCode = [...tfaCode];
+    newCode[index] = digit;
+    setTfaCode(newCode);
+    if (digit && index < 5) tfaCodeRefs.current[index + 1]?.focus();
+    if (newCode.every((d) => d !== '')) submitTfaCode(newCode);
+  };
+
+  const handleTfaCodeKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !tfaCode[index] && index > 0) {
+      tfaCodeRefs.current[index - 1]?.focus();
     }
   };
 
@@ -679,6 +766,41 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                     setCodeDigits(['', '', '', '', '', '']);
                     setVerifyError('');
                     setResendTimer(60);
+                    switchMode('login');
+                  }}>
+                    ← Назад к входу
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ═══════ 2FA ═══════ */}
+            {mode === '2fa' && (
+              <motion.div
+                key="2fa"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}
+              >
+                <GravityCard
+                  tilt={0}
+                  index={0}
+                  icon={<span style={{ color: 'var(--accent)' }}><KeyRound size={16} stroke="currentColor" /></span>}
+                  title="Двухфакторная аутентификация"
+                  subtitle="Введите код из приложения-аутентификатора"
+                  error={tfaError}
+                  errorKey={tfaErrorKey}
+                >
+                  {renderCodeGrid(tfaCode, tfaCodeRefs, handleTfaCodeInput, handleTfaCodeKeyDown, tfaLoading)}
+                </GravityCard>
+
+                <div className="auth-footer">
+                  <button type="button" className="auth-footer-link" onClick={() => {
+                    setTfaCode(['', '', '', '', '', '']);
+                    setTfaError('');
+                    setTfaTempToken('');
                     switchMode('login');
                   }}>
                     ← Назад к входу

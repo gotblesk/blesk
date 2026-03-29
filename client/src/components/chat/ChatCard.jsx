@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { BellOff, CheckCheck, Trash2, UserX } from 'lucide-react';
+import { BellOff, CheckCheck, Trash2, UserX, Pin } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import ContextMenu from '../ui/ContextMenu';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -7,6 +7,7 @@ import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
 import { useChatStore } from '../../store/chatStore';
 import { getCurrentUserId } from '../../utils/auth';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import './ChatCard.css';
 
 function GroupAvatar({ participants }) {
@@ -63,22 +64,30 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
       if (isGroup) {
         await fetch(`${API_URL}/api/chats/${chat.id}/members/${userId}`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          headers: { ...getAuthHeaders() }, credentials: 'include',
         });
       } else {
         await fetch(`${API_URL}/api/chats/${chat.id}`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          headers: { ...getAuthHeaders() }, credentials: 'include',
         });
       }
       useChatStore.getState().removeChat(chat.id);
-    } catch {}
+    } catch (err) { console.error('ChatCard deleteChat:', err?.message || err); }
     setDangerConfirm(false);
   }, [chat.id, isGroup]);
 
   const displayName = isGroup ? chat.name : (user?.username || chat.name);
 
+  const pinnedChats = useChatStore(s => s.pinnedChats);
+  const isPinned = pinnedChats.has(chat.id);
+
+  const handleTogglePin = useCallback(() => {
+    useChatStore.getState().togglePinChat(chat.id);
+  }, [chat.id]);
+
   const ctxItems = [
+    { label: isPinned ? 'Открепить' : 'Закрепить', icon: <Pin size={14} strokeWidth={1.5} />, onClick: handleTogglePin },
     { label: 'Отметить прочитанным', icon: <CheckCheck size={14} strokeWidth={1.5} />, onClick: handleMarkRead },
     { divider: true },
     { label: 'Без звука', icon: <BellOff size={14} strokeWidth={1.5} />, onClick: () => {} },

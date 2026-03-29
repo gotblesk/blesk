@@ -9,5 +9,10 @@
 .media-msg__download { color: var(--accent); flex-shrink: 0; padding: 4px; border-radius: 6px; transition: background 0.15s; display: flex; }
 .media-msg__download:hover { background: rgba(200,255,0,0.1); }
 
+.media-msg__file--broken { border-color: rgba(239,68,68,0.15); background: rgba(239,68,68,0.04); }
+.media-msg__file--broken .media-msg__file-icon { color: rgba(239,68,68,0.5); }
+.media-msg__file--broken .media-msg__file-size { color: rgba(239,68,68,0.45); }
+
 [data-theme="light"] .media-msg__file { background: var(--light-surface-hover, #f0f2f5); border-color: var(--light-border, #e5e7eb); }
+[data-theme="light"] .media-msg__file--broken { background: rgba(239,68,68,0.04); border-color: rgba(239,68,68,0.12); }
 [data-theme="light"] .media-msg__download:hover { background: rgba(124,58,237,0.1); }

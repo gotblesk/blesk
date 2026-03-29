@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import API_URL from '../config';
+import { getAuthHeaders } from '../utils/authFetch';
 
 export const useNotificationStore = create((set, get) => ({
   notifications: [],
@@ -12,7 +13,7 @@ export const useNotificationStore = create((set, get) => ({
       if (!token) return;
 
       const res = await fetch(`${API_URL}/api/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       if (!res.ok) throw new Error('not ok');
 
@@ -55,10 +56,9 @@ export const useNotificationStore = create((set, get) => ({
   // Пометить одно как прочитанное
   markAsRead: async (id) => {
     try {
-      const token = localStorage.getItem('token');
       await fetch(`${API_URL}/api/notifications/${id}/read`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       set((state) => ({
         notifications: state.notifications.map((n) =>
@@ -76,10 +76,9 @@ export const useNotificationStore = create((set, get) => ({
   // Прочитать все
   markAllAsRead: async () => {
     try {
-      const token = localStorage.getItem('token');
       await fetch(`${API_URL}/api/notifications/read-all`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       set((state) => ({
         notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
@@ -94,10 +93,9 @@ export const useNotificationStore = create((set, get) => ({
   // Очистить все уведомления
   clearAll: async () => {
     try {
-      const token = localStorage.getItem('token');
       await fetch(`${API_URL}/api/notifications/clear`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       set({ notifications: [], unreadCount: 0 });
       window.blesk?.setBadge?.(0);
@@ -110,10 +108,9 @@ export const useNotificationStore = create((set, get) => ({
   // Удалить уведомление
   removeNotification: async (id) => {
     try {
-      const token = localStorage.getItem('token');
       await fetch(`${API_URL}/api/notifications/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       set((state) => {
         const notification = state.notifications.find((n) => n.id === id);

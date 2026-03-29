@@ -1,4 +1,5 @@
-import { FileText, Download, Film, Music, Archive } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, Download, Film, Music, Archive, ImageOff } from 'lucide-react';
 import API_URL from '../../config';
 import './MediaMessage.css';
 
@@ -8,6 +9,34 @@ function getIcon(mime) {
   if (m.startsWith('audio/')) return <Music size={20} strokeWidth={1.5} />;
   if (m.includes('zip')) return <Archive size={20} strokeWidth={1.5} />;
   return <FileText size={20} strokeWidth={1.5} />;
+}
+
+function ImageWithFallback({ src, fullSrc, filename, onImageClick }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) {
+    return (
+      <div className="media-msg__file media-msg__file--broken">
+        <div className="media-msg__file-icon"><ImageOff size={20} strokeWidth={1.5} /></div>
+        <div className="media-msg__file-info">
+          <span className="media-msg__file-name">{filename}</span>
+          <span className="media-msg__file-size">Не удалось загрузить</span>
+        </div>
+        <a href={fullSrc} download={filename} target="_blank" rel="noopener noreferrer" className="media-msg__download">
+          <Download size={16} strokeWidth={1.5} />
+        </a>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={filename}
+      className="media-msg__image"
+      onClick={() => onImageClick?.(fullSrc)}
+      loading="lazy"
+      onError={() => setBroken(true)}
+    />
+  );
 }
 
 function formatSize(bytes) {
@@ -33,13 +62,12 @@ export default function MediaMessage({ attachments, onImageClick }) {
         // Изображения
         if (isImage) {
           return (
-            <img
+            <ImageWithFallback
               key={a.id}
               src={src}
-              alt={a.filename}
-              className="media-msg__image"
-              onClick={() => onImageClick?.(fullSrc)}
-              loading="lazy"
+              fullSrc={fullSrc}
+              filename={a.filename}
+              onImageClick={onImageClick}
             />
           );
         }

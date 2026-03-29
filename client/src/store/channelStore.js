@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import API_URL from '../config';
+import { getAuthHeaders } from '../utils/authFetch';
 
 function getHeaders() {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${localStorage.getItem('token')}`,
+    ...getAuthHeaders(),
   };
 }
 
@@ -30,7 +31,7 @@ export const useChannelStore = create((set, get) => ({
       if (search) params.set('search', search);
       const qs = params.toString();
       const res = await fetch(`${API_URL}/api/channels${qs ? `?${qs}` : ''}`, {
-        headers: getHeaders(),
+        headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) throw new Error('Не удалось загрузить каналы');
       const data = await res.json();
@@ -47,7 +48,7 @@ export const useChannelStore = create((set, get) => ({
   loadMyChannels: async () => {
     try {
       const res = await fetch(`${API_URL}/api/channels/my`, {
-        headers: getHeaders(),
+        headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -65,7 +66,7 @@ export const useChannelStore = create((set, get) => ({
     }));
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/posts`, {
-        headers: getHeaders(),
+        headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) throw new Error('Не удалось загрузить посты');
       const data = await res.json();
@@ -97,7 +98,7 @@ export const useChannelStore = create((set, get) => ({
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/subscribe`, {
         method: 'POST',
-        headers: getHeaders(),
+        headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -122,7 +123,7 @@ export const useChannelStore = create((set, get) => ({
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/subscribe`, {
         method: 'DELETE',
-        headers: getHeaders(),
+        headers: getHeaders(), credentials: 'include',
       });
       if (!res.ok) throw new Error();
       get().loadMyChannels();
@@ -144,7 +145,7 @@ export const useChannelStore = create((set, get) => ({
     try {
       const res = await fetch(`${API_URL}/api/channels`, {
         method: 'POST',
-        headers: getHeaders(),
+        headers: getHeaders(), credentials: 'include',
         body: JSON.stringify({ name, description, category }),
       });
       if (!res.ok) {

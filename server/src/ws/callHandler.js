@@ -148,13 +148,22 @@ function callHandler(io, socket) {
         }
         // Системное сообщение о макс. длительности
         try {
-          await prisma.message.create({
+          const sysMsg = await prisma.message.create({
             data: {
               roomId: chatId,
               userId: activeCall.callerId,
               text: 'Звонок завершён (макс. длительность)',
               type: 'system',
             },
+          });
+          io.to(chatId).emit('message:new', {
+            id: sysMsg.id,
+            chatId,
+            roomId: chatId,
+            userId: activeCall.callerId,
+            text: sysMsg.text,
+            type: 'system',
+            createdAt: sysMsg.createdAt,
           });
         } catch { /* не критично */ }
         cleanupCall(io, chatId);
@@ -207,13 +216,22 @@ function callHandler(io, socket) {
 
         // [Баг #15] Записать пропущенный звонок в историю чата
         try {
-          await prisma.message.create({
+          const sysMsg = await prisma.message.create({
             data: {
               roomId: chatId,
               userId: activeCall.callerId,
               text: 'Пропущенный звонок',
               type: 'system',
             },
+          });
+          io.to(chatId).emit('message:new', {
+            id: sysMsg.id,
+            chatId,
+            roomId: chatId,
+            userId: activeCall.callerId,
+            text: sysMsg.text,
+            type: 'system',
+            createdAt: sysMsg.createdAt,
           });
         } catch { /* не критично */ }
 
@@ -465,15 +483,48 @@ async function handleCallEnd(io, socket, userId, chatId) {
         if (call.startedAt) {
           const duration = Math.floor((Date.now() - call.startedAt.getTime()) / 1000);
           if (duration > 0) {
-            await prisma.message.create({
+            // Короткий звонок (<5 сек) — считаем сброшенным
+            const text = duration < 5
+              ? `Сброшенный звонок (${formatDuration(duration)})`
+              : `Звонок завершён (${formatDuration(duration)})`;
+            const sysMsg = await prisma.message.create({
               data: {
                 roomId: chatId,
                 userId: call.callerId,
-                text: `Звонок завершён (${formatDuration(duration)})`,
+                text,
                 type: 'system',
               },
             });
+            // Эмитить message:new чтобы sidebar обновил lastMessage
+            io.to(chatId).emit('message:new', {
+              id: sysMsg.id,
+              chatId,
+              roomId: chatId,
+              userId: call.callerId,
+              text: sysMsg.text,
+              type: 'system',
+              createdAt: sysMsg.createdAt,
+            });
           }
+        } else {
+          // Звонок не был принят (инициатор повесил трубку до accept)
+          const sysMsg = await prisma.message.create({
+            data: {
+              roomId: chatId,
+              userId: call.callerId,
+              text: 'Отменённый звонок',
+              type: 'system',
+            },
+          });
+          io.to(chatId).emit('message:new', {
+            id: sysMsg.id,
+            chatId,
+            roomId: chatId,
+            userId: call.callerId,
+            text: sysMsg.text,
+            type: 'system',
+            createdAt: sysMsg.createdAt,
+          });
         }
       } catch {
         // Не критично — если не удалось записать системное сообщение

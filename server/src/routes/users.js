@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
+const sharp = require('sharp');
 const { validateFile } = require('../services/fileValidator');
 
 const router = Router();
@@ -110,21 +111,25 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
       return res.status(400).json({ error: 'Недопустимый формат изображения' });
     }
 
-    // Расширение из реального MIME, а не из user input
-    const MIME_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
-    const ext = MIME_EXT[validation.mime] || '.jpg';
+    // Ресайз аватара: макс 512x512, JPEG 85% — экономия хранилища
+    const ext = '.jpg';
     const filename = req.userId + ext;
     const finalPath = path.join(avatarDir, filename);
-
-    // Атомарная замена: сначала rename в temp, потом удалить старые, потом rename в final
     const tempPath = path.join(avatarDir, `${req.userId}.tmp`);
-    fs.renameSync(req.file.path, tempPath);
+
+    await sharp(req.file.path)
+      .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toFile(tempPath);
+
+    // Удалить оригинальный загруженный файл
+    try { fs.unlinkSync(req.file.path); } catch (err) { console.error('Failed to delete original upload:', err.message); }
 
     // Удалить старые аватары других форматов
     for (const e of ['.jpg', '.png', '.webp']) {
       if (e !== ext) {
         const old = path.join(avatarDir, req.userId + e);
-        try { fs.unlinkSync(old); } catch {}
+        try { fs.unlinkSync(old); } catch (err) { console.error('Failed to delete old avatar:', err.message); }
       }
     }
 
@@ -150,8 +155,10 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
 
     res.json({ avatar: filename });
   } catch (err) {
-    // Очистить временный файл при ошибке
+    // Очистить временные файлы при ошибке
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    const tempPath = path.join(avatarDir, `${req.userId}.tmp`);
+    if (fs.existsSync(tempPath)) try { fs.unlinkSync(tempPath); } catch (err) { console.error('Failed to cleanup temp avatar file:', err.message); }
     res.status(500).json({ error: 'Ошибка загрузки аватара' });
   }
 });

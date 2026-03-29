@@ -99,14 +99,32 @@
   transition: background 0.15s, color 0.15s;
 }
 
-.chat-header__btn:hover {
+.chat-header__btn:hover:not(:disabled) {
   background: rgba(255,255,255,0.1);
   color: rgba(255,255,255,0.65);
+}
+
+.chat-header__btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .chat-header__btn svg {
   width: 15px;
   height: 15px;
+}
+
+/* Typing indicator */
+.chat-header__status--typing {
+  color: #c8ff00;
+  font-size: 10px;
+  font-weight: 500;
+  animation: typing-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes typing-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* Light theme */
@@ -124,12 +142,16 @@
   color: var(--light-text-secondary, #4b5563);
 }
 
+[data-theme="light"] .chat-header__status--typing {
+  color: #6d8a00;
+}
+
 [data-theme="light"] .chat-header__btn {
   background: var(--bg-input);
   color: var(--light-text-tertiary, #9ca3af);
 }
 
-[data-theme="light"] .chat-header__btn:hover {
+[data-theme="light"] .chat-header__btn:hover:not(:disabled) {
   background: var(--light-border, #e5e7eb);
   color: var(--light-text-secondary, #4b5563);
 }
@@ -141,5 +163,8 @@
 @media (prefers-reduced-motion: reduce) {
   .chat-header-island, .chat-header__ava {
     transition: none;
+  }
+  .chat-header__status--typing {
+    animation: none;
   }
 }

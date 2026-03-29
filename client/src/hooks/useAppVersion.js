@@ -11,7 +11,7 @@ export default function useAppVersion() {
     window.blesk?.getVersion?.().then((v) => {
       cached = v;
       setVersion(v);
-    }).catch(() => {});
+    }).catch(err => console.error('useAppVersion getVersion:', err?.message || err));
   }, []);
 
   return version;

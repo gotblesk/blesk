@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Smartphone, Lock, Camera, X, Check, Eye, EyeOff, ChevronRight, Pencil } from 'lucide-react';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import Avatar from '../ui/Avatar';
 import AvatarCropModal from './AvatarCropModal';
 import { getAvatarHue } from '../../utils/avatar';
@@ -77,23 +78,23 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
   }, []);
 
   // Handlers
-  const getH = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
+  const getH = () => ({ 'Content-Type': 'application/json', ...getAuthHeaders() });
 
   const handleSave = async () => {
     setSaving(true); setSaveError('');
-    try { const res = await fetch(`${API_URL}/api/users/me`, { method: 'PUT', headers: getH(), body: JSON.stringify({ bio }) }); if (res.ok) { onUserUpdate?.(await res.json()); setSaved(true); setTimeout(() => setSaved(false), 2000); } else setSaveError('Ошибка'); } catch { setSaveError('Нет подключения'); } finally { setSaving(false); }
+    try { const res = await fetch(`${API_URL}/api/users/me`, { method: 'PUT', headers: getH(), credentials: 'include', body: JSON.stringify({ bio }) }); if (res.ok) { onUserUpdate?.(await res.json()); setSaved(true); setTimeout(() => setSaved(false), 2000); } else setSaveError('Ошибка'); } catch { setSaveError('Нет подключения'); } finally { setSaving(false); }
   };
   const handleSendEmailCode = async () => {
     setEmailError(''); setEmailSending(true);
-    try { const res = await fetch(`${API_URL}/api/auth/resend-code`, { method: 'POST', headers: getH() }); if (res.ok) setEmailStep('verify'); else setEmailError((await res.json()).error || 'Ошибка'); } catch { setEmailError('Ошибка'); } finally { setEmailSending(false); }
+    try { const res = await fetch(`${API_URL}/api/auth/resend-code`, { method: 'POST', headers: getH(), credentials: 'include' }); if (res.ok) setEmailStep('verify'); else setEmailError((await res.json()).error || 'Ошибка'); } catch { setEmailError('Ошибка'); } finally { setEmailSending(false); }
   };
   const handleVerifyEmail = async () => {
     setEmailError(''); setEmailSending(true);
-    try { const res = await fetch(`${API_URL}/api/auth/verify-email`, { method: 'POST', headers: getH(), body: JSON.stringify({ code: emailCode }) }); const d = await res.json(); if (res.ok || d.success) { onUserUpdate?.({ emailVerified: true }); setEmailStep('display'); setEmailCode(''); } else setEmailError(d.error || 'Неверный код'); } catch { setEmailError('Ошибка'); } finally { setEmailSending(false); }
+    try { const res = await fetch(`${API_URL}/api/auth/verify-email`, { method: 'POST', headers: getH(), credentials: 'include', body: JSON.stringify({ code: emailCode }) }); const d = await res.json(); if (res.ok || d.success) { onUserUpdate?.({ emailVerified: true }); setEmailStep('display'); setEmailCode(''); } else setEmailError(d.error || 'Неверный код'); } catch { setEmailError('Ошибка'); } finally { setEmailSending(false); }
   };
   const handlePwRequest = async () => {
     setPwError(''); setPwLoading(true);
-    try { const res = await fetch(`${API_URL}/api/auth/change-password/request`, { method: 'POST', headers: getH() }); const d = await res.json(); if (res.ok) { setPwEmail(d.email || ''); setPwStep('code'); } else setPwError(d.error || 'Ошибка'); } catch { setPwError('Ошибка'); } finally { setPwLoading(false); }
+    try { const res = await fetch(`${API_URL}/api/auth/change-password/request`, { method: 'POST', headers: getH(), credentials: 'include' }); const d = await res.json(); if (res.ok) { setPwEmail(d.email || ''); setPwStep('code'); } else setPwError(d.error || 'Ошибка'); } catch { setPwError('Ошибка'); } finally { setPwLoading(false); }
   };
   const handlePwConfirm = async () => {
     setPwError('');
@@ -102,7 +103,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
     if (pwNew !== pwConfirm) { setPwError('Пароли не совпадают'); return; }
     if (pwCode.length < 6) { setPwError('Введите код'); return; }
     setPwLoading(true);
-    try { const res = await fetch(`${API_URL}/api/auth/change-password/confirm`, { method: 'POST', headers: getH(), body: JSON.stringify({ code: pwCode, currentPassword: pwCurrent, newPassword: pwNew }) }); if (res.ok) { setPwSuccess(true); setPwStep('idle'); setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwCode(''); setTimeout(() => setPwSuccess(false), 3000); } else setPwError((await res.json()).error || 'Ошибка'); } catch { setPwError('Ошибка'); } finally { setPwLoading(false); }
+    try { const res = await fetch(`${API_URL}/api/auth/change-password/confirm`, { method: 'POST', headers: getH(), credentials: 'include', body: JSON.stringify({ code: pwCode, currentPassword: pwCurrent, newPassword: pwNew }) }); if (res.ok) { setPwSuccess(true); setPwStep('idle'); setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwCode(''); setTimeout(() => setPwSuccess(false), 3000); } else setPwError((await res.json()).error || 'Ошибка'); } catch { setPwError('Ошибка'); } finally { setPwLoading(false); }
   };
   const handleFileSelect = (e) => {
     const f = e.target.files?.[0]; if (!f) return;
@@ -117,7 +118,8 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
       fd.append('avatar', blob, 'avatar.jpg');
       const res = await fetch(`${API_URL}/api/users/me/avatar`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { ...getAuthHeaders() },
+        credentials: 'include',
         body: fd,
       });
       if (res.ok) {

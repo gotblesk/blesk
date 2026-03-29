@@ -145,11 +145,28 @@
 .chat-message--first.chat-message--own .chat-message__bubble-outer { border-radius: 22px 22px 6px 22px; }
 .chat-message--first.chat-message--own .chat-message__bubble-inner { border-radius: 19px 19px 4px 19px; }
 
-/* [IMP-3] Pending — полупрозрачное */
-.chat-message--pending { opacity: 0.5; }
-.chat-message--pending .chat-message__time { color: rgba(255,255,255,0.15); }
+/* [IMP-3] Pending — полупрозрачное + иконка часов */
+.chat-message--pending { opacity: 0.6; }
+.chat-message--pending .chat-message__time {
+  color: rgba(255,255,255,0.25);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-message__pending-icon {
+  color: rgba(255,255,255,0.3);
+  animation: pendingPulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pendingPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
 
 /* [CRIT-1] Failed — красная рамка, клик для retry */
+.chat-message--failed { opacity: 0.75; }
 .chat-message--failed .chat-message__bubble-outer {
   border-color: rgba(239,68,68,0.3) !important;
 }
@@ -158,6 +175,15 @@
 }
 .chat-message--failed .chat-message__time {
   color: #ef4444 !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-message__failed-icon {
+  color: #ef4444;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* Mid — own */
@@ -281,6 +307,10 @@
   color: var(--text-muted);
   text-align: center;
   padding: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 /* ===== Animations ===== */
@@ -433,6 +463,89 @@
 }
 .chat-message--style-classic.chat-message--own .chat-message__bubble-outer {
   border-radius: 4px !important;
+}
+
+/* ═══════ Реакции ═══════ */
+.chat-message__reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px 4px;
+  margin-top: 2px;
+}
+
+.chat-message__reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  border: 0.5px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.chat-message__reaction:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.12);
+  transform: scale(1.05);
+}
+
+.chat-message__reaction--own {
+  background: rgba(200,255,0,0.08);
+  border-color: rgba(200,255,0,0.2);
+}
+
+.chat-message__reaction--own:hover {
+  background: rgba(200,255,0,0.12);
+  border-color: rgba(200,255,0,0.3);
+}
+
+.chat-message__reaction-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.chat-message__reaction-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+}
+
+.chat-message__reaction--own .chat-message__reaction-count {
+  color: rgba(200,255,0,0.7);
+}
+
+/* Light theme */
+[data-theme="light"] .chat-message__reaction {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .chat-message__reaction:hover {
+  background: rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .chat-message__reaction--own {
+  background: rgba(124,58,237,0.08);
+  border-color: rgba(124,58,237,0.2);
+}
+
+[data-theme="light"] .chat-message__reaction--own:hover {
+  background: rgba(124,58,237,0.12);
+}
+
+[data-theme="light"] .chat-message__reaction-count {
+  color: rgba(0,0,0,0.5);
+}
+
+[data-theme="light"] .chat-message__reaction--own .chat-message__reaction-count {
+  color: rgba(124,58,237,0.7);
 }
 
 /* ═══════ Скрытые аватары — убираем отступ ═══════ */

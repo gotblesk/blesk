@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Glass from '../ui/Glass';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import './CreateChatModal.css';
 
 export default function CreateChatModal({ onClose, onCreated }) {
@@ -24,7 +25,7 @@ export default function CreateChatModal({ onClose, onCreated }) {
     (async () => {
       try {
         const res = await fetch(`${API_URL}/api/friends`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          headers: { ...getAuthHeaders() }, credentials: 'include',
         });
         if (res.ok) setFriends(await res.json());
         else setError('Не удалось загрузить друзей');
@@ -61,8 +62,9 @@ export default function CreateChatModal({ onClose, onCreated }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          ...getAuthHeaders(),
         },
+        credentials: 'include',
         body: JSON.stringify({ participantId: userId }),
       });
       if (res.ok) {
@@ -86,8 +88,9 @@ export default function CreateChatModal({ onClose, onCreated }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          ...getAuthHeaders(),
         },
+        credentials: 'include',
         body: JSON.stringify({
           participantIds: selected,
           name: groupName.trim(),

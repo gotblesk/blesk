@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bug, Lightbulb, HelpCircle, FileText, CheckCircle, X } from 'lucide-react';
 import useAppVersion from '../../hooks/useAppVersion';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import './FeedbackScreen.css';
 
 const TYPES = [
@@ -42,15 +43,14 @@ export default function FeedbackScreen({ open, onClose }) {
 
   const loadMyFeedback = async () => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/feedback`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
         setMyFeedback(data.feedbacks || []);
       }
-    } catch {}
+    } catch (err) { console.error('FeedbackScreen loadMyFeedback:', err?.message || err); }
   };
 
   const handleToggleHistory = () => {
@@ -67,15 +67,15 @@ export default function FeedbackScreen({ open, onClose }) {
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
       const osInfo = navigator.userAgent;
 
       const res = await fetch(`${API_URL}/api/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(),
         },
+        credentials: 'include',
         body: JSON.stringify({
           type,
           text: text.trim(),

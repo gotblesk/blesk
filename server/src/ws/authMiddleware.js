@@ -7,8 +7,22 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+// Парсинг cookie-строки из заголовка (для WebSocket handshake)
+function parseCookies(str) {
+  if (!str) return {};
+  return Object.fromEntries(
+    str.split(';').map((c) => {
+      const [key, ...rest] = c.trim().split('=');
+      return [decodeURIComponent(key), decodeURIComponent(rest.join('='))];
+    })
+  );
+}
+
 async function socketAuth(socket, next) {
-  const token = socket.handshake.auth?.token;
+  // Проверить httpOnly cookie, затем auth.token (backward compat)
+  const cookies = parseCookies(socket.handshake.headers?.cookie);
+  const cookieToken = cookies['blesk_token'] || null;
+  const token = cookieToken || socket.handshake.auth?.token;
 
   if (!token) {
     return next(new Error('Требуется авторизация'));

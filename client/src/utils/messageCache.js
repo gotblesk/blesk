@@ -57,7 +57,7 @@ export async function appendCachedMessage(chatId, message) {
     // Обрезать
     const trimmed = existing.slice(-MAX_CACHED_MESSAGES);
     await set(PREFIX + chatId, trimmed);
-  } catch {}
+  } catch (err) { console.error('messageCache appendCachedMessage:', err?.message || err); }
 }
 
 /**
@@ -70,7 +70,7 @@ export async function updateCachedMessage(chatId, messageId, updates) {
       m.id === messageId ? { ...m, ...updates } : m
     );
     await set(PREFIX + chatId, updated);
-  } catch {}
+  } catch (err) { console.error('messageCache updateCachedMessage:', err?.message || err); }
 }
 
 /**
@@ -81,7 +81,7 @@ export async function removeCachedMessage(chatId, messageId) {
     const existing = (await get(PREFIX + chatId)) || [];
     const filtered = existing.filter(m => m.id !== messageId);
     await set(PREFIX + chatId, filtered);
-  } catch {}
+  } catch (err) { console.error('messageCache removeCachedMessage:', err?.message || err); }
 }
 
 /**
@@ -90,7 +90,7 @@ export async function removeCachedMessage(chatId, messageId) {
 export async function clearChatCache(chatId) {
   try {
     await del(PREFIX + chatId);
-  } catch {}
+  } catch (err) { console.error('messageCache clearChatCache:', err?.message || err); }
 }
 
 /**
@@ -104,7 +104,7 @@ export async function clearAllCache() {
         await del(key);
       }
     }
-  } catch {}
+  } catch (err) { console.error('messageCache clearAllCache:', err?.message || err); }
 }
 
 /**
@@ -121,5 +121,5 @@ async function evictOldChats() {
     for (const key of toDelete) {
       await del(key);
     }
-  } catch {}
+  } catch (err) { console.error('messageCache evictOldChats:', err?.message || err); }
 }

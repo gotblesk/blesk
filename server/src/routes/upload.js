@@ -7,6 +7,7 @@ const sharp = require('sharp');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { validateFile, sanitizeFilename } = require('../services/fileValidator');
+const { scanFile } = require('../services/fileScanner');
 
 const router = Router();
 
@@ -101,6 +102,14 @@ router.post('/channels/:channelId/upload', authenticate, upload.single('file'), 
     finalPath = path.join(attachDir, storedName);
     fs.renameSync(req.file.path, finalPath);
 
+    // ClamAV антивирусная проверка (graceful — если недоступен, пропускает)
+    const scanResult = await scanFile(finalPath);
+    if (!scanResult.clean) {
+      fs.unlinkSync(finalPath);
+      finalPath = null;
+      return res.status(400).json({ error: 'Файл заблокирован: обнаружена угроза' });
+    }
+
     // Обработка изображений (EXIF strip + thumbnail)
     const media = await processImage(finalPath, storedName, validation.mime);
 
@@ -185,6 +194,14 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
     const storedName = `${crypto.randomUUID()}${ext}`;
     finalPath = path.join(attachDir, storedName);
     fs.renameSync(req.file.path, finalPath);
+
+    // ClamAV антивирусная проверка (graceful — если недоступен, пропускает)
+    const scanResult = await scanFile(finalPath);
+    if (!scanResult.clean) {
+      fs.unlinkSync(finalPath);
+      finalPath = null;
+      return res.status(400).json({ error: 'Файл заблокирован: обнаружена угроза' });
+    }
 
     // Обработка изображений (EXIF strip + thumbnail)
     const media = await processImage(finalPath, storedName, validation.mime);

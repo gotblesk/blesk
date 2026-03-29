@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Volume2, VolumeX, Video, VideoOff, PhoneOff, Maximize2, Minimize2, Monitor, MonitorOff, Settings, Maximize } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useVoiceStore } from '../../store/voiceStore';
+import { Signal, SignalLow, SignalMedium, SignalZero } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import { getAvatarHue } from '../../utils/avatar';
 import API_URL from '../../config';
@@ -40,6 +41,8 @@ export default function CallScreen({
   // [Баг #8] Показ ошибок медиа
   const mediaError = useVoiceStore((s) => s.mediaError);
   const clearMediaError = useVoiceStore((s) => s.clearMediaError);
+  // [Баг #4] Качество соединения
+  const connectionQuality = useVoiceStore((s) => s.connectionQuality);
 
   // Автоочистка ошибки через 5 сек
   useEffect(() => {
@@ -47,6 +50,13 @@ export default function CallScreen({
     const t = setTimeout(() => clearMediaError(), 5000);
     return () => clearTimeout(t);
   }, [mediaError, clearMediaError]);
+
+  // [Баг #9] Клиентский fallback-таймаут: если ringing > 35 сек — завершить
+  useEffect(() => {
+    if (call?.status !== 'ringing') return;
+    const t = setTimeout(() => onEndCall?.(), 35000);
+    return () => clearTimeout(t);
+  }, [call?.status, onEndCall]);
 
   // Timer
   useEffect(() => {
@@ -138,9 +148,9 @@ export default function CallScreen({
     const el = screenZoneRef.current;
     if (!el) return;
     if (document.fullscreenElement === el) {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(err => console.error('exitFullscreen:', err?.message || err));
     } else {
-      el.requestFullscreen().catch(() => {});
+      el.requestFullscreen().catch(err => console.error('requestFullscreen:', err?.message || err));
     }
   }, []);
 
@@ -148,6 +158,7 @@ export default function CallScreen({
 
   if (!call) return null;
 
+  const isRinging = call.status === 'ringing';
   const mins = Math.floor(elapsed / 60);
   const secs = elapsed % 60;
   const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -191,10 +202,16 @@ export default function CallScreen({
       {/* Header */}
       <div className="cs__header" onPointerDown={dDown} onPointerMove={dMove} onPointerUp={dUp}>
         <div className="cs__status">
-          <div className="cs__status-dot" />
-          <span>{call.connecting ? 'Соединение...' : hasScreen ? 'Демонстрация' : 'Звонок'}</span>
+          <div className={`cs__status-dot ${call.status === 'ringing' ? 'cs__status-dot--ringing' : ''}`} />
+          <span>{call.connecting ? 'Соединение...' : call.status === 'ringing' ? 'Ожидание ответа...' : hasScreen ? 'Демонстрация' : 'Звонок'}</span>
         </div>
         <div className="cs__header-r">
+          {/* [Баг #4] Индикатор качества соединения */}
+          {call.status !== 'ringing' && (
+            <div className="cs__quality-icon" title={connectionQuality === 'good' ? 'Отличное соединение' : connectionQuality === 'fair' ? 'Среднее соединение' : connectionQuality === 'poor' ? 'Плохое соединение' : 'Нет данных'}>
+              {connectionQuality === 'good' ? <Signal size={13} /> : connectionQuality === 'fair' ? <SignalMedium size={13} /> : connectionQuality === 'poor' ? <SignalLow size={13} /> : <SignalZero size={13} />}
+            </div>
+          )}
           <span className="cs__time">{timeStr}</span>
           {!isCompact && (
             <button className="cs__max" onClick={() => setQualityOpen(q => !q)} title="Качество видео">
@@ -305,12 +322,13 @@ export default function CallScreen({
         {!isCompact && (
           <>
             {/* [Баг #24] Иконки камеры: Video когда ВКЛ, VideoOff когда ВЫКЛ — согласовано с VoiceControls */}
-            <motion.button className={`cs__btn ${cameraOn ? 'cs__btn--active' : ''}`} onClick={onToggleVideo} whileTap={{ scale: 0.88 }} title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}>
+            {/* [Баг #10] Камера и экран недоступны до принятия звонка */}
+            <motion.button className={`cs__btn ${cameraOn ? 'cs__btn--active' : ''} ${isRinging ? 'cs__btn--disabled' : ''}`} onClick={isRinging ? undefined : onToggleVideo} whileTap={isRinging ? {} : { scale: 0.88 }} title={isRinging ? 'Недоступно до подключения' : cameraOn ? 'Выключить камеру' : 'Включить камеру'}>
               {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
               <span className="cs__btn-label">Видео</span>
             </motion.button>
 
-            <motion.button className={`cs__btn ${screenShareOn ? 'cs__btn--active' : ''}`} onClick={onToggleScreenShare} whileTap={{ scale: 0.88 }} title={screenShareOn ? 'Остановить показ' : 'Показать экран'}>
+            <motion.button className={`cs__btn ${screenShareOn ? 'cs__btn--active' : ''} ${isRinging ? 'cs__btn--disabled' : ''}`} onClick={isRinging ? undefined : onToggleScreenShare} whileTap={isRinging ? {} : { scale: 0.88 }} title={isRinging ? 'Недоступно до подключения' : screenShareOn ? 'Остановить показ' : 'Показать экран'}>
               {screenShareOn ? <MonitorOff size={18} /> : <Monitor size={18} />}
               <span className="cs__btn-label">Экран</span>
             </motion.button>
@@ -337,7 +355,7 @@ function QualityPanel({ onClose }) {
       const saved = JSON.parse(localStorage.getItem('blesk-settings') || '{}');
       saved[key] = val;
       localStorage.setItem('blesk-settings', JSON.stringify(saved));
-    } catch {}
+    } catch (err) { console.error('CallScreen saveSettings:', err?.message || err); }
   };
 
   return (

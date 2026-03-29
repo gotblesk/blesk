@@ -209,10 +209,17 @@ router.get('/:id', async (req, res) => {
       if (!hasAccess) return res.status(403).json({ error: 'Нет доступа к приватному каналу' });
     }
 
+    // Проверить роль пользователя (owner/admin/member)
+    const participant = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId: id, userId } },
+      select: { role: true },
+    });
+
     res.json({
       ...channel,
       isSubscribed: !!subscription,
       isOwner: channel.ownerId === userId,
+      userRole: participant?.role || null,
     });
   } catch (err) {
     console.error('GET /channels/:id error:', err);

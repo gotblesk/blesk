@@ -4,6 +4,7 @@ import Glass from '../ui/Glass';
 import UserProfileModal from '../ui/UserProfileModal';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import { getCurrentUserId } from '../../utils/auth';
 import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
 import './GroupMembersPanel.css';
@@ -18,10 +19,10 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
   const loadMembers = async () => {
     try {
       const res = await fetch(`${API_URL}/api/chats/${chatId}/members`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       if (res.ok) setMembers(await res.json());
-    } catch {} finally { setLoading(false); }
+    } catch (err) { console.error('GroupMembersPanel loadMembers:', err?.message || err); } finally { setLoading(false); }
   };
 
   useEffect(() => {
@@ -32,12 +33,12 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
     try {
       const res = await fetch(`${API_URL}/api/chats/${chatId}/members/${userId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       if (res.ok) {
         setMembers((prev) => prev.filter((m) => m.userId !== userId));
       }
-    } catch {}
+    } catch (err) { console.error('GroupMembersPanel removeMember:', err?.message || err); }
   };
 
   const handleLeave = async () => {
@@ -47,10 +48,10 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
     try {
       const res = await fetch(`${API_URL}/api/chats/${chatId}/members/${userId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       if (res.ok) onClose?.();
-    } catch {}
+    } catch (err) { console.error('GroupMembersPanel leaveGroup:', err?.message || err); }
   };
 
   return (

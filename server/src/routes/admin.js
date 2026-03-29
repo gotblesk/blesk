@@ -609,7 +609,7 @@ router.post('/broadcast-update', async (req, res) => {
       if (crypto.timingSafeEqual(Buffer.from(adminSecret), Buffer.from(ADMIN_SECRET))) {
         isAuthed = true;
       }
-    } catch {}
+    } catch (err) { console.error('Admin secret timingSafeEqual failed:', err.message); }
   }
 
   // JWT fallback

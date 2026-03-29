@@ -1,6 +1,7 @@
 import nacl from 'tweetnacl';
 import { encodeBase64, decodeBase64, encodeUTF8, decodeUTF8 } from 'tweetnacl-util';
 import API_URL from '../config';
+import { getAuthHeaders } from './authFetch';
 
 // Кеш вычисленных shared-ключей (roomId → Uint8Array)
 const sharedKeyCache = new Map();
@@ -25,10 +26,10 @@ export async function generateKeyPair() {
   localStorage.setItem('blesk-public-key', publicKeyB64);
 
   // Отправить публичный ключ на сервер
-  const token = localStorage.getItem('token');
   await fetch(`${API_URL}/api/auth/keys`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    credentials: 'include',
     body: JSON.stringify({ publicKey: publicKeyB64 }),
   });
 
@@ -86,9 +87,8 @@ async function getSharedKey(otherPublicKeyB64, roomId) {
 export async function fetchPublicKey(userId) {
   if (publicKeyCache.has(userId)) return publicKeyCache.get(userId);
 
-  const token = localStorage.getItem('token');
   const res = await fetch(`${API_URL}/api/users/${userId}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { ...getAuthHeaders() }, credentials: 'include',
   });
   if (!res.ok) return null;
   const data = await res.json();

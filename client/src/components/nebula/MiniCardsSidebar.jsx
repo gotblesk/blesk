@@ -7,8 +7,16 @@ import './MiniCardsSidebar.css';
 
 // [IMP-4] React.memo — не ре-рендерить при изменениях в других компонентах
 export default memo(function MiniCardsSidebar({ activeChatId, onSelectChat, onBack }) {
-  const chats = useChatStore(s => s.chats);
+  const rawChats = useChatStore(s => s.chats);
+  const pinnedChats = useChatStore(s => s.pinnedChats);
   const onlineUsers = useChatStore(s => s.onlineUsers);
+
+  // Закреплённые чаты наверху
+  const chats = [...rawChats].sort((a, b) => {
+    const ap = pinnedChats.has(a.id) ? 0 : 1;
+    const bp = pinnedChats.has(b.id) ? 0 : 1;
+    return ap - bp;
+  });
   const [backHover, setBackHover] = useState(false);
 
   const getChatName = (chat) => {

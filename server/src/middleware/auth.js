@@ -17,16 +17,19 @@ if (!JWT_REFRESH_SECRET || JWT_REFRESH_SECRET.length < 32) {
 
 // Кеш банов: userId → { banned, ts }
 const banCache = new Map();
-const BAN_CACHE_TTL = 60000;
+const BAN_CACHE_TTL = 10000;
 
 // Проверка JWT токена (только access, refresh не принимается)
+// Приоритет: httpOnly cookie > Authorization header (backward compat)
 async function authenticate(req, res, next) {
+  const cookieToken = req.cookies?.blesk_token;
   const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
+  const token = cookieToken || (header?.startsWith('Bearer ') ? header.slice(7) : null);
+
+  if (!token) {
     return res.status(401).json({ error: 'Требуется авторизация' });
   }
 
-  const token = header.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     if (payload.type === 'refresh') {

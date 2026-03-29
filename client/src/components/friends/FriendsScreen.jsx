@@ -4,6 +4,7 @@ import { Users, Inbox, Search, Check, X, UserPlus } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import UserProfileModal from '../ui/UserProfileModal';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import './FriendsScreen.css';
 
 function useDebounce(value, delay) {
@@ -48,19 +49,19 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${localStorage.getItem('token')}`,
+    ...getAuthHeaders(),
   });
 
   const loadFriends = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/friends`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/friends`, { headers: getHeaders(), credentials: 'include' });
       if (res.ok) setFriends(await res.json());
     } catch { setError('Не удалось загрузить друзей'); }
   }, []);
 
   const loadPending = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/friends/requests/pending`, { headers: getHeaders(), credentials: 'include' });
       if (res.ok) setPending(await res.json());
     } catch { setError('Не удалось загрузить заявки'); }
   }, []);
@@ -71,7 +72,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     if (tab !== 'search' || debouncedQuery.length < 2) { setSearchResults([]); return; }
     let cancelled = false;
     setLoading(true);
-    fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(debouncedQuery)}`, { headers: getHeaders() })
+    fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(debouncedQuery)}`, { headers: getHeaders(), credentials: 'include' })
       .then(r => r.json())
       .then(data => { if (!cancelled) setSearchResults(data); })
       .catch(() => { if (!cancelled) setError('Ошибка поиска'); })
@@ -81,7 +82,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
 
   const sendRequest = async (userId) => {
     try {
-      const res = await fetch(`${API_URL}/api/friends/request`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ userId }) });
+      const res = await fetch(`${API_URL}/api/friends/request`, { method: 'POST', headers: getHeaders(), credentials: 'include', body: JSON.stringify({ userId }) });
       if (res.ok) setSentRequests(prev => new Set(prev).add(userId));
       else { const d = await res.json(); setError(d.error || 'Ошибка'); }
     } catch { setError('Ошибка соединения'); }
@@ -89,14 +90,14 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
 
   const acceptRequest = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/friends/requests/${id}/accept`, { method: 'POST', headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/friends/requests/${id}/accept`, { method: 'POST', headers: getHeaders(), credentials: 'include' });
       if (res.ok) { setPending(p => p.filter(r => r.id !== id)); loadFriends(); }
     } catch { setError('Ошибка'); }
   };
 
   const declineRequest = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/friends/requests/${id}/decline`, { method: 'POST', headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/friends/requests/${id}/decline`, { method: 'POST', headers: getHeaders(), credentials: 'include' });
       if (res.ok) setPending(p => p.filter(r => r.id !== id));
     } catch { setError('Ошибка'); }
   };

@@ -34,6 +34,9 @@ model User {
   bannedBy      String?   @map("banned_by")
   verifiedLevel Int       @default(0) @map("verified_level") // 0=none, 1=email, 2=phone, 3=official
 
+  twoFactorEnabled  Boolean  @default(false) @map("two_factor_enabled")
+  twoFactorSecret   String?  @map("two_factor_secret")
+
   sentMessages           Message[]
   ownedRooms             Room[]            @relation("RoomOwner")
   participations         RoomParticipant[]

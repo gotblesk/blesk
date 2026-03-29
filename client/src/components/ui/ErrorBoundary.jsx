@@ -16,10 +16,14 @@ export default class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
+      const compact = this.props.compact;
       return (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          height: '100vh', background: 'var(--bg, #08060f)', color: 'var(--text, rgba(255,255,255,0.7))',
+          height: compact ? '100%' : '100vh',
+          minHeight: compact ? 200 : undefined,
+          background: compact ? 'transparent' : 'var(--bg, #08060f)',
+          color: 'var(--text, rgba(255,255,255,0.7))',
           fontFamily: '-apple-system, sans-serif', gap: '12px',
         }}>
           <div style={{ fontSize: '16px', fontWeight: 700 }}>Что-то пошло не так</div>

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import API_URL from '../config';
+import { getAuthHeaders } from '../utils/authFetch';
 
 export const useVoiceStore = create((set, get) => ({
   // Текущая голосовая комната
@@ -136,9 +137,8 @@ export const useVoiceStore = create((set, get) => ({
   loadRooms: async () => {
     set({ loading: true });
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/voice/rooms`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       if (res.ok) {
         const rooms = await res.json();
@@ -154,10 +154,9 @@ export const useVoiceStore = create((set, get) => ({
   // Удалить голосовую комнату (только владелец)
   deleteRoom: async (roomId) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/voice/rooms/${roomId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       if (res.ok) {
         set((state) => ({ rooms: state.rooms.filter((r) => r.id !== roomId) }));
@@ -173,13 +172,13 @@ export const useVoiceStore = create((set, get) => ({
   // Создать голосовую комнату
   createRoom: async (name) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/voice/rooms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(),
         },
+        credentials: 'include',
         body: JSON.stringify({ name }),
       });
       const data = await res.json();
@@ -196,13 +195,13 @@ export const useVoiceStore = create((set, get) => ({
   // Пригласить друга в голосовую комнату
   inviteToRoom: async (roomId, userId) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/voice/rooms/${roomId}/invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(),
         },
+        credentials: 'include',
         body: JSON.stringify({ userId }),
       });
       const data = await res.json();
@@ -226,10 +225,9 @@ export const useVoiceStore = create((set, get) => ({
   // Кикнуть из голосовой комнаты
   kickFromRoom: async (roomId, userId) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/voice/rooms/${roomId}/kick/${userId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getAuthHeaders() }, credentials: 'include',
       });
       if (res.ok) {
         set((state) => ({

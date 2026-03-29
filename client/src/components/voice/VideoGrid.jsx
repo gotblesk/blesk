@@ -77,7 +77,7 @@ function CameraTile({ stream, name, peer }) {
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch(() => {} /* autoplay blocked */);
     }
     return () => {
       if (videoRef.current) videoRef.current.srcObject = null;
@@ -88,9 +88,9 @@ function CameraTile({ stream, name, peer }) {
     const el = tileRef.current;
     if (!el) return;
     if (document.fullscreenElement === el) {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(err => console.error('exitFullscreen:', err?.message || err));
     } else {
-      el.requestFullscreen().catch(() => {});
+      el.requestFullscreen().catch(err => console.error('requestFullscreen:', err?.message || err));
     }
   }, []);
 

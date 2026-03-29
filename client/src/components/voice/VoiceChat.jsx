@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, X, Send } from 'lucide-react';
+import { useVoiceStore } from '../../store/voiceStore';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceChat.css';
 
 export default function VoiceChat({ roomId, socketRef }) {
+  const participantCount = useVoiceStore((s) => Object.keys(s.participants).length);
+  const hasOtherParticipants = participantCount > 1;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
@@ -90,7 +93,9 @@ export default function VoiceChat({ roomId, socketRef }) {
 
           <div className="voice-chat__messages" ref={listRef}>
             {messages.length === 0 && (
-              <div className="voice-chat__empty">Напишите первое сообщение</div>
+              <div className="voice-chat__empty">
+                {hasOtherParticipants ? 'Напишите первое сообщение' : 'Ожидание участников...'}
+              </div>
             )}
             {messages.map((msg) => (
               <div key={msg.id} className="voice-chat__msg">
@@ -119,13 +124,14 @@ export default function VoiceChat({ roomId, socketRef }) {
               value={text}
               onChange={(e) => setText(e.target.value.slice(0, 500))}
               onKeyDown={handleKeyDown}
-              placeholder="Сообщение..."
+              placeholder={hasOtherParticipants ? 'Сообщение...' : 'Ожидание участников...'}
               maxLength={500}
+              disabled={!hasOtherParticipants}
             />
             <button
               className="voice-chat__send"
               onClick={handleSend}
-              disabled={!text.trim()}
+              disabled={!text.trim() || !hasOtherParticipants}
             >
               <Send size={16} strokeWidth={1.5} />
             </button>

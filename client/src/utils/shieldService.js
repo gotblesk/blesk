@@ -14,6 +14,7 @@ import {
   serializeSession, deserializeSession,
 } from './shieldRatchet';
 import API_URL from '../config';
+import { getAuthHeaders } from './authFetch';
 
 // Кеш активных сессий в памяти (peerId → session)
 const sessionCache = new Map();
@@ -23,7 +24,7 @@ const sessionLocks = new Map();
 async function withSessionLock(peerId, fn) {
   const prev = sessionLocks.get(peerId) ?? Promise.resolve();
   const next = prev.then(() => fn()).catch((err) => { throw err; });
-  sessionLocks.set(peerId, next.catch(() => {}));
+  sessionLocks.set(peerId, next.catch(() => { /* lock chain — error already re-thrown via next */ }));
   return next;
 }
 
@@ -116,10 +117,10 @@ async function uploadBundle(opkCount = 50) {
   }));
 
   // Загрузить bundle на сервер
-  const token = localStorage.getItem('token');
   await fetch(`${API_URL}/api/shield/bundle`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    credentials: 'include',
     body: JSON.stringify(bundle),
   });
 
@@ -162,9 +163,8 @@ async function saveSession(peerId, session) {
  */
 async function createSession(peerId) {
   // Получить bundle собеседника
-  const token = localStorage.getItem('token');
   const res = await fetch(`${API_URL}/api/shield/bundle/${peerId}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { ...getAuthHeaders() }, credentials: 'include',
   });
 
   if (!res.ok) return null;
@@ -367,10 +367,10 @@ export async function replenishOPKs(count = 50) {
     }
 
     // Загрузить на сервер
-    const token = localStorage.getItem('token');
     await fetch(`${API_URL}/api/shield/replenish`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      credentials: 'include',
       body: JSON.stringify({ oneTimePreKeys: newOpks }),
     });
 
@@ -402,10 +402,9 @@ export function getVisualFingerprint(myPublicKey, peerPublicKey) {
  */
 export async function peerSupportsShield(peerId) {
   try {
-    const token = localStorage.getItem('token');
     const res = await fetch(`${API_URL}/api/shield/bundle/${peerId}`, {
       method: 'HEAD',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { ...getAuthHeaders() }, credentials: 'include',
     });
     return res.ok;
   } catch {

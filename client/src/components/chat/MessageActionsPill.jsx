@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { CornerUpLeft, SmilePlus, Pencil, Trash2 } from 'lucide-react';
+import { CornerUpLeft, SmilePlus, Pencil, Trash2, Share2 } from 'lucide-react';
 import './MessageActionsPill.css';
 
-export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onDelete }) {
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+
+export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onDelete, onForward }) {
   const [open, setOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const pillRef = useRef(null);
 
@@ -17,12 +20,13 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
       y: e.clientY - rect.top,
     });
     setOpen(true);
+    setEmojiOpen(false);
   }, []);
 
   // Закрыть при клике вне
   useEffect(() => {
     if (!open) return;
-    const close = () => setTimeout(() => setOpen(false), 0);
+    const close = () => setTimeout(() => { setOpen(false); setEmojiOpen(false); }, 0);
     window.addEventListener('click', close);
     window.addEventListener('scroll', close, true);
     return () => {
@@ -34,7 +38,20 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
   const handleAction = (fn) => (e) => {
     e.stopPropagation();
     setOpen(false);
+    setEmojiOpen(false);
     fn?.();
+  };
+
+  const handleEmojiToggle = (e) => {
+    e.stopPropagation();
+    setEmojiOpen((prev) => !prev);
+  };
+
+  const handleEmojiPick = (emoji) => (e) => {
+    e.stopPropagation();
+    setOpen(false);
+    setEmojiOpen(false);
+    onReact?.(emoji);
   };
 
   return {
@@ -42,26 +59,40 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
     menu: open ? (
       <div
         ref={pillRef}
-        className="msg-actions-pill msg-actions-pill--open"
+        className={`msg-actions-pill msg-actions-pill--open ${emojiOpen ? 'msg-actions-pill--with-emoji' : ''}`}
         style={{ left: pos.x, top: pos.y }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="msg-actions-pill__btn" onClick={handleAction(onReply)} title="Ответить">
-          <CornerUpLeft />
-        </button>
-        <button className="msg-actions-pill__btn" onClick={handleAction(onReact)} title="Реакция">
-          <SmilePlus />
-        </button>
-        {isOwn && (
-          <>
-            <button className="msg-actions-pill__btn" onClick={handleAction(onEdit)} title="Редактировать">
-              <Pencil />
-            </button>
-            <button className="msg-actions-pill__btn msg-actions-pill__btn--danger" onClick={handleAction(onDelete)} title="Удалить">
-              <Trash2 />
-            </button>
-          </>
+        {emojiOpen && (
+          <div className="msg-actions-pill__emoji-row">
+            {QUICK_EMOJIS.map((em) => (
+              <button key={em} className="msg-actions-pill__emoji-btn" onClick={handleEmojiPick(em)}>
+                {em}
+              </button>
+            ))}
+          </div>
         )}
+        <div className="msg-actions-pill__actions">
+          <button className="msg-actions-pill__btn" onClick={handleAction(onReply)} title="Ответить">
+            <CornerUpLeft />
+          </button>
+          <button className="msg-actions-pill__btn" onClick={handleAction(onForward)} title="Переслать">
+            <Share2 />
+          </button>
+          <button className="msg-actions-pill__btn" onClick={handleEmojiToggle} title="Реакция">
+            <SmilePlus />
+          </button>
+          {isOwn && (
+            <>
+              <button className="msg-actions-pill__btn" onClick={handleAction(onEdit)} title="Редактировать">
+                <Pencil />
+              </button>
+              <button className="msg-actions-pill__btn msg-actions-pill__btn--danger" onClick={handleAction(onDelete)} title="Удалить">
+                <Trash2 />
+              </button>
+            </>
+          )}
+        </div>
       </div>
     ) : null,
   };

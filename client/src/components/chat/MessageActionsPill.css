@@ -1,6 +1,7 @@
 .msg-actions-pill {
   position: absolute;
   display: flex;
+  flex-direction: column;
   gap: 2px;
   padding: 3px;
   background: rgba(20, 18, 30, 0.75);
@@ -67,6 +68,41 @@
   color: var(--light-text-primary, #111827);
 }
 
+.msg-actions-pill__actions {
+  display: flex;
+  gap: 2px;
+}
+
+.msg-actions-pill__emoji-row {
+  display: flex;
+  gap: 1px;
+  padding: 2px 2px 0;
+}
+
+.msg-actions-pill__emoji-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.msg-actions-pill__emoji-btn:hover {
+  background: rgba(255,255,255,0.1);
+  transform: scale(1.2);
+}
+
+[data-theme="light"] .msg-actions-pill__emoji-btn:hover {
+  background: var(--light-surface-hover, #f0f2f5);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .msg-actions-pill { transition: none; }
+  .msg-actions-pill__emoji-btn { transition: none; }
 }

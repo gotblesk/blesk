@@ -84,21 +84,21 @@ function cleanupPeer(peer) {
   // Закрыть все consumers
   if (peer.consumers) {
     for (const consumer of peer.consumers.values()) {
-      try { consumer.close(); } catch {}
+      try { consumer.close(); } catch (err) { console.error('Failed to close consumer:', err.message); }
     }
     peer.consumers.clear();
   }
   // Закрыть все producers
   if (peer.producers) {
     for (const producer of peer.producers.values()) {
-      try { producer.close(); } catch {}
+      try { producer.close(); } catch (err) { console.error('Failed to close producer:', err.message); }
     }
     peer.producers.clear();
   }
   // Закрыть все transports
   if (peer.transports) {
     for (const transport of peer.transports.values()) {
-      try { transport.close(); } catch {}
+      try { transport.close(); } catch (err) { console.error('Failed to close transport:', err.message); }
     }
     peer.transports.clear();
   }
@@ -485,7 +485,7 @@ function voiceHandler(io, socket) {
       if (room.peers.has(userId)) roomIds.push(roomId);
     }
     for (const roomId of roomIds) {
-      try { leaveRoom(io, socket, userId, roomId); } catch {}
+      try { leaveRoom(io, socket, userId, roomId); } catch (err) { console.error(`Failed to leave voice room ${roomId} on disconnect:`, err.message); }
     }
     // Очистить rate limits отключившегося пользователя
     voiceChatRateLimits.delete(userId);

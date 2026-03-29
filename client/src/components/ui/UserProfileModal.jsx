@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, MessageCircle, UserPlus, Check, Calendar, Clock } from 'lucide-react';
 import Avatar from './Avatar';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import { getAvatarHue } from '../../utils/avatar';
 import './UserProfileModal.css';
 
@@ -50,8 +51,7 @@ export default function UserProfileModal({ userId, open, onClose, onAddFriend, o
     setLoading(true);
     setUser(null);
     setFriendReqSent(false);
-    const token = localStorage.getItem('token');
-    fetch(`${API_URL}/api/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API_URL}/api/users/${userId}`, { headers: { ...getAuthHeaders() }, credentials: 'include' })
       .then(r => r.json())
       .then(data => setUser(data))
       .catch(() => setUser(null))
@@ -70,20 +70,20 @@ export default function UserProfileModal({ userId, open, onClose, onAddFriend, o
   }, [onClose]);
 
   const handleAddFriend = async () => {
-    try { await onAddFriend?.(userId); setFriendReqSent(true); } catch {}
+    try { await onAddFriend?.(userId); setFriendReqSent(true); } catch (err) { console.error('UserProfileModal addFriend:', err?.message || err); }
   };
 
   const handleMessage = async () => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/chats`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({ participantId: userId }),
       });
       const data = await res.json();
       if (data.id) { onOpenChat?.(data.id, null); onClose?.(); }
-    } catch {}
+    } catch (err) { console.error('UserProfileModal openChat:', err?.message || err); }
   };
 
   // Subtle tilt on mouse move

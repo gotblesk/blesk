@@ -3,21 +3,23 @@ import { getCurrentUserId } from '../utils/auth';
 import { decryptMessage, fetchPublicKey } from '../utils/cryptoService';
 import { getCachedMessages, setCachedMessages, appendCachedMessage, updateCachedMessage, removeCachedMessage } from '../utils/messageCache';
 import API_URL from '../config';
+import { getAuthHeaders } from '../utils/authFetch';
 
 function getHeaders() {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${localStorage.getItem('token')}`,
+    ...getAuthHeaders(),
   };
 }
 
 async function fetchWithAuth(url, options = {}) {
-  const res = await fetch(url, { ...options, headers: { ...getHeaders(), ...options.headers } });
+  const res = await fetch(url, { ...options, credentials: 'include', headers: { ...getHeaders(), ...options.headers } });
   if (res.status === 401) {
     const refreshToken = localStorage.getItem('refreshToken');
     if (refreshToken) {
       const refreshRes = await fetch(`${API_URL}/api/auth/refresh`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
       });
@@ -25,7 +27,7 @@ async function fetchWithAuth(url, options = {}) {
         const data = await refreshRes.json();
         localStorage.setItem('token', data.token);
         if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-        return fetch(url, { ...options, headers: { ...getHeaders(), ...options.headers } });
+        return fetch(url, { ...options, credentials: 'include', headers: { ...getHeaders(), ...options.headers } });
       }
     }
     localStorage.removeItem('token');
@@ -35,13 +37,26 @@ async function fetchWithAuth(url, options = {}) {
   return res;
 }
 
+function loadPinnedChats() {
+  try {
+    const raw = localStorage.getItem('blesk-pinned-chats');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+}
+
+function savePinnedChats(pinned) {
+  localStorage.setItem('blesk-pinned-chats', JSON.stringify([...pinned]));
+}
+
 export const useChatStore = create((set, get) => ({
   chats: [],
   activeChats: new Set(),
+  pinnedChats: loadPinnedChats(),
   messages: {},
   loadingChats: new Set(),
   // [CRIT-2] Состояние подключения
   isConnected: true,
+  lastConnectedAt: null,
   // [MED-4] Version counter для предотвращения stale fetch overwrite
   _chatLoadVersions: {},
   loadingChatList: false,
@@ -50,6 +65,7 @@ export const useChatStore = create((set, get) => ({
   userStatuses: {}, // { [userId]: 'online' | 'dnd' | 'invisible' }
   customStatuses: {}, // { [userId]: 'текст статуса' }
   typingUsers: {},
+  reactions: {}, // { [messageId]: { [emoji]: { count, users, userIds } } }
 
   loadChats: async () => {
     // Защита от параллельных вызовов (всегда возвращаем Promise)
@@ -80,7 +96,7 @@ export const useChatStore = create((set, get) => ({
       if (cached && cached.length > 0 && !get().messages[chatId]) {
         set((state) => ({ messages: { ...state.messages, [chatId]: cached } }));
       }
-    } catch {}
+    } catch (err) { console.error('chatStore IndexedDB cache read:', err?.message || err); }
 
     // [MED-4] Version counter — обнаруживать stale ответы
     const versions = get()._chatLoadVersions;
@@ -91,7 +107,7 @@ export const useChatStore = create((set, get) => ({
     }));
 
     try {
-      const res = await fetch(`${API_URL}/api/chats/${chatId}/messages?limit=200`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/chats/${chatId}/messages?limit=200`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error();
       const msgs = await res.json();
 
@@ -134,7 +150,7 @@ export const useChatStore = create((set, get) => ({
       }));
 
       // [CRIT-3] Сохранить в IndexedDB кеш
-      setCachedMessages(chatId, msgs).catch(() => {});
+      setCachedMessages(chatId, msgs).catch(err => console.error('chatStore setCachedMessages:', err?.message || err));
     } catch (err) {
       console.error('Ошибка загрузки сообщений:', err);
     } finally {
@@ -151,7 +167,7 @@ export const useChatStore = create((set, get) => ({
     try {
       const existing = get().messages[chatId];
       if (!existing) return;
-      const res = await fetch(`${API_URL}/api/chats/${chatId}/messages?limit=200`, { headers: getHeaders() });
+      const res = await fetch(`${API_URL}/api/chats/${chatId}/messages?limit=200`, { headers: getHeaders(), credentials: 'include' });
       if (!res.ok) return;
       const msgs = await res.json();
       // Merge: добавить только новые сообщения (без дублирования)
@@ -165,7 +181,7 @@ export const useChatStore = create((set, get) => ({
             .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
         },
       }));
-    } catch {}
+    } catch (err) { console.error('chatStore refreshChat:', err?.message || err); }
   },
 
   closeChat: (chatId) => {
@@ -183,6 +199,7 @@ export const useChatStore = create((set, get) => ({
     const userId = getCurrentUserId();
     if (!userId) return;
 
+    const isOffline = !get().isConnected;
     const tempMsg = {
       id: tempId,
       tempId,
@@ -191,6 +208,7 @@ export const useChatStore = create((set, get) => ({
       text,
       createdAt: new Date().toISOString(),
       pending: true,
+      offline: isOffline,
     };
 
     set((state) => ({
@@ -284,7 +302,7 @@ export const useChatStore = create((set, get) => ({
       }
 
       // [CRIT-3] Кешировать новое сообщение в IndexedDB
-      appendCachedMessage(chatId, message).catch(() => {});
+      appendCachedMessage(chatId, message).catch(err => console.error('chatStore appendCachedMessage:', err?.message || err));
 
       // [CRIT-4] Ограничить массив в памяти — не более 500 сообщений
       let updatedMsgs = [...existing, message];
@@ -302,6 +320,7 @@ export const useChatStore = create((set, get) => ({
       await fetch(`${API_URL}/api/chats/${chatId}/read`, {
         method: 'POST',
         headers: getHeaders(),
+        credentials: 'include',
       });
 
       // [Read Receipts] Собрать ID непрочитанных сообщений и отправить read receipt
@@ -325,7 +344,7 @@ export const useChatStore = create((set, get) => ({
           ),
         },
       }));
-    } catch {}
+    } catch (err) { console.error('chatStore markMessagesRead:', err?.message || err); }
   },
 
   setUserOnline: (userId, status) => {
@@ -399,5 +418,15 @@ export const useChatStore = create((set, get) => ({
         return chat;
       }),
     }));
+  },
+
+  togglePinChat: (chatId) => {
+    set((state) => {
+      const next = new Set(state.pinnedChats);
+      if (next.has(chatId)) next.delete(chatId);
+      else next.add(chatId);
+      savePinnedChats(next);
+      return { pinnedChats: next };
+    });
   },
 }));

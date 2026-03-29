@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MetaballBackground from '../ui/MetaballBackground';
 import NebulaView from '../nebula/NebulaView';
@@ -23,6 +23,7 @@ import ChannelView from '../channels/ChannelView';
 import AdminPanel from '../admin/AdminPanel';
 import UpdateBanner from '../ui/UpdateBanner';
 import SpotlightSearch from '../ui/SpotlightSearch';
+import ErrorBoundary from '../ui/ErrorBoundary';
 import { soundTabSwitch, soundWindowOpen, soundWindowClose, soundVoiceJoin, soundVoiceLeave, soundRingtoneStop } from '../../utils/sounds';
 import { initializeShield } from '../../utils/shieldService';
 import { useSocket } from '../../hooks/useSocket';
@@ -32,7 +33,38 @@ import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useHotkeys } from '../../hooks/useHotkeys';
+import { WifiOff } from 'lucide-react';
 import './MainScreen.css';
+
+// Офлайн-баннер с временем последнего соединения и анимированными точками
+const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt }) {
+  const [elapsed, setElapsed] = useState('');
+
+  useEffect(() => {
+    if (!lastConnectedAt) return;
+    const tick = () => {
+      const diff = Math.floor((Date.now() - lastConnectedAt) / 1000);
+      if (diff < 60) setElapsed(`${diff} сек назад`);
+      else if (diff < 3600) setElapsed(`${Math.floor(diff / 60)} мин назад`);
+      else setElapsed(`${Math.floor(diff / 3600)} ч назад`);
+    };
+    tick();
+    const id = setInterval(tick, 10000);
+    return () => clearInterval(id);
+  }, [lastConnectedAt]);
+
+  return (
+    <div className="offline-banner">
+      <WifiOff size={14} strokeWidth={2} />
+      <span>Нет соединения{elapsed ? ` \u00b7 последний раз ${elapsed}` : ''}</span>
+      <div className="offline-banner__dots">
+        <div className="offline-banner__dot" />
+        <div className="offline-banner__dot" />
+        <div className="offline-banner__dot" />
+      </div>
+    </div>
+  );
+});
 
 export default function MainScreen({ user, onLogout, isAdmin }) {
   // ═══════ CORE STATE ═══════
@@ -73,7 +105,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
   // blesk Shield — инициализация E2E
   useEffect(() => {
-    initializeShield().catch(() => {});
+    initializeShield().catch(err => console.error('Shield init:', err?.message || err));
   }, []);
 
   // [CRIT-3] Deep links — обработка blesk:// из main process
@@ -109,6 +141,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
   const { chats } = useChatStore();
   const isConnected = useChatStore((s) => s.isConnected);
+  const lastConnectedAt = useChatStore((s) => s.lastConnectedAt);
   const voiceRoomId = useVoiceStore((s) => s.currentRoomId);
   const cameraOn = useVoiceStore((s) => s.cameraOn);
   const screenShareOn = useVoiceStore((s) => s.screenShareOn);
@@ -220,8 +253,18 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     settings: () => switchToView('settings'),
   });
 
-  // [IMP-2] Ambient hue — мемоизирован
+  // [IMP-2] Ambient hue — мемоизирован, учитывает активный звонок
   const ambientHue = useMemo(() => {
+    // При активном звонке — использовать hue собеседника из звонка
+    if (activeCall) {
+      const callChat = chats.find(c => c.id === activeCall.chatId);
+      if (callChat?.otherUser) {
+        let hash = 0;
+        const name = callChat.otherUser.username || '';
+        for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        return Math.abs(hash) % 360;
+      }
+    }
     if (!activeChatId) return null;
     const chat = chats.find(c => c.id === activeChatId);
     if (!chat?.otherUser) return null;
@@ -229,7 +272,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     const name = chat.otherUser.username || '';
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
     return Math.abs(hash) % 360;
-  }, [activeChatId, chats]);
+  }, [activeChatId, activeCall, chats]);
 
   // ═══════ RENDER ═══════
   return (
@@ -284,40 +327,48 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
               {/* Voice */}
               {secondaryView === 'voice' && (
                 <motion.div key="voice" className="main-layout__animated" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  {voiceRoomId && voiceExpanded ? (
-                    <VoiceRoom socketRef={socketRef} />
-                  ) : (
-                    <VoiceRoomList
-                      onJoinRoom={(roomId, roomName) => {
-                        soundVoiceJoin();
-                        joinRoom(roomId, roomName);
-                        setVoiceExpanded(true);
-                      }}
-                    />
-                  )}
+                  <ErrorBoundary compact>
+                    {voiceRoomId && voiceExpanded ? (
+                      <VoiceRoom socketRef={socketRef} />
+                    ) : (
+                      <VoiceRoomList
+                        onJoinRoom={(roomId, roomName) => {
+                          soundVoiceJoin();
+                          joinRoom(roomId, roomName);
+                          setVoiceExpanded(true);
+                        }}
+                      />
+                    )}
+                  </ErrorBoundary>
                 </motion.div>
               )}
 
               {/* Channels */}
               {secondaryView === 'channels' && (
                 <motion.div key="channels" className="main-layout__animated" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  {activeChannelId
-                    ? <ChannelView channelId={activeChannelId} onBack={() => setActiveChannelId(null)} user={currentUser} socketRef={socketRef} />
-                    : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />}
+                  <ErrorBoundary compact>
+                    {activeChannelId
+                      ? <ChannelView channelId={activeChannelId} onBack={() => setActiveChannelId(null)} user={currentUser} socketRef={socketRef} />
+                      : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />}
+                  </ErrorBoundary>
                 </motion.div>
               )}
 
               {/* Friends */}
               {secondaryView === 'friends' && (
                 <motion.div key="friends" className="main-layout__animated" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  <FriendsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} onOpenChat={handleOpenChat} />
+                  <ErrorBoundary compact>
+                    <FriendsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} onOpenChat={handleOpenChat} />
+                  </ErrorBoundary>
                 </motion.div>
               )}
 
               {/* Admin */}
               {secondaryView === 'admin' && (
                 <motion.div key="admin" className="main-layout__animated" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  <AdminPanel onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
+                  <ErrorBoundary compact>
+                    <AdminPanel onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
+                  </ErrorBoundary>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -434,19 +485,8 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
       </AnimatePresence>
 
       {/* Обновление */}
-      {/* [CRIT-2] Офлайн-индикатор */}
-      {!isConnected && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0,
-          zIndex: 9999, padding: '6px 0',
-          background: 'rgba(239,68,68,0.9)',
-          color: '#fff', textAlign: 'center',
-          fontSize: 12, fontWeight: 700,
-          backdropFilter: 'blur(8px)',
-        }}>
-          Нет соединения с сервером. Переподключение...
-        </div>
-      )}
+      {/* [CRIT-2] Офлайн-баннер */}
+      {!isConnected && <OfflineBanner lastConnectedAt={lastConnectedAt} />}
 
       <UpdateBanner socketRef={socketRef} />
 

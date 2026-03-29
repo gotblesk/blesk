@@ -77,7 +77,7 @@ export function useVoice(socketRef) {
     // [Баг #20] Не закрывать предыдущий AudioContext — он может использоваться GainNodes
     // Вместо этого переиспользуем или создаём отдельный
     if (audioContextRef.current) {
-      try { audioContextRef.current.close(); } catch {}
+      try { audioContextRef.current.close(); } catch { /* AudioContext already closed */ }
     }
 
     const ctx = new AudioContext();
@@ -138,7 +138,7 @@ export function useVoice(socketRef) {
       }
     } catch {
       // Безопасный fallback
-      try { audio.volume = 1; } catch {}
+      try { audio.volume = 1; } catch { /* volume set failed */ }
     }
   }, []);
 
@@ -158,10 +158,10 @@ export function useVoice(socketRef) {
     // Установить устройство вывода если поддерживается
     const outDeviceId = useVoiceStore.getState().outputDeviceId;
     if (outDeviceId && outDeviceId !== 'default' && typeof audio.setSinkId === 'function') {
-      audio.setSinkId(outDeviceId).catch(() => {});
+      audio.setSinkId(outDeviceId).catch(err => console.error('setSinkId:', err?.message || err));
     }
 
-    audio.play().catch(() => {});
+    audio.play().catch(() => {} /* autoplay blocked */);
   }, []);
 
   // ═══ Создать consumer для remote producer ═══
@@ -497,7 +497,7 @@ export function useVoice(socketRef) {
 
     // Закрыть GainNode контексты
     for (const entry of gainNodesRef.current.values()) {
-      try { entry.ctx.close(); } catch {}
+      try { entry.ctx.close(); } catch { /* AudioContext already closed */ }
     }
     gainNodesRef.current.clear();
 
@@ -533,7 +533,7 @@ export function useVoice(socketRef) {
   useEffect(() => {
     for (const audio of audioElementsRef.current.values()) {
       if (typeof audio.setSinkId === 'function') {
-        audio.setSinkId(outputDeviceId || 'default').catch(() => {});
+        audio.setSinkId(outputDeviceId || 'default').catch(err => console.error('setSinkId output:', err?.message || err));
       }
     }
   }, [outputDeviceId]);
@@ -630,7 +630,7 @@ export function useVoice(socketRef) {
       // Закрыть GainNode контекст если был
       const gainEntry = gainNodesRef.current.get(consumerId);
       if (gainEntry) {
-        try { gainEntry.ctx.close(); } catch {}
+        try { gainEntry.ctx.close(); } catch { /* AudioContext already closed */ }
         gainNodesRef.current.delete(consumerId);
       }
       consumerUserMapRef.current.delete(consumerId);
@@ -842,7 +842,7 @@ export function useVoice(socketRef) {
     return () => {
       if (vadIntervalRef.current) { clearInterval(vadIntervalRef.current); vadIntervalRef.current = null; }
       if (qualityIntervalRef.current) { clearInterval(qualityIntervalRef.current); qualityIntervalRef.current = null; }
-      if (audioContextRef.current) { try { audioContextRef.current.close(); } catch {} audioContextRef.current = null; }
+      if (audioContextRef.current) { try { audioContextRef.current.close(); } catch { /* AudioContext already closed */ } audioContextRef.current = null; }
     };
   }, []);
 

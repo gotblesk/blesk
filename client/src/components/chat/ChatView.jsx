@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, Fragment, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { Search, X, Check } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import ChatHeader from './ChatHeader';
@@ -48,6 +49,7 @@ export default function ChatView({
   const onlineUsers = useChatStore((s) => s.onlineUsers);
   const userStatuses = useChatStore((s) => s.userStatuses);
   const typingUsers = useChatStore((s) => s.typingUsers);
+  const allReactions = useChatStore((s) => s.reactions);
   const showTyping = useSettingsStore((s) => s.showTyping);
   const compactMessages = useSettingsStore((s) => s.compactMessages);
   const messagesEndRef = useRef(null);
@@ -58,6 +60,8 @@ export default function ChatView({
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [forwardMsg, setForwardMsg] = useState(null);
+  const [forwardSuccess, setForwardSuccess] = useState(false);
   const initialUnreadRef = useRef(null);
 
   // Drag/pull state
@@ -387,9 +391,12 @@ export default function ChatView({
 
   // [CRIT-3] Стабильные callbacks для ChatMessage (не ломают React.memo)
   const handleReplyStable = useCallback((msg) => setReplyTo(msg), []);
-  const handleReactStable = useCallback(() => {}, []);
+  const handleReactStable = useCallback((messageId, emoji) => {
+    socketRef.current?.emit('message:react', { messageId, emoji });
+  }, [socketRef]);
   const handleEditStable = useCallback((msg) => { setEditingMsg(msg); setReplyTo(null); }, []);
   const handleDeleteStable = useCallback((msgId) => setDeleteConfirm(msgId), []);
+  const handleForwardStable = useCallback((msg) => setForwardMsg(msg), []);
 
   // Редактирование сообщения — заполнить input текстом
   const handleEdit = useCallback((msg) => {
@@ -440,6 +447,19 @@ export default function ChatView({
 
   const isOnline = chat.otherUser ? onlineUsers.includes(chat.otherUser.id) : false;
   const typingInChat = typingUsers[chatId] || [];
+  // Резолвим userId → username для хедера
+  const typingNames = React.useMemo(() => {
+    if (!typingInChat.length) return [];
+    if (chat?.type !== 'group' && chat?.otherUser) {
+      return typingInChat.length ? [chat.otherUser.username] : [];
+    }
+    // Группа: ищем имена в сообщениях чата
+    const nameMap = {};
+    for (const msg of chatMessages) {
+      if (msg.user?.username) nameMap[msg.userId] = msg.user.username;
+    }
+    return typingInChat.map(uid => nameMap[uid] || uid).filter(Boolean);
+  }, [typingInChat, chat, chatMessages]);
 
   // Вычисляем ID первого непрочитанного сообщения (для UnreadDivider)
   const savedUnread = initialUnreadRef.current || 0;
@@ -512,7 +532,7 @@ export default function ChatView({
           chat={chat}
           isOnline={isOnline}
           userStatus={chat.otherUser ? userStatuses[chat.otherUser.id] : null}
-          typingUsernames={typingInChat.length ? ['печатает'] : []}
+          typingUsernames={typingNames}
           onCall={onCall}
           onMembers={chat.type === 'group' ? () => setMembersOpen(true) : undefined}
           onAvatarClick={() => { if (chat.otherUser?.id) setProfileUserId(chat.otherUser.id); }}
@@ -599,7 +619,10 @@ export default function ChatView({
                   onReact={handleReactStable}
                   onEdit={handleEditStable}
                   onDelete={handleDeleteStable}
+                  onForward={handleForwardStable}
                   onImageClick={setLightboxSrc}
+                  reactions={allReactions[msg.id]}
+                  currentUserId={userId.current}
                 />
               </div>
             );
@@ -673,6 +696,148 @@ export default function ChatView({
         onConfirm={confirmDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {/* Модалка пересылки сообщения */}
+      {forwardMsg && (
+        <ForwardModal
+          message={forwardMsg}
+          currentChatId={chatId}
+          socketRef={socketRef}
+          onClose={() => setForwardMsg(null)}
+          onSuccess={() => {
+            setForwardMsg(null);
+            setForwardSuccess(true);
+            setTimeout(() => setForwardSuccess(false), 2000);
+          }}
+        />
+      )}
+
+      {/* Индикатор успешной пересылки */}
+      {forwardSuccess && (
+        <div className="chat-view__forward-toast">
+          <Check size={14} />
+          <span>Сообщение переслано</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Инлайн-компонент модалки пересылки
+function ForwardModal({ message, currentChatId, socketRef, onClose, onSuccess }) {
+  const chats = useChatStore((s) => s.chats);
+  const [search, setSearch] = useState('');
+  const [sending, setSending] = useState(false);
+  const overlayRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Фокус на поле поиска при открытии
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Закрыть по Escape
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  // Фильтрация: исключить текущий чат, искать по имени
+  const filtered = useMemo(() => {
+    const list = chats.filter((c) => c.id !== currentChatId);
+    if (!search.trim()) return list;
+    const q = search.toLowerCase();
+    return list.filter((c) => {
+      const name = c.name || c.otherUser?.username || '';
+      return name.toLowerCase().includes(q);
+    });
+  }, [chats, currentChatId, search]);
+
+  const handleForward = async (targetChatId) => {
+    if (sending) return;
+    setSending(true);
+    socketRef.current?.emit('message:forward', {
+      messageId: message.id,
+      targetChatId,
+    }, (res) => {
+      setSending(false);
+      if (res?.ok) {
+        onSuccess();
+      } else {
+        console.error('Forward failed:', res?.error);
+        // Показать ошибку через blesk notify если доступно
+        window.blesk?.notify?.('blesk', res?.error || 'Не удалось переслать');
+      }
+    });
+  };
+
+  const handleOverlayClick = (e) => {
+    if (e.target === overlayRef.current) onClose();
+  };
+
+  // Превью текста сообщения (обрезать длинные)
+  const previewText = message.text?.length > 80
+    ? message.text.slice(0, 80) + '...'
+    : message.text;
+
+  return (
+    <div className="forward-modal__overlay" ref={overlayRef} onClick={handleOverlayClick}>
+      <div className="forward-modal">
+        <div className="forward-modal__header">
+          <span className="forward-modal__title">Переслать сообщение</span>
+          <button className="forward-modal__close" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Превью пересылаемого сообщения */}
+        <div className="forward-modal__preview">
+          <span className="forward-modal__preview-author">{message.user?.username || 'Unknown'}</span>
+          <span className="forward-modal__preview-text">{previewText}</span>
+        </div>
+
+        {/* Поиск */}
+        <div className="forward-modal__search">
+          <Search size={14} />
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Поиск чата..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {/* Список чатов */}
+        <div className="forward-modal__list">
+          {filtered.length === 0 && (
+            <div className="forward-modal__empty">Нет доступных чатов</div>
+          )}
+          {filtered.map((c) => {
+            const name = c.name || c.otherUser?.username || 'Чат';
+            const hue = getHueFromString(name);
+            return (
+              <button
+                key={c.id}
+                className="forward-modal__item"
+                onClick={() => handleForward(c.id)}
+                disabled={sending}
+              >
+                <div
+                  className="forward-modal__item-avatar"
+                  style={{ background: `hsl(${hue}, 60%, 45%)` }}
+                >
+                  {name.charAt(0).toUpperCase()}
+                </div>
+                <span className="forward-modal__item-name">{name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

@@ -229,6 +229,17 @@
 .cs--compact .cs__btn--end { width: 42px; height: 42px; }
 .cs__btn--end:hover { box-shadow: 0 6px 28px rgba(239,68,68,0.35); background: #dc2626; }
 
+/* [Баг #10] Недоступные кнопки до принятия звонка */
+.cs__btn--disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
+.cs__btn--disabled:hover { transform: none; background: rgba(255,255,255,0.04); }
+
+/* [Баг #3] Пульсация точки при ожидании ответа */
+.cs__status-dot--ringing { background: #facc15; animation: csRingPulse 1s ease-in-out infinite; }
+@keyframes csRingPulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(250,204,21,0.4); } 50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(250,204,21,0); } }
+
+/* [Баг #4] Индикатор качества соединения */
+.cs__quality-icon { color: rgba(74,222,128,0.6); display: flex; align-items: center; }
+
 /* [Баг #29] Подписи кнопок — normal flow вместо absolute, чтобы не обрезались */
 .cs__btn-label {
   font-size: 8px;

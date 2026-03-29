@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Trash2, UserPlus, Mic, Sparkles, ArrowRight, Radio, Users, Crown } from 'lucide-react';
 import { useVoiceStore } from '../../store/voiceStore';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import { getCurrentUserId } from '../../utils/auth';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceRoomList.css';
@@ -60,11 +61,10 @@ export default function VoiceRoomList({ onJoinRoom }) {
     // Кэш друзей — не перезапрашивать чаще чем раз в 30 секунд
     if (friends.length > 0 && Date.now() - friendsFetchedRef.current < 30000) return;
     setFriendsLoading(true);
-    const token = localStorage.getItem('token');
-    fetch(`${API_URL}/api/friends`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API_URL}/api/friends`, { headers: { ...getAuthHeaders() }, credentials: 'include' })
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) { setFriends(data); friendsFetchedRef.current = Date.now(); } })
-      .catch(() => {})
+      .catch(err => console.error('VoiceRoomList loadFriends:', err?.message || err))
       .finally(() => setFriendsLoading(false));
   }, [inviting]); // eslint-disable-line react-hooks/exhaustive-deps
 
