@@ -200,14 +200,7 @@
   scroll-behavior: smooth;
 }
 
-/* Центрирование контента сообщений при широком экране */
-@media (min-width: 900px) {
-  .chat-view--inline .chat-view__messages > div {
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-}
+/* Сообщения используют полную ширину — max-width убран */
 
 /* Scroll-to-bottom кнопка — внутри .chat-view (position: relative) */
 .chat-view__scroll-down {

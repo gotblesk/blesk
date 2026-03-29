@@ -14,14 +14,7 @@
   right: 0;
 }
 
-/* Центрирование input при широком экране */
-@media (min-width: 900px) {
-  .chat-view--inline .chat-input-zone {
-    max-width: 956px;
-    left: 50%;
-    transform: translateX(-50%);
-  }
-}
+/* Input использует полную ширину — max-width убран */
 
 /* Grid stack — both states occupy same space */
 .chat-input-morph {
@@ -220,21 +213,8 @@
   height: 18px;
 }
 
-/* Send ripple */
-.chat-input__send-ripple {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.3);
-  transform: scale(0);
-  animation: sendRipple 0.6s ease-out forwards;
-  pointer-events: none;
-}
-
-@keyframes sendRipple {
-  0% { transform: scale(0); opacity: 1; }
-  100% { transform: scale(2.5); opacity: 0; }
-}
+/* Send ripple — disabled */
+.chat-input__send-ripple { display: none; }
 
 /* Reply preview above input */
 .chat-input__reply-preview {

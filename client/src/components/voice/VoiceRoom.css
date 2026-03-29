@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════
-   VoiceRoom — Full-Width Redesign
+   VoiceRoom — 5-State Redesign
    ═══════════════════════════════════════ */
 
 .vr {
@@ -12,7 +12,7 @@
   background: transparent;
 }
 
-/* ─── Ambient gradient (реагирует на говорящего) ─── */
+/* ─── Ambient gradient ─── */
 .vr__ambient {
   position: absolute;
   inset: 0;
@@ -36,14 +36,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px 14px;
+  padding: 14px 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
   position: relative;
   z-index: 2;
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(10, 10, 15, 0.5);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 .vr__head-left {
@@ -54,10 +54,10 @@
 }
 
 .vr__head-name {
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 700;
   color: rgba(255, 255, 255, 0.9);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -76,36 +76,52 @@
   flex-shrink: 0;
 }
 
-.vr__head-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* Кнопка пригласить в хедере */
-.vr__invite-trigger {
+.vr__head-stream-info {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.6);
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
+  color: #ef4444;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+  white-space: nowrap;
 }
 
-.vr__invite-trigger:hover {
+.vr__head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Header buttons */
+.vr__head-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.vr__head-btn:hover {
   background: rgba(200, 255, 0, 0.08);
   border-color: rgba(200, 255, 0, 0.15);
   color: var(--accent, #c8ff00);
 }
 
-.vr__invite-trigger span {
-  white-space: nowrap;
+.vr__head-btn--active {
+  background: rgba(200, 255, 0, 0.1);
+  border-color: rgba(200, 255, 0, 0.2);
+  color: var(--accent, #c8ff00);
 }
 
 /* Quality bars */
@@ -122,35 +138,7 @@
   transition: background 0.3s;
 }
 
-/* ─── Chat toggle button in header ─── */
-.vr__chat-toggle {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.vr__chat-toggle:hover {
-  background: rgba(200, 255, 0, 0.08);
-  border-color: rgba(200, 255, 0, 0.15);
-  color: var(--accent, #c8ff00);
-}
-
-.vr__chat-toggle--active {
-  background: rgba(200, 255, 0, 0.1);
-  border-color: rgba(200, 255, 0, 0.2);
-  color: var(--accent, #c8ff00);
-}
-
-/* ─── Body: participants + chat side by side ─── */
+/* ─── Body ─── */
 .vr__body {
   flex: 1;
   display: flex;
@@ -160,43 +148,306 @@
   z-index: 1;
 }
 
-/* Participants area -- fills remaining space */
-.vr__participants {
+/* ─── Stage ─── */
+.vr__stage {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  overflow: hidden;
+  position: relative;
   min-width: 0;
+}
+
+.vr__stage--waiting {
+  align-items: center;
+  justify-content: center;
+}
+
+.vr__stage--voice {
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.vr__stage--video {
+  flex-direction: column;
+}
+
+.vr__stage--stream {
+  flex-direction: column;
+}
+
+/* ─── WAITING STATE ─── */
+.vr__waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.vr__waiting-ava-wrap {
+  position: relative;
+  width: 96px;
+  height: 96px;
+}
+
+.vr__waiting-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(200, 255, 0, 0.2);
+  animation: vr-waiting-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes vr-waiting-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.4; border-color: rgba(200, 255, 0, 0.2); }
+  50% { transform: scale(1.08); opacity: 1; border-color: rgba(200, 255, 0, 0.5); }
+}
+
+.vr__waiting-ava {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.vr__waiting-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.vr__waiting-mic {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.vr__waiting-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.2);
+  animation: vr-waiting-text 2s ease-in-out infinite;
+}
+
+@keyframes vr-waiting-text {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.vr__waiting-invite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(200, 255, 0, 0.15);
+  background: rgba(200, 255, 0, 0.06);
+  color: var(--accent, #c8ff00);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 8px;
+}
+
+.vr__waiting-invite:hover {
+  background: rgba(200, 255, 0, 0.12);
+  border-color: rgba(200, 255, 0, 0.25);
+}
+
+/* ─── VOICE STATE -- Participant Grid ─── */
+.vr__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 20px;
+  width: 100%;
+  max-width: 800px;
+  align-content: center;
+}
+
+/* ─── Participant Card ─── */
+.vr__card-wrap {
+  position: relative;
+}
+
+.vr__card-enter {
+  animation: vr-card-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes vr-card-in {
+  from { opacity: 0; transform: scale(0.85) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.vr__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 20px 22px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s, border-color 0.3s, box-shadow 0.3s;
+}
+
+.vr__card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: scale(1.02);
+}
+
+.vr__card--speaking {
+  border-color: rgba(80, 220, 100, 0.3);
+  background: rgba(80, 220, 100, 0.04);
+  box-shadow: 0 0 24px rgba(80, 220, 100, 0.08);
+  transform: scale(1.02);
+}
+
+.vr__card--self {
+  border: 1px dashed rgba(200, 255, 0, 0.25);
+}
+
+.vr__card--self .vr__card-name {
+  color: var(--accent, #c8ff00);
+}
+
+/* Card avatar */
+.vr__card-ava {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  position: relative;
+  transition: box-shadow 0.3s, transform 0.3s;
+}
+
+.vr__card--speaking .vr__card-ava {
+  transform: scale(1.05);
+}
+
+/* Speaking ring */
+.vr__card-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  pointer-events: none;
+}
+
+.vr__card--speaking .vr__card-ring {
+  border-color: rgba(80, 220, 100, 0.5);
+  box-shadow: 0 0 20px rgba(80, 220, 100, 0.15);
+}
+
+/* Card name */
+.vr__card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+/* Card status icons */
+.vr__card-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vr__card-ico {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.vr__card-ico--muted {
+  color: #ef4444;
+}
+
+.vr__card-ico--deaf {
+  color: #f59e0b;
+}
+
+.vr__card-ico--cam {
+  color: #38bdf8;
+}
+
+.vr__card-ico--speaking {
+  color: rgba(80, 220, 100, 0.7);
+}
+
+/* ─── VIDEO STATE ─── */
+.vr__video-layout {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
-/* Chat panel -- right side */
-.vr__chat-panel {
-  width: 340px;
-  min-width: 280px;
+.vr__video-main {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.vr__video-cards {
+  display: flex;
+  gap: 12px;
+  padding: 12px 20px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(10, 10, 15, 0.3);
+}
+
+.vr__video-cards .vr__card {
+  padding: 16px 14px;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.vr__video-cards .vr__card-ava {
+  width: 48px;
+  height: 48px;
+  font-size: 20px;
+}
+
+/* ─── STREAM STATE ─── */
+.vr__stream-layout {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  background: rgba(15, 15, 20, 0.5);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-  animation: vr-chat-slide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 
-@keyframes vr-chat-slide {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
+.vr__stream-main {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 5, 10, 0.6);
 }
 
-/* ─── Screen Share Area ─── */
+/* Screen share tile */
 .vr__screen {
   width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #0a0816;
+  height: 100%;
   position: relative;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  flex-shrink: 0;
-  z-index: 1;
 }
 
 .vr__screen video {
@@ -208,16 +459,16 @@
 
 .vr__screen-badge {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 12px;
+  left: 12px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 10px;
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.15);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: #ef4444;
   z-index: 2;
@@ -236,28 +487,15 @@
   50% { opacity: 0.3; }
 }
 
-.vr__screen-name {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.5);
-  color: rgba(255, 255, 255, 0.6);
-  z-index: 2;
-}
-
 .vr__screen-fs {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
   border: none;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.5);
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   display: flex;
@@ -273,240 +511,153 @@
 }
 
 .vr__screen-fs:hover {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
   color: rgba(255, 255, 255, 0.8);
 }
 
-/* ─── Participants Grid ─── */
-.vr__grid {
-  display: grid;
-  gap: 18px;
-  padding: 32px;
-  flex: 1;
-  align-content: center;
-  justify-content: center;
-  overflow-y: auto;
-  position: relative;
-  z-index: 1;
-  transition: grid-template-columns 0.3s ease;
-}
-
-/* Solo -- 1 person, large centered card */
-.vr__grid--solo {
-  grid-template-columns: 1fr;
-  max-width: 320px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* Duo -- 2 people, two large cards */
-.vr__grid--duo {
-  grid-template-columns: repeat(2, minmax(200px, 280px));
-}
-
-/* Quad -- 3-4 people, medium cards */
-.vr__grid--quad {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 240px));
-}
-
-/* Many -- 5+ people, smaller grid */
-.vr__grid--many {
-  grid-template-columns: repeat(auto-fill, minmax(140px, 180px));
-  gap: 14px;
-}
-
-/* ─── Empty state ─── */
-.vr__empty {
-  grid-column: 1 / -1;
+/* Participant strip (stream mode bottom bar) */
+.vr__strip {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  padding: 60px 0;
-  color: rgba(255, 255, 255, 0.2);
-  font-size: 15px;
-}
-
-.vr__empty-pulse {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.03);
-  border: 2px solid rgba(255, 255, 255, 0.06);
-  animation: vr-pulse 2s ease-in-out infinite;
-}
-
-@keyframes vr-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.08); opacity: 1; }
-}
-
-/* Ожидание (1 участник) -- подсказка */
-.vr__waiting {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding-top: 8px;
-  color: rgba(255, 255, 255, 0.2);
-  font-size: 13px;
+  padding: 12px 20px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(10, 10, 15, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-.vr__waiting-btn {
+.vr__strip-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 6px;
+  border-radius: 12px;
+  transition: background 0.15s;
+}
+
+.vr__strip-item--speaking {
+  background: rgba(80, 220, 100, 0.06);
+}
+
+.vr__strip-ava {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 10px;
-  border: 1px solid rgba(200, 255, 0, 0.15);
-  background: rgba(200, 255, 0, 0.06);
-  color: var(--accent, #c8ff00);
-  font-size: 12px;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  transition: box-shadow 0.2s;
+}
+
+.vr__strip-item--speaking .vr__strip-ava {
+  box-shadow: 0 0 16px rgba(80, 220, 100, 0.35);
+}
+
+.vr__strip-name {
+  font-size: 11px;
   font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Chat panel ─── */
+.vr__chat-panel {
+  width: 340px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(10, 10, 15, 0.5);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+  animation: vr-chat-slide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vr-chat-slide {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── Controls bar ─── */
+.vr__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 24px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  background: rgba(10, 10, 15, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.vr__ctrl {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.15s;
 }
 
-.vr__waiting-btn:hover {
-  background: rgba(200, 255, 0, 0.12);
-  border-color: rgba(200, 255, 0, 0.25);
+.vr__ctrl:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
-/* ─── User Tile ─── */
-.vr__user {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 28px 20px 22px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.025);
-  cursor: pointer;
-  transition: background 0.2s, transform 0.2s, border-color 0.2s;
-  position: relative;
-  border: 1px solid transparent;
-}
-
-.vr__user:hover {
-  background: rgba(255, 255, 255, 0.05);
-  transform: scale(1.02);
-}
-
-.vr__user--speaking {
-  border-color: rgba(74, 222, 128, 0.2);
-  background: rgba(74, 222, 128, 0.04);
-}
-
-.vr__user--self {
-  border: 1px dashed rgba(200, 255, 0, 0.2);
-}
-
-.vr__user--self .vr__user-name {
+.vr__ctrl--active {
+  background: rgba(200, 255, 0, 0.1);
+  border-color: rgba(200, 255, 0, 0.2);
   color: var(--accent, #c8ff00);
 }
 
-/* Avatar -- responsive sizes */
-.vr__user-ava {
-  width: 88px;
-  height: 88px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 34px;
-  font-weight: 800;
-  color: #fff;
-  position: relative;
-  transition: box-shadow 0.3s, transform 0.3s;
+.vr__ctrl--active:hover {
+  background: rgba(200, 255, 0, 0.15);
+  border-color: rgba(200, 255, 0, 0.3);
 }
 
-.vr__grid--solo .vr__user-ava {
-  width: 110px;
-  height: 110px;
-  font-size: 42px;
+.vr__ctrl--danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
 }
 
-.vr__grid--duo .vr__user-ava {
-  width: 96px;
-  height: 96px;
-  font-size: 38px;
+.vr__ctrl--danger:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.25);
 }
 
-.vr__grid--many .vr__user-ava {
-  width: 72px;
-  height: 72px;
-  font-size: 28px;
+.vr__ctrl--leave {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+  margin-left: 16px;
 }
 
-/* Audio level ring */
-.vr__user-level {
-  position: absolute;
-  inset: -5px;
-  border-radius: 50%;
-  border: 2.5px solid transparent;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  pointer-events: none;
-}
-
-.vr__user--speaking .vr__user-level {
-  border-color: rgba(74, 222, 128, 0.5);
-  box-shadow: 0 0 24px rgba(74, 222, 128, 0.15);
-}
-
-.vr__user--speaking .vr__user-ava {
-  box-shadow: 0 0 30px rgba(74, 222, 128, 0.25);
-  transform: scale(1.05);
-}
-
-/* Name */
-.vr__user-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 140px;
-}
-
-.vr__grid--many .vr__user-name {
-  font-size: 13px;
-}
-
-/* Status icons (muted/deaf/cam) */
-.vr__user-icons {
-  position: absolute;
-  bottom: -3px;
-  right: calc(50% - 22px);
-  display: flex;
-  gap: 3px;
-}
-
-.vr__user-ico {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid rgba(14, 12, 24, 0.9);
-}
-
-.vr__user-ico--muted {
-  background: #ef4444;
-  color: #fff;
-}
-
-.vr__user-ico--deaf {
-  background: #f59e0b;
-  color: #fff;
-}
-
-.vr__user-ico--cam {
-  background: #38bdf8;
-  color: #fff;
+.vr__ctrl--leave:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 /* ─── Volume Popup ─── */
@@ -794,17 +945,8 @@
   background: rgba(200, 255, 0, 0.18);
 }
 
-/* ─── Animations ─── */
-.vr__user-enter {
-  animation: vr-user-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
+/* ═══════ LIGHT THEME ═══════ */
 
-@keyframes vr-user-in {
-  from { opacity: 0; transform: scale(0.85) translateY(12px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-/* ─── Light Theme ─── */
 [data-theme="light"] .vr__head {
   background: rgba(255, 255, 255, 0.5);
   border-bottom-color: var(--light-border, #e5e7eb);
@@ -819,53 +961,97 @@
   background: var(--bg-input);
 }
 
-[data-theme="light"] .vr__invite-trigger {
+[data-theme="light"] .vr__head-btn {
   background: rgba(0, 0, 0, 0.03);
   border-color: var(--light-border, #e5e7eb);
   color: var(--light-text-secondary, #4b5563);
 }
 
-[data-theme="light"] .vr__invite-trigger:hover {
+[data-theme="light"] .vr__head-btn:hover {
   background: rgba(124, 58, 237, 0.06);
   border-color: rgba(124, 58, 237, 0.2);
   color: var(--accent);
 }
 
-[data-theme="light"] .vr__user {
-  background: rgba(0, 0, 0, 0.02);
-}
-
-[data-theme="light"] .vr__user:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-
-[data-theme="light"] .vr__user-name {
-  color: var(--light-text-secondary, #4b5563);
-}
-
-[data-theme="light"] .vr__user--self {
-  border-color: rgba(124, 58, 237, 0.2);
-}
-
-[data-theme="light"] .vr__user--self .vr__user-name {
+[data-theme="light"] .vr__head-btn--active {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.25);
   color: var(--accent);
 }
 
-[data-theme="light"] .vr__user--speaking {
-  border-color: rgba(74, 222, 128, 0.2);
+[data-theme="light"] .vr__card {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: var(--light-border, #e5e7eb);
+}
+
+[data-theme="light"] .vr__card:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .vr__card-name {
+  color: var(--light-text-secondary, #4b5563);
+}
+
+[data-theme="light"] .vr__card--self {
+  border-color: rgba(124, 58, 237, 0.2);
+}
+
+[data-theme="light"] .vr__card--self .vr__card-name {
+  color: var(--accent);
+}
+
+[data-theme="light"] .vr__card--speaking {
+  border-color: rgba(74, 222, 128, 0.25);
   background: rgba(74, 222, 128, 0.03);
 }
 
-[data-theme="light"] .vr__user-ico {
-  border-color: rgba(255, 255, 255, 0.9);
-}
-
-[data-theme="light"] .vr__empty {
+[data-theme="light"] .vr__card-ico {
   color: var(--light-text-tertiary, #9ca3af);
 }
 
-[data-theme="light"] .vr__waiting {
+[data-theme="light"] .vr__waiting-name {
+  color: var(--light-text-primary, #111827);
+}
+
+[data-theme="light"] .vr__waiting-text {
   color: var(--light-text-tertiary, #9ca3af);
+}
+
+[data-theme="light"] .vr__waiting-mic {
+  color: var(--light-text-tertiary, #9ca3af);
+}
+
+[data-theme="light"] .vr__controls {
+  background: rgba(255, 255, 255, 0.6);
+  border-top-color: var(--light-border, #e5e7eb);
+}
+
+[data-theme="light"] .vr__ctrl {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: var(--light-border, #e5e7eb);
+  color: var(--light-text-secondary, #4b5563);
+}
+
+[data-theme="light"] .vr__ctrl:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--light-text-primary, #111827);
+}
+
+[data-theme="light"] .vr__ctrl--active {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.2);
+  color: var(--accent);
+}
+
+[data-theme="light"] .vr__ctrl--danger {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+[data-theme="light"] .vr__ctrl--leave {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.15);
 }
 
 [data-theme="light"] .vr__vol-popup {
@@ -877,8 +1063,18 @@
   color: var(--light-text-primary, #111827);
 }
 
-[data-theme="light"] .vr__screen {
-  border-bottom-color: var(--light-border, #e5e7eb);
+[data-theme="light"] .vr__chat-panel {
+  background: rgba(255, 255, 255, 0.6);
+  border-left-color: var(--light-border, #e5e7eb);
+}
+
+[data-theme="light"] .vr__strip {
+  background: rgba(255, 255, 255, 0.4);
+  border-top-color: var(--light-border, #e5e7eb);
+}
+
+[data-theme="light"] .vr__strip-name {
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .vr__invite-modal {
@@ -907,32 +1103,13 @@
   color: var(--light-text-tertiary, #9ca3af);
 }
 
-[data-theme="light"] .vr__chat-toggle {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: var(--light-border, #e5e7eb);
-  color: var(--light-text-secondary, #4b5563);
-}
-
-[data-theme="light"] .vr__chat-toggle:hover {
-  background: rgba(124, 58, 237, 0.06);
-  border-color: rgba(124, 58, 237, 0.2);
-  color: var(--accent);
-}
-
-[data-theme="light"] .vr__chat-toggle--active {
-  background: rgba(124, 58, 237, 0.08);
-  border-color: rgba(124, 58, 237, 0.25);
-  color: var(--accent);
-}
-
-[data-theme="light"] .vr__chat-panel {
-  background: rgba(255, 255, 255, 0.6);
-  border-left-color: var(--light-border, #e5e7eb);
+[data-theme="light"] .vr__video-cards {
+  background: rgba(255, 255, 255, 0.3);
+  border-top-color: var(--light-border, #e5e7eb);
 }
 
 /* ═══════ RESPONSIVE ═══════ */
 
-/* Medium screens: narrower chat panel */
 @media (max-width: 1024px) {
   .vr__chat-panel {
     width: 300px;
@@ -940,7 +1117,6 @@
   }
 }
 
-/* Mobile: chat panel becomes an overlay */
 @media (max-width: 768px) {
   .vr__chat-panel {
     position: absolute;
@@ -950,7 +1126,7 @@
     z-index: 20;
     width: 100%;
     max-width: 340px;
-    background: rgba(15, 15, 20, 0.95);
+    background: rgba(10, 10, 15, 0.95);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border-left: 1px solid rgba(255, 255, 255, 0.08);
@@ -962,20 +1138,20 @@
 }
 
 @media (max-width: 700px) {
-  .vr__grid { padding: 20px 16px; gap: 12px; }
-  .vr__grid--duo { grid-template-columns: repeat(2, 1fr); }
-  .vr__grid--quad { grid-template-columns: repeat(2, 1fr); }
-  .vr__user-ava { width: 64px; height: 64px; font-size: 24px; }
-  .vr__grid--solo .vr__user-ava { width: 88px; height: 88px; font-size: 34px; }
-  .vr__user { padding: 20px 14px 16px; }
-  .vr__user-icons { right: calc(50% - 18px); }
-  .vr__invite-trigger span { display: none; }
-  .vr__invite-trigger { padding: 6px 8px; }
+  .vr__stage--voice { padding: 20px 16px; }
+  .vr__grid { gap: 12px; }
+  .vr__card { padding: 20px 14px 16px; }
+  .vr__card-ava { width: 56px; height: 56px; font-size: 22px; }
+  .vr__controls { gap: 8px; padding: 10px 16px; }
+  .vr__ctrl { width: 38px; height: 38px; border-radius: 12px; }
+  .vr__head { padding: 10px 16px; }
+  .vr__head-stream-info { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vr__user-enter { animation: none; }
-  .vr__user--speaking .vr__user-ava { transform: none; }
+  .vr__card-enter { animation: none; }
+  .vr__card--speaking .vr__card-ava { transform: none; }
   .vr__ambient { display: none; }
-  .vr__empty-pulse { animation: none; }
+  .vr__waiting-ring { animation: none; }
+  .vr__waiting-text { animation: none; }
 }

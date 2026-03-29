@@ -367,7 +367,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
                 <motion.div key="voice" className="main-layout__animated" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
                   <ErrorBoundary compact>
                     {voiceRoomId && voiceExpanded ? (
-                      <VoiceRoom socketRef={socketRef} />
+                      <VoiceRoom socketRef={socketRef} onToggleCamera={() => cameraOn ? disableCamera() : enableCamera()} onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()} onLeave={() => { leaveRoom(); setVoiceExpanded(false); }} />
                     ) : (
                       <VoiceRoomList
                         onJoinRoom={(roomId, roomName) => {
@@ -422,7 +422,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
               {secondaryView === 'voice' && (
                 <motion.div key="neb-voice" className="main-layout__animated" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
                   {voiceRoomId && voiceExpanded ? (
-                    <VoiceRoom socketRef={socketRef} />
+                    <VoiceRoom socketRef={socketRef} onToggleCamera={() => cameraOn ? disableCamera() : enableCamera()} onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()} onLeave={() => { leaveRoom(); setVoiceExpanded(false); }} />
                   ) : (
                     <VoiceRoomList
                       onJoinRoom={(roomId, roomName) => {

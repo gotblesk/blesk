@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ArrowsOutSimple, MicrophoneSlash, SpeakerSlash, UserPlus, UsersThree, MagnifyingGlass, Check, X, ChatCircle } from '@phosphor-icons/react';
+import {
+  MicrophoneSlash, Microphone, SpeakerSlash, Headphones,
+  UserPlus, UsersThree, MagnifyingGlass, Check, X, ChatCircle,
+  ArrowsOutSimple, VideoCamera, VideoCameraSlash, Monitor,
+  PhoneDisconnect,
+} from '@phosphor-icons/react';
 import { useVoiceStore } from '../../store/voiceStore';
 import UserProfileModal from '../ui/UserProfileModal';
 import Avatar from '../ui/Avatar';
@@ -11,7 +16,7 @@ import { getAuthHeaders } from '../../utils/authFetch';
 import API_URL from '../../config';
 import './VoiceRoom.css';
 
-// Иконки качества (3 полоски)
+/* ── Quality bars ── */
 function QualityBars({ quality }) {
   const colors = { good: 'var(--online)', fair: '#facc15', poor: 'var(--danger)' };
   const color = colors[quality] || 'rgba(255,255,255,0.12)';
@@ -27,7 +32,7 @@ function QualityBars({ quality }) {
   );
 }
 
-// Модалка приглашения друзей
+/* ── Invite modal ── */
 function InviteModal({ roomId, onClose }) {
   const [friends, setFriends] = useState([]);
   const [search, setSearch] = useState('');
@@ -44,7 +49,7 @@ function InviteModal({ roomId, onClose }) {
           credentials: 'include',
         });
         if (res.ok) setFriends(await res.json());
-      } catch { /* загрузка не удалась */ }
+      } catch { /* */ }
       setLoading(false);
     })();
   }, []);
@@ -55,7 +60,6 @@ function InviteModal({ roomId, onClose }) {
     return friends.filter(f => f.username?.toLowerCase().includes(q));
   }, [friends, search]);
 
-  // Исключить тех, кто уже в комнате
   const participantIds = new Set(Object.keys(participants));
 
   const handleInvite = async (userId) => {
@@ -131,7 +135,118 @@ function InviteModal({ roomId, onClose }) {
   );
 }
 
-export default function VoiceRoom({ socketRef }) {
+/* ── Screen share tile ── */
+function ScreenShareTile({ stream, name }) {
+  const videoRef = useRef(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
+    }
+    return () => {
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, [stream]);
+
+  const toggleFs = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (document.fullscreenElement === el) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      el.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
+  return (
+    <div className="vr__screen" ref={containerRef}>
+      <video ref={videoRef} autoPlay playsInline />
+      <div className="vr__screen-badge">
+        <div className="vr__screen-rec" />
+        {name} демонстрирует
+      </div>
+      <button className="vr__screen-fs" onClick={toggleFs} title="Полный экран">
+        <ArrowsOutSimple size={14} />
+      </button>
+    </div>
+  );
+}
+
+/* ── Participant card (voice mode) ── */
+function ParticipantCard({ userId, peer, isSelf, isSpeaking, level, hasCam, onVolumeClick, onProfileOpen }) {
+  return (
+    <div
+      className={`vr__card ${isSpeaking ? 'vr__card--speaking' : ''} ${isSelf ? 'vr__card--self' : ''}`}
+      onClick={() => onVolumeClick(userId)}
+      onDoubleClick={() => { if (!isSelf) onProfileOpen(userId); }}
+    >
+      <div
+        className="vr__card-ava"
+        style={{
+          background: getAvatarColor(getAvatarHue(peer)),
+          boxShadow: isSpeaking
+            ? `0 0 ${20 + level * 0.4}px rgba(80,220,100,0.4)`
+            : 'none',
+        }}
+      >
+        <div className="vr__card-ring" />
+        {(peer.username || 'U')[0].toUpperCase()}
+      </div>
+
+      <div className="vr__card-name">
+        {isSelf ? 'Вы' : peer.username}
+      </div>
+
+      <div className="vr__card-status">
+        {peer.muted ? (
+          <MicrophoneSlash size={14} weight="bold" className="vr__card-ico vr__card-ico--muted" />
+        ) : (
+          <Microphone size={14} weight="bold" className={`vr__card-ico ${isSpeaking ? 'vr__card-ico--speaking' : ''}`} />
+        )}
+        {peer.deafened && (
+          <SpeakerSlash size={14} weight="bold" className="vr__card-ico vr__card-ico--deaf" />
+        )}
+        {hasCam && (
+          <VideoCamera size={14} weight="bold" className="vr__card-ico vr__card-ico--cam" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Participant strip (small, for stream mode) ── */
+function ParticipantStrip({ participantList, videoStreams, currentUserId, audioLevels }) {
+  return (
+    <div className="vr__strip">
+      {participantList.map(([userId, peer]) => {
+        const isSpeaking = peer.speaking && !peer.muted;
+        const isSelf = userId === currentUserId;
+        return (
+          <div
+            key={userId}
+            className={`vr__strip-item ${isSpeaking ? 'vr__strip-item--speaking' : ''}`}
+            title={isSelf ? 'Вы' : peer.username}
+          >
+            <div
+              className="vr__strip-ava"
+              style={{ background: getAvatarColor(getAvatarHue(peer)) }}
+            >
+              {(peer.username || 'U')[0].toUpperCase()}
+            </div>
+            <span className="vr__strip-name">{isSelf ? 'Вы' : peer.username}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════
+   VoiceRoom -- 5-state redesign
+   ════════════════════════════════════ */
+export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenShare, onLeave }) {
   const currentRoomId = useVoiceStore((s) => s.currentRoomId);
   const currentRoomName = useVoiceStore((s) => s.currentRoomName);
   const participants = useVoiceStore((s) => s.participants);
@@ -141,6 +256,12 @@ export default function VoiceRoom({ socketRef }) {
   const videoStreams = useVoiceStore((s) => s.videoStreams);
   const localCameraStream = useVoiceStore((s) => s.localCameraStream);
   const connectionQuality = useVoiceStore((s) => s.connectionQuality);
+  const isMuted = useVoiceStore((s) => s.isMuted);
+  const isDeafened = useVoiceStore((s) => s.isDeafened);
+  const cameraOn = useVoiceStore((s) => s.cameraOn);
+  const screenShareOn = useVoiceStore((s) => s.screenShareOn);
+  const toggleMute = useVoiceStore((s) => s.toggleMute);
+  const toggleDeafen = useVoiceStore((s) => s.toggleDeafen);
 
   const [volumePopup, setVolumePopup] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
@@ -150,13 +271,13 @@ export default function VoiceRoom({ socketRef }) {
   const participantRefs = useRef({});
   const currentUserId = useRef(getCurrentUserId());
 
-  // Клик по участнику -- попап громкости (не для себя)
-  const handleClick = useCallback((userId) => {
+  // Volume popup click
+  const handleVolumeClick = useCallback((userId) => {
     if (userId === currentUserId.current) return;
     setVolumePopup((prev) => (prev === userId ? null : userId));
   }, []);
 
-  // Закрыть попап при клике вне
+  // Close popup on outside click
   useEffect(() => {
     if (!volumePopup) return;
     const handler = (e) => {
@@ -173,7 +294,7 @@ export default function VoiceRoom({ socketRef }) {
   const participantList = Object.entries(participants);
   const count = participantList.length;
 
-  // Определяем кто говорит для ambient-градиента
+  // Ambient hue from speaking user
   const speakingUser = useMemo(() => {
     for (const [userId, peer] of participantList) {
       if (peer.speaking && !peer.muted) return { userId, peer };
@@ -181,19 +302,30 @@ export default function VoiceRoom({ socketRef }) {
     return null;
   }, [participantList]);
 
-  const ambientHue = speakingUser
-    ? getAvatarHue(speakingUser.peer)
-    : 260;
+  const ambientHue = speakingUser ? getAvatarHue(speakingUser.peer) : 260;
 
-  // Screen share потоки
+  // Screen share entries
   const screenEntries = [];
   for (const [userId, streams] of Object.entries(videoStreams)) {
     if (streams.screen) screenEntries.push({ userId, stream: streams.screen });
   }
 
-  const hasVideo = Object.keys(videoStreams).length > 0 || !!localCameraStream;
+  // Has any video (camera)
+  const cameraEntries = [];
+  for (const [userId, streams] of Object.entries(videoStreams)) {
+    if (streams.camera) cameraEntries.push({ userId, stream: streams.camera });
+  }
+  const hasVideo = cameraEntries.length > 0 || !!localCameraStream;
 
-  // Массив для VideoGrid
+  // Determine stage mode
+  const stageMode = useMemo(() => {
+    if (screenEntries.length > 0) return 'stream';
+    if (hasVideo) return 'video';
+    if (count <= 1) return 'waiting';
+    return 'voice';
+  }, [screenEntries.length, hasVideo, count]);
+
+  // Peers array for VideoGrid
   const peersArray = participantList.map(([userId, peer]) => ({
     id: userId,
     ...peer,
@@ -204,18 +336,19 @@ export default function VoiceRoom({ socketRef }) {
     return p?.username || 'Участник';
   };
 
-  // Адаптивный класс сетки по количеству участников
-  const gridClass = count <= 1
-    ? 'vr__grid--solo'
-    : count <= 2
-      ? 'vr__grid--duo'
-      : count <= 4
-        ? 'vr__grid--quad'
-        : 'vr__grid--many';
+  // Streamer name for header
+  const streamerName = screenEntries.length > 0 ? getUserName(screenEntries[0].userId) : null;
+
+  // Participants without video (for video mode -- shown as cards below)
+  const nonVideoParticipants = participantList.filter(([userId]) => {
+    const hasCamera = videoStreams[userId]?.camera;
+    const isSelfWithCamera = userId === currentUserId.current && localCameraStream;
+    return !hasCamera && !isSelfWithCamera;
+  });
 
   return (
     <div className="vr" style={{ '--ambient-hue': ambientHue }}>
-      {/* Ambient gradient фон */}
+      {/* Ambient gradient */}
       <div className={`vr__ambient ${speakingUser ? 'vr__ambient--active' : ''}`} />
 
       {/* Header */}
@@ -226,141 +359,172 @@ export default function VoiceRoom({ socketRef }) {
             <UsersThree size={12} weight="bold" />
             {count}
           </span>
+          {stageMode === 'stream' && streamerName && (
+            <span className="vr__head-stream-info">
+              <Monitor size={12} weight="bold" />
+              {streamerName} демонстрирует экран
+            </span>
+          )}
         </div>
         <div className="vr__head-right">
           <QualityBars quality={connectionQuality} />
           <button
-            className={`vr__chat-toggle ${chatOpen ? 'vr__chat-toggle--active' : ''}`}
+            className={`vr__head-btn ${chatOpen ? 'vr__head-btn--active' : ''}`}
             onClick={() => setChatOpen((v) => !v)}
             title={chatOpen ? 'Скрыть чат' : 'Показать чат'}
           >
             <ChatCircle size={16} weight="bold" />
           </button>
           <button
-            className="vr__invite-trigger"
+            className="vr__head-btn"
             onClick={() => setShowInvite(true)}
             title="Пригласить друга"
           >
             <UserPlus size={16} weight="bold" />
-            <span>Пригласить</span>
           </button>
         </div>
       </div>
 
-      {/* Body: participants + chat side by side */}
+      {/* Body */}
       <div className="vr__body">
-        {/* Левая часть: участники */}
-        <div className="vr__participants">
-          {/* Screen share -- full width 16:9 */}
-          {screenEntries.map(({ userId, stream }) => (
-            <ScreenShareTile
-              key={`screen-${userId}`}
-              stream={stream}
-              name={getUserName(userId)}
-            />
-          ))}
+        {/* Stage */}
+        <div className={`vr__stage vr__stage--${stageMode}`}>
 
-          {/* Video Grid (камеры) -- если есть видео */}
-          {hasVideo && <VideoGrid participants={peersArray} />}
-
-          {/* Participants Grid */}
-          <div className={`vr__grid ${gridClass}`}>
-            {participantList.map(([userId, peer], i) => {
-              const level = audioLevels[userId] || 0;
-              const isSpeaking = peer.speaking && !peer.muted;
-              const isSelf = userId === currentUserId.current;
-              const volume = userVolumes[userId] ?? 100;
-              const hasCam = videoStreams[userId]?.camera;
-
-              return (
+          {/* WAITING */}
+          {stageMode === 'waiting' && (
+            <div className="vr__waiting">
+              <div className="vr__waiting-ava-wrap">
+                <div className="vr__waiting-ring" />
                 <div
-                  key={userId}
-                  className={`vr__user vr__user-enter ${isSpeaking ? 'vr__user--speaking' : ''} ${isSelf ? 'vr__user--self' : ''}`}
-                  style={{ animationDelay: `${i * 0.04}s` }}
-                  ref={(el) => { participantRefs.current[userId] = el; }}
-                  onClick={() => handleClick(userId)}
-                  onDoubleClick={() => { if (!isSelf) setProfileUserId(userId); }}
+                  className="vr__waiting-ava"
+                  style={{ background: getAvatarColor(getAvatarHue(participantList[0]?.[1] || {})) }}
                 >
-                  {/* Volume popup */}
-                  {volumePopup === userId && (
-                    <div className="vr__vol-popup" ref={popupRef}>
-                      <div className="vr__vol-name">{peer.username}</div>
-                      <div className="vr__vol-row">
-                        <input
-                          type="range"
-                          className="vr__vol-slider"
-                          min={0}
-                          max={200}
-                          value={volume}
-                          onChange={(e) => setUserVolume(userId, Number(e.target.value))}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <span className="vr__vol-value">{volume}%</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Avatar */}
-                  <div
-                    className="vr__user-ava"
-                    style={{
-                      background: getAvatarColor(getAvatarHue(peer)),
-                      boxShadow: isSpeaking
-                        ? `0 0 ${20 + level * 0.4}px color-mix(in srgb, var(--online) 35%, transparent)`
-                        : 'none',
-                    }}
-                  >
-                    <div className="vr__user-level" />
-                    {(peer.username || 'U')[0].toUpperCase()}
-
-                    {/* Status icons */}
-                    <div className="vr__user-icons">
-                      {hasCam && (
-                        <div className="vr__user-ico vr__user-ico--cam">
-                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-                        </div>
-                      )}
-                      {peer.muted && (
-                        <div className="vr__user-ico vr__user-ico--muted">
-                          <MicrophoneSlash size={8} weight="bold" />
-                        </div>
-                      )}
-                      {peer.deafened && (
-                        <div className="vr__user-ico vr__user-ico--deaf">
-                          <SpeakerSlash size={8} weight="bold" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Name */}
-                  <div className="vr__user-name">
-                    {isSelf ? 'Вы' : peer.username}
-                  </div>
+                  {(participantList[0]?.[1]?.username || 'U')[0].toUpperCase()}
                 </div>
-              );
-            })}
-
-            {count === 0 && (
-              <div className="vr__empty">
-                <div className="vr__empty-pulse" />
-                <span>Ожидание участников...</span>
               </div>
-            )}
-
-            {count === 1 && (
-              <div className="vr__waiting">
-                <span>Пригласите друзей в комнату</span>
-                <button className="vr__waiting-btn" onClick={() => setShowInvite(true)}>
-                  <UserPlus size={14} weight="bold" />
-                  Пригласить
-                </button>
+              <div className="vr__waiting-name">
+                {participantList[0]?.[1]?.username || 'Вы'}
               </div>
-            )}
-          </div>
+              <div className="vr__waiting-mic">
+                {isMuted
+                  ? <MicrophoneSlash size={16} weight="bold" />
+                  : <Microphone size={16} weight="bold" />
+                }
+              </div>
+              <div className="vr__waiting-text">Ожидание участников...</div>
+              <button className="vr__waiting-invite" onClick={() => setShowInvite(true)}>
+                <UserPlus size={14} weight="bold" />
+                Пригласите друзей
+              </button>
+            </div>
+          )}
+
+          {/* VOICE */}
+          {stageMode === 'voice' && (
+            <div className="vr__grid">
+              {participantList.map(([userId, peer], i) => {
+                const level = audioLevels[userId] || 0;
+                const isSpeaking = peer.speaking && !peer.muted;
+                const isSelf = userId === currentUserId.current;
+                const volume = userVolumes[userId] ?? 100;
+                const hasCam = videoStreams[userId]?.camera;
+
+                return (
+                  <div
+                    key={userId}
+                    ref={(el) => { participantRefs.current[userId] = el; }}
+                    style={{ animationDelay: `${i * 0.04}s`, position: 'relative' }}
+                    className="vr__card-wrap vr__card-enter"
+                  >
+                    <ParticipantCard
+                      userId={userId}
+                      peer={peer}
+                      isSelf={isSelf}
+                      isSpeaking={isSpeaking}
+                      level={level}
+                      hasCam={!!hasCam}
+                      onVolumeClick={handleVolumeClick}
+                      onProfileOpen={(id) => setProfileUserId(id)}
+                    />
+
+                    {/* Volume popup */}
+                    {volumePopup === userId && (
+                      <div className="vr__vol-popup" ref={popupRef}>
+                        <div className="vr__vol-name">{peer.username}</div>
+                        <div className="vr__vol-row">
+                          <input
+                            type="range"
+                            className="vr__vol-slider"
+                            min={0}
+                            max={200}
+                            value={volume}
+                            onChange={(e) => setUserVolume(userId, Number(e.target.value))}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span className="vr__vol-value">{volume}%</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* VIDEO */}
+          {stageMode === 'video' && (
+            <div className="vr__video-layout">
+              <div className="vr__video-main">
+                <VideoGrid participants={peersArray} />
+              </div>
+              {nonVideoParticipants.length > 0 && (
+                <div className="vr__video-cards">
+                  {nonVideoParticipants.map(([userId, peer]) => {
+                    const level = audioLevels[userId] || 0;
+                    const isSpeaking = peer.speaking && !peer.muted;
+                    const isSelf = userId === currentUserId.current;
+                    return (
+                      <ParticipantCard
+                        key={userId}
+                        userId={userId}
+                        peer={peer}
+                        isSelf={isSelf}
+                        isSpeaking={isSpeaking}
+                        level={level}
+                        hasCam={false}
+                        onVolumeClick={handleVolumeClick}
+                        onProfileOpen={(id) => setProfileUserId(id)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STREAM */}
+          {stageMode === 'stream' && (
+            <div className="vr__stream-layout">
+              <div className="vr__stream-main">
+                {screenEntries.map(({ userId, stream }) => (
+                  <ScreenShareTile
+                    key={`screen-${userId}`}
+                    stream={stream}
+                    name={getUserName(userId)}
+                  />
+                ))}
+              </div>
+              <ParticipantStrip
+                participantList={participantList}
+                videoStreams={videoStreams}
+                currentUserId={currentUserId.current}
+                audioLevels={audioLevels}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Правая часть: встроенный чат */}
+        {/* Chat panel */}
         {chatOpen && currentRoomId && socketRef && (
           <div className="vr__chat-panel">
             <VoiceChat
@@ -370,6 +534,63 @@ export default function VoiceRoom({ socketRef }) {
               onClose={() => setChatOpen(false)}
             />
           </div>
+        )}
+      </div>
+
+      {/* Controls bar */}
+      <div className="vr__controls">
+        <button
+          className={`vr__ctrl ${isMuted ? 'vr__ctrl--danger' : ''}`}
+          onClick={toggleMute}
+          title={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
+        >
+          {isMuted ? <MicrophoneSlash size={20} weight="bold" /> : <Microphone size={20} weight="bold" />}
+        </button>
+
+        <button
+          className={`vr__ctrl ${isDeafened ? 'vr__ctrl--danger' : ''}`}
+          onClick={toggleDeafen}
+          title={isDeafened ? 'Включить звук' : 'Отключить звук'}
+        >
+          {isDeafened ? <SpeakerSlash size={20} weight="bold" /> : <Headphones size={20} weight="bold" />}
+        </button>
+
+        {onToggleCamera && (
+          <button
+            className={`vr__ctrl ${cameraOn ? 'vr__ctrl--active' : ''}`}
+            onClick={onToggleCamera}
+            title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
+          >
+            {cameraOn ? <VideoCamera size={20} weight="bold" /> : <VideoCameraSlash size={20} weight="bold" />}
+          </button>
+        )}
+
+        {onToggleScreenShare && (
+          <button
+            className={`vr__ctrl ${screenShareOn ? 'vr__ctrl--active' : ''}`}
+            onClick={onToggleScreenShare}
+            title={screenShareOn ? 'Остановить демонстрацию' : 'Демонстрация экрана'}
+          >
+            <Monitor size={20} weight="bold" />
+          </button>
+        )}
+
+        <button
+          className={`vr__ctrl ${chatOpen ? 'vr__ctrl--active' : ''}`}
+          onClick={() => setChatOpen((v) => !v)}
+          title={chatOpen ? 'Скрыть чат' : 'Показать чат'}
+        >
+          <ChatCircle size={20} weight="bold" />
+        </button>
+
+        {onLeave && (
+          <button
+            className="vr__ctrl vr__ctrl--leave"
+            onClick={onLeave}
+            title="Покинуть комнату"
+          >
+            <PhoneDisconnect size={20} weight="bold" />
+          </button>
         )}
       </div>
 
@@ -387,46 +608,6 @@ export default function VoiceRoom({ socketRef }) {
         open={!!profileUserId}
         onClose={() => setProfileUserId(null)}
       />
-    </div>
-  );
-}
-
-// [Баг #23] Screen share tile с собственным внутренним ref для fullscreen
-function ScreenShareTile({ stream, name }) {
-  const videoRef = useRef(null);
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(() => {} /* autoplay blocked */);
-    }
-    return () => {
-      if (videoRef.current) videoRef.current.srcObject = null;
-    };
-  }, [stream]);
-
-  const toggleFs = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (document.fullscreenElement === el) {
-      document.exitFullscreen().catch(err => console.error('exitFullscreen:', err?.message || err));
-    } else {
-      el.requestFullscreen().catch(err => console.error('requestFullscreen:', err?.message || err));
-    }
-  }, []);
-
-  return (
-    <div className="vr__screen" ref={containerRef}>
-      <video ref={videoRef} autoPlay playsInline />
-      <div className="vr__screen-badge">
-        <div className="vr__screen-rec" />
-        {name} демонстрирует
-      </div>
-      <div className="vr__screen-name">{name} — экран</div>
-      <button className="vr__screen-fs" onClick={toggleFs} title="Полный экран">
-        <ArrowsOutSimple size={14} />
-      </button>
     </div>
   );
 }
