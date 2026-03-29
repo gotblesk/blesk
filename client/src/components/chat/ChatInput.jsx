@@ -344,11 +344,13 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       setRecordingTime(0);
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(t => {
-          if (t + 1 >= MAX_VOICE_DURATION) {
-            stopRecording();
+          const next = t + 1;
+          if (next >= MAX_VOICE_DURATION) {
+            // Отложить stopRecording чтобы не вызывать setState внутри setState
+            setTimeout(() => stopRecording(), 0);
             return t;
           }
-          return t + 1;
+          return next;
         });
       }, 1000);
     } catch (err) {

@@ -5,6 +5,12 @@
   gap: 8px;
   max-width: min(72%, 600px);
   min-width: 0;
+  margin-bottom: 3px;
+}
+
+.chat-message--solo,
+.chat-message--last {
+  margin-bottom: 6px;
 }
 
 @media (prefers-reduced-motion: no-preference) {

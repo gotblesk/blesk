@@ -1,11 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Maximize, MicOff, HeadphoneOff } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Maximize, MicOff, HeadphoneOff, UserPlus, Users, Search, Check, X } from 'lucide-react';
 import { useVoiceStore } from '../../store/voiceStore';
 import UserProfileModal from '../ui/UserProfileModal';
+import Avatar from '../ui/Avatar';
 import VoiceChat from './VoiceChat';
 import VideoGrid from './VideoGrid';
 import { getCurrentUserId } from '../../utils/auth';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
+import { getAuthHeaders } from '../../utils/authFetch';
+import API_URL from '../../config';
 import './VoiceRoom.css';
 
 // Иконки качества (3 полоски)
@@ -24,6 +27,110 @@ function QualityBars({ quality }) {
   );
 }
 
+// Модалка приглашения друзей
+function InviteModal({ roomId, onClose }) {
+  const [friends, setFriends] = useState([]);
+  const [search, setSearch] = useState('');
+  const [invited, setInvited] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+  const inviteToRoom = useVoiceStore((s) => s.inviteToRoom);
+  const participants = useVoiceStore((s) => s.participants);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/friends`, {
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          credentials: 'include',
+        });
+        if (res.ok) setFriends(await res.json());
+      } catch { /* загрузка не удалась */ }
+      setLoading(false);
+    })();
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return friends;
+    const q = search.toLowerCase();
+    return friends.filter(f => f.username?.toLowerCase().includes(q));
+  }, [friends, search]);
+
+  // Исключить тех, кто уже в комнате
+  const participantIds = new Set(Object.keys(participants));
+
+  const handleInvite = async (userId) => {
+    if (invited.has(userId)) return;
+    await inviteToRoom(roomId, userId);
+    setInvited(prev => new Set(prev).add(userId));
+  };
+
+  return (
+    <div className="vr__invite-overlay" onClick={onClose}>
+      <div className="vr__invite-modal" onClick={e => e.stopPropagation()}>
+        <div className="vr__invite-head">
+          <span className="vr__invite-title">Пригласить в комнату</span>
+          <button className="vr__invite-close" onClick={onClose}>
+            <X size={16} strokeWidth={2} />
+          </button>
+        </div>
+
+        <div className="vr__invite-search">
+          <Search size={14} strokeWidth={2} />
+          <input
+            type="text"
+            placeholder="Найти друга..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        <div className="vr__invite-list">
+          {loading && (
+            <div className="vr__invite-empty">Загрузка...</div>
+          )}
+          {!loading && filtered.length === 0 && (
+            <div className="vr__invite-empty">
+              {search ? 'Никого не найдено' : 'Нет друзей для приглашения'}
+            </div>
+          )}
+          {filtered.map(friend => {
+            const inRoom = participantIds.has(String(friend.id));
+            const alreadyInvited = invited.has(friend.id);
+            return (
+              <div key={friend.id} className="vr__invite-item">
+                <div className="vr__invite-user">
+                  <Avatar user={friend} size={36} />
+                  <div className="vr__invite-info">
+                    <span className="vr__invite-name">{friend.username}</span>
+                    {friend.status === 'online' && (
+                      <span className="vr__invite-status">в сети</span>
+                    )}
+                  </div>
+                </div>
+                {inRoom ? (
+                  <span className="vr__invite-badge">В комнате</span>
+                ) : alreadyInvited ? (
+                  <span className="vr__invite-badge vr__invite-badge--sent">
+                    <Check size={12} strokeWidth={2.5} /> Отправлено
+                  </span>
+                ) : (
+                  <button
+                    className="vr__invite-btn"
+                    onClick={() => handleInvite(friend.id)}
+                  >
+                    Пригласить
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VoiceRoom({ socketRef }) {
   const currentRoomId = useVoiceStore((s) => s.currentRoomId);
   const currentRoomName = useVoiceStore((s) => s.currentRoomName);
@@ -37,11 +144,12 @@ export default function VoiceRoom({ socketRef }) {
 
   const [volumePopup, setVolumePopup] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
+  const [showInvite, setShowInvite] = useState(false);
   const popupRef = useRef(null);
   const participantRefs = useRef({});
   const currentUserId = useRef(getCurrentUserId());
 
-  // Клик по участнику — попап громкости (не для себя)
+  // Клик по участнику -- попап громкости (не для себя)
   const handleClick = useCallback((userId) => {
     if (userId === currentUserId.current) return;
     setVolumePopup((prev) => (prev === userId ? null : userId));
@@ -64,6 +172,18 @@ export default function VoiceRoom({ socketRef }) {
   const participantList = Object.entries(participants);
   const count = participantList.length;
 
+  // Определяем кто говорит для ambient-градиента
+  const speakingUser = useMemo(() => {
+    for (const [userId, peer] of participantList) {
+      if (peer.speaking && !peer.muted) return { userId, peer };
+    }
+    return null;
+  }, [participantList]);
+
+  const ambientHue = speakingUser
+    ? getAvatarHue(speakingUser.peer)
+    : 260;
+
   // Screen share потоки
   const screenEntries = [];
   for (const [userId, streams] of Object.entries(videoStreams)) {
@@ -83,23 +203,43 @@ export default function VoiceRoom({ socketRef }) {
     return p?.username || 'Участник';
   };
 
-  // [Баг #23] Fullscreen теперь внутри каждого ScreenShareTile (свой ref)
+  // Адаптивный класс сетки по количеству участников
+  const gridClass = count <= 1
+    ? 'vr__grid--solo'
+    : count <= 2
+      ? 'vr__grid--duo'
+      : count <= 4
+        ? 'vr__grid--quad'
+        : 'vr__grid--many';
 
   return (
-    <div className="vr">
+    <div className="vr" style={{ '--ambient-hue': ambientHue }}>
+      {/* Ambient gradient фон */}
+      <div className={`vr__ambient ${speakingUser ? 'vr__ambient--active' : ''}`} />
+
       {/* Header */}
       <div className="vr__head">
         <div className="vr__head-left">
           <span className="vr__head-name">{currentRoomName || 'Голосовая комната'}</span>
-          <span className="vr__head-count">{count}</span>
+          <span className="vr__head-count">
+            <Users size={12} strokeWidth={2} />
+            {count}
+          </span>
         </div>
         <div className="vr__head-right">
           <QualityBars quality={connectionQuality} />
+          <button
+            className="vr__invite-trigger"
+            onClick={() => setShowInvite(true)}
+            title="Пригласить друга"
+          >
+            <UserPlus size={16} strokeWidth={2} />
+            <span>Пригласить</span>
+          </button>
         </div>
       </div>
 
-      {/* Screen share — full width 16:9 */}
-      {/* [Баг #23] Каждый ScreenShareTile имеет свой внутренний ref */}
+      {/* Screen share -- full width 16:9 */}
       {screenEntries.map(({ userId, stream }) => (
         <ScreenShareTile
           key={`screen-${userId}`}
@@ -108,11 +248,11 @@ export default function VoiceRoom({ socketRef }) {
         />
       ))}
 
-      {/* Video Grid (камеры) — если есть видео */}
+      {/* Video Grid (камеры) -- если есть видео */}
       {hasVideo && <VideoGrid participants={peersArray} />}
 
       {/* Participants Grid */}
-      <div className="vr__grid">
+      <div className={`vr__grid ${gridClass}`}>
         {participantList.map(([userId, peer], i) => {
           const level = audioLevels[userId] || 0;
           const isSpeaking = peer.speaking && !peer.muted;
@@ -154,7 +294,7 @@ export default function VoiceRoom({ socketRef }) {
                 style={{
                   background: getAvatarColor(getAvatarHue(peer)),
                   boxShadow: isSpeaking
-                    ? `0 0 ${14 + level * 0.3}px color-mix(in srgb, var(--online) 30%, transparent)`
+                    ? `0 0 ${20 + level * 0.4}px color-mix(in srgb, var(--online) 35%, transparent)`
                     : 'none',
                 }}
               >
@@ -190,9 +330,30 @@ export default function VoiceRoom({ socketRef }) {
         })}
 
         {count === 0 && (
-          <div className="vr__empty">Ожидание участников...</div>
+          <div className="vr__empty">
+            <div className="vr__empty-pulse" />
+            <span>Ожидание участников...</span>
+          </div>
+        )}
+
+        {count === 1 && (
+          <div className="vr__waiting">
+            <span>Пригласите друзей в комнату</span>
+            <button className="vr__waiting-btn" onClick={() => setShowInvite(true)}>
+              <UserPlus size={14} strokeWidth={2} />
+              Пригласить
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Invite modal */}
+      {showInvite && (
+        <InviteModal
+          roomId={currentRoomId}
+          onClose={() => setShowInvite(false)}
+        />
+      )}
 
       {/* Profile modal */}
       <UserProfileModal

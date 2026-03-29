@@ -1,6 +1,6 @@
 import { useVoiceStore } from '../../store/voiceStore';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
-import { Mic, MicOff, Headphones, HeadphoneOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff } from 'lucide-react';
+import { Mic, MicOff, Headphones, HeadphoneOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Users } from 'lucide-react';
 import './VoiceControls.css';
 
 export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShareOn, onCameraToggle, onScreenShareToggle }) {
@@ -25,15 +25,20 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
 
   return (
     <div className="vc">
-      {/* Left: Info */}
+      {/* Left: Room info */}
       <div className="vc__info" onClick={onExpand}>
         <div className="vc__qual">
-          <div className="vc__qual-bar" style={{ height: 3, background: qualBars >= 1 ? qualColor : qualOff }} />
-          <div className="vc__qual-bar" style={{ height: 6, background: qualBars >= 2 ? qualColor : qualOff }} />
-          <div className="vc__qual-bar" style={{ height: 10, background: qualBars >= 3 ? qualColor : qualOff }} />
+          <div className="vc__qual-bar" style={{ height: 4, background: qualBars >= 1 ? qualColor : qualOff }} />
+          <div className="vc__qual-bar" style={{ height: 7, background: qualBars >= 2 ? qualColor : qualOff }} />
+          <div className="vc__qual-bar" style={{ height: 11, background: qualBars >= 3 ? qualColor : qualOff }} />
         </div>
-        <span className="vc__room">{currentRoomName}</span>
-        <span className="vc__count">&middot; {count}</span>
+        <div className="vc__room-info">
+          <span className="vc__room">{currentRoomName}</span>
+          <span className="vc__count">
+            <Users size={10} strokeWidth={2.5} />
+            {count}
+          </span>
+        </div>
 
         {/* Mini avatars */}
         <div className="vc__avas">
@@ -46,46 +51,58 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
               {(peer.username || 'U')[0].toUpperCase()}
             </div>
           ))}
+          {count > 3 && (
+            <div className="vc__mini-ava vc__mini-ava--more">
+              +{count - 3}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="vc__sep" />
 
-      {/* Mute */}
-      <button
-        className={`vc__btn ${isMuted ? 'vc__btn--muted' : 'vc__btn--on'}`}
-        onClick={toggleMute}
-        title={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
-      >
-        {isMuted ? <MicOff size={15} strokeWidth={1.8} /> : <Mic size={15} strokeWidth={1.8} />}
-      </button>
+      {/* Controls group */}
+      <div className="vc__controls">
+        {/* Mute */}
+        <button
+          className={`vc__btn ${isMuted ? 'vc__btn--muted' : 'vc__btn--on'}`}
+          onClick={toggleMute}
+          title={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
+        >
+          {isMuted ? <MicOff size={17} strokeWidth={1.8} /> : <Mic size={17} strokeWidth={1.8} />}
+        </button>
 
-      {/* Deafen */}
-      <button
-        className={`vc__btn ${isDeafened ? 'vc__btn--muted' : 'vc__btn--on'}`}
-        onClick={toggleDeafen}
-        title={isDeafened ? 'Включить звук' : 'Выключить звук'}
-      >
-        {isDeafened ? <HeadphoneOff size={15} strokeWidth={1.8} /> : <Headphones size={15} strokeWidth={1.8} />}
-      </button>
+        {/* Deafen */}
+        <button
+          className={`vc__btn ${isDeafened ? 'vc__btn--muted' : 'vc__btn--on'}`}
+          onClick={toggleDeafen}
+          title={isDeafened ? 'Включить звук' : 'Выключить звук'}
+        >
+          {isDeafened ? <HeadphoneOff size={17} strokeWidth={1.8} /> : <Headphones size={17} strokeWidth={1.8} />}
+        </button>
 
-      {/* Camera */}
-      <button
-        className={`vc__btn ${cameraOn ? 'vc__btn--active' : 'vc__btn--on'}`}
-        onClick={onCameraToggle}
-        title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
-      >
-        {cameraOn ? <Video size={15} strokeWidth={1.8} /> : <VideoOff size={15} strokeWidth={1.8} />}
-      </button>
+        <div className="vc__sep vc__sep--short" />
 
-      {/* Screen share */}
-      <button
-        className={`vc__btn ${screenShareOn ? 'vc__btn--active' : 'vc__btn--on'}`}
-        onClick={onScreenShareToggle}
-        title={screenShareOn ? 'Остановить показ экрана' : 'Показать экран'}
-      >
-        {screenShareOn ? <MonitorOff size={15} strokeWidth={1.8} /> : <Monitor size={15} strokeWidth={1.8} />}
-      </button>
+        {/* Camera */}
+        <button
+          className={`vc__btn ${cameraOn ? 'vc__btn--active' : 'vc__btn--on'}`}
+          onClick={onCameraToggle}
+          title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
+        >
+          {cameraOn ? <Video size={17} strokeWidth={1.8} /> : <VideoOff size={17} strokeWidth={1.8} />}
+        </button>
+
+        {/* Screen share */}
+        <button
+          className={`vc__btn ${screenShareOn ? 'vc__btn--active' : 'vc__btn--on'}`}
+          onClick={onScreenShareToggle}
+          title={screenShareOn ? 'Остановить показ экрана' : 'Показать экран'}
+        >
+          {screenShareOn ? <MonitorOff size={17} strokeWidth={1.8} /> : <Monitor size={17} strokeWidth={1.8} />}
+        </button>
+      </div>
+
+      <div className="vc__sep" />
 
       {/* Disconnect */}
       <button
@@ -93,7 +110,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
         onClick={onLeave}
         title="Отключиться"
       >
-        <PhoneOff size={15} strokeWidth={1.8} />
+        <PhoneOff size={17} strokeWidth={1.8} />
       </button>
     </div>
   );

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════
-   VoiceControls — Floating Pill Bar
+   VoiceControls — Spacious Floating Pill
    ═══════════════════════════════════════ */
 
 /* [Баг #28] bottom увеличен чтобы не перекрываться с DynamicIsland */
@@ -11,17 +11,17 @@
   z-index: 110; /* выше DynamicIsland (100) */
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px 6px 14px;
+  gap: 8px;
+  padding: 8px 12px 8px 18px;
   border-radius: 100px;
-  background: rgba(14, 12, 24, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  background: rgba(14, 12, 24, 0.88);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
   animation: vc-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   width: fit-content;
-  max-width: calc(100vw - 32px);
+  max-width: 600px;
 }
 
 @keyframes vc-in {
@@ -33,10 +33,11 @@
 .vc__info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
-  margin-right: 4px;
+  margin-right: 2px;
   min-width: 0;
+  padding: 2px 0;
 }
 
 .vc__info:hover .vc__room {
@@ -47,54 +48,68 @@
 .vc__qual {
   display: flex;
   align-items: flex-end;
-  gap: 1px;
-  height: 10px;
+  gap: 1.5px;
+  height: 12px;
   flex-shrink: 0;
 }
 
 .vc__qual-bar {
-  width: 2.5px;
-  border-radius: 1px;
+  width: 3px;
+  border-radius: 1.5px;
   transition: background 0.3s;
+}
+
+/* Room info block */
+.vc__room-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 
 /* Room name */
 .vc__room {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.85);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px;
+  max-width: 150px;
   transition: color 0.15s;
+  line-height: 1.2;
 }
 
 .vc__count {
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.25);
   flex-shrink: 0;
+  line-height: 1;
 }
 
 /* Mini avatars */
 .vc__avas {
   display: flex;
-  margin-left: 4px;
+  margin-left: 2px;
   flex-shrink: 0;
 }
 
 .vc__mini-ava {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 800;
   color: #fff;
-  border: 1.5px solid rgba(14, 12, 24, 0.85);
-  margin-left: -5px;
+  border: 2px solid rgba(14, 12, 24, 0.88);
+  margin-left: -6px;
   transition: box-shadow 0.2s;
 }
 
@@ -103,22 +118,42 @@
 }
 
 .vc__mini-ava--speaking {
-  box-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
 }
 
-/* Separator */
+.vc__mini-ava--more {
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 8px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Separators */
 .vc__sep {
   width: 1px;
-  height: 20px;
+  height: 24px;
   background: rgba(255, 255, 255, 0.06);
   margin: 0 2px;
   flex-shrink: 0;
 }
 
+.vc__sep--short {
+  height: 16px;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ─── Controls group ─── */
+.vc__controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ─── Buttons ─── */
 .vc__btn {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   display: flex;
@@ -169,6 +204,8 @@
 .vc__btn--end {
   background: #ef4444;
   color: #fff;
+  width: 42px;
+  height: 42px;
 }
 
 .vc__btn--end:hover {
@@ -179,7 +216,7 @@
 [data-theme="light"] .vc {
   background: var(--light-surface, #ffffff);
   border-color: var(--light-border, #e5e7eb);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--light-border, #e5e7eb);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .vc__room {
@@ -192,6 +229,11 @@
 
 [data-theme="light"] .vc__mini-ava {
   border-color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .vc__mini-ava--more {
+  background: var(--bg-input);
+  color: var(--light-text-tertiary, #9ca3af);
 }
 
 [data-theme="light"] .vc__sep {
@@ -211,4 +253,21 @@
 [data-theme="light"] .vc__btn--active {
   background: var(--light-accent-light, #ede9fe);
   color: var(--accent);
+}
+
+/* ═══════ RESPONSIVE ═══════ */
+@media (max-width: 520px) {
+  .vc {
+    padding: 6px 10px 6px 14px;
+    gap: 5px;
+  }
+  .vc__room { max-width: 100px; }
+  .vc__avas { display: none; }
+  .vc__btn { width: 36px; height: 36px; }
+  .vc__btn--end { width: 38px; height: 38px; }
+  .vc__controls { gap: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vc { animation: none; }
 }

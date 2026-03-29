@@ -20,7 +20,9 @@ export default function uploadFile(chatId, file, { text, replyToId, onProgress }
         const data = JSON.parse(xhr.responseText);
         if (xhr.status >= 200 && xhr.status < 300) resolve(data);
         else reject(new Error(data.error || 'Ошибка загрузки'));
-      } catch { reject(new Error('Ошибка сервера')); }
+      } catch {
+        reject(new Error(xhr.status === 403 ? 'Нет доступа (CSRF)' : `Ошибка сервера (${xhr.status})`));
+      }
     };
 
     xhr.onerror = () => reject(new Error('Нет подключения'));
@@ -29,6 +31,7 @@ export default function uploadFile(chatId, file, { text, replyToId, onProgress }
     xhr.withCredentials = true;
     const authH = getAuthHeaders();
     if (authH.Authorization) xhr.setRequestHeader('Authorization', authH.Authorization);
+    if (authH['X-CSRF-Token']) xhr.setRequestHeader('X-CSRF-Token', authH['X-CSRF-Token']);
     xhr.send(formData);
   });
 }
