@@ -14,11 +14,14 @@ export default function Sidebar({ collapsed, activeTab, activeChatId, onSelectCh
     if (prevCollapsed.current === collapsed) return;
     prevCollapsed.current = collapsed;
 
+    const targetWidth = collapsed ? 72 : 320;
     gsap.to(sidebarRef.current, {
-      width: collapsed ? 72 : 320,
+      width: targetWidth,
       duration: collapsed ? 0.3 : 0.4,
       ease: collapsed ? 'power2.inOut' : 'back.out(1.2)',
     });
+    // Обновить CSS переменную для HoverPreview позиционирования
+    document.documentElement.style.setProperty('--sidebar-width', `${targetWidth}px`);
   }, [collapsed]);
 
   return (

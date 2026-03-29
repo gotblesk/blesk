@@ -31,8 +31,15 @@
   --text-2xl: 24px;
 
   /* Font families */
-  --font-ui: 'Onest', -apple-system, system-ui, sans-serif;
+  --font-ui: 'Onest', -apple-system, 'SF Pro Display', 'Helvetica Neue', system-ui, sans-serif;
   --font-display: 'Nekst', 'Onest', sans-serif;
+  --font-brand: 'Nekst', sans-serif;
+  --font-logo: 'Nekst', -apple-system, 'SF Pro Display', sans-serif;
+  --font-heading: var(--font-display);
+  --font-body: var(--font-ui);
+
+  /* Sidebar width (обновляется при морфинге) */
+  --sidebar-width: 72px;
 
   --bg: #08060f;
   --accent: #c8ff00;
@@ -53,11 +60,6 @@
 
   /* Текст на акцентных кнопках */
   --accent-text: #08060f;
-
-  --font-ui: 'Onest', -apple-system, 'SF Pro Display', 'Helvetica Neue', system-ui, sans-serif;
-  --font-display: 'Nekst', 'Onest', sans-serif;
-  --font-brand: 'Nekst', sans-serif;
-  --font-logo: 'Nekst', -apple-system, 'SF Pro Display', sans-serif;
 
   /* Double Layer Glass */
   --dl-outer-blur: 8px;
