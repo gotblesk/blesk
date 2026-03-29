@@ -124,7 +124,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
             {/* MESSAGE */}
             {state === 'message' && messageData && (
               <motion.div key="message" className="di__inner" initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <Avatar user={messageData.user || { username: messageData.username }} size={30} />
+                <Avatar user={messageData.user || { username: messageData.username }} size={34} />
                 <div className="di__msg-col">
                   <span className="di__msg-name">{messageData.username}</span>
                   <span className="di__msg-text">{messageData.preview || messageData.text}</span>
@@ -135,7 +135,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
             {/* TYPING */}
             {state === 'typing' && typingData && (
               <motion.div key="typing" className="di__inner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <Avatar user={{ username: typingData.username }} size={22} />
+                <Avatar user={{ username: typingData.username }} size={26} />
                 <span className="di__typing-name">{typingData.username}</span>
                 <div className="di__typing-dots"><div/><div/><div/></div>
               </motion.div>
@@ -151,13 +151,13 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
                 </div>
                 <div className="di__call-btns">
                   <button className={`di__call-btn di__call-btn--mic ${isMuted ? 'di__call-btn--on' : ''}`} onClick={e => { e.stopPropagation(); toggleMute(); }}>
-                    {isMuted ? <MicrophoneSlash size={14} /> : <Microphone size={14} />}
+                    {isMuted ? <MicrophoneSlash size={16} /> : <Microphone size={16} />}
                   </button>
                   <button className={`di__call-btn di__call-btn--deaf ${isDeafened ? 'di__call-btn--on' : ''}`} onClick={e => { e.stopPropagation(); toggleDeafen(); }}>
-                    {isDeafened ? <SpeakerSlash size={14} /> : <Headphones size={14} />}
+                    {isDeafened ? <SpeakerSlash size={16} /> : <Headphones size={16} />}
                   </button>
                   <button className="di__call-btn di__call-btn--end" onClick={e => { e.stopPropagation(); onEndCall?.(); }}>
-                    <PhoneDisconnect size={14} />
+                    <PhoneDisconnect size={16} />
                   </button>
                 </div>
               </motion.div>
@@ -166,7 +166,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
             {/* INCOMING CALL */}
             {state === 'incoming' && incomingCall && (
               <motion.div key="incoming" className="di__inner" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-                <Avatar user={{ username: incomingCall.callerName, avatar: incomingCall.callerAvatar }} size={38} className="di__in-ava" />
+                <Avatar user={{ username: incomingCall.callerName, avatar: incomingCall.callerAvatar }} size={42} className="di__in-ava" />
                 <div className="di__in-col">
                   <span className="di__in-label">Входящий звонок</span>
                   <span className="di__in-name">{incomingCall.callerName}</span>
@@ -201,7 +201,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
             {state === 'profile' && (
               <motion.div key="profile" className="di__inner di__inner--profile" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.25 }}>
                 <div className="di__prof-head">
-                  <Avatar user={user} size={40} />
+                  <Avatar user={user} size={44} />
                   <div className="di__prof-info">
                     <span className="di__prof-name">{user?.username || 'blesk'}</span>
                     <div className="di__prof-status-row">

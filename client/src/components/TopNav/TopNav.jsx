@@ -25,7 +25,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
 
       <div className="top-nav__left">
         <button className="top-nav__toggle" onClick={onToggleSidebar} title="Sidebar">
-          <List size={18} weight="bold" />
+          <List size={20} weight="bold" />
         </button>
 
         <div className="top-nav__tabs">
@@ -39,7 +39,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
                 className={`top-nav__tab ${isActive ? 'top-nav__tab--active' : ''}`}
                 onClick={() => onTabChange(tab.id)}
               >
-                <Icon size={15} weight={isActive ? 'fill' : 'regular'} />
+                <Icon size={17} weight={isActive ? 'fill' : 'regular'} />
                 <span>{tab.label}</span>
                 {showBadge && <span className="top-nav__badge">{totalUnread > 99 ? '99+' : totalUnread}</span>}
               </button>
@@ -50,14 +50,14 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
 
       <div className="top-nav__right">
         <button className="top-nav__action" onClick={onSearch} title="Поиск (Ctrl+K)">
-          <MagnifyingGlass size={16} />
+          <MagnifyingGlass size={18} />
         </button>
         <button className="top-nav__action top-nav__action--notif" onClick={() => {}} title="Уведомления">
-          <Bell size={16} />
+          <Bell size={18} />
           {unreadNotifs > 0 && <span className="top-nav__notif-dot">{unreadNotifs}</span>}
         </button>
         <button className="top-nav__action" onClick={onSettings} title="Настройки">
-          <GearSix size={16} />
+          <GearSix size={18} />
         </button>
       </div>
     </nav>

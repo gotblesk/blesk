@@ -1,5 +1,5 @@
 .top-nav {
-  height: 48px;
+  height: 56px;
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -29,9 +29,9 @@
 }
 
 .top-nav__toggle {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   border: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.35);
@@ -56,13 +56,13 @@
 .top-nav__tab {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
+  gap: 6px;
+  padding: 8px 18px;
   border-radius: 10px;
   border: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.35);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   font-family: var(--font-body, inherit);
   cursor: pointer;
@@ -84,20 +84,20 @@
   bottom: -1px;
   left: 50%;
   transform: translateX(-50%);
-  width: 16px;
-  height: 2px;
+  width: 20px;
+  height: 2.5px;
   border-radius: 1px;
   background: var(--accent, #c8ff00);
 }
 
 .top-nav__badge {
-  min-width: 16px;
-  height: 16px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: 9px;
   background: var(--accent, #c8ff00);
   color: #000;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -111,8 +111,8 @@
 }
 
 .top-nav__action {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 9px;
   border: none;
   background: transparent;
@@ -133,8 +133,8 @@
   position: absolute;
   top: 4px;
   right: 4px;
-  min-width: 14px;
-  height: 14px;
+  min-width: 16px;
+  height: 16px;
   padding: 0 3px;
   border-radius: 7px;
   background: var(--danger, #ef4444);

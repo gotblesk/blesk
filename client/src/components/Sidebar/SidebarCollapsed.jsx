@@ -60,7 +60,7 @@ function SidebarAvatar({ chat, isActive, isOnline, onClick }) {
     <div className={`sc__item ${isActive ? 'sc__item--active' : ''}`} onClick={onClick} title={name}>
       {isActive && <div className="sc__active-bar" />}
       <div className="sc__ava-wrap">
-        <Avatar user={user || { username: name }} size={40} showOnline={isOnline} />
+        <Avatar user={user || { username: name }} size={44} showOnline={isOnline} />
         {chat.unreadCount > 0 && (
           <span className="sc__badge">{chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span>
         )}

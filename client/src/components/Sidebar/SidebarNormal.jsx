@@ -53,7 +53,7 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
         className={`sn__chat ${isActive ? 'sn__chat--active' : ''}`}
         onClick={() => onSelectChat(chat.id)}
       >
-        <Avatar user={user || { username: name }} size={38} showOnline={isOnline(chat)} />
+        <Avatar user={user || { username: name }} size={42} showOnline={isOnline(chat)} />
         <div className="sn__chat-meta">
           <div className="sn__chat-top">
             <span className="sn__chat-name">{name}</span>
