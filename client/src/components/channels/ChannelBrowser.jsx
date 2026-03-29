@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Loader, Radio, Newspaper, Gamepad2, Music, Palette, Cpu, MoreHorizontal, Sparkles } from 'lucide-react';
+import { Plus, MagnifyingGlass, SpinnerGap, Radio, Newspaper, GameController, MusicNotes, Palette, Cpu, DotsThree, Sparkle } from '@phosphor-icons/react';
 import ChannelCard from './ChannelCard';
 import CreateChannelModal from './CreateChannelModal';
 import { useChannelStore } from '../../store/channelStore';
@@ -8,13 +8,13 @@ import { getCurrentUserId } from '../../utils/auth';
 import './ChannelBrowser.css';
 
 const CATEGORIES = [
-  { key: null, label: 'Все', icon: Sparkles, color: '#c8ff00' },
+  { key: null, label: 'Все', icon: Sparkle, color: '#c8ff00' },
   { key: 'news', label: 'Новости', icon: Newspaper, color: '#3b82f6' },
-  { key: 'gaming', label: 'Игры', icon: Gamepad2, color: '#8b5cf6' },
-  { key: 'music', label: 'Музыка', icon: Music, color: '#ec4899' },
+  { key: 'gaming', label: 'Игры', icon: GameController, color: '#8b5cf6' },
+  { key: 'music', label: 'Музыка', icon: MusicNotes, color: '#ec4899' },
   { key: 'art', label: 'Арт', icon: Palette, color: '#f59e0b' },
   { key: 'tech', label: 'Тех', icon: Cpu, color: '#06b6d4' },
-  { key: 'other', label: 'Другое', icon: MoreHorizontal, color: '#6b7280' },
+  { key: 'other', label: 'Другое', icon: DotsThree, color: '#6b7280' },
 ];
 
 const cardV = {
@@ -72,13 +72,13 @@ export default function ChannelBrowser({ onOpenChannel }) {
         <motion.button className="mo__create" onClick={() => setCreateOpen(true)} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.9 }}>
           <span className="mo__create-bg" />
           <span className="mo__create-ray" />
-          <span className="mo__create-icon"><Plus size={13} strokeWidth={3} /></span>
+          <span className="mo__create-icon"><Plus size={13} weight="bold" /></span>
           <span className="mo__create-text">Создать</span>
         </motion.button>
       </div>
 
       <div className="mo__search-wrap">
-        <Search size={15} strokeWidth={1.5} className="mo__search-icon" />
+        <MagnifyingGlass size={15} weight="regular" className="mo__search-icon" />
         <input className="mo__search" placeholder="Найти канал..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
@@ -95,7 +95,7 @@ export default function ChannelBrowser({ onOpenChannel }) {
               whileTap={{ scale: 0.9 }}
               layout
             >
-              <span className="mo__cat-icon"><cat.icon size={12} strokeWidth={2} /></span>
+              <span className="mo__cat-icon"><cat.icon size={12} weight="bold" /></span>
               <span className="mo__cat-label">{cat.label}</span>
               {isActive && <motion.div className="mo__cat-bar" layoutId="catBar" />}
             </motion.button>
@@ -106,7 +106,7 @@ export default function ChannelBrowser({ onOpenChannel }) {
       {loadingBrowse && allChannels.length === 0 && (
         <div className="mo__loader">
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
-            <Loader size={20} strokeWidth={1.5} />
+            <SpinnerGap size={20} weight="regular" />
           </motion.div>
         </div>
       )}
@@ -122,7 +122,7 @@ export default function ChannelBrowser({ onOpenChannel }) {
       {/* Empty states */}
       {!loadingBrowse && !browseError && allChannels.length === 0 && (
         <motion.div className="mo__empty" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onClick={search.trim() ? undefined : () => setCreateOpen(true)} style={{ cursor: search.trim() ? 'default' : 'pointer' }}>
-          <div className="mo__empty-icon"><Radio size={28} strokeWidth={1.2} /></div>
+          <div className="mo__empty-icon"><Radio size={28} weight="regular" /></div>
           <span>{search.trim() ? `Ничего не найдено по запросу «${search.trim().slice(0, 30)}»` : 'Каналы не найдены'}</span>
           {!search.trim() && <span className="mo__empty-hint">Создай первый!</span>}
         </motion.div>

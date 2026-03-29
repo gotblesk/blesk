@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Smartphone, Lock, Camera, X, Check, Eye, EyeOff, ChevronRight, Pencil } from 'lucide-react';
+import { Envelope, DeviceMobile, Lock, Camera, X, Check, Eye, EyeSlash, CaretRight, PencilSimple } from '@phosphor-icons/react';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
 import Avatar from '../ui/Avatar';
@@ -173,7 +173,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                   <div className="pf-front__ava" onClick={() => fileInputRef.current?.click()}>
                     <Avatar user={user} size={110} />
                     <div className="pf-front__ava-ring" />
-                    <div className="pf-front__ava-hover"><Camera size={16} /> Фото</div>
+                    <div className="pf-front__ava-hover"><Camera size={16} weight="regular" /> Фото</div>
                   </div>
                   <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileSelect} hidden />
                   <div className="pf-front__name">{user?.username}</div>
@@ -184,7 +184,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                 </div>
 
                 <button className="pf-front__edit-btn" onClick={(e) => { e.stopPropagation(); doFlip(); }} title="Редактировать">
-                  <Pencil size={14} />
+                  <PencilSimple size={14} weight="regular" />
                 </button>
                 <SlideToFlip label="потяни → редактировать" direction="right" onFlip={doFlip} />
               </div>
@@ -203,7 +203,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                 <div className="pf-back__scroll">
                   {/* Email */}
                   <ProfileCell
-                    icon={<Mail size={15} />}
+                    icon={<Envelope size={15} weight="regular" />}
                     iconBg="color-mix(in srgb, var(--online) 8%, transparent)"
                     iconColor="var(--online)"
                     label="Email"
@@ -232,7 +232,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
                   {/* Phone */}
                   <ProfileCell
-                    icon={<Smartphone size={15} />}
+                    icon={<DeviceMobile size={15} weight="regular" />}
                     iconBg="color-mix(in srgb, var(--edit-color) 6%, transparent)"
                     iconColor="var(--edit-color)"
                     label="Телефон"
@@ -246,7 +246,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
 
                   {/* Password */}
                   <ProfileCell
-                    icon={<Lock size={15} />}
+                    icon={<Lock size={15} weight="regular" />}
                     iconBg="color-mix(in srgb, var(--accent) 5%, transparent)"
                     iconColor="var(--accent)"
                     label="Пароль"
@@ -255,7 +255,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                     onToggle={() => { setOpenCell(openCell === 'pass' ? null : 'pass'); if (pwStep === 'idle' && !pwSuccess) handlePwRequest(); }}
                   >
                     {pwSuccess ? (
-                      <span className="pf-cell__ok"><Check size={13} /> Пароль изменён</span>
+                      <span className="pf-cell__ok"><Check size={13} weight="regular" /> Пароль изменён</span>
                     ) : pwStep === 'code' ? (
                       <>
                         <span className="pf-cell__hint">Код на {pwEmail}</span>
@@ -285,7 +285,7 @@ export default function ProfileScreen({ open, onClose, user, onUserUpdate }) {
                   {saveError && <span className="pf-cell__err">{saveError}</span>}
 
                   <motion.button className="pf-back__save" onClick={handleSave} disabled={saving} whileTap={{ scale: 0.97 }}>
-                    {saving ? '...' : saved ? <><Check size={13} /> Сохранено</> : 'Сохранить'}
+                    {saving ? '...' : saved ? <><Check size={13} weight="regular" /> Сохранено</> : 'Сохранить'}
                   </motion.button>
                 </div>
 
@@ -366,8 +366,8 @@ function SlideToFlip({ label, direction, onFlip }) {
 // ═══════ CELL ═══════
 function ProfileCell({ icon, iconBg, iconColor, label, value, dot, muted, isOpen, onToggle, children }) {
   return (
-    <div className={`pf-cell ${isOpen ? 'pf-cell--open' : ''}`}>
-      <div className="pf-cell__main" onClick={onToggle}>
+    <div className={`pf-cell ${isOpen ? 'pf-cell--open' : ''}`} onClick={onToggle}>
+      <div className="pf-cell__main">
         <div className="pf-cell__ico" style={{ background: iconBg, color: iconColor }}>{icon}</div>
         <div className="pf-cell__info">
           <div className="pf-cell__key">{label}</div>
@@ -377,13 +377,13 @@ function ProfileCell({ icon, iconBg, iconColor, label, value, dot, muted, isOpen
           </div>
         </div>
         <motion.div className="pf-cell__chev" animate={{ rotate: isOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronRight size={14} />
+          <CaretRight size={14} weight="regular" />
         </motion.div>
       </div>
       <AnimatePresence>
         {isOpen && (
           <motion.div className="pf-cell__drawer" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
-            <div className="pf-cell__drawer-inner">{children}</div>
+            <div className="pf-cell__drawer-inner" onClick={e => e.stopPropagation()}>{children}</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -396,7 +396,7 @@ function PwInput({ value, onChange, show, toggle, placeholder }) {
   return (
     <div className="pf-cell__pw-wrap">
       <input className="pf-cell__input" type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} onClick={e => e.stopPropagation()} />
-      <button className="pf-cell__eye" onClick={e => { e.stopPropagation(); toggle(); }} type="button" tabIndex={-1}>{show ? <EyeOff size={13} /> : <Eye size={13} />}</button>
+      <button className="pf-cell__eye" onClick={e => { e.stopPropagation(); toggle(); }} type="button" tabIndex={-1}>{show ? <EyeSlash size={13} weight="regular" /> : <Eye size={13} weight="regular" />}</button>
     </div>
   );
 }

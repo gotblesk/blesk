@@ -1,12 +1,12 @@
-import { X, FileText, Image as ImageIcon, Film, Music, Archive } from 'lucide-react';
+import { X, FileText, Image as ImageIcon, FilmStrip, MusicNote, Archive } from '@phosphor-icons/react';
 import './AttachmentPreview.css';
 
 function getFileIcon(type) {
-  if (type.startsWith('image/')) return <ImageIcon size={20} strokeWidth={1.5} />;
-  if (type.startsWith('video/')) return <Film size={20} strokeWidth={1.5} />;
-  if (type.startsWith('audio/')) return <Music size={20} strokeWidth={1.5} />;
-  if (type.includes('zip')) return <Archive size={20} strokeWidth={1.5} />;
-  return <FileText size={20} strokeWidth={1.5} />;
+  if (type.startsWith('image/')) return <ImageIcon size={20} />;
+  if (type.startsWith('video/')) return <FilmStrip size={20} />;
+  if (type.startsWith('audio/')) return <MusicNote size={20} />;
+  if (type.includes('zip')) return <Archive size={20} />;
+  return <FileText size={20} />;
 }
 
 function formatSize(bytes) {
@@ -31,7 +31,7 @@ export default function AttachmentPreview({ files, onRemove, uploadProgress }) {
             <span className="attach-preview__size">{formatSize(file.size)}</span>
           </div>
           <button className="attach-preview__remove" onClick={() => onRemove(i)}>
-            <X size={14} strokeWidth={2} />
+            <X size={14} weight="bold" />
           </button>
           {uploadProgress?.[i] !== undefined && uploadProgress[i] < 100 && (
             <div className="attach-preview__progress" style={{ width: `${uploadProgress[i]}%` }} />

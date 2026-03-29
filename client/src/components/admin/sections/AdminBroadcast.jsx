@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Send } from 'lucide-react';
+import { PaperPlaneTilt } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
@@ -64,7 +64,7 @@ export default function AdminBroadcast() {
           onClick={() => setConfirmModal(true)}
           disabled={!version.trim() || !changelog.trim()}
         >
-          <Send size={14} /> Отправить
+          <PaperPlaneTilt size={14} weight="regular" /> Отправить
         </button>
 
         {result && (

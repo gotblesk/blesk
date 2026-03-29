@@ -1,6 +1,6 @@
 import { useState, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Home } from 'lucide-react';
+import { ArrowLeft, House } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import Avatar from '../ui/Avatar';
 import './MiniCardsSidebar.css';
@@ -89,7 +89,7 @@ export default memo(function MiniCardsSidebar({ activeChatId, onSelectChat, onBa
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.1 }}
               >
-                <ArrowLeft size={14} strokeWidth={2} />
+                <ArrowLeft size={14} weight="bold" />
                 <span>Назад</span>
               </motion.div>
             ) : (
@@ -101,7 +101,7 @@ export default memo(function MiniCardsSidebar({ activeChatId, onSelectChat, onBa
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.1 }}
               >
-                <Home size={14} strokeWidth={1.5} />
+                <House size={14} weight="regular" />
               </motion.div>
             )}
           </AnimatePresence>

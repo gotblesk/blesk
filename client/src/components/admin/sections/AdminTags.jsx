@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, PencilSimple, Trash, X } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
@@ -143,10 +143,10 @@ export default function AdminTags() {
                 </div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => startEdit(tag)}>
-                    <Pencil size={12} />
+                    <PencilSimple size={12} />
                   </button>
                   <button className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => setConfirmDelete(tag.id)}>
-                    <Trash2 size={12} />
+                    <Trash size={12} />
                   </button>
                 </div>
               </div>

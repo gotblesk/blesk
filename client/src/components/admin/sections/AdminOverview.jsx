@@ -1,15 +1,15 @@
 import { useEffect } from 'react';
-import { Users, MessageSquare, Radio, AlertTriangle, MessageCircle, Wifi } from 'lucide-react';
+import { UsersThree, ChatDots, Radio, Warning, ChatCircle, WifiHigh } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
 const STAT_CARDS = [
-  { key: 'usersOnline', label: 'Онлайн', icon: <Wifi size={18} /> },
-  { key: 'usersTotal', label: 'Пользователи', icon: <Users size={18} /> },
-  { key: 'messagesToday', label: 'Сообщения сегодня', icon: <MessageSquare size={18} /> },
-  { key: 'channelsTotal', label: 'Каналы', icon: <Radio size={18} /> },
-  { key: 'reportsNew', label: 'Жалобы', icon: <AlertTriangle size={18} /> },
-  { key: 'feedbackNew', label: 'Обратная связь', icon: <MessageCircle size={18} /> },
+  { key: 'usersOnline', label: 'Онлайн', icon: <WifiHigh size={18} weight="regular" /> },
+  { key: 'usersTotal', label: 'Пользователи', icon: <UsersThree size={18} weight="regular" /> },
+  { key: 'messagesToday', label: 'Сообщения сегодня', icon: <ChatDots size={18} weight="regular" /> },
+  { key: 'channelsTotal', label: 'Каналы', icon: <Radio size={18} weight="regular" /> },
+  { key: 'reportsNew', label: 'Жалобы', icon: <Warning size={18} weight="regular" /> },
+  { key: 'feedbackNew', label: 'Обратная связь', icon: <ChatCircle size={18} weight="regular" /> },
 ];
 
 export default function AdminOverview() {

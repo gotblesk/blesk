@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Volume2, VolumeX, Video, VideoOff, PhoneOff, Maximize2, Minimize2, Monitor, MonitorOff, Settings, Maximize } from 'lucide-react';
+import { Microphone, MicrophoneSlash, SpeakerHigh, SpeakerSlash, VideoCamera, VideoCameraSlash, PhoneDisconnect, ArrowsOutSimple, ArrowsInSimple, Monitor, GearSix, WifiHigh, WifiMedium, WifiLow, WifiSlash } from '@phosphor-icons/react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useVoiceStore } from '../../store/voiceStore';
-import { Signal, SignalLow, SignalMedium, SignalZero } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import { getAvatarHue } from '../../utils/avatar';
 import API_URL from '../../config';
@@ -209,16 +208,16 @@ export default function CallScreen({
           {/* [Баг #4] Индикатор качества соединения */}
           {call.status !== 'ringing' && (
             <div className="cs__quality-icon" title={connectionQuality === 'good' ? 'Отличное соединение' : connectionQuality === 'fair' ? 'Среднее соединение' : connectionQuality === 'poor' ? 'Плохое соединение' : 'Нет данных'}>
-              {connectionQuality === 'good' ? <Signal size={13} /> : connectionQuality === 'fair' ? <SignalMedium size={13} /> : connectionQuality === 'poor' ? <SignalLow size={13} /> : <SignalZero size={13} />}
+              {connectionQuality === 'good' ? <WifiHigh size={13} /> : connectionQuality === 'fair' ? <WifiMedium size={13} /> : connectionQuality === 'poor' ? <WifiLow size={13} /> : <WifiSlash size={13} />}
             </div>
           )}
           <span className="cs__time">{timeStr}</span>
           {!isCompact && (
             <button className="cs__max" onClick={() => setQualityOpen(q => !q)} title="Качество видео">
-              <Settings size={13} />
+              <GearSix size={13} />
             </button>
           )}
-          <button className="cs__max" onClick={toggleMax}>{isMax ? <Minimize2 size={13} /> : <Maximize2 size={13} />}</button>
+          <button className="cs__max" onClick={toggleMax}>{isMax ? <ArrowsInSimple size={13} /> : <ArrowsOutSimple size={13} />}</button>
         </div>
       </div>
 
@@ -242,7 +241,7 @@ export default function CallScreen({
             <video ref={screenRef} className="cs__screen-video" autoPlay playsInline muted={!!localScreenStream} />
             {/* [Баг #33] Кнопка fullscreen для экрана в CallScreen */}
             <button className="cs__screen-fs" onClick={toggleScreenFs} title="Полный экран">
-              <Maximize size={14} strokeWidth={1.5} />
+              <ArrowsOutSimple size={14} weight="regular" />
             </button>
           </div>
         )}
@@ -304,19 +303,19 @@ export default function CallScreen({
       {/* Actions */}
       <div className={`cs__actions ${isCompact ? 'cs__actions--compact' : ''}`}>
         <motion.button className={`cs__btn ${muted ? 'cs__btn--active' : ''}`} onClick={onToggleMute} whileTap={{ scale: 0.88 }} aria-label={muted ? 'Включить микрофон' : 'Выключить микрофон'} aria-pressed={muted}>
-          {muted ? <MicOff size={18} /> : <Mic size={18} />}
+          {muted ? <MicrophoneSlash size={18} /> : <Microphone size={18} />}
           {!isCompact && <span className="cs__btn-label">{muted ? 'Вкл.' : 'Микро'}</span>}
         </motion.button>
 
         {!isCompact && (
           <motion.button className={`cs__btn ${deafened ? 'cs__btn--active' : ''}`} onClick={onToggleDeafen} whileTap={{ scale: 0.88 }}>
-            {deafened ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            {deafened ? <SpeakerSlash size={18} /> : <SpeakerHigh size={18} />}
             <span className="cs__btn-label">Динамик</span>
           </motion.button>
         )}
 
         <motion.button className="cs__btn cs__btn--end" onClick={onEndCall} whileTap={{ scale: 0.88 }} aria-label="Завершить звонок">
-          <PhoneOff size={isCompact ? 16 : 20} />
+          <PhoneDisconnect size={isCompact ? 16 : 20} />
         </motion.button>
 
         {!isCompact && (
@@ -324,12 +323,12 @@ export default function CallScreen({
             {/* [Баг #24] Иконки камеры: Video когда ВКЛ, VideoOff когда ВЫКЛ — согласовано с VoiceControls */}
             {/* [Баг #10] Камера и экран недоступны до принятия звонка */}
             <motion.button className={`cs__btn ${cameraOn ? 'cs__btn--active' : ''} ${isRinging ? 'cs__btn--disabled' : ''}`} onClick={isRinging ? undefined : onToggleVideo} whileTap={isRinging ? {} : { scale: 0.88 }} title={isRinging ? 'Недоступно до подключения' : cameraOn ? 'Выключить камеру' : 'Включить камеру'}>
-              {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
+              {cameraOn ? <VideoCamera size={18} /> : <VideoCameraSlash size={18} />}
               <span className="cs__btn-label">Видео</span>
             </motion.button>
 
             <motion.button className={`cs__btn ${screenShareOn ? 'cs__btn--active' : ''} ${isRinging ? 'cs__btn--disabled' : ''}`} onClick={isRinging ? undefined : onToggleScreenShare} whileTap={isRinging ? {} : { scale: 0.88 }} title={isRinging ? 'Недоступно до подключения' : screenShareOn ? 'Остановить показ' : 'Показать экран'}>
-              {screenShareOn ? <MonitorOff size={18} /> : <Monitor size={18} />}
+              {screenShareOn ? <Monitor size={18} /> : <Monitor size={18} />}
               <span className="cs__btn-label">Экран</span>
             </motion.button>
           </>

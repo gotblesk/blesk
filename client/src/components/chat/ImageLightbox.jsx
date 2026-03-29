@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X } from '@phosphor-icons/react';
 import './ImageLightbox.css';
 
 export default function ImageLightbox({ src, onClose }) {
@@ -13,7 +13,7 @@ export default function ImageLightbox({ src, onClose }) {
   return createPortal(
     <div className="lightbox" onClick={onClose}>
       <button className="lightbox__close" onClick={onClose}>
-        <X size={24} strokeWidth={2} />
+        <X size={24} weight="bold" />
       </button>
       <img
         src={src}

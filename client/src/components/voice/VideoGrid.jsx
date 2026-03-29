@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Maximize } from 'lucide-react';
+import { ArrowsOutSimple } from '@phosphor-icons/react';
 import { useVoiceStore } from '../../store/voiceStore';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VideoGrid.css';
@@ -99,7 +99,7 @@ function CameraTile({ stream, name, peer }) {
       <video ref={videoRef} autoPlay playsInline />
       <span className="vg__tile-label">{name}</span>
       <button className="vg__tile-fs" onClick={toggleFs} title="Полный экран">
-        <Maximize size={12} strokeWidth={1.5} />
+        <ArrowsOutSimple size={12} weight="regular" />
       </button>
     </div>
   );

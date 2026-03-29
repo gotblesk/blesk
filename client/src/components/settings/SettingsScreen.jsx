@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { gsap } from 'gsap';
 import {
-  X, Volume2, Globe, Monitor, Palette, Sun, Moon, Bell,
-  MessageSquare, Users, AtSign, Shield, Clock, Github,
-  ExternalLink, MessageCircle, PartyPopper, Eye, Keyboard,
-  HardDrive, Accessibility, RotateCcw, Trash2, Download,
-  LogOut, ChevronRight, Settings, Sparkles
-} from 'lucide-react';
+  X, SpeakerHigh, Globe, Monitor, Palette, Sun, Moon, Bell,
+  ChatDots, UsersThree, At, Shield, Clock, GithubLogo,
+  ArrowSquareOut, ChatCircle, Confetti, Eye, Keyboard,
+  HardDrive, Wheelchair, ArrowCounterClockwise, Trash, DownloadSimple,
+  SignOut, CaretRight, GearSix, Sparkle
+} from '@phosphor-icons/react';
 import VoiceSettings from '../voice/VoiceSettings';
 import FeedbackScreen from './FeedbackScreen';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -20,16 +20,16 @@ import './SettingsScreen.css';
 
 /* ═══════ TABS CONFIG ═══════ */
 const TABS = [
-  { id: 'general',       label: 'Общие',        icon: Settings },
+  { id: 'general',       label: 'Общие',        icon: GearSix },
   { id: 'appearance',    label: 'Вид',           icon: Palette },
-  { id: 'chat',          label: 'Чат',           icon: MessageSquare },
+  { id: 'chat',          label: 'Чат',           icon: ChatDots },
   { id: 'notifications', label: 'Уведомления',   icon: Bell },
-  { id: 'voice',         label: 'Голос',          icon: Volume2 },
+  { id: 'voice',         label: 'Голос',          icon: SpeakerHigh },
   { id: 'privacy',       label: 'Приватность',    icon: Shield },
   { id: 'hotkeys',       label: 'Клавиши',        icon: Keyboard },
   { id: 'storage',       label: 'Данные',         icon: HardDrive },
-  { id: 'accessibility', label: 'Доступность',    icon: Accessibility },
-  { id: 'about',         label: 'О blesk',        icon: Sparkles },
+  { id: 'accessibility', label: 'Доступность',    icon: Wheelchair },
+  { id: 'about',         label: 'О blesk',        icon: Sparkle },
 ];
 
 const ACCENT_COLORS = [
@@ -221,7 +221,7 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
                           transition={{ type: 'spring', stiffness: 380, damping: 28 }}
                         />
                       )}
-                      <Icon size={18} strokeWidth={isActive ? 2 : 1.5} />
+                      <Icon size={18} weight={isActive ? 'bold' : 'regular'} />
                     </motion.button>
                   );
                 })}
@@ -236,7 +236,7 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
                   whileTap={{ scale: 0.92 }}
                   title="Выйти"
                 >
-                  <LogOut size={18} strokeWidth={1.5} />
+                  <SignOut size={18} weight="regular" />
                 </motion.button>
               )}
             </nav>
@@ -253,7 +253,7 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
                     animate={{ scale: 1, opacity: 1, rotate: 0 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                   >
-                    {activeTabData && <activeTabData.icon size={20} strokeWidth={1.8} />}
+                    {activeTabData && <activeTabData.icon size={20} weight="regular" />}
                   </motion.div>
                   <div>
                     <AnimatePresence mode="wait">
@@ -278,7 +278,7 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
                   whileTap={{ scale: 0.85 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                 >
-                  <X size={16} strokeWidth={2} />
+                  <X size={16} weight="bold" />
                 </motion.button>
               </div>
 
@@ -411,7 +411,7 @@ function GeneralTab({ settings, toggle, setValue }) {
   return (
     <div className="stg-tab">
       <SettingGroup title="Основные">
-        <SettingRow icon={<Volume2 size={16} />} label="Звуки" hint="Звуки уведомлений и интерфейса">
+        <SettingRow icon={<SpeakerHigh size={16} />} label="Звуки" hint="Звуки уведомлений и интерфейса">
           <Toggle value={settings.sounds} onChange={() => toggle('sounds')} />
         </SettingRow>
         <SettingRow icon={<Monitor size={16} />} label="Анимированный фон" hint="Цветные шары на фоне">
@@ -500,7 +500,7 @@ function AppearanceTab({ settings, toggle, setValue, handleThemeChange }) {
       </SettingGroup>
 
       <SettingGroup title="Отображение">
-        <SettingRow icon={<MessageSquare size={16} />} label="Компактные сообщения" hint="Меньше отступов">
+        <SettingRow icon={<ChatDots size={16} />} label="Компактные сообщения" hint="Меньше отступов">
           <Toggle value={settings.compactMessages} onChange={() => toggle('compactMessages')} />
         </SettingRow>
         <SettingRow icon={<span style={{ fontSize: 14, fontWeight: 800 }}>A</span>} label="Размер шрифта" hint={`${settings.fontSize}px`}>
@@ -521,7 +521,7 @@ function ChatTab({ settings, toggle, setValue }) {
   return (
     <div className="stg-tab">
       <SettingGroup title="Внешний вид">
-        <SettingRow icon={<MessageSquare size={16} />} label="Стиль сообщений" hint="Внешний вид сообщений">
+        <SettingRow icon={<ChatDots size={16} />} label="Стиль сообщений" hint="Внешний вид сообщений">
           <div className="stg-chips">
             <LayoutGroup>
               {[
@@ -536,7 +536,7 @@ function ChatTab({ settings, toggle, setValue }) {
             </LayoutGroup>
           </div>
         </SettingRow>
-        <SettingRow icon={<Users size={16} />} label="Аватары в чате" hint="Показывать аватары рядом с сообщениями">
+        <SettingRow icon={<UsersThree size={16} />} label="Аватары в чате" hint="Показывать аватары рядом с сообщениями">
           <Toggle value={settings.showAvatarsInChat} onChange={() => toggle('showAvatarsInChat')} />
         </SettingRow>
       </SettingGroup>
@@ -544,7 +544,7 @@ function ChatTab({ settings, toggle, setValue }) {
         <SettingRow icon={<Clock size={16} />} label="Формат времени" hint="Отображение времени">
           <Select value={settings.timeFormat} options={[{ value: '24h', label: '24 часа' }, { value: '12h', label: '12 часов' }]} onChange={(v) => setValue('timeFormat', v)} />
         </SettingRow>
-        <SettingRow icon={<MessageSquare size={16} />} label="Enter = отправка" hint="Shift+Enter — новая строка">
+        <SettingRow icon={<ChatDots size={16} />} label="Enter = отправка" hint="Shift+Enter — новая строка">
           <Toggle value={settings.enterToSend} onChange={() => toggle('enterToSend')} />
         </SettingRow>
       </SettingGroup>
@@ -559,18 +559,18 @@ function NotificationsTab({ settings, toggle }) {
         <SettingRow icon={<Bell size={16} />} label="Уведомления" hint="Показывать уведомления">
           <Toggle value={settings.notifications} onChange={() => toggle('notifications')} accent />
         </SettingRow>
-        <SettingRow icon={<Volume2 size={16} />} label="Звук уведомлений" hint="Воспроизводить звук">
+        <SettingRow icon={<SpeakerHigh size={16} />} label="Звук уведомлений" hint="Воспроизводить звук">
           <Toggle value={settings.sounds} onChange={() => toggle('sounds')} />
         </SettingRow>
       </SettingGroup>
       <SettingGroup title="Каналы">
-        <SettingRow icon={<MessageSquare size={16} />} label="Сообщения" hint="Новые сообщения в чатах">
+        <SettingRow icon={<ChatDots size={16} />} label="Сообщения" hint="Новые сообщения в чатах">
           <Toggle value={settings.notifMessages} onChange={() => toggle('notifMessages')} />
         </SettingRow>
-        <SettingRow icon={<Users size={16} />} label="Друзья" hint="Заявки в друзья">
+        <SettingRow icon={<UsersThree size={16} />} label="Друзья" hint="Заявки в друзья">
           <Toggle value={settings.notifFriends} onChange={() => toggle('notifFriends')} />
         </SettingRow>
-        <SettingRow icon={<AtSign size={16} />} label="Упоминания" hint="Когда вас @упоминают">
+        <SettingRow icon={<At size={16} />} label="Упоминания" hint="Когда вас @упоминают">
           <Toggle value={settings.notifMentions} onChange={() => toggle('notifMentions')} />
         </SettingRow>
       </SettingGroup>
@@ -823,7 +823,7 @@ function PrivacyTab({ settings, toggle }) {
         <SettingRow icon={<Eye size={16} />} label="Показывать онлайн" hint="Другие видят что вы в сети">
           <Toggle value={settings.showOnline} onChange={() => toggle('showOnline')} />
         </SettingRow>
-        <SettingRow icon={<MessageSquare size={16} />} label="Индикатор набора" hint="Другие видят когда вы печатаете">
+        <SettingRow icon={<ChatDots size={16} />} label="Индикатор набора" hint="Другие видят когда вы печатаете">
           <Toggle value={settings.showTyping} onChange={() => toggle('showTyping')} />
         </SettingRow>
         <SettingRow icon={<Clock size={16} />} label="Время последнего визита" hint="Другие видят когда вы были в сети">
@@ -905,7 +905,7 @@ function HotkeysTab() {
         ))}
       </SettingGroup>
       <SettingGroup>
-        <SettingRow icon={<RotateCcw size={16} />} label="Сбросить горячие клавиши" hint="Вернуть стандартные" onClick={resetHotkeys} />
+        <SettingRow icon={<ArrowCounterClockwise size={16} />} label="Сбросить горячие клавиши" hint="Вернуть стандартные" onClick={resetHotkeys} />
       </SettingGroup>
     </div>
   );
@@ -945,14 +945,14 @@ function StorageTab() {
             {cleared === 'messages' ? 'Очищено' : 'Очистить'}
           </motion.button>
         </SettingRow>
-        <SettingRow icon={<Download size={16} />} label="Позиции карточек" hint="Сохранённые позиции в Nebula">
+        <SettingRow icon={<DownloadSimple size={16} />} label="Позиции карточек" hint="Сохранённые позиции в Nebula">
           <motion.button className="stg-btn" onClick={clearNebula} whileTap={{ scale: 0.95 }}>
             {cleared === 'nebula' ? 'Очищено' : 'Сбросить'}
           </motion.button>
         </SettingRow>
       </SettingGroup>
       <SettingGroup title="Опасная зона">
-        <SettingRow icon={<Trash2 size={16} />} label="Сбросить все настройки" hint="Перезагрузит приложение" danger onClick={resetSettings} />
+        <SettingRow icon={<Trash size={16} />} label="Сбросить все настройки" hint="Перезагрузит приложение" danger onClick={resetSettings} />
       </SettingGroup>
 
       {/* [IMP-1 A2] Подтверждение сброса настроек */}
@@ -974,13 +974,13 @@ function AccessibilityTab({ settings, toggle }) {
   return (
     <div className="stg-tab">
       <SettingGroup title="Восприятие">
-        <SettingRow icon={<Accessibility size={16} />} label="Уменьшить движение" hint="Отключить все анимации и переходы">
+        <SettingRow icon={<Wheelchair size={16} />} label="Уменьшить движение" hint="Отключить все анимации и переходы">
           <Toggle value={settings.reducedMotion} onChange={() => toggle('reducedMotion')} />
         </SettingRow>
         <SettingRow icon={<Eye size={16} />} label="Высокий контраст" hint="Увеличить контрастность текста и границ">
           <Toggle value={settings.highContrast} onChange={() => toggle('highContrast')} />
         </SettingRow>
-        <SettingRow icon={<Accessibility size={16} />} label="Увеличенные элементы" hint="Кнопки и текст крупнее">
+        <SettingRow icon={<Wheelchair size={16} />} label="Увеличенные элементы" hint="Кнопки и текст крупнее">
           <Toggle value={settings.largeControls} onChange={() => toggle('largeControls')} />
         </SettingRow>
       </SettingGroup>
@@ -1035,7 +1035,7 @@ function AboutTab({ version, logoClicks, easterEgg, handleLogoClick, setFeedback
               animate={{ opacity: 1, scale: 1 }}
               transition={{ type: 'spring', damping: 15 }}
             >
-              <PartyPopper size={24} strokeWidth={1.5} />
+              <Confetti size={24} weight="regular" />
               <span>Ты нашёл секрет! Ты — настоящий блеск.</span>
             </motion.div>
           )}
@@ -1044,19 +1044,19 @@ function AboutTab({ version, logoClicks, easterEgg, handleLogoClick, setFeedback
 
       <SettingGroup>
         <a className="stg-about__link" href="https://github.com/gotblesk/blesk" target="_blank" rel="noopener noreferrer">
-          <Github size={16} />
+          <GithubLogo size={16} />
           <span>GitHub</span>
-          <ChevronRight size={14} className="stg-about__link-arrow" />
+          <CaretRight size={14} className="stg-about__link-arrow" />
         </a>
         <a className="stg-about__link" href="https://blesk.fun" target="_blank" rel="noopener noreferrer">
           <Globe size={16} />
           <span>blesk.fun</span>
-          <ChevronRight size={14} className="stg-about__link-arrow" />
+          <CaretRight size={14} className="stg-about__link-arrow" />
         </a>
         <div className="stg-about__link" onClick={() => setFeedbackOpen(true)} role="button" tabIndex={0}>
-          <MessageCircle size={16} />
+          <ChatCircle size={16} />
           <span>Обратная связь</span>
-          <ChevronRight size={14} className="stg-about__link-arrow" />
+          <CaretRight size={14} className="stg-about__link-arrow" />
         </div>
       </SettingGroup>
 

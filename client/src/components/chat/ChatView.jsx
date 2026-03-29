@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, Fragment, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Search, X, Check } from 'lucide-react';
+import { MagnifyingGlass, X, Check } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import ChatHeader from './ChatHeader';
@@ -93,11 +93,32 @@ export default function ChatView({
   // Текущий userId
   const userId = useRef(getCurrentUserId());
 
+  // [BUG 1.3] Защита от state update после unmount
+  const isMountedRef = useRef(true);
+  const ackTimeoutsRef = useRef([]);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Очистить все pending таймеры
+      ackTimeoutsRef.current.forEach(clearTimeout);
+      ackTimeoutsRef.current = [];
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  // Счётчик новых сообщений пока пользователь прокрутил вверх
+  const [newMsgCount, setNewMsgCount] = useState(0);
+  const prevMessageCountRef = useRef(0);
+
   // Анимация закрытия → потом реальное удаление
+  const closeTimerRef = useRef(null);
   const animateClose = useCallback(() => {
     if (closing) return;
     setClosing(true);
-    setTimeout(onClose, 300);
+    closeTimerRef.current = setTimeout(() => {
+      if (isMountedRef.current) onClose();
+    }, 300);
   }, [closing, onClose]);
 
   // Загрузить сообщения (только при смене chatId)
@@ -109,6 +130,11 @@ export default function ChatView({
       }
       useChatStore.getState().openChat(chatId);
       useChatStore.getState().markAsRead(chatId, socketRef);
+      // Сбросить состояние скролла при смене чата
+      prevMessageCountRef.current = 0;
+      isNearBottomRef.current = true;
+      setNewMsgCount(0);
+      setShowScrollDown(false);
     }
   }, [chatId]); // eslint-disable-line
 
@@ -129,17 +155,45 @@ export default function ChatView({
   const handleMessagesScroll = useCallback(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
     isNearBottomRef.current = near;
     setShowScrollDown(!near);
+    // Сбросить бейдж когда пользователь долистал до конца
+    if (near) setNewMsgCount(0);
   }, []);
 
-  // [BUG 5] Скролл через virtualizer API вместо scrollIntoView
+  // [BUG 1.1] Автоскролл при новых сообщениях
   useEffect(() => {
-    if (isNearBottomRef.current && messageCount > 0) {
-      virtualizer.scrollToIndex(messageCount - 1, { behavior: 'smooth' });
+    if (!isMountedRef.current || messageCount === 0) return;
+    const prevCount = prevMessageCountRef.current;
+    prevMessageCountRef.current = messageCount;
+
+    // Первая загрузка — всегда скролл к концу
+    if (prevCount === 0 && messageCount > 0) {
+      // Даём virtualizer время обсчитать размеры
+      requestAnimationFrame(() => {
+        if (!isMountedRef.current) return;
+        virtualizer.scrollToIndex(messageCount - 1, { align: 'end' });
+      });
+      return;
     }
-  }, [chatMessages.length]); // eslint-disable-line
+
+    // Новые сообщения пришли
+    if (messageCount > prevCount) {
+      const newCount = messageCount - prevCount;
+      if (isNearBottomRef.current) {
+        // Пользователь внизу — скроллим к новому сообщению
+        requestAnimationFrame(() => {
+          if (!isMountedRef.current) return;
+          virtualizer.scrollToIndex(messageCount - 1, { align: 'end', behavior: 'smooth' });
+        });
+        setNewMsgCount(0);
+      } else {
+        // Пользователь читает историю — показать бейдж
+        setNewMsgCount((prev) => prev + newCount);
+      }
+    }
+  }, [messageCount]); // eslint-disable-line
 
   // Escape — закрыть только focused окно
   useEffect(() => {
@@ -212,7 +266,8 @@ export default function ChatView({
       const threshold = window.innerHeight * 0.2;
       if (pullY > threshold) {
         viewRef.current?.classList.add('chat-view--collapsing');
-        setTimeout(onClose, 350);
+        const pullTimer = setTimeout(() => { if (isMountedRef.current) onClose(); }, 350);
+        ackTimeoutsRef.current.push(pullTimer);
       } else {
         setPullY(0);
       }
@@ -338,19 +393,35 @@ export default function ChatView({
     // [HIGH-1] ACK callback + [IMP-4] timeout для ACK
     const sendTempId = payload.tempId;
     const ackTimeout = setTimeout(() => {
-      // Если confirmMessage не пришёл за 10 секунд — пометить как failed
+      if (!isMountedRef.current) return;
       const msgs = useChatStore.getState().messages[chatId];
       const pending = msgs?.find(m => m.tempId === sendTempId && m.pending);
       if (pending) useChatStore.getState().failMessage(sendTempId, chatId);
+      // Убрать из списка tracked таймеров
+      ackTimeoutsRef.current = ackTimeoutsRef.current.filter(t => t !== ackTimeout);
     }, 10000);
+    ackTimeoutsRef.current.push(ackTimeout);
 
     socketRef.current?.emit('message:send', payload, (ack) => {
       clearTimeout(ackTimeout);
+      ackTimeoutsRef.current = ackTimeoutsRef.current.filter(t => t !== ackTimeout);
       if (ack?.error) {
         useChatStore.getState().failMessage(sendTempId, chatId);
       }
     });
     setReplyTo(null);
+
+    // [BUG 1.1] Всегда скролл к концу после отправки
+    isNearBottomRef.current = true;
+    setShowScrollDown(false);
+    setNewMsgCount(0);
+    requestAnimationFrame(() => {
+      if (!isMountedRef.current) return;
+      const count = useChatStore.getState().messages[chatId]?.length || 0;
+      if (count > 0) {
+        virtualizer.scrollToIndex(count - 1, { align: 'end', behavior: 'smooth' });
+      }
+    });
   };
 
   // Отправка файлов
@@ -640,13 +711,23 @@ export default function ChatView({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Scroll-to-bottom кнопка */}
+      {/* Scroll-to-bottom кнопка + бейдж новых сообщений */}
       {showScrollDown && (
         <button
           className="chat-view__scroll-down"
-          onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          onClick={() => {
+            if (messageCount > 0) {
+              virtualizer.scrollToIndex(messageCount - 1, { align: 'end', behavior: 'smooth' });
+            }
+            isNearBottomRef.current = true;
+            setShowScrollDown(false);
+            setNewMsgCount(0);
+          }}
           aria-label="К последним сообщениям"
         >
+          {newMsgCount > 0 && (
+            <span className="chat-view__scroll-down-badge">{newMsgCount > 99 ? '99+' : newMsgCount}</span>
+          )}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
       )}
@@ -801,7 +882,7 @@ function ForwardModal({ message, currentChatId, socketRef, onClose, onSuccess })
 
         {/* Поиск */}
         <div className="forward-modal__search">
-          <Search size={14} />
+          <MagnifyingGlass size={14} />
           <input
             ref={inputRef}
             type="text"

@@ -1,4 +1,4 @@
-import { Users, ArrowRight, Bell, BellOff } from 'lucide-react';
+import { UsersThree, ArrowRight, Bell, BellSlash } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 import API_URL from '../../config';
 import './ChannelCard.css';
@@ -48,7 +48,7 @@ export default function ChannelCard({ channel, variant = 'compact', isSubscribed
           <div className="mc__cover-fade" />
           {!customCover && <div className="mc__cover-pattern" />}
           <div className="mc__subs-badge">
-            <Users size={10} strokeWidth={2} />
+            <UsersThree size={10} weight="bold" />
             <span>{formatSubs(subCount)}</span>
           </div>
         </div>
@@ -69,7 +69,7 @@ export default function ChannelCard({ channel, variant = 'compact', isSubscribed
               {/* Subscribers inline for non-cover cards */}
               {!hasCover && (
                 <span className="mc__subs-inline">
-                  <Users size={10} strokeWidth={2} />
+                  <UsersThree size={10} weight="bold" />
                   {formatSubs(subCount)}
                 </span>
               )}
@@ -97,7 +97,7 @@ export default function ChannelCard({ channel, variant = 'compact', isSubscribed
               whileHover={{ scale: 1.05, x: 2 }}
               whileTap={{ scale: 0.92 }}
             >
-              <ArrowRight size={14} strokeWidth={2} />
+              <ArrowRight size={14} weight="bold" />
               <span>Открыть</span>
             </motion.button>
           ) : isSubscribed ? (
@@ -107,8 +107,8 @@ export default function ChannelCard({ channel, variant = 'compact', isSubscribed
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.92 }}
             >
-              <BellOff size={13} strokeWidth={2} className="mc__act-icon-hover" />
-              <Bell size={13} strokeWidth={2} className="mc__act-icon-default" />
+              <BellSlash size={13} weight="bold" className="mc__act-icon-hover" />
+              <Bell size={13} weight="bold" className="mc__act-icon-default" />
               <span className="mc__act-text-default">Подписан</span>
               <span className="mc__act-text-hover">Отписаться</span>
             </motion.button>
@@ -119,7 +119,7 @@ export default function ChannelCard({ channel, variant = 'compact', isSubscribed
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.92 }}
             >
-              <Bell size={13} strokeWidth={2} />
+              <Bell size={13} weight="bold" />
               <span>Подписаться</span>
             </motion.button>
           )}

@@ -1,6 +1,6 @@
 import { useVoiceStore } from '../../store/voiceStore';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
-import { Mic, MicOff, Headphones, HeadphoneOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Users } from 'lucide-react';
+import { Microphone, MicrophoneSlash, Headphones, SpeakerSlash, VideoCamera, VideoCameraSlash, Monitor, PhoneDisconnect, UsersThree } from '@phosphor-icons/react';
 import './VoiceControls.css';
 
 export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShareOn, onCameraToggle, onScreenShareToggle }) {
@@ -35,7 +35,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
         <div className="vc__room-info">
           <span className="vc__room">{currentRoomName}</span>
           <span className="vc__count">
-            <Users size={10} strokeWidth={2.5} />
+            <UsersThree size={10} weight="bold" />
             {count}
           </span>
         </div>
@@ -69,7 +69,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           onClick={toggleMute}
           title={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
         >
-          {isMuted ? <MicOff size={17} strokeWidth={1.8} /> : <Mic size={17} strokeWidth={1.8} />}
+          {isMuted ? <MicrophoneSlash size={17} /> : <Microphone size={17} />}
         </button>
 
         {/* Deafen */}
@@ -78,7 +78,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           onClick={toggleDeafen}
           title={isDeafened ? 'Включить звук' : 'Выключить звук'}
         >
-          {isDeafened ? <HeadphoneOff size={17} strokeWidth={1.8} /> : <Headphones size={17} strokeWidth={1.8} />}
+          {isDeafened ? <SpeakerSlash size={17} /> : <Headphones size={17} />}
         </button>
 
         <div className="vc__sep vc__sep--short" />
@@ -89,7 +89,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           onClick={onCameraToggle}
           title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
         >
-          {cameraOn ? <Video size={17} strokeWidth={1.8} /> : <VideoOff size={17} strokeWidth={1.8} />}
+          {cameraOn ? <VideoCamera size={17} /> : <VideoCameraSlash size={17} />}
         </button>
 
         {/* Screen share */}
@@ -98,7 +98,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           onClick={onScreenShareToggle}
           title={screenShareOn ? 'Остановить показ экрана' : 'Показать экран'}
         >
-          {screenShareOn ? <MonitorOff size={17} strokeWidth={1.8} /> : <Monitor size={17} strokeWidth={1.8} />}
+          {screenShareOn ? <Monitor size={17} /> : <Monitor size={17} />}
         </button>
       </div>
 
@@ -110,7 +110,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
         onClick={onLeave}
         title="Отключиться"
       >
-        <PhoneOff size={17} strokeWidth={1.8} />
+        <PhoneDisconnect size={17} />
       </button>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeSlash } from '@phosphor-icons/react';
 import GravityCard from './GravityCard';
 import StrengthDots, { getPasswordScore } from './StrengthDots';
 
@@ -28,7 +28,7 @@ export default function PasswordCard({
       tilt={tilt}
       index={index}
       dimmed={dimmed}
-      icon={<span style={{ color: cardError ? 'var(--danger)' : matched ? 'var(--online)' : 'var(--accent)' }}><Lock size={16} stroke="currentColor" /></span>}
+      icon={<span style={{ color: cardError ? 'var(--danger)' : matched ? 'var(--online)' : 'var(--accent)' }}><Lock size={16} /></span>}
       title="Пароль"
       subtitle="Минимум 8 символов"
       error={cardError}
@@ -51,7 +51,7 @@ export default function PasswordCard({
           onClick={() => setShowPassword(!showPassword)}
           aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
         >
-          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          {showPassword ? <EyeSlash size={16} weight="regular" /> : <Eye size={16} weight="regular" />}
         </button>
       </div>
       <StrengthDots password={password} />

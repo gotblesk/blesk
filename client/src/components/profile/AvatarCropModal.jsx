@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { ZoomIn } from 'lucide-react';
+import { MagnifyingGlassPlus } from '@phosphor-icons/react';
 import Cropper from 'react-easy-crop';
 import './AvatarCropModal.css';
 
@@ -87,7 +87,7 @@ export default function AvatarCropModal({ imageSrc, onClose, onSave }) {
         </div>
 
         <div className="avatar-crop__zoom">
-          <span className="avatar-crop__zoom-label"><ZoomIn size={14} strokeWidth={1.5} /></span>
+          <span className="avatar-crop__zoom-label"><MagnifyingGlassPlus size={14} weight="regular" /></span>
           <input
             type="range"
             min={1}

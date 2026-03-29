@@ -122,6 +122,72 @@
   transition: background 0.3s;
 }
 
+/* ─── Chat toggle button in header ─── */
+.vr__chat-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.vr__chat-toggle:hover {
+  background: rgba(200, 255, 0, 0.08);
+  border-color: rgba(200, 255, 0, 0.15);
+  color: var(--accent, #c8ff00);
+}
+
+.vr__chat-toggle--active {
+  background: rgba(200, 255, 0, 0.1);
+  border-color: rgba(200, 255, 0, 0.2);
+  color: var(--accent, #c8ff00);
+}
+
+/* ─── Body: participants + chat side by side ─── */
+.vr__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* Participants area -- fills remaining space */
+.vr__participants {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Chat panel -- right side */
+.vr__chat-panel {
+  width: 340px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 15, 20, 0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  animation: vr-chat-slide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vr-chat-slide {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 /* ─── Screen Share Area ─── */
 .vr__screen {
   width: 100%;
@@ -841,7 +907,60 @@
   color: var(--light-text-tertiary, #9ca3af);
 }
 
+[data-theme="light"] .vr__chat-toggle {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: var(--light-border, #e5e7eb);
+  color: var(--light-text-secondary, #4b5563);
+}
+
+[data-theme="light"] .vr__chat-toggle:hover {
+  background: rgba(124, 58, 237, 0.06);
+  border-color: rgba(124, 58, 237, 0.2);
+  color: var(--accent);
+}
+
+[data-theme="light"] .vr__chat-toggle--active {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.25);
+  color: var(--accent);
+}
+
+[data-theme="light"] .vr__chat-panel {
+  background: rgba(255, 255, 255, 0.6);
+  border-left-color: var(--light-border, #e5e7eb);
+}
+
 /* ═══════ RESPONSIVE ═══════ */
+
+/* Medium screens: narrower chat panel */
+@media (max-width: 1024px) {
+  .vr__chat-panel {
+    width: 300px;
+    min-width: 260px;
+  }
+}
+
+/* Mobile: chat panel becomes an overlay */
+@media (max-width: 768px) {
+  .vr__chat-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 20;
+    width: 100%;
+    max-width: 340px;
+    background: rgba(15, 15, 20, 0.95);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  [data-theme="light"] .vr__chat-panel {
+    background: rgba(255, 255, 255, 0.95);
+  }
+}
+
 @media (max-width: 700px) {
   .vr__grid { padding: 20px 16px; gap: 12px; }
   .vr__grid--duo { grid-template-columns: repeat(2, 1fr); }

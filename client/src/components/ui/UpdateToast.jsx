@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Download, Sparkles } from 'lucide-react';
+import { DownloadSimple, Sparkle } from '@phosphor-icons/react';
 import './UpdateToast.css';
 
 // Форматирование размера файла
@@ -65,7 +65,7 @@ export default function UpdateToast() {
   return (
     <div className={`update-toast update-toast--${state}`}>
       <div className="update-toast__icon">
-        {state === 'downloading' ? <Download size={18} strokeWidth={1.5} /> : <Sparkles size={18} strokeWidth={1.5} />}
+        {state === 'downloading' ? <DownloadSimple size={18} weight="regular" /> : <Sparkle size={18} weight="regular" />}
       </div>
 
       <div className="update-toast__content">

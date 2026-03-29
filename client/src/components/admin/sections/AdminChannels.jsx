@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
@@ -58,7 +58,7 @@ export default function AdminChannels() {
                         className="admin-btn admin-btn--danger admin-btn--sm"
                         onClick={() => setConfirmDelete(ch.id)}
                       >
-                        <Trash2 size={12} />
+                        <Trash size={12} />
                       </button>
                     </td>
                   </tr>

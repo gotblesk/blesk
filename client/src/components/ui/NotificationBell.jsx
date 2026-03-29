@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, BellOff, Check, X, AlertTriangle, Trash2, LogIn, Zap, User, UserCheck, MessageCircle, AtSign, Sparkles } from 'lucide-react';
+import { Bell, BellSlash, Check, X, Warning, Trash, SignIn, Lightning, User, UserCheck, ChatCircle, At, Sparkle } from '@phosphor-icons/react';
 import Avatar from './Avatar';
 import { useNotificationStore } from '../../store/notificationStore';
 import API_URL from '../../config';
@@ -11,12 +11,12 @@ import './NotificationBell.css';
 // Decorative icon colors — hardcoded hex intentional (used in inline styles/gradients,
 // these are category accent colors that stay consistent across themes)
 const TYPES = {
-  system:          { icon: Zap,           color: '#c8ff00' },
-  login:           { icon: LogIn,         color: '#60a5fa' },
-  mention:         { icon: AtSign,        color: '#f59e0b' },
+  system:          { icon: Lightning,     color: '#c8ff00' },
+  login:           { icon: SignIn,        color: '#60a5fa' },
+  mention:         { icon: At,            color: '#f59e0b' },
   friend_request:  { icon: User,          color: '#a78bfa' },
   friend_accepted: { icon: UserCheck,     color: '#4ade80' },
-  message:         { icon: MessageCircle, color: '#38bdf8' },
+  message:         { icon: ChatCircle,    color: '#38bdf8' },
 };
 const getT = t => TYPES[t] || TYPES.system;
 
@@ -151,7 +151,7 @@ export default function NotificationBell({ onOpenChat }) {
   return (
     <>
       <button ref={bellRef} className={bellCls} onClick={() => open ? setOpen(false) : handleOpen()}>
-        <Bell size={17} strokeWidth={1.5} />
+        <Bell size={17} weight="regular" />
         {unreadCount > 0 && (
           <motion.span className="rs-bell__badge" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }}>
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -186,7 +186,7 @@ export default function NotificationBell({ onOpenChat }) {
                       transition={{ type: 'spring', damping: 22, stiffness: 300 }}
                     >
                       <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}>
-                        <Sparkles size={20} strokeWidth={1} style={{ color: 'var(--accent)' }} />
+                        <Sparkle size={20} weight="regular" style={{ color: 'var(--accent)' }} />
                       </motion.div>
                       <span className="rs-card__empty-text">Всё спокойно</span>
                     </motion.div>
@@ -277,7 +277,7 @@ function RSCard({ item, index, total, yOffset, rotation, isFirst, onItemClick, o
           <div className="rs-card__toolbar-btns">
             {notifCount > 0 && (
               <motion.button className={`rs-tbtn ${confirmClear ? 'rs-tbtn--red' : ''}`} onClick={e => { e.stopPropagation(); onClearAll(); }} whileTap={{ scale: 0.85 }}>
-                {confirmClear ? <><AlertTriangle size={10} /> Точно?</> : <><Trash2 size={10} /> Очистить</>}
+                {confirmClear ? <><Warning size={10} /> Точно?</> : <><Trash size={10} /> Очистить</>}
               </motion.button>
             )}
             {unreadCount > 0 && (
@@ -404,7 +404,7 @@ function ExpandedCard({ item, onClose, onOpenChat }) {
       {/* Action */}
       {item.roomId && (
         <motion.button className="rs-exp__action" onClick={() => onOpenChat(item.roomId)} whileTap={{ scale: 0.95 }} whileHover={{ y: -1 }}>
-          <MessageCircle size={14} /> Перейти к чату
+          <ChatCircle size={14} /> Перейти к чату
         </motion.button>
       )}
     </div>

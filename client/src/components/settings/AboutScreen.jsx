@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ExternalLink, Heart, X, PartyPopper } from 'lucide-react';
+import { ArrowSquareOut, Heart, X, Confetti } from '@phosphor-icons/react';
 import useAppVersion from '../../hooks/useAppVersion';
 import './AboutScreen.css';
 const SLOGAN = 'Твой блеск. Твои правила.';
@@ -59,7 +59,7 @@ export default function AboutScreen({ open, onClose }) {
 
         {/* Кнопка закрытия */}
         <button className="about-close" onClick={onClose}>
-          <X size={18} strokeWidth={2} />
+          <X size={18} weight="regular" />
         </button>
 
         {/* Логотип */}
@@ -111,7 +111,7 @@ export default function AboutScreen({ open, onClose }) {
 
         {easterEgg && (
           <div className="about-easter">
-            <div className="about-easter__emoji"><PartyPopper size={32} strokeWidth={1.5} /></div>
+            <div className="about-easter__emoji"><Confetti size={32} weight="regular" /></div>
             <div className="about-easter__text">
               Ты нашёл секрет! Ты — настоящий блеск.
             </div>
@@ -145,13 +145,13 @@ export default function AboutScreen({ open, onClose }) {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <span className="about-link__icon"><ExternalLink size={14} strokeWidth={1.5} /></span>
+          <span className="about-link__icon"><ArrowSquareOut size={14} weight="regular" /></span>
           <span className="about-link__text">github.com/gotblesk/blesk</span>
           <span className="about-link__arrow">→</span>
         </a>
 
         <div className="about-footer">
-          Сделано с <Heart size={14} strokeWidth={1.5} fill="currentColor" style={{ color: 'var(--online)', verticalAlign: 'middle', margin: '0 2px' }} /> и бессонными ночами
+          Сделано с <Heart size={14} weight="fill" style={{ color: 'var(--online)', verticalAlign: 'middle', margin: '0 2px' }} /> и бессонными ночами
         </div>
       </div>
     </div>

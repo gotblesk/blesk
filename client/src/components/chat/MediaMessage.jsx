@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { FileText, Download, Film, Music, Archive, ImageOff } from 'lucide-react';
+import { FileText, DownloadSimple, FilmStrip, MusicNote, Archive, ImageBroken } from '@phosphor-icons/react';
 import API_URL from '../../config';
 import './MediaMessage.css';
 
 function getIcon(mime) {
   const m = mime || '';
-  if (m.startsWith('video/')) return <Film size={20} strokeWidth={1.5} />;
-  if (m.startsWith('audio/')) return <Music size={20} strokeWidth={1.5} />;
-  if (m.includes('zip')) return <Archive size={20} strokeWidth={1.5} />;
-  return <FileText size={20} strokeWidth={1.5} />;
+  if (m.startsWith('video/')) return <FilmStrip size={20} />;
+  if (m.startsWith('audio/')) return <MusicNote size={20} />;
+  if (m.includes('zip')) return <Archive size={20} />;
+  return <FileText size={20} />;
 }
 
 function ImageWithFallback({ src, fullSrc, filename, onImageClick }) {
@@ -16,13 +16,13 @@ function ImageWithFallback({ src, fullSrc, filename, onImageClick }) {
   if (broken) {
     return (
       <div className="media-msg__file media-msg__file--broken">
-        <div className="media-msg__file-icon"><ImageOff size={20} strokeWidth={1.5} /></div>
+        <div className="media-msg__file-icon"><ImageBroken size={20} /></div>
         <div className="media-msg__file-info">
           <span className="media-msg__file-name">{filename}</span>
           <span className="media-msg__file-size">Не удалось загрузить</span>
         </div>
         <a href={fullSrc} download={filename} target="_blank" rel="noopener noreferrer" className="media-msg__download">
-          <Download size={16} strokeWidth={1.5} />
+          <DownloadSimple size={16} />
         </a>
       </div>
     );
@@ -124,7 +124,7 @@ export default function MediaMessage({ attachments, onImageClick }) {
               rel="noopener noreferrer"
               className="media-msg__download"
             >
-              <Download size={16} strokeWidth={1.5} />
+              <DownloadSimple size={16} />
             </a>
           </div>
         );

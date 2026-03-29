@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Pin, Lock, CheckCheck, PhoneCall, PhoneOff, PhoneMissed, Clock, RefreshCw } from 'lucide-react';
+import { PushPin, Lock, Checks, PhoneIncoming, PhoneDisconnect, PhoneX, Clock, ArrowClockwise } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import MediaMessage from './MediaMessage';
 import LinkPreviewCard from './LinkPreviewCard';
@@ -78,13 +78,13 @@ const ChatMessage = React.memo(function ChatMessage({
     let callIcon = null;
     const t = message.text || '';
     if (t.includes('завершён')) {
-      callIcon = <PhoneCall size={14} strokeWidth={1.5} style={{ color: '#4ade80' }} />;
+      callIcon = <PhoneIncoming size={14} style={{ color: '#4ade80' }} />;
     } else if (t.includes('Сброшенный')) {
-      callIcon = <PhoneOff size={14} strokeWidth={1.5} style={{ color: '#f59e0b' }} />;
+      callIcon = <PhoneDisconnect size={14} style={{ color: '#f59e0b' }} />;
     } else if (t.includes('Пропущенный')) {
-      callIcon = <PhoneMissed size={14} strokeWidth={1.5} style={{ color: '#ef4444' }} />;
+      callIcon = <PhoneX size={14} style={{ color: '#ef4444' }} />;
     } else if (t.includes('Отменённый')) {
-      callIcon = <PhoneOff size={14} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.35)' }} />;
+      callIcon = <PhoneDisconnect size={14} style={{ color: 'rgba(255,255,255,0.35)' }} />;
     }
     return (
       <div id={`msg-${message.id}`} className="chat-message chat-message--system">
@@ -192,12 +192,12 @@ const ChatMessage = React.memo(function ChatMessage({
               )}
 
               {message.encrypted && (
-                <Lock size={10} strokeWidth={1.5} className="chat-message__e2e" title="Зашифровано" />
+                <Lock size={10} className="chat-message__e2e" title="Зашифровано" />
               )}
 
               {message.pinned && (
                 <span className="chat-message__pin-icon">
-                  <Pin size={12} strokeWidth={1.5} />
+                  <PushPin size={12} />
                 </span>
               )}
 
@@ -214,7 +214,7 @@ const ChatMessage = React.memo(function ChatMessage({
               )}
 
               {isOwn && isRead && (
-                <CheckCheck size={12} strokeWidth={1.5} className={`chat-message__read-icon ${readIconAnimClass}`} />
+                <Checks size={12} className={`chat-message__read-icon ${readIconAnimClass}`} />
               )}
             </div>
           </div>
@@ -242,10 +242,10 @@ const ChatMessage = React.memo(function ChatMessage({
         {showTime && (
           <div className="chat-message__time">
             {message.pending && (
-              <Clock size={10} strokeWidth={1.5} className="chat-message__pending-icon" title={message.offline ? 'Будет отправлено при подключении' : 'Отправка...'} />
+              <Clock size={10} className="chat-message__pending-icon" title={message.offline ? 'Будет отправлено при подключении' : 'Отправка...'} />
             )}
             {message.failed && (
-              <RefreshCw size={10} strokeWidth={1.5} className="chat-message__failed-icon" title="Не удалось отправить. Нажмите для повтора" />
+              <ArrowClockwise size={10} className="chat-message__failed-icon" title="Не удалось отправить. Нажмите для повтора" />
             )}
             {time}
           </div>

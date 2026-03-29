@@ -1,4 +1,4 @@
-import { Users, Compass, UserCircle, Hand } from 'lucide-react';
+import { UsersThree, Compass, UserCircle, HandWaving } from '@phosphor-icons/react';
 import './WelcomeCard.css';
 
 export default function WelcomeCard({ username, onAction }) {
@@ -6,7 +6,7 @@ export default function WelcomeCard({ username, onAction }) {
     <div className="welcome-card">
       <div className="welcome-card__inner">
         <div className="welcome-card__header">
-          <span className="welcome-card__wave"><Hand size={24} /></span>
+          <span className="welcome-card__wave"><HandWaving size={24} weight="regular" /></span>
           <h2 className="welcome-card__title">
             Привет, <span className="welcome-card__name">{username}</span>!
           </h2>
@@ -23,7 +23,7 @@ export default function WelcomeCard({ username, onAction }) {
             onClick={() => onAction('friends')}
           >
             <div className="welcome-card__btn-icon">
-              <Users size={14} />
+              <UsersThree size={14} weight="regular" />
             </div>
             <div className="welcome-card__btn-text">
               <span className="welcome-card__btn-label">Добавить друзей</span>

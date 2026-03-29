@@ -236,6 +236,52 @@
   cursor: default;
 }
 
+/* ═══ Inline режим (встроен в VoiceRoom) ═══ */
+.voice-chat--inline {
+  position: relative;
+  bottom: auto;
+  right: auto;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  animation: none;
+  z-index: auto;
+}
+
+.voice-chat--inline .voice-chat__header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.voice-chat--inline .voice-chat__messages {
+  min-height: 0;
+  max-height: none;
+  flex: 1;
+  padding: 10px 14px;
+}
+
+.voice-chat--inline .voice-chat__input-row {
+  padding: 10px 14px 14px;
+}
+
+.voice-chat--inline .voice-chat__empty {
+  padding: 60px 0;
+}
+
+[data-theme="light"] .voice-chat--inline {
+  background: transparent;
+}
+
+[data-theme="light"] .voice-chat--inline .voice-chat__header {
+  border-bottom-color: var(--light-border, #e5e7eb);
+}
+
 /* ═══ Светлая тема ═══ */
 [data-theme="light"] .voice-chat-toggle {
   background: var(--light-surface, #ffffff);

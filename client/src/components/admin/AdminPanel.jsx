@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import {
-  BarChart3, Users, Tag, ShieldAlert, Radio, ScrollText,
-  MessageSquare, Megaphone, Database, Server, ArrowLeft,
-} from 'lucide-react';
+  ChartBar, UsersThree, Tag, ShieldWarning, Radio, Scroll,
+  ChatDots, Megaphone, Database, Desktop, ArrowLeft,
+} from '@phosphor-icons/react';
 import Glass from '../ui/Glass';
 import AdminOverview from './sections/AdminOverview';
 import AdminUsers from './sections/AdminUsers';
@@ -17,16 +17,16 @@ import AdminServerSettings from './sections/AdminServerSettings';
 import './AdminPanel.css';
 
 const SECTIONS = [
-  { id: 'overview', icon: <BarChart3 size={16} strokeWidth={1.5} />, label: 'Обзор' },
-  { id: 'users', icon: <Users size={16} strokeWidth={1.5} />, label: 'Пользователи' },
-  { id: 'tags', icon: <Tag size={16} strokeWidth={1.5} />, label: 'Теги' },
-  { id: 'moderation', icon: <ShieldAlert size={16} strokeWidth={1.5} />, label: 'Модерация' },
-  { id: 'channels', icon: <Radio size={16} strokeWidth={1.5} />, label: 'Каналы' },
-  { id: 'logs', icon: <ScrollText size={16} strokeWidth={1.5} />, label: 'Логи' },
-  { id: 'feedback', icon: <MessageSquare size={16} strokeWidth={1.5} />, label: 'Обратная связь' },
-  { id: 'broadcast', icon: <Megaphone size={16} strokeWidth={1.5} />, label: 'Рассылка' },
-  { id: 'database', icon: <Database size={16} strokeWidth={1.5} />, label: 'База данных' },
-  { id: 'server', icon: <Server size={16} strokeWidth={1.5} />, label: 'Сервер' },
+  { id: 'overview', icon: <ChartBar size={16} weight="regular" />, label: 'Обзор' },
+  { id: 'users', icon: <UsersThree size={16} weight="regular" />, label: 'Пользователи' },
+  { id: 'tags', icon: <Tag size={16} weight="regular" />, label: 'Теги' },
+  { id: 'moderation', icon: <ShieldWarning size={16} weight="regular" />, label: 'Модерация' },
+  { id: 'channels', icon: <Radio size={16} weight="regular" />, label: 'Каналы' },
+  { id: 'logs', icon: <Scroll size={16} weight="regular" />, label: 'Логи' },
+  { id: 'feedback', icon: <ChatDots size={16} weight="regular" />, label: 'Обратная связь' },
+  { id: 'broadcast', icon: <Megaphone size={16} weight="regular" />, label: 'Рассылка' },
+  { id: 'database', icon: <Database size={16} weight="regular" />, label: 'База данных' },
+  { id: 'server', icon: <Desktop size={16} weight="regular" />, label: 'Сервер' },
 ];
 
 export default function AdminPanel({ onBack }) {
@@ -52,7 +52,7 @@ export default function AdminPanel({ onBack }) {
     <div className="admin-screen section-enter">
       <div className="admin-screen__header">
         <button className="admin-screen__back" onClick={onBack}>
-          <ArrowLeft size={14} strokeWidth={2} />
+          <ArrowLeft size={14} weight="bold" />
           Назад
         </button>
         <div className="admin-screen__title">Панель управления</div>

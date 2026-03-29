@@ -1,4 +1,4 @@
-import { Phone, Video, Search, MoreHorizontal } from 'lucide-react';
+import { Phone, VideoCamera, MagnifyingGlass, DotsThree } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import { ShieldBadge } from '../ui/ShieldFingerprint';
 import { formatLastSeen } from '../../utils/time';
@@ -60,7 +60,7 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
           {/* Поиск по чату */}
           {onSearch && (
             <button className="chat-header__btn" onClick={onSearch} title="Поиск" aria-label="Поиск по чату">
-              <Search size={18} strokeWidth={1.5} />
+              <MagnifyingGlass size={18} />
             </button>
           )}
           {/* Голосовой звонок */}
@@ -72,7 +72,7 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
               title={isSocketConnected ? 'Голосовой звонок' : 'Нет соединения'}
               aria-label="Позвонить"
             >
-              <Phone size={18} strokeWidth={1.5} />
+              <Phone size={18} />
             </button>
           )}
           {/* Видеозвонок */}
@@ -84,11 +84,11 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
               title={isSocketConnected ? 'Видеозвонок' : 'Нет соединения'}
               aria-label="Видеозвонок"
             >
-              <Video size={18} strokeWidth={1.5} />
+              <VideoCamera size={18} />
             </button>
           )}
           <button className="chat-header__btn" onClick={isGroup ? onMembers : onAvatarClick} title={isGroup ? 'Участники' : 'Подробнее'} aria-label={isGroup ? 'Участники группы' : 'Информация о чате'}>
-            <MoreHorizontal size={18} strokeWidth={1.5} />
+            <DotsThree size={18} />
           </button>
         </div>
       </div>

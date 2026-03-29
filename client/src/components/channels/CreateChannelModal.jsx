@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X } from '@phosphor-icons/react';
 import { useChannelStore } from '../../store/channelStore';
 import './CreateChannelModal.css';
 
@@ -120,7 +120,7 @@ export default function CreateChannelModal({ onClose, onCreated }) {
                 whileTap={{ scale: 0.8 }}
                 transition={{ duration: 0.2 }}
               >
-                <X size={14} />
+                <X size={14} weight="regular" />
               </motion.button>
             </motion.div>
 

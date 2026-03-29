@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Orbit } from 'lucide-react';
+import { Planet } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import Glass from '../ui/Glass';
 import './OrbitPanel.css';
@@ -167,7 +167,7 @@ export default function OrbitPanel({ open, onClose, onOpenChat }) {
           </div>
         ) : (
           <div className="orbit-panel__empty">
-            <div className="orbit-panel__empty-icon"><Orbit size={32} strokeWidth={1.5} /></div>
+            <div className="orbit-panel__empty-icon"><Planet size={32} weight="regular" /></div>
             <div className="orbit-panel__empty-text">Орбита пуста</div>
             <div className="orbit-panel__empty-sub">Начните чат, чтобы добавить друзей</div>
           </div>

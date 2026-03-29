@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { CornerUpLeft, SmilePlus, Pencil, Trash2, Share2 } from 'lucide-react';
+import { ArrowBendUpLeft, SmileySticker, PencilSimple, Trash, ShareNetwork } from '@phosphor-icons/react';
 import './MessageActionsPill.css';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
@@ -74,21 +74,21 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
         )}
         <div className="msg-actions-pill__actions">
           <button className="msg-actions-pill__btn" onClick={handleAction(onReply)} title="Ответить">
-            <CornerUpLeft />
+            <ArrowBendUpLeft />
           </button>
           <button className="msg-actions-pill__btn" onClick={handleAction(onForward)} title="Переслать">
-            <Share2 />
+            <ShareNetwork />
           </button>
           <button className="msg-actions-pill__btn" onClick={handleEmojiToggle} title="Реакция">
-            <SmilePlus />
+            <SmileySticker />
           </button>
           {isOwn && (
             <>
               <button className="msg-actions-pill__btn" onClick={handleAction(onEdit)} title="Редактировать">
-                <Pencil />
+                <PencilSimple />
               </button>
               <button className="msg-actions-pill__btn msg-actions-pill__btn--danger" onClick={handleAction(onDelete)} title="Удалить">
-                <Trash2 />
+                <Trash />
               </button>
             </>
           )}

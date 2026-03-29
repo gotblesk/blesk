@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
@@ -98,11 +98,11 @@ export default function AdminModeration() {
       {totalPages > 1 && (
         <div className="admin-pagination">
           <button className="admin-pagination__btn" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            <ChevronLeft size={14} />
+            <CaretLeft size={14} />
           </button>
           <span className="admin-pagination__info">{page} / {totalPages}</span>
           <button className="admin-pagination__btn" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            <ChevronRight size={14} />
+            <CaretRight size={14} />
           </button>
         </div>
       )}

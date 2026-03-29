@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { BellOff, CheckCheck, Trash2, UserX, Pin } from 'lucide-react';
+import { BellSlash, Checks, Trash, UserMinus, PushPin } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import ContextMenu from '../ui/ContextMenu';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -87,12 +87,12 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
   }, [chat.id]);
 
   const ctxItems = [
-    { label: isPinned ? 'Открепить' : 'Закрепить', icon: <Pin size={14} strokeWidth={1.5} />, onClick: handleTogglePin },
-    { label: 'Отметить прочитанным', icon: <CheckCheck size={14} strokeWidth={1.5} />, onClick: handleMarkRead },
+    { label: isPinned ? 'Открепить' : 'Закрепить', icon: <PushPin size={14} />, onClick: handleTogglePin },
+    { label: 'Отметить прочитанным', icon: <Checks size={14} />, onClick: handleMarkRead },
     { divider: true },
-    { label: 'Без звука', icon: <BellOff size={14} strokeWidth={1.5} />, onClick: () => {} },
+    { label: 'Без звука', icon: <BellSlash size={14} />, onClick: () => {} },
     { divider: true },
-    { label: isGroup ? 'Покинуть группу' : 'Удалить чат', icon: <Trash2 size={14} strokeWidth={1.5} />, danger: true, onClick: () => setDangerConfirm(true) },
+    { label: isGroup ? 'Покинуть группу' : 'Удалить чат', icon: <Trash size={14} />, danger: true, onClick: () => setDangerConfirm(true) },
   ];
 
   return (

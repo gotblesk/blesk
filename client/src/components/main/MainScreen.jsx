@@ -33,7 +33,7 @@ import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useHotkeys } from '../../hooks/useHotkeys';
-import { WifiOff } from 'lucide-react';
+import { WifiSlash } from '@phosphor-icons/react';
 import './MainScreen.css';
 
 // Офлайн-баннер с временем последнего соединения и анимированными точками
@@ -55,7 +55,7 @@ const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt }) {
 
   return (
     <div className="offline-banner">
-      <WifiOff size={14} strokeWidth={2} />
+      <WifiSlash size={14} weight="regular" />
       <span>Нет соединения{elapsed ? ` \u00b7 последний раз ${elapsed}` : ''}</span>
       <div className="offline-banner__dots">
         <div className="offline-banner__dot" />
@@ -165,13 +165,25 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     useChatStore.getState().openChat(chatId);
   }, []);
 
-  // Вернуться в Nebula
+  // Вернуться в Nebula (+ выйти из голосовой если подключены)
   const handleBackToNebula = useCallback(() => {
     soundWindowClose();
+    // Если в голосовой комнате — выйти
+    if (useVoiceStore.getState().currentRoomId) {
+      soundVoiceLeave();
+      const call = useCallStore.getState().activeCall;
+      if (call) {
+        leaveCall(call.chatId);
+        useCallStore.getState().clearActiveCall();
+      } else {
+        leaveRoom();
+      }
+      setVoiceExpanded(false);
+    }
     setView('nebula');
     setActiveChatId(null);
     setSecondaryView(null);
-  }, []);
+  }, [leaveRoom, leaveCall]);
 
   // Переключить чат в sidebar
   const handleSelectChat = useCallback((chatId) => {
@@ -241,6 +253,32 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     setVibeOpen(false);
     setTimeout(() => handleOpenChat(chatId), 200);
   }, [handleOpenChat]);
+
+  // ═══════ ESCAPE — выйти из голосовой комнаты ═══════
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key !== 'Escape') return;
+      // Не перехватывать если открыта модалка или Spotlight
+      if (spotlightOpen || settingsOpen || profileOpen || feedbackOpen || aboutOpen) return;
+      const roomId = useVoiceStore.getState().currentRoomId;
+      if (!roomId) return;
+      soundVoiceLeave();
+      const call = useCallStore.getState().activeCall;
+      if (call) {
+        leaveCall(call.chatId);
+        useCallStore.getState().clearActiveCall();
+      } else {
+        leaveRoom();
+      }
+      setVoiceExpanded(false);
+      if (secondaryView === 'voice') {
+        setSecondaryView(null);
+        if (!activeChatId) setView('nebula');
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [leaveRoom, leaveCall, spotlightOpen, settingsOpen, profileOpen, feedbackOpen, aboutOpen, secondaryView, activeChatId]);
 
   // ═══════ HOTKEYS ═══════
   useHotkeys({
@@ -523,6 +561,11 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
               leaveRoom();
             }
             setVoiceExpanded(false);
+            // Вернуться из voice view — если был в голосовой секции, убрать её
+            if (secondaryView === 'voice') {
+              setSecondaryView(null);
+              if (!activeChatId) setView('nebula');
+            }
           }}
           onExpand={() => {
             if (!activeCall) {

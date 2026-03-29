@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { ChatCircle } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import ChatCard from './ChatCard';
 import CreateChatModal from './CreateChatModal';
@@ -73,7 +73,7 @@ export default function ChatHub({ onOpenChat, visible, openChatIds = [] }) {
         </div>
       ) : (
         <div className="chat-hub__empty">
-          <div className="chat-hub__empty-icon"><MessageCircle size={40} strokeWidth={1.2} /></div>
+          <div className="chat-hub__empty-icon"><ChatCircle size={40} /></div>
           <div className="chat-hub__empty-title">Нет чатов</div>
           <div className="chat-hub__empty-text">Добавьте друзей и начните общение</div>
           <button className="chat-hub__empty-cta" onClick={() => setShowCreateModal(true)}>

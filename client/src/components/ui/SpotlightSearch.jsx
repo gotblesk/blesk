@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, MessageCircle, Mic, Radio, Users, Settings, X, FileText, Loader2 } from 'lucide-react';
+import { MagnifyingGlass, ChatCircle, Microphone, Radio, UsersThree, GearSix, X, FileText, SpinnerGap } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
 import './SpotlightSearch.css';
 
 const COMMANDS = [
-  { id: 'tab:chats', label: 'Чаты', icon: <MessageCircle size={16} strokeWidth={1.5} />, action: 'tab', tab: 'chats' },
-  { id: 'tab:voice', label: 'Голос', icon: <Mic size={16} strokeWidth={1.5} />, action: 'tab', tab: 'voice' },
-  { id: 'tab:channels', label: 'Каналы', icon: <Radio size={16} strokeWidth={1.5} />, action: 'tab', tab: 'channels' },
-  { id: 'tab:friends', label: 'Друзья', icon: <Users size={16} strokeWidth={1.5} />, action: 'tab', tab: 'friends' },
-  { id: 'tab:settings', label: 'Настройки', icon: <Settings size={16} strokeWidth={1.5} />, action: 'tab', tab: 'settings' },
+  { id: 'tab:chats', label: 'Чаты', icon: <ChatCircle size={16} weight="regular" />, action: 'tab', tab: 'chats' },
+  { id: 'tab:voice', label: 'Голос', icon: <Microphone size={16} weight="regular" />, action: 'tab', tab: 'voice' },
+  { id: 'tab:channels', label: 'Каналы', icon: <Radio size={16} weight="regular" />, action: 'tab', tab: 'channels' },
+  { id: 'tab:friends', label: 'Друзья', icon: <UsersThree size={16} weight="regular" />, action: 'tab', tab: 'friends' },
+  { id: 'tab:settings', label: 'Настройки', icon: <GearSix size={16} weight="regular" />, action: 'tab', tab: 'settings' },
 ];
 
 /** Форматирует дату сообщения в короткий вид */
@@ -123,7 +123,7 @@ export default function SpotlightSearch({ open, onClose, onNavigate, onOpenChat 
           id: `chat:${c.id}`,
           label: c.otherUser?.username || c.name,
           hint: c.type === 'group' ? 'Группа' : 'Чат',
-          icon: <MessageCircle size={16} strokeWidth={1.5} />,
+          icon: <ChatCircle size={16} weight="regular" />,
           action: 'chat',
           chatId: c.id,
         });
@@ -147,7 +147,7 @@ export default function SpotlightSearch({ open, onClose, onNavigate, onOpenChat 
     preview: truncate(msg.text),
     time: formatMsgTime(msg.createdAt),
     chatName: msg.room?.name || msg.chatName || '',
-    icon: <FileText size={16} strokeWidth={1.5} />,
+    icon: <FileText size={16} weight="regular" />,
   }));
 
   // Все результаты для навигации клавиатурой
@@ -187,7 +187,7 @@ export default function SpotlightSearch({ open, onClose, onNavigate, onOpenChat 
     <div className="spotlight-backdrop" onClick={onClose}>
       <div className="spotlight" onClick={(e) => e.stopPropagation()}>
         <div className="spotlight__input-row">
-          <Search size={18} strokeWidth={1.5} className="spotlight__search-icon" />
+          <MagnifyingGlass size={18} weight="regular" className="spotlight__search-icon" />
           <input
             ref={inputRef}
             className="spotlight__input"
@@ -197,10 +197,10 @@ export default function SpotlightSearch({ open, onClose, onNavigate, onOpenChat 
             onKeyDown={handleKeyDown}
           />
           {msgLoading && (
-            <Loader2 size={16} strokeWidth={2} className="spotlight__loader" />
+            <SpinnerGap size={16} weight="bold" className="spotlight__loader" />
           )}
           <button className="spotlight__close" onClick={onClose}>
-            <X size={14} strokeWidth={2} />
+            <X size={14} weight="bold" />
           </button>
         </div>
 

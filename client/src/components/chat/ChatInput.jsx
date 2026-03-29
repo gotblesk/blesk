@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowUp, Paperclip, X, Smile, Mic } from 'lucide-react';
+import { ArrowUp, Paperclip, X, Smiley, Microphone } from '@phosphor-icons/react';
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import AttachmentPreview from './AttachmentPreview';
@@ -522,7 +522,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
                   onClick={() => setShowEmojiPicker(v => !v)}
                   title="Эмодзи"
                 >
-                  <Smile size={18} />
+                  <Smiley size={18} />
                 </button>
                 <button
                   className="chat-input__tool-btn"
@@ -545,7 +545,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
               aria-label="Голосовое сообщение (зажмите)"
               title="Зажмите для записи"
             >
-              <Mic size={18} />
+              <Microphone size={18} />
             </button>
           ) : (
             <button

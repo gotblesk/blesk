@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, X } from 'lucide-react';
+import { Warning, X } from '@phosphor-icons/react';
 import './ConfirmDialog.css';
 
 const backdropVariants = {
@@ -118,12 +118,12 @@ export default function ConfirmDialog({
           >
             {/* [IMP-7] Close button aria-label */}
             <button className="confirm-dialog__close" onClick={onCancel} aria-label="Закрыть">
-              <X size={16} strokeWidth={1.5} />
+              <X size={16} weight="regular" />
             </button>
 
             {danger && (
               <div className="confirm-dialog__icon">
-                <AlertTriangle size={28} strokeWidth={1.5} />
+                <Warning size={28} weight="regular" />
               </div>
             )}
 

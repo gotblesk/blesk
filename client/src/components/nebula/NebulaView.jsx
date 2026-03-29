@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { Orbit, Activity } from 'lucide-react';
+import { Planet, Pulse } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import Avatar from '../ui/Avatar';

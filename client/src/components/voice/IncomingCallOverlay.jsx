@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
-import { Video, Phone } from 'lucide-react';
+import { VideoCamera, Phone } from '@phosphor-icons/react';
 import API_URL from '../../config';
 import './IncomingCallOverlay.css';
 
@@ -55,10 +55,10 @@ export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
 
         <div className="incoming-call-overlay__name">
           {call.videoEnabled && (
-            <Video size={18} strokeWidth={1.5} className="incoming-call-overlay__video-icon" />
+            <VideoCamera size={18} weight="regular" className="incoming-call-overlay__video-icon" />
           )}
           {!call.videoEnabled && (
-            <Phone size={18} strokeWidth={1.5} className="incoming-call-overlay__video-icon" />
+            <Phone size={18} weight="regular" className="incoming-call-overlay__video-icon" />
           )}
           {displayName}
         </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Trash2, UserPlus, Mic, Sparkles, ArrowRight, Radio, Users, Crown } from 'lucide-react';
+import { Plus, X, Trash, UserPlus, Microphone, Sparkle, ArrowRight, Radio, UsersThree, Crown } from '@phosphor-icons/react';
 import { useVoiceStore } from '../../store/voiceStore';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
@@ -120,7 +120,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
           <span className="vrl__create-bg" />
           <span className="vrl__create-ray" />
           <span className="vrl__create-icon">
-            <Plus size={13} strokeWidth={3} />
+            <Plus size={13} weight="bold" />
           </span>
           <span className="vrl__create-text">Создать</span>
           <span className="vrl__create-ring" />
@@ -148,7 +148,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
       {!loading && rooms.length === 0 && (
         <motion.div className="vrl__empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setShowCreateModal(true)} style={{ cursor: 'pointer' }}>
           <div className="vrl__empty-icon">
-            <Radio size={28} strokeWidth={1.2} />
+            <Radio size={28} weight="regular" />
           </div>
           <span>Нет голосовых комнат</span>
           <span className="vrl__empty-hint">Создай первую!</span>
@@ -240,7 +240,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                   </div>
                 ) : (
                   <div className="vrl__card-mic">
-                    <Mic size={20} strokeWidth={1.2} />
+                    <Microphone size={20} weight="regular" />
                   </div>
                 )}
               </div>
@@ -252,7 +252,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                     <span className="vrl__card-name">{room.name}</span>
                     {isOwner && (
                       <span className="vrl__card-own" title="Моя комната">
-                        <Crown size={10} strokeWidth={2} />
+                        <Crown size={10} weight="bold" />
                       </span>
                     )}
                   </div>
@@ -281,7 +281,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                       whileTap={{ scale: 0.85 }}
                       title="Пригласить"
                     >
-                      <UserPlus size={13} strokeWidth={2} />
+                      <UserPlus size={13} weight="bold" />
                     </motion.button>
                     <motion.button
                       className={`vrl__card-act vrl__card-act--delete ${deleting === room.id ? 'vrl__card-act--danger' : ''}`}
@@ -292,11 +292,11 @@ export default function VoiceRoomList({ onJoinRoom }) {
                     >
                       {deleting === room.id ? (
                         <>
-                          <Trash2 size={13} strokeWidth={2.5} />
+                          <Trash size={13} weight="bold" />
                           <span className="vrl__card-act-confirm">Удалить?</span>
                         </>
                       ) : (
-                        <Trash2 size={13} strokeWidth={2} />
+                        <Trash size={13} weight="bold" />
                       )}
                     </motion.button>
                   </div>
@@ -307,7 +307,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                   <span className="vrl__card-here-label">●</span>
                 ) : (
                   <motion.span className="vrl__card-join" whileHover={{ x: 3 }}>
-                    <ArrowRight size={16} strokeWidth={2} />
+                    <ArrowRight size={16} weight="bold" />
                   </motion.span>
                 )}
               </div>
@@ -327,7 +327,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                       {room.invited?.length > 0 && (
                         <div className="vrl__invite-sec">
                           <span className="vrl__invite-label">
-                            <Users size={10} strokeWidth={2} />
+                            <UsersThree size={10} weight="bold" />
                             Приглашены
                           </span>
                           {room.invited.map((inv, ii) => (
@@ -342,7 +342,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                                 whileHover={{ scale: 1.15 }}
                                 whileTap={{ scale: 0.85 }}
                               >
-                                <X size={10} strokeWidth={2.5} />
+                                <X size={10} weight="bold" />
                               </motion.button>
                             </motion.div>
                           ))}
@@ -350,7 +350,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                       )}
                       <div className="vrl__invite-sec">
                         <span className="vrl__invite-label">
-                          <UserPlus size={10} strokeWidth={2} />
+                          <UserPlus size={10} weight="bold" />
                           Друзья
                         </span>
                         {friendsLoading && <span className="vrl__invite-load">Загрузка...</span>}
@@ -366,7 +366,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                               whileHover={{ scale: 1.15 }}
                               whileTap={{ scale: 0.85 }}
                             >
-                              <Plus size={11} strokeWidth={2.5} />
+                              <Plus size={11} weight="bold" />
                             </motion.button>
                           </motion.div>
                         ))}
@@ -435,11 +435,11 @@ function CreateRoomModal({ newName, setNewName, newLimit, setNewLimit, onClose, 
           <div className="vrl__modal-inner-glass">
             <motion.div className="vrl__modal-head" custom={0} variants={childV} initial="hidden" animate="visible">
               <div className="vrl__modal-title-row">
-                <Sparkles size={14} className="vrl__modal-sparkle" />
+                <Sparkle size={14} className="vrl__modal-sparkle" />
                 <span className="vrl__modal-title">Новая комната</span>
               </div>
               <motion.button className="vrl__modal-close" onClick={onClose} whileHover={{ rotate: 90 }} whileTap={{ scale: 0.8 }} transition={{ duration: 0.2 }}>
-                <X size={14} />
+                <X size={14} weight="regular" />
               </motion.button>
             </motion.div>
             <div className="vrl__modal-body">

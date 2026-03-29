@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Trash2 } from 'lucide-react';
+import { Trash } from '@phosphor-icons/react';
 import MediaMessage from '../chat/MediaMessage';
 import API_URL from '../../config';
 import './ChannelPost.css';
@@ -73,7 +73,7 @@ const ChannelPost = React.memo(function ChannelPost({ post, index = 0, isOwner, 
               title={confirmDelete ? 'Нажмите ещё раз для удаления' : 'Удалить пост'}
               aria-label="Удалить пост"
             >
-              <Trash2 size={13} strokeWidth={1.5} />
+              <Trash size={13} weight="regular" />
               {confirmDelete && <span className="cp__delete-label">Удалить?</span>}
             </button>
           )}

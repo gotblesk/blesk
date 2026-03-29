@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageCircle, UserPlus, Check, Calendar, Clock } from 'lucide-react';
+import { X, ChatCircle, UserPlus, Check, Calendar, Clock } from '@phosphor-icons/react';
 import Avatar from './Avatar';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
@@ -128,7 +128,7 @@ export default function UserProfileModal({ userId, open, onClose, onAddFriend, o
 
             {/* Close */}
             <motion.button className="uprof__close" onClick={onClose} whileHover={{ rotate: 90 }} whileTap={{ scale: 0.85 }} transition={{ duration: 0.2 }}>
-              <X size={16} strokeWidth={2} />
+              <X size={16} weight="bold" />
             </motion.button>
 
             {loading && (
@@ -192,7 +192,7 @@ export default function UserProfileModal({ userId, open, onClose, onAddFriend, o
                 <motion.div className="uprof__actions" variants={childV}>
                   {user.isFriend ? (
                     <motion.button className="uprof__btn uprof__btn--primary" onClick={handleMessage} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                      <MessageCircle size={15} /> Написать
+                      <ChatCircle size={15} /> Написать
                     </motion.button>
                   ) : friendReqSent ? (
                     <div className="uprof__btn uprof__btn--sent">

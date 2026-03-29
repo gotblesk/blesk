@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { AlertCircle } from 'lucide-react';
+import { WarningCircle } from '@phosphor-icons/react';
 import useReducedMotion from '../../hooks/useReducedMotion';
 import './GravityCard.css';
 
@@ -89,7 +89,7 @@ export default function GravityCard({
       {/* Error message */}
       {error && (
         <div className="g-error-msg">
-          <AlertCircle size={12} />
+          <WarningCircle size={12} weight="regular" />
           {error}
         </div>
       )}

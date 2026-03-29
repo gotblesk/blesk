@@ -1,4 +1,4 @@
-import { Globe } from 'lucide-react';
+import { Globe } from '@phosphor-icons/react';
 import './LinkPreviewCard.css';
 
 export default function LinkPreviewCard({ preview }) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { User, Lock, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Envelope, Key, Eye, EyeSlash } from '@phosphor-icons/react';
 import gsap from 'gsap';
 import GravityCard from './GravityCard';
 import PasswordCard from './PasswordCard';
@@ -564,7 +564,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={-1.5}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><User size={16} stroke="currentColor" /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><User size={16} /></span>}
                   title="Кто ты?"
                   subtitle="Имя в мире blesk"
                   error={error && error.includes('Имя') ? error : null}
@@ -588,7 +588,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={1}
                   index={1}
-                  icon={<span style={{ color: 'var(--accent)' }}><Lock size={16} stroke="currentColor" /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><Lock size={16} /></span>}
                   title="Пароль"
                   subtitle="Введите пароль"
                   error={error && !error.includes('Имя') ? error : null}
@@ -609,7 +609,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                       onClick={() => setShowLoginPw(!showLoginPw)}
                       aria-label={showLoginPw ? 'Скрыть' : 'Показать'}
                     >
-                      {showLoginPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showLoginPw ? <EyeSlash size={16} weight="regular" /> : <Eye size={16} weight="regular" />}
                     </button>
                   </div>
                 </GravityCard>
@@ -657,7 +657,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={-1.5}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><User size={16} stroke="currentColor" /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><User size={16} /></span>}
                   title="Придумай имя"
                   subtitle="Твой ник в blesk"
                   error={error && error.includes('Имя') ? error : null}
@@ -681,7 +681,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={1}
                   index={1}
-                  icon={<span style={{ color: 'var(--accent)' }}><Mail size={16} stroke="currentColor" /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><Envelope size={16} /></span>}
                   title="Куда писать?"
                   subtitle="Для подтверждения"
                   error={error && error.includes('email') ? error : null}
@@ -743,7 +743,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--online)' }}><Mail size={16} stroke="currentColor" /></span>}
+                  icon={<span style={{ color: 'var(--online)' }}><Envelope size={16} /></span>}
                   title="Проверь почту"
                   subtitle={`Код отправлен на ${maskedEmail}`}
                   error={verifyError}
@@ -787,7 +787,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><KeyRound size={16} stroke="currentColor" /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><Key size={16} /></span>}
                   title="Двухфакторная аутентификация"
                   subtitle="Введите код из приложения-аутентификатора"
                   error={tfaError}
@@ -823,7 +823,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--info)' }}><Mail size={16} stroke="currentColor" /></span>}
+                  icon={<span style={{ color: 'var(--info)' }}><Envelope size={16} /></span>}
                   title="Вспомним?"
                   subtitle="Email для восстановления"
                   error={forgotError}
@@ -875,7 +875,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><KeyRound size={16} stroke="currentColor" /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><Key size={16} /></span>}
                   title="Проверь почту"
                   subtitle={`Код отправлен на ${forgotEmail}`}
                   error={forgotError}
@@ -910,7 +910,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                   <GravityCard
                     tilt={0}
                     index={0}
-                    icon={<span style={{ color: 'var(--online)' }}><KeyRound size={16} stroke="currentColor" /></span>}
+                    icon={<span style={{ color: 'var(--online)' }}><Key size={16} /></span>}
                     title="Готово!"
                     subtitle="Пароль успешно изменён. Перенаправляем..."
                   >

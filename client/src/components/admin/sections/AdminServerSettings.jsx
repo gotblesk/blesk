@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Server, Cpu, Database, Clock, Wifi } from 'lucide-react';
+import { Desktop, Cpu, Database, Clock, WifiHigh } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
@@ -24,27 +24,27 @@ export default function AdminServerSettings() {
 
   const items = [
     {
-      icon: <Server size={18} />,
+      icon: <Desktop size={18} weight="regular" />,
       label: 'Версия blesk',
       value: serverConfig?.version || '---',
     },
     {
-      icon: <Cpu size={18} />,
+      icon: <Cpu size={18} weight="regular" />,
       label: 'Node.js',
       value: serverConfig?.nodeVersion || '---',
     },
     {
-      icon: <Clock size={18} />,
+      icon: <Clock size={18} weight="regular" />,
       label: 'Uptime',
       value: formatUptime(serverConfig?.uptime),
     },
     {
-      icon: <Wifi size={18} />,
+      icon: <WifiHigh size={18} weight="regular" />,
       label: 'WebSocket-подключения',
       value: serverConfig?.connectedSockets ?? '---',
     },
     {
-      icon: <Database size={18} />,
+      icon: <Database size={18} weight="regular" />,
       label: 'Статус БД',
       value: serverConfig?.dbStatus || '---',
     },

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Settings, Send, Paperclip, Users, Bell, BellOff, PenLine, Hash, Camera, ImagePlus } from 'lucide-react';
+import { ArrowLeft, GearSix, PaperPlaneTilt, Paperclip, UsersThree, Bell, BellSlash, PenNib, Hash, Camera, ImageSquare } from '@phosphor-icons/react';
 import ChannelPost from './ChannelPost';
 import { useChannelStore } from '../../store/channelStore';
 import { getCurrentUserId } from '../../utils/auth';
@@ -172,14 +172,14 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
           <>
             <input type="file" ref={coverFileRef} hidden accept="image/jpeg,image/png,image/webp" onChange={handleCoverUpload} />
             <motion.button className="cv__cover-edit" onClick={() => coverFileRef.current?.click()} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.9 }} title="Сменить обложку">
-              <ImagePlus size={14} strokeWidth={1.5} />
+              <ImageSquare size={14} weight="regular" />
             </motion.button>
           </>
         )}
 
         {/* Back button */}
         <motion.button className="cv__back" onClick={onBack} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-          <ArrowLeft size={18} strokeWidth={2} />
+          <ArrowLeft size={18} weight="bold" />
         </motion.button>
 
         {/* Settings (owner) — TODO: connect to settings panel when implemented */}
@@ -196,18 +196,18 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
             ) : (
               (channel?.name || '?')[0].toUpperCase()
             )}
-            {isOwner && <div className="cv__hero-ava-overlay"><Camera size={14} strokeWidth={1.5} /></div>}
+            {isOwner && <div className="cv__hero-ava-overlay"><Camera size={14} weight="regular" /></div>}
           </div>
           {isOwner && <input type="file" ref={avatarFileRef} hidden accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} />}
           <div className="cv__hero-text">
             <h1 className="cv__hero-name">{channel?.name || 'Канал'}</h1>
             <div className="cv__hero-stats">
               <span className="cv__hero-stat">
-                <Users size={12} strokeWidth={2} />
+                <UsersThree size={12} weight="bold" />
                 {subCount} подписчиков
               </span>
               <span className="cv__hero-stat">
-                <Hash size={12} strokeWidth={2} />
+                <Hash size={12} weight="bold" />
                 {postCount} постов
               </span>
             </div>
@@ -221,7 +221,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.92 }}
             >
-              {isSubscribed ? <BellOff size={14} strokeWidth={2} /> : <Bell size={14} strokeWidth={2} />}
+              {isSubscribed ? <BellSlash size={14} weight="bold" /> : <Bell size={14} weight="bold" />}
               <span>{isSubscribed ? 'Отписаться' : 'Подписаться'}</span>
             </motion.button>
           )}
@@ -233,7 +233,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         {channelPosts.length === 0 ? (
           <motion.div className="cv__empty" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <div className="cv__empty-icon">
-              <PenLine size={24} strokeWidth={1.2} />
+              <PenNib size={24} weight="regular" />
             </div>
             <span className="cv__empty-title">Пока пусто</span>
             <span className="cv__empty-hint">{isOwner ? 'Напишите первый пост!' : 'Посты скоро появятся'}</span>
@@ -277,7 +277,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
         >
-          <PenLine size={18} strokeWidth={2} />
+          <PenNib size={18} weight="bold" />
         </motion.button>
       )}
 
@@ -320,7 +320,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
 
               <div className="cv__composer-bar">
                 <motion.button className="cv__composer-attach" onClick={() => fileRef.current?.click()} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <Paperclip size={16} strokeWidth={1.5} />
+                  <Paperclip size={16} weight="regular" />
                 </motion.button>
                 <input type="file" ref={fileRef} hidden onChange={handleFileUpload} />
 
@@ -334,7 +334,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
                   whileTap={text.trim() ? { scale: 0.92 } : {}}
                 >
                   {sending ? '...' : 'Опубликовать'}
-                  <Send size={14} strokeWidth={2} />
+                  <PaperPlaneTilt size={14} weight="bold" />
                 </motion.button>
               </div>
             </div>

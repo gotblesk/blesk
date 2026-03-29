@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
 import { useVoiceStore } from '../../store/voiceStore';
-import { Search, Users, Mic, Radio, Settings, Sparkles, X } from 'lucide-react';
+import { MagnifyingGlass, UsersThree, Microphone, Radio, GearSix, Sparkle, X } from '@phosphor-icons/react';
 import Avatar from './Avatar';
 import NotificationBell from './NotificationBell';
 import './DynamicIsland.css';
@@ -190,12 +190,12 @@ export default function DynamicIsland({
             {/* Nav buttons */}
             <div className="island__nav">
               <button className={`island__btn ${activeNav === 'friends' ? 'island__btn--active' : ''}`} onClick={(e) => handleNav(e, 'friends')}>
-                <div className="island__btn-icon"><Users size={14} /></div>
+                <div className="island__btn-icon"><UsersThree size={14} /></div>
                 <span className="island__btn-label">Друзья</span>
               </button>
 
               <button className={`island__btn ${activeNav === 'voice' ? 'island__btn--active' : ''}`} onClick={(e) => handleNav(e, 'voice')}>
-                <div className="island__btn-icon island__btn-icon--voice"><Mic size={14} /></div>
+                <div className="island__btn-icon island__btn-icon--voice"><Microphone size={14} /></div>
                 <span className="island__btn-label">Голос</span>
                 {/* [IMP-10] Голосовая комната — aria-label вместо только цветной точки */}
                 {voiceRoomId && <span className="island__btn-badge" aria-label="В голосовой комнате">●</span>}
@@ -208,14 +208,14 @@ export default function DynamicIsland({
 
               {isAdmin && (
                 <button className={`island__btn ${activeNav === 'admin' ? 'island__btn--active' : ''}`} onClick={(e) => handleNav(e, 'admin')} title="Админ-панель">
-                  <div className="island__btn-icon"><Sparkles size={14} /></div>
+                  <div className="island__btn-icon"><Sparkle size={14} /></div>
                   <span className="island__btn-label">Админ</span>
                 </button>
               )}
 
               {/* [CRIT-6] aria-label для settings */}
               <button className="island__btn" onClick={(e) => handleNav(e, 'settings')} aria-label="Настройки">
-                <div className="island__btn-icon island__btn-icon--settings"><Settings size={14} /></div>
+                <div className="island__btn-icon island__btn-icon--settings"><GearSix size={14} /></div>
               </button>
             </div>
 
@@ -238,7 +238,7 @@ export default function DynamicIsland({
           onClick={!searchOpen ? toggleSearch : undefined}
         >
           <div className="island-search__icon">
-            <Search size={13} />
+            <MagnifyingGlass size={13} />
           </div>
           <div className="island-search__expanded">
             <input

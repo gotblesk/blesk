@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Inbox, Search, Check, X, UserPlus } from 'lucide-react';
+import { UsersThree, Tray, MagnifyingGlass, Check, X, UserPlus } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import UserProfileModal from '../ui/UserProfileModal';
 import API_URL from '../../config';
@@ -132,7 +132,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
         {error && (
           <motion.div className="fr__error" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
             {error}
-            <button className="fr__error-close" onClick={() => setError('')}><X size={14} /></button>
+            <button className="fr__error-close" onClick={() => setError('')}><X size={14} weight="regular" /></button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -152,7 +152,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
               </div>
 
               {filteredFriends.length === 0 ? (
-                <EmptyState icon={<Users size={28} />} text={filter === 'online' ? 'Нет друзей онлайн' : 'Пока нет друзей'} hint="Найди людей во вкладке Поиск" />
+                <EmptyState icon={<UsersThree size={28} weight="regular" />} text={filter === 'online' ? 'Нет друзей онлайн' : 'Пока нет друзей'} hint="Найди людей во вкладке Поиск" />
               ) : (
                 <div className="fr__list">
                   {filteredFriends.map((friend, i) => (
@@ -174,7 +174,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
           {tab === 'requests' && (
             <motion.div key="requests" variants={tabV} initial="initial" animate="animate" exit="exit">
               {pending.length === 0 ? (
-                <EmptyState icon={<Inbox size={28} />} text="Нет входящих заявок" hint="Когда кто-то добавит вас — заявка появится здесь" />
+                <EmptyState icon={<Tray size={28} weight="regular" />} text="Нет входящих заявок" hint="Когда кто-то добавит вас — заявка появится здесь" />
               ) : (
                 <div className="fr__list">
                   {pending.map((req, i) => (
@@ -188,10 +188,10 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                       </div>
                       <div className="fr__item-actions">
                         <motion.button className="fr__act fr__act--accept" onClick={() => acceptRequest(req.id)} whileTap={{ scale: 0.9 }} title="Принять">
-                          <Check size={16} />
+                          <Check size={16} weight="regular" />
                         </motion.button>
                         <motion.button className="fr__act fr__act--decline" onClick={() => declineRequest(req.id)} whileTap={{ scale: 0.9 }} title="Отклонить">
-                          <X size={16} />
+                          <X size={16} weight="regular" />
                         </motion.button>
                       </div>
                     </motion.div>
@@ -204,13 +204,13 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
           {tab === 'search' && (
             <motion.div key="search" variants={tabV} initial="initial" animate="animate" exit="exit">
               <div className="fr__search-wrap">
-                <Search size={15} className="fr__search-icon" />
+                <MagnifyingGlass size={15} className="fr__search-icon" weight="regular" />
                 <input className="fr__search" placeholder="Введите имя..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus spellCheck={false} />
                 {loading && <div className="fr__spinner" />}
               </div>
 
               {debouncedQuery.length >= 2 && !loading && searchResults.length === 0 && (
-                <EmptyState icon={<Search size={28} />} text="Никого не найдено" hint="Попробуйте другой запрос" />
+                <EmptyState icon={<MagnifyingGlass size={28} weight="regular" />} text="Никого не найдено" hint="Попробуйте другой запрос" />
               )}
 
               <div className="fr__list">
@@ -229,7 +229,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                         <span className="fr__label fr__label--sent">Отправлено</span>
                       ) : (
                         <motion.button className="fr__act fr__act--add" onClick={() => sendRequest(user.id)} whileTap={{ scale: 0.9 }}>
-                          <UserPlus size={14} /> Добавить
+                          <UserPlus size={14} weight="regular" /> Добавить
                         </motion.button>
                       )}
                     </div>

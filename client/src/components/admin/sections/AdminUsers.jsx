@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MagnifyingGlass, X, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import Avatar from '../../ui/Avatar';
 import { useAdminStore } from '../../../store/adminStore';
@@ -208,7 +208,7 @@ export default function AdminUsers() {
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
-            <ChevronLeft size={14} />
+            <CaretLeft size={14} />
           </button>
           <span className="admin-pagination__info">{page} / {totalPages}</span>
           <button
@@ -216,7 +216,7 @@ export default function AdminUsers() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            <ChevronRight size={14} />
+            <CaretRight size={14} />
           </button>
         </div>
       )}

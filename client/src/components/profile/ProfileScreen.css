@@ -198,8 +198,9 @@
 .pf-back__scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.04); border-radius: 2px; }
 
 /* ═══════ CELLS ═══════ */
-.pf-cell { border-radius: 14px; background: rgba(255,255,255,0.015); overflow: hidden; transition: background 0.12s; }
-.pf-cell:hover { background: rgba(255,255,255,0.03); }
+.pf-cell { border-radius: 14px; background: rgba(255,255,255,0.015); overflow: hidden; transition: background 0.15s, border-color 0.15s; cursor: pointer; border: 1px solid transparent; }
+.pf-cell:hover { background: rgba(255,255,255,0.045); border-color: rgba(255,255,255,0.04); }
+.pf-cell:active { background: rgba(255,255,255,0.06); }
 
 .pf-cell__main { display: flex; align-items: center; gap: 10px; padding: 12px; cursor: pointer; }
 .pf-cell__ico { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -234,9 +235,11 @@
 .pf-cell__eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: none; background: none; color: rgba(255,255,255,0.2); cursor: pointer; padding: 3px; display: flex; }
 
 /* ═══════ BIO ═══════ */
-.pf-back__bio { padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,0.01); border: 1px dashed rgba(255,255,255,0.03); margin-top: 4px; }
-.pf-back__bio-ta { width: 100%; border: none; background: none; color: rgba(255,255,255,0.35); font-size: 12.5px; font-family: inherit; font-style: italic; line-height: 1.5; resize: none; outline: none; }
-.pf-back__bio-ta:focus { color: rgba(255,255,255,0.6); }
+.pf-back__bio { padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,0.01); border: 1px dashed rgba(255,255,255,0.03); margin-top: 4px; transition: border-color 0.15s, background 0.15s; }
+.pf-back__bio:focus-within { border-color: rgba(200,255,0,0.15); background: rgba(255,255,255,0.025); }
+.pf-back__bio-ta { width: 100%; border: none; background: none; color: rgba(255,255,255,0.6); font-size: 12.5px; font-family: inherit; font-style: normal; line-height: 1.5; resize: none; outline: none; cursor: text; transition: color 0.15s; }
+.pf-back__bio-ta::placeholder { color: rgba(255,255,255,0.2); font-style: italic; }
+.pf-back__bio-ta:focus { color: rgba(255,255,255,0.8); }
 .pf-back__bio-bar { display: flex; justify-content: space-between; margin-top: 8px; }
 .pf-back__bio-n { font-family: 'Space Mono', monospace; font-size: var(--text-xs, 11px); color: rgba(255,255,255,0.15); }
 
@@ -288,8 +291,9 @@
 [data-theme="light"] .pf-back { background: var(--light-surface, #ffffff); border-color: var(--light-border, #e5e7eb); }
 [data-theme="light"] .pf-back__inner { background: var(--light-surface-hover, #f0f2f5); border-color: var(--light-border, #e5e7eb); }
 [data-theme="light"] .pf-back__sub { color: var(--light-text-tertiary, #9ca3af); }
-[data-theme="light"] .pf-cell { background: var(--light-surface-hover, #f0f2f5); }
-[data-theme="light"] .pf-cell:hover { background: var(--bg-input); }
+[data-theme="light"] .pf-cell { background: var(--light-surface-hover, #f0f2f5); border-color: transparent; }
+[data-theme="light"] .pf-cell:hover { background: var(--bg-input); border-color: var(--light-border, #e5e7eb); }
+[data-theme="light"] .pf-cell:active { background: #e5e7eb; }
 [data-theme="light"] .pf-cell__key { color: var(--light-text-tertiary, #9ca3af); }
 [data-theme="light"] .pf-cell__val { color: var(--light-text-secondary, #4b5563); }
 [data-theme="light"] .pf-cell__chev { color: var(--light-text-tertiary, #9ca3af); }
@@ -297,6 +301,9 @@
 [data-theme="light"] .pf-cell__input::placeholder { color: var(--light-text-tertiary, #9ca3af); }
 [data-theme="light"] .pf-cell__drawer-inner { border-top-color: var(--light-border, #e5e7eb); }
 [data-theme="light"] .pf-back__bio { background: var(--light-surface-hover, #f0f2f5); border-color: var(--light-border, #e5e7eb); }
-[data-theme="light"] .pf-back__bio-ta { color: var(--light-text-tertiary, #9ca3af); }
+[data-theme="light"] .pf-back__bio-ta { color: var(--light-text-secondary, #4b5563); }
+[data-theme="light"] .pf-back__bio-ta::placeholder { color: var(--light-text-tertiary, #9ca3af); }
+[data-theme="light"] .pf-back__bio-ta:focus { color: var(--light-text-primary, #111827); }
+[data-theme="light"] .pf-back__bio:focus-within { border-color: rgba(124,58,237,0.2); background: rgba(124,58,237,0.03); }
 [data-theme="light"] .pf-slider { background: var(--bg-input); border-color: var(--light-border, #e5e7eb); }
 [data-theme="light"] .pf-slider__text { color: var(--light-text-tertiary, #9ca3af); }

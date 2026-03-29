@@ -1,12 +1,12 @@
 import { useRef, useEffect, useState } from 'react';
-import { MessageCircle, Mic, Megaphone, Users } from 'lucide-react';
+import { ChatCircle, Microphone, Megaphone, UsersThree } from '@phosphor-icons/react';
 import './NavShelf.css';
 
 const TABS = [
-  { id: 'chats', icon: <MessageCircle size={16} strokeWidth={1.5} />, label: 'Чаты' },
-  { id: 'voice', icon: <Mic size={16} strokeWidth={1.5} />, label: 'Голос' },
-  { id: 'channels', icon: <Megaphone size={16} strokeWidth={1.5} />, label: 'Каналы' },
-  { id: 'friends', icon: <Users size={16} strokeWidth={1.5} />, label: 'Друзья' },
+  { id: 'chats', icon: <ChatCircle size={16} weight="regular" />, label: 'Чаты' },
+  { id: 'voice', icon: <Microphone size={16} weight="regular" />, label: 'Голос' },
+  { id: 'channels', icon: <Megaphone size={16} weight="regular" />, label: 'Каналы' },
+  { id: 'friends', icon: <UsersThree size={16} weight="regular" />, label: 'Друзья' },
 ];
 
 export default function NavShelf({ activeTab, onTabChange, unread = {} }) {

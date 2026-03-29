@@ -246,9 +246,9 @@ router.post('/:chatId/upload', authenticate, upload.single('file'), async (req, 
       },
     });
 
-    // Отправка через сокет
+    // Отправка через сокет (добавляем chatId — Prisma возвращает roomId, а клиент ожидает chatId)
     const io = req.app.locals.io;
-    if (io) io.to(chatId).emit('message:new', message);
+    if (io) io.to(chatId).emit('message:new', { ...message, chatId });
 
     res.json({ message });
   } catch (err) {

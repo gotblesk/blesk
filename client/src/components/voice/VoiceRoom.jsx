@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Maximize, MicOff, HeadphoneOff, UserPlus, Users, Search, Check, X } from 'lucide-react';
+import { ArrowsOutSimple, MicrophoneSlash, SpeakerSlash, UserPlus, UsersThree, MagnifyingGlass, Check, X, ChatCircle } from '@phosphor-icons/react';
 import { useVoiceStore } from '../../store/voiceStore';
 import UserProfileModal from '../ui/UserProfileModal';
 import Avatar from '../ui/Avatar';
@@ -70,12 +70,12 @@ function InviteModal({ roomId, onClose }) {
         <div className="vr__invite-head">
           <span className="vr__invite-title">Пригласить в комнату</span>
           <button className="vr__invite-close" onClick={onClose}>
-            <X size={16} strokeWidth={2} />
+            <X size={16} weight="bold" />
           </button>
         </div>
 
         <div className="vr__invite-search">
-          <Search size={14} strokeWidth={2} />
+          <MagnifyingGlass size={14} weight="bold" />
           <input
             type="text"
             placeholder="Найти друга..."
@@ -112,7 +112,7 @@ function InviteModal({ roomId, onClose }) {
                   <span className="vr__invite-badge">В комнате</span>
                 ) : alreadyInvited ? (
                   <span className="vr__invite-badge vr__invite-badge--sent">
-                    <Check size={12} strokeWidth={2.5} /> Отправлено
+                    <Check size={12} weight="bold" /> Отправлено
                   </span>
                 ) : (
                   <button
@@ -145,6 +145,7 @@ export default function VoiceRoom({ socketRef }) {
   const [volumePopup, setVolumePopup] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
   const [showInvite, setShowInvite] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
   const popupRef = useRef(null);
   const participantRefs = useRef({});
   const currentUserId = useRef(getCurrentUserId());
@@ -222,127 +223,152 @@ export default function VoiceRoom({ socketRef }) {
         <div className="vr__head-left">
           <span className="vr__head-name">{currentRoomName || 'Голосовая комната'}</span>
           <span className="vr__head-count">
-            <Users size={12} strokeWidth={2} />
+            <UsersThree size={12} weight="bold" />
             {count}
           </span>
         </div>
         <div className="vr__head-right">
           <QualityBars quality={connectionQuality} />
           <button
+            className={`vr__chat-toggle ${chatOpen ? 'vr__chat-toggle--active' : ''}`}
+            onClick={() => setChatOpen((v) => !v)}
+            title={chatOpen ? 'Скрыть чат' : 'Показать чат'}
+          >
+            <ChatCircle size={16} weight="bold" />
+          </button>
+          <button
             className="vr__invite-trigger"
             onClick={() => setShowInvite(true)}
             title="Пригласить друга"
           >
-            <UserPlus size={16} strokeWidth={2} />
+            <UserPlus size={16} weight="bold" />
             <span>Пригласить</span>
           </button>
         </div>
       </div>
 
-      {/* Screen share -- full width 16:9 */}
-      {screenEntries.map(({ userId, stream }) => (
-        <ScreenShareTile
-          key={`screen-${userId}`}
-          stream={stream}
-          name={getUserName(userId)}
-        />
-      ))}
+      {/* Body: participants + chat side by side */}
+      <div className="vr__body">
+        {/* Левая часть: участники */}
+        <div className="vr__participants">
+          {/* Screen share -- full width 16:9 */}
+          {screenEntries.map(({ userId, stream }) => (
+            <ScreenShareTile
+              key={`screen-${userId}`}
+              stream={stream}
+              name={getUserName(userId)}
+            />
+          ))}
 
-      {/* Video Grid (камеры) -- если есть видео */}
-      {hasVideo && <VideoGrid participants={peersArray} />}
+          {/* Video Grid (камеры) -- если есть видео */}
+          {hasVideo && <VideoGrid participants={peersArray} />}
 
-      {/* Participants Grid */}
-      <div className={`vr__grid ${gridClass}`}>
-        {participantList.map(([userId, peer], i) => {
-          const level = audioLevels[userId] || 0;
-          const isSpeaking = peer.speaking && !peer.muted;
-          const isSelf = userId === currentUserId.current;
-          const volume = userVolumes[userId] ?? 100;
-          const hasCam = videoStreams[userId]?.camera;
+          {/* Participants Grid */}
+          <div className={`vr__grid ${gridClass}`}>
+            {participantList.map(([userId, peer], i) => {
+              const level = audioLevels[userId] || 0;
+              const isSpeaking = peer.speaking && !peer.muted;
+              const isSelf = userId === currentUserId.current;
+              const volume = userVolumes[userId] ?? 100;
+              const hasCam = videoStreams[userId]?.camera;
 
-          return (
-            <div
-              key={userId}
-              className={`vr__user vr__user-enter ${isSpeaking ? 'vr__user--speaking' : ''} ${isSelf ? 'vr__user--self' : ''}`}
-              style={{ animationDelay: `${i * 0.04}s` }}
-              ref={(el) => { participantRefs.current[userId] = el; }}
-              onClick={() => handleClick(userId)}
-              onDoubleClick={() => { if (!isSelf) setProfileUserId(userId); }}
-            >
-              {/* Volume popup */}
-              {volumePopup === userId && (
-                <div className="vr__vol-popup" ref={popupRef}>
-                  <div className="vr__vol-name">{peer.username}</div>
-                  <div className="vr__vol-row">
-                    <input
-                      type="range"
-                      className="vr__vol-slider"
-                      min={0}
-                      max={200}
-                      value={volume}
-                      onChange={(e) => setUserVolume(userId, Number(e.target.value))}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <span className="vr__vol-value">{volume}%</span>
+              return (
+                <div
+                  key={userId}
+                  className={`vr__user vr__user-enter ${isSpeaking ? 'vr__user--speaking' : ''} ${isSelf ? 'vr__user--self' : ''}`}
+                  style={{ animationDelay: `${i * 0.04}s` }}
+                  ref={(el) => { participantRefs.current[userId] = el; }}
+                  onClick={() => handleClick(userId)}
+                  onDoubleClick={() => { if (!isSelf) setProfileUserId(userId); }}
+                >
+                  {/* Volume popup */}
+                  {volumePopup === userId && (
+                    <div className="vr__vol-popup" ref={popupRef}>
+                      <div className="vr__vol-name">{peer.username}</div>
+                      <div className="vr__vol-row">
+                        <input
+                          type="range"
+                          className="vr__vol-slider"
+                          min={0}
+                          max={200}
+                          value={volume}
+                          onChange={(e) => setUserVolume(userId, Number(e.target.value))}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <span className="vr__vol-value">{volume}%</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Avatar */}
+                  <div
+                    className="vr__user-ava"
+                    style={{
+                      background: getAvatarColor(getAvatarHue(peer)),
+                      boxShadow: isSpeaking
+                        ? `0 0 ${20 + level * 0.4}px color-mix(in srgb, var(--online) 35%, transparent)`
+                        : 'none',
+                    }}
+                  >
+                    <div className="vr__user-level" />
+                    {(peer.username || 'U')[0].toUpperCase()}
+
+                    {/* Status icons */}
+                    <div className="vr__user-icons">
+                      {hasCam && (
+                        <div className="vr__user-ico vr__user-ico--cam">
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                        </div>
+                      )}
+                      {peer.muted && (
+                        <div className="vr__user-ico vr__user-ico--muted">
+                          <MicrophoneSlash size={8} weight="bold" />
+                        </div>
+                      )}
+                      {peer.deafened && (
+                        <div className="vr__user-ico vr__user-ico--deaf">
+                          <SpeakerSlash size={8} weight="bold" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Name */}
+                  <div className="vr__user-name">
+                    {isSelf ? 'Вы' : peer.username}
                   </div>
                 </div>
-              )}
+              );
+            })}
 
-              {/* Avatar */}
-              <div
-                className="vr__user-ava"
-                style={{
-                  background: getAvatarColor(getAvatarHue(peer)),
-                  boxShadow: isSpeaking
-                    ? `0 0 ${20 + level * 0.4}px color-mix(in srgb, var(--online) 35%, transparent)`
-                    : 'none',
-                }}
-              >
-                <div className="vr__user-level" />
-                {(peer.username || 'U')[0].toUpperCase()}
-
-                {/* Status icons */}
-                <div className="vr__user-icons">
-                  {hasCam && (
-                    <div className="vr__user-ico vr__user-ico--cam">
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-                    </div>
-                  )}
-                  {peer.muted && (
-                    <div className="vr__user-ico vr__user-ico--muted">
-                      <MicOff size={8} strokeWidth={3} />
-                    </div>
-                  )}
-                  {peer.deafened && (
-                    <div className="vr__user-ico vr__user-ico--deaf">
-                      <HeadphoneOff size={8} strokeWidth={3} />
-                    </div>
-                  )}
-                </div>
+            {count === 0 && (
+              <div className="vr__empty">
+                <div className="vr__empty-pulse" />
+                <span>Ожидание участников...</span>
               </div>
+            )}
 
-              {/* Name */}
-              <div className="vr__user-name">
-                {isSelf ? 'Вы' : peer.username}
+            {count === 1 && (
+              <div className="vr__waiting">
+                <span>Пригласите друзей в комнату</span>
+                <button className="vr__waiting-btn" onClick={() => setShowInvite(true)}>
+                  <UserPlus size={14} weight="bold" />
+                  Пригласить
+                </button>
               </div>
-            </div>
-          );
-        })}
-
-        {count === 0 && (
-          <div className="vr__empty">
-            <div className="vr__empty-pulse" />
-            <span>Ожидание участников...</span>
+            )}
           </div>
-        )}
+        </div>
 
-        {count === 1 && (
-          <div className="vr__waiting">
-            <span>Пригласите друзей в комнату</span>
-            <button className="vr__waiting-btn" onClick={() => setShowInvite(true)}>
-              <UserPlus size={14} strokeWidth={2} />
-              Пригласить
-            </button>
+        {/* Правая часть: встроенный чат */}
+        {chatOpen && currentRoomId && socketRef && (
+          <div className="vr__chat-panel">
+            <VoiceChat
+              roomId={currentRoomId}
+              socketRef={socketRef}
+              inline
+              onClose={() => setChatOpen(false)}
+            />
           </div>
         )}
       </div>
@@ -361,11 +387,6 @@ export default function VoiceRoom({ socketRef }) {
         open={!!profileUserId}
         onClose={() => setProfileUserId(null)}
       />
-
-      {/* Voice chat sidebar */}
-      {currentRoomId && socketRef && (
-        <VoiceChat roomId={currentRoomId} socketRef={socketRef} />
-      )}
     </div>
   );
 }
@@ -404,7 +425,7 @@ function ScreenShareTile({ stream, name }) {
       </div>
       <div className="vr__screen-name">{name} — экран</div>
       <button className="vr__screen-fs" onClick={toggleFs} title="Полный экран">
-        <Maximize size={14} strokeWidth={1.5} />
+        <ArrowsOutSimple size={14} />
       </button>
     </div>
   );

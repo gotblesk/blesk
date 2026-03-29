@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Bug, Lightbulb, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bug, Lightbulb, Question, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
 const TYPE_ICONS = {
-  bug: <Bug size={14} />,
-  suggestion: <Lightbulb size={14} />,
-  question: <HelpCircle size={14} />,
+  bug: <Bug size={14} weight="regular" />,
+  suggestion: <Lightbulb size={14} weight="regular" />,
+  question: <Question size={14} weight="regular" />,
 };
 
 const TYPE_LABELS = { bug: 'Баг', suggestion: 'Предложение', question: 'Вопрос' };
@@ -113,11 +113,11 @@ export default function AdminFeedback() {
       {totalPages > 1 && (
         <div className="admin-pagination">
           <button className="admin-pagination__btn" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            <ChevronLeft size={14} />
+            <CaretLeft size={14} />
           </button>
           <span className="admin-pagination__info">{page} / {totalPages}</span>
           <button className="admin-pagination__btn" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            <ChevronRight size={14} />
+            <CaretRight size={14} />
           </button>
         </div>
       )}

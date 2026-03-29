@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Video, PhoneOff } from 'lucide-react';
+import { Phone, VideoCamera } from '@phosphor-icons/react';
 import './CallBanner.css';
 
 export default function CallBanner({ activeCall, onJoin }) {
@@ -38,7 +38,7 @@ export default function CallBanner({ activeCall, onJoin }) {
 
         {/* Icon */}
         <div className="cb-pill__icon">
-          {isVideo ? <Video size={13} /> : <Phone size={13} />}
+          {isVideo ? <VideoCamera size={13} /> : <Phone size={13} />}
         </div>
 
         {/* Timer — always visible */}
