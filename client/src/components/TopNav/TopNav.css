@@ -13,6 +13,24 @@
   -webkit-app-region: drag;
 }
 
+/* Тонкая полоска "нет соединения" — под навигацией, не перекрывает ничего */
+.top-nav__offline {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--danger, #ef4444), var(--danger, #ef4444), transparent);
+  z-index: 51;
+  animation: offlineSlide 2s ease-in-out infinite;
+  pointer-events: auto;
+  cursor: help;
+}
+@keyframes offlineSlide {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
 /* Allow interactions on buttons */
 .top-nav__left,
 .top-nav__right,

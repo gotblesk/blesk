@@ -16,6 +16,7 @@ const ADMIN_TAB = { id: 'admin', label: 'Админ', icon: ShieldStar };
 
 export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, onSearch, onSettings, onOpenChat, isAdmin }) {
   const totalUnread = useChatStore(s => s.chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0));
+  const isConnected = useChatStore(s => s.isConnected);
   const unreadNotifs = useNotificationStore(s => s.unreadCount);
   const tabs = useMemo(() => isAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS, [isAdmin]);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -24,6 +25,8 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
   return (
     <>
     <nav className="top-nav" onDoubleClick={e => e.stopPropagation()}>
+      {/* Тонкая полоска состояния соединения под nav */}
+      {!isConnected && <div className="top-nav__offline" title="Нет соединения с сервером. Переподключение..." />}
       {/* Drag region */}
       <div className="top-nav__drag" />
 

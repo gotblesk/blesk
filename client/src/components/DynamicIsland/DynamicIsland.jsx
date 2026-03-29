@@ -105,10 +105,10 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
         {/* Inner glass layer — Double Layer Glass */}
         <div className="di__inner-glass">
           <AnimatePresence mode="wait">
-            {/* LOADING / OFFLINE — показываем имя + статус соединения через точку */}
+            {/* LOADING — показываем имя + точка статуса (не соединения) */}
             {state === 'loading' && (
               <motion.div key="loading" className="di__inner" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
-                <div className="di__dot di__dot--reconnecting" title="Переподключение..." />
+                <div className={`di__dot di__dot--${userStatus}`} />
                 <span className="di__nick">{user?.username || 'blesk'}</span>
               </motion.div>
             )}
