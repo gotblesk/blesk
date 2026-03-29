@@ -81,13 +81,16 @@ app.use(express.json({ limit: '100kb' }));
 // [IMP-2] Trust proxy для корректного rate limiting за Cloudflare
 app.set('trust proxy', 1);
 
-// [CRIT-1] Аватары — публичные (без auth), вложения — через auth routes в upload.js
-app.use('/uploads/avatars', (req, res, next) => {
+// Статические файлы — аватары, вложения, превью
+// UUID-имена файлов обеспечивают защиту от перебора
+const uploadsHeaders = (req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Access-Control-Allow-Origin', '*');
   next();
-}, express.static(path.join(__dirname, '..', 'uploads', 'avatars')));
-// Attachments и thumbs обслуживаются через авторизованные endpoints в upload.js
+};
+app.use('/uploads/avatars', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'avatars')));
+app.use('/uploads/attachments', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'attachments')));
+app.use('/uploads/thumbs', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'thumbs')));
 
 // Rate limiting — раздельные лимиты
 const authLimiter = rateLimit({

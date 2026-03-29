@@ -86,7 +86,7 @@
 .cs__header-r { display: flex; align-items: center; gap: 8px; }
 
 .cs__time {
-  font-family: 'Space Mono', 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 13px; font-weight: 600;
   color: rgba(74,222,128,0.6);
 }

@@ -81,7 +81,7 @@
   background: rgba(255, 255, 255, 0.03);
   color: rgba(255, 255, 255, 0.85);
   font-size: 13px;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: inherit;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -118,7 +118,7 @@
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 255, 255, 0.85);
   font-size: 13px;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -150,7 +150,7 @@
   border: none;
   font-size: 13px;
   font-weight: 600;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: inherit;
   cursor: pointer;
   transition: all 0.15s;
 }

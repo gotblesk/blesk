@@ -50,8 +50,15 @@ function VoiceMessage({ src }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [waveform, setWaveform] = useState([]);
   const audioRef = useRef(null);
   const rafRef = useRef(null);
+
+  // Генерируем визуальную волну (30 столбцов с псевдо-случайной высотой)
+  useEffect(() => {
+    const bars = Array.from({ length: 30 }, () => 0.2 + Math.random() * 0.8);
+    setWaveform(bars);
+  }, []);
 
   const updateProgress = useCallback(() => {
     const el = audioRef.current;
@@ -96,7 +103,7 @@ function VoiceMessage({ src }) {
   };
 
   return (
-    <div className="media-msg__voice">
+    <div className={`media-msg__voice${playing ? ' media-msg__voice--playing' : ''}`}>
       <audio
         ref={audioRef}
         src={src}
@@ -105,10 +112,21 @@ function VoiceMessage({ src }) {
         onLoadedMetadata={handleLoaded}
       />
       <button className="media-msg__voice-play" onClick={toggle}>
-        {playing ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
+        {playing ? <Pause size={14} weight="fill" /> : <Play size={14} weight="fill" />}
       </button>
-      <div className="media-msg__voice-wave" onClick={handleBarClick}>
-        <div className="media-msg__voice-progress" style={{ width: `${progress}%` }} />
+      <div className="media-msg__voice-bars" onClick={handleBarClick}>
+        {waveform.map((h, i) => (
+          <div
+            key={i}
+            className="media-msg__voice-bar"
+            style={{
+              height: `${h * 100}%`,
+              background: (i / waveform.length * 100) <= progress
+                ? 'var(--accent, #c8ff00)'
+                : 'var(--voice-bar-inactive)',
+            }}
+          />
+        ))}
       </div>
       <span className="media-msg__voice-time">
         {formatTime(playing ? (audioRef.current?.currentTime || 0) : duration)}

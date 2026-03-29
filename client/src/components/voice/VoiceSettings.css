@@ -27,7 +27,7 @@
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 255, 255, 0.85);
   font-size: 13px;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: inherit;
   outline: none;
   cursor: pointer;
   transition: border-color 0.2s;
@@ -95,7 +95,7 @@
   color: rgba(255, 255, 255, 0.7);
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: inherit;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;

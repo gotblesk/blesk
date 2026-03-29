@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Apple Liquid Glass Island</title>
+<link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=SF+Pro+Text:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Bricolage+Grotesque:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+
+/* ── Apple-like system font stack ── */
+:root{
+  --sf:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;
+  --bg:#000;
+  --glass-bg:rgba(255,255,255,.08);
+  --glass-bg-hover:rgba(255,255,255,.12);
+  --glass-border:rgba(255,255,255,.18);
+  --glass-border-inner:rgba(255,255,255,.06);
+  --glass-specular:rgba(255,255,255,.25);
+  --glass-shadow:rgba(0,0,0,.4);
+  --text:#fff;
+  --text2:rgba(255,255,255,.55);
+  --text3:rgba(255,255,255,.3);
+  --green:#30d158;
+  --red:#ff453a;
+  --blue:#0a84ff;
+  --orange:#ff9f0a;
+  --accent:#c8ff00;
+}
+
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--sf);
+  height:100vh;overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── Wallpaper ── */
+.wallpaper{
+  position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse at 25% 20%, rgba(120,80,220,.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 75% 70%, rgba(200,120,50,.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(40,100,180,.1) 0%, transparent 60%),
+    linear-gradient(135deg, #1a1a2e 0%, #0a0a1a 50%, #16213e 100%);
+}
+
+/* ── Demo bar ── */
+.demo{
+  position:fixed;top:0;left:0;right:0;z-index:500;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 12px;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.demo span{font-size:11px;font-weight:600;color:rgba(255,255,255,.15);margin-right:8px;letter-spacing:.5px;text-transform:uppercase;}
+.demo-btn{
+  padding:4px 12px;border-radius:8px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.04);
+  color:rgba(255,255,255,.4);font-size:11px;font-weight:500;
+  cursor:pointer;font-family:var(--sf);transition:all .2s;
+}
+.demo-btn:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);}
+.demo-btn.on{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.15);}
+
+/* ══════════════════════════════════════════════════
+   LIQUID GLASS ISLAND
+   Apple iOS 26 style — layered glass, specular
+   highlights, refraction, depth
+   ══════════════════════════════════════════════════ */
+.island{
+  position:fixed;bottom:20px;left:50%;
+  transform:translateX(-50%);z-index:100;
+  transition:all .55s cubic-bezier(.32,1.2,.54,1);
+}
+
+.island-glass{
+  display:flex;align-items:center;
+  position:relative;
+  transition:all .55s cubic-bezier(.32,1.2,.54,1);
+  cursor:pointer;
+
+  /* ── OUTER GLASS LAYER ── */
+  background:
+    /* Top specular edge — bright line along top */
+    linear-gradient(180deg,
+      rgba(255,255,255,.22) 0%,
+      rgba(255,255,255,.08) 2px,
+      transparent 3px
+    ),
+    /* Main fill — frosted glass */
+    linear-gradient(180deg,
+      rgba(255,255,255,.12) 0%,
+      rgba(255,255,255,.06) 100%
+    );
+  backdrop-filter:blur(40px) saturate(1.8) brightness(1.1);
+  -webkit-backdrop-filter:blur(40px) saturate(1.8) brightness(1.1);
+
+  /* Border — subtle bright edge */
+  border:0.5px solid rgba(255,255,255,.2);
+
+  /* Shadow — depth */
+  box-shadow:
+    /* Outer shadow */
+    0 8px 32px rgba(0,0,0,.35),
+    0 2px 8px rgba(0,0,0,.2),
+    /* Inner glow top edge */
+    inset 0 1px 0 rgba(255,255,255,.15),
+    /* Inner shadow bottom */
+    inset 0 -1px 0 rgba(0,0,0,.1);
+
+  border-radius:100px;
+  overflow:hidden;
+}
+
+/* Specular highlight overlay — glass refraction */
+.island-glass::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:50%;
+  background:linear-gradient(180deg,
+    rgba(255,255,255,.08) 0%,
+    rgba(255,255,255,.02) 60%,
+    transparent 100%
+  );
+  border-radius:100px 100px 0 0;
+  pointer-events:none;
+  z-index:5;
+}
+
+/* Edge glow — subtle light refraction at edges */
+.island-glass::after{
+  content:'';
+  position:absolute;
+  inset:-0.5px;
+  border-radius:100px;
+  background:linear-gradient(135deg,
+    rgba(255,255,255,.15) 0%,
+    transparent 30%,
+    transparent 70%,
+    rgba(255,255,255,.05) 100%
+  );
+  pointer-events:none;
+  z-index:6;
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask-composite:exclude;-webkit-mask-composite:xor;
+  padding:0.5px;
+}
+
+.island-glass:hover{
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,.28) 0%,
+      rgba(255,255,255,.1) 2px,
+      transparent 3px
+    ),
+    linear-gradient(180deg,
+      rgba(255,255,255,.15) 0%,
+      rgba(255,255,255,.08) 100%
+    );
+  box-shadow:
+    0 12px 40px rgba(0,0,0,.4),
+    0 2px 8px rgba(0,0,0,.2),
+    inset 0 1px 0 rgba(255,255,255,.2),
+    inset 0 -1px 0 rgba(0,0,0,.1);
+}
+
+/* ── State container ── */
+.is{display:none;align-items:center;position:relative;z-index:2;}
+.island[data-s] .is{animation:isIn .4s cubic-bezier(.16,1,.3,1);}
+@keyframes isIn{from{opacity:0;transform:scale(.94) translateY(2px);}to{opacity:1;transform:none;}}
+
+/* ── IDLE ── */
+.island[data-s="idle"] .island-glass{padding:8px 18px;gap:8px;}
+.island[data-s="idle"] .is-idle{display:flex;}
+
+.is-idle-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 6px rgba(48,209,88,.35);
+}
+.is-idle-name{
+  font-size:13px;font-weight:600;
+  color:rgba(255,255,255,.85);
+  letter-spacing:-.01em;
+}
+
+/* ── MESSAGE ── */
+.island[data-s="message"] .island-glass{padding:6px 14px 6px 6px;gap:10px;}
+.island[data-s="message"] .is-msg{display:flex;}
+
+.is-msg-av{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;color:#fff;flex-shrink:0;
+  /* Inner glass on avatar */
+  box-shadow:0 2px 8px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1);
+}
+.is-msg-col{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.is-msg-name{font-size:11px;font-weight:600;color:rgba(255,255,255,.9);}
+.is-msg-text{font-size:11px;font-weight:400;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+
+/* ── TYPING ── */
+.island[data-s="typing"] .island-glass{padding:8px 16px 8px 10px;gap:8px;}
+.island[data-s="typing"] .is-typing{display:flex;}
+
+.is-typing-av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;}
+.is-typing-wrap{display:flex;align-items:center;gap:6px;}
+.is-typing-name{font-size:12px;font-weight:500;color:var(--text2);}
+.is-typing-dots{display:flex;gap:3px;align-items:center;}
+.is-typing-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:rgba(255,255,255,.35);
+  animation:typingBounce 1.4s ease-in-out infinite;
+}
+.is-typing-dot:nth-child(2){animation-delay:.15s;}
+.is-typing-dot:nth-child(3){animation-delay:.3s;}
+@keyframes typingBounce{0%,100%{transform:translateY(0);opacity:.3;}50%{transform:translateY(-4px);opacity:.8;}}
+
+/* ── CALL ── */
+.island[data-s="call"] .island-glass{
+  padding:6px 6px 6px 14px;gap:12px;
+  /* Green tint in glass */
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,.2) 0%,
+      rgba(255,255,255,.06) 2px,
+      transparent 3px
+    ),
+    linear-gradient(180deg,
+      rgba(48,209,88,.08) 0%,
+      rgba(255,255,255,.06) 100%
+    );
+  border-color:rgba(48,209,88,.15);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,.35),
+    0 0 20px rgba(48,209,88,.06),
+    inset 0 1px 0 rgba(48,209,88,.1);
+}
+.island[data-s="call"] .is-call{display:flex;}
+
+.is-call-left{display:flex;align-items:center;gap:10px;}
+.is-call-indicator{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--green);position:relative;flex-shrink:0;
+  box-shadow:0 0 8px rgba(48,209,88,.4);
+}
+.is-call-indicator::after{
+  content:'';position:absolute;inset:-5px;border-radius:50%;
+  border:1.5px solid rgba(48,209,88,.25);
+  animation:callRing 2s ease-in-out infinite;
+}
+@keyframes callRing{0%,100%{transform:scale(1);opacity:.5;}50%{transform:scale(1.6);opacity:0;}}
+
+.is-call-info{display:flex;flex-direction:column;gap:0;}
+.is-call-name{font-size:12px;font-weight:600;color:rgba(255,255,255,.9);}
+.is-call-timer{font-size:11px;font-weight:500;color:var(--green);font-variant-numeric:tabular-nums;}
+
+.is-call-btns{display:flex;gap:4px;}
+.is-call-btn{
+  width:32px;height:32px;border-radius:50%;border:none;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:14px;transition:all .15s;
+  position:relative;
+  /* Glass button */
+  background:rgba(255,255,255,.08);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 2px 6px rgba(0,0,0,.2);
+  color:rgba(255,255,255,.8);
+}
+.is-call-btn:hover{background:rgba(255,255,255,.14);}
+.is-call-btn:active{transform:scale(.9);}
+.is-call-btn--muted{background:rgba(255,69,58,.12);color:var(--red);box-shadow:inset 0 1px 0 rgba(255,69,58,.1),0 2px 6px rgba(0,0,0,.2);}
+.is-call-btn--end{
+  background:var(--red);color:#fff;
+  box-shadow:0 2px 12px rgba(255,69,58,.3),inset 0 1px 0 rgba(255,255,255,.15);
+}
+.is-call-btn--end:hover{box-shadow:0 4px 16px rgba(255,69,58,.4),inset 0 1px 0 rgba(255,255,255,.2);}
+
+/* ── INCOMING ── */
+.island[data-s="incoming"] .island-glass{
+  padding:8px 8px 8px 14px;gap:12px;
+  border-color:rgba(48,209,88,.18);
+  animation:incomingBreath 2.5s ease-in-out infinite;
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,.2) 0%,
+      rgba(255,255,255,.06) 2px,
+      transparent 3px
+    ),
+    linear-gradient(180deg,
+      rgba(48,209,88,.06) 0%,
+      rgba(255,255,255,.06) 100%
+    );
+}
+@keyframes incomingBreath{
+  0%,100%{box-shadow:0 8px 32px rgba(0,0,0,.35),0 0 20px rgba(48,209,88,.05);}
+  50%{box-shadow:0 8px 32px rgba(0,0,0,.35),0 0 40px rgba(48,209,88,.1);}
+}
+.island[data-s="incoming"] .is-incoming{display:flex;}
+
+.is-in-av{
+  width:38px;height:38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:600;color:#fff;flex-shrink:0;
+  box-shadow:0 0 0 0 rgba(48,209,88,.3);
+  animation:inAvPulse 2s ease-in-out infinite;
+}
+@keyframes inAvPulse{0%,100%{box-shadow:0 0 0 0 rgba(48,209,88,.25);}50%{box-shadow:0 0 0 10px rgba(48,209,88,0);}}
+
+.is-in-col{flex:1;display:flex;flex-direction:column;}
+.is-in-label{font-size:10px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.3px;}
+.is-in-name{font-size:13px;font-weight:600;}
+
+.is-in-btns{display:flex;gap:6px;}
+.is-in-btn{
+  width:38px;height:38px;border-radius:50%;border:none;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:16px;transition:all .2s;
+}
+.is-in-btn:active{transform:scale(.88);}
+.is-in-btn--no{
+  background:rgba(255,69,58,.12);color:var(--red);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 2px 6px rgba(0,0,0,.2);
+}
+.is-in-btn--no:hover{background:rgba(255,69,58,.2);}
+.is-in-btn--yes{
+  background:var(--green);color:#fff;
+  box-shadow:0 4px 16px rgba(48,209,88,.3),inset 0 1px 0 rgba(255,255,255,.2);
+}
+.is-in-btn--yes:hover{transform:scale(1.05);box-shadow:0 6px 20px rgba(48,209,88,.4),inset 0 1px 0 rgba(255,255,255,.25);}
+
+/* ── UPDATE ── */
+.island[data-s="update"] .island-glass{
+  padding:7px 8px 7px 14px;gap:10px;
+  border-color:rgba(10,132,255,.12);
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,.2) 0%,
+      rgba(255,255,255,.06) 2px,
+      transparent 3px
+    ),
+    linear-gradient(180deg,
+      rgba(10,132,255,.05) 0%,
+      rgba(255,255,255,.06) 100%
+    );
+}
+.island[data-s="update"] .is-update{display:flex;}
+.is-upd-icon{font-size:14px;}
+.is-upd-text{font-size:12px;font-weight:500;color:var(--blue);}
+.is-upd-btn{
+  padding:5px 12px;border-radius:100px;border:none;
+  background:var(--blue);color:#fff;
+  font-size:11px;font-weight:600;font-family:var(--sf);
+  cursor:pointer;transition:all .15s;
+  box-shadow:0 2px 8px rgba(10,132,255,.25),inset 0 1px 0 rgba(255,255,255,.15);
+}
+.is-upd-btn:hover{box-shadow:0 4px 12px rgba(10,132,255,.35);}
+.is-upd-close{
+  width:24px;height:24px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.06);color:var(--text3);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:11px;transition:all .15s;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.is-upd-close:hover{background:rgba(255,255,255,.1);color:var(--text2);}
+
+/* ── PROFILE ── */
+.island[data-s="profile"] .island-glass{
+  padding:16px 18px;gap:0;border-radius:22px;
+  flex-direction:column;align-items:stretch;
+  width:300px;
+  /* Deeper glass for panel */
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,.18) 0%,
+      rgba(255,255,255,.04) 3px,
+      transparent 4px
+    ),
+    linear-gradient(180deg,
+      rgba(255,255,255,.1) 0%,
+      rgba(255,255,255,.04) 100%
+    );
+  box-shadow:
+    0 16px 56px rgba(0,0,0,.5),
+    0 4px 12px rgba(0,0,0,.25),
+    inset 0 1px 0 rgba(255,255,255,.15),
+    inset 0 -1px 0 rgba(0,0,0,.08);
+}
+.island[data-s="profile"] .island-glass::after{border-radius:22px;}
+.island[data-s="profile"] .island-glass::before{border-radius:22px 22px 0 0;}
+.island[data-s="profile"] .is-profile{display:flex;flex-direction:column;gap:12px;}
+
+.is-prof-head{display:flex;align-items:center;gap:10px;}
+.is-prof-av{
+  width:40px;height:40px;border-radius:50%;
+  background:linear-gradient(135deg,#c8ff00,#8cbf00);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:700;color:#000;
+  box-shadow:0 2px 10px rgba(200,255,0,.2),inset 0 1px 0 rgba(255,255,255,.2);
+}
+.is-prof-info{flex:1;}
+.is-prof-name{font-size:15px;font-weight:600;}
+.is-prof-status{font-size:11px;color:var(--green);display:flex;align-items:center;gap:4px;font-weight:500;}
+.is-prof-status::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);}
+.is-prof-x{
+  width:28px;height:28px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.06);color:var(--text3);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:12px;transition:all .15s;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.is-prof-x:hover{background:rgba(255,255,255,.12);color:var(--text2);}
+
+.is-prof-sep{height:0.5px;background:rgba(255,255,255,.08);margin:2px 0;}
+
+.is-prof-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.is-prof-btn{
+  padding:10px 4px 8px;border-radius:14px;border:none;
+  /* Inner glass layer */
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.1) 0%,rgba(255,255,255,.03) 100%);
+  border:0.5px solid rgba(255,255,255,.08);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 6px rgba(0,0,0,.15);
+  color:var(--text2);font-size:9px;font-weight:600;
+  cursor:pointer;font-family:var(--sf);
+  transition:all .15s;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.is-prof-btn:hover{
+  background:linear-gradient(180deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,.06) 100%);
+  color:var(--text);border-color:rgba(255,255,255,.12);
+}
+.is-prof-btn:active{transform:scale(.94);}
+.is-prof-btn-icon{font-size:18px;line-height:1;}
+.is-prof-btn.toggled{
+  background:linear-gradient(180deg,rgba(200,255,0,.12) 0%,rgba(200,255,0,.04) 100%);
+  border-color:rgba(200,255,0,.15);color:var(--accent);
+  box-shadow:inset 0 1px 0 rgba(200,255,0,.08),0 2px 8px rgba(200,255,0,.06);
+}
+</style>
+</head>
+<body>
+
+<div class="wallpaper"></div>
+
+<div class="demo">
+  <span>Liquid Glass</span>
+  <button class="demo-btn on" onclick="go('idle')">Idle</button>
+  <button class="demo-btn" onclick="go('message')">💬 Message</button>
+  <button class="demo-btn" onclick="go('typing')">✍️ Typing</button>
+  <button class="demo-btn" onclick="go('call')">📞 Call</button>
+  <button class="demo-btn" onclick="go('incoming')">📲 Incoming</button>
+  <button class="demo-btn" onclick="go('update')">📥 Update</button>
+  <button class="demo-btn" onclick="go('profile')">👤 Profile</button>
+  <button class="demo-btn" onclick="autoDemo()" id="autoBtn">▶ Auto</button>
+</div>
+
+<!-- ═══ ISLAND ═══ -->
+<div class="island" id="island" data-s="idle">
+  <div class="island-glass" onclick="islandTap()">
+
+    <!-- IDLE -->
+    <div class="is is-idle">
+      <div class="is-idle-dot"></div>
+      <span class="is-idle-name">gotblesk</span>
+    </div>
+
+    <!-- MESSAGE -->
+    <div class="is is-msg">
+      <div class="is-msg-av" style="background:linear-gradient(135deg,#ef4444,#f97316);">V</div>
+      <div class="is-msg-col">
+        <span class="is-msg-name">Vohog</span>
+        <span class="is-msg-text">Привет! Как дела? Давно не виделись</span>
+      </div>
+    </div>
+
+    <!-- TYPING -->
+    <div class="is is-typing">
+      <div class="is-typing-av" style="background:linear-gradient(135deg,#8b5cf6,#a78bfa);">S</div>
+      <div class="is-typing-wrap">
+        <span class="is-typing-name">shkirtil</span>
+        <div class="is-typing-dots">
+          <div class="is-typing-dot"></div>
+          <div class="is-typing-dot"></div>
+          <div class="is-typing-dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALL -->
+    <div class="is is-call">
+      <div class="is-call-left">
+        <div class="is-call-indicator"></div>
+        <div class="is-call-info">
+          <span class="is-call-name">дима масленников</span>
+          <span class="is-call-timer" id="timer">2:34</span>
+        </div>
+      </div>
+      <div class="is-call-btns">
+        <button class="is-call-btn" onclick="event.stopPropagation();this.classList.toggle('is-call-btn--muted');" title="Микрофон">🎤</button>
+        <button class="is-call-btn" onclick="event.stopPropagation();" title="Звук">🎧</button>
+        <button class="is-call-btn is-call-btn--end" onclick="event.stopPropagation();go('idle');" title="Завершить">📞</button>
+      </div>
+    </div>
+
+    <!-- INCOMING -->
+    <div class="is is-incoming">
+      <div class="is-in-av" style="background:linear-gradient(135deg,#ef4444,#f97316);">V</div>
+      <div class="is-in-col">
+        <span class="is-in-label">Входящий звонок</span>
+        <span class="is-in-name">Vohog</span>
+      </div>
+      <div class="is-in-btns">
+        <button class="is-in-btn is-in-btn--no" onclick="event.stopPropagation();go('idle');">✕</button>
+        <button class="is-in-btn is-in-btn--yes" onclick="event.stopPropagation();go('call');">📞</button>
+      </div>
+    </div>
+
+    <!-- UPDATE -->
+    <div class="is is-update">
+      <span class="is-upd-icon">✨</span>
+      <span class="is-upd-text">blesk v0.9.0</span>
+      <button class="is-upd-btn" onclick="event.stopPropagation();">Обновить</button>
+      <button class="is-upd-close" onclick="event.stopPropagation();go('idle');">✕</button>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="is is-profile">
+      <div class="is-prof-head">
+        <div class="is-prof-av">G</div>
+        <div class="is-prof-info">
+          <div class="is-prof-name">gotblesk</div>
+          <div class="is-prof-status">в сети</div>
+        </div>
+        <button class="is-prof-x" onclick="event.stopPropagation();go('idle');">✕</button>
+      </div>
+      <div class="is-prof-sep"></div>
+      <div class="is-prof-grid">
+        <button class="is-prof-btn" onclick="event.stopPropagation();"><span class="is-prof-btn-icon">👤</span>Профиль</button>
+        <button class="is-prof-btn" onclick="event.stopPropagation();this.classList.toggle('toggled');"><span class="is-prof-btn-icon">🌙</span>Не беспокоить</button>
+        <button class="is-prof-btn" onclick="event.stopPropagation();this.classList.toggle('toggled');"><span class="is-prof-btn-icon">👻</span>Невидимка</button>
+        <button class="is-prof-btn" onclick="event.stopPropagation();"><span class="is-prof-btn-icon">⚙️</span>Настройки</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let cur='idle',sec=154,iv=null;
+
+function go(s){
+  cur=s;
+  document.getElementById('island').dataset.s=s;
+  document.querySelectorAll('.demo-btn').forEach(b=>b.classList.remove('on'));
+  const i=['idle','message','typing','call','incoming','update','profile'].indexOf(s);
+  if(i>=0)document.querySelectorAll('.demo-btn')[i]?.classList.add('on');
+  if(s==='call'){
+    if(iv)clearInterval(iv);
+    iv=setInterval(()=>{sec++;const m=Math.floor(sec/60),ss=sec%60;document.getElementById('timer').textContent=m+':'+(ss<10?'0':'')+ss;},1000);
+  }else{if(iv){clearInterval(iv);iv=null;}}
+}
+
+function islandTap(){
+  if(cur==='idle')go('profile');
+  else if(cur==='profile')go('idle');
+  else if(cur==='message')go('idle');
+}
+
+document.addEventListener('click',e=>{if(cur==='profile'&&!e.target.closest('.island'))go('idle');});
+
+let auto=false,at=null;
+async function autoDemo(){
+  const b=document.getElementById('autoBtn');
+  if(auto){auto=false;b.textContent='▶ Auto';b.classList.remove('on');if(at)clearTimeout(at);return;}
+  auto=true;b.textContent='⏹';b.classList.add('on');
+  for(const[s,d]of[['idle',2e3],['message',3500],['idle',1200],['typing',2500],['idle',1e3],['incoming',4500],['call',5e3],['idle',1500],['update',3500],['idle',1e3],['profile',3500],['idle',1e3]]){
+    if(!auto)break;go(s);await new Promise(r=>{at=setTimeout(r,d);});
+  }
+  auto=false;b.textContent='▶ Auto';b.classList.remove('on');
+}
+</script>
+</body>
+</html>

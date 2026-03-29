@@ -5,8 +5,6 @@ import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceChat.css';
 
 export default function VoiceChat({ roomId, socketRef, inline = false, onClose }) {
-  const participantCount = useVoiceStore((s) => Object.keys(s.participants).length);
-  const hasOtherParticipants = participantCount > 1;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
@@ -76,7 +74,7 @@ export default function VoiceChat({ roomId, socketRef, inline = false, onClose }
     <div className="voice-chat__messages" ref={listRef}>
       {messages.length === 0 && (
         <div className="voice-chat__empty">
-          {hasOtherParticipants ? 'Напишите первое сообщение' : 'Ожидание участников...'}
+          Напишите первое сообщение
         </div>
       )}
       {messages.map((msg) => (
@@ -108,14 +106,13 @@ export default function VoiceChat({ roomId, socketRef, inline = false, onClose }
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, 500))}
         onKeyDown={handleKeyDown}
-        placeholder={hasOtherParticipants ? 'Сообщение...' : 'Ожидание участников...'}
+        placeholder="Сообщение..."
         maxLength={500}
-        disabled={!hasOtherParticipants}
       />
       <button
         className="voice-chat__send"
         onClick={handleSend}
-        disabled={!text.trim() || !hasOtherParticipants}
+        disabled={!text.trim()}
       >
         <PaperPlaneTilt size={16} />
       </button>

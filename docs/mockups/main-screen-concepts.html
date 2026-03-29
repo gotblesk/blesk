@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>blesk — Dynamic Island v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Bricolage+Grotesque:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#08060f;--accent:#c8ff00;--text:rgba(255,255,255,0.85);--muted:rgba(255,255,255,0.3);--dim:rgba(255,255,255,0.12);--surface:rgba(255,255,255,0.03);--s2:rgba(255,255,255,0.05);--border:rgba(255,255,255,0.06);--online:#4ade80;--danger:#ef4444;--warn:#facc15;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;height:100vh;overflow:hidden;}
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;position:relative;}
+.av .on{position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;background:var(--online);border:2.5px solid rgba(12,10,18,0.95);}
+
+/* Blobs */
+.blob{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0;opacity:.3;}
+.blob-1{width:450px;height:450px;background:rgba(200,255,0,.06);top:15%;right:5%;animation:bl1 14s ease-in-out infinite;}
+.blob-2{width:500px;height:500px;background:rgba(0,180,170,.04);bottom:5%;left:0;animation:bl2 18s ease-in-out infinite;}
+@keyframes bl1{0%,100%{transform:translate(0) scale(1);}50%{transform:translate(-20px,15px) scale(1.1);}}
+@keyframes bl2{0%,100%{transform:translate(0) scale(1);}50%{transform:translate(15px,-20px) scale(1.12);}}
+
+/* Demo bar */
+.demo{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 8px;background:rgba(8,6,15,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.demo span{font-family:'Bricolage Grotesque',sans-serif;font-size:10px;font-weight:700;color:rgba(255,255,255,.1);margin-right:4px;}
+.db{padding:3px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.db:hover{background:var(--s2);color:var(--text);}
+.db.a{background:rgba(200,255,0,.08);border-color:rgba(200,255,0,.15);color:var(--accent);}
+
+/* App layout */
+.app{display:flex;flex-direction:column;height:100vh;padding-top:34px;position:relative;z-index:1;}
+.topnav{display:flex;align-items:center;padding:6px 14px;gap:2px;flex-shrink:0;background:rgba(12,10,20,.4);border-bottom:1px solid var(--border);}
+.topnav-tab{padding:5px 14px;border-radius:9px;border:none;background:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;display:flex;align-items:center;gap:4px;}
+.topnav-tab:hover{color:var(--text);background:var(--surface);}
+.topnav-tab.active{color:var(--accent);background:rgba(200,255,0,.06);}
+.topnav-tab .badge{min-width:14px;height:14px;border-radius:7px;background:var(--accent);color:#000;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 3px;}
+.topnav-right{margin-left:auto;display:flex;gap:3px;}
+.topnav-btn{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;transition:all .15s;}
+.topnav-btn:hover{background:var(--s2);color:var(--text);}
+
+.split{flex:1;display:flex;overflow:hidden;}
+.sidebar{width:300px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);background:rgba(12,10,20,.3);}
+.sidebar-search{margin:10px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);}
+.sidebar-search input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:12px;font-family:inherit;}
+.sidebar-search input::placeholder{color:rgba(255,255,255,.15);}
+.sidebar-list{flex:1;overflow-y:auto;padding:0 5px 80px;}
+.chat-item{display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:10px;cursor:pointer;transition:all .15s;margin-bottom:1px;border:1px solid transparent;}
+.chat-item:hover{background:var(--s2);}
+.chat-item.active{background:rgba(200,255,0,.04);border-color:rgba(200,255,0,.08);}
+.chat-item .av{width:38px;height:38px;font-size:15px;}
+.chat-meta{flex:1;min-width:0;}
+.chat-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1px;}
+.chat-name{font-size:12px;font-weight:600;}
+.chat-time{font-size:9px;color:var(--dim);font-family:'JetBrains Mono',monospace;}
+.chat-preview{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.chat-badge{min-width:16px;height:16px;border-radius:8px;background:var(--accent);color:#000;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;flex-shrink:0;}
+
+.main-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding-bottom:50px;}
+.main-logo{font-family:'Bricolage Grotesque',sans-serif;font-size:28px;font-weight:800;color:var(--accent);opacity:.06;letter-spacing:-.04em;}
+.main-text{font-size:12px;color:rgba(255,255,255,.1);font-weight:500;}
+
+/* ══════════════════════════════════════════
+   DYNAMIC ISLAND v2 — iPhone-style
+   ══════════════════════════════════════════ */
+.island{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:100;}
+
+.island-body{
+  display:flex;align-items:center;
+  background:rgba(12,10,18,.94);
+  backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);
+  border:1px solid rgba(255,255,255,.05);
+  border-radius:100px;
+  box-shadow:0 8px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.02);
+  cursor:pointer;
+  transition:all .4s cubic-bezier(.34,1.56,.64,1);
+  position:relative;overflow:hidden;
+}
+.island-body:hover{border-color:rgba(255,255,255,.09);}
+
+/* Shimmer on hover */
+.island-body::after{content:'';position:absolute;top:0;left:-120%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.02),transparent);transition:left .7s;pointer-events:none;}
+.island-body:hover::after{left:160%;}
+
+/* Hide all inner states by default */
+.island-inner{display:none;align-items:center;}
+.island[data-state] .island-inner{animation:iSlideIn .35s cubic-bezier(.16,1,.3,1);}
+@keyframes iSlideIn{from{opacity:0;transform:translateY(3px) scale(.96);}to{opacity:1;transform:none;}}
+
+/* ── IDLE ── */
+.island[data-state="idle"] .island-body{padding:7px 14px;gap:6px;}
+.island[data-state="idle"] .i-idle{display:flex;}
+.i-idle-dot{width:7px;height:7px;border-radius:50%;background:var(--online);flex-shrink:0;transition:background .3s;}
+.i-idle-dot.dnd{background:var(--warn);}
+.i-idle-dot.invisible{background:rgba(255,255,255,.2);}
+.i-idle-nick{font-size:12px;font-weight:600;letter-spacing:-.01em;}
+
+/* ── MESSAGE ── */
+.island[data-state="message"] .island-body{padding:6px 12px 6px 6px;gap:8px;border-color:rgba(200,255,0,.1);}
+.island[data-state="message"] .i-message{display:flex;}
+.i-msg-ava{width:28px;height:28px;font-size:11px;}
+.i-msg-col{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.i-msg-name{font-size:10px;font-weight:700;color:var(--text);}
+.i-msg-text{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+
+/* ── TYPING ── */
+.island[data-state="typing"] .island-body{padding:7px 14px 7px 8px;gap:7px;}
+.island[data-state="typing"] .i-typing{display:flex;}
+.i-typing-ava{width:22px;height:22px;font-size:9px;}
+.i-typing-wrap{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+.t-dots{display:flex;gap:2px;}
+.t-dot{width:3.5px;height:3.5px;border-radius:50%;background:var(--accent);opacity:.3;animation:tDot 1.4s ease-in-out infinite;}
+.t-dot:nth-child(2){animation-delay:.12s;}
+.t-dot:nth-child(3){animation-delay:.24s;}
+@keyframes tDot{0%,100%{opacity:.2;transform:translateY(0);}50%{opacity:1;transform:translateY(-2.5px);}}
+
+/* ── CALL ── */
+.island[data-state="call"] .island-body{padding:5px 5px 5px 12px;gap:10px;border-color:rgba(74,222,128,.12);}
+.island[data-state="call"] .i-call{display:flex;}
+.i-call-left{display:flex;align-items:center;gap:8px;}
+.i-call-pulse{width:8px;height:8px;border-radius:50%;background:var(--online);flex-shrink:0;position:relative;}
+.i-call-pulse::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1.5px solid rgba(74,222,128,.3);animation:cPulse 2s ease-in-out infinite;}
+@keyframes cPulse{0%,100%{transform:scale(1);opacity:.6;}50%{transform:scale(1.8);opacity:0;}}
+.i-call-col{display:flex;flex-direction:column;gap:0px;}
+.i-call-name{font-size:11px;font-weight:600;}
+.i-call-timer{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--online);letter-spacing:.02em;}
+.i-call-btns{display:flex;gap:4px;margin-left:6px;}
+.i-call-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:all .15s;}
+.i-call-btn:active{transform:scale(.9);}
+.i-call-btn--mic{background:rgba(255,255,255,.07);color:var(--text);}
+.i-call-btn--mic:hover{background:rgba(255,255,255,.12);}
+.i-call-btn--mic.muted{background:rgba(239,68,68,.12);color:var(--danger);}
+.i-call-btn--deafen{background:rgba(255,255,255,.07);color:var(--text);}
+.i-call-btn--deafen:hover{background:rgba(255,255,255,.12);}
+.i-call-btn--deafen.active{background:rgba(250,204,21,.1);color:var(--warn);}
+.i-call-btn--end{background:rgba(239,68,68,.15);color:var(--danger);}
+.i-call-btn--end:hover{background:rgba(239,68,68,.28);}
+
+/* ── INCOMING ── */
+.island[data-state="incoming"] .island-body{
+  padding:6px 6px 6px 12px;gap:10px;
+  border-color:rgba(74,222,128,.15);
+  animation:inGlow 2s ease-in-out infinite;
+}
+@keyframes inGlow{0%,100%{box-shadow:0 8px 40px rgba(0,0,0,.5),0 0 15px rgba(74,222,128,.04);}50%{box-shadow:0 8px 40px rgba(0,0,0,.5),0 0 25px rgba(74,222,128,.08);}}
+.island[data-state="incoming"] .i-incoming{display:flex;}
+.i-in-ava{width:34px;height:34px;font-size:13px;box-shadow:0 0 0 0 rgba(74,222,128,.3);animation:inAvaPulse 2s ease-in-out infinite;}
+@keyframes inAvaPulse{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.3);}50%{box-shadow:0 0 0 8px rgba(74,222,128,0);}}
+.i-in-col{flex:1;display:flex;flex-direction:column;gap:0px;}
+.i-in-label{font-size:9px;font-weight:700;color:var(--online);text-transform:uppercase;letter-spacing:.5px;}
+.i-in-name{font-size:12px;font-weight:700;}
+.i-in-btns{display:flex;gap:5px;}
+.i-in-btn{width:34px;height:34px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all .2s;}
+.i-in-btn:active{transform:scale(.88);}
+.i-in-btn--yes{background:var(--online);color:#fff;box-shadow:0 0 12px rgba(74,222,128,.2);}
+.i-in-btn--yes:hover{box-shadow:0 0 20px rgba(74,222,128,.3);transform:scale(1.05);}
+.i-in-btn--no{background:rgba(239,68,68,.15);color:var(--danger);}
+.i-in-btn--no:hover{background:rgba(239,68,68,.25);}
+
+/* ── UPDATE ── */
+.island[data-state="update"] .island-body{padding:6px 8px 6px 12px;gap:8px;border-color:rgba(56,189,248,.1);}
+.island[data-state="update"] .i-update{display:flex;}
+.i-upd-icon{font-size:13px;}
+.i-upd-text{font-size:11px;color:rgba(56,189,248,.75);font-weight:600;}
+.i-upd-btn{padding:4px 10px;border-radius:8px;border:1px solid rgba(56,189,248,.15);background:rgba(56,189,248,.07);color:rgba(56,189,248,.85);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;margin-left:4px;transition:all .15s;}
+.i-upd-btn:hover{background:rgba(56,189,248,.14);}
+.i-upd-x{width:22px;height:22px;border-radius:6px;border:none;background:rgba(255,255,255,.04);color:var(--dim);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;margin-left:2px;transition:all .15s;}
+.i-upd-x:hover{background:rgba(255,255,255,.08);color:var(--muted);}
+
+/* ── PROFILE ── */
+.island[data-state="profile"] .island-body{
+  padding:14px 16px;gap:0;border-radius:20px;
+  flex-direction:column;align-items:stretch;
+  width:300px;
+}
+.island[data-state="profile"] .i-profile{display:flex;flex-direction:column;gap:10px;animation:iProfIn .4s cubic-bezier(.16,1,.3,1);}
+@keyframes iProfIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+.i-prof-head{display:flex;align-items:center;gap:10px;}
+.i-prof-ava{width:36px;height:36px;font-size:14px;background:linear-gradient(135deg,var(--accent),#8cbf00);color:#000;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;}
+.i-prof-info{flex:1;min-width:0;}
+.i-prof-name{font-size:14px;font-weight:700;}
+.i-prof-status{font-size:10px;color:var(--online);display:flex;align-items:center;gap:4px;}
+.i-prof-status::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--online);}
+.i-prof-close{width:26px;height:26px;border-radius:8px;border:none;background:rgba(255,255,255,.05);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;transition:all .15s;flex-shrink:0;}
+.i-prof-close:hover{background:rgba(255,255,255,.1);color:var(--text);}
+
+.i-prof-sep{height:1px;background:var(--border);margin:2px 0;}
+
+.i-prof-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;}
+.i-prof-btn{padding:10px 4px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:9px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.i-prof-btn:hover{background:var(--s2);color:var(--text);border-color:rgba(255,255,255,.1);}
+.i-prof-btn:active{transform:scale(.95);}
+.i-prof-btn-icon{font-size:16px;line-height:1;}
+.i-prof-btn.active-state{border-color:rgba(200,255,0,.15);background:rgba(200,255,0,.05);color:var(--accent);}
+
+/* ══════════════════════════════════════════ */
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="demo">
+  <span>States:</span>
+  <button class="db a" onclick="go('idle')">Idle</button>
+  <button class="db" onclick="go('message')">💬 Сообщение</button>
+  <button class="db" onclick="go('typing')">✍️ Typing</button>
+  <button class="db" onclick="go('call')">📞 Звонок</button>
+  <button class="db" onclick="go('incoming')">📲 Входящий</button>
+  <button class="db" onclick="go('update')">📥 Update</button>
+  <button class="db" onclick="go('profile')">👤 Профиль</button>
+  <button class="db" onclick="autoDemo()" id="autoBtn">▶ Авто</button>
+</div>
+
+<div class="app">
+  <div class="topnav">
+    <button class="topnav-tab active" onclick="navTab(this)">💬 Чаты <span class="badge">2</span></button>
+    <button class="topnav-tab" onclick="navTab(this)">🎤 Голос</button>
+    <button class="topnav-tab" onclick="navTab(this)">📢 Каналы</button>
+    <button class="topnav-tab" onclick="navTab(this)">👥 Друзья</button>
+    <div class="topnav-right">
+      <button class="topnav-btn">🔍</button>
+      <button class="topnav-btn">⚙️</button>
+    </div>
+  </div>
+
+  <div class="split">
+    <div class="sidebar">
+      <div class="sidebar-search"><span style="color:var(--muted)">🔍</span><input placeholder="Поиск..."></div>
+      <div class="sidebar-list">
+        <div class="chat-item active">
+          <div class="av" style="width:38px;height:38px;font-size:15px;background:linear-gradient(135deg,#ef4444,#f97316);">V<div class="on"></div></div>
+          <div class="chat-meta"><div class="chat-top"><span class="chat-name">Vohog</span><span class="chat-time">20:47</span></div><div class="chat-preview">Пропущенный звонок</div></div>
+        </div>
+        <div class="chat-item">
+          <div class="av" style="width:38px;height:38px;font-size:15px;background:linear-gradient(135deg,#8b5cf6,#a78bfa);">S</div>
+          <div class="chat-meta"><div class="chat-top"><span class="chat-name">shkirtil</span><span class="chat-time">26.03</span></div><div class="chat-preview">Звонок завершён (1 сек)</div></div>
+          <div class="chat-badge">2</div>
+        </div>
+        <div class="chat-item">
+          <div class="av" style="width:38px;height:38px;font-size:15px;background:linear-gradient(135deg,#6366f1,#818cf8);">D</div>
+          <div class="chat-meta"><div class="chat-top"><span class="chat-name">Den</span><span class="chat-time">19.03</span></div><div class="chat-preview">Звонок завершён (7 сек)</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="main-area">
+      <div class="main-logo">blesk</div>
+      <div class="main-text">Выберите чат</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DYNAMIC ISLAND ═══ -->
+<div class="island" id="island" data-state="idle">
+  <div class="island-body" onclick="islandClick()">
+
+    <!-- IDLE -->
+    <div class="island-inner i-idle">
+      <div class="i-idle-dot"></div>
+      <span class="i-idle-nick">gotblesk</span>
+    </div>
+
+    <!-- MESSAGE -->
+    <div class="island-inner i-message">
+      <div class="av i-msg-ava" style="background:linear-gradient(135deg,#ef4444,#f97316);">V</div>
+      <div class="i-msg-col">
+        <span class="i-msg-name">Vohog</span>
+        <span class="i-msg-text">Привет! Как дела? Давно не виделись</span>
+      </div>
+    </div>
+
+    <!-- TYPING -->
+    <div class="island-inner i-typing">
+      <div class="av i-typing-ava" style="background:linear-gradient(135deg,#8b5cf6,#a78bfa);">S</div>
+      <div class="i-typing-wrap">
+        shkirtil
+        <div class="t-dots"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>
+      </div>
+    </div>
+
+    <!-- CALL -->
+    <div class="island-inner i-call">
+      <div class="i-call-left">
+        <div class="i-call-pulse"></div>
+        <div class="i-call-col">
+          <span class="i-call-name">дима масленников</span>
+          <span class="i-call-timer" id="cTimer">2:34</span>
+        </div>
+      </div>
+      <div class="i-call-btns">
+        <button class="i-call-btn i-call-btn--mic" onclick="event.stopPropagation();this.classList.toggle('muted');" title="Микрофон">🎤</button>
+        <button class="i-call-btn i-call-btn--deafen" onclick="event.stopPropagation();this.classList.toggle('active');" title="Звук">🎧</button>
+        <button class="i-call-btn i-call-btn--end" onclick="event.stopPropagation();go('idle');" title="Завершить">📞</button>
+      </div>
+    </div>
+
+    <!-- INCOMING -->
+    <div class="island-inner i-incoming">
+      <div class="av i-in-ava" style="background:linear-gradient(135deg,#ef4444,#f97316);">V</div>
+      <div class="i-in-col">
+        <div class="i-in-label">Входящий звонок</div>
+        <div class="i-in-name">Vohog</div>
+      </div>
+      <div class="i-in-btns">
+        <button class="i-in-btn i-in-btn--no" onclick="event.stopPropagation();go('idle');">✕</button>
+        <button class="i-in-btn i-in-btn--yes" onclick="event.stopPropagation();go('call');">📞</button>
+      </div>
+    </div>
+
+    <!-- UPDATE -->
+    <div class="island-inner i-update">
+      <span class="i-upd-icon">✨</span>
+      <span class="i-upd-text">blesk v0.9.0</span>
+      <button class="i-upd-btn" onclick="event.stopPropagation();">Обновить</button>
+      <button class="i-upd-x" onclick="event.stopPropagation();go('idle');">✕</button>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="island-inner i-profile">
+      <div class="i-prof-head">
+        <div class="av i-prof-ava">G</div>
+        <div class="i-prof-info">
+          <div class="i-prof-name">gotblesk</div>
+          <div class="i-prof-status">в сети</div>
+        </div>
+        <button class="i-prof-close" onclick="event.stopPropagation();go('idle');">✕</button>
+      </div>
+      <div class="i-prof-sep"></div>
+      <div class="i-prof-grid">
+        <div class="i-prof-btn" onclick="event.stopPropagation();"><span class="i-prof-btn-icon">👤</span>Профиль</div>
+        <div class="i-prof-btn" onclick="event.stopPropagation();this.classList.toggle('active-state');"><span class="i-prof-btn-icon">🌙</span>Не беспокоить</div>
+        <div class="i-prof-btn" onclick="event.stopPropagation();this.classList.toggle('active-state');"><span class="i-prof-btn-icon">👻</span>Невидимка</div>
+        <div class="i-prof-btn" onclick="event.stopPropagation();"><span class="i-prof-btn-icon">⚙️</span>Настройки</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let cur='idle', callSec=154, callIv=null;
+
+function go(state){
+  cur=state;
+  document.getElementById('island').dataset.state=state;
+  document.querySelectorAll('.db').forEach(b=>b.classList.remove('a'));
+  const idx=['idle','message','typing','call','incoming','update','profile'].indexOf(state);
+  if(idx>=0)document.querySelectorAll('.db')[idx]?.classList.add('a');
+  if(state==='call'){
+    if(callIv)clearInterval(callIv);
+    callIv=setInterval(()=>{callSec++;const m=Math.floor(callSec/60),s=callSec%60;document.getElementById('cTimer').textContent=`${m}:${s<10?'0':''}${s}`;},1000);
+  }else{if(callIv){clearInterval(callIv);callIv=null;}}
+}
+
+function islandClick(){
+  if(cur==='idle')go('profile');
+  else if(cur==='profile')go('idle');
+  else if(cur==='message')go('idle');
+}
+
+// Click outside to close profile
+document.addEventListener('click',e=>{
+  if(cur==='profile'&&!e.target.closest('.island'))go('idle');
+});
+
+function navTab(el){document.querySelectorAll('.topnav-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');}
+
+let autoOn=false,autoT=null;
+async function autoDemo(){
+  const btn=document.getElementById('autoBtn');
+  if(autoOn){autoOn=false;btn.textContent='▶ Авто';btn.classList.remove('a');if(autoT)clearTimeout(autoT);return;}
+  autoOn=true;btn.textContent='⏹';btn.classList.add('a');
+  const seq=[['idle',2000],['message',3500],['idle',1200],['typing',2500],['idle',1000],['incoming',4500],['call',5000],['idle',1500],['update',3500],['idle',1000],['profile',3500],['idle',1000]];
+  for(const[s,d]of seq){if(!autoOn)break;go(s);await new Promise(r=>{autoT=setTimeout(r,d);});}
+  autoOn=false;btn.textContent='▶ Авто';btn.classList.remove('a');
+}
+</script>
+</body>
+</html>

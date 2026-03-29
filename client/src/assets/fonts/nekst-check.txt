@@ -1,0 +1,8 @@
+@font-face {
+    font-family: 'Nekst-Light';
+    font-style: normal;
+    font-weight: 300;
+    src: local('Nekst-Light'), url('https://fonts.cdnfonts.com/s/61917/FontsFreeNetNekstLight.woff') format('woff');
+}
+
+

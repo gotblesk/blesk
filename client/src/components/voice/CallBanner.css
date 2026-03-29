@@ -67,7 +67,7 @@
 
 /* Timer */
 .cb-pill__time {
-  font-family: 'Space Mono', 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
   color: rgba(74,222,128,0.8);

@@ -85,7 +85,7 @@
   background: none;
   cursor: pointer;
   text-align: left;
-  font-family: 'Manrope', sans-serif;
+  font-family: inherit;
 }
 
 .mini-card__content {

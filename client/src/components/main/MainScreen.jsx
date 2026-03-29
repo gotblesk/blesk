@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import MetaballBackground from '../ui/MetaballBackground';
-import NebulaView from '../nebula/NebulaView';
-import MiniCardsSidebar from '../nebula/MiniCardsSidebar';
-import DynamicIsland from '../ui/DynamicIsland';
+import AppShell from '../AppShell/AppShell';
+import TopNav from '../TopNav/TopNav';
+import Sidebar from '../Sidebar/Sidebar';
+import ContentArea from '../ContentArea/ContentArea';
 import ChatView from '../chat/ChatView';
 import OrbitPanel from '../panels/OrbitPanel';
 import VibeMeter from '../panels/VibeMeter';
@@ -33,7 +34,9 @@ import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useHotkeys } from '../../hooks/useHotkeys';
-import { WifiSlash, ChatCircle } from '@phosphor-icons/react';
+import DynamicIsland from '../DynamicIsland/DynamicIsland';
+import { useIslandState } from '../DynamicIsland/useIslandState';
+import { WifiSlash } from '@phosphor-icons/react';
 import './MainScreen.css';
 
 // Офлайн-баннер с временем последнего соединения и анимированными точками
@@ -74,11 +77,9 @@ const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt, visible }) 
 
 export default function MainScreen({ user, onLogout, isAdmin }) {
   // ═══════ CORE STATE ═══════
-  // view: 'nebula' (главное меню с карточками) | 'chat' (sidebar + чат)
-  // secondaryView: null | 'voice' | 'channels' | 'friends' | 'settings'
-  const [view, setView] = useState('nebula');
+  const [activeTab, setActiveTab] = useState('chats');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeChatId, setActiveChatId] = useState(null);
-  const [secondaryView, setSecondaryView] = useState(null);
 
   // Модалки
   const [orbitOpen, setOrbitOpen] = useState(false);
@@ -94,6 +95,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const theme = useSettingsStore((s) => s.theme);
+  const islandState = useIslandState(currentUser);
   const socketRef = useSocket();
   const { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare } = useVoice(socketRef);
 
@@ -120,11 +122,10 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     window.blesk.onDeepLink?.(({ action, param }) => {
       if (action === 'chat' && param) handleOpenChat(param);
       if (action === 'invite' && param) {
-        // Обработка инвайта — открыть URL с параметром
         console.log('Deep link invite:', param);
       }
       if (action === 'channel' && param) {
-        switchToView('channels');
+        handleTabChange('channels');
       }
     });
   }, []); // eslint-disable-line
@@ -155,59 +156,44 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     const timer = setTimeout(() => setBannerReady(true), 4000);
     return () => clearTimeout(timer);
   }, []);
+
   const voiceRoomId = useVoiceStore((s) => s.currentRoomId);
   const cameraOn = useVoiceStore((s) => s.cameraOn);
   const screenShareOn = useVoiceStore((s) => s.screenShareOn);
-  // [Баг #26] Правильные ключи store — isMuted/isDeafened вместо muted/deafened
   const muted = useVoiceStore((s) => s.isMuted);
   const deafened = useVoiceStore((s) => s.isDeafened);
-  // [Баг #10] Получить видеостримы для CallScreen
   const localCameraStream = useVoiceStore((s) => s.localCameraStream);
   const videoStreams = useVoiceStore((s) => s.videoStreams);
   const incomingCall = useCallStore((s) => s.incomingCall);
   const activeCall = useCallStore((s) => s.activeCall);
 
   // ═══════ NAVIGATION ═══════
-  // Открыть чат из Nebula или Sidebar
+  const handleTabChange = useCallback((tab) => {
+    soundTabSwitch();
+    setActiveTab(tab);
+  }, []);
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
+  }, []);
+
+  // Открыть чат (из Sidebar, SpotlightSearch, панелей, deep links)
   const handleOpenChat = useCallback((chatId) => {
     soundWindowOpen();
     setActiveChatId(chatId);
-    setView('chat');
-    setSecondaryView(null);
-    // Загрузить сообщения
+    setActiveTab('chats');
     useChatStore.getState().openChat(chatId);
   }, []);
-
-  // Вернуться в Nebula (+ выйти из голосовой если подключены)
-  const handleBackToNebula = useCallback(() => {
-    soundWindowClose();
-    // Если в голосовой комнате — выйти
-    if (useVoiceStore.getState().currentRoomId) {
-      soundVoiceLeave();
-      const call = useCallStore.getState().activeCall;
-      if (call) {
-        leaveCall(call.chatId);
-        useCallStore.getState().clearActiveCall();
-      } else {
-        leaveRoom();
-      }
-      setVoiceExpanded(false);
-    }
-    setView('nebula');
-    setActiveChatId(null);
-    setSecondaryView(null);
-  }, [leaveRoom, leaveCall]);
 
   // Переключить чат в sidebar
   const handleSelectChat = useCallback((chatId) => {
     if (chatId === activeChatId) return;
     soundTabSwitch();
     setActiveChatId(chatId);
-    setSecondaryView(null);
     useChatStore.getState().openChat(chatId);
   }, [activeChatId]);
 
-  // Закрыть текущий чат (остаёмся в chat view с sidebar)
+  // Закрыть текущий чат (остаёмся в chats tab)
   const handleCloseChat = useCallback(() => {
     soundWindowClose();
     if (activeChatId) {
@@ -215,20 +201,6 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     }
     setActiveChatId(null);
   }, [activeChatId]);
-
-  // Переключение secondary views
-  const switchToView = useCallback((viewName) => {
-    soundTabSwitch();
-    // Settings открываются как модалка поверх текущего экрана
-    if (viewName === 'settings') {
-      setSettingsOpen(true);
-      return;
-    }
-    if (view === 'nebula') {
-      setView('chat');
-    }
-    setSecondaryView(viewName);
-  }, [view]);
 
   // ═══════ CALLS ═══════
   const handleAcceptCall = useCallback(() => {
@@ -267,7 +239,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     setTimeout(() => handleOpenChat(chatId), 200);
   }, [handleOpenChat]);
 
-  // ═══════ ESCAPE — выйти из голосовой комнаты ═══════
+  // ═══════ ESCAPE ═══════
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key !== 'Escape') return;
@@ -284,29 +256,24 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
         leaveRoom();
       }
       setVoiceExpanded(false);
-      if (secondaryView === 'voice') {
-        setSecondaryView(null);
-        if (!activeChatId) setView('nebula');
-      }
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [leaveRoom, leaveCall, spotlightOpen, settingsOpen, profileOpen, feedbackOpen, aboutOpen, secondaryView, activeChatId]);
+  }, [leaveRoom, leaveCall, spotlightOpen, settingsOpen, profileOpen, feedbackOpen, aboutOpen]);
 
   // ═══════ HOTKEYS ═══════
   useHotkeys({
     search: () => setSpotlightOpen(prev => !prev),
-    tabChats: () => { setSecondaryView(null); if (!activeChatId) setView('nebula'); },
-    tabVoice: () => switchToView('voice'),
-    tabChannels: () => switchToView('channels'),
-    tabFriends: () => switchToView('friends'),
+    tabChats: () => handleTabChange('chats'),
+    tabVoice: () => handleTabChange('voice'),
+    tabChannels: () => handleTabChange('channels'),
+    tabFriends: () => handleTabChange('friends'),
     toggleMute: () => useVoiceStore.getState().toggleMute(),
-    settings: () => switchToView('settings'),
+    settings: () => setSettingsOpen(true),
   });
 
-  // [IMP-2] Ambient hue — мемоизирован, учитывает активный звонок
+  // [IMP-2] Ambient hue
   const ambientHue = useMemo(() => {
-    // При активном звонке — использовать hue собеседника из звонка
     if (activeCall) {
       const callChat = chats.find(c => c.id === activeCall.chatId);
       if (callChat?.otherUser) {
@@ -325,156 +292,135 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     return Math.abs(hash) % 360;
   }, [activeChatId, activeCall, chats]);
 
+  // ═══════ CONTENT RENDERING ═══════
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'chats':
+        if (!activeChatId) return null;
+        return (
+          <ChatView
+            chatId={activeChatId}
+            onClose={handleCloseChat}
+            socketRef={socketRef}
+            onCall={() => handleInitiateCall(activeChatId)}
+            activeCall={activeCall?.chatId === activeChatId ? activeCall : null}
+            onJoinCall={() => joinCall(activeChatId)}
+          />
+        );
+
+      case 'voice':
+        if (voiceRoomId && voiceExpanded) {
+          return (
+            <VoiceRoom
+              socketRef={socketRef}
+              onToggleCamera={() => cameraOn ? disableCamera() : enableCamera()}
+              onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
+              onLeave={() => { leaveRoom(); setVoiceExpanded(false); }}
+            />
+          );
+        }
+        return (
+          <VoiceRoomList
+            onJoinRoom={(roomId, roomName) => {
+              soundVoiceJoin();
+              joinRoom(roomId, roomName);
+              setVoiceExpanded(true);
+            }}
+          />
+        );
+
+      case 'channels':
+        if (activeChannelId) {
+          return (
+            <ChannelView
+              channelId={activeChannelId}
+              onBack={() => setActiveChannelId(null)}
+              user={currentUser}
+              socketRef={socketRef}
+            />
+          );
+        }
+        return <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />;
+
+      case 'friends':
+        return (
+          <FriendsScreen
+            onBack={() => handleTabChange('chats')}
+            onOpenChat={handleOpenChat}
+          />
+        );
+
+      case 'admin':
+        return <AdminPanel onBack={() => handleTabChange('chats')} />;
+
+      default:
+        return null;
+    }
+  };
+
+  const showPlaceholder = activeTab === 'chats' && !activeChatId;
+
   // ═══════ RENDER ═══════
   return (
     <main className="main-screen">
       <MetaballBackground subtle ambientHue={ambientHue} />
 
-      {/* ═══════ NEBULA VIEW (главное меню) ═══════ */}
-      {view === 'nebula' && !secondaryView && (
-        <NebulaView
-          onOpenChat={handleOpenChat}
-          onNavigate={switchToView}
-          onOpenProfile={() => setProfileOpen(true)}
-          onOpenOrbit={() => setOrbitOpen(true)}
-          onOpenVibe={() => setVibeOpen(true)}
-          user={currentUser}
-        />
-      )}
-
-      {/* ═══════ CHAT VIEW (sidebar + чат) ═══════ */}
-      {view === 'chat' && (
-        <div className="main-layout">
-          <MiniCardsSidebar
+      <AppShell
+        topNav={
+          <TopNav
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            onToggleSidebar={handleToggleSidebar}
+            onSearch={() => setSpotlightOpen(true)}
+            onSettings={() => setSettingsOpen(true)}
+          />
+        }
+        sidebar={
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            activeTab={activeTab}
             activeChatId={activeChatId}
             onSelectChat={handleSelectChat}
-            onBack={handleBackToNebula}
+            onOpenChat={handleOpenChat}
           />
-
-          <div className="main-layout__content">
-            <AnimatePresence mode="wait">
-              {/* Empty state: нет выбранного чата */}
-              {!secondaryView && !activeChatId && (
-                <motion.div key="no-chat" className="main-layout__animated main-layout__empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <ChatCircle size={40} weight="duotone" />
-                  <span>Выберите чат, чтобы начать общение</span>
-                </motion.div>
-              )}
-
-              {/* Чат */}
-              {!secondaryView && activeChatId && (
-                <motion.div key="chat" className="main-layout__animated" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                  <ChatView
-                    chatId={activeChatId}
-                    onClose={handleCloseChat}
-                    socketRef={socketRef}
-                    onCall={() => handleInitiateCall(activeChatId)}
-                    activeCall={activeCall?.chatId === activeChatId ? activeCall : null}
-                    onJoinCall={() => joinCall(activeChatId)}
-                  />
-                </motion.div>
-              )}
-
-              {/* Voice */}
-              {secondaryView === 'voice' && (
-                <motion.div key="voice" className="main-layout__animated" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  <ErrorBoundary compact>
-                    {voiceRoomId && voiceExpanded ? (
-                      <VoiceRoom socketRef={socketRef} onToggleCamera={() => cameraOn ? disableCamera() : enableCamera()} onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()} onLeave={() => { leaveRoom(); setVoiceExpanded(false); }} />
-                    ) : (
-                      <VoiceRoomList
-                        onJoinRoom={(roomId, roomName) => {
-                          soundVoiceJoin();
-                          joinRoom(roomId, roomName);
-                          setVoiceExpanded(true);
-                        }}
-                      />
-                    )}
-                  </ErrorBoundary>
-                </motion.div>
-              )}
-
-              {/* Channels */}
-              {secondaryView === 'channels' && (
-                <motion.div key="channels" className="main-layout__animated" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  <ErrorBoundary compact>
-                    {activeChannelId
-                      ? <ChannelView channelId={activeChannelId} onBack={() => setActiveChannelId(null)} user={currentUser} socketRef={socketRef} />
-                      : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />}
-                  </ErrorBoundary>
-                </motion.div>
-              )}
-
-              {/* Friends */}
-              {secondaryView === 'friends' && (
-                <motion.div key="friends" className="main-layout__animated" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  <ErrorBoundary compact>
-                    <FriendsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} onOpenChat={handleOpenChat} />
-                  </ErrorBoundary>
-                </motion.div>
-              )}
-
-              {/* Admin */}
-              {secondaryView === 'admin' && (
-                <motion.div key="admin" className="main-layout__animated" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  <ErrorBoundary compact>
-                    <AdminPanel onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
-                  </ErrorBoundary>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════ SECONDARY VIEW в NEBULA MODE ═══════ */}
-      {view === 'nebula' && secondaryView && (
-        <div className="main-layout">
-          <div className="main-layout__content">
-            <AnimatePresence mode="wait">
-              {secondaryView === 'voice' && (
-                <motion.div key="neb-voice" className="main-layout__animated" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  {voiceRoomId && voiceExpanded ? (
-                    <VoiceRoom socketRef={socketRef} onToggleCamera={() => cameraOn ? disableCamera() : enableCamera()} onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()} onLeave={() => { leaveRoom(); setVoiceExpanded(false); }} />
-                  ) : (
-                    <VoiceRoomList
-                      onJoinRoom={(roomId, roomName) => {
-                        soundVoiceJoin();
-                        joinRoom(roomId, roomName);
-                        setVoiceExpanded(true);
-                      }}
-                    />
-                  )}
-                </motion.div>
-              )}
-              {secondaryView === 'channels' && (
-                <motion.div key="neb-channels" className="main-layout__animated" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  {activeChannelId
-                    ? <ChannelView channelId={activeChannelId} onBack={() => setActiveChannelId(null)} user={currentUser} socketRef={socketRef} />
-                    : <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />}
-                </motion.div>
-              )}
-              {secondaryView === 'friends' && (
-                <motion.div key="neb-friends" className="main-layout__animated" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  <FriendsScreen onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} onOpenChat={handleOpenChat} />
-                </motion.div>
-              )}
-              {secondaryView === 'admin' && (
-                <motion.div key="neb-admin" className="main-layout__animated" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
-                  <AdminPanel onBack={() => { setSecondaryView(null); if (!activeChatId) setView('nebula'); }} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      )}
+        }
+        content={
+          <ErrorBoundary compact>
+            <ContentArea showPlaceholder={showPlaceholder}>
+              {renderContent()}
+            </ContentArea>
+          </ErrorBoundary>
+        }
+        island={
+          <DynamicIsland
+            islandState={islandState}
+            user={currentUser}
+            onAcceptCall={handleAcceptCall}
+            onDeclineCall={handleDeclineCall}
+            onEndCall={() => {
+              soundVoiceLeave();
+              leaveCall(activeCall?.chatId);
+              useCallStore.getState().clearActiveCall();
+            }}
+            onOpenChat={handleOpenChat}
+            onOpenProfile={() => setProfileOpen(true)}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onLogout={onLogout}
+          />
+        }
+        offline={
+          <OfflineBanner
+            lastConnectedAt={lastConnectedAt}
+            visible={bannerReady && !isConnected}
+          />
+        }
+      />
 
       {/* ═══════ PANELS ═══════ */}
       <OrbitPanel open={orbitOpen} onClose={() => setOrbitOpen(false)} onOpenChat={handlePanelOpenChat} />
       <VibeMeter open={vibeOpen} onClose={() => setVibeOpen(false)} onOpenChat={handlePanelOpenChat} />
 
       {/* ═══════ MODALS ═══════ */}
-      {/* Настройки — модалка поверх всего */}
       <SettingsScreen open={settingsOpen} onClose={() => setSettingsOpen(false)} onLogout={onLogout} onFeedback={() => setFeedbackOpen(true)} />
 
       <AboutScreen open={aboutOpen} onClose={() => setAboutOpen(false)} />
@@ -506,7 +452,6 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
         {activeCall && (() => {
           const callChat = chats.find(c => c.id === activeCall.chatId);
           if (!callChat || callChat.type === 'group') return null;
-          // [Баг #10] Достать удалённые стримы для собеседника
           const otherUserId = callChat.otherUser?.id;
           const remoteStreams = otherUserId ? videoStreams[otherUserId] : null;
           return (
@@ -535,35 +480,24 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
         })()}
       </AnimatePresence>
 
-      {/* Обновление */}
-      {/* [CRIT-2] Офлайн-баннер */}
-      {!isConnected && <OfflineBanner lastConnectedAt={lastConnectedAt} visible={bannerReady} />}
-
       <UpdateBanner socketRef={socketRef} />
 
       {/* Spotlight Search (Ctrl+K) */}
       <SpotlightSearch
         open={spotlightOpen}
         onClose={() => setSpotlightOpen(false)}
-        onNavigate={switchToView}
+        onNavigate={(viewName) => {
+          if (viewName === 'settings') {
+            setSettingsOpen(true);
+          } else {
+            handleTabChange(viewName);
+          }
+        }}
         onOpenChat={(chatId) => handleOpenChat(chatId)}
       />
 
-      {/* Dynamic Island — навигация (всегда виден) */}
-      <DynamicIsland
-        user={currentUser}
-        isAdmin={isAdmin}
-        activeNav={secondaryView}
-        onNavigate={switchToView}
-        onOpenProfile={() => setProfileOpen(true)}
-        onOpenSearch={(query) => { setSpotlightOpen(true); }}
-        onStatusChange={(status) => {
-          setCurrentUser(prev => ({ ...prev, status }));
-        }}
-      />
-
-      {/* Voice Controls */}
-      {voiceRoomId && !voiceExpanded && (
+      {/* Voice Controls — показываем когда в голосовой, но НЕ на вкладке voice с развёрнутой комнатой */}
+      {voiceRoomId && !(activeTab === 'voice' && voiceExpanded) && (
         <VoiceControls
           onLeave={() => {
             soundVoiceLeave();
@@ -574,15 +508,10 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
               leaveRoom();
             }
             setVoiceExpanded(false);
-            // Вернуться из voice view — если был в голосовой секции, убрать её
-            if (secondaryView === 'voice') {
-              setSecondaryView(null);
-              if (!activeChatId) setView('nebula');
-            }
           }}
           onExpand={() => {
             if (!activeCall) {
-              switchToView('voice');
+              handleTabChange('voice');
               setVoiceExpanded(true);
             }
           }}

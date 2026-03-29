@@ -130,7 +130,7 @@
   border: none;
   outline: none;
   color: rgba(255,255,255,0.85);
-  font-family: 'Manrope', sans-serif;
+  font-family: inherit;
   font-size: 14px;
   line-height: 1.5;
   padding: 4px 0;
@@ -424,7 +424,7 @@
 }
 
 .chat-input__rec-timer {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   font-variant-numeric: tabular-nums;
   color: rgba(255,255,255,0.85);
