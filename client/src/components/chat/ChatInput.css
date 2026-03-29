@@ -6,10 +6,10 @@
   z-index: 10;
 }
 
-/* В inline mode — закрепить input внизу над island */
+/* В inline mode — закрепить input внизу (content area padding-bottom даёт место для island) */
 .chat-view--inline .chat-input-zone {
   position: absolute;
-  bottom: 80px;
+  bottom: 0;
   left: 0;
   right: 0;
 }

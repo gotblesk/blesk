@@ -39,9 +39,9 @@
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* Скролл-контейнер в inline — достаточный отступ снизу для input + island */
+/* Скролл-контейнер в inline — отступ для input (island обрабатывается через content area padding) */
 .chat-view--inline .chat-view__messages {
-  padding-bottom: 160px;
+  padding-bottom: 80px;
 }
 
 /* Focused окно — ярче обводка */
