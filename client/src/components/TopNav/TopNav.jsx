@@ -1,7 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState, useCallback } from 'react';
 import { List, ChatCircle, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bell, GearSix, ShieldStar } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import { useNotificationStore } from '../../store/notificationStore';
+import NotificationsPanel from './NotificationsPanel';
 import './TopNav.css';
 
 const BASE_TABS = [
@@ -13,12 +14,15 @@ const BASE_TABS = [
 
 const ADMIN_TAB = { id: 'admin', label: 'Админ', icon: ShieldStar };
 
-export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, onSearch, onSettings, isAdmin }) {
+export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, onSearch, onSettings, onOpenChat, isAdmin }) {
   const totalUnread = useChatStore(s => s.chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0));
   const unreadNotifs = useNotificationStore(s => s.unreadCount);
   const tabs = useMemo(() => isAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS, [isAdmin]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const handleNotifClose = useCallback(() => setNotifOpen(false), []);
 
   return (
+    <>
     <nav className="top-nav" onDoubleClick={e => e.stopPropagation()}>
       {/* Drag region */}
       <div className="top-nav__drag" />
@@ -52,7 +56,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
         <button className="top-nav__action" onClick={onSearch} title="Поиск (Ctrl+K)">
           <MagnifyingGlass size={18} />
         </button>
-        <button className="top-nav__action top-nav__action--notif" onClick={() => {}} title="Уведомления">
+        <button className="top-nav__action top-nav__action--notif" onClick={() => setNotifOpen(prev => !prev)} title="Уведомления">
           <Bell size={18} />
           {unreadNotifs > 0 && <span className="top-nav__notif-dot">{unreadNotifs}</span>}
         </button>
@@ -61,5 +65,12 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
         </button>
       </div>
     </nav>
+
+    <NotificationsPanel
+      open={notifOpen}
+      onClose={handleNotifClose}
+      onOpenChat={(chatId) => { setNotifOpen(false); onOpenChat?.(chatId); }}
+    />
+    </>
   );
 });

@@ -374,6 +374,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
             onToggleSidebar={handleToggleSidebar}
             onSearch={() => setSpotlightOpen(true)}
             onSettings={() => setSettingsOpen(true)}
+            onOpenChat={handleOpenChat}
             isAdmin={isAdmin}
           />
         }
