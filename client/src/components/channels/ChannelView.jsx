@@ -310,7 +310,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
               <textarea
                 ref={textareaRef}
                 className="cv__composer-textarea"
-                placeholder="О чём расскажете?"
+                placeholder="Написать пост..."
                 value={text}
                 onChange={(e) => setText(e.target.value.slice(0, 4000))}
                 onKeyDown={handleKeyDown}

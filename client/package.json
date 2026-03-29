@@ -1,6 +1,6 @@
 {
   "name": "blesk-client",
-  "version": "0.8.2-beta",
+  "version": "0.8.3-beta",
   "description": "blesk — приватный десктопный мессенджер. Клиент (Electron + React).",
   "private": true,
   "author": "gotblesk",
@@ -70,6 +70,8 @@
       "allowElevation": true,
       "installerIcon": "public/icon.ico",
       "uninstallerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico",
+      "unicode": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "blesk",

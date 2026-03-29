@@ -6,7 +6,7 @@
 /* ═══ Hero Banner ═══ */
 .cv__hero {
   position: relative; flex-shrink: 0;
-  height: 120px; overflow: hidden;
+  min-height: 200px; overflow: hidden;
 }
 .cv__hero-bg { position: absolute; inset: 0; }
 .cv__hero-fade {
@@ -168,11 +168,12 @@
 
 .cv__composer-textarea {
   width: 100%; min-height: 60px; max-height: 150px;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04);
-  border-radius: 14px; padding: 10px 14px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px; padding: 12px 16px;
   color: var(--text); font-size: 13px; font-family: inherit;
   resize: none; outline: none; line-height: 1.5;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s;
 }
 .cv__composer-textarea::placeholder { color: rgba(255,255,255,0.12); }
 .cv__composer-textarea:focus { border-color: rgba(200,255,0,0.15); }
