@@ -99,11 +99,24 @@ export function useSocket() {
     const handleConnectError = (err) => {
       console.error('Socket connection error:', err.message);
       const freshToken = localStorage.getItem('token');
-      if (freshToken && freshToken !== socket.auth.token) {
+      if (freshToken) {
         socket.auth.token = freshToken;
-        socket.connect();
       }
     };
+
+    // Heartbeat: отправлять ping каждые 45 сек чтобы Cloudflare не закрыл соединение
+    const heartbeatInterval = setInterval(() => {
+      if (socket.connected) socket.emit('ping');
+    }, 45000);
+
+    // При возврате окна в видимое состояние — обновить токен и переподключиться
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      const freshToken = localStorage.getItem('token');
+      if (freshToken) socket.auth.token = freshToken;
+      if (!socket.connected) socket.connect();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // ═══ Сообщения ═══
     const handleMessageNew = async (msg) => {
@@ -538,6 +551,8 @@ export function useSocket() {
       socket.off('message:og', handleMessageOg);
       window.removeEventListener('online', handleBrowserOnline);
       window.removeEventListener('offline', handleBrowserOffline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(heartbeatInterval);
       socket.disconnect();
       socketRef.current = null;
     };

@@ -155,7 +155,28 @@ export default function App() {
         handleLogout();
       }
     }, 12 * 60 * 1000);
-    return () => clearInterval(interval);
+
+    // Дополнительный refresh при возврате окна из фона
+    // setInterval throttle-ится браузером когда окно скрыто — этот хендлер компенсирует
+    let lastRefreshAt = Date.now();
+    const handleVisibilityRefresh = async () => {
+      if (document.visibilityState !== 'visible') return;
+      // Обновить токен если прошло более 11 минут с последнего refresh
+      if (Date.now() - lastRefreshAt >= 11 * 60 * 1000) {
+        const newToken = await tryRefreshToken();
+        if (!newToken) {
+          handleLogout();
+        } else {
+          lastRefreshAt = Date.now();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityRefresh);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+    };
   }, [user]);
 
   // Генерация E2E ключей при входе (если ещё нет)

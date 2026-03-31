@@ -193,15 +193,15 @@
       "type": "file"
     },
     {
-      "path": "server\\src\\routes\\chats.js",
-      "accessCount": 16,
-      "lastAccessed": 1774941724305,
+      "path": "client\\src\\App.jsx",
+      "accessCount": 18,
+      "lastAccessed": 1774946086508,
       "type": "file"
     },
     {
-      "path": "client\\src\\App.jsx",
-      "accessCount": 15,
-      "lastAccessed": 1774941749706,
+      "path": "server\\src\\routes\\chats.js",
+      "accessCount": 16,
+      "lastAccessed": 1774941724305,
       "type": "file"
     },
     {
@@ -241,6 +241,12 @@
       "type": "file"
     },
     {
+      "path": "client\\src\\hooks\\useSocket.js",
+      "accessCount": 9,
+      "lastAccessed": 1774946093699,
+      "type": "file"
+    },
+    {
       "path": "server\\src\\ws\\callHandler.js",
       "accessCount": 8,
       "lastAccessed": 1774938635871,
@@ -271,6 +277,12 @@
       "type": "file"
     },
     {
+      "path": "client\\package.json",
+      "accessCount": 7,
+      "lastAccessed": 1774946128199,
+      "type": "file"
+    },
+    {
       "path": "server\\src\\routes\\channels.js",
       "accessCount": 6,
       "lastAccessed": 1774917942275,
@@ -280,12 +292,6 @@
       "path": "server\\src\\routes\\shield.js",
       "accessCount": 6,
       "lastAccessed": 1774917998624,
-      "type": "file"
-    },
-    {
-      "path": "client\\package.json",
-      "accessCount": 6,
-      "lastAccessed": 1774934517960,
       "type": "file"
     },
     {
@@ -376,12 +382,6 @@
       "path": "client\\src\\components\\voice\\IncomingCallOverlay.css",
       "accessCount": 2,
       "lastAccessed": 1774917854354,
-      "type": "file"
-    },
-    {
-      "path": "client\\src\\hooks\\useSocket.js",
-      "accessCount": 2,
-      "lastAccessed": 1774938588511,
       "type": "file"
     },
     {
