@@ -3,29 +3,41 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Microphone, MicrophoneSlash, Headphones, SpeakerSlash,
   PhoneDisconnect, Phone, X, Sparkle, ArrowClockwise,
-  User, GearSix, SignOut, Circle, Moon, EyeSlash, CaretDown,
 } from '@phosphor-icons/react';
 import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
 import Avatar from '../ui/Avatar';
-import ConfirmDialog from '../ui/ConfirmDialog';
 import './island.css';
 
-const spring = { type: 'spring', damping: 25, stiffness: 300, mass: 0.8 };
+const morphSpring = { type: 'spring', damping: 30, stiffness: 400, mass: 0.6 };
 
-export default function DynamicIsland({ islandState, user, onAcceptCall, onDeclineCall, onEndCall, onOpenChat, onOpenProfile, onOpenSettings, onLogout, onStatusChange }) {
+const stateStyles = {
+  loading:         { borderRadius: 100, padding: '4px' },
+  idle:            { borderRadius: 100, padding: '4px' },
+  message:         { borderRadius: 22,  padding: '10px 14px' },
+  typing:          { borderRadius: 100, padding: '6px 12px' },
+  call:            { borderRadius: 22,  padding: '10px 14px' },
+  incoming:        { borderRadius: 24,  padding: '14px 18px' },
+  update:          { borderRadius: 22,  padding: '10px 14px' },
+  update_progress: { borderRadius: 22,  padding: '10px 14px' },
+};
+
+const stateMinWidths = {
+  loading: 0, idle: 0, message: 240, typing: 0,
+  call: 260, incoming: 280, update: 200, update_progress: 200,
+};
+
+export default function DynamicIsland({ islandState, user, onAcceptCall, onDeclineCall, onEndCall, onOpenChat }) {
   const {
     state, messageData, typingData, updateData, updateProgress,
     incomingCall, activeCall, voiceRoomId, voiceRoomName,
-    toggleProfile, closeProfile, dismissUpdate, setMessageData,
+    dismissUpdate, setMessageData,
   } = islandState;
 
   const isMuted = useVoiceStore(s => s.isMuted);
   const isDeafened = useVoiceStore(s => s.isDeafened);
   const toggleMute = useVoiceStore(s => s.toggleMute);
   const toggleDeafen = useVoiceStore(s => s.toggleDeafen);
-
-  const [logoutConfirm, setLogoutConfirm] = useState(false);
 
   // Call timer
   const [callElapsed, setCallElapsed] = useState(0);
@@ -51,25 +63,6 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Click outside to close profile
-  const islandRef = useRef(null);
-  useEffect(() => {
-    if (state !== 'profile') return;
-    const handler = (e) => {
-      if (islandRef.current && !islandRef.current.contains(e.target)) closeProfile();
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [state, closeProfile]);
-
-  // Escape to close profile
-  useEffect(() => {
-    if (state !== 'profile') return;
-    const handler = (e) => { if (e.key === 'Escape') closeProfile(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [state, closeProfile]);
-
   // Enter to accept call, Space to toggle mute
   useEffect(() => {
     const handler = (e) => {
@@ -82,9 +75,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
   }, [state, onAcceptCall, toggleMute]);
 
   const handleIslandClick = () => {
-    if (state === 'idle') toggleProfile();
-    else if (state === 'profile') closeProfile();
-    else if (state === 'message' && messageData) {
+    if (state === 'message' && messageData) {
       onOpenChat?.(messageData.chatId);
       setMessageData(null);
     }
@@ -93,25 +84,39 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
   const callName = activeCall?.callerName || voiceRoomName || 'Звонок';
   const userStatus = user?.status || 'online';
 
+  const currentStyle = stateStyles[state] || stateStyles.idle;
+
+  // Content enter/exit animations
+  const contentEnter = { opacity: 0, y: 4, scale: 0.97 };
+  const contentAnimate = { opacity: 1, y: 0, scale: 1 };
+  const contentExit = { opacity: 0, scale: 0.95 };
+  const contentEnterTransition = { duration: 0.15, delay: 0.03 };
+  const contentExitTransition = { duration: 0.08 };
+
   return (
-  <>
     <div
       className={`di di--${state}`}
-      ref={islandRef}
       data-state={state}
     >
       <motion.div
         className="di__glass"
         layout
-        transition={spring}
+        animate={{
+          borderRadius: currentStyle.borderRadius,
+          padding: currentStyle.padding,
+        }}
+        transition={morphSpring}
+        style={{
+          minWidth: stateMinWidths[state] || 0,
+        }}
         onClick={handleIslandClick}
       >
         {/* Inner glass layer — Double Layer Glass */}
         <div className="di__inner-glass">
-          <AnimatePresence mode="wait">
-            {/* LOADING — показываем имя + точка статуса (не соединения) */}
+          <AnimatePresence mode="popLayout">
+            {/* LOADING */}
             {state === 'loading' && (
-              <motion.div key="loading" className="di__inner" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
+              <motion.div key="loading" className="di__inner" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={contentExit} transition={contentExitTransition}>
                 <div className={`di__dot di__dot--${userStatus}`} />
                 <span className="di__nick">{user?.username || 'blesk'}</span>
               </motion.div>
@@ -119,7 +124,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
 
             {/* IDLE */}
             {state === 'idle' && (
-              <motion.div key="idle" className="di__inner" title="Нажмите для профиля" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.12 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
+              <motion.div key="idle" className="di__inner" initial={contentEnter} animate={contentAnimate} exit={contentExit} transition={contentEnterTransition}>
                 <div className={`di__dot di__dot--${userStatus}`} />
                 <span className="di__nick">{user?.username || 'blesk'}</span>
               </motion.div>
@@ -127,7 +132,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
 
             {/* MESSAGE */}
             {state === 'message' && messageData && (
-              <motion.div key="message" className="di__inner" initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <motion.div key="message" className="di__inner" initial={contentEnter} animate={contentAnimate} exit={contentExit} transition={contentEnterTransition}>
                 <Avatar user={messageData.user || { username: messageData.username }} size={34} />
                 <div className="di__msg-col">
                   <span className="di__msg-name">{messageData.username}</span>
@@ -138,7 +143,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
 
             {/* TYPING */}
             {state === 'typing' && typingData && (
-              <motion.div key="typing" className="di__inner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="typing" className="di__inner" initial={contentEnter} animate={contentAnimate} exit={contentExit} transition={contentEnterTransition}>
                 <Avatar user={{ username: typingData.username }} size={26} />
                 <span className="di__typing-name">{typingData.username}</span>
                 <div className="di__typing-dots"><div/><div/><div/></div>
@@ -147,7 +152,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
 
             {/* ACTIVE CALL */}
             {state === 'call' && (
-              <motion.div key="call" className="di__inner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="call" className="di__inner" initial={contentEnter} animate={contentAnimate} exit={contentExit} transition={contentEnterTransition}>
                 <div className="di__call-pulse" />
                 <div className="di__call-info">
                   <span className="di__call-name">{callName.length > 18 ? callName.slice(0, 18) + '\u2026' : callName}</span>
@@ -169,7 +174,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
 
             {/* INCOMING CALL */}
             {state === 'incoming' && incomingCall && (
-              <motion.div key="incoming" className="di__inner" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="incoming" className="di__inner" initial={contentEnter} animate={contentAnimate} exit={contentExit} transition={contentEnterTransition}>
                 <Avatar user={{ username: incomingCall.callerName, avatar: incomingCall.callerAvatar }} size={42} className="di__in-ava" />
                 <div className="di__in-col">
                   <span className="di__in-label">Входящий звонок</span>
@@ -184,7 +189,7 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
 
             {/* UPDATE */}
             {state === 'update' && updateData && (
-              <motion.div key="update" className="di__inner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="update" className="di__inner" initial={contentEnter} animate={contentAnimate} exit={contentExit} transition={contentEnterTransition}>
                 <Sparkle size={14} weight="fill" className="di__upd-icon" />
                 <span className="di__upd-text">blesk {updateData.version}</span>
                 <button className="di__upd-btn" onClick={e => e.stopPropagation()}>Обновить</button>
@@ -194,70 +199,15 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
 
             {/* UPDATE PROGRESS */}
             {state === 'update_progress' && (
-              <motion.div key="update_progress" className="di__inner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="update_progress" className="di__inner" initial={contentEnter} animate={contentAnimate} exit={contentExit} transition={contentEnterTransition}>
                 <ArrowClockwise size={14} className="di__upd-spin" />
                 <span className="di__upd-text">Загрузка... {updateProgress}%</span>
                 <div className="di__upd-bar"><div className="di__upd-fill" style={{ width: `${updateProgress}%` }} /></div>
-              </motion.div>
-            )}
-
-            {/* PROFILE */}
-            {state === 'profile' && (
-              <motion.div key="profile" className="di__inner di__inner--profile" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.25 }}>
-                <div className="di__prof-head">
-                  <Avatar user={user} size={44} />
-                  <div className="di__prof-info">
-                    <span className="di__prof-name">{user?.username || 'blesk'}</span>
-                    <div className="di__prof-status-row">
-                      <div className={`di__dot di__dot--${userStatus}`} style={{ width: 6, height: 6 }} />
-                      <span className="di__prof-status-text">
-                        {userStatus === 'online' ? 'В сети' : userStatus === 'dnd' ? 'Не беспокоить' : userStatus === 'invisible' ? 'Невидимка' : 'В сети'}
-                      </span>
-                      <CaretDown size={10} style={{ color: 'rgba(255,255,255,0.2)' }} />
-                    </div>
-                  </div>
-                  <button className="di__prof-x" title="Закрыть" onClick={e => { e.stopPropagation(); closeProfile(); }}>&#10005;</button>
-                </div>
-
-                {/* Status selector */}
-                <div className="di__prof-statuses">
-                  <button className={`di__prof-status-opt ${userStatus === 'online' ? 'di__prof-status-opt--active' : ''}`} onClick={e => { e.stopPropagation(); onStatusChange?.('online'); }}>
-                    <Circle size={8} weight="fill" style={{ color: 'var(--online, #4ade80)' }} /> В сети
-                  </button>
-                  <button className={`di__prof-status-opt ${userStatus === 'dnd' ? 'di__prof-status-opt--active' : ''}`} onClick={e => { e.stopPropagation(); onStatusChange?.('dnd'); }}>
-                    <Moon size={8} weight="fill" style={{ color: '#facc15' }} /> Не беспокоить
-                  </button>
-                  <button className={`di__prof-status-opt ${userStatus === 'invisible' ? 'di__prof-status-opt--active' : ''}`} onClick={e => { e.stopPropagation(); onStatusChange?.('invisible'); }}>
-                    <EyeSlash size={8} style={{ color: 'rgba(255,255,255,0.3)' }} /> Невидимка
-                  </button>
-                </div>
-
-                <div className="di__prof-sep" />
-
-                <div className="di__prof-grid">
-                  <button className="di__prof-btn" onClick={e => { e.stopPropagation(); closeProfile(); onOpenProfile?.(); }}><User size={18} /><span>Профиль</span></button>
-                  <button className="di__prof-btn" onClick={e => { e.stopPropagation(); closeProfile(); onOpenSettings?.(); }}><GearSix size={18} /><span>Настройки</span></button>
-                </div>
-
-                <button className="di__prof-logout" onClick={e => { e.stopPropagation(); setLogoutConfirm(true); }}>
-                  <SignOut size={12} /> Выйти
-                </button>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </motion.div>
     </div>
-
-    <ConfirmDialog
-      open={logoutConfirm}
-      title="Выйти из аккаунта?"
-      message="Вы будете перенаправлены на экран входа"
-      confirmText="Выйти"
-      danger
-      onConfirm={() => { setLogoutConfirm(false); onLogout?.(); }}
-      onCancel={() => setLogoutConfirm(false)}
-    />
-  </>
   );
 }

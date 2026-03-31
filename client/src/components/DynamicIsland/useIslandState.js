@@ -11,7 +11,6 @@ export function useIslandState(user) {
   const [typingData, setTypingData] = useState(null);
   const [updateData, setUpdateData] = useState(null);
   const [updateProgress, setUpdateProgress] = useState(null);
-  const [profileOpen, setProfileOpen] = useState(false);
 
   const msgTimeoutRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -26,16 +25,15 @@ export function useIslandState(user) {
 
   // Determine active state based on priority
   useEffect(() => {
-    if (incomingCall) { setState('incoming'); setProfileOpen(false); return; }
-    if (activeCall || voiceRoomId) { setState('call'); setProfileOpen(false); return; }
-    if (profileOpen) { setState('profile'); return; }
+    if (incomingCall) { setState('incoming'); return; }
+    if (activeCall || voiceRoomId) { setState('call'); return; }
     if (messageData) { setState('message'); return; }
     if (typingData) { setState('typing'); return; }
     if (updateProgress) { setState('update_progress'); return; }
     if (updateData) { setState('update'); return; }
     if (!isConnected) { setState('loading'); return; }
     setState('idle');
-  }, [incomingCall, activeCall, voiceRoomId, profileOpen, messageData, typingData, updateData, updateProgress, isConnected]);
+  }, [incomingCall, activeCall, voiceRoomId, messageData, typingData, updateData, updateProgress, isConnected]);
 
   // Show message notification (4 sec)
   const showMessage = useCallback((msg) => {
@@ -64,13 +62,6 @@ export function useIslandState(user) {
     setTypingData(null);
     if (typingTimeoutRef.current) { clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = null; }
   }, []);
-
-  const toggleProfile = useCallback(() => {
-    if (state === 'idle') setProfileOpen(true);
-    else if (state === 'profile') setProfileOpen(false);
-  }, [state]);
-
-  const closeProfile = useCallback(() => setProfileOpen(false), []);
 
   const showUpdate = useCallback((version) => {
     setUpdateData({ version });
@@ -102,8 +93,6 @@ export function useIslandState(user) {
     typingData,
     updateData,
     updateProgress,
-    profileOpen,
-
     // Call data
     incomingCall,
     activeCall,
@@ -114,8 +103,6 @@ export function useIslandState(user) {
     showMessage,
     showTyping,
     clearTyping,
-    toggleProfile,
-    closeProfile,
     showUpdate,
     dismissUpdate,
     setProgress,

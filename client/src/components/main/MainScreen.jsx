@@ -395,6 +395,17 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
             onSettings={() => setSettingsOpen(true)}
             onOpenChat={handleOpenChat}
             isAdmin={isAdmin}
+            user={currentUser}
+            onLogout={onLogout}
+            onNavigate={(viewName) => {
+              if (viewName === 'profile') setProfileOpen(true);
+              else if (viewName === 'settings') setSettingsOpen(true);
+            }}
+            onStatusChange={(status) => {
+              const socket = socketRef.current;
+              if (socket) socket.emit('user:status', { status });
+              setCurrentUser(prev => ({ ...prev, status }));
+            }}
           />
         }
         sidebar={
@@ -425,14 +436,6 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
               useCallStore.getState().clearActiveCall();
             }}
             onOpenChat={handleOpenChat}
-            onOpenProfile={() => setProfileOpen(true)}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onLogout={onLogout}
-            onStatusChange={(status) => {
-              const socket = socketRef.current;
-              if (socket) socket.emit('user:status', { status });
-              setCurrentUser(prev => ({ ...prev, status }));
-            }}
           />
         }
         offline={

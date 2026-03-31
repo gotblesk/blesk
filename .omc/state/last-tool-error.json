@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:\\\\Users\\\\mxkar\\\\OneDrive\\\\Рабочий стол\\\\blesk\\\" && \\\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\\\" release create v1.0.3-beta --title \\\"v1.0.3-beta — ClamAV + network stability\\\" --notes ...",
+  "error": "Exit code 1\nerror checking for existing release: Head \"https://api.github.com/repos/gotblesk/blesk/releases/tags/v1.0.3-beta\": net/http: TLS handshake timeout",
+  "timestamp": "2026-03-31T08:39:50.974Z",
+  "retry_count": 1
+}

@@ -1,7 +1,9 @@
-import { memo, useMemo, useState, useCallback } from 'react';
-import { List, ChatCircle, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bell, GearSix, ShieldStar } from '@phosphor-icons/react';
+import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { List, ChatCircle, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bell, GearSix, ShieldStar, User, SignOut } from '@phosphor-icons/react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useChatStore } from '../../store/chatStore';
 import { useNotificationStore } from '../../store/notificationStore';
+import Avatar from '../ui/Avatar';
 import NotificationsPanel from './NotificationsPanel';
 import './TopNav.css';
 
@@ -14,13 +16,35 @@ const BASE_TABS = [
 
 const ADMIN_TAB = { id: 'admin', label: 'Админ', icon: ShieldStar };
 
-export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, onSearch, onSettings, onOpenChat, isAdmin }) {
+const STATUS_OPTIONS = [
+  { key: 'online', label: 'В сети', color: '#4ade80' },
+  { key: 'dnd', label: 'Не беспокоить', color: '#f59e0b' },
+  { key: 'invisible', label: 'Невидимка', color: '#6b7280' },
+];
+
+export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, onSearch, onSettings, onOpenChat, isAdmin, user, onLogout, onNavigate, onStatusChange }) {
   const totalUnread = useChatStore(s => s.chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0));
   const isConnected = useChatStore(s => s.isConnected);
   const unreadNotifs = useNotificationStore(s => s.unreadCount);
   const tabs = useMemo(() => isAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS, [isAdmin]);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const handleNotifClose = useCallback(() => setNotifOpen(false), []);
+  const userMenuRef = useRef(null);
+
+  const currentStatus = user?.status || 'online';
+  const statusLabel = STATUS_OPTIONS.find(s => s.key === currentStatus)?.label ?? 'В сети';
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    function handleClick(e) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [userMenuOpen]);
 
   return (
     <>
@@ -66,6 +90,58 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
         <button className="top-nav__action" onClick={onSettings} title="Настройки">
           <GearSix size={18} />
         </button>
+
+        <div className="top-nav__user" ref={userMenuRef}>
+          <button className="top-nav__avatar-btn" onClick={() => setUserMenuOpen(prev => !prev)} title="Профиль">
+            <Avatar user={user} size={28} showOnline={false} />
+          </button>
+
+          <AnimatePresence>
+            {userMenuOpen && (
+              <motion.div
+                className="top-nav__user-menu"
+                initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+              >
+                <div className="top-nav__user-header">
+                  <Avatar user={user} size={40} showOnline={true} isOnline={currentStatus !== 'invisible'} userStatus={currentStatus} />
+                  <div>
+                    <div className="top-nav__user-name">{user?.displayName || user?.username}</div>
+                    <div className="top-nav__user-status">{statusLabel}</div>
+                  </div>
+                </div>
+
+                <div className="top-nav__user-statuses">
+                  {STATUS_OPTIONS.map(s => (
+                    <button
+                      key={s.key}
+                      className={`top-nav__status-btn${currentStatus === s.key ? ' top-nav__status-btn--active' : ''}`}
+                      onClick={() => { onStatusChange?.(s.key); setUserMenuOpen(false); }}
+                    >
+                      <span className="top-nav__status-dot" style={{ background: s.color }} />
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="top-nav__user-actions">
+                  <button onClick={() => { setUserMenuOpen(false); onNavigate?.('profile'); }}>
+                    <User size={16} /> Профиль
+                  </button>
+                  <button onClick={() => { setUserMenuOpen(false); onSettings?.(); }}>
+                    <GearSix size={16} /> Настройки
+                  </button>
+                </div>
+
+                <button className="top-nav__logout" onClick={() => { setUserMenuOpen(false); onLogout?.(); }}>
+                  <SignOut size={16} /> Выйти
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </nav>
 
