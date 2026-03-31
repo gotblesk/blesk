@@ -5,7 +5,7 @@ import { useVoiceStore } from '../../store/voiceStore';
 import { useSettingsStore } from '../../store/settingsStore';
 
 // Priority: INCOMING(5) > CALL(4) > MESSAGE(3) > TYPING(2) > UPDATE(1) > IDLE(0)
-export function useIslandState(user) {
+export function useIslandState(user, { suppressCallState = false } = {}) {
   const [state, setState] = useState('loading');
   const [messageData, setMessageData] = useState(null);
   const [typingData, setTypingData] = useState(null);
@@ -25,15 +25,15 @@ export function useIslandState(user) {
 
   // Determine active state based on priority
   useEffect(() => {
-    if (incomingCall) { setState('incoming'); return; }
-    if (activeCall || voiceRoomId) { setState('call'); return; }
+    if (incomingCall && !suppressCallState) { setState('incoming'); return; }
+    if ((activeCall || voiceRoomId) && !suppressCallState) { setState('call'); return; }
     if (messageData) { setState('message'); return; }
     if (typingData) { setState('typing'); return; }
     if (updateProgress) { setState('update_progress'); return; }
     if (updateData) { setState('update'); return; }
     if (!isConnected) { setState('loading'); return; }
     setState('idle');
-  }, [incomingCall, activeCall, voiceRoomId, messageData, typingData, updateData, updateProgress, isConnected]);
+  }, [incomingCall, activeCall, voiceRoomId, messageData, typingData, updateData, updateProgress, isConnected, suppressCallState]);
 
   // Show message notification (4 sec)
   const showMessage = useCallback((msg) => {

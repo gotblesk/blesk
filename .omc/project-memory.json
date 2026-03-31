@@ -199,15 +199,15 @@
       "type": "file"
     },
     {
-      "path": "server\\src\\routes\\chats.js",
-      "accessCount": 16,
-      "lastAccessed": 1774941724305,
+      "path": "server\\src\\ws\\chatHandler.js",
+      "accessCount": 17,
+      "lastAccessed": 1774948231437,
       "type": "file"
     },
     {
-      "path": "server\\src\\ws\\chatHandler.js",
+      "path": "server\\src\\routes\\chats.js",
       "accessCount": 16,
-      "lastAccessed": 1774947796075,
+      "lastAccessed": 1774941724305,
       "type": "file"
     },
     {
@@ -215,6 +215,12 @@
       "accessCount": 15,
       "lastAccessed": 1774947662111,
       "type": "directory"
+    },
+    {
+      "path": "client\\src\\hooks\\useSocket.js",
+      "accessCount": 15,
+      "lastAccessed": 1774948218567,
+      "type": "file"
     },
     {
       "path": "server\\src\\index.js",
@@ -226,12 +232,6 @@
       "path": "server\\src\\ws\\voiceHandler.js",
       "accessCount": 13,
       "lastAccessed": 1774940595372,
-      "type": "file"
-    },
-    {
-      "path": "client\\src\\hooks\\useSocket.js",
-      "accessCount": 12,
-      "lastAccessed": 1774947796847,
       "type": "file"
     },
     {
@@ -248,8 +248,8 @@
     },
     {
       "path": "client\\package.json",
-      "accessCount": 9,
-      "lastAccessed": 1774947841601,
+      "accessCount": 10,
+      "lastAccessed": 1774948405285,
       "type": "file"
     },
     {
@@ -295,6 +295,12 @@
       "type": "file"
     },
     {
+      "path": "server",
+      "accessCount": 6,
+      "lastAccessed": 1774948224709,
+      "type": "directory"
+    },
+    {
       "path": "server\\src\\services\\ogScraper.js",
       "accessCount": 5,
       "lastAccessed": 1774918454009,
@@ -304,12 +310,6 @@
       "path": "client",
       "accessCount": 5,
       "lastAccessed": 1774938672346,
-      "type": "directory"
-    },
-    {
-      "path": "server",
-      "accessCount": 5,
-      "lastAccessed": 1774940583294,
       "type": "directory"
     },
     {

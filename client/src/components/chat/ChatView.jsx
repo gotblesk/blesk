@@ -694,7 +694,7 @@ export default function ChatView({
             const showGap = prev && prev.userId !== msg.userId;
             const showDateSep = !prev ||
               new Date(msg.createdAt).toDateString() !== new Date(prev.createdAt).toDateString();
-            const hue = getHueFromString(msg.user?.username || msg.userId || '');
+            const hue = getHueFromString(msg.user?.username || msg.username || msg.userId || '');
 
             return (
               <div
@@ -717,7 +717,7 @@ export default function ChatView({
                   isOwn={isOwn}
                   groupPosition={groupPosition}
                   hue={hue}
-                  senderName={msg.user?.username || 'Unknown'}
+                  senderName={msg.user?.username || msg.username || 'Unknown'}
                   isRead={msg.readBy?.includes?.(chat?.otherUser?.id) || false}
                   onReply={handleReplyStable}
                   onReact={handleReactStable}
@@ -922,7 +922,7 @@ function ForwardModal({ message, currentChatId, socketRef, onClose, onSuccess })
 
         {/* Превью пересылаемого сообщения */}
         <div className="forward-modal__preview">
-          <span className="forward-modal__preview-author">{message.user?.username || 'Unknown'}</span>
+          <span className="forward-modal__preview-author">{message.user?.username || message.username || 'Unknown'}</span>
           <span className="forward-modal__preview-text">{previewText}</span>
         </div>
 

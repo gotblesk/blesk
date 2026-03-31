@@ -218,7 +218,7 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 240px;
+  width: 280px;
   background: rgba(20, 18, 30, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -260,12 +260,12 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 6px 8px;
+  padding: 6px 6px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   background: transparent;
   color: rgba(255, 255, 255, 0.5);
-  font-size: 11px;
+  font-size: 10px;
   font-family: inherit;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -275,9 +275,10 @@
   color: rgba(255, 255, 255, 0.7);
 }
 .top-nav__status-btn--active {
-  background: rgba(200, 255, 0, 0.08);
-  border-color: rgba(200, 255, 0, 0.2);
-  color: #c8ff00;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
 }
 .top-nav__status-dot {
   width: 6px;
@@ -356,8 +357,10 @@
   color: rgba(0, 0, 0, 0.7);
 }
 [data-theme="light"] .top-nav__status-btn--active {
-  background: rgba(200, 255, 0, 0.1);
-  border-color: rgba(200, 255, 0, 0.3);
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 600;
 }
 [data-theme="light"] .top-nav__user-actions button {
   border-color: rgba(0, 0, 0, 0.06);

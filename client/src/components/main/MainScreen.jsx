@@ -106,7 +106,6 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   const [focusMode, setFocusMode] = useState(false);
 
   const theme = useSettingsStore((s) => s.theme);
-  const islandState = useIslandState(currentUser);
   const socketRef = useSocket();
   const { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare } = useVoice(socketRef);
 
@@ -177,6 +176,11 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   const videoStreams = useVoiceStore((s) => s.videoStreams);
   const incomingCall = useCallStore((s) => s.incomingCall);
   const activeCall = useCallStore((s) => s.activeCall);
+
+  // Скрывать состояние звонка в Island если пользователь видит CallScreen или VoiceRoom
+  const voiceViewVisible = !!(voiceRoomId && activeTab === 'voice' && voiceExpanded);
+  const callScreenVisible = !!activeCall;
+  const islandState = useIslandState(currentUser, { suppressCallState: voiceViewVisible || callScreenVisible });
 
   // ═══════ NAVIGATION ═══════
   const handleTabChange = useCallback((tab) => {
