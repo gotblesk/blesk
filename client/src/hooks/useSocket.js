@@ -95,13 +95,32 @@ export function useSocket() {
     };
     socket.on('disconnect', handleDisconnect);
 
-    // При ошибке подключения — обновить токен и переподключиться
-    const handleConnectError = (err) => {
+    // При ошибке подключения — обновить токен через refresh API и переподключиться
+    const handleConnectError = async (err) => {
       console.error('Socket connection error:', err.message);
+      // Сначала пробуем обновить токен через refresh API (не просто читаем localStorage)
+      // чтобы не переподключаться с уже истёкшим access token
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          const res = await fetch(`${API_URL}/api/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ refreshToken }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            localStorage.setItem('token', data.token);
+            if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+            socket.auth.token = data.token;
+            return; // socket.io автоматически повторит подключение
+          }
+        }
+      } catch { /* сеть недоступна — socket.io повторит по расписанию */ }
+      // Если refresh не удался — хотя бы подставить актуальный токен из localStorage
       const freshToken = localStorage.getItem('token');
-      if (freshToken) {
-        socket.auth.token = freshToken;
-      }
+      if (freshToken) socket.auth.token = freshToken;
     };
 
     // Heartbeat: отправлять ping каждые 45 сек чтобы Cloudflare не закрыл соединение

@@ -51,8 +51,9 @@ function chatHandler(io, socket) {
   const JWT_SECRET = process.env.JWT_SECRET;
   const tokenRecheckInterval = setInterval(async () => {
     try {
-      // Проверить cookie или auth.token
-      let token = socket.handshake.auth?.token;
+      // socket.auth.token обновляется клиентом при каждом переподключении —
+      // всегда читаем из него, а не из socket.handshake.auth (иммутабелен)
+      let token = socket.auth?.token || socket.handshake.auth?.token;
       if (!token && socket.handshake.headers?.cookie) {
         const cookieMatch = socket.handshake.headers.cookie.match(/blesk_token=([^;]+)/);
         if (cookieMatch) token = decodeURIComponent(cookieMatch[1]);

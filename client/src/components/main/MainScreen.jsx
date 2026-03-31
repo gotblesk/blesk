@@ -41,7 +41,7 @@ import './MainScreen.css';
 
 // Офлайн-баннер с временем последнего соединения и анимированными точками
 // Не показывается первые 4 секунды после монтирования (ждём первое подключение)
-const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt, visible }) {
+const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt, visible, onReconnect }) {
   const [elapsed, setElapsed] = useState('');
 
   useEffect(() => {
@@ -65,12 +65,17 @@ const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt, visible }) 
   return (
     <div className="offline-banner">
       <WifiSlash size={14} weight="regular" />
-      <span>{isConnecting ? 'Подключение...' : `Нет соединения${elapsed ? ` \u00b7 последний раз ${elapsed}` : ''}`}</span>
+      <span>{isConnecting ? 'Подключение...' : `Нет подключения${elapsed ? ` \u00b7 ${elapsed}` : ''}`}</span>
       <div className="offline-banner__dots">
         <div className="offline-banner__dot" />
         <div className="offline-banner__dot" />
         <div className="offline-banner__dot" />
       </div>
+      {!isConnecting && (
+        <button className="offline-banner__reconnect" onClick={onReconnect}>
+          Переподключить
+        </button>
+      )}
     </div>
   );
 });
@@ -88,7 +93,12 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState(user);
+  // Восстановить сохранённый статус из localStorage при монтировании
+  const [currentUser, setCurrentUser] = useState(() => {
+    const savedStatus = localStorage.getItem('blesk-user-status');
+    if (savedStatus && user) return { ...user, status: savedStatus };
+    return user;
+  });
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [voiceExpanded, setVoiceExpanded] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState(null);
@@ -404,6 +414,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
             onStatusChange={(status) => {
               const socket = socketRef.current;
               if (socket) socket.emit('user:status', { status });
+              localStorage.setItem('blesk-user-status', status);
               setCurrentUser(prev => ({ ...prev, status }));
             }}
           />
@@ -439,7 +450,14 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
           />
         }
         offline={
-          null /* Статус соединения показывается через Dynamic Island (точка + loading state) */
+          <OfflineBanner
+            visible={bannerReady && !isConnected}
+            lastConnectedAt={lastConnectedAt}
+            onReconnect={() => {
+              const socket = socketRef.current;
+              if (socket && !socket.connected) socket.connect();
+            }}
+          />
         }
       />
 

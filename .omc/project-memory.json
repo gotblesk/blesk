@@ -158,8 +158,8 @@
     },
     {
       "path": "client\\src",
-      "accessCount": 49,
-      "lastAccessed": 1774947083578,
+      "accessCount": 50,
+      "lastAccessed": 1774947660757,
       "type": "directory"
     },
     {
@@ -194,8 +194,8 @@
     },
     {
       "path": "client\\src\\App.jsx",
-      "accessCount": 18,
-      "lastAccessed": 1774946086508,
+      "accessCount": 19,
+      "lastAccessed": 1774947650789,
       "type": "file"
     },
     {
@@ -205,10 +205,22 @@
       "type": "file"
     },
     {
+      "path": "server\\src\\ws\\chatHandler.js",
+      "accessCount": 16,
+      "lastAccessed": 1774947796075,
+      "type": "file"
+    },
+    {
       "path": "server\\src",
-      "accessCount": 14,
-      "lastAccessed": 1774938631255,
+      "accessCount": 15,
+      "lastAccessed": 1774947662111,
       "type": "directory"
+    },
+    {
+      "path": "server\\src\\index.js",
+      "accessCount": 14,
+      "lastAccessed": 1774947658971,
+      "type": "file"
     },
     {
       "path": "server\\src\\ws\\voiceHandler.js",
@@ -217,15 +229,9 @@
       "type": "file"
     },
     {
-      "path": "server\\src\\index.js",
+      "path": "client\\src\\hooks\\useSocket.js",
       "accessCount": 12,
-      "lastAccessed": 1774918430850,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\ws\\chatHandler.js",
-      "accessCount": 11,
-      "lastAccessed": 1774918501543,
+      "lastAccessed": 1774947796847,
       "type": "file"
     },
     {
@@ -241,9 +247,9 @@
       "type": "file"
     },
     {
-      "path": "client\\src\\hooks\\useSocket.js",
+      "path": "client\\package.json",
       "accessCount": 9,
-      "lastAccessed": 1774946093699,
+      "lastAccessed": 1774947841601,
       "type": "file"
     },
     {
@@ -256,12 +262,6 @@
       "path": "client\\electron\\preload.js",
       "accessCount": 8,
       "lastAccessed": 1774940579988,
-      "type": "file"
-    },
-    {
-      "path": "client\\package.json",
-      "accessCount": 8,
-      "lastAccessed": 1774947322155,
       "type": "file"
     },
     {
@@ -337,15 +337,15 @@
       "type": "file"
     },
     {
-      "path": "server\\prisma\\schema.prisma",
-      "accessCount": 3,
-      "lastAccessed": 1774917783255,
+      "path": "server\\src\\ws\\authMiddleware.js",
+      "accessCount": 4,
+      "lastAccessed": 1774947655047,
       "type": "file"
     },
     {
-      "path": "server\\src\\ws\\authMiddleware.js",
+      "path": "server\\prisma\\schema.prisma",
       "accessCount": 3,
-      "lastAccessed": 1774941794609,
+      "lastAccessed": 1774917783255,
       "type": "file"
     },
     {
