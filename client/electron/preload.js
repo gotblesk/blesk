@@ -80,6 +80,8 @@ contextBridge.exposeInMainWorld('blesk', {
     // blesk Shield — one-time prekeys
     saveOPKs: (json) => ipcRenderer.invoke('crypto:saveOPKs', json),
     getOPKs: () => ipcRenderer.invoke('crypto:getOPKs'),
+    // Очистка всех ключей при выходе из аккаунта
+    clearAll: () => ipcRenderer.invoke('crypto:clearAll'),
   },
 
   // Безопасное открытие внешних ссылок (только http/https)

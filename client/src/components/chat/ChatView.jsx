@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, Fragment, useMemo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { MagnifyingGlass, X, Check } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
@@ -647,6 +648,15 @@ export default function ChatView({
       )}
 
       {/* Виртуализированный список сообщений */}
+      <AnimatePresence mode="wait">
+      <motion.div
+        key={chatId}
+        initial={{ opacity: 0, filter: 'blur(3px)' }}
+        animate={{ opacity: 1, filter: 'blur(0px)' }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+      >
       <div
         className={`chat-view__messages ${compactMessages ? 'chat-view__messages--compact' : ''}`}
         ref={messagesContainerRef}
@@ -725,15 +735,27 @@ export default function ChatView({
         </div>
 
         {/* Typing bubble — после виртуализированного списка */}
-        {typingInChat.length > 0 && typingInChat[0] && (
-          <TypingBubble
-            user={typingInChat[0]}
-            hue={getHueFromString(typingInChat[0].username || '')}
-          />
-        )}
+        <AnimatePresence>
+          {typingInChat.length > 0 && typingInChat[0] && (
+            <motion.div
+              key="typing-bubble"
+              initial={{ opacity: 0, y: 8, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 400 }}
+            >
+              <TypingBubble
+                user={typingInChat[0]}
+                hue={getHueFromString(typingInChat[0].username || '')}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div ref={messagesEndRef} />
       </div>
+      </motion.div>
+      </AnimatePresence>
 
       {/* Scroll-to-bottom кнопка + бейдж новых сообщений */}
       {showScrollDown && (

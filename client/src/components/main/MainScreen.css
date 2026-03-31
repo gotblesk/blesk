@@ -57,7 +57,7 @@
   top: 36px; /* ниже titlebar чтобы не перекрывать кнопки окна */
   left: 0;
   right: 0;
-  z-index: 9999;
+  z-index: 1000;
   padding: 4px 0;
   background: rgba(255, 60, 60, 0.15);
   backdrop-filter: blur(10px);
@@ -139,6 +139,35 @@
 
 [data-theme="light"] .placeholder-sub {
   color: rgba(26, 26, 46, 0.45);
+}
+
+/* ═══════ FOCUS MODE ═══════ */
+.main-screen--focus .top-nav,
+.main-screen--focus .sidebar,
+.main-screen--focus .di {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Sidebar сжимается до нуля без анимации GSAP */
+.main-screen--focus .sidebar {
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden;
+}
+
+.main-screen--focus .app-content {
+  padding-bottom: 0;
+}
+
+/* Плавный переход обратно для opacity */
+.top-nav,
+.di {
+  transition: opacity 0.3s ease;
+}
+
+.sidebar {
+  transition: opacity 0.3s ease, width 0.3s ease;
 }
 
 /* ═══════ NARROW WINDOW ═══════ */

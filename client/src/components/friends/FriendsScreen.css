@@ -317,6 +317,6 @@
   border-color: var(--light-border, #e5e7eb);
 }
 [data-theme="light"] .fr__search::placeholder { color: var(--light-text-tertiary, #9ca3af); }
-[data-theme="light"] .fr__search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); background: #ffffff; }
+[data-theme="light"] .fr__search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(200,255,0,0.1); background: #ffffff; }
 [data-theme="light"] .fr__label--sent { background: var(--light-surface-hover, #f0f2f5); }
-[data-theme="light"] .fr__act--add { border-color: rgba(124,58,237,0.2); background: var(--light-accent-tint, #f5f3ff); }
+[data-theme="light"] .fr__act--add { border-color: rgba(200,255,0,0.2); background: var(--light-accent-tint, #f5f3ff); }

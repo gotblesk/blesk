@@ -1,6 +1,6 @@
 {
   "name": "blesk-client",
-  "version": "1.0.0-beta",
+  "version": "1.0.1-beta",
   "description": "blesk — приватный десктопный мессенджер. Клиент (Electron + React).",
   "private": true,
   "author": "gotblesk",
@@ -86,7 +86,6 @@
       "!dist/*.blockmap",
       "!dist/builder-debug.yml",
       "electron/**/*",
-      "node_modules/**/*",
       "package.json"
     ],
     "asar": true,

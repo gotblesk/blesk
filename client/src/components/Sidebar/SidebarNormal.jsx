@@ -51,12 +51,13 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
     const name = user?.username || chat.name || 'Чат';
     const isActive = activeChatId === chat.id;
     const isTyping = typingUsers[chat.id]?.length > 0;
-    const preview = isTyping ? 'печатает...' : (chat.lastMessage?.text || 'Нет сообщений');
+    const preview = isTyping ? null : (chat.lastMessage?.text || 'Нет сообщений');
+    const online = isOnline(chat);
 
     return (
       <div
         key={chat.id}
-        className={`sn__chat ${isActive ? 'sn__chat--active' : ''}`}
+        className={`sn__chat ${isActive ? 'sn__chat--active' : ''} ${!online && chat.otherUser ? 'sn__chat--offline' : ''}`}
         onClick={() => onSelectChat(chat.id)}
       >
         <Avatar user={user || { username: name }} size={42} showOnline={isOnline(chat)} />
@@ -66,7 +67,13 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
             <span className="sn__chat-time">{formatTime(chat.lastMessage?.createdAt)}</span>
           </div>
           <div className={`sn__chat-preview ${isTyping ? 'sn__chat-preview--typing' : ''}`}>
-            {preview}
+            {isTyping ? (
+              <span className="sn__typing-dots">
+                <span className="sn__typing-dot" />
+                <span className="sn__typing-dot" />
+                <span className="sn__typing-dot" />
+              </span>
+            ) : preview}
           </div>
         </div>
         {chat.unreadCount > 0 && (

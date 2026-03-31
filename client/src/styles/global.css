@@ -11,20 +11,21 @@
 
 :root {
   /* Z-index hierarchy */
-  --z-base: 1;
-  --z-sticky: 10;
-  --z-dropdown: 50;
-  --z-overlay: 100;
-  --z-modal: 200;
-  --z-notification: 300;
-  --z-lightbox: 1000;
-  --z-call-overlay: 1100;
+  --z-base: 0;
+  --z-content: 10;
+  --z-sidebar: 30;
+  --z-hover-preview: 40;
+  --z-topnav: 50;
+  --z-toast: 99;
+  --z-island: 100;
+  --z-modal: 1000;
+  --z-call-overlay: 9999;
 
   /* [TYP-1] Type scale tokens */
-  --text-2xs: 10px;
+  --text-2xs: 11px;
   --text-xs: 12px;
-  --text-sm: 13px;
-  --text-base: 14px;
+  --text-sm: 15px;
+  --text-base: 15px;
   --text-md: 16px;
   --text-lg: 17px;
   --text-xl: 20px;
@@ -41,17 +42,32 @@
   /* Sidebar width (обновляется при морфинге) */
   --sidebar-width: 72px;
 
-  --bg: #08060f;
+  --bg: #0a0a0f;
   --accent: #c8ff00;
   --text: rgba(255, 255, 255, 0.85);
-  --text-muted: rgba(255, 255, 255, 0.45);
+
+  /* Text hierarchy — 4 levels */
+  --text-primary: rgba(255,255,255,0.92);
+  --text-secondary: rgba(255,255,255,0.60);
+  --text-tertiary: rgba(255,255,255,0.38);
+  --text-disabled: rgba(255,255,255,0.20);
+  --text-muted: var(--text-secondary);
+
+  /* Surface elevation — 4 distinct levels */
+  --surface-0: transparent;
+  --surface-1: rgba(255,255,255,0.04);
+  --surface-2: rgba(255,255,255,0.08);
+  --surface-3: rgba(255,255,255,0.14);
+  --surface-hover: rgba(255,255,255,0.06);
+  --surface-active: rgba(200,255,0,0.08);
+
   --online: #4ade80;
   --danger: #ef4444;
 
   /* Glass */
-  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-bg: var(--surface-1);
   --glass-border: rgba(255, 255, 255, 0.06);
-  --glass-hover: rgba(255, 255, 255, 0.08);
+  --glass-hover: var(--surface-2);
   --glass-shadow: rgba(0, 0, 0, 0.4);
 
   /* Scrollbar */
@@ -59,7 +75,7 @@
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
 
   /* Текст на акцентных кнопках */
-  --accent-text: #08060f;
+  --accent-text: #0a0a0f;
 
   /* Double Layer Glass */
   --dl-outer-blur: 8px;
@@ -74,9 +90,9 @@
   /* Design tokens */
   --radius-xs: 6px;
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 22px; /* same as lg — consolidated */
 
   /* ═══════ RESPONSIVE SIZING ═══════ */
   /* Nebula cards */
@@ -126,12 +142,31 @@
 
   /* Radius pill */
   --radius-pill: 100px;
+
+  /* Tinted glass zones — Apple Liquid Glass principle */
+  --glass-sidebar-tint: rgba(100,130,255,0.02);
+  --glass-content-tint: rgba(255,255,255,0.01);
+  --glass-input-tint: rgba(200,255,0,0.015);
+  --glass-island-tint: rgba(200,255,0,0.02);
+
+  /* Spacing scale (4px base) */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
 }
 
 /* ═══════════════════════════════════════════════════════════════
    Светлая тема v4 — построена с нуля
    Принцип: белые поверхности на светлом фоне, тени для глубины,
-   один акцент (#7c3aed), тёмный текст, бордеры для разделения
+   один акцент (#4a7a00 olive-green), тёмный текст, бордеры для разделения
    ═══════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
   /* ========== ФОНЫ ========== */
@@ -141,7 +176,7 @@
   --bg-sidebar: #f7f8fa;
   --bg-input: #f0f2f5;
   --bg-hover: #f0f2f5;
-  --bg-active: #ede9fe;
+  --bg-active: #e8f5d0;
 
   /* ========== ТЕКСТ ========== */
   --text: #111827;
@@ -151,11 +186,13 @@
   --text-on-accent: #ffffff;
 
   /* ========== АКЦЕНТ ========== */
-  --accent: #7c3aed;
-  --accent-hover: #6d28d9;
+  --accent: #4a7a00;
+  --accent-hover: #3d6600;
   --accent-text: #ffffff;
-  --accent-light: #ede9fe;
-  --accent-lighter: #f5f3ff;
+  --accent-soft: rgba(74,122,0,0.08);
+  --accent-glow: rgba(74,122,0,0.15);
+  --accent-light: #e8f5d0;
+  --accent-lighter: #f4fae6;
   --online: #22c55e;
   --danger: #ef4444;
   --warning: #f59e0b;
@@ -164,7 +201,7 @@
   /* ========== БОРДЕРЫ ========== */
   --border: #e5e7eb;
   --border-strong: #d1d5db;
-  --border-focus: #7c3aed;
+  --border-focus: #4a7a00;
 
   /* ========== ТЕНИ ========== */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -190,15 +227,15 @@
   /* Дополнительные токены (обратная совместимость) */
   --light-surface: #ffffff;
   --light-surface-hover: #f0f2f5;
-  --light-surface-active: #ede9fe;
+  --light-surface-active: #e8f5d0;
   --light-border: #e5e7eb;
   --light-border-medium: #d1d5db;
   --light-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --light-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
   --light-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
   --light-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
-  --light-accent-tint: #f5f3ff;
-  --light-accent-light: #ede9fe;
+  --light-accent-tint: #f4fae6;
+  --light-accent-light: #e8f5d0;
   --light-text-primary: #111827;
   --light-text-secondary: #4b5563;
   --light-text-tertiary: #9ca3af;
@@ -240,7 +277,7 @@ html.theme-transitioning img {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 99999;
+  z-index: 9998;
   pointer-events: none;
   clip-path: circle(0% at var(--wipe-x, 50%) var(--wipe-y, 50%));
   animation: themeWipe 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -275,10 +312,11 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
 
-/* [WCAG 2.4.7] Фокус — только при навигации клавиатурой */
+/* [WCAG 2.4.7 + 2.4.13] Фокус — только при навигации клавиатурой */
 :is(button, a, [role="button"], [tabindex]):focus-visible {
-  outline: 1.5px solid rgba(200, 255, 0, 0.25);
+  outline: 2px solid #c8ff00;
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(200,255,0,0.12);
 }
 :is(button, a, [role="button"], [tabindex]):focus:not(:focus-visible) {
   outline: none;
@@ -291,7 +329,8 @@ select:focus-visible {
 }
 
 [data-theme="light"] :is(button, a, [role="button"], [tabindex]):focus-visible {
-  outline-color: rgba(124, 58, 237, 0.25);
+  outline: 2px solid #4a7a00;
+  box-shadow: 0 0 0 4px rgba(74,122,0,0.12);
 }
 
 /* Idle "дыхание" glass-панелей (body.app-idle добавляется через AnimatedBackground) */
@@ -362,10 +401,10 @@ select:focus-visible {
   background: var(--bg);
 }
 
-/* Кастомный скроллбар */
+/* Кастомный скроллбар — скрыт в покое, появляется при прокрутке */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -373,12 +412,13 @@ select:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 ::-webkit-scrollbar-corner {
@@ -441,8 +481,8 @@ select:focus-visible {
 }
 
 [data-theme="light"] .chat-message--own .chat-message__bubble {
-  background: #7c3aed;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--accent-text);
   box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
 }
 
@@ -544,6 +584,97 @@ select:focus-visible {
 [data-theme="light"] .chat-card:hover {
   background: var(--light-surface);
   box-shadow: var(--light-shadow-md);
+}
+
+/* === Microanimation: Button tactile feedback === */
+button, [role="button"], .clickable {
+  transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+button:active, [role="button"]:active, .clickable:active {
+  transform: scale(0.94);
+}
+@media (prefers-reduced-motion: reduce) {
+  button:active, [role="button"]:active, .clickable:active {
+    transform: none;
+  }
+}
+
+/* === Glass noise texture for premium feel === */
+.glass-noise::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  z-index: 1;
+}
+
+/* === Tinted glass zone utilities === */
+.glass-zone-sidebar { background-color: var(--glass-sidebar-tint); }
+.glass-zone-input { background-color: var(--glass-input-tint); }
+.glass-zone-island { background-color: var(--glass-island-tint); }
+
+/* === Container-level noise overlay === */
+.chat-noise-overlay {
+  position: relative;
+}
+.chat-noise-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+/* === Skeleton shimmer (glassmorphism style) === */
+@keyframes glass-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.03) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: glass-shimmer 1.8s ease-in-out infinite;
+  border-radius: 8px;
+}
+.skeleton--text {
+  height: 12px;
+  margin: 6px 0;
+}
+.skeleton--avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+.skeleton--card {
+  height: 56px;
+  border-radius: 12px;
+}
+
+/* === Shake animation for offline message attempts === */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.shake {
+  animation: shake 0.4s ease-in-out;
 }
 
 /* Мут/деафен иконки — сохранить видимость */
@@ -1221,9 +1352,9 @@ select:focus-visible {
 }
 
 [data-theme="light"] .chat-message--own .chat-message__bubble {
-  background: #7c3aed;
+  background: var(--accent);
   border-color: transparent;
-  color: #ffffff;
+  color: var(--accent-text);
   box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
 }
 
@@ -1751,4 +1882,9 @@ select:focus-visible {
     rgba(124, 58, 237, 0.05),
     rgba(124, 58, 237, 0.2)
   ) border-box;
+}
+
+/* Ambient accent glow for active/focused elements */
+.accent-glow {
+  box-shadow: 0 0 30px rgba(200, 255, 0, 0.06);
 }

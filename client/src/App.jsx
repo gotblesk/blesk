@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import TitleBar from './components/ui/TitleBar';
 import AuthScreen from './components/auth/AuthScreen';
 import MainScreen from './components/main/MainScreen';
 import UpdateToast from './components/ui/UpdateToast';
-import MetaballFilter from './components/ui/MetaballFilter';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import { ensureKeyPair, clearCache } from './utils/cryptoService';
 import { initCsrf, clearCsrf } from './utils/authFetch';
@@ -14,6 +13,8 @@ import { useVoiceStore } from './store/voiceStore';
 import { useCallStore } from './store/callStore';
 import { useChannelStore } from './store/channelStore';
 import API_URL from './config';
+
+const MetaballFilter = React.lazy(() => import('./components/ui/MetaballFilter'));
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -186,7 +187,9 @@ export default function App() {
     }, 700);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Удалить E2E ключевые файлы с диска
+    await window.blesk?.crypto?.clearAll?.();
     setUser(null);
     // Очистить CSRF-токен
     clearCsrf();
@@ -237,7 +240,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
-        <MetaballFilter />
+        <Suspense fallback={null}><MetaballFilter /></Suspense>
         <TitleBar />
         <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />

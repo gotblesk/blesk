@@ -1,0 +1,66 @@
+/* ═══════ PLACEHOLDER (empty state) ═══════ */
+.placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  user-select: none;
+}
+
+.placeholder__logo {
+  font-family: var(--font-heading, 'Nekst', sans-serif);
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--accent, #c8ff00);
+  opacity: 0.08;
+}
+
+.placeholder__title {
+  font-family: var(--font-display, 'Nekst', sans-serif);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.15);
+  margin-top: 4px;
+}
+
+.placeholder__hint {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.08);
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.placeholder__kbd {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .placeholder__logo {
+  color: var(--accent, #c8ff00);
+  opacity: 0.12;
+}
+
+[data-theme="light"] .placeholder__title {
+  color: rgba(26, 26, 46, 0.15);
+}
+
+[data-theme="light"] .placeholder__hint {
+  color: rgba(26, 26, 46, 0.08);
+}
+
+[data-theme="light"] .placeholder__kbd {
+  background: rgba(26, 26, 46, 0.03);
+  border-color: rgba(26, 26, 46, 0.06);
+  color: rgba(26, 26, 46, 0.08);
+}

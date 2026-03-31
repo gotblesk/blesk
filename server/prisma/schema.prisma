@@ -143,6 +143,7 @@ model Message {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([roomId, createdAt])
+  @@index([userId])
   @@map("messages")
 }
 

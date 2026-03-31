@@ -23,12 +23,13 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 8px 14px;
   border-radius: 8px;
   border: none;
   background: none;
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.12s;

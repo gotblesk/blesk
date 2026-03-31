@@ -2,6 +2,7 @@ const { Router } = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { voiceRooms, cleanupPeer } = require('../ws/voiceHandler');
+const { emitToUser, findUserSockets } = require('../utils/socketUtils');
 
 const router = Router();
 
@@ -183,14 +184,7 @@ router.post('/rooms/:id/invite', authenticate, async (req, res) => {
     });
 
     // Socket уведомление
-    const io = req.app.locals.io;
-    if (io) {
-      for (const [, s] of io.sockets.sockets) {
-        if (s.userId === targetId) {
-          s.emit('notification:new', notification);
-        }
-      }
-    }
+    emitToUser(targetId, 'notification:new', notification);
 
     res.json({
       ok: true,
@@ -229,14 +223,12 @@ router.delete('/rooms/:id/kick/:userId', authenticate, async (req, res) => {
       voiceRoom.peers.delete(kickedUserId);
 
       // Уведомить кикнутого и остальных
+      for (const s of findUserSockets(kickedUserId)) {
+        s.emit('voice:kicked', { roomId: room.id });
+        s.leave(`voice:${room.id}`);
+      }
       const io = req.app.locals.io;
       if (io) {
-        for (const [, s] of io.sockets.sockets) {
-          if (s.userId === kickedUserId) {
-            s.emit('voice:kicked', { roomId: room.id });
-            s.leave(`voice:${room.id}`);
-          }
-        }
         io.to(`voice:${room.id}`).emit('voice:user-left', { userId: kickedUserId });
       }
 

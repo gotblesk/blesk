@@ -29,7 +29,7 @@
 
 /* ═══════ FRONT ═══════ */
 .pf-front {
-  background: linear-gradient(160deg, #0f172a, #1e1b4b, #3b0764, #581c87);
+  background: linear-gradient(160deg, #0a0a0f 0%, #0f1a00 30%, #1a2d00 60%, #0a0a0f 100%);
   display: flex; flex-direction: column;
   border: 1px solid rgba(255,255,255,0.07);
   box-shadow: 0 40px 100px rgba(0,0,0,0.5);
@@ -60,17 +60,13 @@
 .pf-front__grain { position: absolute; inset: 0; opacity: 0.4; pointer-events: none;
   background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
 
-.pf-front__holo { position: absolute; inset: 0; background: conic-gradient(from 0deg at 50% 50%, transparent, rgba(200,255,0,0.015) 60deg, rgba(167,139,250,0.025) 120deg, rgba(56,189,248,0.015) 180deg, transparent 240deg); animation: pfSpin 12s linear infinite; pointer-events: none; z-index: 1; }
-@keyframes pfSpin { to { transform: rotate(360deg); } }
+/* Holographic overlay removed — grain + ring is enough (avoid effect overload) */
 
-.pf-front__shimmer { position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.04) 42%, transparent 50%); background-size: 300% 100%; animation: pfShimmer 4s ease-in-out infinite; pointer-events: none; z-index: 2; }
-@keyframes pfShimmer { 0%, 100% { background-position: 200% 0; } 50% { background-position: -50% 0; } }
-
-.pf-front__top { display: flex; justify-content: space-between; padding: 22px 22px 0; position: relative; z-index: 3; }
+.pf-front__top { display: flex; justify-content: space-between; padding: 22px 22px 0; position: relative; z-index: 2; }
 .pf-front__logo { font-size: 22px; font-weight: 900; color: rgba(200,255,0,0.55); letter-spacing: -0.04em; }
 .pf-front__issue { font-family: var(--font-mono); font-size: var(--text-xs, 11px); color: rgba(255,255,255,0.2); text-align: right; }
 
-.pf-front__body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; position: relative; z-index: 3; }
+.pf-front__body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; position: relative; z-index: 2; }
 
 .pf-front__ava {
   width: 110px; height: 110px; border-radius: 50%;
@@ -291,8 +287,8 @@
 
 /* ═══════ LIGHT THEME ═══════ */
 [data-theme="light"] .pf-overlay { background: rgba(0,0,0,0.15); }
-[data-theme="light"] .pf-front { background: linear-gradient(160deg, #e0e7ff, #c4b5fd, #ddd6fe); border-color: var(--light-border, #e5e7eb); }
-[data-theme="light"] .pf-front__logo { color: rgba(124,58,237,0.6); }
+[data-theme="light"] .pf-front { background: linear-gradient(160deg, #f4fae6, #d4edaa, #e8f5d0); border-color: var(--light-border, #e5e7eb); }
+[data-theme="light"] .pf-front__logo { color: rgba(74,122,0,0.7); }
 [data-theme="light"] .pf-front__name { color: var(--light-text-primary, #111827); text-shadow: none; }
 [data-theme="light"] .pf-front__tag { color: var(--light-text-tertiary, #9ca3af); }
 [data-theme="light"] .pf-back { background: var(--light-surface, #ffffff); border-color: var(--light-border, #e5e7eb); }
@@ -311,6 +307,6 @@
 [data-theme="light"] .pf-back__bio-ta { color: var(--light-text-secondary, #4b5563); }
 [data-theme="light"] .pf-back__bio-ta::placeholder { color: var(--light-text-tertiary, #9ca3af); }
 [data-theme="light"] .pf-back__bio-ta:focus { color: var(--light-text-primary, #111827); }
-[data-theme="light"] .pf-back__bio:focus-within { border-color: rgba(124,58,237,0.2); background: rgba(124,58,237,0.03); }
+[data-theme="light"] .pf-back__bio:focus-within { border-color: rgba(74,122,0,0.2); background: rgba(74,122,0,0.03); }
 [data-theme="light"] .pf-slider { background: var(--bg-input); border-color: var(--light-border, #e5e7eb); }
 [data-theme="light"] .pf-slider__text { color: var(--light-text-tertiary, #9ca3af); }

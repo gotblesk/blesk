@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const prisma = require('../db');
 const { authenticate, requireVerified } = require('../middleware/auth');
+const { emitToUser, findUserSockets, emitToUserAll } = require('../utils/socketUtils');
 
 const router = Router();
 
@@ -67,12 +68,7 @@ router.post('/request', authenticate, requireVerified, async (req, res) => {
           },
         });
 
-        const io = req.app.locals.io;
-        if (io) {
-          for (const [, s] of io.sockets.sockets) {
-            if (s.userId === targetId) s.emit('notification:new', notification);
-          }
-        }
+        emitToUser(targetId, 'notification:new', notification);
 
         return res.status(201).json({ id: existing.id, status: 'pending' });
       }
@@ -103,16 +99,8 @@ router.post('/request', authenticate, requireVerified, async (req, res) => {
       },
     });
 
-    // Отправить через socket (io передаётся через app.locals)
-    const io = req.app.locals.io;
-    if (io) {
-      // Найти сокет получателя
-      for (const [, s] of io.sockets.sockets) {
-        if (s.userId === targetId) {
-          s.emit('notification:new', notification);
-        }
-      }
-    }
+    // Отправить через socket
+    emitToUser(targetId, 'notification:new', notification);
 
     res.status(201).json({ id: request.id, status: request.status });
   } catch (err) {
@@ -204,22 +192,13 @@ router.post('/requests/:id/accept', authenticate, async (req, res) => {
       },
     });
 
-    // Socket: уведомить отправителя
-    const io = req.app.locals.io;
-    if (io) {
-      for (const [, s] of io.sockets.sockets) {
-        if (s.userId === request.senderId) {
-          s.emit('notification:new', notification);
-          // Присоединить к комнате нового чата
-          s.join(room.id);
-        }
-      }
-      // Присоединить текущего пользователя к комнате
-      for (const [, s] of io.sockets.sockets) {
-        if (s.userId === req.userId) {
-          s.join(room.id);
-        }
-      }
+    // Socket: уведомить отправителя + присоединить обоих к комнате
+    for (const s of findUserSockets(request.senderId)) {
+      s.emit('notification:new', notification);
+      s.join(room.id);
+    }
+    for (const s of findUserSockets(req.userId)) {
+      s.join(room.id);
     }
 
     res.json({ ok: true, roomId: room.id });
@@ -304,15 +283,10 @@ router.delete('/:friendId', authenticate, async (req, res) => {
     await prisma.friendRequest.delete({ where: { id: request.id } });
 
     // [CRIT-4] Оповестить ТОЛЬКО двух пользователей (не broadcast всем)
-    const io = req.app.locals.io;
-    if (io) {
-      const otherUserId = request.senderId === req.userId ? request.receiverId : request.senderId;
-      for (const [, s] of io.sockets.sockets) {
-        if (s.userId === req.userId || s.userId === otherUserId) {
-          s.emit('friend:removed', { userId: req.userId, friendId: otherUserId });
-        }
-      }
-    }
+    const otherUserId = request.senderId === req.userId ? request.receiverId : request.senderId;
+    const removeData = { userId: req.userId, friendId: otherUserId };
+    emitToUserAll(req.userId, 'friend:removed', removeData);
+    emitToUserAll(otherUserId, 'friend:removed', removeData);
 
     res.json({ ok: true });
   } catch (err) {

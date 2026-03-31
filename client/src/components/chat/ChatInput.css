@@ -203,9 +203,14 @@
   overflow: hidden;
 }
 
-.chat-input__send:hover {
+.chat-input__send--active,
+.chat-input__send:not(:disabled) {
+  box-shadow: 0 0 24px rgba(200, 255, 0, 0.2);
+}
+
+.chat-input__send:hover:not(:disabled) {
   transform: scale(1.05);
-  box-shadow: 0 0 24px rgba(200,255,0,0.3);
+  box-shadow: 0 0 32px rgba(200, 255, 0, 0.3);
 }
 
 .chat-input__send svg {
@@ -278,16 +283,22 @@
 }
 
 /* Drag-and-drop состояние — видимый overlay */
+@keyframes drag-border-pulse {
+  0%, 100% { border-color: rgba(200,255,0,0.3); }
+  50% { border-color: rgba(200,255,0,0.7); }
+}
 .chat-input-zone--drag-over {
-  background: rgba(200,255,0,0.06);
+  border: 2px dashed var(--accent) !important;
+  background: rgba(200,255,0,0.04) !important;
   border-radius: 24px;
   position: relative;
+  animation: drag-border-pulse 1s ease-in-out infinite;
+  transition: background 0.2s ease;
 }
 .chat-input-zone--drag-over::after {
   content: 'Перетащите файлы сюда';
   position: absolute;
   inset: 0;
-  border: 1.5px dashed rgba(200,255,0,0.4);
   border-radius: 24px;
   display: flex;
   align-items: center;
@@ -295,7 +306,6 @@
   font-size: 13px;
   font-weight: 600;
   color: rgba(200,255,0,0.6);
-  background: rgba(200,255,0,0.04);
   pointer-events: none;
   z-index: 5;
 }

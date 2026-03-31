@@ -14,6 +14,8 @@ const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
+const prisma = require('./db');
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -69,7 +71,7 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
+      connectSrc: ["'self'", 'wss://blesk.fun', 'https://blesk.fun', 'wss://*.blesk.fun', 'https://*.blesk.fun', 'ws://localhost:*', 'http://localhost:*'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       mediaSrc: ["'self'", 'blob:'],
     },
@@ -89,8 +91,14 @@ const uploadsHeaders = (req, res, next) => {
   next();
 };
 app.use('/uploads/avatars', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'avatars')));
-app.use('/uploads/attachments', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'attachments')));
-app.use('/uploads/thumbs', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'thumbs')));
+// Вложения и превью доступны только через authenticated download в upload.js
+// app.use('/uploads/attachments', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'attachments')));
+// app.use('/uploads/thumbs', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'thumbs')));
+
+// Health check — до rate limiting и роутов
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
 
 // Rate limiting — раздельные лимиты
 const authLimiter = rateLimit({
@@ -184,6 +192,10 @@ function findUserSocket(targetUserId) {
 // Передать userSockets в callHandler для O(1) поиска
 setCallUserSockets(userSockets);
 
+// Инициализировать socketUtils для O(1) поиска из route-файлов
+const socketUtils = require('./utils/socketUtils');
+socketUtils.init(io, userSockets);
+
 io.on('connection', (socket) => {
   const uid = socket.userId;
 
@@ -236,6 +248,16 @@ const PORT = process.env.PORT || 3000;
   httpServer.listen(PORT, () => {
     console.log(`blesk server запущен на порту ${PORT}`);
   });
+
+  const gracefulShutdown = async (signal) => {
+    console.log(`\n${signal} received. Shutting down gracefully...`);
+    io.close();
+    httpServer.close();
+    await prisma.$disconnect();
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
   // Очистка expired refresh tokens каждые 6 часов
   setInterval(async () => {

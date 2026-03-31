@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import './ContextMenu.css';
 
 export default function ContextMenu({ x, y, items, onClose }) {
@@ -79,13 +80,17 @@ export default function ContextMenu({ x, y, items, onClose }) {
   }, [x, y]);
 
   return (
-    <div
+    <motion.div
       ref={menuRef}
       className="ctx-menu"
       style={{ left: x, top: y }}
       role="menu"
       tabIndex={-1}
       onKeyDown={handleKeyDown}
+      initial={{ opacity: 0, scale: 0.92, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ type: 'spring', damping: 22, stiffness: 500, mass: 0.5 }}
     >
       {items.map((item, i) =>
         item.divider ? (
@@ -106,6 +111,6 @@ export default function ContextMenu({ x, y, items, onClose }) {
           </button>
         )
       )}
-    </div>
+    </motion.div>
   );
 }

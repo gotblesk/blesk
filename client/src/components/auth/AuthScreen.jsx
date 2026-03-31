@@ -63,10 +63,17 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
   const [verifyErrorKey, setVerifyErrorKey] = useState(0);
   const codeRefs = useRef([]);
 
-  // Brand intro → form
+  // Brand intro → form (пропускаем для повторных визитов)
   useEffect(() => {
     if (pendingVerification) return;
-    const timer = setTimeout(() => setPhase('form'), 2500);
+    if (localStorage.getItem('blesk-auth-seen')) {
+      setPhase('form');
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPhase('form');
+      localStorage.setItem('blesk-auth-seen', '1');
+    }, 2500);
     return () => clearTimeout(timer);
   }, [pendingVerification]);
 

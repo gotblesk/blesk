@@ -1,36 +1,19 @@
 const prisma = require('../db');
+const socketUtils = require('../utils/socketUtils');
 // Активные звонки: chatId → { callerId, callerSocketId, startedAt, participants: Set<userId>, timeout }
 const activeCalls = new Map();
 
-// [HIGH-4] Найти сокет пользователя через глобальный userSockets Map (O(1))
-// userSockets устанавливается из index.js при инициализации
+// [HIGH-4] O(1) поиск сокетов через socketUtils
+// setUserSockets сохранён для обратной совместимости с index.js
 let _userSockets = null;
 function setUserSockets(map) { _userSockets = map; }
 
 function findUserSocket(io, targetUserId) {
-  // O(1) через глобальный Map
-  if (_userSockets) {
-    const sockets = _userSockets.get(targetUserId);
-    if (sockets && sockets.size > 0) return sockets.values().next().value;
-    return null;
-  }
-  // Fallback O(N) — только если Map ещё не установлен
-  for (const [, s] of io.sockets.sockets) {
-    if (s.userId === targetUserId) return s;
-  }
-  return null;
+  return socketUtils.findUserSocket(targetUserId);
 }
 
-// Найти ВСЕ сокеты пользователя (для мульти-девайс)
 function findAllUserSockets(io, targetUserId) {
-  if (_userSockets) {
-    return [...(_userSockets.get(targetUserId) || [])];
-  }
-  const result = [];
-  for (const [, s] of io.sockets.sockets) {
-    if (s.userId === targetUserId) result.push(s);
-  }
-  return result;
+  return socketUtils.findUserSockets(targetUserId);
 }
 
 // Проверить — занят ли пользователь в другом звонке

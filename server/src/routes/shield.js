@@ -7,6 +7,7 @@ const router = express.Router();
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const crypto = require('crypto');
+const { emitToUser } = require('../utils/socketUtils');
 
 // POST /api/shield/bundle — загрузить prekey bundle
 router.post('/bundle', authenticate, async (req, res) => {
@@ -126,15 +127,7 @@ router.get('/bundle/:userId', authenticate, async (req, res) => {
 
         // Уведомить владельца если OPK мало
         if (result.remaining < 10) {
-          const io = req.app.locals.io;
-          if (io) {
-            for (const [, s] of io.sockets.sockets) {
-              if (s.userId === targetUserId) {
-                s.emit('shield:opk-low', { remaining: result.remaining });
-                break;
-              }
-            }
-          }
+          emitToUser(targetUserId, 'shield:opk-low', { remaining: result.remaining });
         }
       }
     } catch (txErr) {

@@ -44,9 +44,7 @@ function csrfProtection(req, res, next) {
   // Skip GET, HEAD, OPTIONS (safe methods)
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
 
-  // Electron-клиенты: origin null или file:// — CSRF не нужен (не браузер)
   const origin = req.headers.origin;
-  if (!origin || origin === 'null' || origin.startsWith('file://')) return next();
 
   // Извлечь userId из токена (authenticate ещё не запускался на уровне route)
   const userId = req.userId || extractUserId(req);

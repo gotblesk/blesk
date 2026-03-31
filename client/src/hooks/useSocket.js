@@ -147,6 +147,11 @@ export function useSocket() {
       } else {
         useChatStore.getState().receiveMessage(msg);
 
+        // Пульс фона при входящем сообщении
+        if (msg.userId !== userId) {
+          window.__bleskBgPulse?.();
+        }
+
         // [CRIT-2, IMP-1] Звук — только если не DND и чат не открыт
         const s = useSettingsStore.getState();
         if (msg.userId !== userId && !s.dnd) {

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { BellSlash, Checks, Trash, UserMinus, PushPin, Prohibit } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import ContextMenu from '../ui/ContextMenu';
@@ -161,14 +162,16 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
         </div>
       </div>
 
-      {ctxMenu && (
-        <ContextMenu
-          x={ctxMenu.x}
-          y={ctxMenu.y}
-          items={ctxItems}
-          onClose={() => setCtxMenu(null)}
-        />
-      )}
+      <AnimatePresence>
+        {ctxMenu && (
+          <ContextMenu
+            x={ctxMenu.x}
+            y={ctxMenu.y}
+            items={ctxItems}
+            onClose={() => setCtxMenu(null)}
+          />
+        )}
+      </AnimatePresence>
       <ConfirmDialog
         open={dangerConfirm}
         title={isGroup ? 'Покинуть группу?' : 'Удалить чат?'}

@@ -204,6 +204,45 @@ export default function SpotlightSearch({ open, onClose, onNavigate, onOpenChat 
           </button>
         </div>
 
+        {/* Шпаргалка горячих клавиш — показывается когда нет поискового запроса */}
+        {!query && (
+          <div className="spotlight__shortcuts">
+            <div className="spotlight__shortcuts-title">Горячие клавиши</div>
+            <div className="spotlight__shortcut">
+              <span>Глобальный поиск</span>
+              <kbd>Ctrl+K</kbd>
+            </div>
+            <div className="spotlight__shortcut">
+              <span>Настройки</span>
+              <kbd>Ctrl+,</kbd>
+            </div>
+            <div className="spotlight__shortcut">
+              <span>Мут микрофона</span>
+              <kbd>Ctrl+Shift+M</kbd>
+            </div>
+            <div className="spotlight__shortcut">
+              <span>Чаты</span>
+              <kbd>Ctrl+1</kbd>
+            </div>
+            <div className="spotlight__shortcut">
+              <span>Голос</span>
+              <kbd>Ctrl+2</kbd>
+            </div>
+            <div className="spotlight__shortcut">
+              <span>Каналы</span>
+              <kbd>Ctrl+3</kbd>
+            </div>
+            <div className="spotlight__shortcut">
+              <span>Друзья</span>
+              <kbd>Ctrl+4</kbd>
+            </div>
+            <div className="spotlight__shortcut">
+              <span>Фокус-режим</span>
+              <kbd>Ctrl+Shift+F</kbd>
+            </div>
+          </div>
+        )}
+
         {(hasLocal || hasMessages || msgLoading) && (
           <div className="spotlight__results">
             {/* Чаты и команды */}

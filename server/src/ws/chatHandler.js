@@ -1,4 +1,7 @@
 const prisma = require('../db');
+const jwt = require('jsonwebtoken');
+const { fetchOgData } = require('../services/ogScraper');
+const { emitToUser } = require('../utils/socketUtils');
 // Rate limiter: макс 5 сообщений за 3 секунды на пользователя
 const messageRateLimits = new Map(); // userId → [timestamps]
 // Таймауты набора текста: `${userId}:${chatId}` → timeoutId
@@ -45,7 +48,6 @@ function chatHandler(io, socket) {
   const userId = socket.userId;
 
   // [CRIT-1] Периодическая ревалидация токена (каждые 10 минут)
-  const jwt = require('jsonwebtoken');
   const JWT_SECRET = process.env.JWT_SECRET;
   const tokenRecheckInterval = setInterval(async () => {
     try {
@@ -219,7 +221,6 @@ function chatHandler(io, socket) {
       if (!encrypted) {
         const urlMatch = text?.match(/(https?:\/\/[^\s]+)/);
         if (urlMatch) {
-          const { fetchOgData } = require('../services/ogScraper');
           fetchOgData(urlMatch[0]).then(ogData => {
             if (ogData) {
               io.to(chatId).emit('message:og', { messageId: message.id, chatId, linkPreview: ogData });
@@ -238,37 +239,37 @@ function chatHandler(io, socket) {
       }
 
       if (mentionedUsernames.size > 0) {
-        // Ограничить уведомления только участниками чата (не утекать за пределы)
+        // Batch: участники чата с мьют-статусом (1 запрос вместо N+1)
         const chatParticipants = await prisma.roomParticipant.findMany({
           where: { roomId: chatId },
-          select: { userId: true },
+          select: { userId: true, isMuted: true, mutedUntil: true },
         });
-        const participantIdSet = new Set(chatParticipants.map((p) => p.userId));
+        const participantMap = new Map(chatParticipants.map((p) => [p.userId, p]));
 
-        const mentionedUsers = await prisma.user.findMany({
-          where: {
-            username: { in: [...mentionedUsernames] },
-            id: { not: userId },
-          },
-          select: { id: true },
-        });
-        // Фильтруем: только участники чата
-        const filteredMentions = mentionedUsers.filter((u) => participantIdSet.has(u.id));
+        const [mentionedUsers, room] = await Promise.all([
+          prisma.user.findMany({
+            where: {
+              username: { in: [...mentionedUsernames] },
+              id: { not: userId },
+            },
+            select: { id: true },
+          }),
+          prisma.room.findUnique({
+            where: { id: chatId },
+            select: { name: true },
+          }),
+        ]);
 
-        const room = await prisma.room.findUnique({
-          where: { id: chatId },
-          select: { name: true },
+        // Фильтруем: только участники чата, не замьюченные
+        const now = new Date();
+        const filteredMentions = mentionedUsers.filter((u) => {
+          const p = participantMap.get(u.id);
+          if (!p) return false;
+          const isChatMuted = p.isMuted && (!p.mutedUntil || p.mutedUntil > now);
+          return !isChatMuted;
         });
 
         for (const mentioned of filteredMentions) {
-          // Проверить мьют чата у получателя
-          const mentionedParticipant = await prisma.roomParticipant.findUnique({
-            where: { roomId_userId: { roomId: chatId, userId: mentioned.id } },
-          });
-          const isChatMuted = mentionedParticipant?.isMuted &&
-            (!mentionedParticipant.mutedUntil || mentionedParticipant.mutedUntil > new Date());
-          if (isChatMuted) continue;
-
           const notification = await prisma.notification.create({
             data: {
               userId: mentioned.id,
@@ -283,11 +284,7 @@ function chatHandler(io, socket) {
             },
           });
 
-          for (const [, s] of io.sockets.sockets) {
-            if (s.userId === mentioned.id) {
-              s.emit('notification:new', notification);
-            }
-          }
+          emitToUser(mentioned.id, 'notification:new', notification);
         }
       }
     } catch (err) {

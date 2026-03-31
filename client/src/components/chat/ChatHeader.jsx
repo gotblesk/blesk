@@ -51,7 +51,7 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
           <div className="chat-header__name-row">
             <span className="chat-header__name">{chatName}</span>
             {/* Shield badge для E2E чатов */}
-            {shieldActive && !isGroup && <ShieldBadge active onClick={() => {}} />}
+            {shieldActive && !isGroup && <ShieldBadge active title="Сквозное шифрование активно" />}
           </div>
           <span className={`chat-header__status${isTyping ? ' chat-header__status--typing' : ''}`}>{statusText}</span>
         </div>

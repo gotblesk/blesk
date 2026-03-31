@@ -3,7 +3,7 @@
 .ccm__overlay {
   position: fixed;
   inset: 0;
-  z-index: 900;
+  z-index: 1000;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -12,7 +12,7 @@
 .ccm__wrap {
   position: fixed;
   inset: 0;
-  z-index: 901;
+  z-index: 1001;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -284,7 +284,7 @@
 [data-theme="light"] .ccm__textarea:focus {
   border-color: var(--accent);
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.1);
 }
 
 [data-theme="light"] .ccm__cat {
@@ -293,5 +293,5 @@
 }
 [data-theme="light"] .ccm__cat:hover {
   background: var(--light-accent-tint, #f5f3ff);
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(200, 255, 0, 0.2);
 }

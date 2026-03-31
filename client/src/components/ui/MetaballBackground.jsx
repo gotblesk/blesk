@@ -28,6 +28,8 @@ const fragmentShader = `
   uniform vec3 uColor3;
   uniform float uSubtle;
   uniform vec3 uBgColor;
+  uniform float uEventPulse;
+  uniform float uIdle;
   varying vec2 vUv;
 
   // Smooth min for metaball blending
@@ -41,7 +43,8 @@ const fragmentShader = `
   }
 
   float scene(vec3 p) {
-    float t = uTime * 0.3;
+    float speed = 0.3 * (1.0 - uIdle * 0.7);
+    float t = uTime * speed;
 
     // 5 metaball spheres floating
     vec3 c1 = vec3(
@@ -89,11 +92,11 @@ const fragmentShader = `
     // Raymarch
     float t = 0.0;
     float d;
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < 26; i++) {
       vec3 p = ro + rd * t;
       d = scene(p);
-      if (d < 0.01 || t > 10.0) break;
-      t += d * 0.8;
+      if (d < 0.01 || t > 8.0) break;
+      t += d * 0.85;
     }
 
     vec3 col = uBgColor;
@@ -123,19 +126,29 @@ const fragmentShader = `
 
       vec3 surface = blobCol * (diff * 0.4 + 0.1) + rim * blobCol * 0.3;
       surface *= uSubtle;
-      // Смешать с фоном — в светлой теме шары почти невидимые
+      // Смешать с фоном — в светлой теме шары невидимые, только glow
       float bgLum = dot(uBgColor, vec3(0.299, 0.587, 0.114));
-      float blobAlpha = bgLum > 0.5 ? 0.015 : 1.0;
+      float blobAlpha = bgLum > 0.5 ? 0.0 : 1.0;
       col = mix(uBgColor, surface, blobAlpha);
     } else {
       // Glow around metaballs (soft falloff)
       float bgLum2 = dot(uBgColor, vec3(0.299, 0.587, 0.114));
-      float glowMult = bgLum2 > 0.5 ? 0.004 : 0.15;
+      float glowMult = bgLum2 > 0.5 ? 0.035 : 0.15;
       float glow = exp(-d * 1.5) * glowMult * uSubtle;
       float time = uTime * 0.3;
       vec3 glowCol = mix(uColor1, uColor2, sin(time) * 0.5 + 0.5);
       col += glowCol * glow;
     }
+
+    // Chromatic aberration at edges
+    if (d < 0.15) {
+      float aberration = (0.15 - d) * 0.015;
+      col.r *= 1.0 + aberration * 3.0;
+      col.b *= 1.0 - aberration * 2.0;
+    }
+
+    // Event-reactive pulse
+    col *= 1.0 + uEventPulse * 0.4;
 
     // Vignette — почти отключена в светлой теме
     float bgLumV = dot(uBgColor, vec3(0.299, 0.587, 0.114));
@@ -170,6 +183,9 @@ function MetaballScene({ ambientHue, subtle, theme }) {
   const initTheme = document.documentElement.getAttribute('data-theme') || 'dark';
   const initIsLight = initTheme === 'light';
 
+  const eventPulseRef = useRef(0);
+  const idleRef = useRef(0);
+
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2(size.width, size.height) },
@@ -179,7 +195,19 @@ function MetaballScene({ ambientHue, subtle, theme }) {
     uColor3: { value: initIsLight ? new THREE.Color('#c084fc') : new THREE.Color('#ff006a').multiplyScalar(0.4) },
     uSubtle: { value: subtle ? 0.5 : 0.8 },
     uBgColor: { value: initIsLight ? new THREE.Color(0.941, 0.949, 0.961) : new THREE.Color(0.031, 0.024, 0.059) },
+    uEventPulse: { value: 0 },
+    uIdle: { value: 0 },
   }), []);
+
+  // Dispose geometry and material on unmount
+  useEffect(() => {
+    return () => {
+      if (meshRef.current) {
+        meshRef.current.geometry?.dispose();
+        meshRef.current.material?.dispose();
+      }
+    };
+  }, []);
 
   // Mouse tracking
   useEffect(() => {
@@ -209,16 +237,40 @@ function MetaballScene({ ambientHue, subtle, theme }) {
     }
   }, [size]);
 
-  // Обновить фон при смене темы — читаем напрямую из DOM
-  const getTheme = () => document.documentElement.getAttribute('data-theme') || 'dark';
-  const prevThemeRef = useRef(getTheme());
+  // Кэшируем тему в ref — не читаем DOM каждый кадр
+  const themeRef = useRef(document.documentElement.getAttribute('data-theme') || 'dark');
+  const prevThemeRef = useRef(themeRef.current);
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      themeRef.current = document.documentElement.getAttribute('data-theme') || 'dark';
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Expose global pulse trigger
+  useEffect(() => {
+    window.__bleskBgPulse = () => { eventPulseRef.current = 1.0; };
+    return () => { delete window.__bleskBgPulse; };
+  }, []);
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     const mat = meshRef.current.material;
     mat.uniforms.uTime.value += delta;
+
+    // Event pulse decay
+    eventPulseRef.current *= 0.95;
+    mat.uniforms.uEventPulse.value = eventPulseRef.current;
+
+    // Idle breathing — slow down metaballs when idle
+    const isIdle = document.body.classList.contains('app-idle');
+    idleRef.current += ((isIdle ? 1.0 : 0.0) - idleRef.current) * 0.02;
+    mat.uniforms.uIdle.value = idleRef.current;
+
     // Переход цвета фона при смене темы
-    const curThemeNow = getTheme();
+    const curThemeNow = themeRef.current;
     const targetBg = curThemeNow === 'light'
       ? { r: 0.941, g: 0.949, b: 0.961 } // #f0f2f5
       : { r: 0.031, g: 0.024, b: 0.059 }; // #08060f
@@ -238,7 +290,7 @@ function MetaballScene({ ambientHue, subtle, theme }) {
     mat.uniforms.uMouse.value.x += (mousePos.x - mat.uniforms.uMouse.value.x) * 0.05;
     mat.uniforms.uMouse.value.y += (mousePos.y - mat.uniforms.uMouse.value.y) * 0.05;
     // Цвета metaballs — пастельные для светлой темы
-    const curTheme = getTheme();
+    const curTheme = themeRef.current;
     const isLight = curTheme === 'light';
     const themeJustChanged = curTheme !== prevThemeRef.current;
     if (themeJustChanged) {
@@ -306,6 +358,32 @@ export default function MetaballBackground({ subtle = false, ambientHue = null }
   useIdleBreathing(animatedBg);
 
   if (!animatedBg) return null;
+
+  // Eco-mode: пропускаем WebGL если пользователь выбрал экономию или включён reduced motion
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let performanceMode = 'auto';
+  try {
+    const settings = JSON.parse(localStorage.getItem('blesk-settings') || '{}');
+    performanceMode = settings.performanceMode || 'auto';
+  } catch {}
+
+  const useShader = performanceMode === 'high' ||
+    (performanceMode === 'auto' && !reducedMotion);
+
+  if (!useShader) {
+    return (
+      <div className="metaball-fallback" style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 0,
+        background: `radial-gradient(ellipse at 30% 50%, rgba(200,255,0,0.03) 0%, transparent 50%),
+                      radial-gradient(ellipse at 70% 30%, rgba(200,255,0,0.02) 0%, transparent 50%),
+                      var(--bg, #0a0a0f)`,
+        pointerEvents: 'none',
+      }} />
+    );
+  }
 
   return (
     <div style={{

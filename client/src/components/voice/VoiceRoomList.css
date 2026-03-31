@@ -171,7 +171,7 @@
 
 /* ═══════ CREATE MODAL — Double Layer Glass + 3D Tilt ═══════ */
 .vrl__modal-bg {
-  position: fixed; inset: 0; z-index: 900;
+  position: fixed; inset: 0; z-index: 1000;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -179,7 +179,7 @@
 
 /* Centered flex wrapper — perspective for 3D tilt */
 .vrl__modal-wrap {
-  position: fixed; inset: 0; z-index: 901;
+  position: fixed; inset: 0; z-index: 1001;
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
   perspective: 800px;

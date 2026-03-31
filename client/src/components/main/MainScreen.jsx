@@ -25,7 +25,7 @@ import AdminPanel from '../admin/AdminPanel';
 import UpdateBanner from '../ui/UpdateBanner';
 import SpotlightSearch from '../ui/SpotlightSearch';
 import ErrorBoundary from '../ui/ErrorBoundary';
-import { soundTabSwitch, soundWindowOpen, soundWindowClose, soundVoiceJoin, soundVoiceLeave, soundRingtoneStop } from '../../utils/sounds';
+import { soundTabSwitch, soundWindowOpen, soundWindowClose, soundVoiceJoin, soundVoiceLeave, soundRingtoneStop, soundClick } from '../../utils/sounds';
 import { initializeShield } from '../../utils/shieldService';
 import { useSocket } from '../../hooks/useSocket';
 import { useVoice } from '../../hooks/useVoice';
@@ -93,6 +93,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   const [voiceExpanded, setVoiceExpanded] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
 
   const theme = useSettingsStore((s) => s.theme);
   const islandState = useIslandState(currentUser);
@@ -262,6 +263,24 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [leaveRoom, leaveCall, spotlightOpen, settingsOpen, profileOpen, feedbackOpen, aboutOpen]);
 
+  // ═══════ FOCUS MODE ═══════
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        setFocusMode((f) => {
+          soundClick();
+          return !f;
+        });
+      }
+      if (e.key === 'Escape' && focusMode) {
+        setFocusMode(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [focusMode]);
+
   // ═══════ HOTKEYS ═══════
   useHotkeys({
     search: () => setSpotlightOpen(prev => !prev),
@@ -363,7 +382,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
   // ═══════ RENDER ═══════
   return (
-    <main className="main-screen">
+    <main className={`main-screen${focusMode ? ' main-screen--focus' : ''}`}>
       <MetaballBackground subtle ambientHue={ambientHue} />
 
       <AppShell

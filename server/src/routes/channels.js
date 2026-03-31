@@ -7,6 +7,7 @@ const sharp = require('sharp');
 const prisma = require('../db');
 const { authenticate, requireVerified } = require('../middleware/auth');
 const { validateFile } = require('../services/fileValidator');
+const { findUserSockets, emitToUser } = require('../utils/socketUtils');
 
 const rateLimit = require('express-rate-limit');
 const router = Router();
@@ -484,13 +485,8 @@ router.post('/:id/subscribe', async (req, res) => {
     }
 
     // Присоединить активные сокеты пользователя к комнате канала
-    const io = req.app.locals.io;
-    if (io) {
-      for (const [, s] of io.sockets.sockets) {
-        if (s.userId === userId) {
-          s.join(id);
-        }
-      }
+    for (const s of findUserSockets(userId)) {
+      s.join(id);
     }
 
     res.json({ subscribed: true });
@@ -520,13 +516,8 @@ router.delete('/:id/subscribe', async (req, res) => {
       await prisma.$executeRaw`UPDATE "channel_meta" SET "subscriber_count" = GREATEST("subscriber_count" - 1, 0) WHERE "room_id" = ${id}`;
 
       // Отключить сокеты пользователя от комнаты канала
-      const io = req.app.locals.io;
-      if (io) {
-        for (const [, s] of io.sockets.sockets) {
-          if (s.userId === userId) {
-            s.leave(id);
-          }
-        }
+      for (const s of findUserSockets(userId)) {
+        s.leave(id);
       }
     }
 
@@ -713,14 +704,9 @@ router.delete('/:id', async (req, res) => {
     if (io) {
       io.to(id).emit('channel:deleted', { channelId: id });
       // Дополнительно уведомить каждого подписчика напрямую (на случай если уже покинули комнату)
-      subscribers.forEach(sub => {
-        const sockets = io.sockets.sockets;
-        for (const [, s] of sockets) {
-          if (s.userId === sub.userId) {
-            s.emit('channel:deleted', { channelId: id });
-          }
-        }
-      });
+      for (const sub of subscribers) {
+        emitToUser(sub.userId, 'channel:deleted', { channelId: id });
+      }
     }
 
     res.json({ deleted: true });

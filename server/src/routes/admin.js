@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const prisma = require('../db');
 const { authenticate, invalidateBanCache } = require('../middleware/auth');
 const { requireAdmin, logAdminAction } = require('../middleware/adminAuth');
+const { findUserSockets, emitToUserAll, getUserSocketsMap } = require('../utils/socketUtils');
 
 const router = Router();
 
@@ -15,14 +16,9 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    // Подсчёт онлайн юзеров через socket.io
-    const io = req.app.locals.io;
-    const onlineUserIds = new Set();
-    if (io) {
-      for (const [, socket] of io.sockets.sockets) {
-        if (socket.userId) onlineUserIds.add(socket.userId);
-      }
-    }
+    // Подсчёт онлайн юзеров через userSockets Map (O(1))
+    const userSocketsMap = getUserSocketsMap();
+    const onlineUserIds = userSocketsMap ? new Set(userSocketsMap.keys()) : new Set();
 
     const [usersTotal, messagesToday, messagesTotal, channelsTotal, reportsNew, feedbackNew] =
       await Promise.all([
@@ -188,14 +184,9 @@ router.post('/users/:id/ban', authenticate, requireAdmin, async (req, res) => {
     invalidateBanCache(id);
 
     // Дисконнект всех сокетов забаненного юзера
-    const io = req.app.locals.io;
-    if (io) {
-      for (const [, socket] of io.sockets.sockets) {
-        if (socket.userId === id) {
-          socket.emit('auth:banned', { reason });
-          socket.disconnect(true);
-        }
-      }
+    for (const s of findUserSockets(id)) {
+      s.emit('auth:banned', { reason });
+      s.disconnect(true);
     }
 
     await logAdminAction(req.adminUser.id, 'user.ban', 'user', id, { reason });
@@ -641,13 +632,10 @@ router.post('/broadcast-update', async (req, res) => {
     const io = req.app.locals.io;
     if (!io) return res.status(500).json({ error: 'Socket.IO не инициализирован' });
 
-    const connectedUserIds = new Set();
-    for (const [, socket] of io.sockets.sockets) {
-      if (socket.userId) connectedUserIds.add(socket.userId);
-    }
+    const userSocketsMap = getUserSocketsMap();
+    const connectedUserIds = userSocketsMap ? [...userSocketsMap.keys()] : [];
 
-    const onlineUserIds = [...connectedUserIds];
-    const notifData = onlineUserIds.map(uid => ({
+    const notifData = connectedUserIds.map(uid => ({
       userId: uid,
       type: 'system',
       title: `Доступно обновление ${version}`,
@@ -656,19 +644,14 @@ router.post('/broadcast-update', async (req, res) => {
     await prisma.notification.createMany({ data: notifData });
 
     // Отправить socket-события подключённым пользователям
-    const notifiedSockets = new Set();
-    for (const [, socket] of io.sockets.sockets) {
-      if (socket.userId && connectedUserIds.has(socket.userId)) {
-        if (!notifiedSockets.has(socket.userId)) {
-          socket.emit('notification:new', {
-            type: 'system',
-            title: `Доступно обновление ${version}`,
-            body: changelog || 'Доступна новая версия blesk. Перезапустите приложение для обновления.',
-          });
-          notifiedSockets.add(socket.userId);
-        }
-        socket.emit('app:update-available', { version, changelog });
-      }
+    const notifPayload = {
+      type: 'system',
+      title: `Доступно обновление ${version}`,
+      body: changelog || 'Доступна новая версия blesk. Перезапустите приложение для обновления.',
+    };
+    for (const uid of connectedUserIds) {
+      emitToUserAll(uid, 'notification:new', notifPayload);
+      emitToUserAll(uid, 'app:update-available', { version, changelog });
     }
 
     await logAdminAction('system', 'broadcast.update', 'system', null, { version, notified: connectedUserIds.size });

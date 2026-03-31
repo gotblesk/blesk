@@ -6,6 +6,7 @@ const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const sharp = require('sharp');
 const { validateFile } = require('../services/fileValidator');
+const { findUserSockets } = require('../utils/socketUtils');
 
 const router = Router();
 
@@ -265,10 +266,8 @@ router.put('/me', authenticate, async (req, res) => {
       const io = req.app.locals.io;
       if (io) {
         // Обновить userStatus на сокете
-        for (const [, s] of io.sockets.sockets) {
-          if (s.userId === req.userId) {
-            s.userStatus = data.status;
-          }
+        for (const s of findUserSockets(req.userId)) {
+          s.userStatus = data.status;
         }
 
         // Отправлять события только участникам общих комнат

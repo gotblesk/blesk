@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const prisma = require('../db');
 const { authenticate, requireVerified } = require('../middleware/auth');
+const { emitToUser, findUserSockets } = require('../utils/socketUtils');
 
 const router = Router();
 
@@ -71,17 +72,23 @@ router.get('/', authenticate, async (req, res) => {
       },
     });
 
-    const chats = await Promise.all(
-      participations
-        .filter((p) => p.room.type === 'chat' || p.room.type === 'group')
-        .map(async (p) => {
-          const unreadCount = await prisma.message.count({
-            where: {
-              roomId: p.roomId,
-              createdAt: { gt: p.lastReadAt },
-              userId: { not: req.userId },
-            },
-          });
+    const filtered = participations.filter((p) => p.room.type === 'chat' || p.room.type === 'group');
+
+    // Batch: подсчёт непрочитанных сообщений параллельно (вместо N+1)
+    const unreadCounts = await Promise.all(
+      filtered.map((p) =>
+        prisma.message.count({
+          where: {
+            roomId: p.roomId,
+            createdAt: { gt: p.lastReadAt },
+            userId: { not: req.userId },
+          },
+        })
+      )
+    );
+
+    const chats = filtered.map((p, i) => {
+          const unreadCount = unreadCounts[i];
 
           const lastMessage = p.room.messages[0] || null;
 
@@ -124,8 +131,7 @@ router.get('/', authenticate, async (req, res) => {
             ...base,
             otherUser: otherParticipants[0]?.user || null,
           };
-        })
-    );
+        });
 
     chats.sort((a, b) => {
       const aTime = a.lastMessage?.createdAt || 0;
@@ -204,20 +210,20 @@ router.post('/', authenticate, requireVerified, async (req, res) => {
         return res.status(400).json({ error: 'Название группы: 1-50 символов' });
       }
 
-      // Проверяем что все — друзья
-      for (const pid of participantIds) {
-        const friendship = await prisma.friendRequest.findFirst({
-          where: {
-            status: 'accepted',
-            OR: [
-              { senderId: req.userId, receiverId: pid },
-              { senderId: pid, receiverId: req.userId },
-            ],
-          },
-        });
-        if (!friendship) {
-          return res.status(403).json({ error: 'Все участники должны быть друзьями' });
-        }
+      // Проверяем что все — друзья (batch: 1 запрос вместо N)
+      const friendships = await prisma.friendRequest.findMany({
+        where: {
+          status: 'accepted',
+          OR: participantIds.flatMap((pid) => [
+            { senderId: req.userId, receiverId: pid },
+            { senderId: pid, receiverId: req.userId },
+          ]),
+        },
+      });
+      const friendIds = new Set(friendships.flatMap((f) => [f.senderId, f.receiverId]));
+      const nonFriends = participantIds.filter((pid) => !friendIds.has(pid));
+      if (nonFriends.length > 0) {
+        return res.status(403).json({ error: 'Все участники должны быть друзьями' });
       }
 
       const allIds = [req.userId, ...participantIds];
@@ -244,12 +250,9 @@ router.post('/', authenticate, requireVerified, async (req, res) => {
       });
 
       // Присоединяем сокеты участников к комнате
-      const io = req.app.locals.io;
-      if (io) {
-        for (const [, s] of io.sockets.sockets) {
-          if (allIds.includes(s.userId)) {
-            s.join(room.id);
-          }
+      for (const uid of allIds) {
+        for (const s of findUserSockets(uid)) {
+          s.join(room.id);
         }
       }
 
@@ -339,14 +342,7 @@ router.post('/', authenticate, requireVerified, async (req, res) => {
         },
       });
 
-      const io = req.app.locals.io;
-      if (io) {
-        for (const [, s] of io.sockets.sockets) {
-          if (s.userId === participantId) {
-            s.emit('notification:new', notification);
-          }
-        }
-      }
+      emitToUser(participantId, 'notification:new', notification);
     } catch (err) { console.error('Failed to send new chat notification:', err.message); }
 
     res.status(201).json({ id: room.id, otherUser, existing: false });
@@ -434,10 +430,8 @@ router.post('/:id/members', authenticate, async (req, res) => {
     if (io) {
       io.to(roomId).emit('group:member-added', { roomId, user: { ...newUser, role: 'member' } });
       // Присоединить сокет нового участника
-      for (const [, s] of io.sockets.sockets) {
-        if (s.userId === newUserId) {
-          s.join(roomId);
-        }
+      for (const s of findUserSockets(newUserId)) {
+        s.join(roomId);
       }
     }
 
@@ -495,10 +489,8 @@ router.delete('/:id/members/:userId', authenticate, async (req, res) => {
     if (io) {
       io.to(roomId).emit('group:member-removed', { roomId, userId: targetUserId, selfLeave: isSelf });
       // Отключить сокет от комнаты
-      for (const [, s] of io.sockets.sockets) {
-        if (s.userId === targetUserId) {
-          s.leave(roomId);
-        }
+      for (const s of findUserSockets(targetUserId)) {
+        s.leave(roomId);
       }
     }
 

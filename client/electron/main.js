@@ -68,7 +68,7 @@ function createMainWindow() {
     minWidth: 900,
     minHeight: 600,
     frame: false,
-    backgroundColor: '#08060f',
+    backgroundColor: '#0a0a0f',
     center: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -257,11 +257,11 @@ ipcMain.on('open-external', (event, url) => {
 const keyPath = path.join(app.getPath('userData'), 'blesk.key');
 
 // [IMP-2] Валидация типов на всех crypto IPC каналах
-ipcMain.handle('crypto:saveSecretKey', (_, b64Key) => {
+ipcMain.handle('crypto:saveSecretKey', async (_, b64Key) => {
   try {
     if (typeof b64Key !== 'string' || b64Key.length > 200) return false;
     const encrypted = safeStorage.encryptString(b64Key);
-    fs.writeFileSync(keyPath, encrypted);
+    await fs.promises.writeFile(keyPath, encrypted);
     return true;
   } catch (err) {
     console.error('crypto:saveSecretKey error:', err);
@@ -269,19 +269,25 @@ ipcMain.handle('crypto:saveSecretKey', (_, b64Key) => {
   }
 });
 
-ipcMain.handle('crypto:getSecretKey', () => {
+ipcMain.handle('crypto:getSecretKey', async () => {
   try {
-    if (!fs.existsSync(keyPath)) return null;
-    const encrypted = fs.readFileSync(keyPath);
+    await fs.promises.access(keyPath);
+    const encrypted = await fs.promises.readFile(keyPath);
     return safeStorage.decryptString(encrypted);
   } catch (err) {
+    if (err.code === 'ENOENT') return null;
     console.error('crypto:getSecretKey error:', err);
     return null;
   }
 });
 
-ipcMain.handle('crypto:hasSecretKey', () => {
-  return fs.existsSync(keyPath);
+ipcMain.handle('crypto:hasSecretKey', async () => {
+  try {
+    await fs.promises.access(keyPath);
+    return true;
+  } catch {
+    return false;
+  }
 });
 
 // ═══ blesk Shield — расширенное хранение ключей и сессий ═══
@@ -290,11 +296,11 @@ const spkPath = path.join(app.getPath('userData'), 'blesk.spk');
 const sessionsDir = path.join(app.getPath('userData'), 'shield-sessions');
 
 // Signing key (Ed25519)
-ipcMain.handle('crypto:saveSigningKey', (_, b64Key) => {
+ipcMain.handle('crypto:saveSigningKey', async (_, b64Key) => {
   try {
     if (typeof b64Key !== 'string' || b64Key.length > 200) return false;
     const encrypted = safeStorage.encryptString(b64Key);
-    fs.writeFileSync(signKeyPath, encrypted);
+    await fs.promises.writeFile(signKeyPath, encrypted);
     return true;
   } catch (err) {
     console.error('crypto:saveSigningKey error:', err);
@@ -302,27 +308,33 @@ ipcMain.handle('crypto:saveSigningKey', (_, b64Key) => {
   }
 });
 
-ipcMain.handle('crypto:getSigningKey', () => {
+ipcMain.handle('crypto:getSigningKey', async () => {
   try {
-    if (!fs.existsSync(signKeyPath)) return null;
-    const encrypted = fs.readFileSync(signKeyPath);
+    await fs.promises.access(signKeyPath);
+    const encrypted = await fs.promises.readFile(signKeyPath);
     return safeStorage.decryptString(encrypted);
   } catch (err) {
+    if (err.code === 'ENOENT') return null;
     console.error('crypto:getSigningKey error:', err);
     return null;
   }
 });
 
-ipcMain.handle('crypto:hasSigningKey', () => {
-  return fs.existsSync(signKeyPath);
+ipcMain.handle('crypto:hasSigningKey', async () => {
+  try {
+    await fs.promises.access(signKeyPath);
+    return true;
+  } catch {
+    return false;
+  }
 });
 
 // Signed PreKey (SPK)
-ipcMain.handle('crypto:saveSPK', (_, jsonStr) => {
+ipcMain.handle('crypto:saveSPK', async (_, jsonStr) => {
   try {
     if (typeof jsonStr !== 'string' || jsonStr.length > 10000) return false;
     const encrypted = safeStorage.encryptString(jsonStr);
-    fs.writeFileSync(spkPath, encrypted);
+    await fs.promises.writeFile(spkPath, encrypted);
     return true;
   } catch (err) {
     console.error('crypto:saveSPK error:', err);
@@ -330,29 +342,30 @@ ipcMain.handle('crypto:saveSPK', (_, jsonStr) => {
   }
 });
 
-ipcMain.handle('crypto:getSPK', () => {
+ipcMain.handle('crypto:getSPK', async () => {
   try {
-    if (!fs.existsSync(spkPath)) return null;
-    const encrypted = fs.readFileSync(spkPath);
+    await fs.promises.access(spkPath);
+    const encrypted = await fs.promises.readFile(spkPath);
     return safeStorage.decryptString(encrypted);
   } catch (err) {
+    if (err.code === 'ENOENT') return null;
     console.error('crypto:getSPK error:', err);
     return null;
   }
 });
 
 // Shield Sessions — по одному файлу на собеседника
-ipcMain.handle('crypto:saveSession', (_, peerId, jsonStr) => {
+ipcMain.handle('crypto:saveSession', async (_, peerId, jsonStr) => {
   try {
     if (typeof peerId !== 'string' || peerId.length === 0 || peerId.length > 100) return false;
     if (typeof jsonStr !== 'string' || jsonStr.length > 1_000_000) return false;
-    if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir, { recursive: true });
+    await fs.promises.mkdir(sessionsDir, { recursive: true });
     // [MED-3] SHA-256 хеш peerId для имени файла (без усечения)
     const { createHash } = require('crypto');
     const fileName = createHash('sha256').update(peerId).digest('hex') + '.session';
     const filePath = path.join(sessionsDir, fileName);
     const encrypted = safeStorage.encryptString(jsonStr);
-    fs.writeFileSync(filePath, encrypted);
+    await fs.promises.writeFile(filePath, encrypted);
     return true;
   } catch (err) {
     console.error('crypto:saveSession error:', err);
@@ -360,30 +373,33 @@ ipcMain.handle('crypto:saveSession', (_, peerId, jsonStr) => {
   }
 });
 
-ipcMain.handle('crypto:getSession', (_, peerId) => {
+ipcMain.handle('crypto:getSession', async (_, peerId) => {
   try {
     if (typeof peerId !== 'string' || peerId.length === 0) return null;
-    if (!fs.existsSync(sessionsDir)) return null;
     const { createHash } = require('crypto');
     const fileName = createHash('sha256').update(peerId).digest('hex') + '.session';
     const filePath = path.join(sessionsDir, fileName);
-    if (!fs.existsSync(filePath)) return null;
-    const encrypted = fs.readFileSync(filePath);
+    await fs.promises.access(filePath);
+    const encrypted = await fs.promises.readFile(filePath);
     return safeStorage.decryptString(encrypted);
   } catch (err) {
+    if (err.code === 'ENOENT') return null;
     console.error('crypto:getSession error:', err);
     return null;
   }
 });
 
-ipcMain.handle('crypto:deleteSession', (_, peerId) => {
+ipcMain.handle('crypto:deleteSession', async (_, peerId) => {
   try {
     if (typeof peerId !== 'string' || peerId.length === 0) return false;
-    if (!fs.existsSync(sessionsDir)) return true;
     const { createHash } = require('crypto');
     const fileName = createHash('sha256').update(peerId).digest('hex') + '.session';
     const filePath = path.join(sessionsDir, fileName);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    try {
+      await fs.promises.unlink(filePath);
+    } catch (e) {
+      if (e.code !== 'ENOENT') throw e;
+    }
     return true;
   } catch (err) {
     console.error('crypto:deleteSession error:', err);
@@ -391,10 +407,10 @@ ipcMain.handle('crypto:deleteSession', (_, peerId) => {
   }
 });
 
-ipcMain.handle('crypto:listSessions', () => {
+ipcMain.handle('crypto:listSessions', async () => {
   try {
-    if (!fs.existsSync(sessionsDir)) return [];
-    return fs.readdirSync(sessionsDir)
+    const files = await fs.promises.readdir(sessionsDir);
+    return files
       .filter(f => f.endsWith('.session'))
       .map(f => f.replace('.session', ''));
   } catch {
@@ -405,11 +421,11 @@ ipcMain.handle('crypto:listSessions', () => {
 // OPK (one-time prekeys) — хранение секретных ключей
 const opkPath = path.join(app.getPath('userData'), 'blesk.opk');
 
-ipcMain.handle('crypto:saveOPKs', (_, jsonStr) => {
+ipcMain.handle('crypto:saveOPKs', async (_, jsonStr) => {
   try {
     if (typeof jsonStr !== 'string' || jsonStr.length > 5_000_000) return false;
     const encrypted = safeStorage.encryptString(jsonStr);
-    fs.writeFileSync(opkPath, encrypted);
+    await fs.promises.writeFile(opkPath, encrypted);
     return true;
   } catch (err) {
     console.error('crypto:saveOPKs error:', err);
@@ -417,15 +433,44 @@ ipcMain.handle('crypto:saveOPKs', (_, jsonStr) => {
   }
 });
 
-ipcMain.handle('crypto:getOPKs', () => {
+ipcMain.handle('crypto:getOPKs', async () => {
   try {
-    if (!fs.existsSync(opkPath)) return null;
-    const encrypted = fs.readFileSync(opkPath);
+    await fs.promises.access(opkPath);
+    const encrypted = await fs.promises.readFile(opkPath);
     return safeStorage.decryptString(encrypted);
   } catch (err) {
+    if (err.code === 'ENOENT') return null;
     console.error('crypto:getOPKs error:', err);
     return null;
   }
+});
+
+// Очистка всех E2E ключей при выходе из аккаунта
+ipcMain.handle('crypto:clearAll', async () => {
+  const appDataPath = app.getPath('userData');
+  const filesToDelete = [
+    path.join(appDataPath, 'blesk.key'),
+    path.join(appDataPath, 'blesk.sign'),
+    path.join(appDataPath, 'blesk.spk'),
+  ];
+
+  for (const filePath of filesToDelete) {
+    try {
+      await fs.promises.unlink(filePath);
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error('Failed to delete key file:', filePath, e.message);
+    }
+  }
+
+  // Удалить директорию shield-sessions
+  const shieldDir = path.join(appDataPath, 'shield-sessions');
+  try {
+    await fs.promises.rm(shieldDir, { recursive: true, force: true });
+  } catch (e) {
+    console.error('Failed to delete shield-sessions:', e.message);
+  }
+
+  return { success: true };
 });
 
 // Получить список экранов и окон для демонстрации экрана

@@ -272,7 +272,6 @@ router.post('/register', async (req, res) => {
         email: user.email,
         emailVerified: user.emailVerified,
       },
-      ...tokens,
     });
   } catch (err) {
     console.error('Ошибка регистрации:', err);
@@ -468,7 +467,6 @@ router.post('/login', async (req, res) => {
         email: user.email,
         emailVerified: user.emailVerified,
       },
-      ...tokens,
     });
   } catch (err) {
     console.error('Ошибка авторизации:', err);
@@ -526,7 +524,7 @@ router.post('/refresh', async (req, res) => {
 
     setAuthCookies(res, tokens);
 
-    res.json(tokens);
+    res.json({});
   } catch (err) {
     console.error('Ошибка обновления токена:', err);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
@@ -904,7 +902,6 @@ router.post('/2fa/login', async (req, res) => {
         email: user.email,
         emailVerified: user.emailVerified,
       },
-      ...tokens,
     });
   } catch (err) {
     console.error('2fa/login error:', err);
