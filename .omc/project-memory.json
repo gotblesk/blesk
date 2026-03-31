@@ -152,21 +152,33 @@
   "hotPaths": [
     {
       "path": "client\\src\\styles\\global.css",
-      "accessCount": 73,
-      "lastAccessed": 1774933783244,
+      "accessCount": 74,
+      "lastAccessed": 1774941967738,
       "type": "file"
     },
     {
       "path": "client\\src",
-      "accessCount": 39,
-      "lastAccessed": 1774932566695,
+      "accessCount": 46,
+      "lastAccessed": 1774941963095,
       "type": "directory"
     },
     {
       "path": "",
-      "accessCount": 30,
-      "lastAccessed": 1774932860015,
+      "accessCount": 45,
+      "lastAccessed": 1774941961873,
       "type": "directory"
+    },
+    {
+      "path": "server\\src\\routes\\auth.js",
+      "accessCount": 37,
+      "lastAccessed": 1774942015717,
+      "type": "file"
+    },
+    {
+      "path": "client\\src\\components\\ui\\MetaballBackground.jsx",
+      "accessCount": 34,
+      "lastAccessed": 1774942023474,
+      "type": "file"
     },
     {
       "path": "client\\src\\components\\DynamicIsland\\island.css",
@@ -175,40 +187,34 @@
       "type": "directory"
     },
     {
-      "path": "server\\src\\routes\\auth.js",
-      "accessCount": 23,
-      "lastAccessed": 1774917786711,
-      "type": "file"
-    },
-    {
       "path": "client\\electron\\main.js",
-      "accessCount": 23,
-      "lastAccessed": 1774918001804,
-      "type": "file"
-    },
-    {
-      "path": "client\\src\\components\\ui\\MetaballBackground.jsx",
-      "accessCount": 21,
-      "lastAccessed": 1774933134991,
+      "accessCount": 26,
+      "lastAccessed": 1774940599861,
       "type": "file"
     },
     {
       "path": "server\\src\\routes\\chats.js",
-      "accessCount": 15,
-      "lastAccessed": 1774918423591,
+      "accessCount": 16,
+      "lastAccessed": 1774941724305,
       "type": "file"
     },
     {
       "path": "client\\src\\App.jsx",
-      "accessCount": 13,
-      "lastAccessed": 1774917857263,
+      "accessCount": 15,
+      "lastAccessed": 1774941749706,
       "type": "file"
     },
     {
       "path": "server\\src",
-      "accessCount": 13,
-      "lastAccessed": 1774918447399,
+      "accessCount": 14,
+      "lastAccessed": 1774938631255,
       "type": "directory"
+    },
+    {
+      "path": "server\\src\\ws\\voiceHandler.js",
+      "accessCount": 13,
+      "lastAccessed": 1774940595372,
+      "type": "file"
     },
     {
       "path": "server\\src\\index.js",
@@ -223,9 +229,27 @@
       "type": "file"
     },
     {
+      "path": "server\\src\\services\\mediasoup.js",
+      "accessCount": 11,
+      "lastAccessed": 1774940541566,
+      "type": "file"
+    },
+    {
       "path": "server\\src\\routes\\admin.js",
       "accessCount": 10,
       "lastAccessed": 1774918070132,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\ws\\callHandler.js",
+      "accessCount": 8,
+      "lastAccessed": 1774938635871,
+      "type": "file"
+    },
+    {
+      "path": "client\\electron\\preload.js",
+      "accessCount": 8,
+      "lastAccessed": 1774940579988,
       "type": "file"
     },
     {
@@ -241,9 +265,9 @@
       "type": "file"
     },
     {
-      "path": "client\\electron\\preload.js",
-      "accessCount": 6,
-      "lastAccessed": 1774917858006,
+      "path": "server\\src\\routes\\voice.js",
+      "accessCount": 7,
+      "lastAccessed": 1774938655636,
       "type": "file"
     },
     {
@@ -265,33 +289,27 @@
       "type": "file"
     },
     {
-      "path": "server\\src\\routes\\voice.js",
-      "accessCount": 5,
-      "lastAccessed": 1774917965276,
-      "type": "file"
-    },
-    {
       "path": "server\\src\\services\\ogScraper.js",
       "accessCount": 5,
       "lastAccessed": 1774918454009,
       "type": "file"
     },
     {
-      "path": "server\\src\\ws\\callHandler.js",
+      "path": "client",
       "accessCount": 5,
-      "lastAccessed": 1774918500825,
-      "type": "file"
+      "lastAccessed": 1774938672346,
+      "type": "directory"
     },
     {
-      "path": "client",
-      "accessCount": 4,
-      "lastAccessed": 1774916708047,
+      "path": "server",
+      "accessCount": 5,
+      "lastAccessed": 1774940583294,
       "type": "directory"
     },
     {
       "path": "server\\src\\middleware\\csrf.js",
-      "accessCount": 4,
-      "lastAccessed": 1774917757012,
+      "accessCount": 5,
+      "lastAccessed": 1774941724486,
       "type": "file"
     },
     {
@@ -308,14 +326,20 @@
     },
     {
       "path": "deploy.py",
-      "accessCount": 3,
-      "lastAccessed": 1774916709008,
+      "accessCount": 4,
+      "lastAccessed": 1774936972617,
       "type": "file"
     },
     {
       "path": "server\\prisma\\schema.prisma",
       "accessCount": 3,
       "lastAccessed": 1774917783255,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\ws\\authMiddleware.js",
+      "accessCount": 3,
+      "lastAccessed": 1774941794609,
       "type": "file"
     },
     {
@@ -331,33 +355,9 @@
       "type": "file"
     },
     {
-      "path": "server\\src\\ws\\authMiddleware.js",
-      "accessCount": 2,
-      "lastAccessed": 1774916668152,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\ws\\voiceHandler.js",
-      "accessCount": 2,
-      "lastAccessed": 1774916670599,
-      "type": "file"
-    },
-    {
       "path": "server\\src\\services\\fileValidator.js",
       "accessCount": 2,
       "lastAccessed": 1774916670953,
-      "type": "file"
-    },
-    {
-      "path": "server",
-      "accessCount": 2,
-      "lastAccessed": 1774916692028,
-      "type": "directory"
-    },
-    {
-      "path": "server\\src\\services\\mediasoup.js",
-      "accessCount": 2,
-      "lastAccessed": 1774916698070,
       "type": "file"
     },
     {
@@ -376,6 +376,12 @@
       "path": "client\\src\\components\\voice\\IncomingCallOverlay.css",
       "accessCount": 2,
       "lastAccessed": 1774917854354,
+      "type": "file"
+    },
+    {
+      "path": "client\\src\\hooks\\useSocket.js",
+      "accessCount": 2,
+      "lastAccessed": 1774938588511,
       "type": "file"
     },
     {
@@ -418,12 +424,6 @@
       "path": "client\\src\\components\\ContentArea\\Placeholder.jsx",
       "accessCount": 1,
       "lastAccessed": 1774916673204,
-      "type": "file"
-    },
-    {
-      "path": "client\\src\\hooks\\useSocket.js",
-      "accessCount": 1,
-      "lastAccessed": 1774916680073,
       "type": "file"
     },
     {

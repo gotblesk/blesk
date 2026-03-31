@@ -74,8 +74,8 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await fetchWithAuth(`${API_URL}/api/chats`);
       if (!res.ok) throw new Error();
-      const chats = await res.json();
-      set({ chats, chatsInitialized: true });
+      const data = await res.json();
+      set({ chats: Array.isArray(data) ? data : [], chatsInitialized: true });
     } catch (err) {
       console.error('Ошибка загрузки чатов:', err);
       set({ chatsInitialized: true });

@@ -13,12 +13,9 @@ const mediaCodecs = [
     mimeType: 'audio/opus',
     clockRate: 48000,
     channels: 2,
-  },
-  {
-    kind: 'video',
-    mimeType: 'video/VP8',
-    clockRate: 90000,
-    parameters: {},
+    parameters: {
+      usedtx: 1, // Discontinuous Transmission — экономит трафик во время тишины
+    },
   },
   {
     kind: 'video',
@@ -30,12 +27,23 @@ const mediaCodecs = [
       'level-asymmetry-allowed': 1,
     },
   },
+  {
+    kind: 'video',
+    mimeType: 'video/VP8',
+    clockRate: 90000,
+    parameters: {},
+  },
 ];
 
 // Настройки WebRTC транспорта
 function getTransportOptions() {
   const listenIp = process.env.MEDIASOUP_LISTEN_IP || '0.0.0.0';
   const announcedIp = process.env.MEDIASOUP_ANNOUNCED_IP || process.env.SERVER_IP || null;
+
+  if (!announcedIp && process.env.NODE_ENV === 'production') {
+    console.error('CRITICAL: MEDIASOUP_ANNOUNCED_IP not set. Voice will not work for remote clients.');
+    console.error('Set MEDIASOUP_ANNOUNCED_IP=<your-public-ip> in .env');
+  }
 
   return {
     listenIps: [
@@ -54,8 +62,8 @@ function getTransportOptions() {
 // Создать Worker'ы при старте сервера
 async function createWorkers() {
   for (let i = 0; i < numWorkers; i++) {
-    const rtcMin = 10000 + (i * 200);
-    const rtcMax = rtcMin + 199;
+    const rtcMin = 10000 + i * 1000;
+    const rtcMax = rtcMin + 999;
 
     const worker = await mediasoup.createWorker({
       logLevel: 'warn',
@@ -73,6 +81,7 @@ async function createWorkers() {
         });
         workers[i] = newWorker;
         console.log(`mediasoup Worker ${i} перезапущен`);
+        console.warn(`Worker ${i} restarted. Rooms on this worker need reconnection.`);
       }, 2000);
     });
 

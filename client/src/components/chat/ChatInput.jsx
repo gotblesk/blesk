@@ -17,6 +17,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [micError, setMicError] = useState('');
 
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef(null);
@@ -354,7 +355,16 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         });
       }, 1000);
     } catch (err) {
-      console.error('Mic access denied:', err);
+      console.error('Mic error:', err);
+      let msg = 'Ошибка записи: ' + (err.message || 'неизвестная');
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        msg = 'Нет доступа к микрофону. Разрешите в настройках системы.';
+      } else if (err.name === 'NotFoundError') {
+        msg = 'Микрофон не найден';
+      }
+      setMicError(msg);
+      setTimeout(() => setMicError(''), 3000);
+      setIsRecording(false);
     }
   };
 
@@ -407,6 +417,16 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       window.removeEventListener('mouseup', handleGlobalUp);
       window.removeEventListener('touchend', handleGlobalUp);
     };
+  }, [isRecording]);
+
+  // Потеря фокуса окна во время записи — запись продолжается
+  useEffect(() => {
+    if (!isRecording) return;
+    const handleBlur = () => {
+      console.log('[blesk] Window blurred during recording — recording continues');
+    };
+    window.addEventListener('blur', handleBlur);
+    return () => window.removeEventListener('blur', handleBlur);
   }, [isRecording]);
 
   return (
@@ -536,17 +556,20 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
           </div>
           {/* Mic button (input empty) или Send button (есть текст/файлы) */}
           {!text.trim() && !pendingFiles.length ? (
-            <button
-              className="chat-input__mic-hold"
-              onMouseDown={handleMicDown}
-              onTouchStart={handleMicDown}
-              onMouseUp={handleMicUp}
-              onTouchEnd={handleMicUp}
-              aria-label="Голосовое сообщение (зажмите)"
-              title="Зажмите для записи"
-            >
-              <Microphone size={18} />
-            </button>
+            <div className="chat-input__mic-wrap">
+              {micError && <span className="chat-input__mic-error">{micError}</span>}
+              <button
+                className="chat-input__mic-hold"
+                onMouseDown={handleMicDown}
+                onTouchStart={handleMicDown}
+                onMouseUp={handleMicUp}
+                onTouchEnd={handleMicUp}
+                aria-label="Голосовое сообщение (зажмите)"
+                title="Зажмите для записи"
+              >
+                <Microphone size={18} />
+              </button>
+            </div>
           ) : (
             <button
               ref={sendBtnRef}

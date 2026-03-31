@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getAvatarHue, getAvatarGradient } from '../../utils/avatar';
 import { VideoCamera, Phone } from '@phosphor-icons/react';
+import { soundRingtoneStart, soundRingtoneStop } from '../../utils/sounds';
 import API_URL from '../../config';
 import './IncomingCallOverlay.css';
 
@@ -11,6 +12,12 @@ export default function IncomingCallOverlay({ call, onAccept, onDecline }) {
 
   // [Баг #17] useState ПЕРЕД любыми условными return — Rules of Hooks
   const [imgError, setImgError] = useState(false);
+
+  // Рингтон при входящем звонке
+  useEffect(() => {
+    soundRingtoneStart();
+    return () => soundRingtoneStop();
+  }, []);
 
   // Авто-dismiss через 30 сек (ref — таймер не перезапускается при смене колбэка)
   useEffect(() => {

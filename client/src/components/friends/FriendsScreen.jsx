@@ -74,7 +74,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     setLoading(true);
     fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(debouncedQuery)}`, { headers: getHeaders(), credentials: 'include' })
       .then(r => r.json())
-      .then(data => { if (!cancelled) setSearchResults(data); })
+      .then(data => { if (!cancelled) setSearchResults(Array.isArray(data) ? data : []); })
       .catch(() => { if (!cancelled) setError('Ошибка поиска'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

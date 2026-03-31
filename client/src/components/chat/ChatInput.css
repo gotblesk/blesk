@@ -547,3 +547,34 @@
   .chat-input__rec-dot { animation: none; opacity: 1; }
   .chat-input__recording { animation: none; }
 }
+
+/* Mic wrapper — позиционирование для tooltip ошибки */
+.chat-input__mic-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Ошибка микрофона — всплывает над кнопкой */
+.chat-input__mic-error {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(239,68,68,0.92);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: micErrFadeInOut 3s ease forwards;
+  z-index: 50;
+}
+
+@keyframes micErrFadeInOut {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  10%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}

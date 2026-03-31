@@ -262,6 +262,8 @@ router.post('/register', async (req, res) => {
     setAuthCookies(res, tokens);
 
     res.status(201).json({
+      token: tokens.token,
+      refreshToken: tokens.refreshToken,
       user: {
         id: user.id,
         username: user.username,
@@ -457,6 +459,8 @@ router.post('/login', async (req, res) => {
     } catch (err) { console.error('Failed to create login notification:', err.message); }
 
     res.json({
+      token: tokens.token,
+      refreshToken: tokens.refreshToken,
       user: {
         id: user.id,
         username: user.username,
@@ -524,7 +528,7 @@ router.post('/refresh', async (req, res) => {
 
     setAuthCookies(res, tokens);
 
-    res.json({});
+    res.json({ token: tokens.token, refreshToken: tokens.refreshToken });
   } catch (err) {
     console.error('Ошибка обновления токена:', err);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
@@ -892,6 +896,8 @@ router.post('/2fa/login', async (req, res) => {
     } catch (err) { console.error('Failed to create login notification:', err.message); }
 
     res.json({
+      token: tokens.token,
+      refreshToken: tokens.refreshToken,
       user: {
         id: user.id,
         username: user.username,

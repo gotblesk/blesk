@@ -51,6 +51,7 @@ function VoiceMessage({ src }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [waveform, setWaveform] = useState([]);
+  const [speed, setSpeed] = useState(1);
   const audioRef = useRef(null);
   const rafRef = useRef(null);
 
@@ -58,6 +59,18 @@ function VoiceMessage({ src }) {
   useEffect(() => {
     const bars = Array.from({ length: 30 }, () => 0.2 + Math.random() * 0.8);
     setWaveform(bars);
+  }, []);
+
+  // Singleton playback — останавливаем этот плеер если запустился другой
+  useEffect(() => {
+    const handleStopOthers = (e) => {
+      if (e.detail !== audioRef.current && audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+        setPlaying(false);
+      }
+    };
+    window.addEventListener('blesk-voice-play', handleStopOthers);
+    return () => window.removeEventListener('blesk-voice-play', handleStopOthers);
   }, []);
 
   const updateProgress = useCallback(() => {
@@ -78,9 +91,24 @@ function VoiceMessage({ src }) {
   const toggle = () => {
     const el = audioRef.current;
     if (!el) return;
-    if (playing) { el.pause(); }
-    else { el.play(); }
-    setPlaying(!playing);
+    if (playing) {
+      el.pause();
+      setPlaying(false);
+    } else {
+      // Остановить все другие голосовые сообщения
+      window.dispatchEvent(new CustomEvent('blesk-voice-play', { detail: el }));
+      el.play();
+      setPlaying(true);
+    }
+  };
+
+  const cycleSpeed = (e) => {
+    e.stopPropagation();
+    const speeds = [1, 1.5, 2];
+    const nextIdx = (speeds.indexOf(speed) + 1) % speeds.length;
+    const newSpeed = speeds[nextIdx];
+    setSpeed(newSpeed);
+    if (audioRef.current) audioRef.current.playbackRate = newSpeed;
   };
 
   const handleEnded = () => {
@@ -131,6 +159,9 @@ function VoiceMessage({ src }) {
       <span className="media-msg__voice-time">
         {formatTime(playing ? (audioRef.current?.currentTime || 0) : duration)}
       </span>
+      <button className="voice-msg__speed" onClick={cycleSpeed}>
+        {speed}×
+      </button>
     </div>
   );
 }

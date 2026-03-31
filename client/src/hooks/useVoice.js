@@ -28,6 +28,10 @@ export function useVoice(socketRef) {
   const localCameraStreamRef = useRef(null);
   const localScreenStreamRef = useRef(null);
 
+  // Debounce flags для камеры и screen share
+  const enablingCameraRef = useRef(false);
+  const enablingScreenRef = useRef(false);
+
   const {
     currentRoomId,
     isMuted,
@@ -341,6 +345,13 @@ export function useVoice(socketRef) {
           const sendTransport = device.createSendTransport(res.params);
           sendTransportRef.current = sendTransport;
 
+          sendTransport.on('connectionstatechange', (state) => {
+            console.log(`[blesk] Transport send state: ${state}`);
+            if (state === 'failed' || state === 'disconnected') {
+              console.warn(`[blesk] Transport send ${state} — may need ICE restart`);
+            }
+          });
+
           sendTransport.on('connect', ({ dtlsParameters }, callback, errback) => {
             socket.emit('voice:connectTransport', {
               roomId,
@@ -367,6 +378,10 @@ export function useVoice(socketRef) {
 
           // Начать отправку аудио
           const track = stream.getAudioTracks()[0];
+          track.onended = () => {
+            console.warn('[blesk] Microphone track ended (device disconnected?)');
+            if (window.__bleskBgPulse) window.__bleskBgPulse();
+          };
           const producer = await sendTransport.produce({ track });
           producerRef.current = producer;
 
@@ -390,6 +405,13 @@ export function useVoice(socketRef) {
 
           const recvTransport = device.createRecvTransport(res.params);
           recvTransportRef.current = recvTransport;
+
+          recvTransport.on('connectionstatechange', (state) => {
+            console.log(`[blesk] Transport recv state: ${state}`);
+            if (state === 'failed' || state === 'disconnected') {
+              console.warn(`[blesk] Transport recv ${state} — may need ICE restart`);
+            }
+          });
 
           recvTransport.on('connect', ({ dtlsParameters }, callback, errback) => {
             socket.emit('voice:connectTransport', {
@@ -617,7 +639,12 @@ export function useVoice(socketRef) {
 
     const onConsumerClosed = ({ consumerId }) => {
       const consumer = consumersRef.current.get(consumerId);
+      const peerId = consumerUserMapRef.current.get(consumerId);
       if (consumer) {
+        // Если видео consumer — убрать видео стрим из store
+        if ((consumer.kind === 'video' || consumer.track?.kind === 'video') && peerId) {
+          useVoiceStore.getState().removeVideoStream?.(peerId);
+        }
         consumer.close();
         consumersRef.current.delete(consumerId);
       }
@@ -664,9 +691,11 @@ export function useVoice(socketRef) {
 
   // ═══ Видео: камера ═══
   const enableCamera = useCallback(async () => {
+    if (enablingCameraRef.current) return;
+    enablingCameraRef.current = true;
     try {
-      if (cameraProducerRef.current) return;
-      if (!sendTransportRef.current) return;
+      if (cameraProducerRef.current) { enablingCameraRef.current = false; return; }
+      if (!sendTransportRef.current) { enablingCameraRef.current = false; return; }
       // Читаем настройки качества
       const { cameraResolution, cameraFps } = (() => {
         try { const s = JSON.parse(localStorage.getItem('blesk-settings') || '{}'); return { cameraResolution: s.cameraResolution || '720p', cameraFps: s.cameraFps || 30 }; }
@@ -677,12 +706,25 @@ export function useVoice(socketRef) {
       const bitrateMap = { '480p': 800000, '720p': 1500000, '1080p': 3000000, '1440p': 5000000 };
       const bitrate = bitrateMap[cameraResolution] || 1500000;
 
+      // Читаем выбранную камеру из настроек
+      let cameraDeviceId;
+      try {
+        const s = JSON.parse(localStorage.getItem('blesk-settings') || '{}');
+        cameraDeviceId = s.cameraDeviceId;
+      } catch { /* ignore */ }
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: res.w }, height: { ideal: res.h }, frameRate: { ideal: cameraFps } },
+        video: {
+          ...(cameraDeviceId ? { deviceId: { exact: cameraDeviceId } } : {}),
+          width: { ideal: res.w },
+          height: { ideal: res.h },
+          frameRate: { ideal: cameraFps },
+        },
       });
       localCameraStreamRef.current = stream;
       useVoiceStore.getState().setLocalCameraStream(stream);
       const track = stream.getVideoTracks()[0];
+      track.contentHint = 'motion'; // Оптимизация для плавного движения
 
       // [Баг #19] Обработать физическое отключение камеры
       track.onended = () => {
@@ -703,6 +745,8 @@ export function useVoice(socketRef) {
       if (err.name === 'NotAllowedError' || err.name === 'NotFoundError') {
         useVoiceStore.getState().setMediaError?.('Нет доступа к камере. Проверьте разрешения.');
       }
+    } finally {
+      enablingCameraRef.current = false;
     }
   }, []);
 
@@ -725,9 +769,11 @@ export function useVoice(socketRef) {
 
   // ═══ Видео: демонстрация экрана ═══
   const enableScreenShare = useCallback(async () => {
+    if (enablingScreenRef.current) return;
+    enablingScreenRef.current = true;
     try {
-      if (screenProducerRef.current) return;
-      if (!sendTransportRef.current) return;
+      if (screenProducerRef.current) { enablingScreenRef.current = false; return; }
+      if (!sendTransportRef.current) { enablingScreenRef.current = false; return; }
       // Читаем настройки качества
       const { screenResolution, screenFps } = (() => {
         try { const s = JSON.parse(localStorage.getItem('blesk-settings') || '{}'); return { screenResolution: s.screenResolution || '1080p', screenFps: s.screenFps || 30 }; }
@@ -778,6 +824,7 @@ export function useVoice(socketRef) {
       // [Баг #7] Сохранить локальный стрим экрана в store для отображения шарящему
       useVoiceStore.getState().setLocalScreenStream?.(stream);
       const track = stream.getVideoTracks()[0];
+      track.contentHint = 'detail'; // Оптимизация для текста/кода
       track.onended = () => disableScreenShareRef.current();
       const producer = await sendTransportRef.current.produce({
         track,
@@ -796,6 +843,8 @@ export function useVoice(socketRef) {
         console.error('enableScreenShare error:', err);
         useVoiceStore.getState().setMediaError?.('Не удалось запустить демонстрацию экрана.');
       }
+    } finally {
+      enablingScreenRef.current = false;
     }
   }, []);
 
@@ -843,6 +892,26 @@ export function useVoice(socketRef) {
       if (vadIntervalRef.current) { clearInterval(vadIntervalRef.current); vadIntervalRef.current = null; }
       if (qualityIntervalRef.current) { clearInterval(qualityIntervalRef.current); qualityIntervalRef.current = null; }
       if (audioContextRef.current) { try { audioContextRef.current.close(); } catch { /* AudioContext already closed */ } audioContextRef.current = null; }
+    };
+  }, []);
+
+  // ═══ Слушатель подключения/отключения устройств ═══
+  useEffect(() => {
+    const handleDeviceChange = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(d => d.kind === 'audioinput');
+        const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+        const videoInputs = devices.filter(d => d.kind === 'videoinput');
+        console.log('[blesk] Devices changed:', { audioInputs: audioInputs.length, audioOutputs: audioOutputs.length, videoInputs: videoInputs.length });
+      } catch (err) {
+        console.error('[blesk] devicechange error:', err);
+      }
+    };
+
+    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+    return () => {
+      navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
     };
   }, []);
 

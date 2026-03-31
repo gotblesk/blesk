@@ -35,7 +35,8 @@ export const useChannelStore = create((set, get) => ({
       });
       if (!res.ok) throw new Error('Не удалось загрузить каналы');
       const data = await res.json();
-      set({ channels: data.channels ?? data ?? [] });
+      const rawChannels = data.channels ?? data;
+      set({ channels: Array.isArray(rawChannels) ? rawChannels : [] });
     } catch (err) {
       console.error('Ошибка загрузки каналов:', err);
       set({ browseError: err.message || 'Ошибка загрузки' });

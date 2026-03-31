@@ -167,6 +167,12 @@ function voiceHandler(io, socket) {
         return callback?.({ error: 'Уже в комнате' });
       }
 
+      // Лимит участников комнаты
+      const MAX_VOICE_PARTICIPANTS = 25;
+      if (room.peers && room.peers.size >= MAX_VOICE_PARTICIPANTS) {
+        return callback?.({ error: 'Комната заполнена (максимум 25 участников)' });
+      }
+
       // Создать пир
       const peer = {
         socketId: socket.id,
@@ -231,9 +237,17 @@ function voiceHandler(io, socket) {
       if (direction && !['send', 'recv'].includes(direction)) {
         return callback?.({ error: 'Недопустимое направление транспорта' });
       }
+
+      const peer = room.peers.get(userId);
+
+      // Лимит транспортов на пользователя
+      const MAX_TRANSPORTS_PER_USER = 4; // send + recv + spare
+      if (peer.transports && peer.transports.size >= MAX_TRANSPORTS_PER_USER) {
+        return callback?.({ error: 'Превышен лимит транспортов' });
+      }
+
       const { transport, params } = await createWebRtcTransport(room.router);
       transport.appData.direction = direction || 'send';
-      const peer = room.peers.get(userId);
       peer.transports.set(transport.id, transport);
 
       callback?.({ params });
@@ -281,12 +295,30 @@ function voiceHandler(io, socket) {
         return callback?.({ error: 'Транспорт не найден' });
       }
 
+      // Лимит producers на пользователя
+      const MAX_PRODUCERS_PER_USER = 4; // 1 audio + 1 camera + 1 screen + 1 spare
+      if (peer.producers && peer.producers.size >= MAX_PRODUCERS_PER_USER) {
+        return callback?.({ error: 'Превышен лимит потоков' });
+      }
+
       // Валидация типа видео-продюсера
       if (kind === 'video' && (!appData || !['camera', 'screen'].includes(appData.type))) {
         return callback?.({ error: 'Invalid video producer type' });
       }
       if (!appData) appData = {};
       if (!appData.type) appData.type = kind === 'audio' ? 'audio' : 'camera';
+
+      // Закрыть существующий producer того же типа перед созданием нового
+      const appDataType = appData?.type; // 'camera', 'screen', 'audio'
+      if (appDataType && peer.producers) {
+        for (const [, existingProducer] of peer.producers) {
+          if (existingProducer.appData?.type === appDataType && !existingProducer.closed) {
+            existingProducer.close();
+            peer.producers.delete(existingProducer.id);
+            break;
+          }
+        }
+      }
 
       const producer = await transport.produce({ kind, rtpParameters, appData: appData || {} });
       peer.producers.set(producer.id, producer);
@@ -470,6 +502,47 @@ function voiceHandler(io, socket) {
 
     // Отправить всем в комнате включая отправителя
     io.to(`voice:${roomId}`).emit('voice:chat:message', { roomId, message });
+  });
+
+  // ═══ Выгнать участника из голосовой комнаты ═══
+  socket.on('voice:kick', async ({ roomId, userId: targetUserId }, callback) => {
+    try {
+      const room = voiceRooms.get(roomId);
+      if (!room) return callback?.({ error: 'Комната не найдена' });
+
+      // Проверить что инициатор — владелец комнаты (для звонков — любой участник)
+      const isCall = roomId.startsWith('call:');
+      if (!isCall) {
+        const dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
+        if (!dbRoom || dbRoom.ownerId !== userId) {
+          return callback?.({ error: 'Недостаточно прав' });
+        }
+      }
+
+      const targetPeer = room.peers.get(targetUserId);
+      if (targetPeer) {
+        // Закрыть все транспорты/producers/consumers цели
+        for (const [, transport] of targetPeer.transports) {
+          try { transport.close(); } catch (err) { /* ignore */ }
+        }
+        cleanupPeer(targetPeer);
+        room.peers.delete(targetUserId);
+
+        // Уведомить выгнанного пользователя
+        const { emitToUser } = require('../utils/socketUtils');
+        emitToUser(targetUserId, 'voice:kicked', { roomId });
+
+        // Уведомить остальных
+        socket.to(`voice:${roomId}`).emit('voice:peer-left', { peerId: targetUserId });
+
+        cleanupRoom(roomId);
+      }
+
+      callback?.({ success: true });
+    } catch (err) {
+      console.error('voice:kick error:', err);
+      callback?.({ error: err.message });
+    }
   });
 
   // ═══ Выйти из голосовой комнаты ═══

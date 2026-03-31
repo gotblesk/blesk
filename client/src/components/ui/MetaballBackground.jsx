@@ -43,8 +43,8 @@ const fragmentShader = `
   }
 
   float scene(vec3 p) {
-    float speed = 0.3 * (1.0 - uIdle * 0.7);
-    float t = uTime * speed;
+    // Скорость применяется на стороне JS (shaderTimeRef), здесь используем напрямую
+    float t = uTime;
 
     // 5 metaball spheres floating
     vec3 c1 = vec3(
@@ -135,8 +135,7 @@ const fragmentShader = `
       float bgLum2 = dot(uBgColor, vec3(0.299, 0.587, 0.114));
       float glowMult = bgLum2 > 0.5 ? 0.035 : 0.15;
       float glow = exp(-d * 1.5) * glowMult * uSubtle;
-      float time = uTime * 0.3;
-      vec3 glowCol = mix(uColor1, uColor2, sin(time) * 0.5 + 0.5);
+      vec3 glowCol = mix(uColor1, uColor2, sin(uTime) * 0.5 + 0.5);
       col += glowCol * glow;
     }
 
@@ -185,6 +184,7 @@ function MetaballScene({ ambientHue, subtle, theme }) {
 
   const eventPulseRef = useRef(0);
   const idleRef = useRef(0);
+  const shaderTimeRef = useRef(0);
 
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
@@ -258,7 +258,6 @@ function MetaballScene({ ambientHue, subtle, theme }) {
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     const mat = meshRef.current.material;
-    mat.uniforms.uTime.value += delta;
 
     // Event pulse decay
     eventPulseRef.current *= 0.95;
@@ -268,6 +267,11 @@ function MetaballScene({ ambientHue, subtle, theme }) {
     const isIdle = document.body.classList.contains('app-idle');
     idleRef.current += ((isIdle ? 1.0 : 0.0) - idleRef.current) * 0.02;
     mat.uniforms.uIdle.value = idleRef.current;
+
+    // Накапливаем время с учётом скорости — предотвращает резкий прыжок при idle
+    const currentSpeed = 0.3 * (1.0 - idleRef.current * 0.7);
+    shaderTimeRef.current += delta * currentSpeed;
+    mat.uniforms.uTime.value = shaderTimeRef.current;
 
     // Переход цвета фона при смене темы
     const curThemeNow = themeRef.current;

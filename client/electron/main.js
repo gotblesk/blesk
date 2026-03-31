@@ -478,12 +478,15 @@ ipcMain.handle('screen:getSources', async () => {
   try {
     const sources = await desktopCapturer.getSources({
       types: ['screen', 'window'],
-      thumbnailSize: { width: 300, height: 200 },
+      thumbnailSize: { width: 320, height: 180 },
+      fetchWindowIcons: true,
     });
     return sources.map((s) => ({
       id: s.id,
       name: s.name,
       thumbnail: s.thumbnail.toDataURL(),
+      appIcon: s.appIcon ? s.appIcon.toDataURL() : null,
+      display_id: s.display_id,
     }));
   } catch (err) {
     console.error('screen:getSources error:', err);

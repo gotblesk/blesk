@@ -71,6 +71,21 @@ export default function CallScreen({
     setInitialized(true);
   }, [initialized, size]);
 
+  // Горячие клавиши: M — мут, D — динамик, V — камера, Escape — завершить
+  useEffect(() => {
+    const handler = (e) => {
+      // Не перехватывать если фокус в input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const key = e.key.toLowerCase();
+      if (key === 'm') { e.preventDefault(); onToggleMute?.(); }
+      if (key === 'd') { e.preventDefault(); onToggleDeafen?.(); }
+      if (key === 'v') { e.preventDefault(); onToggleVideo?.(); }
+      if (key === 'escape') { onEndCall?.(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onToggleMute, onToggleDeafen, onToggleVideo, onEndCall]);
+
   // [Баг #5] Attach video streams к отдельным refs
   useEffect(() => {
     if (localVideoPipRef.current && localVideoStream) {
