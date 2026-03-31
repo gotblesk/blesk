@@ -1,6 +1,5 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { ChatBubbleLeftRightIcon, MicrophoneIcon, MegaphoneIcon, UserGroupIcon, MagnifyingGlassIcon, BellIcon, Cog6ToothIcon, ShieldCheckIcon, UserIcon, ArrowRightOnRectangleIcon, Bars3Icon } from '@heroicons/react/24/outline';
-import { ChatBubbleLeftRightIcon as ChatBubbleLeftRightSolid, MicrophoneIcon as MicrophoneSolid, MegaphoneIcon as MegaphoneSolid, UserGroupIcon as UserGroupSolid, ShieldCheckIcon as ShieldCheckSolid } from '@heroicons/react/24/solid';
+import { ChatCircleDots, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bell, GearSix, ShieldCheck, User, SignOut, List } from '@phosphor-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useChatStore } from '../../store/chatStore';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -9,13 +8,13 @@ import NotificationsPanel from './NotificationsPanel';
 import './TopNav.css';
 
 const BASE_TABS = [
-  { id: 'chats', label: 'Чаты', icon: ChatBubbleLeftRightIcon, iconSolid: ChatBubbleLeftRightSolid },
-  { id: 'voice', label: 'Голос', icon: MicrophoneIcon, iconSolid: MicrophoneSolid },
-  { id: 'channels', label: 'Каналы', icon: MegaphoneIcon, iconSolid: MegaphoneSolid },
-  { id: 'friends', label: 'Друзья', icon: UserGroupIcon, iconSolid: UserGroupSolid },
+  { id: 'chats', label: 'Чаты', Icon: ChatCircleDots },
+  { id: 'voice', label: 'Голос', Icon: Microphone },
+  { id: 'channels', label: 'Каналы', Icon: Megaphone },
+  { id: 'friends', label: 'Друзья', Icon: UsersThree },
 ];
 
-const ADMIN_TAB = { id: 'admin', label: 'Админ', icon: ShieldCheckIcon, iconSolid: ShieldCheckSolid };
+const ADMIN_TAB = { id: 'admin', label: 'Админ', Icon: ShieldCheck };
 
 const STATUS_OPTIONS = [
   { key: 'online', label: 'В сети', color: '#4ade80' },
@@ -59,13 +58,12 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
 
       <div className="top-nav__left">
         <button className="top-nav__toggle" onClick={onToggleSidebar} title="Sidebar" aria-label="Переключить боковую панель">
-          <Bars3Icon className="w-5 h-5" />
+          <List size={20} />
         </button>
 
         <div className="top-nav__tabs">
           {tabs.map(tab => {
             const isActive = activeTab === tab.id;
-            const Icon = isActive ? tab.iconSolid : tab.icon;
             const showBadge = tab.id === 'chats' && totalUnread > 0;
             return (
               <button
@@ -73,7 +71,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
                 className={`top-nav__tab ${isActive ? 'top-nav__tab--active' : ''}`}
                 onClick={() => onTabChange(tab.id)}
               >
-                <Icon className="w-[17px] h-[17px]" />
+                <tab.Icon size={17} weight={isActive ? 'fill' : 'regular'} />
                 <span>{tab.label}</span>
                 {showBadge && <span className="top-nav__badge">{totalUnread > 99 ? '99+' : totalUnread}</span>}
               </button>
@@ -84,14 +82,14 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
 
       <div className="top-nav__right">
         <button className="top-nav__action" onClick={onSearch} title="Поиск (Ctrl+K)" aria-label="Поиск">
-          <MagnifyingGlassIcon className="w-[18px] h-[18px]" />
+          <MagnifyingGlass size={18} />
         </button>
         <button className="top-nav__action top-nav__action--notif" onClick={handleNotifToggle} title="Уведомления" aria-label="Уведомления">
-          <BellIcon className="w-[18px] h-[18px]" />
+          <Bell size={18} />
           {unreadNotifs > 0 && <span className="top-nav__notif-dot" aria-live="polite" role="status">{unreadNotifs}</span>}
         </button>
         <button className="top-nav__action" onClick={onSettings} title="Настройки" aria-label="Настройки">
-          <Cog6ToothIcon className="w-[18px] h-[18px]" />
+          <GearSix size={18} />
         </button>
 
         <div className="top-nav__user" ref={userMenuRef}>
@@ -139,11 +137,11 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
                 {/* Actions */}
                 <div className="um__group">
                   <button className="um__item" onClick={() => { setUserMenuOpen(false); onNavigate?.('profile'); }}>
-                    <UserIcon className="w-4 h-4" />
+                    <User size={16} />
                     <span>Профиль</span>
                   </button>
                   <button className="um__item" onClick={() => { setUserMenuOpen(false); onSettings?.(); }}>
-                    <Cog6ToothIcon className="w-4 h-4" />
+                    <GearSix size={16} />
                     <span>Настройки</span>
                   </button>
                 </div>
@@ -152,7 +150,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
 
                 {/* Logout */}
                 <button className="um__item um__item--danger" onClick={() => { setUserMenuOpen(false); onLogout?.(); }}>
-                  <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                  <SignOut size={16} />
                   <span>Выйти</span>
                 </button>
               </motion.div>

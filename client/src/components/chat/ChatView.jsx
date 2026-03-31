@@ -58,6 +58,7 @@ export default function ChatView({
   const viewRef = useRef(null);
   const [replyTo, setReplyTo] = useState(null);
   const [editingMsg, setEditingMsg] = useState(null);
+  const [viewDragOver, setViewDragOver] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
@@ -608,8 +609,14 @@ export default function ChatView({
 
   return (
     <div
-      className={`chat-view ${isInline ? 'chat-view--inline' : ''} ${morphRect ? 'chat-view--morph' : ''} ${isFocused ? 'chat-view--focused' : ''} ${closing ? 'chat-view--closing' : ''}`}
+      className={`chat-view ${isInline ? 'chat-view--inline' : ''} ${morphRect ? 'chat-view--morph' : ''} ${isFocused ? 'chat-view--focused' : ''} ${closing ? 'chat-view--closing' : ''} ${viewDragOver ? 'chat-view--drag-over' : ''}`}
       ref={viewRef}
+      onDragOver={(e) => { e.preventDefault(); setViewDragOver(true); }}
+      onDragLeave={(e) => { if (e.target === e.currentTarget) setViewDragOver(false); }}
+      onDrop={(e) => {
+        e.preventDefault(); setViewDragOver(false);
+        if (e.dataTransfer?.files?.length) handleSendFiles(Array.from(e.dataTransfer.files), '');
+      }}
       style={isInline ? {} : {
         top: windowState.y,
         left: windowState.x,

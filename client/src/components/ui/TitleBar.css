@@ -6,11 +6,11 @@
   align-items: center;
   justify-content: flex-end;
   flex-shrink: 0;
-  cursor: grab;
+  cursor: default;
 }
 
 .titlebar:active {
-  cursor: grabbing;
+  cursor: default;
 }
 
 .titlebar__controls {

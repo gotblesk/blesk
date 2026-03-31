@@ -25,7 +25,9 @@ export default function Avatar({
 
   const hue = getAvatarHue(user);
   const initial = getInitial(user);
-  const cacheBust = user?.updatedAt ? `?v=${new Date(user.updatedAt).getTime()}` : '';
+  const cacheBust = user?.updatedAt
+    ? `?v=${new Date(user.updatedAt).getTime()}`
+    : user?.avatar ? `?v=${user.avatar.split('.')[0].slice(-8)}` : '';
   const avatarSrc = user?.avatar
     ? `${API_URL}/uploads/avatars/${user.avatar}${cacheBust}`
     : avatarUrl

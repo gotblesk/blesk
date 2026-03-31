@@ -172,24 +172,24 @@
   border-bottom-color: rgba(0, 0, 0, 0.06);
 }
 [data-theme="light"] .top-nav__tab {
-  color: rgba(0, 0, 0, 0.4);
+  color: rgba(0, 0, 0, 0.55);
 }
 [data-theme="light"] .top-nav__tab:hover {
-  color: rgba(0, 0, 0, 0.7);
-  background: rgba(0, 0, 0, 0.03);
+  color: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.05);
 }
 [data-theme="light"] .top-nav__tab--active {
   color: var(--accent);
-  background: rgba(124, 58, 237, 0.06);
+  background: rgba(74, 122, 0, 0.08);
 }
 [data-theme="light"] .top-nav__toggle,
 [data-theme="light"] .top-nav__action {
-  color: rgba(0, 0, 0, 0.3);
+  color: rgba(0, 0, 0, 0.5);
 }
 [data-theme="light"] .top-nav__toggle:hover,
 [data-theme="light"] .top-nav__action:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.75);
 }
 
 /* ═══ USER AVATAR + DROPDOWN ═══ */
