@@ -116,7 +116,7 @@
 
 /* Typing indicator */
 .chat-header__status--typing {
-  color: #c8ff00;
+  color: var(--accent);
   font-size: 10px;
   font-weight: 500;
   animation: typing-pulse 1.4s ease-in-out infinite;

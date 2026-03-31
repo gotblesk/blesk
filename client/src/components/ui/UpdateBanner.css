@@ -3,7 +3,7 @@
   top: 8px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 99;
+  z-index: var(--z-toast);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -146,7 +146,7 @@
 }
 
 [data-theme="light"] .update-banner__downloading {
-  color: #7c3aed;
+  color: var(--accent, #c8ff00);
 }
 
 [data-theme="light"] .update-banner__speed {

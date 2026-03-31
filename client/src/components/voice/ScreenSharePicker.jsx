@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Monitor, AppWindow, X } from '@phosphor-icons/react';
+import { Monitor, AppWindow, X, TextT, Play } from '@phosphor-icons/react';
 import './ScreenSharePicker.css';
 
 export default function ScreenSharePicker({ onSelect, onCancel }) {
   const [sources, setSources] = useState([]);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('screen');
+  // contentHint: 'detail' для текста/кода, 'motion' для видео/игр
+  const [contentHint, setContentHint] = useState('detail');
 
   useEffect(() => {
     (async () => {
@@ -26,9 +28,13 @@ export default function ScreenSharePicker({ onSelect, onCancel }) {
     return () => window.removeEventListener('keydown', handler);
   }, [onCancel]);
 
-  const filtered = sources.filter(s =>
-    tab === 'screen' ? s.id.startsWith('screen:') : s.id.startsWith('window:')
-  );
+  // Фильтруем по типу и убираем текущее окно blesk из списка окон
+  const filtered = sources.filter(s => {
+    const matchesTab = tab === 'screen' ? s.id.startsWith('screen:') : s.id.startsWith('window:');
+    if (!matchesTab) return false;
+    // Помечаем blesk-окна, но не скрываем их полностью — показываем с пометкой
+    return true;
+  });
 
   return (
     <motion.div
@@ -62,23 +68,45 @@ export default function ScreenSharePicker({ onSelect, onCancel }) {
         </div>
 
         <div className="ssp__grid">
-          {filtered.map(src => (
-            <div
-              key={src.id}
-              className={`ssp__source ${selected === src.id ? 'ssp__source--selected' : ''}`}
-              onClick={() => setSelected(src.id)}
-              onDoubleClick={() => onSelect(src.id)}
-            >
-              <img src={src.thumbnail} alt={src.name} className="ssp__thumb" />
-              <div className="ssp__name">
-                {src.appIcon && <img src={src.appIcon} className="ssp__icon" alt="" />}
-                <span>{src.name}</span>
+          {filtered.map(src => {
+            const isBlesk = /blesk/i.test(src.name);
+            return (
+              <div
+                key={src.id}
+                className={`ssp__source ${selected === src.id ? 'ssp__source--selected' : ''}`}
+                onClick={() => setSelected(src.id)}
+                onDoubleClick={() => onSelect(src.id, contentHint)}
+              >
+                <img src={src.thumbnail} alt={src.name} className="ssp__thumb" />
+                <div className="ssp__name">
+                  {src.appIcon && <img src={src.appIcon} className="ssp__icon" alt="" />}
+                  <span>{src.name}</span>
+                  {isBlesk && <span className="ssp__current-label">Текущее окно</span>}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {filtered.length === 0 && (
             <div className="ssp__empty">Нет доступных источников</div>
           )}
+        </div>
+
+        {/* Тип контента: текст или движение */}
+        <div className="ssp__hint-row">
+          <button
+            className={`ssp__hint-btn ${contentHint === 'detail' ? 'ssp__hint-btn--active' : ''}`}
+            onClick={() => setContentHint('detail')}
+            title="Оптимизировано для чёткости текста и кода"
+          >
+            <TextT size={14} /> Текст / код
+          </button>
+          <button
+            className={`ssp__hint-btn ${contentHint === 'motion' ? 'ssp__hint-btn--active' : ''}`}
+            onClick={() => setContentHint('motion')}
+            title="Оптимизировано для плавного видео и игр"
+          >
+            <Play size={14} /> Видео / игры
+          </button>
         </div>
 
         <div className="ssp__footer">
@@ -86,7 +114,7 @@ export default function ScreenSharePicker({ onSelect, onCancel }) {
           <button
             className="ssp__btn ssp__btn--share"
             disabled={!selected}
-            onClick={() => selected && onSelect(selected)}
+            onClick={() => selected && onSelect(selected, contentHint)}
           >
             Демонстрировать
           </button>

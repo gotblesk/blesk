@@ -1,0 +1,186 @@
+/* ═══════════════════════════════════════
+   OnboardingIntro — первый запуск blesk
+   ═══════════════════════════════════════ */
+
+.onboarding {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  /* Фон наследуется от MetaballBackground за экраном */
+  background: rgba(10, 10, 15, 0.72);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* ─── Dots ─── */
+.onboarding__dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.onboarding__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.onboarding__dot--active {
+  background: var(--accent, #c8ff00);
+  width: 20px;
+  border-radius: 4px;
+  box-shadow: 0 0 12px rgba(200, 255, 0, 0.4);
+}
+
+/* ─── Content ─── */
+.onboarding__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  padding: 0 32px;
+  max-width: 520px;
+}
+
+.onboarding__title {
+  font-family: 'Nekst', var(--font-display, sans-serif);
+  font-size: 52px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.92);
+  margin: 0;
+}
+
+.onboarding__title--accent {
+  color: var(--accent, #c8ff00);
+  text-shadow: 0 0 40px rgba(200, 255, 0, 0.35), 0 0 80px rgba(200, 255, 0, 0.15);
+}
+
+.onboarding__subtitle {
+  font-family: 'Onest', var(--font-body, sans-serif);
+  font-size: 17px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+  max-width: 360px;
+}
+
+/* ─── Actions ─── */
+.onboarding__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-direction: row;
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.onboarding__next {
+  padding: 12px 32px;
+  border-radius: var(--radius-pill, 100px);
+  background: rgba(200, 255, 0, 0.1);
+  border: 1.5px solid rgba(200, 255, 0, 0.35);
+  color: var(--accent, #c8ff00);
+  font-family: 'Onest', var(--font-body, sans-serif);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.onboarding__next:hover {
+  background: rgba(200, 255, 0, 0.16);
+  border-color: rgba(200, 255, 0, 0.6);
+  box-shadow: 0 0 24px rgba(200, 255, 0, 0.18);
+}
+
+/* Final step — filled accent button */
+.onboarding__next--final {
+  background: var(--accent, #c8ff00);
+  border-color: transparent;
+  color: #08060f;
+  box-shadow: 0 0 24px rgba(200, 255, 0, 0.3);
+}
+
+.onboarding__next--final:hover {
+  background: #d4ff1a;
+  box-shadow: 0 0 32px rgba(200, 255, 0, 0.45);
+}
+
+.onboarding__skip {
+  padding: 12px 20px;
+  border-radius: var(--radius-pill, 100px);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  font-family: 'Onest', var(--font-body, sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.onboarding__skip:hover {
+  color: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .onboarding__dot {
+    transition: background 0.1s ease;
+    width: 7px !important;
+  }
+  .onboarding__dot--active {
+    width: 7px;
+    border-radius: 50%;
+  }
+}
+
+/* ─── Light theme ─── */
+[data-theme="light"] .onboarding {
+  background: rgba(245, 245, 250, 0.82);
+}
+
+[data-theme="light"] .onboarding__title {
+  color: rgba(10, 10, 30, 0.92);
+}
+
+[data-theme="light"] .onboarding__subtitle {
+  color: rgba(10, 10, 30, 0.5);
+}
+
+[data-theme="light"] .onboarding__dot {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .onboarding__skip {
+  color: rgba(0, 0, 0, 0.3);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .onboarding__skip:hover {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] .onboarding__next--final {
+  color: #1a1a2e;
+}

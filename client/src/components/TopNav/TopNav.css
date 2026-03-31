@@ -9,7 +9,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
   position: relative;
-  z-index: 50;
+  z-index: var(--z-topnav);
   -webkit-app-region: drag;
 }
 
@@ -21,7 +21,7 @@
   right: 0;
   height: 2px;
   background: linear-gradient(90deg, transparent, var(--danger, #ef4444), var(--danger, #ef4444), transparent);
-  z-index: 51;
+  z-index: calc(var(--z-topnav) + 1);
   animation: offlineSlide 2s ease-in-out infinite;
   pointer-events: auto;
   cursor: help;
@@ -93,7 +93,7 @@
   color: rgba(255, 255, 255, 0.85);
 }
 .top-nav__tab--active {
-  color: #c8ff00;
+  color: var(--accent);
   background: rgba(200, 255, 0, 0.18);
   border: 1px solid rgba(200, 255, 0, 0.25);
   font-weight: 600;
@@ -114,7 +114,7 @@
   padding: 0 4px;
   border-radius: 9px;
   background: var(--accent, #c8ff00);
-  color: #000;
+  color: var(--accent-text, #000);
   font-size: 11px;
   font-weight: 700;
   display: flex;
@@ -214,169 +214,116 @@
   box-shadow: 0 0 0 2px rgba(200, 255, 0, 0.3);
 }
 
+/* ═══ USER MENU — Clean Linear/Raycast style ═══ */
 .top-nav__user-menu {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 280px;
-  background: rgba(20, 18, 30, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  width: 220px;
+  background: rgba(18, 16, 28, 0.97);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 12px;
-  z-index: 200;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 40px rgba(200, 255, 0, 0.04);
+  border-radius: 14px;
+  padding: 6px;
+  z-index: var(--z-modal, 1000);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
-.top-nav__user-header {
+.um__header {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 4px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  margin-bottom: 8px;
+  padding: 8px 10px;
 }
-.top-nav__user-name {
+.um__info { min-width: 0; }
+.um__name {
   font-family: var(--font-display, 'Nekst', sans-serif);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.top-nav__user-status {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
-  margin-top: 2px;
-}
-
-.top-nav__user-statuses {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-.top-nav__status-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 6px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 10px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.top-nav__status-btn:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.7);
-}
-.top-nav__status-btn--active {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 600;
-}
-.top-nav__status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.um__status-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 1px;
 }
 
-.top-nav__user-actions {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.top-nav__user-actions button {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.top-nav__user-actions button:hover {
-  background: rgba(255, 255, 255, 0.08);
+.um__sep {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 8px;
 }
 
-.top-nav__logout {
-  width: 100%;
+.um__group {
+  display: flex;
+  flex-direction: column;
+}
+
+.um__item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px;
+  gap: 8px;
+  padding: 7px 10px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
-  color: rgba(239, 68, 68, 0.7);
+  color: rgba(255, 255, 255, 0.65);
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.1s, color 0.1s;
+  text-align: left;
+  width: 100%;
 }
-.top-nav__logout:hover {
+.um__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+}
+.um__item--active {
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 500;
+}
+.um__item--danger {
+  color: rgba(239, 68, 68, 0.65);
+}
+.um__item--danger:hover {
   background: rgba(239, 68, 68, 0.08);
   color: #ef4444;
 }
 
-/* Light theme overrides for user menu */
-[data-theme="light"] .top-nav__user-menu {
-  background: rgba(255, 255, 255, 0.96);
-  border-color: rgba(0, 0, 0, 0.06);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+.um__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
-[data-theme="light"] .top-nav__user-header {
-  border-bottom-color: rgba(0, 0, 0, 0.05);
-}
-[data-theme="light"] .top-nav__user-name {
-  color: rgba(0, 0, 0, 0.85);
-}
-[data-theme="light"] .top-nav__user-status {
-  color: rgba(0, 0, 0, 0.4);
-}
-[data-theme="light"] .top-nav__status-btn {
-  border-color: rgba(0, 0, 0, 0.06);
-  color: rgba(0, 0, 0, 0.5);
-}
-[data-theme="light"] .top-nav__status-btn:hover {
-  background: rgba(0, 0, 0, 0.03);
-  color: rgba(0, 0, 0, 0.7);
-}
-[data-theme="light"] .top-nav__status-btn--active {
-  background: rgba(0, 0, 0, 0.06);
-  border-color: rgba(0, 0, 0, 0.12);
-  color: rgba(0, 0, 0, 0.85);
+
+.um__check {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--accent, #c8ff00);
   font-weight: 600;
 }
-[data-theme="light"] .top-nav__user-actions button {
-  border-color: rgba(0, 0, 0, 0.06);
-  background: rgba(0, 0, 0, 0.02);
-  color: rgba(0, 0, 0, 0.7);
+
+/* Light theme */
+[data-theme="light"] .top-nav__user-menu {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.1);
 }
-[data-theme="light"] .top-nav__user-actions button:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-[data-theme="light"] .top-nav__logout {
-  color: rgba(239, 68, 68, 0.6);
-}
-[data-theme="light"] .top-nav__logout:hover {
-  background: rgba(239, 68, 68, 0.06);
-  color: #ef4444;
-}
+[data-theme="light"] .um__name { color: rgba(0, 0, 0, 0.88); }
+[data-theme="light"] .um__status-text { color: rgba(0, 0, 0, 0.35); }
+[data-theme="light"] .um__sep { background: rgba(0, 0, 0, 0.06); }
+[data-theme="light"] .um__item { color: rgba(0, 0, 0, 0.6); }
+[data-theme="light"] .um__item:hover { background: rgba(0, 0, 0, 0.04); color: rgba(0, 0, 0, 0.85); }
+[data-theme="light"] .um__item--active { color: rgba(0, 0, 0, 0.88); }
+[data-theme="light"] .um__item--danger { color: rgba(239, 68, 68, 0.6); }
+[data-theme="light"] .um__item--danger:hover { background: rgba(239, 68, 68, 0.06); color: #ef4444; }
+[data-theme="light"] .um__check { color: var(--accent, #4a7a00); }
 
 /* ═══ NOTIFICATIONS PANEL ═══ */
 .notif-panel {
@@ -391,7 +338,7 @@
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 16px 56px rgba(0, 0, 0, 0.5);
-  z-index: 200;
+  z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
   overflow: hidden;

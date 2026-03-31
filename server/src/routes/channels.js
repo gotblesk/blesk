@@ -10,6 +10,7 @@ const { validateFile } = require('../services/fileValidator');
 const { findUserSockets, emitToUser } = require('../utils/socketUtils');
 
 const rateLimit = require('express-rate-limit');
+const logger = require('../utils/logger');
 const router = Router();
 
 // Rate limiter для загрузок аватаров/обложек каналов
@@ -17,6 +18,14 @@ const channelUploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   message: { error: 'Слишком много загрузок.' },
+});
+
+// [S10] Rate limiter для создания каналов — макс 5 в час на пользователя
+const channelCreateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 час
+  max: 5,
+  keyGenerator: (req) => req.userId || req.ip,
+  message: { error: 'Слишком много каналов. Попробуйте позже.' },
 });
 
 // Директория для аватаров каналов
@@ -84,7 +93,7 @@ router.get('/my', async (req, res) => {
       subscribed: uniqueSubscribed,
     });
   } catch (err) {
-    console.error('GET /channels/my error:', err);
+    logger.error({ err }, 'GET /channels/my error');
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -173,7 +182,7 @@ router.get('/', async (req, res) => {
       totalPages: Math.ceil(total / take),
     });
   } catch (err) {
-    console.error('GET /channels error:', err);
+    logger.error({ err }, 'GET /channels error');
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -223,13 +232,13 @@ router.get('/:id', async (req, res) => {
       userRole: participant?.role || null,
     });
   } catch (err) {
-    console.error('GET /channels/:id error:', err);
+    logger.error({ err }, 'GET /channels/:id error');
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
 // ─── POST / — создать канал ───
-router.post('/', requireVerified, async (req, res) => {
+router.post('/', requireVerified, channelCreateLimiter, async (req, res) => {
   try {
     const userId = req.userId;
     const { name, description, category } = req.body;
@@ -290,7 +299,7 @@ router.post('/', requireVerified, async (req, res) => {
 
     res.status(201).json(result);
   } catch (err) {
-    console.error('POST /channels error:', err);
+    logger.error({ err }, 'POST /channels error');
     res.status(500).json({ error: 'Ошибка создания канала' });
   }
 });
@@ -341,9 +350,17 @@ router.patch('/:id', async (req, res) => {
         : prisma.channelMeta.findUnique({ where: { roomId: id } }),
     ]);
 
-    res.json({ ...updatedRoom, channelMeta: updatedMeta });
+    const result = { ...updatedRoom, channelMeta: updatedMeta };
+
+    // [Channel edit broadcast] Оповестить подписчиков об изменении канала
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(id).emit('channel:updated', { channelId: id, channel: result });
+    }
+
+    res.json(result);
   } catch (err) {
-    console.error('PATCH /channels/:id error:', err);
+    logger.error({ err }, 'PATCH /channels/:id error');
     res.status(500).json({ error: 'Ошибка обновления канала' });
   }
 });
@@ -394,7 +411,7 @@ router.post('/:id/avatar', channelUploadLimiter, channelImageUpload.single('avat
     res.json({ avatarUrl });
   } catch (err) {
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    console.error('POST /channels/:id/avatar error:', err);
+    logger.error({ err }, 'POST /channels/:id/avatar error');
     res.status(500).json({ error: 'Ошибка загрузки аватара' });
   }
 });
@@ -444,7 +461,7 @@ router.post('/:id/cover', channelUploadLimiter, channelImageUpload.single('cover
     res.json({ coverUrl });
   } catch (err) {
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    console.error('POST /channels/:id/cover error:', err);
+    logger.error({ err }, 'POST /channels/:id/cover error');
     res.status(500).json({ error: 'Ошибка загрузки обложки' });
   }
 });
@@ -495,8 +512,67 @@ router.post('/:id/subscribe', async (req, res) => {
     if (err.code === 'P2002') {
       return res.json({ subscribed: true });
     }
-    console.error('POST /channels/:id/subscribe error:', err);
+    logger.error({ err }, 'POST /channels/:id/subscribe error');
     res.status(500).json({ error: 'Ошибка подписки' });
+  }
+});
+
+// ─── GET /:id/subscribers — список подписчиков ───
+router.get('/:id/subscribers', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+
+    const room = await prisma.room.findUnique({ where: { id } });
+    if (!room || room.type !== 'channel') return res.status(404).json({ error: 'Канал не найден' });
+
+    const [subscribers, total] = await Promise.all([
+      prisma.channelSubscriber.findMany({
+        where: { channelId: id },
+        include: { user: { select: { id: true, username: true, avatar: true, hue: true, status: true } } },
+        orderBy: { subscribedAt: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.channelSubscriber.count({ where: { channelId: id } }),
+    ]);
+
+    res.json({
+      subscribers: subscribers.map((s) => ({ ...s.user, subscribedAt: s.subscribedAt })),
+      total,
+      page,
+      limit,
+    });
+  } catch (err) {
+    logger.error({ err }, 'channel subscribers error');
+    res.status(500).json({ error: 'Ошибка загрузки подписчиков' });
+  }
+});
+
+// ─── PATCH /:id/mute — мьют/анмьют уведомлений ───
+router.patch('/:id/mute', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isMuted, mutedUntil } = req.body;
+
+    const sub = await prisma.channelSubscriber.findUnique({
+      where: { channelId_userId: { channelId: id, userId: req.userId } },
+    });
+    if (!sub) return res.status(404).json({ error: 'Вы не подписаны' });
+
+    const updated = await prisma.channelSubscriber.update({
+      where: { id: sub.id },
+      data: {
+        isMuted: typeof isMuted === 'boolean' ? isMuted : sub.isMuted,
+        mutedUntil: mutedUntil ? new Date(mutedUntil) : null,
+      },
+    });
+
+    res.json({ isMuted: updated.isMuted, mutedUntil: updated.mutedUntil });
+  } catch (err) {
+    logger.error({ err }, 'channel mute error');
+    res.status(500).json({ error: 'Ошибка' });
   }
 });
 
@@ -523,7 +599,7 @@ router.delete('/:id/subscribe', async (req, res) => {
 
     res.json({ subscribed: false });
   } catch (err) {
-    console.error('DELETE /channels/:id/subscribe error:', err);
+    logger.error({ err }, 'DELETE /channels/:id/subscribe error');
     res.status(500).json({ error: 'Ошибка отписки' });
   }
 });
@@ -592,7 +668,7 @@ router.get('/:id/posts', async (req, res) => {
 
     res.json({ posts });
   } catch (err) {
-    console.error('GET /channels/:id/posts error:', err);
+    logger.error({ err }, 'GET /channels/:id/posts error');
     res.status(500).json({ error: 'Ошибка загрузки постов' });
   }
 });
@@ -661,7 +737,7 @@ router.post('/:id/posts', async (req, res) => {
 
     res.status(201).json({ message });
   } catch (err) {
-    console.error('POST /channels/:id/posts error:', err);
+    logger.error({ err }, 'POST /channels/:id/posts error');
     res.status(500).json({ error: 'Ошибка публикации поста' });
   }
 });
@@ -711,7 +787,7 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ deleted: true });
   } catch (err) {
-    console.error('DELETE /channels/:id error:', err);
+    logger.error({ err }, 'DELETE /channels/:id error');
     res.status(500).json({ error: 'Ошибка удаления канала' });
   }
 });

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Lock, Eye, EyeSlash } from '@phosphor-icons/react';
+import { LockClosedIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import GravityCard from './GravityCard';
 import StrengthDots, { getPasswordScore } from './StrengthDots';
 
@@ -23,12 +23,22 @@ export default function PasswordCard({
 
   const cardError = mismatch ? 'Пароли не совпадают' : error;
 
+  // Подсказки о требованиях к паролю (показываем только если пользователь начал вводить)
+  const getPasswordHint = () => {
+    if (!password) return null;
+    if (password.length < 8) return 'Минимум 8 символов';
+    if (!/[A-Z]/.test(password)) return 'Добавь заглавную букву';
+    if (!/\d/.test(password)) return 'Добавь хотя бы одну цифру';
+    return null;
+  };
+  const passwordHint = getPasswordHint();
+
   return (
     <GravityCard
       tilt={tilt}
       index={index}
       dimmed={dimmed}
-      icon={<span style={{ color: cardError ? 'var(--danger)' : matched ? 'var(--online)' : 'var(--accent)' }}><Lock size={16} /></span>}
+      icon={<span style={{ color: cardError ? 'var(--danger)' : matched ? 'var(--online)' : 'var(--accent)' }}><LockClosedIcon className="w-4 h-4" /></span>}
       title="Пароль"
       subtitle="Минимум 8 символов"
       error={cardError}
@@ -51,10 +61,16 @@ export default function PasswordCard({
           onClick={() => setShowPassword(!showPassword)}
           aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
         >
-          {showPassword ? <EyeSlash size={16} weight="regular" /> : <Eye size={16} weight="regular" />}
+          {showPassword ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
         </button>
       </div>
       <StrengthDots password={password} />
+      {/* Inline подсказка о требованиях к паролю */}
+      {passwordHint && (
+        <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4, paddingLeft: 2, opacity: 0.85 }}>
+          {passwordHint}
+        </div>
+      )}
 
       {/* Поле подтверждения — всегда видно */}
       <div className="g-input-wrap" style={{ marginTop: '10px' }}>

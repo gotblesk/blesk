@@ -1,9 +1,35 @@
 const prisma = require('../db');
+const logger = require('../utils/logger');
 const { createRouter, createWebRtcTransport } = require('../services/mediasoup');
 const { activeCalls } = require('./callHandler');
 // In-memory хранилище голосовых комнат
 // roomId → { router, peers: Map<userId, PeerData> }
 const voiceRooms = new Map();
+
+// [P4] Хранить ID интервалов для корректного cleanup
+const voiceIntervalIds = [];
+
+// TTL cleanup — удаляет ghost-peer'ов без активных транспортов (каждые 60 сек)
+const _ttlCleanupInterval = setInterval(() => {
+  for (const [roomId, room] of voiceRooms) {
+    for (const [peerId, peer] of room.peers) {
+      const hasActiveTransport = [...peer.transports.values()].some(
+        t => !t.closed && t.connectionState !== 'failed'
+      );
+      if (!hasActiveTransport && peer.transports.size > 0) {
+        logger.warn({ peerId, roomId }, '[voice] Ghost peer — removing');
+        cleanupPeer(peer);
+        room.peers.delete(peerId);
+      }
+    }
+    // Удалить пустую комнату
+    if (room.peers.size === 0) {
+      room.router.close();
+      voiceRooms.delete(roomId);
+    }
+  }
+}, 60000);
+voiceIntervalIds.push(_ttlCleanupInterval);
 
 // Rate limiter для текстовых сообщений в голосовых комнатах
 // userId → [timestamps]
@@ -30,13 +56,13 @@ function isVoiceChatRateLimited(uid) {
 }
 
 // Чистка Map раз в минуту чтобы не утекала память
-setInterval(() => {
+voiceIntervalIds.push(setInterval(() => {
   const now = Date.now();
   for (const [uid, ts] of voiceChatRateLimits) {
     while (ts.length > 0 && now - ts[0] > VOICE_CHAT_RATE_WINDOW) ts.shift();
     if (ts.length === 0) voiceChatRateLimits.delete(uid);
   }
-}, 60000);
+}, 60000));
 
 // Rate limiter для voice signaling events (userId → [timestamps])
 const voiceSignalRateLimits = new Map();
@@ -54,13 +80,13 @@ function isVoiceSignalRateLimited(uid) {
 }
 
 // Чистка voice signal rate limits
-setInterval(() => {
+voiceIntervalIds.push(setInterval(() => {
   const now = Date.now();
   for (const [uid, ts] of voiceSignalRateLimits) {
     while (ts.length > 0 && now - ts[0] > VOICE_SIGNAL_WINDOW) ts.shift();
     if (ts.length === 0) voiceSignalRateLimits.delete(uid);
   }
-}, 60000);
+}, 60000));
 
 // PeerData = { socketId, username, hue, muted, deafened, transports: Map, producers: Map, consumers: Map }
 
@@ -84,21 +110,21 @@ function cleanupPeer(peer) {
   // Закрыть все consumers
   if (peer.consumers) {
     for (const consumer of peer.consumers.values()) {
-      try { consumer.close(); } catch (err) { console.error('Failed to close consumer:', err.message); }
+      try { consumer.close(); } catch (err) { logger.error({ err: err.message }, 'Failed to close consumer'); }
     }
     peer.consumers.clear();
   }
   // Закрыть все producers
   if (peer.producers) {
     for (const producer of peer.producers.values()) {
-      try { producer.close(); } catch (err) { console.error('Failed to close producer:', err.message); }
+      try { producer.close(); } catch (err) { logger.error({ err: err.message }, 'Failed to close producer'); }
     }
     peer.producers.clear();
   }
   // Закрыть все transports
   if (peer.transports) {
     for (const transport of peer.transports.values()) {
-      try { transport.close(); } catch (err) { console.error('Failed to close transport:', err.message); }
+      try { transport.close(); } catch (err) { logger.error({ err: err.message }, 'Failed to close transport'); }
     }
     peer.transports.clear();
   }
@@ -219,7 +245,7 @@ function voiceHandler(io, socket) {
         hue: user.hue,
       });
     } catch (err) {
-      console.error('voice:join error:', err);
+      logger.error({ err }, 'voice:join error');
       callback?.({ error: 'Ошибка подключения' });
     }
   });
@@ -252,7 +278,7 @@ function voiceHandler(io, socket) {
 
       callback?.({ params });
     } catch (err) {
-      console.error('voice:createTransport error:', err);
+      logger.error({ err }, 'voice:createTransport error');
       callback?.({ error: 'Ошибка создания транспорта' });
     }
   });
@@ -275,7 +301,7 @@ function voiceHandler(io, socket) {
       await transport.connect({ dtlsParameters });
       callback?.({ ok: true });
     } catch (err) {
-      console.error('voice:connectTransport error:', err);
+      logger.error({ err }, 'voice:connectTransport error');
       callback?.({ error: 'Ошибка подключения транспорта' });
     }
   });
@@ -301,12 +327,33 @@ function voiceHandler(io, socket) {
         return callback?.({ error: 'Превышен лимит потоков' });
       }
 
+      // [P20] Валидация кодеков — только разрешённые MIME-типы
+      const ALLOWED_AUDIO_CODECS = ['audio/opus', 'audio/pcmu', 'audio/pcma'];
+      const ALLOWED_VIDEO_CODECS = ['video/vp8', 'video/vp9', 'video/h264', 'video/h265', 'video/av1'];
+      if (rtpParameters?.codecs) {
+        for (const codec of rtpParameters.codecs) {
+          const mime = (codec.mimeType || '').toLowerCase();
+          if (kind === 'audio' && !ALLOWED_AUDIO_CODECS.includes(mime)) {
+            return callback?.({ error: `Неподдерживаемый аудио-кодек: ${mime}` });
+          }
+          if (kind === 'video' && !ALLOWED_VIDEO_CODECS.includes(mime)) {
+            return callback?.({ error: `Неподдерживаемый видео-кодек: ${mime}` });
+          }
+        }
+      }
+
+      // [P21] Санитизация appData — разрешаем только { type: 'camera'|'screen'|'audio' }
+      const rawType = appData?.type;
+      const ALLOWED_TYPES = ['camera', 'screen', 'audio'];
+      const sanitizedType = ALLOWED_TYPES.includes(rawType)
+        ? rawType
+        : (kind === 'audio' ? 'audio' : 'camera');
+      appData = { type: sanitizedType };
+
       // Валидация типа видео-продюсера
-      if (kind === 'video' && (!appData || !['camera', 'screen'].includes(appData.type))) {
+      if (kind === 'video' && !['camera', 'screen'].includes(appData.type)) {
         return callback?.({ error: 'Invalid video producer type' });
       }
-      if (!appData) appData = {};
-      if (!appData.type) appData.type = kind === 'audio' ? 'audio' : 'camera';
 
       // Закрыть существующий producer того же типа перед созданием нового
       const appDataType = appData?.type; // 'camera', 'screen', 'audio'
@@ -338,7 +385,7 @@ function voiceHandler(io, socket) {
         producerType: producer.appData.type || 'audio',
       });
     } catch (err) {
-      console.error('voice:produce error:', err);
+      logger.error({ err }, 'voice:produce error');
       callback?.({ error: 'Ошибка создания producer' });
     }
   });
@@ -398,7 +445,7 @@ function voiceHandler(io, socket) {
         rtpParameters: consumer.rtpParameters,
       });
     } catch (err) {
-      console.error('voice:consume error:', err);
+      logger.error({ err }, 'voice:consume error');
       callback?.({ error: 'Ошибка создания consumer' });
     }
   });
@@ -420,7 +467,7 @@ function voiceHandler(io, socket) {
       await consumer.resume();
       callback?.({ ok: true });
     } catch (err) {
-      console.error('voice:resume error:', err);
+      logger.error({ err }, 'voice:resume error');
       callback?.({ error: 'Ошибка resume' });
     }
   });
@@ -540,7 +587,7 @@ function voiceHandler(io, socket) {
 
       callback?.({ success: true });
     } catch (err) {
-      console.error('voice:kick error:', err);
+      logger.error({ err }, 'voice:kick error');
       callback?.({ error: err.message });
     }
   });
@@ -558,7 +605,7 @@ function voiceHandler(io, socket) {
       if (room.peers.has(userId)) roomIds.push(roomId);
     }
     for (const roomId of roomIds) {
-      try { leaveRoom(io, socket, userId, roomId); } catch (err) { console.error(`Failed to leave voice room ${roomId} on disconnect:`, err.message); }
+      try { leaveRoom(io, socket, userId, roomId); } catch (err) { logger.error({ roomId, err: err.message }, 'Failed to leave voice room on disconnect'); }
     }
     // Очистить rate limits отключившегося пользователя
     voiceChatRateLimits.delete(userId);
@@ -583,5 +630,11 @@ function leaveRoom(io, socket, userId, roomId) {
   cleanupRoom(roomId);
 }
 
+// [P4] Очистить все интервалы при завершении процесса
+function clearVoiceIntervals() {
+  for (const id of voiceIntervalIds) clearInterval(id);
+  voiceIntervalIds.length = 0;
+}
+
 // Экспорт voiceRooms для REST API
-module.exports = { voiceHandler, voiceRooms, cleanupPeer };
+module.exports = { voiceHandler, voiceRooms, cleanupPeer, clearVoiceIntervals };

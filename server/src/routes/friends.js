@@ -2,6 +2,7 @@ const { Router } = require('express');
 const prisma = require('../db');
 const { authenticate, requireVerified } = require('../middleware/auth');
 const { emitToUser, findUserSockets, emitToUserAll } = require('../utils/socketUtils');
+const logger = require('../utils/logger');
 
 const router = Router();
 
@@ -104,7 +105,7 @@ router.post('/request', authenticate, requireVerified, async (req, res) => {
 
     res.status(201).json({ id: request.id, status: request.status });
   } catch (err) {
-    console.error('POST /api/friends/request error:', err);
+    logger.error({ err }, 'POST /api/friends/request error');
     res.status(500).json({ error: 'Ошибка отправки заявки' });
   }
 });
@@ -121,7 +122,7 @@ router.get('/requests/pending', authenticate, async (req, res) => {
     });
     res.json(requests);
   } catch (err) {
-    console.error('GET /api/friends/requests/pending error:', err);
+    logger.error({ err }, 'GET /api/friends/requests/pending error');
     res.status(500).json({ error: 'Ошибка' });
   }
 });
@@ -203,7 +204,7 @@ router.post('/requests/:id/accept', authenticate, async (req, res) => {
 
     res.json({ ok: true, roomId: room.id });
   } catch (err) {
-    console.error('POST /api/friends/requests/:id/accept error:', err);
+    logger.error({ err }, 'POST /api/friends/requests/:id/accept error');
     res.status(500).json({ error: 'Ошибка принятия заявки' });
   }
 });
@@ -228,7 +229,7 @@ router.post('/requests/:id/decline', authenticate, async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('POST /api/friends/requests/:id/decline error:', err);
+    logger.error({ err }, 'POST /api/friends/requests/:id/decline error');
     res.status(500).json({ error: 'Ошибка' });
   }
 });
@@ -256,7 +257,7 @@ router.get('/', authenticate, async (req, res) => {
 
     res.json(friends);
   } catch (err) {
-    console.error('GET /api/friends error:', err);
+    logger.error({ err }, 'GET /api/friends error');
     res.status(500).json({ error: 'Ошибка загрузки друзей' });
   }
 });
@@ -290,7 +291,7 @@ router.delete('/:friendId', authenticate, async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('DELETE /api/friends/:friendId error:', err);
+    logger.error({ err }, 'DELETE /api/friends/:friendId error');
     res.status(500).json({ error: 'Ошибка удаления из друзей' });
   }
 });

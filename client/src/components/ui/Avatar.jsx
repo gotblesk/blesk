@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import API_URL from '../../config';
 import { getAvatarHue, getAvatarGradient, getInitial } from '../../utils/avatar';
 import './Avatar.css';
@@ -18,10 +18,16 @@ export default function Avatar({
 }) {
   const [imgError, setImgError] = useState(false);
 
+  // Сброс ошибки при смене аватарки или пользователя
+  useEffect(() => {
+    setImgError(false);
+  }, [user?.avatar, user?.id, avatarUrl]);
+
   const hue = getAvatarHue(user);
   const initial = getInitial(user);
+  const cacheBust = user?.updatedAt ? `?v=${new Date(user.updatedAt).getTime()}` : '';
   const avatarSrc = user?.avatar
-    ? `${API_URL}/uploads/avatars/${user.avatar}`
+    ? `${API_URL}/uploads/avatars/${user.avatar}${cacheBust}`
     : avatarUrl
       ? `${API_URL}/uploads/avatars/${avatarUrl}`
       : null;
@@ -40,6 +46,9 @@ export default function Avatar({
       className={`avatar ${sizeClass} ${className}`}
       style={{ ...(hasAvatar ? {} : { background: getAvatarGradient(hue) }), ...sizeStyle }}
       onClick={onClick}
+      tabIndex={onClick ? 0 : undefined}
+      role={onClick ? 'button' : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); } } : undefined}
     >
       {hasAvatar ? (
         <img

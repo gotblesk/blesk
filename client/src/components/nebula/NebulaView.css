@@ -18,7 +18,7 @@
   top: 10px;
   left: 14px;
   right: 14px;
-  z-index: 100;
+  z-index: var(--z-island);
   display: flex;
   align-items: center;
   gap: 10px;

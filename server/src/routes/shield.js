@@ -8,6 +8,7 @@ const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const crypto = require('crypto');
 const { emitToUser } = require('../utils/socketUtils');
+const logger = require('../utils/logger');
 
 // POST /api/shield/bundle — загрузить prekey bundle
 router.post('/bundle', authenticate, async (req, res) => {
@@ -76,7 +77,7 @@ router.post('/bundle', authenticate, async (req, res) => {
 
     res.json({ ok: true, bundleId: bundle.id });
   } catch (err) {
-    console.error('shield:bundle error:', err);
+    logger.error({ err }, 'shield:bundle error');
     res.status(500).json({ error: 'Ошибка загрузки bundle' });
   }
 });
@@ -110,9 +111,11 @@ router.get('/bundle/:userId', authenticate, async (req, res) => {
         });
         if (!opk) return null;
 
+        // [S11] Пометить OPK как "в доставке" с временной меткой (deliveredAt)
+        // used: true ставится сразу — клиент должен подтвердить получение через /confirm-opk
         await tx.oneTimePreKey.update({
           where: { id: opk.id },
-          data: { used: true },
+          data: { used: true, deliveredAt: new Date() },
         });
 
         const remaining = await tx.oneTimePreKey.count({
@@ -132,7 +135,7 @@ router.get('/bundle/:userId', authenticate, async (req, res) => {
       }
     } catch (txErr) {
       // Transaction conflict — OPK уже занят другим запросом, продолжить без OPK
-      console.warn('OPK transaction conflict:', txErr.message);
+      logger.warn({ err: txErr.message }, 'OPK transaction conflict');
     }
 
     res.json({
@@ -144,7 +147,7 @@ router.get('/bundle/:userId', authenticate, async (req, res) => {
       oneTimePreKey,
     });
   } catch (err) {
-    console.error('shield:getBundle error:', err);
+    logger.error({ err }, 'shield:getBundle error');
     res.status(500).json({ error: 'Ошибка получения bundle' });
   }
 });
@@ -182,7 +185,7 @@ router.post('/replenish', authenticate, async (req, res) => {
 
     res.json({ ok: true, added: opkData.length });
   } catch (err) {
-    console.error('shield:replenish error:', err);
+    logger.error({ err }, 'shield:replenish error');
     res.status(500).json({ error: 'Ошибка пополнения OPK' });
   }
 });
@@ -198,7 +201,7 @@ router.get('/opk-count', authenticate, async (req, res) => {
     });
     res.json({ count });
   } catch (err) {
-    console.error('shield:opk-count error:', err);
+    logger.error({ err }, 'shield:opk-count error');
     res.status(500).json({ error: 'Ошибка подсчёта OPK' });
   }
 });
@@ -213,7 +216,7 @@ router.get('/key-log/:userId', authenticate, async (req, res) => {
     });
     res.json({ logs });
   } catch (err) {
-    console.error('shield:key-log error:', err);
+    logger.error({ err }, 'shield:key-log error');
     res.status(500).json({ error: 'Ошибка загрузки key log' });
   }
 });
@@ -245,7 +248,7 @@ async function appendKeyLog(userId, keyType, publicKey, clientSignature) {
       },
     });
   } catch (err) {
-    console.error('appendKeyLog error:', err);
+    logger.error({ err }, 'appendKeyLog error');
   }
 }
 
@@ -259,7 +262,7 @@ router.post('/key-log', authenticate, async (req, res) => {
     await appendKeyLog(req.userId, keyType, publicKey, signature);
     res.json({ ok: true });
   } catch (err) {
-    console.error('shield:key-log POST error:', err);
+    logger.error({ err }, 'shield:key-log POST error');
     res.status(500).json({ error: 'Ошибка записи в key log' });
   }
 });

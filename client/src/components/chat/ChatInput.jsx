@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowUp, Paperclip, X, Smiley, Microphone } from '@phosphor-icons/react';
+import { ArrowUp, Paperclip, X, Smiley, Microphone, PaperPlaneTilt, Pause, Play } from '@phosphor-icons/react';
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import AttachmentPreview from './AttachmentPreview';
@@ -16,8 +16,10 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const [isFocused, setIsFocused] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [micError, setMicError] = useState('');
+  const [waveformBars, setWaveformBars] = useState(() => Array(28).fill(0.15));
 
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef(null);
@@ -30,6 +32,9 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const recordingTimerRef = useRef(null);
   const recordingStreamRef = useRef(null);
   const recordingStartTimeRef = useRef(null);
+  const analyserRef = useRef(null);
+  const waveformRafRef = useRef(null);
+  const cancelledRef = useRef(false);
 
   const theme = useSettingsStore(s => s.theme);
 
@@ -48,9 +53,9 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         onTypingStop?.();
         typingRef.current = false;
       }
+      cancelledRef.current = true;
+      if (waveformRafRef.current) cancelAnimationFrame(waveformRafRef.current);
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.ondataavailable = null;
-        mediaRecorderRef.current.onstop = null;
         mediaRecorderRef.current.stop();
       }
       if (recordingStreamRef.current) {
@@ -65,7 +70,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   useEffect(() => {
     if (!showEmojiPicker) return;
     const handleClickOutside = (e) => {
-      if (!e.target.closest('.chat-input__emoji-picker') && !e.target.closest('.chat-input__tool-btn')) {
+      if (!e.target.closest('.chat-input__emoji-picker-wrap') && !e.target.closest('.chat-input__tool-btn')) {
         setShowEmojiPicker(false);
       }
     };
@@ -292,6 +297,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
 
   const MAX_VOICE_DURATION = 60;
   const MIN_VOICE_DURATION = 1;
+  const VOICE_WARNING_AT = 55; // предупреждение за 5 секунд до лимита
 
   // Выбор MIME-типа с fallback
   const getRecorderMimeType = () => {
@@ -299,6 +305,34 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       return 'audio/webm;codecs=opus';
     }
     return 'audio/webm';
+  };
+
+  // Анимация waveform через AnalyserNode
+  const startWaveformAnimation = (analyser) => {
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const BAR_COUNT = 28;
+
+    const tick = () => {
+      analyser.getByteFrequencyData(dataArray);
+      const step = Math.floor(bufferLength / BAR_COUNT);
+      const bars = Array.from({ length: BAR_COUNT }, (_, i) => {
+        const slice = dataArray.slice(i * step, (i + 1) * step);
+        const avg = slice.reduce((s, v) => s + v, 0) / slice.length;
+        return Math.max(0.08, avg / 255);
+      });
+      setWaveformBars(bars);
+      waveformRafRef.current = requestAnimationFrame(tick);
+    };
+    waveformRafRef.current = requestAnimationFrame(tick);
+  };
+
+  const stopWaveformAnimation = () => {
+    if (waveformRafRef.current) {
+      cancelAnimationFrame(waveformRafRef.current);
+      waveformRafRef.current = null;
+    }
+    setWaveformBars(Array(28).fill(0.15));
   };
 
   const startRecording = async () => {
@@ -312,25 +346,47 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         },
       });
 
+      // Web Audio analyser для живого waveform
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.7;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+        startWaveformAnimation(analyser);
+      } catch { /* Если Web Audio API недоступен — waveform будет статичным */ }
+
       const mimeType = getRecorderMimeType();
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       recordingStreamRef.current = stream;
       audioChunksRef.current = [];
       recordingStartTimeRef.current = Date.now();
+      cancelledRef.current = false;
 
+      // timeslice 100ms — чанки приходят регулярно, не только при stop()
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
       mediaRecorder.onstop = () => {
-        const durationSec = (Date.now() - (recordingStartTimeRef.current || 0)) / 1000;
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        stopWaveformAnimation();
         stream.getTracks().forEach(t => t.stop());
         recordingStreamRef.current = null;
         clearInterval(recordingTimerRef.current);
 
-        // Отбрасываем слишком короткие записи
+        if (cancelledRef.current) {
+          // Запись отменена — не отправлять
+          audioChunksRef.current = [];
+          setRecordingTime(0);
+          return;
+        }
+
+        const durationSec = (Date.now() - (recordingStartTimeRef.current || 0)) / 1000;
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
         if (durationSec >= MIN_VOICE_DURATION && blob.size > 0) {
           const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
           soundSend();
@@ -340,14 +396,14 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         setRecordingTime(0);
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(100);
       setIsRecording(true);
       setRecordingTime(0);
+      window.__bleskIslandSet?.('recording');
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(t => {
           const next = t + 1;
           if (next >= MAX_VOICE_DURATION) {
-            // Отложить stopRecording чтобы не вызывать setState внутри setState
             setTimeout(() => stopRecording(), 0);
             return t;
           }
@@ -373,61 +429,66 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
+    setIsPaused(false);
     clearInterval(recordingTimerRef.current);
+    stopWaveformAnimation();
+    window.__bleskIslandSet?.('recording:stop');
   };
 
+  // V4 FIX: флаг выставляется ПОСЛЕ вызова stop(), чтобы onstop корректно прочитал его
   const cancelRecording = () => {
+    stopWaveformAnimation();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.ondataavailable = null;
-      mediaRecorderRef.current.onstop = null;
       mediaRecorderRef.current.stop();
     }
+    // Флаг после stop() — onstop проверит его и не отправит запись
+    cancelledRef.current = true;
+    window.__bleskIslandSet?.('recording:stop');
     if (recordingStreamRef.current) {
       recordingStreamRef.current.getTracks().forEach(t => t.stop());
       recordingStreamRef.current = null;
     }
     setIsRecording(false);
+    setIsPaused(false);
     setRecordingTime(0);
     clearInterval(recordingTimerRef.current);
     audioChunksRef.current = [];
   };
 
-  // Hold-to-record handlers
-  const handleMicDown = (e) => {
-    e.preventDefault();
-    startRecording();
-  };
-
-  const handleMicUp = (e) => {
-    e.preventDefault();
-    if (isRecording) {
-      stopRecording();
+  // V2: пауза/возобновление записи
+  const togglePauseRecording = () => {
+    const mr = mediaRecorderRef.current;
+    if (!mr) return;
+    if (mr.state === 'recording') {
+      mr.pause();
+      setIsPaused(true);
+      clearInterval(recordingTimerRef.current);
+      stopWaveformAnimation();
+    } else if (mr.state === 'paused') {
+      mr.resume();
+      setIsPaused(false);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(t => {
+          const next = t + 1;
+          if (next >= MAX_VOICE_DURATION) {
+            setTimeout(() => stopRecording(), 0);
+            return t;
+          }
+          return next;
+        });
+      }, 1000);
+      if (analyserRef.current) startWaveformAnimation(analyserRef.current);
     }
   };
 
-  // Глобальные mouseup/touchend — остановка записи даже если курсор ушёл с кнопки
-  useEffect(() => {
-    if (!isRecording) return;
-    const handleGlobalUp = () => {
-      if (isRecording) stopRecording();
-    };
-    window.addEventListener('mouseup', handleGlobalUp);
-    window.addEventListener('touchend', handleGlobalUp);
-    return () => {
-      window.removeEventListener('mouseup', handleGlobalUp);
-      window.removeEventListener('touchend', handleGlobalUp);
-    };
-  }, [isRecording]);
-
-  // Потеря фокуса окна во время записи — запись продолжается
-  useEffect(() => {
-    if (!isRecording) return;
-    const handleBlur = () => {
-      console.log('[blesk] Window blurred during recording — recording continues');
-    };
-    window.addEventListener('blur', handleBlur);
-    return () => window.removeEventListener('blur', handleBlur);
-  }, [isRecording]);
+  // Кнопка микрофона — клик запускает/останавливает запись (toggle, не hold)
+  const handleMicClick = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
 
   return (
     <div
@@ -488,8 +549,8 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         onChange={handleFileSelect}
       />
 
-      {/* Emoji picker popup */}
-      {showEmojiPicker && (
+      {/* Emoji picker popup — CSS transition вместо instant show/hide */}
+      <div className={`chat-input__emoji-picker-wrap${showEmojiPicker ? ' chat-input__emoji-picker-wrap--open' : ''}`}>
         <div className="chat-input__emoji-picker">
           <Picker
             data={data}
@@ -503,18 +564,47 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
             maxFrequentRows={2}
           />
         </div>
-      )}
+      </div>
 
       {/* Morph container — grid stack for crossfade */}
       <div className="chat-input-morph">
-        {/* Recording state — replaces entire input area */}
+        {/* Recording bar — полностью заменяет input во время записи */}
         {isRecording && (
           <div className="chat-input__recording">
-            <div className="chat-input__rec-dot" />
-            <span className="chat-input__rec-timer">{formatRecordTime(recordingTime)}</span>
-            <span className="chat-input__rec-hint">Отпустите для отправки</span>
-            <button className="chat-input__recording-cancel" onClick={cancelRecording} title="Отменить">
+            {/* Кнопка отмены */}
+            <button
+              className="chat-input__recording-cancel"
+              onClick={cancelRecording}
+              title="Отменить"
+              aria-label="Отменить запись"
+            >
               <X size={16} />
+            </button>
+
+            {/* Живой waveform из AnalyserNode */}
+            <div className="chat-input__rec-waveform">
+              {waveformBars.map((h, i) => (
+                <div
+                  key={i}
+                  className="chat-input__rec-bar"
+                  style={{ '--bar-h': h }}
+                />
+              ))}
+            </div>
+
+            {/* Таймер — становится красным и пульсирует при < 5 сек до лимита */}
+            <span className={`chat-input__rec-timer${recordingTime >= VOICE_WARNING_AT ? ' chat-input__rec-timer--warning' : ''}`}>
+              {formatRecordTime(recordingTime)}
+            </span>
+
+            {/* Кнопка отправки */}
+            <button
+              className="chat-input__rec-send"
+              onClick={stopRecording}
+              title="Отправить"
+              aria-label="Отправить голосовое сообщение"
+            >
+              <PaperPlaneTilt size={16} weight="fill" />
             </button>
           </div>
         )}
@@ -527,7 +617,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
               <textarea
                 ref={inputRef}
                 className="chat-input__textarea"
-                placeholder="Написать сообщение..."
+                placeholder={`Написать сообщение... (${useSettingsStore.getState().enterToSend ? 'Enter' : 'Ctrl+Enter'} — отправить)`}
                 value={text}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
@@ -560,12 +650,9 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
               {micError && <span className="chat-input__mic-error">{micError}</span>}
               <button
                 className="chat-input__mic-hold"
-                onMouseDown={handleMicDown}
-                onTouchStart={handleMicDown}
-                onMouseUp={handleMicUp}
-                onTouchEnd={handleMicUp}
-                aria-label="Голосовое сообщение (зажмите)"
-                title="Зажмите для записи"
+                onClick={handleMicClick}
+                aria-label="Голосовое сообщение"
+                title="Нажмите для записи"
               >
                 <Microphone size={18} />
               </button>
@@ -575,6 +662,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
               ref={sendBtnRef}
               className="chat-input__send"
               onClick={handleSend}
+              disabled={Object.keys(uploadProgress).length > 0}
               aria-label="Отправить сообщение"
             >
               <ArrowUp />

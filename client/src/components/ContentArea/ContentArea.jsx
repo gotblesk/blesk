@@ -8,12 +8,12 @@ const fadeVariant = {
   exit: { opacity: 0, transition: { duration: 0.1 } },
 };
 
-export default memo(function ContentArea({ children, showPlaceholder }) {
+export default memo(function ContentArea({ children, showPlaceholder, onAction }) {
   return (
     <AnimatePresence mode="wait">
       {showPlaceholder ? (
         <motion.div key="placeholder" style={{ flex: 1, display: 'flex' }} {...fadeVariant}>
-          <Placeholder />
+          <Placeholder onAction={onAction} />
         </motion.div>
       ) : (
         <motion.div key="content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }} {...fadeVariant}>

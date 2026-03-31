@@ -3,6 +3,8 @@ import { MagnifyingGlassPlus } from '@phosphor-icons/react';
 import Cropper from 'react-easy-crop';
 import './AvatarCropModal.css';
 
+const CROP_TIMEOUT_MS = 5000;
+
 // Хелпер: вырезать область из изображения → JPEG blob
 function getCroppedBlob(imageSrc, pixelCrop) {
   return new Promise((resolve, reject) => {
@@ -19,8 +21,17 @@ function getCroppedBlob(imageSrc, pixelCrop) {
         pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
         0, 0, size, size
       );
+
+      // Timeout на случай если toBlob зависнет (некоторые браузеры/Electron)
+      const timer = setTimeout(() => {
+        reject(new Error('Crop timeout: toBlob не ответил за 5 секунд'));
+      }, CROP_TIMEOUT_MS);
+
       canvas.toBlob(
-        (blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))),
+        (blob) => {
+          clearTimeout(timer);
+          return blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'));
+        },
         'image/jpeg',
         0.9
       );
@@ -35,6 +46,7 @@ export default function AvatarCropModal({ imageSrc, onClose, onSave }) {
   const [zoom, setZoom] = useState(1);
   const [croppedArea, setCroppedArea] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [cropError, setCropError] = useState('');
 
   const onCropComplete = useCallback((_, croppedPixels) => {
     setCroppedArea(croppedPixels);
@@ -55,11 +67,13 @@ export default function AvatarCropModal({ imageSrc, onClose, onSave }) {
   const handleSave = async () => {
     if (!croppedArea) return;
     setSaving(true);
+    setCropError('');
     try {
       const blob = await getCroppedBlob(imageSrc, croppedArea);
       await onSave(blob);
-    } catch {
-      // ошибка кропа
+    } catch (err) {
+      const msg = err?.message || 'Не удалось обрезать изображение';
+      setCropError(msg);
     } finally {
       setSaving(false);
     }
@@ -99,6 +113,10 @@ export default function AvatarCropModal({ imageSrc, onClose, onSave }) {
           />
           <span className="avatar-crop__zoom-value">{zoom.toFixed(1)}×</span>
         </div>
+
+        {cropError && (
+          <div className="avatar-crop__error">{cropError}</div>
+        )}
 
         <div className="avatar-crop__actions">
           <button className="avatar-crop__btn avatar-crop__btn--cancel" onClick={onClose}>

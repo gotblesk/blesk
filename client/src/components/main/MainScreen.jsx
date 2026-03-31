@@ -132,7 +132,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     window.blesk.onDeepLink?.(({ action, param }) => {
       if (action === 'chat' && param) handleOpenChat(param);
       if (action === 'invite' && param) {
-        console.log('Deep link invite:', param);
+        // TODO: обработать invite deep link
       }
       if (action === 'channel' && param) {
         handleTabChange('channels');
@@ -434,7 +434,11 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
         }
         content={
           <ErrorBoundary compact>
-            <ContentArea showPlaceholder={showPlaceholder}>
+            <ContentArea showPlaceholder={showPlaceholder} onAction={(action) => {
+              if (action === 'new-chat') handleTabChange('friends');
+              else if (action === 'voice') handleTabChange('voice');
+              else if (action === 'channels') handleTabChange('channels');
+            }}>
               {renderContent()}
             </ContentArea>
           </ErrorBoundary>

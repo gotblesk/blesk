@@ -1,4 +1,5 @@
 const prisma = require('../db');
+const logger = require('../utils/logger');
 const socketUtils = require('../utils/socketUtils');
 // Активные звонки: chatId → { callerId, callerSocketId, startedAt, participants: Set<userId>, timeout }
 const activeCalls = new Map();
@@ -221,7 +222,7 @@ function callHandler(io, socket) {
         cleanupCall(io, chatId);
       }, 30000);
     } catch (err) {
-      console.error('call:initiate error:', err);
+      logger.error({ err }, 'call:initiate error');
       socket.emit('call:error', { chatId, error: 'Ошибка инициализации звонка' });
     }
   });
@@ -285,7 +286,7 @@ function callHandler(io, socket) {
 
       // Клиент далее сделает voice:join('call:' + chatId) через mediasoup
     } catch (err) {
-      console.error('call:accept error:', err);
+      logger.error({ err }, 'call:accept error');
       socket.emit('call:error', { chatId, error: 'Ошибка принятия звонка' });
     }
   });
@@ -342,7 +343,7 @@ function callHandler(io, socket) {
         }
       }
     } catch (err) {
-      console.error('call:decline error:', err);
+      logger.error({ err }, 'call:decline error');
     }
   });
 
@@ -379,7 +380,7 @@ function callHandler(io, socket) {
 
       cleanupCall(io, chatId);
     } catch (err) {
-      console.error('call:cancel error:', err);
+      logger.error({ err }, 'call:cancel error');
     }
   });
 
@@ -410,7 +411,7 @@ function callHandler(io, socket) {
             }
             cleanupCall(io, chatId);
           } catch (err) {
-            console.error('disconnect cancel cleanup error:', err);
+            logger.error({ err }, 'disconnect cancel cleanup error');
             activeCalls.delete(chatId);
           }
         })();
@@ -420,7 +421,7 @@ function callHandler(io, socket) {
           try {
             await handleCallEnd(io, socket, userId, chatId);
           } catch (err) {
-            console.error('disconnect cleanup error:', err);
+            logger.error({ err }, 'disconnect cleanup error');
             activeCalls.delete(chatId);
           }
         })();
@@ -516,7 +517,7 @@ async function handleCallEnd(io, socket, userId, chatId) {
       cleanupCall(io, chatId);
     }
   } catch (err) {
-    console.error('call:end error:', err);
+    logger.error({ err }, 'call:end error');
   }
 }
 

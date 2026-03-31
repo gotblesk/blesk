@@ -70,6 +70,14 @@
   cursor: pointer;
 }
 
+.chat-input-compact__mic:hover {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+}
+.chat-input-compact__mic:active {
+  transform: scale(0.92);
+}
+
 .chat-input-compact__mic svg {
   width: 14px;
   height: 14px;
@@ -176,6 +184,9 @@
   background: rgba(255,255,255,0.06);
   color: rgba(255,255,255,0.5);
 }
+.chat-input__tool-btn:active {
+  transform: scale(0.9);
+}
 
 .chat-input__tool-btn svg {
   width: 16px;
@@ -218,8 +229,18 @@
   height: 18px;
 }
 
-/* Send ripple — disabled */
-.chat-input__send-ripple { display: none; }
+/* Send ripple */
+.chat-input__send-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(200, 255, 0, 0.25);
+  transform: scale(0);
+  animation: sendRipple 0.6s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes sendRipple {
+  to { transform: scale(2.5); opacity: 0; }
+}
 
 /* Reply preview above input */
 .chat-input__reply-preview {
@@ -246,7 +267,7 @@
 .chat-input__reply-name {
   font-size: 11px;
   font-weight: 600;
-  color: #c8ff00;
+  color: var(--accent);
 }
 
 .chat-input__reply-text {
@@ -370,12 +391,26 @@
   color: var(--light-text-tertiary, #9ca3af);
 }
 
-/* Emoji picker */
-.chat-input__emoji-picker {
+/* Emoji picker wrapper — CSS transition для open/close */
+.chat-input__emoji-picker-wrap {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 8px;
   z-index: var(--z-dropdown, 50);
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chat-input__emoji-picker-wrap--open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* Emoji picker */
+.chat-input__emoji-picker {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -400,71 +435,109 @@
   color: var(--accent) !important;
 }
 
-/* Recording UI — replaces input area during hold-to-record */
+/* Recording bar — premium redesign */
 .chat-input__recording {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  gap: 10px;
+  padding: 10px 12px;
+  pointer-events: auto;
+  /* Двойной glass — outer + inner как у нормального input */
+  background: rgba(239, 68, 68, 0.06);
+  backdrop-filter: blur(40px) saturate(1.4);
+  -webkit-backdrop-filter: blur(40px) saturate(1.4);
+  border: 0.5px solid rgba(239, 68, 68, 0.25);
   border-radius: 24px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  animation: recFadeIn 0.15s ease both;
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.08), inset 0 0.5px 0 rgba(255,255,255,0.06);
+  animation: recFadeIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 @keyframes recFadeIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.95) translateY(4px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
 }
 
-.chat-input__rec-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ef4444;
-  flex-shrink: 0;
-  animation: recDotPulse 1s ease-in-out infinite;
-}
-
-@keyframes recDotPulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
-  50% { opacity: 0.5; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
-}
-
-.chat-input__rec-timer {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  color: rgba(255,255,255,0.85);
-  min-width: 36px;
-}
-
-.chat-input__rec-hint {
-  color: rgba(255,255,255,0.35);
-  font-size: 13px;
-  flex: 1;
-}
-
+/* Кнопка отмены — слева */
 .chat-input__recording-cancel {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  border: none;
-  background: rgba(255,255,255,0.06);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.05);
   color: rgba(255,255,255,0.4);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .chat-input__recording-cancel:hover {
   background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
   color: #ef4444;
+}
+
+/* Живой waveform — занимает всё свободное место */
+.chat-input__rec-waveform {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 4px;
+  overflow: hidden;
+}
+
+.chat-input__rec-bar {
+  flex: 1;
+  min-width: 2px;
+  max-width: 4px;
+  border-radius: 2px;
+  background: rgba(239, 68, 68, 0.7);
+  height: calc(var(--bar-h, 0.15) * 100%);
+  transition: height 0.08s ease;
+  will-change: height;
+}
+
+/* Таймер */
+.chat-input__rec-timer {
+  font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.7);
+  min-width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Кнопка отправки — справа, акцентная */
+.chat-input__rec-send {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.chat-input__rec-send:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.5);
+  background: #f87171;
+}
+
+.chat-input__rec-send:active {
+  transform: scale(0.94);
 }
 
 /* Mic hold button (replaces send when input is empty) */
@@ -506,20 +579,33 @@
 
 /* Light theme overrides */
 [data-theme="light"] .chat-input__recording {
-  background: rgba(239, 68, 68, 0.06);
-  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.06);
+}
+
+[data-theme="light"] .chat-input__rec-bar {
+  background: rgba(239, 68, 68, 0.6);
 }
 
 [data-theme="light"] .chat-input__rec-timer {
-  color: var(--light-text-primary, #111827);
+  color: var(--light-text-secondary, #4b5563);
 }
 
-[data-theme="light"] .chat-input__rec-hint {
-  color: var(--light-text-tertiary, #9ca3af);
+/* Предупреждение за 5 секунд до лимита записи */
+.chat-input__rec-timer--warning {
+  color: var(--danger, #ef4444) !important;
+  animation: rec-timer-pulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes rec-timer-pulse {
+  from { opacity: 1; }
+  to   { opacity: 0.4; }
 }
 
 [data-theme="light"] .chat-input__recording-cancel {
   background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.08);
   color: var(--light-text-tertiary, #9ca3af);
 }
 
@@ -544,8 +630,8 @@
   .chat-input-expanded {
     transition: none;
   }
-  .chat-input__rec-dot { animation: none; opacity: 1; }
   .chat-input__recording { animation: none; }
+  .chat-input__rec-bar { transition: none; }
 }
 
 /* Mic wrapper — позиционирование для tooltip ошибки */

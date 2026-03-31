@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, MagnifyingGlass, SpinnerGap, Radio, Newspaper, GameController, MusicNotes, Palette, Cpu, DotsThree, Sparkle } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, Radio, Newspaper, GameController, MusicNotes, Palette, Cpu, DotsThree, Sparkle } from '@phosphor-icons/react';
 import ChannelCard from './ChannelCard';
 import CreateChannelModal from './CreateChannelModal';
+import { ChannelGridSkeleton } from '../ui/GlassSkeleton';
+import EmptyState from '../ui/EmptyState';
 import { useChannelStore } from '../../store/channelStore';
 import { getCurrentUserId } from '../../utils/auth';
 import './ChannelBrowser.css';
@@ -30,17 +32,18 @@ export default function ChannelBrowser({ onOpenChannel }) {
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { channels, myChannels, loadingBrowse, browseError, loadBrowse, loadMyChannels, subscribe, unsubscribe } = useChannelStore();
+  const { channels, myChannels, loadingBrowse, browseError, subscribe, unsubscribe } = useChannelStore();
   const userId = getCurrentUserId();
 
-  useEffect(() => { loadMyChannels(); }, [loadMyChannels]);
+  // getState() — стабильная ссылка, не вызывает бесконечный цикл
+  useEffect(() => { useChannelStore.getState().loadMyChannels(); }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      loadBrowse({ sort: 'popular', category, search: search.trim() || undefined });
+      useChannelStore.getState().loadBrowse({ sort: 'popular', category, search: search.trim() || undefined });
     }, search ? 300 : 0);
     return () => clearTimeout(timeout);
-  }, [category, search, loadBrowse]);
+  }, [category, search]);
 
   const handleOpen = useCallback((id) => { onOpenChannel?.(id); }, [onOpenChannel]);
 
@@ -104,28 +107,33 @@ export default function ChannelBrowser({ onOpenChannel }) {
       </div>
 
       {loadingBrowse && allChannels.length === 0 && (
-        <div className="mo__loader">
-          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
-            <SpinnerGap size={20} weight="regular" />
-          </motion.div>
-        </div>
+        <ChannelGridSkeleton count={6} />
       )}
 
       {/* Error state */}
       {browseError && !loadingBrowse && allChannels.length === 0 && (
         <div style={{ textAlign: 'center', padding: 24, color: 'var(--danger)', fontSize: 13 }}>
           {browseError}
-          <button onClick={() => loadBrowse({ category, search })} style={{ display: 'block', margin: '8px auto', background: 'none', border: '1px solid var(--danger)', borderRadius: 8, padding: '4px 12px', color: 'var(--danger)', cursor: 'pointer', fontSize: 12 }}>Повторить</button>
+          <button onClick={() => useChannelStore.getState().loadBrowse({ category, search })} style={{ display: 'block', margin: '8px auto', background: 'none', border: '1px solid var(--danger)', borderRadius: 8, padding: '4px 12px', color: 'var(--danger)', cursor: 'pointer', fontSize: 12 }}>Повторить</button>
         </div>
       )}
 
       {/* Empty states */}
       {!loadingBrowse && !browseError && allChannels.length === 0 && (
-        <motion.div className="mo__empty" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onClick={search.trim() ? undefined : () => setCreateOpen(true)} style={{ cursor: search.trim() ? 'default' : 'pointer' }}>
-          <div className="mo__empty-icon"><Radio size={28} weight="regular" /></div>
-          <span>{search.trim() ? `Ничего не найдено по запросу «${search.trim().slice(0, 30)}»` : 'Каналы не найдены'}</span>
-          {!search.trim() && <span className="mo__empty-hint">Создай первый!</span>}
-        </motion.div>
+        search.trim() ? (
+          <EmptyState
+            type="no-results"
+            title={`Ничего не найдено по «${search.trim().slice(0, 30)}»`}
+            subtitle="Попробуй другой запрос или создай свой канал"
+          />
+        ) : (
+          <EmptyState
+            type="no-channels"
+            title="Каналов пока нет"
+            subtitle="Создай первый канал и начни вещание"
+            action={{ label: 'Создать канал', onClick: () => setCreateOpen(true) }}
+          />
+        )
       )}
 
       <div className="mo__grid">

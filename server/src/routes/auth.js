@@ -1,16 +1,42 @@
 const { Router } = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const prisma = require('../db');
 const { authenticate, generateTokens, verifyRefreshToken, hashRefreshToken } = require('../middleware/auth');
 const crypto = require('crypto');
 const { generateCode, sendVerificationCode } = require('../services/email');
 const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
+const logger = require('../utils/logger');
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET не задан'); process.exit(1); }
+
+// [S1] Rate limiter для /forgot-password — 5 запросов за 15 минут по IP
+const forgotPasswordIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Слишком много запросов. Попробуйте через 15 минут.' });
+  },
+});
+
+// [S4] Глобальный IP-лимит для эндпоинтов email-верификации — 10 попыток за 15 минут по IP
+const emailVerifyIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Слишком много запросов верификации. Попробуйте через 15 минут.' });
+  },
+});
 
 // httpOnly cookie helper — устанавливает access + refresh cookies
 function setAuthCookies(res, tokens) {
@@ -115,7 +141,7 @@ setInterval(() => {
 setInterval(async () => {
   try {
     await prisma.emailCode.deleteMany({ where: { expiresAt: { lt: new Date() } } });
-  } catch (err) { console.error('Failed to cleanup expired email codes:', err.message); }
+  } catch (err) { logger.error({ err: err.message }, 'Failed to cleanup expired email codes'); }
 }, 60 * 60 * 1000);
 
 // Генерация тега #0001–#9999
@@ -257,7 +283,7 @@ router.post('/register', async (req, res) => {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
-    } catch (err) { console.error('Failed to save refresh token on register:', err.message); }
+    } catch (err) { logger.error({ err: err.message }, 'Failed to save refresh token on register'); }
 
     setAuthCookies(res, tokens);
 
@@ -276,13 +302,13 @@ router.post('/register', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Ошибка регистрации:', err);
+    logger.error({ err }, 'Ошибка регистрации');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
 
 // POST /api/auth/verify-email
-router.post('/verify-email', authenticate, async (req, res) => {
+router.post('/verify-email', emailVerifyIpLimiter, authenticate, async (req, res) => {
   try {
     const userId = req.userId;
 
@@ -336,13 +362,13 @@ router.post('/verify-email', authenticate, async (req, res) => {
     clearAttempts(user.email);
     res.json({ success: true });
   } catch (err) {
-    console.error('Ошибка верификации email:', err);
+    logger.error({ err }, 'Ошибка верификации email');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
 
 // POST /api/auth/resend-code
-router.post('/resend-code', authenticate, async (req, res) => {
+router.post('/resend-code', emailVerifyIpLimiter, authenticate, async (req, res) => {
   try {
     const userId = req.userId;
 
@@ -379,7 +405,7 @@ router.post('/resend-code', authenticate, async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    console.error('Ошибка повторной отправки:', err);
+    logger.error({ err }, 'Ошибка повторной отправки');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -442,7 +468,7 @@ router.post('/login', async (req, res) => {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
-    } catch (err) { console.error('Failed to save refresh token on login:', err.message); }
+    } catch (err) { logger.error({ err: err.message }, 'Failed to save refresh token on login'); }
 
     setAuthCookies(res, tokens);
 
@@ -456,7 +482,7 @@ router.post('/login', async (req, res) => {
           body: 'Вход в аккаунт выполнен',
         },
       });
-    } catch (err) { console.error('Failed to create login notification:', err.message); }
+    } catch (err) { logger.error({ err: err.message }, 'Failed to create login notification'); }
 
     res.json({
       token: tokens.token,
@@ -473,7 +499,7 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Ошибка авторизации:', err);
+    logger.error({ err }, 'Ошибка авторизации');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -500,6 +526,13 @@ router.post('/refresh', async (req, res) => {
       // Инвалидировать ВСЕ токены пользователя для безопасности
       await prisma.refreshToken.deleteMany({ where: { userId: payload.userId } });
       return res.status(401).json({ error: 'Refresh token отозван' });
+    }
+
+    // [S2] Проверить что токен принадлежит пользователю из payload
+    if (storedToken.userId !== payload.userId) {
+      logger.warn({ tokenUserId: storedToken.userId, payloadUserId: payload.userId }, 'Refresh token ownership mismatch');
+      await prisma.refreshToken.deleteMany({ where: { userId: payload.userId } });
+      return res.status(401).json({ error: 'Refresh token недействителен' });
     }
 
     // Удалить использованный токен (ротация)
@@ -530,7 +563,7 @@ router.post('/refresh', async (req, res) => {
 
     res.json({ token: tokens.token, refreshToken: tokens.refreshToken });
   } catch (err) {
-    console.error('Ошибка обновления токена:', err);
+    logger.error({ err }, 'Ошибка обновления токена');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -584,7 +617,7 @@ router.get('/me', authenticate, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Ошибка получения профиля:', err);
+    logger.error({ err }, 'Ошибка получения профиля');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -592,7 +625,7 @@ router.get('/me', authenticate, async (req, res) => {
 // ═══ Восстановление пароля ═══
 
 // POST /api/auth/forgot-password — отправить код сброса на email
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', forgotPasswordIpLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email || !isValidEmail(email)) {
@@ -625,7 +658,7 @@ router.post('/forgot-password', async (req, res) => {
     await sendVerificationCode(email, code);
     res.json({ success: true });
   } catch (err) {
-    console.error('forgot-password error:', err);
+    logger.error({ err }, 'forgot-password error');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -687,7 +720,7 @@ router.post('/reset-password', async (req, res) => {
     clearAuthCookies(res);
     res.json({ success: true });
   } catch (err) {
-    console.error('reset-password error:', err);
+    logger.error({ err }, 'reset-password error');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -724,7 +757,7 @@ router.post('/change-password/request', authenticate, async (req, res) => {
     await sendVerificationCode(user.email, code);
     res.json({ success: true, message: 'Код отправлен на вашу почту' });
   } catch (err) {
-    console.error('change-password/request error:', err);
+    logger.error({ err }, 'change-password/request error');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -791,7 +824,7 @@ router.post('/change-password/confirm', authenticate, async (req, res) => {
     clearAuthCookies(res);
     res.json({ success: true });
   } catch (err) {
-    console.error('change-password/confirm error:', err);
+    logger.error({ err }, 'change-password/confirm error');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -814,7 +847,7 @@ router.post('/2fa/setup', authenticate, async (req, res) => {
 
     res.json({ qr: qrDataUrl, secret, manual: secret });
   } catch (err) {
-    console.error('2fa/setup error:', err);
+    logger.error({ err }, '2fa/setup error');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -835,7 +868,7 @@ router.post('/2fa/verify', authenticate, async (req, res) => {
     await prisma.user.update({ where: { id: req.userId }, data: { twoFactorEnabled: true } });
     res.json({ ok: true });
   } catch (err) {
-    console.error('2fa/verify error:', err);
+    logger.error({ err }, '2fa/verify error');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -855,7 +888,7 @@ router.post('/2fa/disable', authenticate, async (req, res) => {
     await prisma.user.update({ where: { id: req.userId }, data: { twoFactorEnabled: false, twoFactorSecret: null } });
     res.json({ ok: true });
   } catch (err) {
-    console.error('2fa/disable error:', err);
+    logger.error({ err }, '2fa/disable error');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -884,7 +917,7 @@ router.post('/2fa/login', async (req, res) => {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await prisma.refreshToken.create({
       data: { userId: user.id, tokenHash: hashRefreshToken(tokens.refreshToken), expiresAt },
-    }).catch(err => console.error('Failed to save refresh token:', err.message));
+    }).catch(err => logger.error({ err: err.message }, 'Failed to save refresh token'));
 
     setAuthCookies(res, tokens);
 
@@ -893,7 +926,7 @@ router.post('/2fa/login', async (req, res) => {
       await prisma.notification.create({
         data: { userId: user.id, type: 'system', title: 'Новый вход', body: 'Вход в аккаунт выполнен (2FA)' },
       });
-    } catch (err) { console.error('Failed to create login notification:', err.message); }
+    } catch (err) { logger.error({ err: err.message }, 'Failed to create login notification'); }
 
     res.json({
       token: tokens.token,
@@ -910,7 +943,7 @@ router.post('/2fa/login', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('2fa/login error:', err);
+    logger.error({ err }, '2fa/login error');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -956,7 +989,7 @@ router.post('/keys', authenticate, async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('keys error:', err);
+    logger.error({ err }, 'keys error');
     res.status(500).json({ error: 'Ошибка сохранения ключа' });
   }
 });

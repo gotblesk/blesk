@@ -3,12 +3,13 @@ let scannerAvailable = false;
 
 async function initScanner() {
   if (process.env.CLAMAV_ENABLED !== 'true') {
-    console.log('ClamAV отключён (CLAMAV_ENABLED != true)');
+    logger.info('ClamAV отключён (CLAMAV_ENABLED != true)');
     return;
   }
 
   try {
     const NodeClam = require('clamscan');
+const logger = require('../utils/logger');
     scanner = await new NodeClam().init({
       clamdscan: {
         socket: process.env.CLAMAV_SOCKET || '/var/run/clamav/clamd.ctl',
@@ -18,10 +19,10 @@ async function initScanner() {
       preference: 'clamdscan',
     });
     scannerAvailable = true;
-    console.log('ClamAV сканер инициализирован');
+    logger.info('ClamAV сканер инициализирован');
   } catch (err) {
-    console.warn('ClamAV недоступен:', err.message);
-    console.warn('Загрузка файлов будет работать без антивирусной проверки');
+    logger.warn({ err: err.message }, 'ClamAV недоступен');
+    logger.warn('Загрузка файлов будет работать без антивирусной проверки');
     scannerAvailable = false;
   }
 }
@@ -32,12 +33,12 @@ async function scanFile(filePath) {
   try {
     const { isInfected, viruses } = await scanner.isInfected(filePath);
     if (isInfected) {
-      console.error(`ВИРУС ОБНАРУЖЕН в ${filePath}: ${viruses.join(', ')}`);
+      logger.error({ filePath, viruses }, 'ВИРУС ОБНАРУЖЕН');
       return { clean: false, viruses };
     }
     return { clean: true, skipped: false };
   } catch (err) {
-    console.error('Ошибка сканирования:', err.message);
+    logger.error({ err: err.message }, 'Ошибка сканирования');
     return { clean: true, skipped: true };
   }
 }

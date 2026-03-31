@@ -3,7 +3,7 @@
 .vibe-panel {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-modal);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);

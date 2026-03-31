@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { voiceRooms, cleanupPeer } = require('../ws/voiceHandler');
 const { emitToUser, findUserSockets } = require('../utils/socketUtils');
+const logger = require('../utils/logger');
 
 const router = Router();
 
@@ -64,7 +65,7 @@ router.get('/rooms', authenticate, async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    console.error('GET /api/voice/rooms error:', err);
+    logger.error({ err }, 'GET /api/voice/rooms error');
     res.status(500).json({ error: 'Ошибка получения комнат' });
   }
 });
@@ -108,7 +109,7 @@ router.post('/rooms', authenticate, async (req, res) => {
       createdAt: room.createdAt,
     });
   } catch (err) {
-    console.error('POST /api/voice/rooms error:', err);
+    logger.error({ err }, 'POST /api/voice/rooms error');
     res.status(500).json({ error: 'Ошибка создания комнаты' });
   }
 });
@@ -196,7 +197,7 @@ router.post('/rooms/:id/invite', authenticate, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('POST /api/voice/rooms/:id/invite error:', err);
+    logger.error({ err }, 'POST /api/voice/rooms/:id/invite error');
     res.status(500).json({ error: 'Ошибка приглашения' });
   }
 });
@@ -241,7 +242,7 @@ router.delete('/rooms/:id/kick/:userId', authenticate, async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('DELETE /api/voice/rooms/:id/kick error:', err);
+    logger.error({ err }, 'DELETE /api/voice/rooms/:id/kick error');
     res.status(500).json({ error: 'Ошибка' });
   }
 });
@@ -274,7 +275,7 @@ router.delete('/rooms/:id', authenticate, async (req, res) => {
         cleanupPeer(peer);
       }
       // Закрыть mediasoup router
-      try { voiceRoom.router.close(); } catch (err) { console.error('Failed to close mediasoup router:', err.message); }
+      try { voiceRoom.router.close(); } catch (err) { logger.error({ err: err.message }, 'Failed to close mediasoup router'); }
       voiceRooms.delete(room.id);
     }
 
@@ -284,7 +285,7 @@ router.delete('/rooms/:id', authenticate, async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('DELETE /api/voice/rooms/:id error:', err);
+    logger.error({ err }, 'DELETE /api/voice/rooms/:id error');
     res.status(500).json({ error: 'Ошибка удаления комнаты' });
   }
 });

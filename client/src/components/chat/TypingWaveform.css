@@ -1,0 +1,64 @@
+/* ═══════ TYPING WAVEFORM ═══════ */
+
+.typing-waveform {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill, 100px);
+  background: var(--surface-1, rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.typing-waveform__bars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+}
+
+.typing-waveform__bar {
+  width: 2px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent, #c8ff00);
+  flex-shrink: 0;
+}
+
+.typing-waveform__text {
+  font-family: var(--font-body, 'Onest', sans-serif);
+  font-size: 12px;
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.45));
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* Reduced motion — статичные бары */
+@media (prefers-reduced-motion: reduce) {
+  .typing-waveform__bar {
+    height: 8px;
+    opacity: 0.6;
+  }
+}
+
+/* Light theme */
+[data-theme="light"] .typing-waveform {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.07);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .typing-waveform__bar {
+  background: var(--accent-light, #4a7a00);
+}
+
+[data-theme="light"] .typing-waveform__text {
+  color: var(--text-tertiary, rgba(26, 26, 46, 0.5));
+}

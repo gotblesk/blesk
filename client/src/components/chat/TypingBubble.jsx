@@ -1,8 +1,9 @@
 import './TypingBubble.css';
 import Avatar from '../ui/Avatar';
+import TypingWaveform from './TypingWaveform';
 import { getHueStyles } from '../../utils/hueIdentity';
 
-export default function TypingBubble({ user, hue }) {
+export default function TypingBubble({ user, hue, username }) {
   const hueStyles = getHueStyles(hue);
 
   return (
@@ -10,9 +11,7 @@ export default function TypingBubble({ user, hue }) {
       <Avatar user={user} size={28} />
       <div className="typing-bubble__outer">
         <div className="typing-bubble__inner">
-          <div className="typing-bubble__dot" />
-          <div className="typing-bubble__dot" />
-          <div className="typing-bubble__dot" />
+          <TypingWaveform username={username} />
         </div>
       </div>
     </div>

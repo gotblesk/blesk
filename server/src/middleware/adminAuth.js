@@ -1,4 +1,5 @@
 const prisma = require('../db');
+const logger = require('../utils/logger');
 
 // Middleware: проверка роли
 async function requireAdmin(req, res, next) {
@@ -16,7 +17,7 @@ async function requireAdmin(req, res, next) {
     req.adminUser = user;
     next();
   } catch (err) {
-    console.error('adminAuth error:', err.message);
+    logger.error({ err: err.message }, 'adminAuth error');
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 }
@@ -28,7 +29,7 @@ async function logAdminAction(adminId, action, targetType, targetId, details = n
       data: { adminId, action, targetType, targetId: String(targetId), details },
     });
   } catch (err) {
-    console.error('Ошибка записи аудит-лога:', err.message);
+    logger.error({ err: err.message }, 'Ошибка записи аудит-лога');
   }
 }
 

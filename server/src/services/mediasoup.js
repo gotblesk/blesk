@@ -1,10 +1,12 @@
 const mediasoup = require('mediasoup');
 const os = require('os');
+const logger = require('../utils/logger');
 
 // Worker'ов = ядра CPU, но не больше 4 (для локальной разработки)
 const numWorkers = Math.min(os.cpus().length, parseInt(process.env.MEDIASOUP_WORKERS || '4', 10));
 const workers = [];
 let nextWorkerIdx = 0;
+let onWorkerDied = null;
 
 // Кодеки для голоса и видео
 const mediaCodecs = [
@@ -41,8 +43,7 @@ function getTransportOptions() {
   const announcedIp = process.env.MEDIASOUP_ANNOUNCED_IP || process.env.SERVER_IP || null;
 
   if (!announcedIp && process.env.NODE_ENV === 'production') {
-    console.error('CRITICAL: MEDIASOUP_ANNOUNCED_IP not set. Voice will not work for remote clients.');
-    console.error('Set MEDIASOUP_ANNOUNCED_IP=<your-public-ip> in .env');
+    throw new Error('MEDIASOUP_ANNOUNCED_IP или SERVER_IP обязателен в production. Голос не будет работать без публичного IP.');
   }
 
   return {
@@ -62,8 +63,9 @@ function getTransportOptions() {
 // Создать Worker'ы при старте сервера
 async function createWorkers() {
   for (let i = 0; i < numWorkers; i++) {
-    const rtcMin = 10000 + i * 1000;
-    const rtcMax = rtcMin + 999;
+    const portsPerWorker = 5000;
+    const rtcMin = 10000 + i * portsPerWorker;
+    const rtcMax = rtcMin + portsPerWorker - 1;
 
     const worker = await mediasoup.createWorker({
       logLevel: 'warn',
@@ -71,22 +73,39 @@ async function createWorkers() {
       rtcMaxPort: rtcMax,
     });
 
+    let restartAttempts = 0;
     worker.on('died', () => {
-      console.error(`mediasoup Worker ${i} умер, перезапуск через 2 сек...`);
+      restartAttempts++;
+      const delay = Math.min(2000 * Math.pow(2, restartAttempts - 1), 30000);
+      logger.error({ workerIdx: i, attempt: restartAttempts, nextRetryMs: delay }, 'mediasoup Worker умер');
+
+      if (typeof onWorkerDied === 'function') {
+        onWorkerDied(i, worker);
+      }
+
+      if (restartAttempts > 5) {
+        logger.error({ workerIdx: i }, 'mediasoup Worker не удалось перезапустить после 5 попыток');
+        return;
+      }
+
       setTimeout(async () => {
-        const newWorker = await mediasoup.createWorker({
-          logLevel: 'warn',
-          rtcMinPort: rtcMin,
-          rtcMaxPort: rtcMax,
-        });
-        workers[i] = newWorker;
-        console.log(`mediasoup Worker ${i} перезапущен`);
-        console.warn(`Worker ${i} restarted. Rooms on this worker need reconnection.`);
-      }, 2000);
+        try {
+          const newWorker = await mediasoup.createWorker({
+            logLevel: 'warn',
+            rtcMinPort: rtcMin,
+            rtcMaxPort: rtcMax,
+          });
+          workers[i] = newWorker;
+          restartAttempts = 0;
+          logger.info({ workerIdx: i, pid: newWorker.pid }, 'mediasoup Worker перезапущен');
+        } catch (err) {
+          logger.error({ workerIdx: i, err }, 'Ошибка перезапуска Worker');
+        }
+      }, delay);
     });
 
     workers.push(worker);
-    console.log(`mediasoup Worker ${i} запущен (pid: ${worker.pid})`);
+    logger.info({ workerIdx: i, pid: worker.pid }, 'mediasoup Worker запущен');
   }
 }
 
@@ -130,4 +149,5 @@ module.exports = {
   createRouter,
   createWebRtcTransport,
   mediaCodecs,
+  setOnWorkerDied: (fn) => { onWorkerDied = fn; },
 };

@@ -1,4 +1,4 @@
-import { Phone, VideoCamera, MagnifyingGlass, DotsThree } from '@phosphor-icons/react';
+import { PhoneIcon, VideoCameraIcon, MagnifyingGlassIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import Avatar from '../ui/Avatar';
 import { ShieldBadge } from '../ui/ShieldFingerprint';
 import { formatLastSeen } from '../../utils/time';
@@ -60,7 +60,7 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
           {/* Поиск по чату */}
           {onSearch && (
             <button className="chat-header__btn" onClick={onSearch} title="Поиск" aria-label="Поиск по чату">
-              <MagnifyingGlass size={18} />
+              <MagnifyingGlassIcon className="w-[18px] h-[18px]" />
             </button>
           )}
           {/* Голосовой звонок */}
@@ -72,7 +72,7 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
               title={isSocketConnected ? 'Голосовой звонок' : 'Нет соединения'}
               aria-label="Позвонить"
             >
-              <Phone size={18} />
+              <PhoneIcon className="w-[18px] h-[18px]" />
             </button>
           )}
           {/* Видеозвонок */}
@@ -84,11 +84,11 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
               title={isSocketConnected ? 'Видеозвонок' : 'Нет соединения'}
               aria-label="Видеозвонок"
             >
-              <VideoCamera size={18} />
+              <VideoCameraIcon className="w-[18px] h-[18px]" />
             </button>
           )}
           <button className="chat-header__btn" onClick={isGroup ? onMembers : onAvatarClick} title={isGroup ? 'Участники' : 'Подробнее'} aria-label={isGroup ? 'Участники группы' : 'Информация о чате'}>
-            <DotsThree size={18} />
+            <EllipsisHorizontalIcon className="w-[18px] h-[18px]" />
           </button>
         </div>
       </div>

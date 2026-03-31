@@ -1,6 +1,6 @@
 import { useVoiceStore } from '../../store/voiceStore';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
-import { Microphone, MicrophoneSlash, Headphones, SpeakerSlash, VideoCamera, VideoCameraSlash, Monitor, PhoneDisconnect, UsersThree } from '@phosphor-icons/react';
+import { Microphone, MicrophoneSlash, Headphones, SpeakerSlash, VideoCamera, VideoCameraSlash, Monitor, MonitorArrowUp, PhoneDisconnect, UsersThree } from '@phosphor-icons/react';
 import './VoiceControls.css';
 
 export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShareOn, onCameraToggle, onScreenShareToggle }) {
@@ -98,7 +98,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           onClick={onScreenShareToggle}
           title={screenShareOn ? 'Остановить показ экрана' : 'Показать экран'}
         >
-          {screenShareOn ? <Monitor size={17} /> : <Monitor size={17} />}
+          {screenShareOn ? <MonitorArrowUp size={17} /> : <Monitor size={17} />}
         </button>
       </div>
 

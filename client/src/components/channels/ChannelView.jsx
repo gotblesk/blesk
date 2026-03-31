@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, GearSix, PaperPlaneTilt, Paperclip, UsersThree, Bell, BellSlash, PenNib, Hash, Camera, ImageSquare } from '@phosphor-icons/react';
 import ChannelPost from './ChannelPost';
+import ChannelMembersModal from './ChannelMembersModal';
 import { useChannelStore } from '../../store/channelStore';
 import { getCurrentUserId } from '../../utils/auth';
 import API_URL from '../../config';
@@ -13,7 +14,11 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
   const [sending, setSending] = useState(false);
   const [postError, setPostError] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [showSticky, setShowSticky] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const feedRef = useRef(null);
+  const heroRef = useRef(null);
   const fileRef = useRef(null);
   const textareaRef = useRef(null);
   const avatarFileRef = useRef(null);
@@ -36,9 +41,51 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
 
   useEffect(() => { loadPosts(channelId); }, [channelId, loadPosts]);
 
+  // Получить статус мьюта для текущего подписчика
+  useEffect(() => {
+    if (!isSubscribed || isOwner) return;
+    fetch(`${API_URL}/api/channels/${channelId}/subscribers?page=1&limit=1`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        // Статус мьюта приходит из PATCH /mute, здесь инициализируем из localStorage
+        const stored = localStorage.getItem(`ch_muted_${channelId}`);
+        if (stored !== null) setIsMuted(stored === 'true');
+      })
+      .catch(() => {});
+  }, [channelId, isSubscribed, isOwner]);
+
+  const handleMuteToggle = useCallback(async () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    localStorage.setItem(`ch_muted_${channelId}`, String(next));
+    try {
+      await fetch(`${API_URL}/api/channels/${channelId}/mute`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({ isMuted: next }),
+      });
+    } catch { /* ignore, UI уже обновлён */ }
+  }, [channelId, isMuted]);
+
   useEffect(() => {
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [channelPosts.length]);
+
+  // Sticky bar on scroll past hero
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed) return;
+    const handleScroll = () => {
+      const heroHeight = heroRef.current?.offsetHeight || 240;
+      setShowSticky(feed.scrollTop > heroHeight - 60);
+    };
+    feed.addEventListener('scroll', handleScroll, { passive: true });
+    return () => feed.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Auto-focus textarea when composer opens
   useEffect(() => {
@@ -119,12 +166,19 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         credentials: 'include',
         body: formData,
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        let errMsg = 'Не удалось загрузить аватар';
+        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch { /* */ }
+        showPostError(errMsg);
+        return;
+      }
       const data = await res.json();
       if (data.avatarUrl) useChannelStore.getState().updateChannelLocal(channelId, { avatarUrl: data.avatarUrl });
-    } catch { /* ignore */ }
+    } catch {
+      showPostError('Ошибка сети при загрузке аватара');
+    }
     if (avatarFileRef.current) avatarFileRef.current.value = '';
-  }, [channelId]);
+  }, [channelId, showPostError]);
 
   // Upload channel cover
   const handleCoverUpload = useCallback(async (e) => {
@@ -139,12 +193,19 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         credentials: 'include',
         body: formData,
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        let errMsg = 'Не удалось загрузить обложку';
+        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch { /* */ }
+        showPostError(errMsg);
+        return;
+      }
       const data = await res.json();
       if (data.coverUrl) useChannelStore.getState().updateChannelLocal(channelId, { coverUrl: data.coverUrl });
-    } catch { /* ignore */ }
+    } catch {
+      showPostError('Ошибка сети при загрузке обложки');
+    }
     if (coverFileRef.current) coverFileRef.current.value = '';
-  }, [channelId]);
+  }, [channelId, showPostError]);
 
   const coverUrl = channel?.channelMeta?.coverUrl || channel?.coverUrl;
   const avatarUrl = channel?.channelMeta?.avatarUrl || channel?.avatarUrl;
@@ -154,6 +215,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
       {/* ═══ Hero Banner ═══ */}
       <motion.div
         className="cv__hero"
+        ref={heroRef}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -202,10 +264,10 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
           <div className="cv__hero-text">
             <h1 className="cv__hero-name">{channel?.name || 'Канал'}</h1>
             <div className="cv__hero-stats">
-              <span className="cv__hero-stat">
+              <button className="cv__hero-stat cv__hero-stat--btn" onClick={() => setShowMembers(true)} title="Открыть список подписчиков">
                 <UsersThree size={12} weight="bold" />
                 {subCount} подписчиков
-              </span>
+              </button>
               <span className="cv__hero-stat">
                 <Hash size={12} weight="bold" />
                 {postCount} постов
@@ -213,23 +275,49 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
             </div>
           </div>
 
-          {/* Subscribe button */}
+          {/* Subscribe + Mute buttons */}
           {!isOwner && (
-            <motion.button
-              className={`cv__sub ${isSubscribed ? 'cv__sub--active' : ''}`}
-              onClick={isSubscribed ? () => useChannelStore.getState().unsubscribe(channelId) : () => useChannelStore.getState().subscribe(channelId)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.92 }}
-            >
-              {isSubscribed ? <BellSlash size={14} weight="bold" /> : <Bell size={14} weight="bold" />}
-              <span>{isSubscribed ? 'Отписаться' : 'Подписаться'}</span>
-            </motion.button>
+            <div className="cv__hero-actions">
+              {isSubscribed && (
+                <motion.button
+                  className={`cv__mute ${isMuted ? 'cv__mute--active' : ''}`}
+                  onClick={handleMuteToggle}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.9 }}
+                  title={isMuted ? 'Включить уведомления' : 'Отключить уведомления'}
+                >
+                  {isMuted ? <BellSlash size={14} weight="bold" /> : <Bell size={14} weight="bold" />}
+                </motion.button>
+              )}
+              <motion.button
+                className={`cv__sub ${isSubscribed ? 'cv__sub--active' : ''}`}
+                onClick={isSubscribed ? () => useChannelStore.getState().unsubscribe(channelId) : () => useChannelStore.getState().subscribe(channelId)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.92 }}
+              >
+                <span>{isSubscribed ? 'Отписаться' : 'Подписаться'}</span>
+              </motion.button>
+            </div>
           )}
         </div>
       </motion.div>
 
       {/* ═══ Post Feed ═══ */}
       <div className="cv__feed" ref={feedRef}>
+        {/* Sticky channel bar */}
+        <div className={`cv__sticky-bar ${showSticky ? 'cv__sticky-bar--visible' : ''}`}>
+          <span className="cv__sticky-name">{channel?.name}</span>
+          <span className="cv__sticky-stats">{subCount} подписчиков</span>
+          {!isOwner && (
+            <button
+              className="cv__sticky-sub"
+              onClick={isSubscribed ? () => useChannelStore.getState().unsubscribe(channelId) : () => useChannelStore.getState().subscribe(channelId)}
+            >
+              {isSubscribed ? 'Отписаться' : 'Подписаться'}
+            </button>
+          )}
+        </div>
+
         {channelPosts.length === 0 ? (
           <motion.div className="cv__empty" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <div className="cv__empty-icon">
@@ -341,6 +429,11 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ═══ Members Modal ═══ */}
+      {showMembers && (
+        <ChannelMembersModal channelId={channelId} onClose={() => setShowMembers(false)} />
+      )}
     </div>
   );
 }

@@ -1,8 +1,12 @@
 require('dotenv').config();
 
 // Валидация критичных переменных окружения
-if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
-  console.error('FATAL: JWT_SECRET must be set and at least 16 characters');
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET must be set and at least 32 characters');
+  process.exit(1);
+}
+if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 32) {
+  console.error('FATAL: JWT_REFRESH_SECRET must be set and at least 32 characters');
   process.exit(1);
 }
 
@@ -15,15 +19,18 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const prisma = require('./db');
+const logger = require('./utils/logger');
 
 const app = express();
 const httpServer = createServer(app);
 
 // CORS: разрешаем запросы без origin (Electron, мобильные) + явные origins
 const corsHandler = (origin, callback) => {
-  // Electron и мобильные приложения отправляют origin: null/undefined
   if (!origin) return callback(null, true);
-  const allowed = [process.env.CLIENT_URL, 'http://localhost:5173', 'http://localhost:3000'].filter(Boolean);
+  const allowed = [process.env.CLIENT_URL].filter(Boolean);
+  if (process.env.NODE_ENV !== 'production') {
+    allowed.push('http://localhost:5173', 'http://localhost:3000');
+  }
   if (allowed.includes(origin)) return callback(null, true);
   callback(null, false);
 };
@@ -44,14 +51,13 @@ if (process.env.REDIS_URL) {
     const subClient = pubClient.duplicate();
     Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
       io.adapter(createAdapter(pubClient, subClient));
-      console.log('Redis adapter подключён для Socket.io');
+      logger.info('Redis adapter подключён для Socket.io');
     }).catch((err) => {
-      console.warn('Redis adapter не удалось подключить:', err.message);
-      console.log('Работаем в single-instance режиме');
+      logger.warn({ err: err.message }, 'Redis adapter не удалось подключить');
+      logger.info('Работаем в single-instance режиме');
     });
-  } catch {
-    // @socket.io/redis-adapter не установлен — работаем без него
-    console.log('Socket.io: single-instance mode (Redis adapter не установлен)');
+  } catch (err) {
+    logger.info({ err: err?.message }, 'Socket.io: single-instance mode (Redis adapter не установлен)');
   }
 }
 
@@ -71,9 +77,14 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'", 'wss://blesk.fun', 'https://blesk.fun', 'wss://*.blesk.fun', 'https://*.blesk.fun', 'ws://localhost:*', 'http://localhost:*'],
+      connectSrc: [
+        "'self'", 'wss://blesk.fun', 'https://blesk.fun', 'wss://*.blesk.fun', 'https://*.blesk.fun',
+        ...(process.env.NODE_ENV !== 'production' ? ['ws://localhost:*', 'http://localhost:*'] : []),
+      ],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       mediaSrc: ["'self'", 'blob:'],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
     },
   },
 }));
@@ -88,6 +99,7 @@ app.set('trust proxy', 1);
 const uploadsHeaders = (req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
   next();
 };
 app.use('/uploads/avatars', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'avatars')));
@@ -96,8 +108,13 @@ app.use('/uploads/avatars', uploadsHeaders, express.static(path.join(__dirname, 
 // app.use('/uploads/thumbs', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'thumbs')));
 
 // Health check — до rate limiting и роутов
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+app.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', uptime: process.uptime(), db: 'connected' });
+  } catch {
+    res.status(503).json({ status: 'degraded', uptime: process.uptime(), db: 'disconnected' });
+  }
 });
 
 // Rate limiting — раздельные лимиты
@@ -163,16 +180,22 @@ app.use('/api/shield', chatLimiter, csrfProtection, shieldRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '0.1.0-alpha' });
+  res.json({ status: 'ok', version: '1.0.6-beta' });
 });
 
 // WebSocket — авторизация + обработчики
 const { socketAuth } = require('./ws/authMiddleware');
 const { chatHandler } = require('./ws/chatHandler');
-const { voiceHandler } = require('./ws/voiceHandler');
+const { voiceHandler, clearVoiceIntervals } = require('./ws/voiceHandler');
 const { callHandler, setUserSockets: setCallUserSockets } = require('./ws/callHandler');
-const { createWorkers } = require('./services/mediasoup');
+const { createWorkers, setOnWorkerDied } = require('./services/mediasoup');
 const { initScanner } = require('./services/fileScanner');
+
+// Уведомить клиентов в голосовых комнатах при крэше worker'а
+setOnWorkerDied((workerIdx) => {
+  logger.warn({ workerIdx }, 'mediasoup worker died — уведомляем клиентов');
+  io.emit('voice:worker-restart', { worker: workerIdx, message: 'Голосовой сервер перезапускается. Переподключение через несколько секунд.' });
+});
 
 io.use(socketAuth);
 
@@ -218,7 +241,7 @@ io.on('connection', (socket) => {
 
 // [CRIT-1 A1] Глобальный Express error handler
 app.use((err, req, res, next) => {
-  console.error('Express error:', err);
+  logger.error({ err }, 'Express error');
   const status = err.status || err.statusCode || 500;
   res.status(status).json({
     error: process.env.NODE_ENV === 'production' ? 'Внутренняя ошибка сервера' : err.message,
@@ -230,27 +253,32 @@ const PORT = process.env.PORT || 3000;
 
 (async () => {
   // [IMP-6 A1] Валидация ADMIN_SECRET
-  if (!process.env.ADMIN_SECRET || process.env.ADMIN_SECRET.length < 16) {
-    console.warn('WARNING: ADMIN_SECRET не задан или слишком короткий — admin broadcast отключён');
+  if (!process.env.ADMIN_SECRET || process.env.ADMIN_SECRET.length < 32) {
+    if (process.env.NODE_ENV === 'production') {
+      logger.error('FATAL: ADMIN_SECRET must be set and at least 32 characters in production');
+      process.exit(1);
+    }
+    logger.warn('WARNING: ADMIN_SECRET не задан или слишком короткий — admin broadcast отключён');
   }
 
   try {
     await createWorkers();
-    console.log('mediasoup Workers запущены');
+    logger.info('mediasoup Workers запущены');
   } catch (err) {
-    console.error('mediasoup не удалось запустить:', err.message);
-    console.log('Голосовые комнаты будут недоступны');
+    logger.error({ err: err.message }, 'mediasoup не удалось запустить');
+    logger.info('Голосовые комнаты будут недоступны');
   }
 
   // ClamAV антивирусный сканер (graceful — если недоступен, файлы загружаются без проверки)
   await initScanner();
 
   httpServer.listen(PORT, () => {
-    console.log(`blesk server запущен на порту ${PORT}`);
+    logger.info({ port: PORT }, 'blesk server запущен');
   });
 
   const gracefulShutdown = async (signal) => {
-    console.log(`\n${signal} received. Shutting down gracefully...`);
+    logger.info({ signal }, 'Shutting down gracefully...');
+    clearVoiceIntervals(); // [P4] Очистить интервалы voice handler
     io.close();
     httpServer.close();
     await prisma.$disconnect();
@@ -266,10 +294,10 @@ const PORT = process.env.PORT || 3000;
         where: { expiresAt: { lt: new Date() } },
       });
       if (result.count > 0) {
-        console.log(`Очищено ${result.count} expired refresh tokens`);
+        logger.info({ count: result.count }, 'Очищено expired refresh tokens');
       }
     } catch (err) {
-      console.error('Ошибка очистки refresh tokens:', err.message);
+      logger.error({ err: err.message }, 'Ошибка очистки refresh tokens');
     }
   }, 6 * 60 * 60 * 1000);
 
@@ -280,21 +308,21 @@ const PORT = process.env.PORT || 3000;
         where: { expiresAt: { lt: new Date() } },
       });
       if (result.count > 0) {
-        console.log(`Очищено ${result.count} expired email codes`);
+        logger.info({ count: result.count }, 'Очищено expired email codes');
       }
     } catch (err) {
-      console.error('Ошибка очистки email codes:', err.message);
+      logger.error({ err: err.message }, 'Ошибка очистки email codes');
     }
   }, 2 * 60 * 60 * 1000);
 })();
 
 // [IMP-3 A1] Graceful crash — exit на fatal errors (PM2 перезапустит)
 process.on('uncaughtException', (err) => {
-  console.error('FATAL uncaughtException:', err);
+  logger.error({ err }, 'FATAL uncaughtException');
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('FATAL unhandledRejection:', reason);
+  logger.error({ reason }, 'FATAL unhandledRejection');
   process.exit(1);
 });

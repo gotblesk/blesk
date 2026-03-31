@@ -21,6 +21,7 @@ import { shieldEncrypt, isShieldReady } from '../../utils/shieldService';
 import { getHueFromString } from '../../utils/hueIdentity';
 import UserProfileModal from '../ui/UserProfileModal';
 import ConfirmDialog from '../ui/ConfirmDialog';
+import EmptyState from '../ui/EmptyState';
 import './ChatView.css';
 
 // Resize edges
@@ -63,7 +64,23 @@ export default function ChatView({
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [forwardMsg, setForwardMsg] = useState(null);
   const [forwardSuccess, setForwardSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const initialUnreadRef = useRef(null);
+
+  // Пространственная навигация — направление анимации при смене чата
+  const chatNavDirection = useRef(0); // -1 вверх, +1 вниз
+  const prevChatIdRef = useRef(chatId);
+  if (prevChatIdRef.current !== chatId) {
+    const allChats = useChatStore.getState().chats;
+    const prevIdx = allChats.findIndex((c) => c.id === prevChatIdRef.current);
+    const nextIdx = allChats.findIndex((c) => c.id === chatId);
+    if (prevIdx !== -1 && nextIdx !== -1) {
+      chatNavDirection.current = nextIdx > prevIdx ? 1 : -1;
+    } else {
+      chatNavDirection.current = 0;
+    }
+    prevChatIdRef.current = chatId;
+  }
 
   // Drag/pull state
   const dragRef = useRef({
@@ -169,14 +186,24 @@ export default function ChatView({
     const prevCount = prevMessageCountRef.current;
     prevMessageCountRef.current = messageCount;
 
-    // Первая загрузка — всегда мгновенный скролл к концу (без анимации)
+    // Первая загрузка — мгновенный скролл к концу
     if (prevCount === 0 && messageCount > 0) {
-      // Два rAF: первый — virtualizer обсчитывает размеры, второй — скролл
-      requestAnimationFrame(() => {
+      const container = messagesContainerRef.current;
+      if (container) container.style.visibility = 'hidden';
+      const scrollToEnd = () => {
         if (!isMountedRef.current) return;
+        virtualizer.scrollToIndex(messageCount - 1, { align: 'end', behavior: 'auto' });
+      };
+      // Несколько попыток — virtualizer пересчитывает размеры каждый frame
+      scrollToEnd();
+      requestAnimationFrame(() => {
+        scrollToEnd();
         requestAnimationFrame(() => {
-          if (!isMountedRef.current) return;
-          virtualizer.scrollToIndex(messageCount - 1, { align: 'end', behavior: 'auto' });
+          scrollToEnd();
+          requestAnimationFrame(() => {
+            scrollToEnd();
+            if (container) container.style.visibility = 'visible';
+          });
         });
       });
       return;
@@ -440,9 +467,9 @@ export default function ChatView({
         text = undefined;
       } catch (err) {
         console.error('Ошибка загрузки файла:', err);
-        // [HIGH-6] Показать ошибку пользователю
         const errMsg = err?.response?.data?.error || err?.message || 'Не удалось загрузить файл';
-        window.blesk?.notify?.('blesk', errMsg);
+        setUploadError(errMsg);
+        setTimeout(() => setUploadError(''), 4000);
       }
     }
     setReplyTo(null);
@@ -638,7 +665,7 @@ export default function ChatView({
           onClick={(e) => { e.stopPropagation(); initialUnreadRef.current = null; animateClose(); }}
           title="Закрыть"
         >
-          ×
+          <X size={16} weight="bold" />
         </button>
       </div>
 
@@ -648,13 +675,14 @@ export default function ChatView({
       )}
 
       {/* Виртуализированный список сообщений */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" custom={chatNavDirection.current}>
       <motion.div
         key={chatId}
-        initial={{ opacity: 0, filter: 'blur(3px)' }}
-        animate={{ opacity: 1, filter: 'blur(0px)' }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.15 }}
+        custom={chatNavDirection.current}
+        initial={(dir) => ({ opacity: 0, y: dir !== 0 ? (dir > 0 ? 30 : -30) : 0, filter: 'blur(3px)' })}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        exit={(dir) => ({ opacity: 0, y: dir !== 0 ? (dir > 0 ? -20 : 20) : 0 })}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
         style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
       <div
@@ -668,10 +696,11 @@ export default function ChatView({
       >
         {/* Empty state: нет сообщений */}
         {messageCount === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, opacity: 0.4 }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-            <span style={{ fontSize: 13 }}>Начните разговор — напишите первое сообщение</span>
-          </div>
+          <EmptyState
+            type="no-messages"
+            title="Начните разговор"
+            subtitle="Напишите первое сообщение"
+          />
         )}
 
         <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
@@ -747,6 +776,7 @@ export default function ChatView({
               <TypingBubble
                 user={typingInChat[0]}
                 hue={getHueFromString(typingInChat[0].username || '')}
+                username={typingNames[0]}
               />
             </motion.div>
           )}
@@ -844,6 +874,13 @@ export default function ChatView({
         <div className="chat-view__forward-toast">
           <Check size={14} />
           <span>Сообщение переслано</span>
+        </div>
+      )}
+
+      {uploadError && (
+        <div className="chat-view__upload-error-toast">
+          <X size={14} />
+          <span>{uploadError}</span>
         </div>
       )}
     </div>

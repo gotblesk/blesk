@@ -4,13 +4,15 @@ import { useCallStore } from '../../store/callStore';
 import { useVoiceStore } from '../../store/voiceStore';
 import { useSettingsStore } from '../../store/settingsStore';
 
-// Priority: INCOMING(5) > CALL(4) > MESSAGE(3) > TYPING(2) > UPDATE(1) > IDLE(0)
+// Priority: INCOMING(6) > CALL(5) > RECORDING(4) > MESSAGE(3) > UPLOADING(2.5) > TYPING(2) > UPDATE(1) > IDLE(0)
 export function useIslandState(user, { suppressCallState = false } = {}) {
   const [state, setState] = useState('loading');
   const [messageData, setMessageData] = useState(null);
   const [typingData, setTypingData] = useState(null);
   const [updateData, setUpdateData] = useState(null);
   const [updateProgress, setUpdateProgress] = useState(null);
+  const [recordingData, setRecordingData] = useState(null); // { elapsed: number }
+  const [uploadingData, setUploadingData] = useState(null); // { filename, percent }
 
   const msgTimeoutRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -27,13 +29,15 @@ export function useIslandState(user, { suppressCallState = false } = {}) {
   useEffect(() => {
     if (incomingCall && !suppressCallState) { setState('incoming'); return; }
     if ((activeCall || voiceRoomId) && !suppressCallState) { setState('call'); return; }
+    if (recordingData) { setState('recording'); return; }
     if (messageData) { setState('message'); return; }
+    if (uploadingData) { setState('uploading'); return; }
     if (typingData) { setState('typing'); return; }
     if (updateProgress) { setState('update_progress'); return; }
     if (updateData) { setState('update'); return; }
     if (!isConnected) { setState('loading'); return; }
     setState('idle');
-  }, [incomingCall, activeCall, voiceRoomId, messageData, typingData, updateData, updateProgress, isConnected, suppressCallState]);
+  }, [incomingCall, activeCall, voiceRoomId, recordingData, messageData, uploadingData, typingData, updateData, updateProgress, isConnected, suppressCallState]);
 
   // Show message notification (4 sec)
   const showMessage = useCallback((msg) => {
@@ -79,6 +83,24 @@ export function useIslandState(user, { suppressCallState = false } = {}) {
     setUpdateProgress(null);
   }, []);
 
+  // Recording state
+  const startRecordingIsland = useCallback(() => {
+    setRecordingData({ startedAt: Date.now() });
+  }, []);
+
+  const stopRecordingIsland = useCallback(() => {
+    setRecordingData(null);
+  }, []);
+
+  // Upload state
+  const showUploading = useCallback((filename, percent) => {
+    setUploadingData({ filename, percent });
+  }, []);
+
+  const clearUploading = useCallback(() => {
+    setUploadingData(null);
+  }, []);
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -87,12 +109,38 @@ export function useIslandState(user, { suppressCallState = false } = {}) {
     };
   }, []);
 
+  // Глобальный хук — позволяет вызывать из любого компонента без prop drilling
+  // Использование: window.__bleskIslandSet('recording', { filename: 'file.jpg', percent: 42 })
+  useEffect(() => {
+    window.__bleskIslandSet = (newState, data = {}) => {
+      switch (newState) {
+        case 'recording':
+          startRecordingIsland();
+          break;
+        case 'recording:stop':
+          stopRecordingIsland();
+          break;
+        case 'uploading':
+          showUploading(data.filename || '', data.percent ?? 0);
+          break;
+        case 'uploading:done':
+          clearUploading();
+          break;
+        default:
+          break;
+      }
+    };
+    return () => { window.__bleskIslandSet = null; };
+  }, [startRecordingIsland, stopRecordingIsland, showUploading, clearUploading]);
+
   return {
     state,
     messageData,
     typingData,
     updateData,
     updateProgress,
+    recordingData,
+    uploadingData,
     // Call data
     incomingCall,
     activeCall,
@@ -107,6 +155,10 @@ export function useIslandState(user, { suppressCallState = false } = {}) {
     dismissUpdate,
     setProgress,
     clearProgress,
+    startRecordingIsland,
+    stopRecordingIsland,
+    showUploading,
+    clearUploading,
     setMessageData,
   };
 }

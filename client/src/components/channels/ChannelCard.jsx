@@ -1,3 +1,4 @@
+import { useState, useRef, useCallback } from 'react';
 import { UsersThree, ArrowRight, Bell, BellSlash } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 import API_URL from '../../config';
@@ -26,13 +27,44 @@ export default function ChannelCard({ channel, variant = 'compact', isSubscribed
   const initial = (channel.name || '?')[0].toUpperCase();
   const subCount = channel.subscribersCount ?? channel.subscriberCount ?? 0;
 
+  // 3D tilt parallax
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
+  const cardRef = useRef(null);
+
+  const handleMouseMove = useCallback((e) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    setTilt({ x: (y - 0.5) * -8, y: (x - 0.5) * 8 });
+    setMousePos({ x: x * 100, y: y * 100 });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setTilt({ x: 0, y: 0 });
+    setMousePos({ x: 50, y: 50 });
+  }, []);
+
   return (
     <motion.div
+      ref={cardRef}
       className={`mc mc--${variant}`}
       onClick={() => onOpen?.(channel.id)}
-      whileHover={{ y: -4, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      animate={{ rotateX: tilt.x, rotateY: tilt.y }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
       whileTap={{ scale: 0.98 }}
-      style={{ '--card-hue': hue, '--cat-color': catColor, cursor: (isSubscribed || isOwned) ? 'pointer' : 'default' }}
+      style={{
+        '--card-hue': hue,
+        '--cat-color': catColor,
+        '--mouse-x': `${mousePos.x}%`,
+        '--mouse-y': `${mousePos.y}%`,
+        cursor: (isSubscribed || isOwned) ? 'pointer' : 'default',
+        transformPerspective: 800,
+        transformStyle: 'preserve-3d',
+      }}
     >
       {(isOwned || variant === 'featured') && <div className="mc__accent" />}
       <div className="mc__glow" />

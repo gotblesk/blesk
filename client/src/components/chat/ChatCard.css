@@ -2,9 +2,9 @@
 .chat-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 14px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -117,7 +117,7 @@
 .chat-row__badge {
   min-width: 20px;
   height: 20px;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-text);
   font-size: 11px;

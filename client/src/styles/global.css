@@ -10,16 +10,18 @@
 @font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-SemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
 
 :root {
-  /* Z-index hierarchy */
+  /* Z-index hierarchy (ordered low→high, no conflicts) */
   --z-base: 0;
   --z-content: 10;
   --z-sidebar: 30;
   --z-hover-preview: 40;
   --z-topnav: 50;
-  --z-toast: 99;
-  --z-island: 100;
+  --z-dropdown: 60;
+  --z-island: 90;
+  --z-tooltip: 150;
+  --z-toast: 200;
   --z-modal: 1000;
-  --z-call-overlay: 9999;
+  --z-call-overlay: 2000;
 
   /* [TYP-1] Type scale tokens */
   --text-2xs: 11px;
@@ -161,6 +163,15 @@
   --space-10: 40px;
   --space-12: 48px;
   --space-16: 64px;
+
+  /* ═══ Easing & Duration tokens (R.2 Liquid Glass fluid feel) ═══ */
+  --ease-glass: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;       /* кнопки, tooltips */
+  --duration-normal: 250ms;     /* hover, toggles */
+  --duration-fluid: 400ms;      /* панели, модалки, glass transitions */
+  --duration-slow: 600ms;       /* морфинг, page transitions */
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -277,7 +288,7 @@ html.theme-transitioning img {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 9998;
+  z-index: calc(var(--z-call-overlay) - 1);
   pointer-events: none;
   clip-path: circle(0% at var(--wipe-x, 50%) var(--wipe-y, 50%));
   animation: themeWipe 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -312,11 +323,16 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
 
+/* [R.6] cursor-pointer на всех интерактивных элементах */
+:is(button, a, [role="button"], [tabindex]:not([tabindex="-1"]), summary, select) {
+  cursor: pointer;
+}
+
 /* [WCAG 2.4.7 + 2.4.13] Фокус — только при навигации клавиатурой */
 :is(button, a, [role="button"], [tabindex]):focus-visible {
-  outline: 2px solid #c8ff00;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(200,255,0,0.12);
+  box-shadow: 0 0 0 4px rgba(200,255,0,0.12); /* accent glow */
 }
 :is(button, a, [role="button"], [tabindex]):focus:not(:focus-visible) {
   outline: none;
@@ -423,6 +439,58 @@ select:focus-visible {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* ═══════ IRIDESCENT SHIMMER ═══════ */
+/* Subtle rainbow shimmer on hover for glass panels — Liquid Glass premium feel */
+.glass-iridescent {
+  position: relative;
+}
+.glass-iridescent::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(200, 255, 0, 0.0) 0%,
+    rgba(200, 255, 0, 0.03) 20%,
+    rgba(0, 212, 255, 0.03) 40%,
+    rgba(255, 0, 106, 0.02) 60%,
+    rgba(200, 255, 0, 0.03) 80%,
+    rgba(200, 255, 0, 0.0) 100%
+  );
+  background-size: 300% 300%;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+.glass-iridescent:hover::before {
+  opacity: 1;
+  animation: iridescentShift 3s ease-in-out infinite;
+}
+@keyframes iridescentShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-iridescent:hover::before {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+[data-theme="light"] .glass-iridescent::before {
+  background: linear-gradient(
+    135deg,
+    rgba(74, 122, 0, 0.0) 0%,
+    rgba(74, 122, 0, 0.04) 20%,
+    rgba(0, 150, 200, 0.03) 40%,
+    rgba(200, 0, 80, 0.02) 60%,
+    rgba(74, 122, 0, 0.04) 80%,
+    rgba(74, 122, 0, 0.0) 100%
+  );
+  background-size: 300% 300%;
 }
 
 /* Main screen reveal after auth */

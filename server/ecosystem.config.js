@@ -4,6 +4,9 @@ module.exports = {
     script: 'src/index.js',
     instances: 1,
     max_memory_restart: '512M',
+    min_uptime: '10s',
+    max_restarts: 15,
+    restart_delay: 3000,
     env: {
       NODE_ENV: 'production',
     },

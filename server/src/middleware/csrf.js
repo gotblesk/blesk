@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const logger = require('../utils/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -54,7 +55,7 @@ function csrfProtection(req, res, next) {
   const csrfToken = req.headers['x-csrf-token'];
   if (!csrfToken || !validateCsrfToken(userId, csrfToken)) {
     // Логируем но не блокируем (graceful — клиент мог не успеть получить токен)
-    console.warn(`CSRF warning: invalid token from userId=${userId}, origin=${origin}`);
+    logger.warn({ userId, origin }, 'CSRF warning: invalid token');
     return res.status(403).json({ error: 'Недействительный CSRF-токен' });
   }
   next();

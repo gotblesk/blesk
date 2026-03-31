@@ -9,6 +9,7 @@ const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { validateFile, sanitizeFilename } = require('../services/fileValidator');
 const { scanFile } = require('../services/fileScanner');
+const logger = require('../utils/logger');
 
 const router = Router();
 
@@ -167,7 +168,7 @@ router.post('/channels/:channelId/upload', uploadLimiter, authenticate, upload.s
     // [MED-3] Очистить оба файла при ошибке
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     if (finalPath && fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
-    console.error('channel upload error:', err);
+    logger.error({ err }, 'channel upload error');
     res.status(500).json({ error: 'Ошибка загрузки файла' });
   }
 });
@@ -262,7 +263,7 @@ router.post('/:chatId/upload', uploadLimiter, authenticate, upload.single('file'
     // [MED-3] Очистить оба файла при ошибке
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     if (finalPath && fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
-    console.error('upload error:', err);
+    logger.error({ err }, 'upload error');
     res.status(500).json({ error: 'Ошибка загрузки файла' });
   }
 });
@@ -297,7 +298,7 @@ router.get('/attachments/:filename', authenticate, async (req, res) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.sendFile(filePath);
   } catch (err) {
-    console.error('attachment download error:', err);
+    logger.error({ err }, 'attachment download error');
     res.status(500).json({ error: 'Ошибка скачивания' });
   }
 });

@@ -2,7 +2,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: var(--space-4);
   overflow-y: auto;
   transition: opacity 0.3s ease, filter 0.3s ease;
 }
@@ -18,9 +18,9 @@
 .chat-hub__toolbar {
   display: flex;
   gap: 10px;
-  margin-bottom: 16px;
-  padding: 0 4px;
-  gap: 12px;
+  margin-bottom: var(--space-4);
+  padding: 0 var(--space-1);
+  gap: var(--space-3);
 }
 
 .chat-hub__search-wrap {
@@ -29,8 +29,8 @@
 
 .chat-hub__search {
   width: 100%;
-  padding: 10px 16px;
-  border-radius: 14px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
@@ -52,7 +52,7 @@
 .chat-hub__add {
   width: 42px;
   height: 42px;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(200, 255, 0, 0.08);
   color: var(--accent);
@@ -107,9 +107,9 @@
 }
 
 .chat-hub__empty-cta {
-  margin-top: 8px;
-  padding: 8px 20px;
-  border-radius: 10px;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-md);
   border: none;
   background: var(--accent);
   color: var(--accent-text);

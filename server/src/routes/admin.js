@@ -9,10 +9,21 @@ const router = Router();
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const pkg = require('../../package.json');
+const logger = require('../utils/logger');
+
+// [P5] Кеш статистики — TTL 5 секунд
+let _statsCache = null;
+let _statsCacheAt = 0;
+const STATS_CACHE_TTL = 5000;
 
 // ─── GET /stats ───
 router.get('/stats', authenticate, requireAdmin, async (req, res) => {
   try {
+    // Отдать кешированный результат если он свежее 5 секунд
+    if (_statsCache && Date.now() - _statsCacheAt < STATS_CACHE_TTL) {
+      return res.json(_statsCache);
+    }
+
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -30,7 +41,7 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
         prisma.feedback.count({ where: { status: 'new' } }),
       ]);
 
-    res.json({
+    const statsResult = {
       usersTotal,
       usersOnline: onlineUserIds.size,
       messagesToday,
@@ -38,9 +49,15 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
       channelsTotal,
       reportsNew,
       feedbackNew,
-    });
+    };
+
+    // Сохранить в кеш
+    _statsCache = statsResult;
+    _statsCacheAt = Date.now();
+
+    res.json(statsResult);
   } catch (err) {
-    console.error('stats error:', err);
+    logger.error({ err }, 'stats error');
     res.status(500).json({ error: 'Ошибка получения статистики' });
   }
 });
@@ -84,7 +101,7 @@ router.get('/users', authenticate, requireAdmin, async (req, res) => {
 
     res.json({ users, total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('users error:', err);
+    logger.error({ err }, 'users error');
     res.status(500).json({ error: 'Ошибка получения списка' });
   }
 });
@@ -107,7 +124,7 @@ router.get('/users/:id', authenticate, requireAdmin, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
     res.json(user);
   } catch (err) {
-    console.error('users/:id error:', err);
+    logger.error({ err }, 'users/:id error');
     res.status(500).json({ error: 'Ошибка получения пользователя' });
   }
 });
@@ -144,6 +161,11 @@ router.patch('/users/:id', authenticate, requireAdmin, async (req, res) => {
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Пользователь не найден' });
 
+    // [S3] Нельзя менять свою собственную роль
+    if (changes.role && id === req.adminUser.id) {
+      return res.status(403).json({ error: 'Нельзя изменить свою роль' });
+    }
+
     // Нельзя менять роль другого админа (защита от эскалации привилегий)
     if (changes.role && existing.role === 'admin' && id !== req.adminUser.id) {
       return res.status(403).json({ error: 'Нельзя менять роль другого администратора' });
@@ -159,7 +181,7 @@ router.patch('/users/:id', authenticate, requireAdmin, async (req, res) => {
 
     res.json({ ok: true, user: { id: user.id, username: user.username, tag: user.tag, role: user.role } });
   } catch (err) {
-    console.error('users/:id patch error:', err);
+    logger.error({ err }, 'users/:id patch error');
     res.status(500).json({ error: 'Ошибка обновления' });
   }
 });
@@ -170,6 +192,11 @@ router.post('/users/:id/ban', authenticate, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
     if (!reason) return res.status(400).json({ error: 'Укажите причину бана' });
+
+    // [S25] Нельзя забанить себя
+    if (id === req.adminUser.id) {
+      return res.status(403).json({ error: 'Нельзя забанить себя' });
+    }
 
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Пользователь не найден' });
@@ -192,7 +219,7 @@ router.post('/users/:id/ban', authenticate, requireAdmin, async (req, res) => {
     await logAdminAction(req.adminUser.id, 'user.ban', 'user', id, { reason });
     res.json({ ok: true });
   } catch (err) {
-    console.error('ban error:', err);
+    logger.error({ err }, 'ban error');
     res.status(500).json({ error: 'Ошибка бана' });
   }
 });
@@ -215,7 +242,7 @@ router.post('/users/:id/unban', authenticate, requireAdmin, async (req, res) => 
     await logAdminAction(req.adminUser.id, 'user.unban', 'user', id);
     res.json({ ok: true });
   } catch (err) {
-    console.error('unban error:', err);
+    logger.error({ err }, 'unban error');
     res.status(500).json({ error: 'Ошибка разбана' });
   }
 });
@@ -246,7 +273,7 @@ router.post('/users/:id/tags', authenticate, requireAdmin, async (req, res) => {
     await logAdminAction(req.adminUser.id, 'user.tag.grant', 'user', id, { tagId, tagName: tag.name });
     res.json({ ok: true, userTag });
   } catch (err) {
-    console.error('tag grant error:', err);
+    logger.error({ err }, 'tag grant error');
     res.status(500).json({ error: 'Ошибка выдачи тега' });
   }
 });
@@ -264,7 +291,7 @@ router.delete('/users/:id/tags/:tagId', authenticate, requireAdmin, async (req, 
     await logAdminAction(req.adminUser.id, 'user.tag.revoke', 'user', id, { tagId });
     res.json({ ok: true });
   } catch (err) {
-    console.error('tag revoke error:', err);
+    logger.error({ err }, 'tag revoke error');
     res.status(500).json({ error: 'Ошибка удаления тега' });
   }
 });
@@ -280,7 +307,7 @@ router.get('/tags', authenticate, requireAdmin, async (req, res) => {
     });
     res.json({ tags });
   } catch (err) {
-    console.error('tags error:', err);
+    logger.error({ err }, 'tags error');
     res.status(500).json({ error: 'Ошибка получения тегов' });
   }
 });
@@ -316,7 +343,7 @@ router.post('/tags', authenticate, requireAdmin, async (req, res) => {
     await logAdminAction(req.adminUser.id, 'tag.create', 'tag', tag.id, { name: tag.name });
     res.status(201).json({ ok: true, tag });
   } catch (err) {
-    console.error('tags create error:', err);
+    logger.error({ err }, 'tags create error');
     res.status(500).json({ error: 'Ошибка создания тега' });
   }
 });
@@ -350,7 +377,7 @@ router.patch('/tags/:id', authenticate, requireAdmin, async (req, res) => {
     await logAdminAction(req.adminUser.id, 'tag.edit', 'tag', id, { changes });
     res.json({ ok: true, tag });
   } catch (err) {
-    console.error('tags edit error:', err);
+    logger.error({ err }, 'tags edit error');
     res.status(500).json({ error: 'Ошибка обновления тега' });
   }
 });
@@ -366,7 +393,7 @@ router.delete('/tags/:id', authenticate, requireAdmin, async (req, res) => {
     await logAdminAction(req.adminUser.id, 'tag.delete', 'tag', id, { name: existing.name });
     res.json({ ok: true });
   } catch (err) {
-    console.error('tags delete error:', err);
+    logger.error({ err }, 'tags delete error');
     res.status(500).json({ error: 'Ошибка удаления тега' });
   }
 });
@@ -398,7 +425,7 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
 
     res.json({ reports, total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('reports error:', err);
+    logger.error({ err }, 'reports error');
     res.status(500).json({ error: 'Ошибка получения жалоб' });
   }
 });
@@ -425,7 +452,7 @@ router.patch('/reports/:id', authenticate, requireAdmin, async (req, res) => {
     await logAdminAction(req.adminUser.id, 'report.update', 'report', id, { status });
     res.json({ ok: true, report });
   } catch (err) {
-    console.error('reports patch error:', err);
+    logger.error({ err }, 'reports patch error');
     res.status(500).json({ error: 'Ошибка обработки жалобы' });
   }
 });
@@ -450,7 +477,7 @@ router.delete('/messages/:id', authenticate, requireAdmin, async (req, res) => {
     await logAdminAction(req.adminUser.id, 'message.delete', 'message', id, { roomId: message.roomId });
     res.json({ ok: true });
   } catch (err) {
-    console.error('messages delete error:', err);
+    logger.error({ err }, 'messages delete error');
     res.status(500).json({ error: 'Ошибка удаления сообщения' });
   }
 });
@@ -486,7 +513,7 @@ router.get('/logs', authenticate, requireAdmin, async (req, res) => {
 
     res.json({ logs, total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('logs error:', err);
+    logger.error({ err }, 'logs error');
     res.status(500).json({ error: 'Ошибка получения логов' });
   }
 });
@@ -517,7 +544,7 @@ router.get('/feedback', authenticate, requireAdmin, async (req, res) => {
 
     res.json({ feedbacks, total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('feedback error:', err);
+    logger.error({ err }, 'feedback error');
     res.status(500).json({ error: 'Ошибка получения фидбека' });
   }
 });
@@ -539,7 +566,7 @@ router.patch('/feedback/:id', authenticate, requireAdmin, async (req, res) => {
     await logAdminAction(req.adminUser.id, 'feedback.update', 'feedback', id, { status });
     res.json({ ok: true, feedback });
   } catch (err) {
-    console.error('feedback patch error:', err);
+    logger.error({ err }, 'feedback patch error');
     res.status(500).json({ error: 'Ошибка обновления фидбека' });
   }
 });
@@ -549,17 +576,34 @@ router.patch('/feedback/:id', authenticate, requireAdmin, async (req, res) => {
 // ─── GET /channels ───
 router.get('/channels', authenticate, requireAdmin, async (req, res) => {
   try {
-    const channels = await prisma.room.findMany({
-      where: { type: 'channel' },
-      include: {
-        owner: { select: { id: true, username: true, tag: true } },
-        channelMeta: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json({ channels });
+    let { page = 1, limit = 50, search } = req.query;
+    page = Math.max(1, parseInt(page) || 1);
+    limit = Math.min(100, Math.max(1, parseInt(limit) || 50));
+
+    if (search && search.length > 100) {
+      return res.status(400).json({ error: 'Слишком длинный поиск' });
+    }
+
+    const where = { type: 'channel' };
+    if (search) where.name = { contains: search, mode: 'insensitive' };
+
+    const [channels, total] = await Promise.all([
+      prisma.room.findMany({
+        where,
+        include: {
+          owner: { select: { id: true, username: true, tag: true } },
+          channelMeta: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.room.count({ where }),
+    ]);
+
+    res.json({ channels, total, page, pages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('channels error:', err);
+    logger.error({ err }, 'channels error');
     res.status(500).json({ error: 'Ошибка получения каналов' });
   }
 });
@@ -585,7 +629,7 @@ router.delete('/channels/:id', authenticate, requireAdmin, async (req, res) => {
     await logAdminAction(req.adminUser.id, 'channel.delete', 'channel', id, { name: room.name });
     res.json({ ok: true });
   } catch (err) {
-    console.error('channels delete error:', err);
+    logger.error({ err }, 'channels delete error');
     res.status(500).json({ error: 'Ошибка удаления канала' });
   }
 });
@@ -600,7 +644,7 @@ router.post('/broadcast-update', async (req, res) => {
       if (crypto.timingSafeEqual(Buffer.from(adminSecret), Buffer.from(ADMIN_SECRET))) {
         isAuthed = true;
       }
-    } catch (err) { console.error('Admin secret timingSafeEqual failed:', err.message); }
+    } catch (err) { logger.error({ err: err.message }, 'Admin secret timingSafeEqual failed'); }
   }
 
   // JWT fallback
@@ -643,22 +687,28 @@ router.post('/broadcast-update', async (req, res) => {
     }));
     await prisma.notification.createMany({ data: notifData });
 
-    // Отправить socket-события подключённым пользователям
+    // [P8] Отправить socket-события чанками по 100 пользователей с задержкой 10ms
     const notifPayload = {
       type: 'system',
       title: `Доступно обновление ${version}`,
       body: changelog || 'Доступна новая версия blesk. Перезапустите приложение для обновления.',
     };
-    for (const uid of connectedUserIds) {
-      emitToUserAll(uid, 'notification:new', notifPayload);
-      emitToUserAll(uid, 'app:update-available', { version, changelog });
+    const CHUNK_SIZE = 100;
+    const CHUNK_DELAY_MS = 10;
+    for (let i = 0; i < connectedUserIds.length; i += CHUNK_SIZE) {
+      const chunk = connectedUserIds.slice(i, i + CHUNK_SIZE);
+      if (i > 0) await new Promise(resolve => setTimeout(resolve, CHUNK_DELAY_MS));
+      for (const uid of chunk) {
+        emitToUserAll(uid, 'notification:new', notifPayload);
+        emitToUserAll(uid, 'app:update-available', { version, changelog });
+      }
     }
 
     await logAdminAction('system', 'broadcast.update', 'system', null, { version, notified: connectedUserIds.size });
 
     res.json({ ok: true, notified: connectedUserIds.size, version });
   } catch (err) {
-    console.error('broadcast-update error:', err);
+    logger.error({ err }, 'broadcast-update error');
     res.status(500).json({ error: 'Ошибка рассылки' });
   }
 });
@@ -723,7 +773,7 @@ router.get('/db/:table', authenticate, requireAdmin, async (req, res) => {
 
     res.json({ rows: cleanRows, total, columns, page, pages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('db error:', err);
+    logger.error({ err }, 'db error');
     res.status(500).json({ error: 'Ошибка чтения таблицы' });
   }
 });
@@ -749,7 +799,7 @@ router.get('/server/config', authenticate, requireAdmin, async (req, res) => {
       dbStatus,
     });
   } catch (err) {
-    console.error('server/config error:', err);
+    logger.error({ err }, 'server/config error');
     res.status(500).json({ error: 'Ошибка получения конфигурации' });
   }
 });

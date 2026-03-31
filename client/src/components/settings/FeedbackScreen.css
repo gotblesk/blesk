@@ -8,7 +8,7 @@
   background: rgba(8, 6, 15, 0.6);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  z-index: 310;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;

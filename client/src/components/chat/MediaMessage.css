@@ -67,7 +67,7 @@
 }
 
 [data-theme="light"] .media-msg__voice-play {
-  background: var(--accent, #7c3aed);
+  background: var(--accent, #c8ff00);
   color: #fff;
 }
 [data-theme="light"] .media-msg__voice {
@@ -101,9 +101,20 @@
 }
 
 [data-theme="light"] .voice-msg__speed {
-  color: var(--accent-dark, #7c3aed);
+  color: var(--accent-dark, #c8ff00);
   background: rgba(124,58,237,0.08);
 }
 [data-theme="light"] .voice-msg__speed:hover {
   background: rgba(124,58,237,0.15);
+}
+
+/* ─── Ошибка загрузки аудио ─── */
+.media-msg__voice--error {
+  min-width: 160px;
+  justify-content: center;
+}
+.media-msg__voice-error-text {
+  font-size: 12px;
+  color: var(--danger, #ef4444);
+  opacity: 0.75;
 }

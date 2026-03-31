@@ -281,7 +281,9 @@ model ChannelSubscriber {
   channel      Room     @relation("ChannelSubscribers", fields: [channelId], references: [id], onDelete: Cascade)
   userId       String   @map("user_id")
   user         User     @relation("UserSubscriptions", fields: [userId], references: [id])
-  subscribedAt DateTime @default(now()) @map("subscribed_at")
+  subscribedAt DateTime  @default(now()) @map("subscribed_at")
+  isMuted      Boolean   @default(false) @map("is_muted")
+  mutedUntil   DateTime? @map("muted_until")
 
   @@unique([channelId, userId])
   @@index([channelId])

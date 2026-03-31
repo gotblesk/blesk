@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const logger = require('../utils/logger');
 const crypto = require('crypto');
 const path = require('path');
 
@@ -20,10 +21,10 @@ if (process.env.SMTP_HOST) {
 
   // Проверить SMTP при старте
   transporter.verify()
-    .then(() => console.log('SMTP connected:', process.env.SMTP_HOST))
-    .catch((err) => console.error('SMTP error:', err.message));
+    .then(() => logger.info({ host: process.env.SMTP_HOST }, 'SMTP connected'))
+    .catch((err) => logger.error({ err: err.message }, 'SMTP error'));
 } else {
-  console.warn('SMTP not configured — codes logged to console');
+  logger.warn('SMTP not configured — codes logged to console');
 }
 
 // Путь к логотипу
@@ -93,8 +94,9 @@ function buildEmailHTML(code) {
 // Отправка кода на email
 async function sendVerificationCode(email, code) {
   if (!transporter) {
-    // Dev-режим: логируем в консоль
-    console.log(`\n[DEV] Verification code for ${email}: ${code}\n`);
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info({ email, code }, '[DEV] Verification code');
+    }
     return true;
   }
 
@@ -109,7 +111,7 @@ async function sendVerificationCode(email, code) {
         cid: 'blesk-logo',
       }];
     }
-  } catch (err) { console.error('Failed to attach email logo:', err.message); }
+  } catch (err) { logger.error({ err: err.message }, 'Failed to attach email logo'); }
 
   try {
     await transporter.sendMail({
@@ -124,7 +126,7 @@ async function sendVerificationCode(email, code) {
     });
     return true;
   } catch (err) {
-    console.error('Email send error:', err.message);
+    logger.error({ err: err.message }, 'Email send error');
     return false;
   }
 }

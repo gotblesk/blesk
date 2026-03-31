@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 const router = Router();
 
@@ -45,7 +46,7 @@ router.post('/', authenticate, async (req, res) => {
 
     res.status(201).json({ id: feedback.id });
   } catch (err) {
-    console.error('Ошибка создания feedback:', err);
+    logger.error({ err }, 'Ошибка создания feedback');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -61,7 +62,7 @@ router.get('/', authenticate, async (req, res) => {
 
     res.json({ feedbacks });
   } catch (err) {
-    console.error('Ошибка получения feedback:', err);
+    logger.error({ err }, 'Ошибка получения feedback');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });

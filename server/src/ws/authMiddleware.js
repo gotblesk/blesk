@@ -1,9 +1,10 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
+const logger = require('../utils/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET не задан в .env');
+  logger.error('FATAL: JWT_SECRET не задан в .env');
   process.exit(1);
 }
 

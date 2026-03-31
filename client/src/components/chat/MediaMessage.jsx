@@ -46,20 +46,55 @@ function formatTime(sec) {
   return `${m}:${r < 10 ? '0' : ''}${r}`;
 }
 
+const VOICE_BAR_COUNT = 30;
+
 function VoiceMessage({ src }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [waveform, setWaveform] = useState([]);
-  const [speed, setSpeed] = useState(1);
+  const [waveform, setWaveform] = useState(() => Array.from({ length: VOICE_BAR_COUNT }, () => 0.2 + Math.random() * 0.8));
+  // [V6] Сохранять скорость воспроизведения между сообщениями
+  const [speed, setSpeed] = useState(() => parseFloat(localStorage.getItem('voiceSpeed')) || 1);
+  const [audioError, setAudioError] = useState(false);
   const audioRef = useRef(null);
   const rafRef = useRef(null);
 
-  // Генерируем визуальную волну (30 столбцов с псевдо-случайной высотой)
+  // Декодируем аудио и строим реальную форму волны через OfflineAudioContext
   useEffect(() => {
-    const bars = Array.from({ length: 30 }, () => 0.2 + Math.random() * 0.8);
-    setWaveform(bars);
-  }, []);
+    let cancelled = false;
+
+    async function buildWaveform() {
+      try {
+        const response = await fetch(src);
+        if (!response.ok) return;
+        const arrayBuffer = await response.arrayBuffer();
+
+        // OfflineAudioContext для декодирования без воспроизведения
+        const offlineCtx = new OfflineAudioContext(1, 1, 22050);
+        const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
+
+        const data = audioBuffer.getChannelData(0);
+        const step = Math.floor(data.length / VOICE_BAR_COUNT);
+        const bars = Array.from({ length: VOICE_BAR_COUNT }, (_, i) => {
+          let sum = 0;
+          const start = i * step;
+          const end = Math.min(start + step, data.length);
+          for (let j = start; j < end; j++) {
+            sum += Math.abs(data[j]);
+          }
+          const avg = sum / (end - start);
+          return Math.max(0.08, Math.min(1, avg * 3.5));
+        });
+
+        if (!cancelled) setWaveform(bars);
+      } catch {
+        // Если декодирование не удалось — оставляем псевдо-случайные бары
+      }
+    }
+
+    buildWaveform();
+    return () => { cancelled = true; };
+  }, [src]);
 
   // Singleton playback — останавливаем этот плеер если запустился другой
   useEffect(() => {
@@ -108,6 +143,7 @@ function VoiceMessage({ src }) {
     const nextIdx = (speeds.indexOf(speed) + 1) % speeds.length;
     const newSpeed = speeds[nextIdx];
     setSpeed(newSpeed);
+    localStorage.setItem('voiceSpeed', String(newSpeed)); // [V6] persist
     if (audioRef.current) audioRef.current.playbackRate = newSpeed;
   };
 
@@ -130,6 +166,14 @@ function VoiceMessage({ src }) {
     setProgress(ratio * 100);
   };
 
+  if (audioError) {
+    return (
+      <div className="media-msg__voice media-msg__voice--error">
+        <span className="media-msg__voice-error-text">Не удалось загрузить аудио</span>
+      </div>
+    );
+  }
+
   return (
     <div className={`media-msg__voice${playing ? ' media-msg__voice--playing' : ''}`}>
       <audio
@@ -138,6 +182,7 @@ function VoiceMessage({ src }) {
         preload="metadata"
         onEnded={handleEnded}
         onLoadedMetadata={handleLoaded}
+        onError={() => setAudioError(true)}
       />
       <button className="media-msg__voice-play" onClick={toggle}>
         {playing ? <Pause size={14} weight="fill" /> : <Play size={14} weight="fill" />}

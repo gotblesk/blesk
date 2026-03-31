@@ -1,23 +1,33 @@
 const { Router } = require('express');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 const router = Router();
 
-// Список уведомлений (последние 50)
+// Список уведомлений с пагинацией
 router.get('/', authenticate, async (req, res) => {
   try {
-    const notifications = await prisma.notification.findMany({
-      where: { userId: req.userId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      include: {
-        fromUser: { select: { id: true, username: true, hue: true, avatar: true } },
-      },
-    });
-    res.json(notifications);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const skip = (page - 1) * limit;
+
+    const [notifications, total] = await Promise.all([
+      prisma.notification.findMany({
+        where: { userId: req.userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          fromUser: { select: { id: true, username: true, hue: true, avatar: true } },
+        },
+      }),
+      prisma.notification.count({ where: { userId: req.userId } }),
+    ]);
+
+    res.json({ notifications, total, page });
   } catch (err) {
-    console.error('GET /api/notifications error:', err);
+    logger.error({ err }, 'GET /api/notifications error');
     res.status(500).json({ error: 'Ошибка загрузки уведомлений' });
   }
 });
@@ -30,7 +40,7 @@ router.get('/unread-count', authenticate, async (req, res) => {
     });
     res.json({ count });
   } catch (err) {
-    console.error('GET /api/notifications/unread-count error:', err);
+    logger.error({ err }, 'GET /api/notifications/unread-count error');
     res.status(500).json({ error: 'Ошибка' });
   }
 });
@@ -44,7 +54,7 @@ router.post('/read-all', authenticate, async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
-    console.error('POST /api/notifications/read-all error:', err);
+    logger.error({ err }, 'POST /api/notifications/read-all error');
     res.status(500).json({ error: 'Ошибка' });
   }
 });
@@ -57,7 +67,7 @@ router.delete('/clear', authenticate, async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
-    console.error('DELETE /api/notifications/clear error:', err);
+    logger.error({ err }, 'DELETE /api/notifications/clear error');
     res.status(500).json({ error: 'Ошибка' });
   }
 });
@@ -77,7 +87,7 @@ router.post('/:id/read', authenticate, async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
-    console.error('POST /api/notifications/:id/read error:', err);
+    logger.error({ err }, 'POST /api/notifications/:id/read error');
     res.status(500).json({ error: 'Ошибка' });
   }
 });
@@ -94,7 +104,7 @@ router.delete('/:id', authenticate, async (req, res) => {
     await prisma.notification.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch (err) {
-    console.error('DELETE /api/notifications/:id error:', err);
+    logger.error({ err }, 'DELETE /api/notifications/:id error');
     res.status(500).json({ error: 'Ошибка' });
   }
 });

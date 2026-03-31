@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Microphone, MicrophoneSlash, Headphones, SpeakerSlash,
   PhoneDisconnect, Phone, X, Sparkle, ArrowClockwise,
+  Record, UploadSimple,
 } from '@phosphor-icons/react';
 import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
@@ -20,16 +21,20 @@ const stateStyles = {
   incoming:        { borderRadius: 24,  padding: '14px 18px' },
   update:          { borderRadius: 22,  padding: '10px 14px' },
   update_progress: { borderRadius: 22,  padding: '10px 14px' },
+  recording:       { borderRadius: 22,  padding: '10px 14px' },
+  uploading:       { borderRadius: 22,  padding: '10px 14px' },
 };
 
 const stateMinWidths = {
   loading: 0, idle: 0, message: 240, typing: 0,
   call: 260, incoming: 280, update: 200, update_progress: 200,
+  recording: 220, uploading: 260,
 };
 
 export default function DynamicIsland({ islandState, user, onAcceptCall, onDeclineCall, onEndCall, onOpenChat }) {
   const {
     state, messageData, typingData, updateData, updateProgress,
+    recordingData, uploadingData,
     incomingCall, activeCall, voiceRoomId, voiceRoomName,
     dismissUpdate, setMessageData,
   } = islandState;
@@ -56,6 +61,23 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
     }
     return () => { if (callTimerRef.current) clearInterval(callTimerRef.current); };
   }, [state, activeCall?.startedAt]);
+
+  // Recording timer
+  const [recElapsed, setRecElapsed] = useState(0);
+  const recTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (state === 'recording' && recordingData?.startedAt) {
+      setRecElapsed(Math.floor((Date.now() - recordingData.startedAt) / 1000));
+      recTimerRef.current = setInterval(() => {
+        setRecElapsed(Math.floor((Date.now() - recordingData.startedAt) / 1000));
+      }, 1000);
+    } else {
+      if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
+      setRecElapsed(0);
+    }
+    return () => { if (recTimerRef.current) clearInterval(recTimerRef.current); };
+  }, [state, recordingData?.startedAt]);
 
   const formatTimer = (sec) => {
     const m = Math.floor(sec / 60);
@@ -203,6 +225,39 @@ export default function DynamicIsland({ islandState, user, onAcceptCall, onDecli
                 <ArrowClockwise size={14} className="di__upd-spin" />
                 <span className="di__upd-text">Загрузка... {updateProgress}%</span>
                 <div className="di__upd-bar"><div className="di__upd-fill" style={{ width: `${updateProgress}%` }} /></div>
+              </motion.div>
+            )}
+
+            {/* RECORDING */}
+            {state === 'recording' && (
+              <motion.div key="recording" className="di__inner" initial={contentEnter} animate={contentAnimate} exit={contentExit} transition={contentEnterTransition}>
+                <div className="di__rec-dot" />
+                <div className="di__rec-bars">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <div key={i} className="di__rec-bar" style={{ animationDelay: `${i * 0.12}s` }} />
+                  ))}
+                </div>
+                <span className="di__rec-timer">{formatTimer(recElapsed)}</span>
+              </motion.div>
+            )}
+
+            {/* UPLOADING */}
+            {state === 'uploading' && uploadingData && (
+              <motion.div key="uploading" className="di__inner" initial={contentEnter} animate={contentAnimate} exit={contentExit} transition={contentEnterTransition}>
+                <UploadSimple size={14} className="di__upload-icon" />
+                <div className="di__upload-info">
+                  <span className="di__upload-name">
+                    {uploadingData.filename
+                      ? (uploadingData.filename.length > 20
+                        ? uploadingData.filename.slice(0, 18) + '\u2026'
+                        : uploadingData.filename)
+                      : 'Файл'}
+                  </span>
+                  <div className="di__upd-bar di__upload-bar">
+                    <div className="di__upd-fill" style={{ width: `${uploadingData.percent ?? 0}%` }} />
+                  </div>
+                </div>
+                <span className="di__upload-pct">{uploadingData.percent ?? 0}%</span>
               </motion.div>
             )}
           </AnimatePresence>

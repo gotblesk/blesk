@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { User, Lock, Envelope, Key, Eye, EyeSlash } from '@phosphor-icons/react';
+import { UserIcon, LockClosedIcon, EnvelopeIcon, KeyIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import gsap from 'gsap';
 import GravityCard from './GravityCard';
 import PasswordCard from './PasswordCard';
 import MetaballBackground from '../ui/MetaballBackground';
+import OnboardingIntro from './OnboardingIntro';
 import { getPasswordScore } from './StrengthDots';
 import useAppVersion from '../../hooks/useAppVersion';
 import API_URL from '../../config';
@@ -12,6 +13,11 @@ import './AuthScreen.css';
 
 export default function AuthScreen({ onLogin, collapsing, pendingVerification, onVerified }) {
   const appVersion = useAppVersion();
+
+  // Onboarding — показываем только при первом запуске
+  const [onboardingDone, setOnboardingDone] = useState(
+    () => !!localStorage.getItem('blesk_onboarded') || !!pendingVerification
+  );
 
   // Phase: intro → form
   const [phase, setPhase] = useState(pendingVerification ? 'form' : 'intro');
@@ -546,6 +552,11 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       {/* Metaball background behind everything */}
       <MetaballBackground subtle />
 
+      {/* Onboarding intro — только при первом запуске */}
+      {!onboardingDone && (
+        <OnboardingIntro onComplete={() => setOnboardingDone(true)} />
+      )}
+
       <div className="auth-center">
         {/* Gravity Cards */}
         <div className="auth-content">
@@ -571,7 +582,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={-1.5}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><User size={16} /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><UserIcon className="w-4 h-4" /></span>}
                   title="Кто ты?"
                   subtitle="Имя в мире blesk"
                   error={error && error.includes('Имя') ? error : null}
@@ -595,7 +606,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={1}
                   index={1}
-                  icon={<span style={{ color: 'var(--accent)' }}><Lock size={16} /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><LockClosedIcon className="w-4 h-4" /></span>}
                   title="Пароль"
                   subtitle="Введите пароль"
                   error={error && !error.includes('Имя') ? error : null}
@@ -616,7 +627,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                       onClick={() => setShowLoginPw(!showLoginPw)}
                       aria-label={showLoginPw ? 'Скрыть' : 'Показать'}
                     >
-                      {showLoginPw ? <EyeSlash size={16} weight="regular" /> : <Eye size={16} weight="regular" />}
+                      {showLoginPw ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                     </button>
                   </div>
                 </GravityCard>
@@ -664,7 +675,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={-1.5}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><User size={16} /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><UserIcon className="w-4 h-4" /></span>}
                   title="Придумай имя"
                   subtitle="Твой ник в blesk"
                   error={error && error.includes('Имя') ? error : null}
@@ -688,7 +699,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={1}
                   index={1}
-                  icon={<span style={{ color: 'var(--accent)' }}><Envelope size={16} /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><EnvelopeIcon className="w-4 h-4" /></span>}
                   title="Куда писать?"
                   subtitle="Для подтверждения"
                   error={error && error.includes('email') ? error : null}
@@ -750,7 +761,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--online)' }}><Envelope size={16} /></span>}
+                  icon={<span style={{ color: 'var(--online)' }}><EnvelopeIcon className="w-4 h-4" /></span>}
                   title="Проверь почту"
                   subtitle={`Код отправлен на ${maskedEmail}`}
                   error={verifyError}
@@ -794,7 +805,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><Key size={16} /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><KeyIcon className="w-4 h-4" /></span>}
                   title="Двухфакторная аутентификация"
                   subtitle="Введите код из приложения-аутентификатора"
                   error={tfaError}
@@ -830,7 +841,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--info)' }}><Envelope size={16} /></span>}
+                  icon={<span style={{ color: 'var(--info)' }}><EnvelopeIcon className="w-4 h-4" /></span>}
                   title="Вспомним?"
                   subtitle="Email для восстановления"
                   error={forgotError}
@@ -882,7 +893,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><Key size={16} /></span>}
+                  icon={<span style={{ color: 'var(--accent)' }}><KeyIcon className="w-4 h-4" /></span>}
                   title="Проверь почту"
                   subtitle={`Код отправлен на ${forgotEmail}`}
                   error={forgotError}
@@ -917,7 +928,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                   <GravityCard
                     tilt={0}
                     index={0}
-                    icon={<span style={{ color: 'var(--online)' }}><Key size={16} /></span>}
+                    icon={<span style={{ color: 'var(--online)' }}><KeyIcon className="w-4 h-4" /></span>}
                     title="Готово!"
                     subtitle="Пароль успешно изменён. Перенаправляем..."
                   >

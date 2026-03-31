@@ -83,7 +83,7 @@ function createMainWindow() {
 
   // Безопасность: блокируем открытие новых окон, внешние ссылки — в браузер
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://') || url.startsWith('http://')) {
+    if (url.startsWith('https://')) {
       shell.openExternal(url);
     }
     return { action: 'deny' };
@@ -119,6 +119,18 @@ function createMainWindow() {
     mainWindow.loadURL('http://localhost:5173');
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+
+  // Безопасность: блокируем DevTools в production
+  if (!isDev) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+        event.preventDefault();
+      }
+    });
+    mainWindow.webContents.on('devtools-opened', () => {
+      mainWindow.webContents.closeDevTools();
+    });
   }
 }
 

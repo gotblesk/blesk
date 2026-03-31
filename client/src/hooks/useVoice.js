@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Device } from 'mediasoup-client';
 import { useVoiceStore } from '../store/voiceStore';
 import { getCurrentUserId } from '../utils/auth';
+import { soundUserJoined, soundUserLeft } from '../utils/sounds';
 
 // Voice Activity Detection
 const VAD_INTERVAL = 100;
@@ -31,6 +32,11 @@ export function useVoice(socketRef) {
   // Debounce flags для камеры и screen share
   const enablingCameraRef = useRef(false);
   const enablingScreenRef = useRef(false);
+
+  // Cooldown для быстрых переключений (500ms) — предотвращает race conditions
+  const lastCameraToggleRef = useRef(0);
+  const lastScreenToggleRef = useRef(0);
+  const TOGGLE_COOLDOWN_MS = 500;
 
   const {
     currentRoomId,
@@ -93,16 +99,42 @@ export function useVoice(socketRef) {
 
     const data = new Uint8Array(analyser.frequencyBinCount);
 
+    // [VR10] Адаптивный порог VAD: накапливаем фоновый шум за 5 сек
+    // и выставляем порог как avg + запас (×1.5). Обновляем каждые 5 сек.
+    let adaptiveSamples = [];
+    let adaptiveThreshold = null; // null = использовать порог из store
+    const ADAPTIVE_WINDOW = 5000 / VAD_INTERVAL; // ~50 тиков
+    const ADAPTIVE_MARGIN = 1.5;
+
     vadIntervalRef.current = setInterval(() => {
       analyser.getByteFrequencyData(data);
       const avg = data.reduce((a, b) => a + b, 0) / data.length;
       const level = Math.min(100, Math.round(avg * 1.5));
+
+      // [P18] Не обновлять speaking и не отправлять событие если замучен
+      const isMutedNow = isMutedRef.current;
+      if (isMutedNow) {
+        setAudioLevel(userId, 0);
+        updateParticipant(userId, { speaking: false });
+        return;
+      }
+
       setAudioLevel(userId, level);
 
-      // [Баг #35] Не обновлять speaking если замучен — удалённые не должны видеть пульсацию
-      const threshold = useVoiceStore.getState().vadThreshold;
-      const isMutedNow = isMutedRef.current;
-      const speaking = !isMutedNow && avg > threshold;
+      // Накапливать фоновый шум для адаптивного порога (только когда тихо)
+      const storeThreshold = useVoiceStore.getState().vadThreshold;
+      adaptiveSamples.push(avg);
+      if (adaptiveSamples.length >= ADAPTIVE_WINDOW) {
+        const bgAvg = adaptiveSamples.reduce((a, b) => a + b, 0) / adaptiveSamples.length;
+        adaptiveThreshold = bgAvg * ADAPTIVE_MARGIN;
+        adaptiveSamples = [];
+      }
+
+      const threshold = adaptiveThreshold !== null
+        ? Math.max(adaptiveThreshold, storeThreshold * 0.5) // не ниже половины ручного порога
+        : storeThreshold;
+
+      const speaking = avg > threshold;
       updateParticipant(userId, { speaking });
     }, VAD_INTERVAL);
   }, [setAudioLevel, updateParticipant]);
@@ -571,7 +603,10 @@ export function useVoice(socketRef) {
       if (isMuted) {
         producerRef.current.pause();
       } else {
-        producerRef.current.resume();
+        // Возобновить только если не деафен (деафен тоже держит mic замолчанным)
+        if (!isDeafenedRef.current) {
+          producerRef.current.resume();
+        }
       }
       // [Баг #13] Всегда отправлять состояние мута на сервер, даже если producer ещё не создан
       socket.emit('voice:mute', { roomId, muted: isMuted });
@@ -598,6 +633,16 @@ export function useVoice(socketRef) {
       audio.muted = isDeafened;
     }
 
+    // [VR9] Деафен также отключает микрофон (экономия трафика, никто не слышит)
+    if (producerRef.current) {
+      if (isDeafened) {
+        producerRef.current.pause();
+      } else if (!isMutedRef.current) {
+        // Возобновить только если пользователь не замучен вручную
+        producerRef.current.resume();
+      }
+    }
+
     socket.emit('voice:deafen', { roomId, deafened: isDeafened });
   }, [isDeafened, socketRef]);
 
@@ -610,10 +655,12 @@ export function useVoice(socketRef) {
 
     const onUserJoined = ({ userId, username, hue }) => {
       useVoiceStore.getState().addParticipant(userId, { username, hue, muted: false, deafened: false });
+      soundUserJoined();
     };
 
     const onUserLeft = ({ userId }) => {
       useVoiceStore.getState().removeParticipant(userId);
+      soundUserLeft();
     };
 
     const onUserMuted = ({ userId, muted }) => {
@@ -670,6 +717,13 @@ export function useVoice(socketRef) {
       }
     };
 
+    const onWorkerRestart = ({ message }) => {
+      if (currentRoomIdRef.current) {
+        leaveRoomRef.current();
+        useVoiceStore.getState().setMediaError(message || 'Голосовой сервер перезапускается');
+      }
+    };
+
     socket.on('voice:user-joined', onUserJoined);
     socket.on('voice:user-left', onUserLeft);
     socket.on('voice:user-muted', onUserMuted);
@@ -677,6 +731,7 @@ export function useVoice(socketRef) {
     socket.on('voice:newProducer', onNewProducer);
     socket.on('voice:consumerClosed', onConsumerClosed);
     socket.on('voice:room-deleted', onRoomDeleted);
+    socket.on('voice:worker-restart', onWorkerRestart);
 
     return () => {
       socket.off('voice:user-joined', onUserJoined);
@@ -686,11 +741,14 @@ export function useVoice(socketRef) {
       socket.off('voice:newProducer', onNewProducer);
       socket.off('voice:consumerClosed', onConsumerClosed);
       socket.off('voice:room-deleted', onRoomDeleted);
+      socket.off('voice:worker-restart', onWorkerRestart);
     };
   }, [socketRef]); // минимальные зависимости — всё через refs и getState()
 
   // ═══ Видео: камера ═══
   const enableCamera = useCallback(async () => {
+    if (Date.now() - lastCameraToggleRef.current < TOGGLE_COOLDOWN_MS) return;
+    lastCameraToggleRef.current = Date.now();
     if (enablingCameraRef.current) return;
     enablingCameraRef.current = true;
     try {
@@ -751,6 +809,8 @@ export function useVoice(socketRef) {
   }, []);
 
   const disableCamera = useCallback(() => {
+    if (Date.now() - lastCameraToggleRef.current < TOGGLE_COOLDOWN_MS) return;
+    lastCameraToggleRef.current = Date.now();
     try {
       if (cameraProducerRef.current) {
         cameraProducerRef.current.close();
@@ -769,6 +829,8 @@ export function useVoice(socketRef) {
 
   // ═══ Видео: демонстрация экрана ═══
   const enableScreenShare = useCallback(async () => {
+    if (Date.now() - lastScreenToggleRef.current < TOGGLE_COOLDOWN_MS) return;
+    lastScreenToggleRef.current = Date.now();
     if (enablingScreenRef.current) return;
     enablingScreenRef.current = true;
     try {
@@ -849,6 +911,8 @@ export function useVoice(socketRef) {
   }, []);
 
   const disableScreenShare = useCallback(() => {
+    if (Date.now() - lastScreenToggleRef.current < TOGGLE_COOLDOWN_MS) return;
+    lastScreenToggleRef.current = Date.now();
     try {
       if (screenProducerRef.current) {
         screenProducerRef.current.close();

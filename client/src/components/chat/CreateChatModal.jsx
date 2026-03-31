@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { X } from '@phosphor-icons/react';
 import Glass from '../ui/Glass';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
@@ -157,7 +158,7 @@ export default function CreateChatModal({ onClose, onCreated }) {
             {selectedFriends.map((f) => (
               <div key={f.id} className="create-chat-modal__chip" onClick={() => toggleSelect(f.id)}>
                 <span>{f.username}</span>
-                <span className="create-chat-modal__chip-remove">&times;</span>
+                <span className="create-chat-modal__chip-remove"><X size={12} weight="bold" /></span>
               </div>
             ))}
           </div>

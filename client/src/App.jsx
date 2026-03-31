@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
+import { MotionConfig } from 'framer-motion';
 import TitleBar from './components/ui/TitleBar';
 import AuthScreen from './components/auth/AuthScreen';
 import MainScreen from './components/main/MainScreen';
@@ -259,15 +260,17 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
-        <Suspense fallback={null}><MetaballFilter /></Suspense>
-        <TitleBar />
-        <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />
+    <MotionConfig reducedMotion="user">
+      <ErrorBoundary>
+        <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
+          <Suspense fallback={null}><MetaballFilter /></Suspense>
+          <TitleBar />
+          <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />
+          </div>
+          <UpdateToast />
         </div>
-        <UpdateToast />
-      </div>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </MotionConfig>
   );
 }

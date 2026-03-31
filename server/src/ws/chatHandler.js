@@ -1,4 +1,5 @@
 const prisma = require('../db');
+const logger = require('../utils/logger');
 const jwt = require('jsonwebtoken');
 const { fetchOgData } = require('../services/ogScraper');
 const { emitToUser } = require('../utils/socketUtils');
@@ -29,6 +30,21 @@ function isRateLimited(uid) {
   return false;
 }
 
+// [S12] Per-event rate limiting: userId:event → { count, resetAt }
+const eventLimits = new Map();
+
+function isEventRateLimited(userId, event, maxCount, windowMs) {
+  const key = `${userId}:${event}`;
+  const now = Date.now();
+  let entry = eventLimits.get(key);
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + windowMs };
+  }
+  entry.count++;
+  eventLimits.set(key, entry);
+  return entry.count > maxCount;
+}
+
 // Чистка Map раз в минуту чтобы не утекала память
 setInterval(() => {
   const now = Date.now();
@@ -42,6 +58,10 @@ setInterval(() => {
       typingRateLimits.delete(key);
     }
   }
+  // Чистка eventLimits — удалить сброшенные окна
+  for (const [key, entry] of eventLimits) {
+    if (now > entry.resetAt) eventLimits.delete(key);
+  }
 }, 60000);
 
 function chatHandler(io, socket) {
@@ -53,11 +73,8 @@ function chatHandler(io, socket) {
     try {
       // socket.auth.token обновляется клиентом при каждом переподключении —
       // всегда читаем из него, а не из socket.handshake.auth (иммутабелен)
-      let token = socket.auth?.token || socket.handshake.auth?.token;
-      if (!token && socket.handshake.headers?.cookie) {
-        const cookieMatch = socket.handshake.headers.cookie.match(/blesk_token=([^;]+)/);
-        if (cookieMatch) token = decodeURIComponent(cookieMatch[1]);
-      }
+      const token = socket.auth?.token || socket.handshake.auth?.token;
+      // Не fallback на cookie — handshake headers иммутабельны, cookie будет устаревшим
       if (!token) { socket.disconnect(true); return; }
       jwt.verify(token, JWT_SECRET);
       // Проверить бан
@@ -165,22 +182,29 @@ function chatHandler(io, socket) {
       // Сообщение отправлено — сбросить таймаут набора текста
       clearTypingTimeout(chatId);
 
+      // [S5] Валидация флага encrypted: если true — текст должен быть base64
+      let validatedEncrypted = encrypted === true;
+      if (validatedEncrypted && !/^[A-Za-z0-9+/=]+$/.test(text.trim())) {
+        validatedEncrypted = false;
+      }
+
       // Сохраняем в БД
       const msgData = {
         roomId: chatId,
         userId,
         text: text.trim(),
         type: 'text',
-        encrypted: encrypted === true,
+        encrypted: validatedEncrypted,
       };
 
-      // Ответ на сообщение — проверить что оно из того же чата
+      // [S6] Ответ на сообщение — проверить что оно из того же чата и пользователь участник
       if (replyToId) {
         const replyMsg = await prisma.message.findUnique({
           where: { id: replyToId },
           select: { roomId: true },
         });
         if (replyMsg && replyMsg.roomId === chatId) {
+          // Участник уже проверен выше (participant), дополнительная проверка не нужна
           msgData.replyToId = replyToId;
         }
       }
@@ -289,7 +313,7 @@ function chatHandler(io, socket) {
         }
       }
     } catch (err) {
-      console.error('message:send error:', err);
+      logger.error({ err }, 'message:send error');
       socket.emit('message:error', { tempId, error: 'Не удалось отправить' });
     }
   });
@@ -298,6 +322,8 @@ function chatHandler(io, socket) {
   socket.on('message:edit', async ({ messageId, chatId, text, encrypted }) => {
     if (!messageId || !chatId || !text?.trim()) return;
     if (text.length > 4000) return;
+    // [S12] Лимит: 10 редактирований за 10 секунд
+    if (isEventRateLimited(userId, 'message:edit', 10, 10000)) return;
 
     try {
       const [message, participant] = await Promise.all([
@@ -324,13 +350,15 @@ function chatHandler(io, socket) {
         editedAt: new Date(),
       });
     } catch (err) {
-      console.error('message:edit error:', err);
+      logger.error({ err }, 'message:edit error');
     }
   });
 
   // Удаление сообщения
   socket.on('message:delete', async ({ messageId, chatId }) => {
     if (!messageId || !chatId) return;
+    // [S12] Лимит: 10 удалений за 10 секунд
+    if (isEventRateLimited(userId, 'message:delete', 10, 10000)) return;
 
     try {
       // Проверить что пользователь участник комнаты
@@ -372,7 +400,7 @@ function chatHandler(io, socket) {
 
       io.to(chatId).emit('message:deleted', { messageId, chatId });
     } catch (err) {
-      console.error('message:delete error:', err);
+      logger.error({ err }, 'message:delete error');
     }
   });
 
@@ -428,6 +456,8 @@ function chatHandler(io, socket) {
   socket.on('message:react', async ({ messageId, emoji }) => {
     if (!messageId || typeof messageId !== 'string' || messageId.length > 36) return;
     if (!emoji || typeof emoji !== 'string' || emoji.length > 2) return;
+    // [S12] Лимит: 10 реакций за 10 секунд
+    if (isEventRateLimited(userId, 'message:react', 10, 10000)) return;
 
     try {
       // Проверить что сообщение существует и получить roomId
@@ -475,7 +505,7 @@ function chatHandler(io, socket) {
         reactions: serialized,
       });
     } catch (err) {
-      console.error('message:react error:', err);
+      logger.error({ err }, 'message:react error');
     }
   });
 
@@ -502,7 +532,7 @@ function chatHandler(io, socket) {
 
       socket.emit('message:reactions:batch', result);
     } catch (err) {
-      console.error('message:reactions:get error:', err);
+      logger.error({ err }, 'message:reactions:get error');
     }
   });
 
@@ -581,7 +611,7 @@ function chatHandler(io, socket) {
 
       callback?.({ ok: true });
     } catch (err) {
-      console.error('message:forward error:', err);
+      logger.error({ err }, 'message:forward error');
       callback?.({ error: 'Не удалось переслать сообщение' });
     }
   });
@@ -645,14 +675,14 @@ function chatHandler(io, socket) {
         isChannel: true,
       });
     } catch (err) {
-      console.error('channel:post error:', err);
+      logger.error({ err }, 'channel:post error');
       socket.emit('message:error', { tempId, error: 'Не удалось опубликовать пост' });
     }
   });
 
   // Disconnect
   socket.on('disconnect', async () => {
-    // Очистить таймауты набора текста
+    // [P3] Очистить таймауты набора текста
     const keysToDelete = [];
     for (const [key] of typingTimeouts) {
       if (key.startsWith(`${userId}:`)) keysToDelete.push(key);
@@ -662,10 +692,19 @@ function chatHandler(io, socket) {
       typingTimeouts.delete(key);
     }
 
-    // Очистить typingRateLimits
+    // [P3] Очистить typingRateLimits для этого пользователя
     for (const key of typingRateLimits.keys()) {
       if (key.startsWith(`${userId}:`)) {
         typingRateLimits.delete(key);
+      }
+    }
+
+    // [P3] Очистить messageRateLimits для этого пользователя
+    messageRateLimits.delete(userId);
+    // [P3] Очистить eventLimits для этого пользователя
+    for (const key of eventLimits.keys()) {
+      if (key.startsWith(`${userId}:`)) {
+        eventLimits.delete(key);
       }
     }
 
@@ -699,7 +738,7 @@ function chatHandler(io, socket) {
           data: { status: 'offline', lastSeenAt: new Date() },
         });
       }
-    } catch (err) { console.error('Failed to update user status on disconnect:', err.message); }
+    } catch (err) { logger.error({ err: err.message }, 'Failed to update user status on disconnect'); }
   });
 
   // [CRIT-4] Запускаем join — при ошибке отключаем сокет
@@ -709,7 +748,7 @@ function chatHandler(io, socket) {
       socket.joinedRoomIds = Array.from(socket.rooms).filter((r) => r !== socket.id);
     })
     .catch((err) => {
-      console.error('joinUserRooms failed, disconnecting:', err);
+      logger.error({ err }, 'joinUserRooms failed, disconnecting');
       socket.disconnect(true);
     });
 }

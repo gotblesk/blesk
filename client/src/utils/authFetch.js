@@ -63,5 +63,15 @@ export async function authFetch(path, options = {}) {
       ...options.headers,
     },
   });
+
+  // CSRF token expired/invalid (например после PM2 restart) — обновить и повторить
+  if (res.status === 403 && !options._csrfRetried) {
+    const body = await res.clone().json().catch(() => null);
+    if (body?.error?.includes?.('CSRF') || body?.error?.includes?.('csrf')) {
+      await fetchCsrfToken();
+      return authFetch(path, { ...options, _csrfRetried: true });
+    }
+  }
+
   return res;
 }

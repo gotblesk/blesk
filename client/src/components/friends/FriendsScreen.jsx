@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UsersThree, Tray, MagnifyingGlass, Check, X, UserPlus } from '@phosphor-icons/react';
+import { UsersThree, Tray, MagnifyingGlass, Check, X, UserPlus, ChatCircle, Phone } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import UserProfileModal from '../ui/UserProfileModal';
+import { FriendListSkeleton } from '../ui/GlassSkeleton';
+import EmptyState from '../ui/EmptyState';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
 import './FriendsScreen.css';
@@ -41,6 +43,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
   const [searchResults, setSearchResults] = useState([]);
   const [sentRequests, setSentRequests] = useState(new Set());
   const [loading, setLoading] = useState(false);
+  const [friendsLoading, setFriendsLoading] = useState(true);
   const [error, setError] = useState('');
   const [profileUserId, setProfileUserId] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all' | 'online'
@@ -57,6 +60,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
       const res = await fetch(`${API_URL}/api/friends`, { headers: getHeaders(), credentials: 'include' });
       if (res.ok) setFriends(await res.json());
     } catch { setError('Не удалось загрузить друзей'); }
+    finally { setFriendsLoading(false); }
   }, []);
 
   const loadPending = useCallback(async () => {
@@ -66,7 +70,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     } catch { setError('Не удалось загрузить заявки'); }
   }, []);
 
-  useEffect(() => { loadFriends(); loadPending(); }, []);
+  useEffect(() => { loadFriends(); loadPending(); }, [loadFriends, loadPending]);
 
   useEffect(() => {
     if (tab !== 'search' || debouncedQuery.length < 2) { setSearchResults([]); return; }
@@ -104,8 +108,9 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
 
   const isFriend = (userId) => friends.some(f => f.id === userId);
 
+  const onlineFriends = friends.filter(f => f.status === 'online');
   const filteredFriends = filter === 'online'
-    ? friends.filter(f => f.status === 'online')
+    ? onlineFriends
     : friends;
 
   return (
@@ -142,6 +147,24 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
         <AnimatePresence mode="wait">
           {tab === 'friends' && (
             <motion.div key="friends" variants={tabV} initial="initial" animate="animate" exit="exit">
+              {/* Skeleton при загрузке */}
+              {friendsLoading && friends.length === 0 && <FriendListSkeleton count={5} />}
+
+              {/* Online friends horizontal scroll */}
+              {!friendsLoading && onlineFriends.length > 0 && filter === 'all' && (
+                <div className="fr__online-section">
+                  <div className="fr__section-label">Сейчас онлайн — {onlineFriends.length}</div>
+                  <div className="fr__online-scroll">
+                    {onlineFriends.map(f => (
+                      <button key={f.id} className="fr__online-item" onClick={() => onOpenChat?.(f.id, null)}>
+                        <Avatar user={f} size={44} showOnline />
+                        <span className="fr__online-name">{f.username}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Online filter */}
               <div className="fr__filter">
                 <button className={`fr__filter-btn ${filter === 'all' ? 'fr__filter-btn--active' : ''}`} onClick={() => setFilter('all')}>Все</button>
@@ -152,17 +175,30 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
               </div>
 
               {filteredFriends.length === 0 ? (
-                <EmptyState icon={<UsersThree size={28} weight="regular" />} text={filter === 'online' ? 'Нет друзей онлайн' : 'Пока нет друзей'} hint="Найди людей во вкладке Поиск" />
+                <EmptyState
+                  icon={<UsersThree size={40} weight="regular" />}
+                  text={filter === 'online' ? 'Нет друзей онлайн' : 'Пока нет друзей'}
+                  hint={filter === 'online' ? 'Когда друзья появятся в сети — ты увидишь их здесь' : 'Перейди во вкладку «Найти друзей» и начни общение'}
+                />
               ) : (
                 <div className="fr__list">
+                  <div className="fr__section-label">Все друзья — {filteredFriends.length}</div>
                   {filteredFriends.map((friend, i) => (
-                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfileUserId(friend.id)} whileHover={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfileUserId(friend.id)}>
                       <Avatar user={friend} size={36} showOnline={friend.status === 'online'} />
                       <div className="fr__item-info">
                         <div className="fr__item-name">{friend.username}<span className="fr__item-tag">{friend.tag}</span></div>
                         <div className={`fr__item-status ${friend.status === 'online' ? 'fr__item-status--on' : ''}`}>
                           {friend.status === 'online' ? 'В сети' : 'Не в сети'}
                         </div>
+                      </div>
+                      <div className="fr__hover-actions">
+                        <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); onOpenChat?.(friend.id, null); }} title="Чат">
+                          <ChatCircle size={16} weight="regular" />
+                        </button>
+                        <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); onOpenChat?.(friend.id, null); }} title="Позвонить">
+                          <Phone size={16} weight="regular" />
+                        </button>
                       </div>
                     </motion.div>
                   ))}
@@ -174,7 +210,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
           {tab === 'requests' && (
             <motion.div key="requests" variants={tabV} initial="initial" animate="animate" exit="exit">
               {pending.length === 0 ? (
-                <EmptyState icon={<Tray size={28} weight="regular" />} text="Нет входящих заявок" hint="Когда кто-то добавит вас — заявка появится здесь" />
+                <EmptyState icon={<Tray size={40} weight="regular" />} text="Нет входящих заявок" hint="Когда кто-то добавит тебя в друзья — заявка появится здесь" />
               ) : (
                 <div className="fr__list">
                   {pending.map((req, i) => (
@@ -205,12 +241,12 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
             <motion.div key="search" variants={tabV} initial="initial" animate="animate" exit="exit">
               <div className="fr__search-wrap">
                 <MagnifyingGlass size={15} className="fr__search-icon" weight="regular" />
-                <input className="fr__search" placeholder="Введите имя..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus spellCheck={false} />
+                <input className="fr__search" placeholder="Поиск по имени пользователя..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus spellCheck={false} />
                 {loading && <div className="fr__spinner" />}
               </div>
 
               {debouncedQuery.length >= 2 && !loading && searchResults.length === 0 && (
-                <EmptyState icon={<MagnifyingGlass size={28} weight="regular" />} text="Никого не найдено" hint="Попробуйте другой запрос" />
+                <EmptyState icon={<MagnifyingGlass size={40} weight="regular" />} text="Никого не найдено" hint="Попробуй ввести точный никнейм" />
               )}
 
               <div className="fr__list">
@@ -246,12 +282,3 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
   );
 }
 
-function EmptyState({ icon, text, hint }) {
-  return (
-    <motion.div className="fr__empty" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-      <div className="fr__empty-icon">{icon}</div>
-      <div className="fr__empty-text">{text}</div>
-      {hint && <div className="fr__empty-hint">{hint}</div>}
-    </motion.div>
-  );
-}

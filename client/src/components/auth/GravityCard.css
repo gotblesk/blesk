@@ -3,8 +3,8 @@
 .g-card {
   width: clamp(280px, 90vw, 360px);
   position: relative;
-  border-radius: 22px;
-  padding: 22px 26px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
   perspective: 800px;
 
   /* Double Layer Glass — outer */
@@ -21,7 +21,7 @@
   content: '';
   position: absolute;
   inset: 6px;
-  border-radius: 17px;
+  border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.015);
   border: 1px solid rgba(255, 255, 255, 0.025);
   pointer-events: none;
@@ -64,7 +64,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: var(--space-3);
   position: relative;
   z-index: 1;
 }
@@ -72,7 +72,7 @@
 .g-icon {
   width: 36px;
   height: 36px;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -112,8 +112,8 @@
   width: 100%;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
-  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) 18px;
   font-size: 15px;
   color: rgba(255, 255, 255, 0.85);
   font-family: inherit;
@@ -151,7 +151,7 @@
   transition: opacity 0.2s;
   background: none;
   border: none;
-  padding: 4px;
+  padding: var(--space-1);
   color: white;
 }
 
@@ -164,7 +164,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: var(--space-2);
   font-size: 11px;
   color: rgba(239, 68, 68, 0.8);
   font-family: inherit;
@@ -174,14 +174,14 @@
 .strength-dots {
   display: flex;
   gap: 6px;
-  margin-top: 10px;
+  margin-top: var(--space-2);
   align-items: center;
 }
 
 .strength-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.06);
 }
 

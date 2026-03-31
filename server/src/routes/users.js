@@ -7,6 +7,7 @@ const { authenticate } = require('../middleware/auth');
 const sharp = require('sharp');
 const { validateFile } = require('../services/fileValidator');
 const { findUserSockets } = require('../utils/socketUtils');
+const logger = require('../utils/logger');
 
 const router = Router();
 
@@ -63,7 +64,7 @@ router.get('/blocked', authenticate, async (req, res) => {
     });
     res.json(blocked.map(b => b.blocked));
   } catch (err) {
-    console.error('Get blocked error:', err.message);
+    logger.error({ err: err.message }, 'Get blocked error');
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -127,6 +128,17 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
       return res.status(400).json({ error: 'Недопустимый формат изображения' });
     }
 
+    // [S9] Валидация размеров изображения до обработки
+    const imgMeta = await sharp(req.file.path).metadata();
+    if (imgMeta.width > 8000 || imgMeta.height > 8000) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Изображение слишком большое' });
+    }
+    if (imgMeta.width < 32 || imgMeta.height < 32) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Изображение слишком маленькое' });
+    }
+
     // Ресайз аватара: макс 512x512, JPEG 85% — экономия хранилища
     const ext = '.jpg';
     const filename = req.userId + ext;
@@ -139,13 +151,13 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
       .toFile(tempPath);
 
     // Удалить оригинальный загруженный файл
-    try { fs.unlinkSync(req.file.path); } catch (err) { console.error('Failed to delete original upload:', err.message); }
+    try { fs.unlinkSync(req.file.path); } catch (err) { logger.error({ err: err.message }, 'Failed to delete original upload'); }
 
     // Удалить старые аватары других форматов
     for (const e of ['.jpg', '.png', '.webp']) {
       if (e !== ext) {
         const old = path.join(avatarDir, req.userId + e);
-        try { fs.unlinkSync(old); } catch (err) { console.error('Failed to delete old avatar:', err.message); }
+        try { fs.unlinkSync(old); } catch (err) { logger.error({ err: err.message }, 'Failed to delete old avatar'); }
       }
     }
 
@@ -174,7 +186,7 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
     // Очистить временные файлы при ошибке
     if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     const tempPath = path.join(avatarDir, `${req.userId}.tmp`);
-    if (fs.existsSync(tempPath)) try { fs.unlinkSync(tempPath); } catch (err) { console.error('Failed to cleanup temp avatar file:', err.message); }
+    if (fs.existsSync(tempPath)) try { fs.unlinkSync(tempPath); } catch (err) { logger.error({ err: err.message }, 'Failed to cleanup temp avatar file'); }
     res.status(500).json({ error: 'Ошибка загрузки аватара' });
   }
 });
@@ -317,7 +329,7 @@ router.post('/:id/block', authenticate, async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('Block user error:', err.message);
+    logger.error({ err: err.message }, 'Block user error');
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -330,7 +342,7 @@ router.delete('/:id/block', authenticate, async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
-    console.error('Unblock error:', err.message);
+    logger.error({ err: err.message }, 'Unblock error');
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

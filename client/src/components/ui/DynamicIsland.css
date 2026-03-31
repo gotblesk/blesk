@@ -335,7 +335,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   background: rgba(200, 255, 0, 0.15);
-  color: #c8ff00;
+  color: var(--accent);
 }
 
 /* Ripple */
@@ -504,7 +504,7 @@
   border-radius: 7px;
   background: rgba(200, 255, 0, 0.08);
   border: 1px solid rgba(200, 255, 0, 0.1);
-  color: #c8ff00;
+  color: var(--accent);
   font-size: 11px;
   font-weight: 700;
   display: flex;
@@ -674,14 +674,14 @@
   color: var(--text-secondary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
-[data-theme="light"] .island-search:hover { background: #ffffff; border-color: var(--accent, #7c3aed); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08); }
+[data-theme="light"] .island-search:hover { background: #ffffff; border-color: var(--accent, #c8ff00); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08); }
 [data-theme="light"] .island-search__icon { color: var(--text-tertiary, #9ca3af); }
 [data-theme="light"] .island-search:hover .island-search__icon { color: var(--text-secondary, #4b5563); }
-[data-theme="light"] .island-search--open .island-search__icon { color: var(--accent, #7c3aed); }
+[data-theme="light"] .island-search--open .island-search__icon { color: var(--accent, #c8ff00); }
 [data-theme="light"] .island-search__input { color: var(--text); }
 [data-theme="light"] .island-search__input::placeholder { color: var(--light-text-tertiary, #9ca3af); }
-[data-theme="light"] .island-search__go { background: var(--accent-light, #ede9fe); color: var(--accent, #7c3aed); }
-[data-theme="light"] .island-search__go:hover { background: var(--accent, #7c3aed); color: #ffffff; }
+[data-theme="light"] .island-search__go { background: var(--accent-light, #ede9fe); color: var(--accent, #c8ff00); }
+[data-theme="light"] .island-search__go:hover { background: var(--accent, #c8ff00); color: #ffffff; }
 [data-theme="light"] .island-status-menu {
   background: var(--light-surface, #ffffff);
   border-color: var(--light-border, #e5e7eb);

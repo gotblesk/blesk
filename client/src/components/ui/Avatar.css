@@ -62,3 +62,9 @@
 [data-theme="light"] .avatar__dot {
   border-color: var(--bg, #f0eef5);
 }
+
+/* Focus ring для кликабельных аватарок */
+.avatar:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

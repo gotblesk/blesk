@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Crown } from '@phosphor-icons/react';
+import { Crown, X } from '@phosphor-icons/react';
 import Glass from '../ui/Glass';
 import UserProfileModal from '../ui/UserProfileModal';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -64,7 +64,7 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
       >
         <div className="group-members-panel__header">
           <span className="group-members-panel__title">Участники</span>
-          <button className="group-members-panel__close" onClick={onClose}>&times;</button>
+          <button className="group-members-panel__close" onClick={onClose}><X size={16} weight="bold" /></button>
         </div>
 
         {loading ? (

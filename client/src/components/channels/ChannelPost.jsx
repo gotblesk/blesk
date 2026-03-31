@@ -48,8 +48,7 @@ const ChannelPost = React.memo(function ChannelPost({ post, index = 0, isOwner, 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.3), ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* Left accent line */}
-      <div className="cp__accent" style={{ background: `linear-gradient(180deg, hsl(${hue}, 60%, 50%), hsl(${(hue + 30) % 360}, 50%, 35%))` }} />
+      <div className="cp__glass-edge" />
 
       <div className="cp__content">
         {/* Header */}

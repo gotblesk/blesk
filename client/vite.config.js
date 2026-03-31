@@ -8,10 +8,14 @@ export default defineConfig({
     port: 5173,
     host: '127.0.0.1',
   },
+  esbuild: {
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+  },
   build: {
     target: 'chrome108',
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {

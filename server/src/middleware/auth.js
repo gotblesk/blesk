@@ -1,17 +1,18 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const prisma = require('../db');
+const logger = require('../utils/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
-  console.error('FATAL: JWT_SECRET не задан или слишком короткий (мин. 32 символа)');
+  logger.error('FATAL: JWT_SECRET не задан или слишком короткий (мин. 32 символа)');
   process.exit(1);
 }
 
 // Отдельный секрет для refresh токенов (обязателен)
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 if (!JWT_REFRESH_SECRET || JWT_REFRESH_SECRET.length < 32) {
-  console.error('FATAL: JWT_REFRESH_SECRET не задан или < 32 символов');
+  logger.error('FATAL: JWT_REFRESH_SECRET не задан или < 32 символов');
   process.exit(1);
 }
 

@@ -1,0 +1,169 @@
+/* ═══════ GLASS SKELETON SHIMMER ═══════ */
+
+.glass-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface-1, rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.glass-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(200, 255, 0, 0.04) 37%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(200, 255, 0, 0.04) 63%,
+    transparent 75%
+  );
+  background-size: 250% 100%;
+  animation: glass-shimmer 2s ease infinite;
+}
+
+@keyframes glass-shimmer {
+  0% { background-position: 250% 0; }
+  100% { background-position: -250% 0; }
+}
+
+/* Варианты форм */
+.glass-skeleton--circle {
+  border-radius: 50%;
+}
+
+.glass-skeleton--pill {
+  border-radius: var(--radius-pill);
+}
+
+.glass-skeleton--line {
+  border-radius: 4px;
+  height: 14px;
+}
+
+.glass-skeleton--text {
+  border-radius: 4px;
+  height: 12px;
+}
+
+.glass-skeleton--text-sm {
+  border-radius: 4px;
+  height: 10px;
+}
+
+/* ═══ Пресеты для конкретных экранов ═══ */
+
+.skeleton-channel-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-3);
+}
+
+.skeleton-channel-card__avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.skeleton-channel-card__title {
+  width: 65%;
+  height: 14px;
+}
+
+.skeleton-channel-card__desc {
+  width: 90%;
+  height: 10px;
+}
+
+.skeleton-channel-card__desc2 {
+  width: 50%;
+  height: 10px;
+}
+
+.skeleton-friend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.skeleton-friend-row__avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.skeleton-friend-row__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-friend-row__name {
+  width: 40%;
+  height: 13px;
+}
+
+.skeleton-friend-row__status {
+  width: 25%;
+  height: 10px;
+}
+
+.skeleton-chat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.skeleton-chat-row__avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.skeleton-chat-row__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-chat-row__name {
+  width: 55%;
+  height: 13px;
+}
+
+.skeleton-chat-row__preview {
+  width: 80%;
+  height: 10px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .glass-skeleton::after {
+    animation: none;
+    background: rgba(255, 255, 255, 0.03);
+  }
+}
+
+/* Light theme */
+[data-theme="light"] .glass-skeleton {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .glass-skeleton::after {
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(74, 122, 0, 0.05) 37%,
+    rgba(0, 0, 0, 0.04) 50%,
+    rgba(74, 122, 0, 0.05) 63%,
+    transparent 75%
+  );
+  background-size: 250% 100%;
+}

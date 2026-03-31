@@ -6,7 +6,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 0 20px 20px;
+  padding: 0 var(--space-5) var(--space-5);
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -18,7 +18,7 @@
 /* Header */
 .vrl__head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 0 14px;
+  padding: var(--space-3) 0 var(--space-4);
   flex-shrink: 0;
 }
 
@@ -37,7 +37,7 @@
   border-radius: 18px;
   border: none;
   background: transparent;
-  color: #c8ff00;
+  color: var(--accent);
   font-family: inherit;
   cursor: pointer;
   display: flex; align-items: center; gap: 0;
@@ -100,7 +100,7 @@
   background: rgba(200, 255, 0, 0.1);
   border: 1px solid rgba(200, 255, 0, 0.15);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  color: #c8ff00;
+  color: var(--accent);
 }
 .vrl__create:hover .vrl__create-icon {
   background: rgba(200, 255, 0, 0.18);
@@ -115,7 +115,7 @@
   font-size: 12px; font-weight: 700;
   letter-spacing: -0.01em;
   padding: 0 14px 0 8px;
-  color: #c8ff00;
+  color: var(--accent);
   transition: text-shadow 0.3s;
 }
 .vrl__create:hover .vrl__create-text {
@@ -144,7 +144,7 @@
 /* Error */
 .vrl__error {
   font-size: 11px; color: var(--danger);
-  padding: 6px 10px; border-radius: 8px;
+  padding: 6px var(--space-3); border-radius: var(--radius-sm);
   background: rgba(239,68,68,0.06);
   margin-bottom: 8px;
 }
@@ -155,7 +155,7 @@
 .vrl__empty {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 8px; padding: 60px 20px;
+  gap: var(--space-2); padding: 60px var(--space-5);
   color: var(--text-muted); font-size: 13px; font-weight: 600;
 }
 .vrl__empty-icon {
@@ -171,7 +171,7 @@
 
 /* ═══════ CREATE MODAL — Double Layer Glass + 3D Tilt ═══════ */
 .vrl__modal-bg {
-  position: fixed; inset: 0; z-index: 1000;
+  position: fixed; inset: 0; z-index: var(--z-modal);
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -179,7 +179,7 @@
 
 /* Centered flex wrapper — perspective for 3D tilt */
 .vrl__modal-wrap {
-  position: fixed; inset: 0; z-index: 1001;
+  position: fixed; inset: 0; z-index: calc(var(--z-modal) + 1);
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
   perspective: 800px;
@@ -188,7 +188,7 @@
 /* Outer glass layer */
 .vrl__modal {
   width: 360px;
-  border-radius: 24px;
+  border-radius: var(--radius-lg);
   position: relative;
   pointer-events: auto;
   background: rgba(14, 12, 24, 0.55);
@@ -230,7 +230,7 @@
   position: relative;
   z-index: 2;
   margin: 6px;
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
   background: rgba(14, 12, 24, 0.4);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -265,7 +265,7 @@
 /* Header */
 .vrl__modal-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 20px 0;
+  padding: 18px var(--space-5) 0;
   position: relative;
   z-index: 1;
 }
@@ -291,7 +291,7 @@
 }
 
 .vrl__modal-close {
-  width: 30px; height: 30px; border-radius: 10px;
+  width: 30px; height: 30px; border-radius: var(--radius-md);
   border: none;
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 255, 255, 0.3);
@@ -306,7 +306,7 @@
 
 /* Body */
 .vrl__modal-body {
-  padding: 16px 20px 22px;
+  padding: var(--space-4) var(--space-5) 22px;
   display: flex; flex-direction: column; gap: 10px;
   position: relative;
   z-index: 1;
@@ -321,8 +321,8 @@
 
 .vrl__modal-input {
   width: 100%;
-  padding: 11px 14px;
-  border-radius: 14px;
+  padding: 11px var(--space-4);
+  border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.05);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text); font-size: 13px;
@@ -376,8 +376,8 @@
 
 .vrl__modal-submit {
   width: 100%;
-  padding: 12px 0;
-  border-radius: 14px;
+  padding: var(--space-3) 0;
+  border-radius: var(--radius-md);
   border: none;
   background: var(--accent, #c8ff00);
   color: var(--accent-text, #08060f);
@@ -460,7 +460,7 @@
 
 /* ═══════ CARD ═══════ */
 .vrl__card {
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
   position: relative;
@@ -482,7 +482,7 @@
 /* Animated border gradient for live rooms */
 .vrl__card-border-anim {
   position: absolute; inset: -1px;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   pointer-events: none;
   z-index: 0;
   background: conic-gradient(from 0deg, transparent 0%, rgba(74, 222, 128, 0.2) 10%, transparent 20%);
@@ -529,7 +529,7 @@
 /* Sound waves animation for live rooms */
 .vrl__card-waves {
   position: absolute;
-  top: 12px; right: 12px;
+  top: var(--space-3); right: var(--space-3);
   display: flex; align-items: flex-end; gap: 2px;
   height: 14px;
   z-index: 2;
@@ -554,7 +554,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 12px 6px;
+  padding: var(--space-4) var(--space-3) 6px;
   position: relative;
 }
 
@@ -614,7 +614,7 @@
 
 /* ═══════ CARD BOTTOM ═══════ */
 .vrl__card-bottom {
-  padding: 6px 12px 10px;
+  padding: 6px var(--space-3) var(--space-3);
   display: flex; align-items: center;
   justify-content: space-between;
   gap: 6px;
@@ -631,7 +631,7 @@
   letter-spacing: -0.02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.vrl__card--here .vrl__card-name { color: #c8ff00; }
+.vrl__card--here .vrl__card-name { color: var(--accent); }
 
 /* Owner crown */
 .vrl__card-own {

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PushPin, Lock, Checks, PhoneIncoming, PhoneDisconnect, PhoneX, Clock, ArrowClockwise } from '@phosphor-icons/react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { PushPin, Lock, Checks, PhoneIncoming, PhoneDisconnect, PhoneX, Clock, ArrowClockwise, Plus } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import MediaMessage from './MediaMessage';
 import LinkPreviewCard from './LinkPreviewCard';
@@ -7,6 +8,8 @@ import useMessageActions from './MessageActionsPill';
 import { getHueStyles } from '../../utils/hueIdentity';
 import { useSettingsStore } from '../../store/settingsStore';
 import './ChatMessage.css';
+
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 const EMOJI_ONLY_RE = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]{1,3}$/u;
 const URL_RE = /https?:\/\/[^\s<>"']+/;
@@ -45,6 +48,7 @@ const ChatMessage = React.memo(function ChatMessage({
 }) {
   const [readAnimated, setReadAnimated] = useState(false);
   const prevReadRef = useRef(isRead);
+  const [showReactionBar, setShowReactionBar] = useState(false);
 
   const { handleContextMenu, menu: actionsMenu } = useMessageActions({
     isOwn,
@@ -140,7 +144,39 @@ const ChatMessage = React.memo(function ChatMessage({
       id={`msg-${message.id}`}
       className={classes}
       style={isOwn ? undefined : hueStyles}
+      onMouseEnter={() => setShowReactionBar(true)}
+      onMouseLeave={() => setShowReactionBar(false)}
     >
+      {/* Floating reaction bar */}
+      <AnimatePresence>
+        {showReactionBar && (
+          <motion.div
+            className={`reaction-bar ${isOwn ? 'reaction-bar--own' : ''}`}
+            initial={{ opacity: 0, y: 8, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+          >
+            {QUICK_REACTIONS.map(emoji => (
+              <button
+                key={emoji}
+                className="reaction-bar__btn"
+                onClick={(e) => { e.stopPropagation(); onReact?.(message.id, emoji); }}
+                title={emoji}
+              >
+                {emoji}
+              </button>
+            ))}
+            <button
+              className="reaction-bar__btn reaction-bar__more"
+              onClick={(e) => { e.stopPropagation(); onReact?.(message.id, '+'); }}
+              title="Другая реакция"
+            >
+              <Plus size={13} weight="bold" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Аватар — только для last/solo чужих сообщений (если включены) */}
       {!isOwn && showAvatarsSetting && showAvatar && (
         <Avatar user={{ username: senderName, avatar: message.user?.avatar }} size="sm" className="chat-message__avatar" />

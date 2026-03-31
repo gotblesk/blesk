@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { DownloadSimple, Sparkle } from '@phosphor-icons/react';
+import { DownloadSimple, Sparkle, X } from '@phosphor-icons/react';
 import './UpdateToast.css';
 
 // Форматирование размера файла
@@ -112,7 +112,7 @@ export default function UpdateToast() {
         onClick={() => setDismissed(true)}
         title="Скрыть"
       >
-        ×
+        <X size={14} weight="bold" />
       </button>
     </div>
   );

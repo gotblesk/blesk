@@ -2,6 +2,7 @@ const { Router } = require('express');
 const prisma = require('../db');
 const { authenticate, requireVerified } = require('../middleware/auth');
 const { emitToUser, findUserSockets } = require('../utils/socketUtils');
+const logger = require('../utils/logger');
 
 const router = Router();
 
@@ -42,7 +43,7 @@ router.get('/search', authenticate, async (req, res) => {
 
     res.json(messages);
   } catch (err) {
-    console.error('GET /api/chats/search error:', err);
+    logger.error({ err }, 'GET /api/chats/search error');
     res.status(500).json({ error: 'Ошибка поиска' });
   }
 });
@@ -141,7 +142,7 @@ router.get('/', authenticate, async (req, res) => {
 
     res.json(chats);
   } catch (err) {
-    console.error('GET /api/chats error:', err);
+    logger.error({ err }, 'GET /api/chats error');
     res.status(500).json({ error: 'Ошибка загрузки чатов' });
   }
 });
@@ -188,7 +189,7 @@ router.get('/:id/messages', authenticate, async (req, res) => {
 
     res.json(messages.reverse());
   } catch (err) {
-    console.error('GET /api/chats/:id/messages error:', err);
+    logger.error({ err }, 'GET /api/chats/:id/messages error');
     res.status(500).json({ error: 'Ошибка загрузки сообщений' });
   }
 });
@@ -343,11 +344,11 @@ router.post('/', authenticate, requireVerified, async (req, res) => {
       });
 
       emitToUser(participantId, 'notification:new', notification);
-    } catch (err) { console.error('Failed to send new chat notification:', err.message); }
+    } catch (err) { logger.error({ err: err.message }, 'Failed to send new chat notification'); }
 
     res.status(201).json({ id: room.id, otherUser, existing: false });
   } catch (err) {
-    console.error('POST /api/chats error:', err);
+    logger.error({ err }, 'POST /api/chats error');
     res.status(500).json({ error: 'Ошибка создания чата' });
   }
 });
@@ -437,7 +438,7 @@ router.post('/:id/members', authenticate, async (req, res) => {
 
     res.json({ ok: true, user: newUser });
   } catch (err) {
-    console.error('POST members error:', err);
+    logger.error({ err }, 'POST members error');
     res.status(500).json({ error: 'Ошибка' });
   }
 });
@@ -619,7 +620,7 @@ router.put('/:id/mute', authenticate, async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('Mute chat error:', err.message);
+    logger.error({ err: err.message }, 'Mute chat error');
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
@@ -633,7 +634,7 @@ router.put('/:id/unmute', authenticate, async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
-    console.error('Unmute error:', err.message);
+    logger.error({ err: err.message }, 'Unmute error');
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

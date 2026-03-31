@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Microphone, MicrophoneSlash, SpeakerHigh, SpeakerSlash, VideoCamera, VideoCameraSlash, PhoneDisconnect, ArrowsOutSimple, ArrowsInSimple, Monitor, GearSix, WifiHigh, WifiMedium, WifiLow, WifiSlash } from '@phosphor-icons/react';
+import { Microphone, MicrophoneSlash, SpeakerHigh, SpeakerSlash, VideoCamera, VideoCameraSlash, PhoneDisconnect, ArrowsOutSimple, ArrowsInSimple, Monitor, MonitorArrowUp, GearSix, WifiHigh, WifiMedium, WifiLow, WifiSlash, X } from '@phosphor-icons/react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useVoiceStore } from '../../store/voiceStore';
 import Avatar from '../ui/Avatar';
@@ -276,9 +276,9 @@ export default function CallScreen({
             <div className={`cs__ava-zone ${isCompact ? 'cs__ava-zone--sm' : ''}`}>
               {isFull && (
                 <>
-                  <div className="cs__ring cs__ring--1" style={{ borderColor: `hsla(${hue},60%,50%,0.08)` }} />
-                  <div className="cs__ring cs__ring--2" style={{ borderColor: `hsla(${hue},60%,50%,0.05)` }} />
-                  <div className="cs__ring cs__ring--3" style={{ borderColor: `hsla(${hue},60%,50%,0.03)` }} />
+                  <div className={`cs__ring cs__ring--1 ${isRinging ? 'cs__ring--ringing' : ''}`} style={{ borderColor: isRinging ? 'rgba(200,255,0,0.3)' : `hsla(${hue},60%,50%,0.08)` }} />
+                  <div className={`cs__ring cs__ring--2 ${isRinging ? 'cs__ring--ringing' : ''}`} style={{ borderColor: isRinging ? 'rgba(200,255,0,0.2)' : `hsla(${hue},60%,50%,0.05)` }} />
+                  <div className={`cs__ring cs__ring--3 ${isRinging ? 'cs__ring--ringing' : ''}`} style={{ borderColor: isRinging ? 'rgba(200,255,0,0.1)' : `hsla(${hue},60%,50%,0.03)` }} />
                 </>
               )}
               <div className="cs__ava" style={{ width: isCompact ? 48 : isFull ? 110 : 72, height: isCompact ? 48 : isFull ? 110 : 72 }}>
@@ -343,7 +343,7 @@ export default function CallScreen({
             </motion.button>
 
             <motion.button className={`cs__btn ${screenShareOn ? 'cs__btn--active' : ''} ${isRinging ? 'cs__btn--disabled' : ''}`} onClick={isRinging ? undefined : onToggleScreenShare} whileTap={isRinging ? {} : { scale: 0.88 }} title={isRinging ? 'Недоступно до подключения' : screenShareOn ? 'Остановить показ' : 'Показать экран'}>
-              {screenShareOn ? <Monitor size={18} /> : <Monitor size={18} />}
+              {screenShareOn ? <MonitorArrowUp size={18} /> : <Monitor size={18} />}
               <span className="cs__btn-label">Экран</span>
             </motion.button>
           </>
@@ -355,7 +355,7 @@ export default function CallScreen({
 
 // ═══════ QUALITY PANEL ═══════
 const RESOLUTIONS = ['480p', '720p', '1080p', '1440p'];
-const FPS_OPTIONS = [30, 60];
+const FPS_OPTIONS = [15, 30, 60];
 
 function QualityPanel({ onClose }) {
   const cameraResolution = useSettingsStore(s => s.cameraResolution);
@@ -383,7 +383,7 @@ function QualityPanel({ onClose }) {
     >
       <div className="cs__quality-head">
         <span>Качество видео</span>
-        <button className="cs__quality-x" onClick={onClose}>&times;</button>
+        <button className="cs__quality-x" onClick={onClose}><X size={14} weight="bold" /></button>
       </div>
 
       <div className="cs__quality-sec">

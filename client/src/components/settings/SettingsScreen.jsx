@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { gsap } from 'gsap';
 import {
@@ -198,31 +198,50 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
             initial="hidden"
             animate="visible"
             exit="exit"
+            tabIndex={-1}
+            onKeyDown={(e) => {
+              if (e.key !== 'Tab') return;
+              const focusable = e.currentTarget.querySelectorAll(
+                'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+              );
+              if (!focusable.length) return;
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+              if (e.shiftKey) {
+                if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+              } else {
+                if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+              }
+            }}
           >
             {/* ═══ LEFT: Navigation Rail ═══ */}
             <nav className="stg-rail">
               <div className="stg-rail__top">
-                {TABS.map((t) => {
+                {TABS.map((t, i) => {
                   const Icon = t.icon;
                   const isActive = tab === t.id;
+                  // separators after indices 2 (after chat), 4 (after voice), 8 (after accessibility)
+                  const sepAfter = [2, 4, 8];
                   return (
-                    <motion.button
-                      key={t.id}
-                      className={`stg-rail__item ${isActive ? 'stg-rail__item--active' : ''}`}
-                      onClick={() => handleTabChange(t.id)}
-                      whileHover={{ scale: 1.08 }}
-                      whileTap={{ scale: 0.92 }}
-                      title={t.label}
-                    >
-                      {isActive && (
-                        <motion.div
-                          className="stg-rail__indicator"
-                          layoutId="railIndicator"
-                          transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                        />
-                      )}
-                      <Icon size={18} weight={isActive ? 'bold' : 'regular'} />
-                    </motion.button>
+                    <React.Fragment key={t.id}>
+                      <motion.button
+                        className={`stg-rail__item ${isActive ? 'stg-rail__item--active' : ''}`}
+                        onClick={() => handleTabChange(t.id)}
+                        whileHover={{ scale: 1.08 }}
+                        whileTap={{ scale: 0.92 }}
+                        title={t.label}
+                      >
+                        {isActive && (
+                          <motion.div
+                            className="stg-rail__indicator"
+                            layoutId="railIndicator"
+                            transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                          />
+                        )}
+                        <Icon size={18} weight={isActive ? 'bold' : 'regular'} />
+                      </motion.button>
+                      {sepAfter.includes(i) && <div className="stg-rail__sep" />}
+                    </React.Fragment>
                   );
                 })}
               </div>
