@@ -61,6 +61,20 @@
   width: 100%;
 }
 
+/* Subtle glass panel behind all content */
+.peditor__glass-panel {
+  width: 100%;
+  background: var(--dl-outer-bg, rgba(255,255,255,0.03));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.06));
+  border-radius: var(--radius-lg, 22px);
+  padding: var(--space-4, 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* ═══════ Avatar section ═══════ */
 .peditor__avatar-section {
   display: flex;
@@ -111,6 +125,13 @@
 .peditor__avatar-sub {
   font-size: 13px;
   color: var(--text-tertiary);
+}
+
+.peditor__avatar-join {
+  font-size: 12px;
+  color: var(--text-disabled, rgba(255,255,255,0.3));
+  margin-top: 1px;
+  display: block;
 }
 
 /* ═══════ Section labels ═══════ */
@@ -190,20 +211,23 @@
   color: #f59e0b;
 }
 
-/* ═══════ Expandable Cells ═══════ */
+/* ═══════ Expandable Cells (glass-inner) ═══════ */
 .peditor__cell {
   width: 100%;
-  border-radius: var(--radius-sm, 8px);
+  border-radius: var(--radius-md, 14px);
   background: var(--dl-inner-bg, rgba(255,255,255,0.06));
-  border: 1px solid var(--glass-border, rgba(255,255,255,0.04));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.06));
   margin-bottom: var(--space-2, 8px);
   cursor: pointer;
-  transition: background var(--duration-fast, 150ms) ease;
+  transition: background var(--duration-fast, 150ms) ease, border-color var(--duration-fast, 150ms) ease;
   overflow: hidden;
 }
 
 .peditor__cell:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .peditor__cell-main {
@@ -419,7 +443,7 @@
   height: 44px;
   border-radius: 100px;
   border: none;
-  background: var(--accent, #c8ff00);
+  background: #c8ff00;
   color: #000;
   font-size: 15px;
   font-weight: 600;
@@ -431,15 +455,18 @@
   gap: var(--space-2, 8px);
   font-family: var(--font-body, 'Onest', sans-serif);
   transition: all var(--duration-fast, 150ms) ease;
+  box-shadow: 0 0 20px rgba(200, 255, 0, 0.15);
 }
 
 .peditor__save:disabled {
   opacity: 0.35;
   cursor: default;
+  box-shadow: none;
 }
 
 .peditor__save:not(:disabled):hover {
   filter: brightness(1.1);
+  box-shadow: 0 0 28px rgba(200, 255, 0, 0.25);
 }
 
 /* ═══════ Light theme ═══════ */
@@ -470,6 +497,23 @@
 [data-theme="light"] .peditor__save {
   background: var(--accent, #4a7a00);
   color: #fff;
+  box-shadow: 0 0 16px rgba(74, 122, 0, 0.15);
+}
+
+[data-theme="light"] .peditor__cell {
+  background: rgba(0, 0, 0, 0.025);
+  border-color: rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-md, 14px);
+}
+
+[data-theme="light"] .peditor__cell:hover {
+  background: rgba(0, 0, 0, 0.045);
+  border-color: rgba(0, 0, 0, 0.09);
+}
+
+[data-theme="light"] .peditor__glass-panel {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(0, 0, 0, 0.06);
 }
 
 /* ═══════ Reduced motion ═══════ */

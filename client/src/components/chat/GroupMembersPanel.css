@@ -159,3 +159,36 @@
   from { opacity: 0; transform: translateY(20px) scale(0.95); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .group-members-panel__title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .group-members-panel__close {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .group-members-panel__close:hover {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .group-members-panel__loading {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .group-members-panel__member:hover {
+  background: var(--surface-1);
+}
+
+[data-theme="light"] .group-members-panel__name {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .group-members-panel__you {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .group-members-panel__role {
+  color: var(--text-tertiary);
+}

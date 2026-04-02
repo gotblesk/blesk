@@ -121,6 +121,10 @@
   --search-size: clamp(40px, 2.9vw, 60px);
   --search-expanded-w: clamp(220px, 16vw, 340px);
 
+  /* Voice waveform */
+  --voice-bar-inactive: rgba(255, 255, 255, 0.15);
+  --voice-bar-active: var(--accent);
+
   /* Семантические цвета */
   --warning: #facc15;
   --info: #60a5fa;
@@ -229,6 +233,19 @@
 
   --scrollbar-thumb: rgba(0, 0, 0, 0.15);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+
+  /* Surface elevation — light theme */
+  --surface-0: transparent;
+  --surface-1: rgba(0, 0, 0, 0.03);
+  --surface-2: rgba(0, 0, 0, 0.06);
+  --surface-3: rgba(0, 0, 0, 0.10);
+  --surface-hover: rgba(0, 0, 0, 0.04);
+  --surface-active: rgba(74, 122, 0, 0.08);
+  --surface-1-hover: rgba(0, 0, 0, 0.06);
+
+  /* Voice waveform */
+  --voice-bar-inactive: rgba(0, 0, 0, 0.15);
+  --voice-bar-active: var(--accent);
 
   /* Double Layer Glass — light: белый, непрозрачный, без blur */
   --dl-outer-blur: 0px;

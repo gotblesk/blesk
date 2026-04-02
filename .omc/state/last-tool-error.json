@@ -1,7 +1,7 @@
 {
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"C:\\\\Users\\\\mxkar\\\\OneDrive\\\\Рабочий стол\\\\blesk\\\" && \\\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\\\" release create v1.0.3-beta --title \\\"v1.0.3-beta — ClamAV + network stability\\\" --notes ...",
-  "error": "Exit code 1\nerror checking for existing release: Head \"https://api.github.com/repos/gotblesk/blesk/releases/tags/v1.0.3-beta\": net/http: TLS handshake timeout",
-  "timestamp": "2026-03-31T08:39:50.974Z",
-  "retry_count": 1
+  "tool_name": "Read",
+  "tool_input_preview": "{\"file_path\":\"C:\\\\Users\\\\mxkar\\\\OneDrive\\\\Рабочий стол\\\\blesk\\\\client\\\\src\\\\components\\\\settings\\\\SettingsScreen.jsx\"}",
+  "error": "File content (14008 tokens) exceeds maximum allowed tokens (10000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+  "timestamp": "2026-04-02T12:57:35.414Z",
+  "retry_count": 6
 }

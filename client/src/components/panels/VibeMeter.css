@@ -254,3 +254,52 @@
   color: rgba(255, 255, 255, 0.12);
   padding: 8px 0 0;
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .vibe-panel__title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .vibe-panel__meter-label {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .vibe-panel__meter-bar-wrap {
+  background: var(--surface-2);
+}
+
+[data-theme="light"] .vibe-panel__list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .vibe-card {
+  background: var(--surface-1);
+}
+
+[data-theme="light"] .vibe-card:hover {
+  background: var(--surface-2);
+}
+
+[data-theme="light"] .vibe-card__avatar {
+  color: #fff;
+}
+
+[data-theme="light"] .vibe-card__online-dot {
+  border-color: #f5f5f7;
+}
+
+[data-theme="light"] .vibe-card__name {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .vibe-card__activity {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .vibe-panel__empty-text {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .vibe-panel__hint {
+  color: var(--text-tertiary);
+}

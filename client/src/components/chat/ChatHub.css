@@ -124,3 +124,18 @@
   transform: scale(1.05);
   box-shadow: 0 4px 16px rgba(200, 255, 0, 0.2);
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .chat-hub__search {
+  border-color: var(--glass-border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .chat-hub__search::placeholder {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .chat-hub__add {
+  border-color: var(--glass-border);
+}

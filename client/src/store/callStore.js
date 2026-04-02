@@ -88,16 +88,22 @@ export const useCallStore = create((set, get) => ({
     });
   },
 
-  // Убрать участника из звонка
+  // Убрать участника из звонка, завершить если никого не осталось
   removeCallParticipant: (userId) => {
     const { activeCall } = get();
     if (!activeCall) return;
 
-    set({
-      activeCall: {
-        ...activeCall,
-        participants: activeCall.participants.filter((id) => id !== userId),
-      },
-    });
+    const remaining = activeCall.participants.filter((id) => id !== userId);
+    if (remaining.length === 0) {
+      // Последний участник ушёл — завершить звонок
+      set({ activeCall: null });
+    } else {
+      set({
+        activeCall: {
+          ...activeCall,
+          participants: remaining,
+        },
+      });
+    }
   },
 }));

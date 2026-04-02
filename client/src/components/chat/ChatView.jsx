@@ -155,7 +155,7 @@ export default function ChatView({
       setNewMsgCount(0);
       setShowScrollDown(false);
     }
-  }, [chatId]); // eslint-disable-line
+  }, [chatId, socketRef]);
 
   // Скролл к последнему сообщению (только если пользователь уже внизу)
   const messagesContainerRef = useRef(null);
@@ -663,8 +663,10 @@ export default function ChatView({
           userStatus={chat.otherUser ? userStatuses[chat.otherUser.id] : null}
           typingUsernames={typingNames}
           onCall={onCall}
+          onVideoCall={onCall}
           onMembers={chat.type === 'group' ? () => setMembersOpen(true) : undefined}
           onAvatarClick={(e) => { if (chat.otherUser?.id) setProfilePopover({ open: true, userId: chat.otherUser.id, anchorRef: { current: e?.currentTarget || e?.target } }); }}
+          shieldActive={chat.e2eEnabled}
         />
         {/* Кнопка закрытия */}
         <button

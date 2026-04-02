@@ -4,8 +4,8 @@
   align-items: center;
   justify-content: center;
   outline: none;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
 }
 
 .seg-circle:focus-visible {
@@ -15,8 +15,8 @@
 }
 
 .seg-circle__dot {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
@@ -26,6 +26,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   transition: box-shadow var(--duration-fast, 150ms) ease;
+  box-shadow: 0 0 6px currentColor;
 }
 
 .seg-circle__dot:hover {

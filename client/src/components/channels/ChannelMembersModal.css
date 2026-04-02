@@ -121,3 +121,9 @@
 .ch-members-modal__more:hover {
   background: var(--surface-2);
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .ch-members-modal__spinner {
+  border-color: rgba(0, 0, 0, 0.08);
+  border-top-color: var(--accent);
+}

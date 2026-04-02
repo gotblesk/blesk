@@ -82,10 +82,10 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
           <span className="sn__badge">{chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span>
         )}
         <div className="sn__hover-actions" onClick={e => e.stopPropagation()}>
-          <button className="sn__hover-btn" title={isPinned ? 'Открепить' : 'Закрепить'}>
+          <button className="sn__hover-btn" title={isPinned ? 'Открепить' : 'Закрепить'} onClick={() => useChatStore.getState().togglePinChat(chat.id)}>
             <PushPin size={14} weight={isPinned ? 'fill' : 'regular'} />
           </button>
-          <button className="sn__hover-btn" title="Отключить уведомления">
+          <button className="sn__hover-btn" title="Отключить уведомления" onClick={() => useChatStore.getState().toggleMuteChat?.(chat.id)}>
             <BellSlash size={14} />
           </button>
         </div>

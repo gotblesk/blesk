@@ -450,7 +450,8 @@ router.post('/login', loginIpLimiter, async (req, res) => {
 
     const user = await prisma.user.findUnique({ where: { username } });
     if (!user) {
-      await bcrypt.compare(password, '$2b$12$invalidhashpaddingtomakeitsamelengthasbcrypt');
+      // Constant-time dummy compare — валидный bcrypt hash для предотвращения timing leak
+      await bcrypt.compare(password, '$2b$12$K4Gx8PzT5Gx8PzT5Gx8PeYz1234567890abcdefghijABCDEFGHI.');
       return res.status(401).json({ error: 'Неверное имя или пароль' });
     }
 

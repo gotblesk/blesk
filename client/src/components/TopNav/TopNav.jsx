@@ -122,7 +122,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
                   <div className="um__info">
                     <div className="um__name">{user?.displayName || user?.username}</div>
                     <div className="um__tag">{user?.tag?.startsWith('#') ? user.tag : `#${user?.tag || '0000'}`}</div>
-                    <div className="um__status-inline">
+                    <div className="um__status-inline" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
                       <SegmentedCircle currentStatus={currentStatus} onStatusChange={(key) => { onStatusChange?.(key); }} />
                       <span className="um__status-text">{statusLabel}</span>
                     </div>

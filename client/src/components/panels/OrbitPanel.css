@@ -374,3 +374,58 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .orbit-panel__title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .orbit-panel__stage::before,
+[data-theme="light"] .orbit-panel__stage::after {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .orbit-node__avatar {
+  color: #fff;
+}
+
+[data-theme="light"] .orbit-node__name {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .orbit-node__badge {
+  color: #fff;
+}
+
+[data-theme="light"] .orbit-panel__empty-text {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .orbit-panel__empty-sub {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .orbit-panel__hint {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .orbit-panel__hint span {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .orbit-peek__avatar {
+  color: #fff;
+}
+
+[data-theme="light"] .orbit-peek__status {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .orbit-peek__msg {
+  background: var(--surface-1);
+  border-color: var(--glass-border);
+}
+
+[data-theme="light"] .orbit-peek__msg-text {
+  color: var(--text-secondary);
+}

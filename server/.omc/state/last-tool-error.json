@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:\\\\Users\\\\mxkar\\\\OneDrive\\\\Рабочий стол\\\\blesk\\\\server\\\" && node -e \\\"\\ntry {\\n  // Check all routes/services parse correctly\\n  const files = [\\n    './src/utils/logger',\\n    './sr...",
+  "error": "Exit code 1\n[14:45:35] \u001b[31mERROR\u001b[39m: \u001b[36mFATAL: JWT_REFRESH_SECRET не задан или < 32 символов\u001b[39m\n    \u001b[35mservice\u001b[39m: \"blesk-server\"",
+  "timestamp": "2026-03-31T14:45:35.295Z",
+  "retry_count": 1
+}

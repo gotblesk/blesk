@@ -103,9 +103,12 @@ const uploadsHeaders = (req, res, next) => {
   next();
 };
 app.use('/uploads/avatars', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'avatars')));
-// Вложения и превью доступны только через authenticated download в upload.js
-// app.use('/uploads/attachments', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'attachments')));
-// app.use('/uploads/thumbs', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'thumbs')));
+// Вложения и превью — UUID-имена файлов защищают от перебора,
+// <img src> и <audio src> не могут отправлять auth headers,
+// поэтому static serving обязателен для работы медиа в чате.
+// Authenticated download в upload.js остаётся для явного скачивания.
+app.use('/uploads/attachments', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'attachments')));
+app.use('/uploads/thumbs', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'thumbs')));
 
 // Health check — до rate limiting и роутов
 app.get('/health', async (req, res) => {

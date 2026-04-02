@@ -151,9 +151,17 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     setUploadProgress({});
   }, []);
 
+  const MAX_MESSAGE_LENGTH = 4000;
+
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed && !pendingFiles.length) return;
+
+    // Лимит длины сообщения
+    if (trimmed.length > MAX_MESSAGE_LENGTH) {
+      setText(trimmed.slice(0, MAX_MESSAGE_LENGTH));
+      return;
+    }
 
     // Звук
     soundSend();

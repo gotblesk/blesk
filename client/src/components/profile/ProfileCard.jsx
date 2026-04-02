@@ -165,6 +165,7 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
         variants={containerV}
         initial="hidden"
         animate="visible"
+        style={{ '--pcard-glow': `hsla(${hue}, 60%, 50%, 0.1)` }}
       >
         {/* Banner */}
         <motion.div className="pcard__banner" variants={childV} style={{ '--card-hue': hue }}>

@@ -1,0 +1,226 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1774968085961,
+  "projectRoot": "C:\\Users\\mxkar\\OneDrive\\Рабочий стол\\blesk\\server",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "express",
+        "version": "5.0.0",
+        "category": "backend"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": "npm run lint",
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "nodemon src/index.js",
+      "start": "node src/index.js",
+      "db:migrate": "prisma migrate dev",
+      "db:generate": "prisma generate",
+      "db:studio": "prisma studio",
+      "lint": "eslint src/"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase",
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "assets",
+      "scripts",
+      "src"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "assets": {
+      "path": "assets",
+      "purpose": "Static assets",
+      "fileCount": 1,
+      "lastAccessed": 1774968085938,
+      "keyFiles": [
+        "blesk-email.png"
+      ]
+    },
+    "prisma": {
+      "path": "prisma",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1774968085939,
+      "keyFiles": [
+        "dev.db",
+        "schema.prisma"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 2,
+      "lastAccessed": 1774968085945,
+      "keyFiles": [
+        "pg-backup.sh",
+        "setup-backups.sh"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 2,
+      "lastAccessed": 1774968085945,
+      "keyFiles": [
+        "db.js",
+        "index.js"
+      ]
+    },
+    "uploads": {
+      "path": "uploads",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1774968085946,
+      "keyFiles": []
+    },
+    "prisma\\migrations": {
+      "path": "prisma\\migrations",
+      "purpose": "Database migrations",
+      "fileCount": 1,
+      "lastAccessed": 1774968085946,
+      "keyFiles": [
+        "migration_lock.toml"
+      ]
+    },
+    "src\\middleware": {
+      "path": "src\\middleware",
+      "purpose": "Middleware",
+      "fileCount": 3,
+      "lastAccessed": 1774968085947,
+      "keyFiles": [
+        "adminAuth.js",
+        "auth.js",
+        "csrf.js"
+      ]
+    },
+    "src\\routes": {
+      "path": "src\\routes",
+      "purpose": "Route handlers",
+      "fileCount": 11,
+      "lastAccessed": 1774968085947,
+      "keyFiles": [
+        "admin.js",
+        "auth.js",
+        "channels.js"
+      ]
+    },
+    "src\\services": {
+      "path": "src\\services",
+      "purpose": "Business logic services",
+      "fileCount": 5,
+      "lastAccessed": 1774968085947,
+      "keyFiles": [
+        "email.js",
+        "fileScanner.js",
+        "fileValidator.js"
+      ]
+    },
+    "src\\utils": {
+      "path": "src\\utils",
+      "purpose": "Utility functions",
+      "fileCount": 2,
+      "lastAccessed": 1774968085948,
+      "keyFiles": [
+        "logger.js",
+        "socketUtils.js"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src",
+      "accessCount": 4,
+      "lastAccessed": 1774968317477,
+      "type": "directory"
+    },
+    {
+      "path": "replace_console.py",
+      "accessCount": 3,
+      "lastAccessed": 1774968266712,
+      "type": "file"
+    },
+    {
+      "path": "src\\routes\\chats.js",
+      "accessCount": 1,
+      "lastAccessed": 1774968091218,
+      "type": "file"
+    },
+    {
+      "path": "src\\routes\\auth.js",
+      "accessCount": 1,
+      "lastAccessed": 1774968096718,
+      "type": "file"
+    },
+    {
+      "path": "src\\routes\\voice.js",
+      "accessCount": 1,
+      "lastAccessed": 1774968097227,
+      "type": "file"
+    },
+    {
+      "path": "src\\routes\\friends.js",
+      "accessCount": 1,
+      "lastAccessed": 1774968097748,
+      "type": "file"
+    },
+    {
+      "path": "src\\routes\\channels.js",
+      "accessCount": 1,
+      "lastAccessed": 1774968104341,
+      "type": "file"
+    },
+    {
+      "path": "src\\routes\\admin.js",
+      "accessCount": 1,
+      "lastAccessed": 1774968105166,
+      "type": "file"
+    },
+    {
+      "path": "src\\routes\\users.js",
+      "accessCount": 1,
+      "lastAccessed": 1774968105436,
+      "type": "file"
+    },
+    {
+      "path": "src\\routes",
+      "accessCount": 1,
+      "lastAccessed": 1774968112148,
+      "type": "directory"
+    },
+    {
+      "path": "src\\services",
+      "accessCount": 1,
+      "lastAccessed": 1774968113091,
+      "type": "directory"
+    }
+  ],
+  "userDirectives": []
+}

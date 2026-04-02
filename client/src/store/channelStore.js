@@ -71,12 +71,12 @@ export const useChannelStore = create((set, get) => ({
       });
       if (!res.ok) throw new Error('Не удалось загрузить посты');
       const data = await res.json();
-      const incoming = (data.posts ?? data ?? []).reverse();
+      const incoming = [...(data.posts ?? data ?? [])].reverse();
       // Merge с существующими (не перезаписывать socket-полученные)
       set((state) => {
         const existing = state.posts[channelId] || [];
-        const existingIds = new Set(existing.map(p => p.id));
-        const merged = [...existing.filter(p => !incoming.some(i => i.id === p.id)), ...incoming];
+        const incomingIds = new Set(incoming.map(i => i.id));
+        const merged = [...existing.filter(p => !incomingIds.has(p.id)), ...incoming];
         merged.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         return {
           posts: { ...state.posts, [channelId]: merged },

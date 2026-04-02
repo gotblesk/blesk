@@ -166,3 +166,73 @@
 .ssp__btn--share { background: #c8ff00; color: #0a0a0f; font-weight: 600; }
 .ssp__btn--share:disabled { opacity: 0.4; cursor: not-allowed; }
 .ssp__btn--share:hover:not(:disabled) { background: #d4ff33; }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .ssp__hint-row {
+  border-top-color: var(--glass-border);
+}
+
+[data-theme="light"] .ssp__hint-btn {
+  border-color: var(--glass-border);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .ssp__hint-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ssp__modal {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+}
+
+[data-theme="light"] .ssp__header h3 {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ssp__close {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .ssp__close:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ssp__tab {
+  background: var(--surface-1);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .ssp__tab:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ssp__source {
+  background: var(--surface-1);
+}
+
+[data-theme="light"] .ssp__source:hover {
+  border-color: var(--glass-border);
+}
+
+[data-theme="light"] .ssp__name {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .ssp__empty {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .ssp__btn--cancel {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .ssp__btn--cancel:hover {
+  background: var(--surface-3);
+}

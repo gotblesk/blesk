@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { MotionConfig } from 'framer-motion';
 import TitleBar from './components/ui/TitleBar';
 import AuthScreen from './components/auth/AuthScreen';
@@ -24,6 +24,10 @@ export default function App() {
   const [checking, setChecking] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
   const [needsVerify, setNeedsVerify] = useState(null); // { user, token, refreshToken }
+  const loginTimersRef = useRef([]);
+
+  // Cleanup login timers on unmount
+  useEffect(() => () => loginTimersRef.current.forEach(clearTimeout), []);
 
   // Применить настройки к CSS custom properties
   const accentColor = useSettingsStore((s) => s.accentColor);
@@ -204,14 +208,16 @@ export default function App() {
     setTransition('collapsing');
 
     // После collapse анимации — показываем main
-    setTimeout(() => {
+    const t1 = setTimeout(() => {
       setUser(data.user);
       setPendingUser(null);
       setTransition('revealing');
 
       // Убираем класс reveal после анимации
-      setTimeout(() => setTransition(null), 800);
+      const t2 = setTimeout(() => setTransition(null), 800);
+      loginTimersRef.current.push(t2);
     }, 700);
+    loginTimersRef.current.push(t1);
   };
 
   const handleLogout = async () => {
@@ -244,20 +250,22 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
-        <AuthScreen
-          onLogin={handleLogin}
-          collapsing={transition === 'collapsing'}
-          pendingVerification={needsVerify}
-          onVerified={() => {
-            if (needsVerify) {
-              setUser({ ...needsVerify.user, emailVerified: true });
-              setNeedsVerify(null);
-            }
-          }}
-        />
-        <UpdateToast />
-      </div>
+      <ErrorBoundary>
+        <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
+          <AuthScreen
+            onLogin={handleLogin}
+            collapsing={transition === 'collapsing'}
+            pendingVerification={needsVerify}
+            onVerified={() => {
+              if (needsVerify) {
+                setUser({ ...needsVerify.user, emailVerified: true });
+                setNeedsVerify(null);
+              }
+            }}
+          />
+          <UpdateToast />
+        </div>
+      </ErrorBoundary>
     );
   }
 

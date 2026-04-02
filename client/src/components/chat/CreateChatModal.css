@@ -219,3 +219,30 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .create-chat-modal__input {
+  border-color: var(--glass-border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .create-chat-modal__input::placeholder {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .create-chat-modal__mode-toggle {
+  background: var(--surface-2);
+}
+
+[data-theme="light"] .create-chat-modal__mode-pill {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .create-chat-modal__mode-pill:hover {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .create-chat-modal__checkbox {
+  border-color: rgba(0, 0, 0, 0.15);
+}

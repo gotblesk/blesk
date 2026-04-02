@@ -374,3 +374,35 @@
   color: var(--text-muted);
   opacity: 0.6;
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .about-card {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .about-card__shine {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+}
+
+[data-theme="light"] .about-close {
+  background: var(--surface-2);
+}
+
+[data-theme="light"] .about-sep {
+  background: var(--glass-border);
+}
+
+[data-theme="light"] .about-info__row {
+  background: var(--surface-1);
+}
+
+[data-theme="light"] .about-link {
+  background: var(--surface-1);
+  border-color: var(--glass-border);
+}
+
+[data-theme="light"] .about-logo-progress__dot {
+  background: rgba(0, 0, 0, 0.1);
+}

@@ -384,3 +384,53 @@
   color: var(--text-muted);
   margin-top: 6px;
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .feedback-card {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .feedback-card__shine {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+}
+
+[data-theme="light"] .feedback-close {
+  background: var(--surface-2);
+}
+
+[data-theme="light"] .feedback-type {
+  border-color: var(--glass-border);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .feedback-type:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .feedback-textarea {
+  border-color: var(--glass-border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .feedback-meta__item {
+  background: var(--surface-1);
+}
+
+[data-theme="light"] .feedback-success__btn {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .feedback-success__btn:hover {
+  background: var(--surface-3);
+}
+
+[data-theme="light"] .feedback-history__item {
+  background: var(--surface-1);
+  border-color: var(--glass-border);
+}

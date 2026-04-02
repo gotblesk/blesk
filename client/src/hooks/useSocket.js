@@ -62,15 +62,17 @@ export function useSocket() {
           for (const msg of msgs) {
             if (!msg.failed && !msg.offline) continue;
             // Убрать failed/offline, поставить pending
+            const matchKey = msg.tempId || msg.id;
             useChatStore.setState((state) => {
               const chatMsgs = state.messages[chatId];
               if (!chatMsgs) return state;
               return {
                 messages: {
                   ...state.messages,
-                  [chatId]: chatMsgs.map((m) =>
-                    m.id === msg.id ? { ...m, failed: false, offline: false, pending: true } : m
-                  ),
+                  [chatId]: chatMsgs.map((m) => {
+                    const mKey = m.tempId || m.id;
+                    return mKey === matchKey ? { ...m, failed: false, offline: false, pending: true } : m;
+                  }),
                 },
               };
             });
@@ -462,7 +464,9 @@ export function useSocket() {
       }));
     };
 
-    const handleReactionsBatch = ({ reactions: batch }) => {
+    const handleReactionsBatch = (data) => {
+      // Сервер отправляет объект напрямую, не обёрнутый в { reactions: ... }
+      const batch = data?.reactions || data;
       if (!batch || typeof batch !== 'object') return;
       useChatStore.setState((state) => ({
         reactions: { ...state.reactions, ...batch },

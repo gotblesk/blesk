@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Camera, User, Envelope, DeviceMobile, Lock, Eye, EyeSlash, CaretRight, Check } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import AvatarCropModal from './AvatarCropModal';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
 import { formatJoinDate } from '../../utils/months';
@@ -48,6 +49,9 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
   const [showPwCurrent, setShowPwCurrent] = useState(false);
   const [showPwNew, setShowPwNew] = useState(false);
   const [showPwConfirm, setShowPwConfirm] = useState(false);
+
+  // Confirm dialog (replaces native window.confirm)
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Avatar
   const fileInputRef = useRef(null);
@@ -101,7 +105,7 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
     const handleKey = (e) => {
       if (e.key === 'Escape') {
         if (dirty) {
-          if (window.confirm('Есть несохранённые изменения. Выйти?')) onClose?.();
+          setConfirmOpen(true);
         } else {
           onClose?.();
         }
@@ -243,7 +247,7 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
 
   const handleBack = () => {
     if (dirty) {
-      if (window.confirm('Есть несохранённые изменения. Выйти?')) onClose?.();
+      setConfirmOpen(true);
     } else {
       onClose?.();
     }
@@ -272,6 +276,7 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
           </div>
 
           <div className="peditor__scroll">
+            <div className="peditor__glass-panel">
             {/* Avatar */}
             <div className="peditor__avatar-section">
               <div className="peditor__avatar" onClick={() => fileInputRef.current?.click()} data-testid="profile-editor-avatar">
@@ -283,7 +288,8 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileSelect} hidden />
               <div className="peditor__avatar-info">
                 <span className="peditor__avatar-name">{user?.username}</span>
-                <span className="peditor__avatar-sub">{tag} · {joinDate}</span>
+                <span className="peditor__avatar-sub">{tag}</span>
+                {joinDate && <span className="peditor__avatar-join">{joinDate}</span>}
               </div>
             </div>
 
@@ -440,9 +446,21 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
             >
               {saving ? '...' : saved ? <><Check size={13} weight="regular" /> Сохранено</> : 'Сохранить'}
             </motion.button>
+            </div>{/* /glass-panel */}
           </div>
 
           {cropImage && <AvatarCropModal imageSrc={cropImage} onClose={() => setCropImage(null)} onSave={handleAvatarSave} />}
+
+          <ConfirmDialog
+            open={confirmOpen}
+            title="Несохранённые изменения"
+            message="Вы уверены, что хотите выйти? Все изменения будут потеряны."
+            confirmText="Выйти"
+            cancelText="Остаться"
+            danger
+            onConfirm={() => { setConfirmOpen(false); onClose?.(); }}
+            onCancel={() => setConfirmOpen(false)}
+          />
         </motion.div>
       )}
     </AnimatePresence>

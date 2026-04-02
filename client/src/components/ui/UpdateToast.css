@@ -131,3 +131,30 @@
 .update-toast__close:hover {
   color: rgba(255, 255, 255, 0.6);
 }
+
+/* ═══ Светлая тема ═══ */
+[data-theme="light"] .update-toast {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .update-toast__text {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .update-toast__meta {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .update-toast__bar {
+  background: var(--surface-2);
+}
+
+[data-theme="light"] .update-toast__close {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .update-toast__close:hover {
+  color: var(--text-primary);
+}

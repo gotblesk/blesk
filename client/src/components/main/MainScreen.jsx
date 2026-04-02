@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import MetaballBackground from '../ui/MetaballBackground';
 import AppShell from '../AppShell/AppShell';
 import TopNav from '../TopNav/TopNav';
@@ -189,12 +191,47 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     setSidebarCollapsed(prev => !prev);
   }, []);
 
-  // Открыть чат (из Sidebar, SpotlightSearch, панелей, deep links)
-  const handleOpenChat = useCallback((chatId) => {
-    soundWindowOpen();
-    setActiveChatId(chatId);
-    setActiveTab('chats');
-    useChatStore.getState().openChat(chatId);
+  // Открыть чат по chatId или найти/создать DM по userId
+  const handleOpenChat = useCallback((chatId, userId) => {
+    if (chatId) {
+      soundWindowOpen();
+      setActiveChatId(chatId);
+      setActiveTab('chats');
+      useChatStore.getState().openChat(chatId);
+      return;
+    }
+    // Если передан userId — найти существующий DM или создать новый
+    if (userId) {
+      const existingChat = useChatStore.getState().chats.find(
+        c => c.type === 'dm' && c.otherUser?.id === userId
+      );
+      if (existingChat) {
+        soundWindowOpen();
+        setActiveChatId(existingChat.id);
+        setActiveTab('chats');
+        useChatStore.getState().openChat(existingChat.id);
+      } else {
+        // Создать DM через API
+        fetch(`${API_URL}/api/chats/dm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          credentials: 'include',
+          body: JSON.stringify({ userId }),
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.id) {
+              useChatStore.getState().loadChats().then(() => {
+                soundWindowOpen();
+                setActiveChatId(data.id);
+                setActiveTab('chats');
+                useChatStore.getState().openChat(data.id);
+              });
+            }
+          })
+          .catch(err => console.error('DM create error:', err));
+      }
+    }
   }, []);
 
   // Переключить чат в sidebar

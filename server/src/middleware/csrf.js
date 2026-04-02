@@ -47,9 +47,14 @@ function csrfProtection(req, res, next) {
 
   const origin = req.headers.origin;
 
-  // Electron клиент не отправляет origin — CSRF атака невозможна (нет браузера)
-  // Пропускаем CSRF для запросов без origin (Electron, мобильные)
-  if (!origin) return next();
+  // Electron клиент не отправляет origin, но всё равно проверяем CSRF токен.
+  // Пропускаем только если запрос использует Bearer token (не cookie) И нет origin —
+  // это Electron/мобильные клиенты, CSRF атака невозможна без cookie.
+  if (!origin) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) return next();
+    // Нет ни origin, ни Bearer — подозрительный запрос, требуем CSRF
+  }
 
   // Извлечь userId из токена (authenticate ещё не запускался на уровне route)
   const userId = req.userId || extractUserId(req);
