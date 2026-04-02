@@ -28,6 +28,18 @@ export default function GravityCard({
 
   function handleMouseMove(e) {
     if (reduced) return;
+    // Не тильтить при зажатой кнопке мыши или над интерактивными элементами
+    if (e.buttons > 0) {
+      mouseX.set(0);
+      mouseY.set(0);
+      return;
+    }
+    const tag = e.target.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'button' || tag === 'textarea') {
+      mouseX.set(0);
+      mouseY.set(0);
+      return;
+    }
     const rect = cardRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = (e.clientX - rect.left) / rect.width - 0.5;

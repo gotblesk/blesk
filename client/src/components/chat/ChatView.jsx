@@ -19,7 +19,7 @@ import uploadFile from '../../utils/uploadFile';
 import { encryptMessage, fetchPublicKey } from '../../utils/cryptoService';
 import { shieldEncrypt, isShieldReady } from '../../utils/shieldService';
 import { getHueFromString } from '../../utils/hueIdentity';
-import UserProfileModal from '../ui/UserProfileModal';
+import ProfilePopover from '../profile/ProfilePopover';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import EmptyState from '../ui/EmptyState';
 import './ChatView.css';
@@ -61,7 +61,7 @@ export default function ChatView({
   const [viewDragOver, setViewDragOver] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState(null);
-  const [profileUserId, setProfileUserId] = useState(null);
+  const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [forwardMsg, setForwardMsg] = useState(null);
   const [forwardSuccess, setForwardSuccess] = useState(false);
@@ -664,7 +664,7 @@ export default function ChatView({
           typingUsernames={typingNames}
           onCall={onCall}
           onMembers={chat.type === 'group' ? () => setMembersOpen(true) : undefined}
-          onAvatarClick={() => { if (chat.otherUser?.id) setProfileUserId(chat.otherUser.id); }}
+          onAvatarClick={(e) => { if (chat.otherUser?.id) setProfilePopover({ open: true, userId: chat.otherUser.id, anchorRef: { current: e?.currentTarget || e?.target } }); }}
         />
         {/* Кнопка закрытия */}
         <button
@@ -850,7 +850,7 @@ export default function ChatView({
           socketRef={socketRef}
         />
       )}
-      <UserProfileModal userId={profileUserId} open={!!profileUserId} onClose={() => setProfileUserId(null)} />
+      <ProfilePopover anchorRef={profilePopover.anchorRef} userId={profilePopover.userId} isOpen={profilePopover.open} onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })} />
       <ConfirmDialog
         open={!!deleteConfirm}
         title="Удалить сообщение?"

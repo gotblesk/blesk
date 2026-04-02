@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { UserIcon, LockClosedIcon, EnvelopeIcon, KeyIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { User, Lock, Envelope, Key, Eye, EyeSlash } from '@phosphor-icons/react';
 import gsap from 'gsap';
 import GravityCard from './GravityCard';
 import PasswordCard from './PasswordCard';
@@ -582,7 +582,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={-1.5}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><UserIcon className="w-4 h-4" /></span>}
+                  icon={<span style={{ color: 'var(--accent)', display: 'flex' }}><User size={16} weight="regular" /></span>}
                   title="Кто ты?"
                   subtitle="Имя в мире blesk"
                   error={error && error.includes('Имя') ? error : null}
@@ -606,7 +606,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={1}
                   index={1}
-                  icon={<span style={{ color: 'var(--accent)' }}><LockClosedIcon className="w-4 h-4" /></span>}
+                  icon={<span style={{ color: 'var(--accent)', display: 'flex' }}><Lock size={16} weight="regular" /></span>}
                   title="Пароль"
                   subtitle="Введите пароль"
                   error={error && !error.includes('Имя') ? error : null}
@@ -627,7 +627,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                       onClick={() => setShowLoginPw(!showLoginPw)}
                       aria-label={showLoginPw ? 'Скрыть' : 'Показать'}
                     >
-                      {showLoginPw ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                      {showLoginPw ? <EyeSlash size={16} weight="regular" /> : <Eye size={16} weight="regular" />}
                     </button>
                   </div>
                 </GravityCard>
@@ -675,7 +675,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={-1.5}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><UserIcon className="w-4 h-4" /></span>}
+                  icon={<span style={{ color: 'var(--accent)', display: 'flex' }}><User size={16} weight="regular" /></span>}
                   title="Придумай имя"
                   subtitle="Твой ник в blesk"
                   error={error && error.includes('Имя') ? error : null}
@@ -699,7 +699,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={1}
                   index={1}
-                  icon={<span style={{ color: 'var(--accent)' }}><EnvelopeIcon className="w-4 h-4" /></span>}
+                  icon={<span style={{ color: 'var(--accent)', display: 'flex' }}><Envelope size={16} weight="regular" /></span>}
                   title="Куда писать?"
                   subtitle="Для подтверждения"
                   error={error && error.includes('email') ? error : null}
@@ -761,7 +761,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--online)' }}><EnvelopeIcon className="w-4 h-4" /></span>}
+                  icon={<span style={{ color: 'var(--online)', display: 'flex' }}><Envelope size={16} weight="regular" /></span>}
                   title="Проверь почту"
                   subtitle={`Код отправлен на ${maskedEmail}`}
                   error={verifyError}
@@ -805,7 +805,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><KeyIcon className="w-4 h-4" /></span>}
+                  icon={<span style={{ color: 'var(--accent)', display: 'flex' }}><Key size={16} weight="regular" /></span>}
                   title="Двухфакторная аутентификация"
                   subtitle="Введите код из приложения-аутентификатора"
                   error={tfaError}
@@ -841,7 +841,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--info)' }}><EnvelopeIcon className="w-4 h-4" /></span>}
+                  icon={<span style={{ color: 'var(--info)', display: 'flex' }}><Envelope size={16} weight="regular" /></span>}
                   title="Вспомним?"
                   subtitle="Email для восстановления"
                   error={forgotError}
@@ -893,7 +893,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                 <GravityCard
                   tilt={0}
                   index={0}
-                  icon={<span style={{ color: 'var(--accent)' }}><KeyIcon className="w-4 h-4" /></span>}
+                  icon={<span style={{ color: 'var(--accent)', display: 'flex' }}><Key size={16} weight="regular" /></span>}
                   title="Проверь почту"
                   subtitle={`Код отправлен на ${forgotEmail}`}
                   error={forgotError}
@@ -928,7 +928,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
                   <GravityCard
                     tilt={0}
                     index={0}
-                    icon={<span style={{ color: 'var(--online)' }}><KeyIcon className="w-4 h-4" /></span>}
+                    icon={<span style={{ color: 'var(--online)', display: 'flex' }}><Key size={16} weight="regular" /></span>}
                     title="Готово!"
                     subtitle="Пароль успешно изменён. Перенаправляем..."
                   >

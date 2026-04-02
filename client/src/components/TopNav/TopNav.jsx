@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useChatStore } from '../../store/chatStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import Avatar from '../ui/Avatar';
+import SegmentedCircle from '../profile/SegmentedCircle';
 import NotificationsPanel from './NotificationsPanel';
 import './TopNav.css';
 
@@ -16,11 +17,7 @@ const BASE_TABS = [
 
 const ADMIN_TAB = { id: 'admin', label: 'Админ', Icon: ShieldCheck };
 
-const STATUS_OPTIONS = [
-  { key: 'online', label: 'В сети', color: '#4ade80' },
-  { key: 'dnd', label: 'Не беспокоить', color: '#f59e0b' },
-  { key: 'invisible', label: 'Невидимка', color: '#6b7280' },
-];
+const STATUS_LABELS = { online: 'В сети', dnd: 'Не беспокоить', invisible: 'Невидимка' };
 
 export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, onSearch, onSettings, onOpenChat, isAdmin, user, onLogout, onNavigate, onStatusChange }) {
   const totalUnread = useChatStore(s => s.chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0));
@@ -36,7 +33,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
   const userMenuRef = useRef(null);
 
   const currentStatus = user?.status || 'online';
-  const statusLabel = STATUS_OPTIONS.find(s => s.key === currentStatus)?.label ?? 'В сети';
+  const statusLabel = STATUS_LABELS[currentStatus] || 'В сети';
 
   // Отслеживаем состояние maximize для иконки кнопки
   useEffect(() => {
@@ -114,37 +111,22 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
               >
                 {/* User info */}
                 <div className="um__header">
-                  <Avatar user={user} size={40} showOnline={true} isOnline={currentStatus !== 'invisible'} userStatus={currentStatus} />
+                  <Avatar user={user} size={44} showOnline={true} isOnline={currentStatus !== 'invisible'} userStatus={currentStatus} />
                   <div className="um__info">
                     <div className="um__name">{user?.displayName || user?.username}</div>
-                    <div className="um__status-text">{statusLabel}</div>
+                    <div className="um__tag">{user?.tag?.startsWith('#') ? user.tag : `#${user?.tag || '0000'}`}</div>
+                    <div className="um__status-inline">
+                      <SegmentedCircle currentStatus={currentStatus} onStatusChange={(key) => { onStatusChange?.(key); }} />
+                      <span className="um__status-text">{statusLabel}</span>
+                    </div>
                   </div>
-                </div>
-
-                <div className="um__sep" />
-
-                {/* Статус — 3 компактных круга */}
-                <div className="um__status-row">
-                  {STATUS_OPTIONS.map(s => (
-                    <button
-                      key={s.key}
-                      className={`um__status-dot-btn${currentStatus === s.key ? ' um__status-dot-btn--active' : ''}`}
-                      style={{ color: s.color }}
-                      onClick={() => { onStatusChange?.(s.key); setUserMenuOpen(false); }}
-                      title={s.label}
-                      aria-label={s.label}
-                    >
-                      <span className="um__status-dot-inner" style={{ background: s.color }} />
-                    </button>
-                  ))}
-                  <span className="um__status-label">{statusLabel}</span>
                 </div>
 
                 <div className="um__sep" />
 
                 {/* Actions */}
                 <div className="um__group">
-                  <button className="um__item" onClick={() => { setUserMenuOpen(false); onNavigate?.('profile'); }}>
+                  <button className="um__item" onClick={(e) => { setUserMenuOpen(false); onNavigate?.('profile', e.currentTarget); }}>
                     <User size={16} />
                     <span>Профиль</span>
                   </button>

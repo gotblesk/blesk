@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Crown, X } from '@phosphor-icons/react';
 import Glass from '../ui/Glass';
-import UserProfileModal from '../ui/UserProfileModal';
+import ProfilePopover from '../profile/ProfilePopover';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
@@ -12,8 +12,7 @@ import './GroupMembersPanel.css';
 export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMember, socketRef }) {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  // id пользователя для модалки профиля
-  const [profileUserId, setProfileUserId] = useState(null);
+  const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
   const [leaveConfirm, setLeaveConfirm] = useState(false);
 
   const loadMembers = async () => {
@@ -80,7 +79,7 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
                   {/* Клик по аватару/имени открывает профиль участника */}
                   <div
                     style={{ display: 'contents', cursor: 'pointer' }}
-                    onClick={() => setProfileUserId(m.userId)}
+                    onClick={() => setProfilePopover({ open: true, userId: m.userId, anchorRef: { current: null } })}
                   >
                     <div
                       className="group-members-panel__avatar"
@@ -120,11 +119,11 @@ export default function GroupMembersPanel({ chatId, isOwner, onClose, onAddMembe
         )}
       </Glass>
 
-      {/* Модалка профиля участника */}
-      <UserProfileModal
-        userId={profileUserId}
-        open={!!profileUserId}
-        onClose={() => setProfileUserId(null)}
+      <ProfilePopover
+        anchorRef={profilePopover.anchorRef}
+        userId={profilePopover.userId}
+        isOpen={profilePopover.open}
+        onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })}
       />
       <ConfirmDialog
         open={leaveConfirm}

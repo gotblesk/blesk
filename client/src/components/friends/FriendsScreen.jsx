@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UsersThree, Tray, MagnifyingGlass, Check, X, UserPlus, ChatCircle, Phone } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
-import UserProfileModal from '../ui/UserProfileModal';
+import ProfilePopover from '../profile/ProfilePopover';
 import { FriendListSkeleton } from '../ui/GlassSkeleton';
 import EmptyState from '../ui/EmptyState';
 import API_URL from '../../config';
@@ -45,7 +45,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
   const [loading, setLoading] = useState(false);
   const [friendsLoading, setFriendsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [profileUserId, setProfileUserId] = useState(null);
+  const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
   const [filter, setFilter] = useState('all'); // 'all' | 'online'
 
   const debouncedQuery = useDebounce(searchQuery, 300);
@@ -184,7 +184,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                 <div className="fr__list">
                   <div className="fr__section-label">Все друзья — {filteredFriends.length}</div>
                   {filteredFriends.map((friend, i) => (
-                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfileUserId(friend.id)}>
+                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })}>
                       <Avatar user={friend} size={36} showOnline={friend.status === 'online'} />
                       <div className="fr__item-info">
                         <div className="fr__item-name">{friend.username}<span className="fr__item-tag">{friend.tag}</span></div>
@@ -215,7 +215,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                 <div className="fr__list">
                   {pending.map((req, i) => (
                     <motion.div key={req.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible">
-                      <div className="fr__item-click" onClick={() => setProfileUserId(req.sender.id)}>
+                      <div className="fr__item-click" onClick={() => setProfilePopover({ open: true, userId: req.sender.id, anchorRef: { current: null } })}>
                         <Avatar user={req.sender} size={36} />
                         <div className="fr__item-info">
                           <div className="fr__item-name">{req.sender.username}</div>
@@ -252,7 +252,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
               <div className="fr__list">
                 {searchResults.map((user, i) => (
                   <motion.div key={user.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible">
-                    <div className="fr__item-click" onClick={() => setProfileUserId(user.id)}>
+                    <div className="fr__item-click" onClick={() => setProfilePopover({ open: true, userId: user.id, anchorRef: { current: null } })}>
                       <Avatar user={user} size={36} showOnline={user.status === 'online'} />
                       <div className="fr__item-info">
                         <div className="fr__item-name">{user.username}<span className="fr__item-tag">{user.tag}</span></div>
@@ -277,7 +277,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
         </AnimatePresence>
       </div>
 
-      <UserProfileModal userId={profileUserId} open={!!profileUserId} onClose={() => setProfileUserId(null)} onAddFriend={sendRequest} onOpenChat={(chatId) => { setProfileUserId(null); onOpenChat?.(chatId, null); }} />
+      <ProfilePopover anchorRef={profilePopover.anchorRef} userId={profilePopover.userId} isOpen={profilePopover.open} onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })} onAddFriend={sendRequest} onOpenChat={(userId) => { setProfilePopover({ open: false, userId: null, anchorRef: null }); onOpenChat?.(null, userId); }} />
     </div>
   );
 }

@@ -11,8 +11,8 @@ import VibeMeter from '../panels/VibeMeter';
 import AboutScreen from '../settings/AboutScreen';
 import FeedbackScreen from '../settings/FeedbackScreen';
 import SettingsScreen from '../settings/SettingsScreen';
-import ProfileScreen from '../profile/ProfileScreen';
-import StatusEditor from '../profile/StatusEditor';
+import ProfileEditor from '../profile/ProfileEditor';
+import ProfilePopover from '../profile/ProfilePopover';
 import FriendsScreen from '../friends/FriendsScreen';
 import VoiceRoomList from '../voice/VoiceRoomList';
 import VoiceRoom from '../voice/VoiceRoom';
@@ -91,8 +91,8 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   const [vibeOpen, setVibeOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
   // Восстановить сохранённый статус из localStorage при монтировании
   const [currentUser, setCurrentUser] = useState(() => {
     const savedStatus = localStorage.getItem('blesk-user-status');
@@ -260,7 +260,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     const handleEscape = (e) => {
       if (e.key !== 'Escape') return;
       // Не перехватывать если открыта модалка или Spotlight
-      if (spotlightOpen || settingsOpen || profileOpen || feedbackOpen || aboutOpen) return;
+      if (spotlightOpen || settingsOpen || editorOpen || feedbackOpen || aboutOpen) return;
       const roomId = useVoiceStore.getState().currentRoomId;
       if (!roomId) return;
       soundVoiceLeave();
@@ -275,7 +275,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [leaveRoom, leaveCall, spotlightOpen, settingsOpen, profileOpen, feedbackOpen, aboutOpen]);
+  }, [leaveRoom, leaveCall, spotlightOpen, settingsOpen, editorOpen, feedbackOpen, aboutOpen]);
 
   // ═══════ FOCUS MODE ═══════
   useEffect(() => {
@@ -415,9 +415,10 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
             isAdmin={isAdmin}
             user={currentUser}
             onLogout={onLogout}
-            onNavigate={(viewName) => {
-              if (viewName === 'profile') setProfileOpen(true);
-              else if (viewName === 'settings') setSettingsOpen(true);
+            onNavigate={(viewName, anchorEl) => {
+              if (viewName === 'profile') {
+                setProfilePopover({ open: true, userId: currentUser?.id, anchorRef: anchorEl ? { current: anchorEl } : null });
+              } else if (viewName === 'settings') setSettingsOpen(true);
             }}
             onStatusChange={(status) => {
               const socket = socketRef.current;
@@ -482,17 +483,20 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
       <AboutScreen open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <FeedbackScreen open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
-      <ProfileScreen
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
+      <ProfileEditor
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
         user={currentUser}
         onUserUpdate={(updated) => setCurrentUser(prev => ({ ...prev, ...updated }))}
       />
-      <StatusEditor
-        open={statusOpen}
-        onClose={() => setStatusOpen(false)}
+      <ProfilePopover
+        anchorRef={profilePopover.anchorRef}
+        userId={profilePopover.userId}
         user={currentUser}
-        onUserUpdate={(updated) => setCurrentUser(prev => ({ ...prev, ...updated }))}
+        isOpen={profilePopover.open}
+        onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })}
+        onEdit={() => { setProfilePopover({ open: false, userId: null, anchorRef: null }); setEditorOpen(true); }}
+        onOpenChat={(userId) => handleOpenChat(null, userId)}
       />
 
       {/* Входящий звонок */}

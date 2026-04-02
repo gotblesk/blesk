@@ -1,0 +1,61 @@
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-1, 4px);
+  border-radius: var(--radius-sm, 8px);
+  transition: background var(--duration-fast, 150ms) ease;
+  user-select: none;
+  min-width: 0;
+}
+
+.user-badge--clickable {
+  cursor: pointer;
+}
+
+.user-badge--clickable:hover {
+  background: var(--glass-bg, rgba(255,255,255,0.04));
+}
+
+.user-badge--clickable:active {
+  transform: scale(0.97);
+}
+
+.user-badge--clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.user-badge__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.user-badge__name {
+  font-family: var(--font-body, 'Onest', sans-serif);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-badge__sub {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-badge--sm {
+  padding: 2px;
+  gap: var(--space-1, 4px);
+}
+
+.user-badge--sm .user-badge__text {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}

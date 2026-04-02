@@ -6,7 +6,7 @@ import {
   PhoneDisconnect,
 } from '@phosphor-icons/react';
 import { useVoiceStore } from '../../store/voiceStore';
-import UserProfileModal from '../ui/UserProfileModal';
+import ProfilePopover from '../profile/ProfilePopover';
 import Avatar from '../ui/Avatar';
 import VoiceChat from './VoiceChat';
 import VideoGrid from './VideoGrid';
@@ -258,7 +258,7 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
   const toggleDeafen = useVoiceStore((s) => s.toggleDeafen);
 
   const [volumePopup, setVolumePopup] = useState(null);
-  const [profileUserId, setProfileUserId] = useState(null);
+  const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
   const [showInvite, setShowInvite] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
   const popupRef = useRef(null);
@@ -433,7 +433,7 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
                       level={level}
                       hasCam={!!hasCam}
                       onVolumeClick={handleVolumeClick}
-                      onProfileOpen={(id) => setProfileUserId(id)}
+                      onProfileOpen={(id) => setProfilePopover({ open: true, userId: id, anchorRef: { current: null } })}
                     />
 
                     {/* Volume popup */}
@@ -482,7 +482,7 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
                         level={level}
                         hasCam={false}
                         onVolumeClick={handleVolumeClick}
-                        onProfileOpen={(id) => setProfileUserId(id)}
+                        onProfileOpen={(id) => setProfilePopover({ open: true, userId: id, anchorRef: { current: null } })}
                       />
                     );
                   })}
@@ -592,10 +592,11 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
       )}
 
       {/* Profile modal */}
-      <UserProfileModal
-        userId={profileUserId}
-        open={!!profileUserId}
-        onClose={() => setProfileUserId(null)}
+      <ProfilePopover
+        anchorRef={profilePopover.anchorRef}
+        userId={profilePopover.userId}
+        isOpen={profilePopover.open}
+        onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })}
       />
     </div>
   );
