@@ -16,7 +16,7 @@
 
 /* Inner wrapper — убран дополнительный glass, теперь TypingWaveform несёт свой */
 .typing-bubble__inner {
-  border-radius: 20px;
+  border-radius: var(--radius-lg, 22px);
 }
 
 @media (prefers-reduced-motion: reduce) {

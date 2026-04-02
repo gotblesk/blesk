@@ -7,7 +7,7 @@
 
 /* ═══════ ProfileCard ═══════ */
 .pcard {
-  width: 340px;
+  width: 380px;
   border-radius: var(--radius-lg, 22px);
   background: var(--dl-outer-bg, rgba(255,255,255,0.04));
   backdrop-filter: blur(var(--dl-outer-blur, 40px));
@@ -209,7 +209,7 @@
 
 /* ═══════ Bio ═══════ */
 .pcard__bio {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text-secondary);
   text-align: center;
   margin: var(--space-1, 4px) 0 0;

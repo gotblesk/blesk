@@ -751,7 +751,7 @@ button:active, [role="button"]:active, .clickable:active {
 }
 .skeleton--card {
   height: 56px;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 14px);
 }
 
 /* === Shake animation for offline message attempts === */

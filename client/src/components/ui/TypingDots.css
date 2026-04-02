@@ -3,7 +3,7 @@
   align-items: center;
   gap: 3px;
   padding: 6px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 14px);
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(8px);
 }

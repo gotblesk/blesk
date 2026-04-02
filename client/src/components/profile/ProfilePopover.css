@@ -1,18 +1,22 @@
+/* ProfilePopover — centered modal with backdrop blur */
 .ppopover {
   position: fixed;
   inset: 0;
-  z-index: var(--z-dropdown, 60);
-  pointer-events: none;
-}
-
-.ppopover__backdrop {
-  position: absolute;
-  inset: 0;
-  pointer-events: auto;
+  z-index: var(--z-modal, 1000);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .ppopover__card {
-  position: absolute;
   pointer-events: auto;
   will-change: transform, opacity;
+}
+
+/* Light theme */
+[data-theme="light"] .ppopover {
+  background: rgba(0, 0, 0, 0.3);
 }

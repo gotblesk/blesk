@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Camera, User, Envelope, DeviceMobile, Lock, Eye, EyeSlash, CaretRight, Check } from '@phosphor-icons/react';
+import { ArrowLeft, Camera, ImageSquare, User, Envelope, DeviceMobile, Lock, Eye, EyeSlash, CaretRight, Check } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import AvatarCropModal from './AvatarCropModal';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -53,9 +53,11 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
   // Confirm dialog (replaces native window.confirm)
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Avatar
+  // Avatar + Banner
   const fileInputRef = useRef(null);
+  const bannerInputRef = useRef(null);
   const [cropImage, setCropImage] = useState(null);
+  const [bannerUploading, setBannerUploading] = useState(false);
 
   // C3: ref for handleSave to avoid stale closure in keydown effect
   const handleSaveRef = useRef(null);
@@ -245,6 +247,30 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
     finally { if (cropImage) URL.revokeObjectURL(cropImage); setCropImage(null); }
   };
 
+  // Banner upload
+  const handleBannerSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setSaveError('Шапка: макс. 5 МБ'); return; }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setSaveError('Шапка: JPG, PNG или WebP'); return; }
+    setBannerUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('banner', file, file.name);
+      const res = await fetch(`${API_URL}/api/users/me/banner`, {
+        method: 'POST', headers: { ...getAuthHeaders() }, credentials: 'include', body: fd,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onUserUpdate?.({ banner: data.banner });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setSaveError(err.error || 'Ошибка загрузки шапки');
+      }
+    } catch { setSaveError('Нет подключения'); }
+    finally { setBannerUploading(false); if (bannerInputRef.current) bannerInputRef.current.value = ''; }
+  };
+
   const handleBack = () => {
     if (dirty) {
       setConfirmOpen(true);
@@ -292,6 +318,25 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
                 {joinDate && <span className="peditor__avatar-join">{joinDate}</span>}
               </div>
             </div>
+
+            {/* Banner upload */}
+            <div className="peditor__section-label">Шапка профиля</div>
+            <div className="peditor__banner-upload" onClick={() => bannerInputRef.current?.click()}>
+              {user?.banner ? (
+                <img className="peditor__banner-preview" src={`${API_URL}/uploads/banners/${user.banner}`} alt="" />
+              ) : (
+                <div className="peditor__banner-empty">
+                  <ImageSquare size={24} weight="regular" />
+                  <span>Загрузить шапку</span>
+                </div>
+              )}
+              <div className="peditor__banner-overlay">
+                <Camera size={18} weight="regular" />
+                <span>{bannerUploading ? 'Загрузка...' : 'Изменить'}</span>
+              </div>
+            </div>
+            <input ref={bannerInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleBannerSelect} hidden />
+            <div className="peditor__banner-hint">1500 x 500 px, JPG/PNG/WebP, до 5 МБ</div>
 
             {/* Section: Основное */}
             <div className="peditor__section-label">Основное</div>

@@ -5,7 +5,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
+  border-radius: var(--radius-md, 14px);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: visible; /* was hidden — clipped timeline dot/connector */
@@ -152,14 +152,14 @@
 
 /* Long posts */
 .cp--long .cp__text {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.75;
 }
 
 /* Media */
 .cp__media {
   margin-top: 4px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm, 8px);
   overflow: hidden;
 }
 

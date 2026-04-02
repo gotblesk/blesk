@@ -213,7 +213,7 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
             )}
           </div>
           {mode === 'own' && (
-            <button className="pcard__edit-btn" onClick={onEdit} title="Редактировать" data-testid="profile-card-edit-btn">
+            <button className="pcard__edit-btn" onClick={onEdit} title="Редактировать" aria-label="Редактировать профиль" data-testid="profile-card-edit-btn">
               <PencilSimple size={14} weight="regular" />
             </button>
           )}

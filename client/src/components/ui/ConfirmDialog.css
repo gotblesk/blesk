@@ -15,7 +15,7 @@
   position: relative;
   width: min(380px, calc(100vw - 40px));
   padding: 28px 24px 20px;
-  border-radius: 20px;
+  border-radius: var(--radius-lg, 22px);
   background: var(--glass-bg, rgba(255, 255, 255, 0.06));
   border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
   backdrop-filter: blur(32px) saturate(1.4);
@@ -90,7 +90,7 @@
   flex: 1;
   padding: 10px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 14px);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;

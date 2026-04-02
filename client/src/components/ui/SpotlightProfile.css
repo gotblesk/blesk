@@ -4,7 +4,7 @@
   align-items: center;
   gap: 8px;
   padding: 4px 12px 4px 4px;
-  border-radius: 20px;
+  border-radius: var(--radius-lg, 22px);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px);
@@ -83,7 +83,7 @@
 /* Card */
 .spotlight-card {
   width: 320px;
-  border-radius: 20px;
+  border-radius: var(--radius-lg, 22px);
   background: rgba(20, 18, 30, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(40px);
@@ -184,7 +184,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 14px);
   border: none;
   background: none;
   color: var(--text);
@@ -218,7 +218,7 @@
 .spotlight-item__icon {
   width: 32px;
   height: 32px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm, 8px);
   background: rgba(255, 255, 255, 0.05);
   display: flex;
   align-items: center;

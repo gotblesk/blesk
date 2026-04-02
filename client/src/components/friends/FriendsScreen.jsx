@@ -137,7 +137,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
         {error && (
           <motion.div className="fr__error" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
             {error}
-            <button className="fr__error-close" onClick={() => setError('')}><X size={14} weight="regular" /></button>
+            <button className="fr__error-close" onClick={() => setError('')} aria-label="Закрыть ошибку"><X size={14} weight="regular" /></button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -193,10 +193,10 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                         </div>
                       </div>
                       <div className="fr__hover-actions">
-                        <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); onOpenChat?.(friend.id, null); }} title="Чат">
+                        <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); onOpenChat?.(friend.id, null); }} title="Чат" aria-label="Написать сообщение">
                           <ChatCircle size={16} weight="regular" />
                         </button>
-                        <button className="fr__quick-action fr__quick-action--disabled" onClick={(e) => e.stopPropagation()} title="Скоро" disabled>
+                        <button className="fr__quick-action fr__quick-action--disabled" onClick={(e) => e.stopPropagation()} title="Скоро" aria-label="Позвонить (скоро)" disabled>
                           <Phone size={16} weight="regular" />
                         </button>
                       </div>
@@ -223,10 +223,10 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                         </div>
                       </div>
                       <div className="fr__item-actions">
-                        <motion.button className="fr__act fr__act--accept" onClick={() => acceptRequest(req.id)} whileTap={{ scale: 0.9 }} title="Принять">
+                        <motion.button className="fr__act fr__act--accept" onClick={() => acceptRequest(req.id)} whileTap={{ scale: 0.9 }} title="Принять" aria-label="Принять заявку в друзья">
                           <Check size={16} weight="regular" />
                         </motion.button>
-                        <motion.button className="fr__act fr__act--decline" onClick={() => declineRequest(req.id)} whileTap={{ scale: 0.9 }} title="Отклонить">
+                        <motion.button className="fr__act fr__act--decline" onClick={() => declineRequest(req.id)} whileTap={{ scale: 0.9 }} title="Отклонить" aria-label="Отклонить заявку в друзья">
                           <X size={16} weight="regular" />
                         </motion.button>
                       </div>

@@ -8,7 +8,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-radius: 16px;
+  border-radius: var(--radius-md, 14px);
   background: rgba(20, 18, 30, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -94,7 +94,7 @@
 /* Кнопка «Перезапустить» */
 .update-toast__btn {
   padding: 6px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm, 8px);
   border: none;
   background: var(--accent);
   color: var(--accent-text);

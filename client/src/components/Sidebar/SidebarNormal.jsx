@@ -5,8 +5,14 @@ import Avatar from '../ui/Avatar';
 import './Sidebar.css';
 
 export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectChat, onOpenChat }) {
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [initialLoad, setInitialLoad] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   useEffect(() => {
     const t = setTimeout(() => setInitialLoad(false), 1500);
@@ -82,10 +88,10 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
           <span className="sn__badge">{chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span>
         )}
         <div className="sn__hover-actions" onClick={e => e.stopPropagation()}>
-          <button className="sn__hover-btn" title={isPinned ? 'Открепить' : 'Закрепить'} onClick={() => useChatStore.getState().togglePinChat(chat.id)}>
+          <button className="sn__hover-btn" title={isPinned ? 'Открепить' : 'Закрепить'} aria-label={isPinned ? 'Открепить чат' : 'Закрепить чат'} onClick={() => useChatStore.getState().togglePinChat(chat.id)}>
             <PushPin size={14} weight={isPinned ? 'fill' : 'regular'} />
           </button>
-          <button className="sn__hover-btn" title="Отключить уведомления" onClick={() => useChatStore.getState().toggleMuteChat?.(chat.id)}>
+          <button className="sn__hover-btn" title="Отключить уведомления" aria-label="Отключить уведомления" onClick={() => useChatStore.getState().toggleMuteChat?.(chat.id)}>
             <BellSlash size={14} />
           </button>
         </div>
@@ -100,8 +106,8 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
         <input
           className="sn__search-input"
           placeholder="Поиск..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
         />
       </div>
 

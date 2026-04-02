@@ -68,6 +68,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           className={`vc__btn ${isMuted ? 'vc__btn--muted' : 'vc__btn--on'}`}
           onClick={toggleMute}
           title={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
+          aria-label={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
         >
           {isMuted ? <MicrophoneSlash size={17} /> : <Microphone size={17} />}
         </button>
@@ -77,6 +78,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           className={`vc__btn ${isDeafened ? 'vc__btn--muted' : 'vc__btn--on'}`}
           onClick={toggleDeafen}
           title={isDeafened ? 'Включить звук' : 'Выключить звук'}
+          aria-label={isDeafened ? 'Включить звук' : 'Выключить звук'}
         >
           {isDeafened ? <SpeakerSlash size={17} /> : <Headphones size={17} />}
         </button>
@@ -88,6 +90,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           className={`vc__btn ${cameraOn ? 'vc__btn--active' : 'vc__btn--on'}`}
           onClick={onCameraToggle}
           title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
+          aria-label={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
         >
           {cameraOn ? <VideoCamera size={17} /> : <VideoCameraSlash size={17} />}
         </button>
@@ -97,6 +100,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           className={`vc__btn ${screenShareOn ? 'vc__btn--active' : 'vc__btn--on'}`}
           onClick={onScreenShareToggle}
           title={screenShareOn ? 'Остановить показ экрана' : 'Показать экран'}
+          aria-label={screenShareOn ? 'Остановить показ экрана' : 'Показать экран'}
         >
           {screenShareOn ? <MonitorArrowUp size={17} /> : <Monitor size={17} />}
         </button>
@@ -109,6 +113,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
         className="vc__btn vc__btn--end"
         onClick={onLeave}
         title="Отключиться"
+        aria-label="Отключиться от голосового чата"
       >
         <PhoneDisconnect size={17} />
       </button>

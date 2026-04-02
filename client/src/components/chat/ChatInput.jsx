@@ -535,7 +535,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
               {replyTo.text && replyTo.text.length > 60 ? '...' : ''}
             </div>
           </div>
-          <button className="chat-input__reply-close" onClick={onCancelReply}>
+          <button className="chat-input__reply-close" onClick={onCancelReply} aria-label="Закрыть ответ">
             <X />
           </button>
         </div>
@@ -552,7 +552,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
               {editingMsg.text && editingMsg.text.length > 60 ? '...' : ''}
             </div>
           </div>
-          <button className="chat-input__reply-close" onClick={() => { onCancelEdit?.(); setText(''); }}>
+          <button className="chat-input__reply-close" onClick={() => { onCancelEdit?.(); setText(''); }} aria-label="Отменить редактирование">
             <X />
           </button>
         </div>
@@ -649,6 +649,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
                   className={`chat-input__tool-btn ${showEmojiPicker ? 'chat-input__tool-btn--active' : ''}`}
                   onClick={() => setShowEmojiPicker(v => !v)}
                   title="Эмодзи"
+                  aria-label="Эмодзи"
                 >
                   <Smiley size={18} />
                 </button>
@@ -656,6 +657,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
                   className="chat-input__tool-btn"
                   onClick={() => fileInputRef.current?.click()}
                   title="Прикрепить файл"
+                  aria-label="Прикрепить файл"
                 >
                   <Paperclip />
                 </button>

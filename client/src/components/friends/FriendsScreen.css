@@ -17,7 +17,7 @@
 
 .fr__back {
   width: 32px; height: 32px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm, 8px);
   border: none;
   background: rgba(255,255,255,0.04);
   color: var(--text-muted);
@@ -40,7 +40,7 @@
   color: var(--text-muted);
   background: rgba(255,255,255,0.04);
   padding: 2px var(--space-2);
-  border-radius: 10px;
+  border-radius: var(--radius-sm, 8px);
 }
 
 /* Tabs */
@@ -96,7 +96,7 @@
   color: var(--danger);
   padding: var(--space-2) var(--space-3);
   background: rgba(239,68,68,0.05);
-  border-radius: 10px;
+  border-radius: var(--radius-sm, 8px);
   margin-bottom: var(--space-2);
   overflow: hidden;
 }
@@ -166,7 +166,7 @@
   border: none;
   cursor: pointer;
   padding: var(--space-1);
-  border-radius: 12px;
+  border-radius: var(--radius-md, 14px);
   transition: background 0.15s;
   flex-shrink: 0;
 }
@@ -207,7 +207,7 @@
   align-items: center;
   gap: 12px;
   padding: var(--space-2) var(--space-2);
-  border-radius: 12px;
+  border-radius: var(--radius-md, 14px);
   cursor: pointer;
   transition: background 0.12s;
   min-width: 0;
@@ -268,7 +268,7 @@
 /* Actions */
 .fr__act {
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-sm, 8px);
   cursor: pointer;
   display: flex; align-items: center; gap: 5px;
   font-size: 11px;
@@ -322,7 +322,7 @@
 .fr__search {
   width: 100%;
   padding: 11px var(--space-3) 11px 38px;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 14px);
   border: 1px solid rgba(255,255,255,0.06);
   background: rgba(255,255,255,0.03);
   color: var(--text);
@@ -367,7 +367,7 @@
 .fr__quick-action {
   width: 32px;
   height: 32px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm, 8px);
   border: none;
   background: rgba(255,255,255,0.06);
   color: rgba(255,255,255,0.5);

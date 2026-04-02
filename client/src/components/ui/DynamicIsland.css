@@ -33,7 +33,7 @@
   backdrop-filter: blur(40px) saturate(1.4);
   -webkit-backdrop-filter: blur(40px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  border-radius: var(--radius-lg, 22px);
   box-shadow:
     0 8px 40px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -125,7 +125,7 @@
 
 .island:hover::before {
   inset: 6px;
-  border-radius: 20px;
+  border-radius: var(--radius-lg, 22px);
   border-color: rgba(200, 255, 0, 0.03);
 }
 
@@ -269,7 +269,7 @@
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm, 8px);
   cursor: pointer;
   border: none;
   background: none;
@@ -389,7 +389,7 @@
 .island-search {
   width: var(--search-size);
   height: var(--search-size);
-  border-radius: 20px;
+  border-radius: var(--radius-lg, 22px);
   cursor: pointer;
   position: relative;
 
@@ -418,7 +418,7 @@
   content: '';
   position: absolute;
   inset: 4px;
-  border-radius: 16px;
+  border-radius: var(--radius-md, 14px);
   background: rgba(255, 255, 255, 0.015);
   border: 1px solid rgba(255, 255, 255, 0.025);
   pointer-events: none;
@@ -443,7 +443,7 @@
 
 .island-search--open {
   width: clamp(200px, 60vw, 260px);
-  border-radius: 20px;
+  border-radius: var(--radius-lg, 22px);
   gap: 8px;
   padding: 0 12px;
   border-color: rgba(200, 255, 0, 0.1);
@@ -567,7 +567,7 @@
   content: '';
   position: absolute;
   inset: 5px;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 14px);
   background: rgba(255, 255, 255, 0.015);
   border: 1px solid rgba(255, 255, 255, 0.025);
   pointer-events: none;
@@ -594,7 +594,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 14px);
   cursor: pointer;
   transition: all .15s;
   font-size: 13px;
