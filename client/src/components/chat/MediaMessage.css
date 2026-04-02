@@ -79,7 +79,7 @@
 
 [data-theme="light"] .media-msg__file { background: var(--light-surface-hover, #f0f2f5); border-color: var(--light-border, #e5e7eb); }
 [data-theme="light"] .media-msg__file--broken { background: rgba(239,68,68,0.04); border-color: rgba(239,68,68,0.12); }
-[data-theme="light"] .media-msg__download:hover { background: rgba(124,58,237,0.1); }
+[data-theme="light"] .media-msg__download:hover { background: rgba(74,122,0,0.1); }
 
 /* Кнопка скорости воспроизведения голосового сообщения */
 .voice-msg__speed {
@@ -102,10 +102,10 @@
 
 [data-theme="light"] .voice-msg__speed {
   color: var(--accent-dark, #c8ff00);
-  background: rgba(124,58,237,0.08);
+  background: rgba(74,122,0,0.08);
 }
 [data-theme="light"] .voice-msg__speed:hover {
-  background: rgba(124,58,237,0.15);
+  background: rgba(74,122,0,0.15);
 }
 
 /* ─── Ошибка загрузки аудио ─── */

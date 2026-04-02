@@ -172,7 +172,7 @@
 
 [data-theme="light"] .chat-row--open {
   background: var(--light-accent-tint, #f5f3ff);
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(74, 122, 0, 0.2);
 }
 
 [data-theme="light"] .chat-row__time {

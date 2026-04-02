@@ -174,7 +174,7 @@ const LIGHT_C2 = new THREE.Color('#818cf8');
 const DEFAULT_C1_H = 0.22, DEFAULT_C1_S = 0.7, DEFAULT_C1_L = 0.45;
 const DEFAULT_C2_H = 0.52, DEFAULT_C2_S = 0.6, DEFAULT_C2_L = 0.4;
 
-function MetaballScene({ ambientHue, subtle, theme }) {
+function MetaballScene({ ambientHue, subtle, contentActive, theme }) {
   const meshRef = useRef();
   const { size } = useThree();
 
@@ -193,7 +193,8 @@ function MetaballScene({ ambientHue, subtle, theme }) {
     uColor1: { value: initIsLight ? new THREE.Color('#a78bfa') : new THREE.Color('#c8ff00').multiplyScalar(0.5) },
     uColor2: { value: initIsLight ? new THREE.Color('#818cf8') : new THREE.Color('#00d4ff').multiplyScalar(0.4) },
     uColor3: { value: initIsLight ? new THREE.Color('#c084fc') : new THREE.Color('#ff006a').multiplyScalar(0.4) },
-    uSubtle: { value: subtle ? 0.5 : 0.8 },
+    // subtle: 0.35 (было 0.5) — мягче на фоне; contentActive: 0.25 — ещё тише
+    uSubtle: { value: contentActive ? 0.25 : subtle ? 0.35 : 0.7 },
     uBgColor: { value: initIsLight ? new THREE.Color(0.941, 0.949, 0.961) : new THREE.Color(0.031, 0.024, 0.059) },
     uEventPulse: { value: 0 },
     uIdle: { value: 0 },
@@ -237,6 +238,12 @@ function MetaballScene({ ambientHue, subtle, theme }) {
     }
   }, [size]);
 
+  // Кэшируем subtle/contentActive в ref для плавного lerp в useFrame
+  const subtleRef = useRef(subtle);
+  const contentActiveRef = useRef(contentActive);
+  useEffect(() => { subtleRef.current = subtle; }, [subtle]);
+  useEffect(() => { contentActiveRef.current = contentActive; }, [contentActive]);
+
   // Кэшируем тему в ref — не читаем DOM каждый кадр
   const themeRef = useRef(document.documentElement.getAttribute('data-theme') || 'dark');
   const prevThemeRef = useRef(themeRef.current);
@@ -269,9 +276,14 @@ function MetaballScene({ ambientHue, subtle, theme }) {
     mat.uniforms.uIdle.value = idleRef.current;
 
     // Накапливаем время с учётом скорости — предотвращает резкий прыжок при idle
-    const currentSpeed = 0.3 * (1.0 - idleRef.current * 0.7);
+    // Базовая скорость снижена с 0.3 до 0.2 — метаболы движутся медленнее и мягче
+    const currentSpeed = 0.2 * (1.0 - idleRef.current * 0.7);
     shaderTimeRef.current += delta * currentSpeed;
     mat.uniforms.uTime.value = shaderTimeRef.current;
+
+    // Плавный lerp uSubtle при смене contentActive/subtle
+    const targetSubtle = contentActiveRef.current ? 0.25 : subtleRef.current ? 0.35 : 0.7;
+    mat.uniforms.uSubtle.value += (targetSubtle - mat.uniforms.uSubtle.value) * 0.04;
 
     // Переход цвета фона при смене темы
     const curThemeNow = themeRef.current;
@@ -355,7 +367,7 @@ function useIdleBreathing(enabled) {
 }
 
 // ═══════ MAIN COMPONENT ═══════
-export default function MetaballBackground({ subtle = false, ambientHue = null }) {
+export default function MetaballBackground({ subtle = false, ambientHue = null, contentActive = false }) {
   const animatedBg = useSettingsStore((s) => s.animatedBg);
   const theme = useSettingsStore((s) => s.theme);
 
@@ -389,6 +401,10 @@ export default function MetaballBackground({ subtle = false, ambientHue = null }
     );
   }
 
+  // contentActive — дополнительное снижение яркости метаболов когда
+  // пользователь в чате/каналах/друзьях (контент на переднем плане)
+  const effectiveSubtle = contentActive ? true : subtle;
+
   return (
     <div style={{
       position: 'absolute',
@@ -402,7 +418,7 @@ export default function MetaballBackground({ subtle = false, ambientHue = null }
         gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }}
         style={{ width: '100%', height: '100%' }}
       >
-        <MetaballScene ambientHue={ambientHue} subtle={subtle} theme={theme} />
+        <MetaballScene ambientHue={ambientHue} subtle={effectiveSubtle} contentActive={contentActive} theme={theme} />
       </Canvas>
     </div>
   );

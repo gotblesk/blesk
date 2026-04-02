@@ -127,11 +127,14 @@
 }
 
 /* ═══════ LIGHT THEME ═══════ */
-/* Белые поверхности + тени для глубины вместо прозрачности */
+/* Белые поверхности + тени для глубины вместо прозрачности. Blur отключён. */
 [data-theme="light"] .glass--depth-0 { box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
 [data-theme="light"] .glass--depth-1 { box-shadow: var(--shadow-md); border: 1px solid var(--border); }
 [data-theme="light"] .glass--depth-2 { box-shadow: var(--shadow-md); border: 1px solid var(--border); }
 [data-theme="light"] .glass--depth-3 { box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+
+[data-theme="light"] .glass__outer { backdrop-filter: none; -webkit-backdrop-filter: none; }
+[data-theme="light"] .glass__inner { backdrop-filter: none; -webkit-backdrop-filter: none; }
 
 [data-theme="light"] .glass--depth-0 .glass__outer { background: rgba(255, 255, 255, 0.92); }
 [data-theme="light"] .glass--depth-0 .glass__inner { background: rgba(255, 255, 255, 0.97); }
@@ -146,7 +149,7 @@
 [data-theme="light"] .glass--depth-3 .glass__inner { background: rgba(255, 255, 255, 0.99); }
 
 [data-theme="light"] .glass--hover:hover .glass__edge {
-  border-color: rgba(124, 58, 237, 0.25);
+  border-color: rgba(74, 122, 0, 0.25);
 }
 
 /* ═══════ REDUCED MOTION ═══════ */

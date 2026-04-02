@@ -204,7 +204,7 @@
 }
 
 [data-theme="light"] .g-card::after {
-  background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(74, 122, 0, 0.08), transparent);
 }
 
 [data-theme="light"] .g-card:hover {
@@ -213,7 +213,7 @@
 
 [data-theme="light"] .g-icon {
   background: var(--accent-lighter);
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(74, 122, 0, 0.2);
   box-shadow: none;
 }
 
@@ -238,7 +238,7 @@
 [data-theme="light"] .g-input:focus {
   border-color: var(--accent);
   background: var(--bg-surface);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 [data-theme="light"] .g-input-action {

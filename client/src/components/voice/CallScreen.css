@@ -319,7 +319,7 @@
 [data-theme="light"] .cs__quality-label { color: var(--light-text-tertiary, #9ca3af); }
 [data-theme="light"] .cs__qo { background: var(--light-surface-hover, #f0f2f5); border-color: var(--light-border, #e5e7eb); color: var(--light-text-secondary, #4b5563); }
 [data-theme="light"] .cs__qo:hover { background: var(--bg-input); }
-[data-theme="light"] .cs__qo--on { background: var(--light-accent-tint, #f5f3ff); border-color: rgba(124,58,237,0.2); color: var(--accent); }
+[data-theme="light"] .cs__qo--on { background: var(--light-accent-tint, #f5f3ff); border-color: rgba(74,122,0,0.2); color: var(--accent); }
 
 /* ═══════ VIDEO ZONES ═══════ */
 

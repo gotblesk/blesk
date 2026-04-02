@@ -404,7 +404,7 @@
 /* ═══════ LIGHT THEME ═══════ */
 [data-theme="light"] .rs-bell { background: var(--bg-input); border-color: var(--light-border, #e5e7eb); color: var(--light-text-secondary, #4b5563); }
 [data-theme="light"] .rs-bell:hover { background: var(--light-border, #e5e7eb); color: var(--light-text-primary, #111827); }
-[data-theme="light"] .rs-bell--on { background: var(--light-accent-tint, #f5f3ff); border-color: rgba(124,58,237,0.2); color: var(--accent); }
+[data-theme="light"] .rs-bell--on { background: var(--light-accent-tint, #f5f3ff); border-color: rgba(74,122,0,0.2); color: var(--accent); }
 
 [data-theme="light"] .rs-bg { background: rgba(0,0,0,0.08); }
 

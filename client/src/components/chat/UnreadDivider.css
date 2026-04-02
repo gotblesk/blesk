@@ -25,9 +25,9 @@
 }
 
 [data-theme="light"] .unread-divider__line {
-  background: linear-gradient(90deg, transparent, rgba(124,58,237,0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgba(74,122,0,0.2), transparent);
 }
 
 [data-theme="light"] .unread-divider__text {
-  color: rgba(124,58,237,0.6);
+  color: rgba(74,122,0,0.7);
 }

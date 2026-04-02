@@ -321,7 +321,7 @@
 }
 
 [data-theme="light"] .uprof__btn--outline {
-  border-color: rgba(124, 58, 237, 0.3);
+  border-color: rgba(74, 122, 0, 0.3);
 }
 [data-theme="light"] .uprof__btn--outline:hover {
   border-color: var(--accent);

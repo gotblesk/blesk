@@ -129,13 +129,31 @@
   box-shadow: 0 0 16px rgba(200, 255, 0, 0.08);
 }
 
-/* Subscribe — accent fill, bold */
+/* Subscribe — outline style */
 .mc__act--subscribe {
-  background: var(--accent, #c8ff00);
-  color: var(--accent-text, #08060f);
+  background: transparent;
+  color: var(--accent, #c8ff00);
+  border: 1.5px solid rgba(200, 255, 0, 0.3);
 }
 .mc__act--subscribe:hover {
-  box-shadow: 0 0 20px rgba(200, 255, 0, 0.25);
+  background: rgba(200, 255, 0, 0.08);
+  box-shadow: 0 0 20px rgba(200, 255, 0, 0.12);
+}
+
+/* Owner badge on card cover */
+.mc__owner-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(200, 255, 0, 0.12);
+  font-size: 9px;
+  color: var(--accent, #c8ff00);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  z-index: 2;
 }
 
 /* Following — toggle state on hover */
@@ -172,7 +190,7 @@
 [data-theme="light"] .mc__desc { color: var(--light-text-secondary, #4b5563); }
 [data-theme="light"] .mc__subs-inline { color: var(--light-text-tertiary, #9ca3af); }
 [data-theme="light"] .mc__subs-badge { background: var(--bg-input); color: var(--light-text-secondary, #4b5563); }
-[data-theme="light"] .mc__act--enter { background: var(--light-accent-tint, #f5f3ff); border-color: rgba(124,58,237,0.2); color: var(--accent); }
+[data-theme="light"] .mc__act--enter { background: var(--light-accent-tint, #f5f3ff); border-color: rgba(74,122,0,0.2); color: var(--accent); }
 [data-theme="light"] .mc__act--following { background: var(--bg-input); border-color: var(--light-border, #e5e7eb); color: var(--light-text-secondary, #4b5563); }
 [data-theme="light"] .mc__act--following:hover { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.15); color: #ef4444; }
 [data-theme="light"] .mc__preview { background: var(--bg-sidebar); border-color: var(--light-border, #e5e7eb); }

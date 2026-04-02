@@ -236,21 +236,21 @@
 [data-theme="light"] .auth-version {
   color: var(--accent);
   background: var(--accent-lighter);
-  border-color: rgba(124, 58, 237, 0.15);
+  border-color: rgba(74, 122, 0, 0.15);
 }
 
 [data-theme="light"] .auth-logo img {
-  filter: drop-shadow(0 0 30px rgba(124, 58, 237, 0.15));
+  filter: drop-shadow(0 0 30px rgba(74, 122, 0, 0.15));
 }
 
 [data-theme="light"] .g-btn {
   background: var(--accent);
   color: var(--text-on-accent);
-  box-shadow: 0 4px 28px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 4px 28px rgba(74, 122, 0, 0.25);
 }
 
 [data-theme="light"] .g-btn:hover {
-  box-shadow: 0 6px 36px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 6px 36px rgba(74, 122, 0, 0.35);
 }
 
 [data-theme="light"] .g-btn::before {

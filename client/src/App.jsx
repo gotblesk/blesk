@@ -233,7 +233,6 @@ export default function App() {
   if (checking) {
     return (
       <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
-        <TitleBar />
         <UpdateToast />
       </div>
     );
@@ -242,7 +241,6 @@ export default function App() {
   if (!user) {
     return (
       <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
-        <TitleBar />
         <AuthScreen
           onLogin={handleLogin}
           collapsing={transition === 'collapsing'}
@@ -264,7 +262,6 @@ export default function App() {
       <ErrorBoundary>
         <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
           <Suspense fallback={null}><MetaballFilter /></Suspense>
-          <TitleBar />
           <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />
           </div>

@@ -317,7 +317,7 @@
 [data-theme="light"] .cv__composer-glass { background: #ffffff; border-color: var(--light-border, #e5e7eb); box-shadow: 0 -4px 16px rgba(0,0,0,0.06); }
 [data-theme="light"] .cv__composer-textarea { background: var(--bg-input); border: 1.5px solid var(--border); }
 [data-theme="light"] .cv__composer-textarea::placeholder { color: var(--light-text-tertiary, #9ca3af); }
-[data-theme="light"] .cv__composer-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+[data-theme="light"] .cv__composer-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(74,122,0,0.1); }
 [data-theme="light"] .cv__composer-close { color: var(--light-text-tertiary, #9ca3af); }
 [data-theme="light"] .cv__composer-close:hover { color: var(--light-text-primary, #111827); }
 [data-theme="light"] .cv__composer-attach { color: var(--light-text-tertiary, #9ca3af); }

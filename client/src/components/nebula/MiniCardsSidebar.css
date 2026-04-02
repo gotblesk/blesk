@@ -246,7 +246,7 @@
 
 [data-theme="light"] .mini-card--active .mini-card__content {
   background: var(--light-accent-tint, #f5f3ff);
-  border-color: rgba(124, 58, 237, 0.15);
+  border-color: rgba(74, 122, 0, 0.15);
 }
 
 [data-theme="light"] .mini-card__active-inner {

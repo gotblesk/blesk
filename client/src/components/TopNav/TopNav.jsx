@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { ChatCircleDots, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bell, GearSix, ShieldCheck, User, SignOut, List } from '@phosphor-icons/react';
+import { ChatCircleDots, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bell, GearSix, ShieldCheck, User, SignOut, List, Minus, Square, X } from '@phosphor-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useChatStore } from '../../store/chatStore';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -29,6 +29,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
   const tabs = useMemo(() => isAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS, [isAdmin]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [maximized, setMaximized] = useState(false);
   const handleNotifClose = useCallback(() => setNotifOpen(false), []);
   const handleNotifToggle = useCallback(() => setNotifOpen(prev => !prev), []);
   const handleUserMenuToggle = useCallback(() => setUserMenuOpen(prev => !prev), []);
@@ -36,6 +37,11 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
 
   const currentStatus = user?.status || 'online';
   const statusLabel = STATUS_OPTIONS.find(s => s.key === currentStatus)?.label ?? 'В сети';
+
+  // Отслеживаем состояние maximize для иконки кнопки
+  useEffect(() => {
+    window.blesk?.window.onMaximizeChange?.((val) => setMaximized(val));
+  }, []);
 
   useEffect(() => {
     if (!userMenuOpen) return;
@@ -108,7 +114,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
               >
                 {/* User info */}
                 <div className="um__header">
-                  <Avatar user={user} size={36} showOnline={true} isOnline={currentStatus !== 'invisible'} userStatus={currentStatus} />
+                  <Avatar user={user} size={40} showOnline={true} isOnline={currentStatus !== 'invisible'} userStatus={currentStatus} />
                   <div className="um__info">
                     <div className="um__name">{user?.displayName || user?.username}</div>
                     <div className="um__status-text">{statusLabel}</div>
@@ -117,19 +123,21 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
 
                 <div className="um__sep" />
 
-                {/* Status options */}
-                <div className="um__group">
+                {/* Статус — 3 компактных круга */}
+                <div className="um__status-row">
                   {STATUS_OPTIONS.map(s => (
                     <button
                       key={s.key}
-                      className={`um__item${currentStatus === s.key ? ' um__item--active' : ''}`}
+                      className={`um__status-dot-btn${currentStatus === s.key ? ' um__status-dot-btn--active' : ''}`}
+                      style={{ color: s.color }}
                       onClick={() => { onStatusChange?.(s.key); setUserMenuOpen(false); }}
+                      title={s.label}
+                      aria-label={s.label}
                     >
-                      <span className="um__dot" style={{ background: s.color }} />
-                      <span>{s.label}</span>
-                      {currentStatus === s.key && <span className="um__check">✓</span>}
+                      <span className="um__status-dot-inner" style={{ background: s.color }} />
                     </button>
                   ))}
+                  <span className="um__status-label">{statusLabel}</span>
                 </div>
 
                 <div className="um__sep" />
@@ -156,6 +164,37 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+
+        {/* Кнопки управления окном — вместо отдельного TitleBar */}
+        <div className="top-nav__win-controls">
+          <button
+            className="top-nav__win-btn"
+            onMouseDown={e => e.stopPropagation()}
+            onClick={() => window.blesk?.window.minimize()}
+            title="Свернуть"
+            aria-label="Свернуть"
+          >
+            <Minus size={14} />
+          </button>
+          <button
+            className="top-nav__win-btn"
+            onMouseDown={e => e.stopPropagation()}
+            onClick={() => window.blesk?.window.maximize()}
+            title={maximized ? 'Восстановить' : 'Развернуть'}
+            aria-label={maximized ? 'Восстановить' : 'Развернуть'}
+          >
+            <Square size={14} />
+          </button>
+          <button
+            className="top-nav__win-btn top-nav__win-btn--close"
+            onMouseDown={e => e.stopPropagation()}
+            onClick={() => window.blesk?.window.close()}
+            title="Закрыть"
+            aria-label="Закрыть"
+          >
+            <X size={14} />
+          </button>
         </div>
       </div>
     </nav>

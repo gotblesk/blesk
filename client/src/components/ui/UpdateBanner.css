@@ -128,7 +128,7 @@
 /* Светлая тема */
 [data-theme="light"] .update-banner {
   background: var(--light-surface, #ffffff);
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(74, 122, 0, 0.2);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 

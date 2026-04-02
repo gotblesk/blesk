@@ -397,7 +397,11 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   // ═══════ RENDER ═══════
   return (
     <main className={`main-screen${focusMode ? ' main-screen--focus' : ''}`}>
-      <MetaballBackground subtle ambientHue={ambientHue} />
+      <MetaballBackground
+        subtle
+        ambientHue={ambientHue}
+        contentActive={activeTab === 'chats' || activeTab === 'friends' || activeTab === 'channels'}
+      />
 
       <AppShell
         topNav={

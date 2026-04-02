@@ -181,7 +181,7 @@
    ═══════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
   /* ========== ФОНЫ ========== */
-  --bg: #f0f2f5;
+  --bg: #f5f5f7;
   --bg-surface: #ffffff;
   --bg-elevated: #ffffff;
   --bg-sidebar: #f7f8fa;
@@ -190,10 +190,12 @@
   --bg-active: #e8f5d0;
 
   /* ========== ТЕКСТ ========== */
-  --text: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #4b5563;
-  --text-tertiary: #9ca3af;
+  --text: rgba(0,0,0,0.87);
+  --text-primary: rgba(0,0,0,0.87);
+  --text-secondary: rgba(0,0,0,0.60);
+  --text-muted: rgba(0,0,0,0.60);
+  --text-tertiary: rgba(0,0,0,0.38);
+  --text-disabled: rgba(0,0,0,0.26);
   --text-on-accent: #ffffff;
 
   /* ========== АКЦЕНТ ========== */
@@ -228,7 +230,9 @@
   --scrollbar-thumb: rgba(0, 0, 0, 0.15);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
 
-  /* Double Layer Glass — light: белый, непрозрачный */
+  /* Double Layer Glass — light: белый, непрозрачный, без blur */
+  --dl-outer-blur: 0px;
+  --dl-inner-blur: 0px;
   --dl-outer-bg: rgba(255, 255, 255, 0.85);
   --dl-inner-bg: rgba(255, 255, 255, 0.95);
   --dl-border: #e5e7eb;
@@ -535,8 +539,8 @@ select:focus-visible {
 }
 
 [data-theme="light"] .chat-view--focused {
-  border-color: rgba(124, 58, 237, 0.3);
-  box-shadow: var(--light-shadow-md), 0 0 0 1px rgba(124, 58, 237, 0.1);
+  border-color: rgba(74, 122, 0, 0.3);
+  box-shadow: var(--light-shadow-md), 0 0 0 1px rgba(74, 122, 0, 0.1);
 }
 
 /* Сообщения */
@@ -551,7 +555,7 @@ select:focus-visible {
 [data-theme="light"] .chat-message--own .chat-message__bubble {
   background: var(--accent);
   color: var(--accent-text);
-  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 1px 3px rgba(74, 122, 0, 0.3);
 }
 
 /* Навбар и инпут */
@@ -849,7 +853,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .friends-search__input:focus {
   background: var(--light-surface);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 [data-theme="light"] .friends-empty__text {
@@ -992,7 +996,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .profile-field__textarea:focus {
   background: var(--light-surface);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 /* Status editor */
@@ -1014,7 +1018,7 @@ button:active, [role="button"]:active, .clickable:active {
 
 [data-theme="light"] .status-preset:hover {
   background: var(--light-accent-tint);
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(74, 122, 0, 0.2);
 }
 
 [data-theme="light"] .status-custom__input {
@@ -1030,7 +1034,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .status-custom__input:focus {
   background: var(--light-surface);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 /* User profile modal */
@@ -1088,7 +1092,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .chat-header__btn:hover {
   background: var(--light-accent-tint);
   color: var(--accent);
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(74, 122, 0, 0.2);
 }
 
 /* Feedback screen */
@@ -1197,7 +1201,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .auth-input:focus {
   border-color: var(--accent);
   background: var(--light-surface);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 [data-theme="light"] .auth-label {
@@ -1238,7 +1242,7 @@ button:active, [role="button"]:active, .clickable:active {
 
 [data-theme="light"] .auth-code-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 [data-theme="light"] .auth-verify__subtitle {
@@ -1283,7 +1287,7 @@ button:active, [role="button"]:active, .clickable:active {
 
 [data-theme="light"] .bell-trigger--active {
   background: var(--light-accent-light);
-  border-color: rgba(124, 58, 237, 0.3);
+  border-color: rgba(74, 122, 0, 0.3);
   color: var(--accent);
 }
 
@@ -1407,7 +1411,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .chat-input__field:focus {
   border-color: var(--accent);
   background: var(--light-surface);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 /* ─── ChatMessage (дополнительно) ─── */
@@ -1423,7 +1427,7 @@ button:active, [role="button"]:active, .clickable:active {
   background: var(--accent);
   border-color: transparent;
   color: var(--accent-text);
-  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 1px 3px rgba(74, 122, 0, 0.3);
 }
 
 [data-theme="light"] .chat-message__system {
@@ -1431,7 +1435,7 @@ button:active, [role="button"]:active, .clickable:active {
 }
 
 [data-theme="light"] .chat-message__reply-quote {
-  background: rgba(124, 58, 237, 0.06);
+  background: rgba(74, 122, 0, 0.06);
   border-left-color: var(--accent);
 }
 
@@ -1464,7 +1468,7 @@ button:active, [role="button"]:active, .clickable:active {
 /* ─── ChatHub (кнопка добавления) ─── */
 
 [data-theme="light"] .chat-hub__add {
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(74, 122, 0, 0.2);
   background: var(--light-accent-tint);
   color: var(--accent);
 }
@@ -1476,7 +1480,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .chat-hub__search:focus {
   border-color: var(--accent);
   background: var(--light-surface);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 /* ─── ChatHeader ─── */
@@ -1508,7 +1512,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .create-chat-modal__input:focus {
   border-color: var(--accent);
   background: var(--light-surface);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 [data-theme="light"] .create-chat-modal__mode-toggle {
@@ -1563,7 +1567,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .voice-list__create-input:focus {
   border-color: var(--accent);
   background: var(--light-surface);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 [data-theme="light"] .voice-list__empty-text {
@@ -1710,7 +1714,7 @@ button:active, [role="button"]:active, .clickable:active {
 
 [data-theme="light"] .feedback-type--active {
   background: var(--light-accent-light);
-  border-color: rgba(124, 58, 237, 0.3);
+  border-color: rgba(74, 122, 0, 0.3);
   color: var(--accent);
 }
 
@@ -1723,7 +1727,7 @@ button:active, [role="button"]:active, .clickable:active {
 [data-theme="light"] .feedback-textarea:focus {
   border-color: var(--accent);
   background: var(--light-surface);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 122, 0, 0.1);
 }
 
 [data-theme="light"] .feedback-meta__item {
@@ -1778,7 +1782,7 @@ button:active, [role="button"]:active, .clickable:active {
 
 [data-theme="light"] .about-link:hover {
   background: var(--light-accent-tint);
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(74, 122, 0, 0.2);
   color: var(--accent);
 }
 
@@ -1893,7 +1897,7 @@ button:active, [role="button"]:active, .clickable:active {
 }
 
 [data-theme="light"] .nav-shelf__indicator {
-  box-shadow: 0 0 12px rgba(124, 58, 237, 0.3), 0 0 24px rgba(124, 58, 237, 0.1);
+  box-shadow: 0 0 12px rgba(74, 122, 0, 0.3), 0 0 24px rgba(74, 122, 0, 0.1);
 }
 
 /* ─── UserProfileModal ─── */
@@ -1946,9 +1950,9 @@ button:active, [role="button"]:active, .clickable:active {
 
 [data-theme="light"] .auth-input-wrap:focus-within::after {
   background: linear-gradient(135deg,
-    rgba(124, 58, 237, 0.3),
-    rgba(124, 58, 237, 0.05),
-    rgba(124, 58, 237, 0.2)
+    rgba(74, 122, 0, 0.3),
+    rgba(74, 122, 0, 0.05),
+    rgba(74, 122, 0, 0.2)
   ) border-box;
 }
 

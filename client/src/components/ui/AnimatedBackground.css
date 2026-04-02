@@ -9,19 +9,19 @@
 .animated-bg__orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.4;
-  animation: orb-float 8s ease-in-out infinite;
+  filter: blur(80px);
+  opacity: 0.25;
+  animation: orb-float 12s ease-in-out infinite;
   /* Parallax от курсора */
   --parallax-x: 0px;
   --parallax-y: 0px;
   translate: var(--parallax-x) var(--parallax-y);
-  transition: translate 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: translate 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
 }
 
 .animated-bg__orb--green {
-  width: 300px;
-  height: 300px;
+  width: 240px;
+  height: 240px;
   background: var(--accent);
   top: -80px;
   right: -60px;
@@ -29,8 +29,8 @@
 }
 
 .animated-bg__orb--cyan {
-  width: 250px;
-  height: 250px;
+  width: 200px;
+  height: 200px;
   background: #00d4ff;
   bottom: 10%;
   left: -60px;
@@ -38,8 +38,8 @@
 }
 
 .animated-bg__orb--pink {
-  width: 200px;
-  height: 200px;
+  width: 160px;
+  height: 160px;
   background: #ff006a;
   bottom: -40px;
   right: 10%;
@@ -56,4 +56,10 @@
 .animated-bg--subtle .animated-bg__orb {
   opacity: 0.15;
   filter: blur(80px);
+}
+
+/* Content active mode — dimmed further when user is in content tabs */
+.animated-bg--content-active .animated-bg__orb {
+  opacity: 0.12;
+  filter: blur(100px);
 }

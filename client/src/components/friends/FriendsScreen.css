@@ -80,8 +80,8 @@
   min-width: 16px; height: 16px;
   padding: 0 var(--space-1);
   border-radius: 8px;
-  background: var(--danger, #ef4444);
-  color: #fff;
+  background: var(--accent, #c8ff00);
+  color: #0a0a0f;
   font-size: 9px;
   font-weight: 700;
   display: inline-flex; align-items: center; justify-content: center;
@@ -245,11 +245,12 @@
 }
 
 .fr__item-status {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-muted);
   margin-top: 1px;
 }
 .fr__item-status--on { color: var(--online); }
+.fr__item-status--offline { color: rgba(255, 255, 255, 0.30); }
 
 .fr__item-hint {
   font-size: 10.5px;
@@ -374,11 +375,12 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
 }
 .fr__quick-action:hover {
   background: rgba(200,255,0,0.1);
   color: var(--accent);
+  transform: scale(1.1);
 }
 
 /* Empty */

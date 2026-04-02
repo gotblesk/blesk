@@ -188,7 +188,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                       <Avatar user={friend} size={36} showOnline={friend.status === 'online'} />
                       <div className="fr__item-info">
                         <div className="fr__item-name">{friend.username}<span className="fr__item-tag">{friend.tag}</span></div>
-                        <div className={`fr__item-status ${friend.status === 'online' ? 'fr__item-status--on' : ''}`}>
+                        <div className={`fr__item-status ${friend.status === 'online' ? 'fr__item-status--on' : 'fr__item-status--offline'}`}>
                           {friend.status === 'online' ? 'В сети' : 'Не в сети'}
                         </div>
                       </div>

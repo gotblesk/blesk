@@ -959,14 +959,14 @@
 }
 
 [data-theme="light"] .vr__head-btn:hover {
-  background: rgba(124, 58, 237, 0.06);
-  border-color: rgba(124, 58, 237, 0.2);
+  background: rgba(74, 122, 0, 0.06);
+  border-color: rgba(74, 122, 0, 0.2);
   color: var(--accent);
 }
 
 [data-theme="light"] .vr__head-btn--active {
-  background: rgba(124, 58, 237, 0.08);
-  border-color: rgba(124, 58, 237, 0.25);
+  background: rgba(74, 122, 0, 0.08);
+  border-color: rgba(74, 122, 0, 0.25);
   color: var(--accent);
 }
 
@@ -984,7 +984,7 @@
 }
 
 [data-theme="light"] .vr__card--self {
-  border-color: rgba(124, 58, 237, 0.2);
+  border-color: rgba(74, 122, 0, 0.2);
 }
 
 [data-theme="light"] .vr__card--self .vr__card-name {
@@ -1029,8 +1029,8 @@
 }
 
 [data-theme="light"] .vr__ctrl--active {
-  background: rgba(124, 58, 237, 0.08);
-  border-color: rgba(124, 58, 237, 0.2);
+  background: rgba(74, 122, 0, 0.08);
+  border-color: rgba(74, 122, 0, 0.2);
   color: var(--accent);
 }
 

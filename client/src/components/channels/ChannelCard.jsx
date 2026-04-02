@@ -67,6 +67,7 @@ export default function ChannelCard({ channel, variant = 'compact', isSubscribed
       }}
     >
       {(isOwned || variant === 'featured') && <div className="mc__accent" />}
+      {isOwned && <span className="mc__owner-badge">Ваш канал</span>}
       <div className="mc__glow" />
 
       {/* Cover */}

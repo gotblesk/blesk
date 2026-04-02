@@ -1,5 +1,5 @@
 import { useState, useEffect, memo, useMemo } from 'react';
-import { MagnifyingGlass, PushPin, ChatCircle } from '@phosphor-icons/react';
+import { MagnifyingGlass, PushPin, BellSlash, ChatCircle } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import Avatar from '../ui/Avatar';
 import './Sidebar.css';
@@ -27,7 +27,8 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
   }, [chats, search]);
 
   const pinned = filtered.filter(c => pinnedChats.has(c.id));
-  const rest = filtered.filter(c => !pinnedChats.has(c.id));
+  const unread = filtered.filter(c => !pinnedChats.has(c.id) && c.unreadCount > 0);
+  const rest = filtered.filter(c => !pinnedChats.has(c.id) && !(c.unreadCount > 0));
 
   const isOnline = (chat) => {
     if (chat.otherUser) return onlineUsers.includes(chat.otherUser.id);
@@ -53,6 +54,7 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
     const isTyping = typingUsers[chat.id]?.length > 0;
     const preview = isTyping ? null : (chat.lastMessage?.text || 'Нет сообщений');
     const online = isOnline(chat);
+    const isPinned = pinnedChats.has(chat.id);
 
     return (
       <div
@@ -79,6 +81,14 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
         {chat.unreadCount > 0 && (
           <span className="sn__badge">{chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span>
         )}
+        <div className="sn__hover-actions" onClick={e => e.stopPropagation()}>
+          <button className="sn__hover-btn" title={isPinned ? 'Открепить' : 'Закрепить'}>
+            <PushPin size={14} weight={isPinned ? 'fill' : 'regular'} />
+          </button>
+          <button className="sn__hover-btn" title="Отключить уведомления">
+            <BellSlash size={14} />
+          </button>
+        </div>
       </div>
     );
   };
@@ -111,12 +121,18 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
         )}
         {pinned.length > 0 && (
           <div className="sn__section">
-            <div className="sn__section-label">
-              <PushPin size={10} weight="fill" />
-              <span>Закреплённые</span>
-            </div>
+            <div className="sn__group-label">Закреплённые</div>
             {pinned.map(renderChat)}
           </div>
+        )}
+        {unread.length > 0 && (
+          <div className="sn__section">
+            <div className="sn__group-label">Непрочитанные</div>
+            {unread.map(renderChat)}
+          </div>
+        )}
+        {rest.length > 0 && (pinned.length > 0 || unread.length > 0) && (
+          <div className="sn__group-label">Все чаты</div>
         )}
         {rest.map(renderChat)}
         {filtered.length === 0 && search.trim() && (

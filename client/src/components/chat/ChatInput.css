@@ -360,7 +360,7 @@
 
 [data-theme="light"] .chat-input__outer--focused {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+  box-shadow: 0 0 0 3px rgba(74,122,0,0.1);
 }
 
 [data-theme="light"] .chat-input__tool-btn {

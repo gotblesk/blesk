@@ -167,7 +167,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
           return (
             <motion.div
               key={room.id}
-              className={`vrl__card ${isHere ? 'vrl__card--here' : ''} ${!isLive && !isHere ? 'vrl__card--empty' : ''} ${isLive ? 'vrl__card--live' : ''}`}
+              className={`vrl__card ${isHere ? 'vrl__card--here' : ''} ${!isLive && !isHere ? 'vrl__card--empty' : ''} ${isLive ? 'vrl__card--live vrl__card--active' : ''}`}
               custom={i}
               variants={cardV}
               initial="hidden"
@@ -266,7 +266,7 @@ export default function VoiceRoomList({ onJoinRoom }) {
                         {participants.length || room.participantCount} {(participants.length || room.participantCount) === 1 ? 'участник' : 'в голосе'}
                       </span>
                     ) : (
-                      <span className="vrl__card-status-empty">Пусто</span>
+                      <span className="vrl__card-status-empty vrl__empty-label">Пусто</span>
                     )}
                   </div>
                 </div>
