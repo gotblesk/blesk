@@ -356,11 +356,15 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
               label="Пароль"
               value="●●●●●●●●"
               isOpen={openCell === 'pass'}
-              onToggle={() => { setOpenCell(openCell === 'pass' ? null : 'pass'); if (pwStep === 'idle' && !pwSuccess) handlePwRequest(); }}
+              onToggle={() => setOpenCell(openCell === 'pass' ? null : 'pass')}
               testId="profile-editor-password-cell"
             >
               {pwSuccess ? (
                 <span className="peditor__ok"><Check size={13} weight="regular" /> Пароль изменён</span>
+              ) : pwStep === 'idle' ? (
+                <motion.button className="peditor__cell-action" onClick={handlePwRequest} disabled={pwLoading} whileTap={{ scale: 0.95 }}>
+                  {pwLoading ? '...' : 'Сменить пароль'}
+                </motion.button>
               ) : pwStep === 'code' ? (
                 <>
                   <span className="peditor__hint">Код на {pwEmail}</span>
@@ -374,9 +378,7 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
                     <motion.button className="peditor__cell-action peditor__cell-action--ghost" onClick={() => { setPwStep('idle'); setPwError(''); setOpenCell(null); }} whileTap={{ scale: 0.95 }}>Отмена</motion.button>
                   </div>
                 </>
-              ) : (
-                <span className="peditor__hint">{pwLoading ? 'Отправляем код...' : 'Нажмите чтобы сменить пароль'}</span>
-              )}
+              ) : null}
             </EditorCell>
 
             {/* Section: О себе */}

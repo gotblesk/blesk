@@ -38,6 +38,28 @@ const emailVerifyIpLimiter = rateLimit({
   },
 });
 
+const registerIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Слишком много регистраций. Попробуйте через час.' });
+  },
+});
+
+const loginIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Слишком много попыток входа. Попробуйте через 15 минут.' });
+  },
+});
+
 // httpOnly cookie helper — устанавливает access + refresh cookies
 function setAuthCookies(res, tokens) {
   res.cookie('blesk_token', tokens.token, {
@@ -202,7 +224,7 @@ router.get('/csrf', authenticate, (req, res) => {
 });
 
 // POST /api/auth/register
-router.post('/register', async (req, res) => {
+router.post('/register', registerIpLimiter, async (req, res) => {
   try {
     const { username, password, email } = req.body;
 
@@ -411,7 +433,7 @@ router.post('/resend-code', emailVerifyIpLimiter, authenticate, async (req, res)
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', loginIpLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 

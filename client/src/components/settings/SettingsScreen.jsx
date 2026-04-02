@@ -381,7 +381,11 @@ function Toggle({ value, onChange, accent }) {
   return (
     <motion.div
       className={`stg-toggle ${value ? 'stg-toggle--on' : ''} ${accent ? 'stg-toggle--accent' : ''}`}
+      role="switch"
+      aria-checked={value}
+      tabIndex={0}
       onClick={(e) => { e.stopPropagation(); onChange(); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange(); } }}
       whileTap={{ scale: 0.9 }}
     >
       <motion.div

@@ -81,11 +81,27 @@ function createMainWindow() {
     show: false,
   });
 
+  // CSP headers (electron-development skill: Production Security Checklist)
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blesk.fun https://api.blesk.fun; font-src 'self' data:; connect-src 'self' https://*.blesk.fun wss://*.blesk.fun ws://localhost:* http://localhost:*; media-src 'self' blob:;"
+        ],
+      },
+    });
+  });
+
   // Безопасность: блокируем открытие новых окон, внешние ссылки — в браузер
+  const ALLOWED_EXTERNAL_HOSTS = new Set(['blesk.fun', 'www.blesk.fun', 'github.com']);
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://')) {
-      shell.openExternal(url);
-    }
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:' && (ALLOWED_EXTERNAL_HOSTS.has(parsed.hostname) || parsed.hostname.endsWith('.blesk.fun'))) {
+        shell.openExternal(url);
+      }
+    } catch { /* invalid URL — ignore */ }
     return { action: 'deny' };
   });
 

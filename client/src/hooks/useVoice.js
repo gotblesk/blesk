@@ -476,6 +476,11 @@ export function useVoice(socketRef) {
       });
     } catch (err) {
       console.error('joinRoom error:', err);
+      useVoiceStore.getState().setMediaError(
+        err.name === 'NotAllowedError' ? 'Микрофон заблокирован. Разрешите доступ в настройках.'
+        : err.name === 'NotFoundError' ? 'Микрофон не найден. Проверьте подключение.'
+        : 'Ошибка подключения к голосовой комнате'
+      );
     }
   }, [socketRef, getLocalStream, setCurrentRoom, addParticipant, startVAD, consumeProducer, startQualityMonitor]);
 

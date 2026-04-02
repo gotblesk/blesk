@@ -33,7 +33,7 @@ async function authenticate(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    if (payload.type === 'refresh') {
+    if (payload.type === 'refresh' || payload.type === '2fa_pending') {
       return res.status(401).json({ error: 'Недействительный токен' });
     }
     req.userId = payload.userId;

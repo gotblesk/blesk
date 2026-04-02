@@ -634,40 +634,7 @@ router.delete('/channels/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/broadcast-update', async (req, res) => {
-  const adminSecret = req.headers['x-admin-secret'];
-  let isAuthed = false;
-
-  // X-Admin-Secret fallback
-  if (adminSecret && ADMIN_SECRET && adminSecret.length === ADMIN_SECRET.length) {
-    try {
-      if (crypto.timingSafeEqual(Buffer.from(adminSecret), Buffer.from(ADMIN_SECRET))) {
-        isAuthed = true;
-      }
-    } catch (err) { logger.error({ err: err.message }, 'Admin secret timingSafeEqual failed'); }
-  }
-
-  // JWT fallback
-  if (!isAuthed) {
-    const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
-      return res.status(403).json({ error: 'Доступ запрещён' });
-    }
-    try {
-      const jwt = require('jsonwebtoken');
-      const payload = jwt.verify(header.slice(7), process.env.JWT_SECRET);
-      if (payload.type === 'refresh') return res.status(403).json({ error: 'Доступ запрещён' });
-      const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { role: true, banned: true } });
-      if (!user || user.banned || user.role !== 'admin') {
-        return res.status(403).json({ error: 'Доступ запрещён' });
-      }
-      isAuthed = true;
-    } catch {
-      return res.status(403).json({ error: 'Доступ запрещён' });
-    }
-  }
-
-  if (!isAuthed) return res.status(403).json({ error: 'Доступ запрещён' });
+router.post('/broadcast-update', authenticate, requireAdmin, async (req, res) => {
 
   try {
     const { version, changelog } = req.body;

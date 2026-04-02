@@ -55,7 +55,7 @@ const ChatMessage = React.memo(function ChatMessage({
     onReply,
     onReact: (emoji) => onReact?.(message.id, emoji),
     onEdit: () => onEdit?.(message),
-    onDelete: () => onDelete?.(message),
+    onDelete: () => onDelete?.(message.id),
     onForward: () => onForward?.(message),
   });
 
