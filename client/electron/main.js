@@ -87,7 +87,9 @@ function createMainWindow() {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blesk.fun https://api.blesk.fun; font-src 'self' data:; connect-src 'self' https://*.blesk.fun wss://*.blesk.fun ws://localhost:* http://localhost:*; media-src 'self' blob:;"
+          isDev
+            ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://localhost:* https://*.blesk.fun https://api.blesk.fun; font-src 'self' data:; connect-src 'self' https://*.blesk.fun wss://*.blesk.fun ws://localhost:* http://localhost:*; media-src 'self' blob: http://localhost:*;"
+            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blesk.fun https://api.blesk.fun; font-src 'self' data:; connect-src 'self' https://*.blesk.fun wss://*.blesk.fun ws://localhost:* http://localhost:*; media-src 'self' blob:;"
         ],
       },
     });

@@ -65,8 +65,8 @@ function VoiceMessage({ src }) {
 
     async function buildWaveform() {
       try {
-        const response = await fetch(src);
-        if (!response.ok) return;
+        const response = await fetch(src, { mode: 'cors' });
+        if (!response.ok) { if (!cancelled) setAudioError(true); return; }
         const arrayBuffer = await response.arrayBuffer();
 
         // OfflineAudioContext для декодирования без воспроизведения
@@ -180,6 +180,7 @@ function VoiceMessage({ src }) {
         ref={audioRef}
         src={src}
         preload="metadata"
+        crossOrigin="anonymous"
         onEnded={handleEnded}
         onLoadedMetadata={handleLoaded}
         onError={() => setAudioError(true)}

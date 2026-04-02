@@ -7,6 +7,20 @@
   justify-content: flex-end;
   flex-shrink: 0;
   cursor: default;
+  position: relative;
+}
+
+.titlebar__title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display, 'Nekst', sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .titlebar:active {
@@ -55,6 +69,9 @@
 }
 
 /* Light theme */
+[data-theme="light"] .titlebar__title {
+  color: rgba(0, 0, 0, 0.3);
+}
 [data-theme="light"] .titlebar__btn {
   color: var(--light-text-tertiary, #9ca3af);
 }

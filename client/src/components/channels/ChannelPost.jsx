@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Trash } from '@phosphor-icons/react';
+import { Trash, Heart, ShareNetwork } from '@phosphor-icons/react';
 import MediaMessage from '../chat/MediaMessage';
 import API_URL from '../../config';
 import './ChannelPost.css';
@@ -23,19 +23,34 @@ function formatTime(dateStr) {
   return `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} ${time}`;
 }
 
+function getReadingTime(text) {
+  if (!text) return 0;
+  const words = text.trim().split(/\s+/).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
 const ChannelPost = React.memo(function ChannelPost({ post, index = 0, isOwner, onDelete }) {
   const authorName = post.user?.username || post.username || 'Автор';
   const hue = (authorName.charCodeAt(0) * 37) % 360;
   const isLong = (post.text?.length || 0) > 200;
+  const wordCount = post.text ? post.text.trim().split(/\s+/).length : 0;
+  const readingTime = getReadingTime(post.text);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Аватар автора
   const avatarUrl = post.user?.avatar ? `${API_URL}/uploads/avatars/${post.user.avatar}` : null;
+
+  // Извлечь первое изображение для featured display
+  const attachments = post.attachments || [];
+  const featuredImage = attachments.find(a => {
+    const mime = a.mimeType || '';
+    return mime.startsWith('image/') || /\.(jpe?g|png|gif|webp|avif)$/i.test(a.filename || '');
+  });
+  const otherAttachments = featuredImage ? attachments.filter(a => a.id !== featuredImage.id) : attachments;
 
   const handleDelete = useCallback(() => {
     if (!confirmDelete) {
       setConfirmDelete(true);
-      setTimeout(() => setConfirmDelete(false), 3000); // Сбросить через 3 сек
+      setTimeout(() => setConfirmDelete(false), 3000);
       return;
     }
     onDelete?.(post.id);
@@ -44,25 +59,41 @@ const ChannelPost = React.memo(function ChannelPost({ post, index = 0, isOwner, 
   return (
     <motion.article
       className={`cp ${isLong ? 'cp--long' : ''}`}
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.3), ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.45, delay: Math.min(index * 0.06, 0.35), ease: [0.16, 1, 0.3, 1] }}
     >
       <div className="cp__glass-edge" />
 
+      {/* Featured image — full-width above content */}
+      {featuredImage && (
+        <div className="cp__featured">
+          <img
+            className="cp__featured-img"
+            src={`${API_URL}${featuredImage.thumbnailUrl || featuredImage.url}`}
+            alt=""
+            loading="lazy"
+          />
+        </div>
+      )}
+
       <div className="cp__content">
-        {/* Header */}
+        {/* Author section — editorial style */}
         <div className="cp__head">
-          {/* Реальный аватар или fallback на initials */}
           <div className="cp__ava" style={!avatarUrl ? { background: `linear-gradient(135deg, hsl(${hue}, 70%, 55%), hsl(${(hue + 40) % 360}, 60%, 45%))` } : {}}>
             {avatarUrl ? (
               <img src={avatarUrl} alt="" className="cp__ava-img" onError={(e) => { e.target.style.display = 'none'; }} />
             ) : null}
             <span className="cp__ava-letter">{(authorName || '?')[0].toUpperCase()}</span>
           </div>
-          <span className="cp__name">{authorName}</span>
-          <span className="cp__time">{formatTime(post.createdAt)}</span>
-          {post.editedAt && <span className="cp__edited">ред.</span>}
+          <div className="cp__author-meta">
+            <span className="cp__name">{authorName}</span>
+            <span className="cp__time">
+              {formatTime(post.createdAt)}
+              {post.editedAt && <span className="cp__edited"> · ред.</span>}
+              {wordCount >= 50 && <span className="cp__reading-time"> · {readingTime} мин чтения</span>}
+            </span>
+          </div>
 
           {/* Delete action for owner */}
           {isOwner && (
@@ -78,15 +109,25 @@ const ChannelPost = React.memo(function ChannelPost({ post, index = 0, isOwner, 
           )}
         </div>
 
-        {/* Text */}
+        {/* Text — editorial typography */}
         {post.text && <div className="cp__text">{post.text}</div>}
 
-        {/* Attachments */}
-        {post.attachments?.length > 0 && (
+        {/* Remaining attachments (non-featured) */}
+        {otherAttachments.length > 0 && (
           <div className="cp__media">
-            <MediaMessage attachments={post.attachments} />
+            <MediaMessage attachments={otherAttachments} />
           </div>
         )}
+
+        {/* Footer — placeholder actions */}
+        <div className="cp__footer">
+          <button className="cp__footer-btn" disabled title="Скоро">
+            <Heart size={15} weight="regular" />
+          </button>
+          <button className="cp__footer-btn" disabled title="Скоро">
+            <ShareNetwork size={15} weight="regular" />
+          </button>
+        </div>
       </div>
     </motion.article>
   );

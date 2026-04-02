@@ -252,6 +252,7 @@ export default function App() {
     return (
       <ErrorBoundary>
         <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
+          <TitleBar />
           <AuthScreen
             onLogin={handleLogin}
             collapsing={transition === 'collapsing'}

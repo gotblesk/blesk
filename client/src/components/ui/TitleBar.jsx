@@ -41,6 +41,7 @@ export default function TitleBar() {
 
   return (
     <div className="titlebar" ref={dragRef} onMouseDown={handleMouseDown} onDoubleClick={handleDoubleClick}>
+      <span className="titlebar__title">blesk</span>
       <div className="titlebar__controls">
         <button className="titlebar__btn" onMouseDown={e => e.stopPropagation()} onClick={() => window.blesk?.window.minimize()} title="Свернуть">
           <svg width="10" height="1" viewBox="0 0 10 1">

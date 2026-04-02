@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, GearSix, PaperPlaneTilt, Paperclip, UsersThree, Bell, BellSlash, PenNib, Hash, Camera, ImageSquare } from '@phosphor-icons/react';
+import { ArrowLeft, GearSix, PaperPlaneTilt, Paperclip, UsersThree, Bell, BellSlash, PenNib, Hash, Camera, ImageSquare, Sparkle } from '@phosphor-icons/react';
 import ChannelPost from './ChannelPost';
 import ChannelMembersModal from './ChannelMembersModal';
 import { useChannelStore } from '../../store/channelStore';
@@ -8,6 +8,38 @@ import { getCurrentUserId } from '../../utils/auth';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
 import './ChannelView.css';
+
+const CATEGORY_LABELS = {
+  gaming: 'Игры', music: 'Музыка', art: 'Искусство', tech: 'Технологии',
+  education: 'Образование', entertainment: 'Развлечения', news: 'Новости',
+  sports: 'Спорт', science: 'Наука', other: 'Другое',
+};
+
+const CATEGORY_COLORS = {
+  gaming: '#8b5cf6', music: '#ec4899', art: '#f59e0b', tech: '#06b6d4',
+  education: '#3b82f6', entertainment: '#c8ff00', news: '#3b82f6',
+  sports: '#22c55e', science: '#a855f7', other: '#6b7280',
+};
+
+// Группировка постов по дате
+function getDateGroup(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const postDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.floor((today - postDay) / 86400000);
+
+  if (diffDays === 0) return 'Сегодня';
+  if (diffDays === 1) return 'Вчера';
+
+  const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${d.getDate()} ${months[d.getMonth()]}`;
+  }
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
 
 export default function ChannelView({ channelId, onBack, user, socketRef }) {
   const [text, setText] = useState('');
@@ -24,6 +56,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
   const avatarFileRef = useRef(null);
   const coverFileRef = useRef(null);
   const errorTimerRef = useRef(null);
+  const heroImgRef = useRef(null);
 
   const { posts, loadPosts, deletePost, loadingPosts, postsError, myChannels, channels } = useChannelStore();
   const channelPosts = posts[channelId] || [];
@@ -38,23 +71,16 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
   const hue = channel ? ((channel.name || '').charCodeAt(0) * 37) % 360 : 0;
   const subCount = channel?.subscribersCount ?? channel?.subscriberCount ?? 0;
   const postCount = channelPosts.length;
+  const categoryLabel = CATEGORY_LABELS[channel?.category] || '';
+  const categoryColor = CATEGORY_COLORS[channel?.category] || '#6b7280';
 
   useEffect(() => { loadPosts(channelId); }, [channelId, loadPosts]);
 
-  // Получить статус мьюта для текущего подписчика
+  // Mute state
   useEffect(() => {
     if (!isSubscribed || isOwner) return;
-    fetch(`${API_URL}/api/channels/${channelId}/subscribers?page=1&limit=1`, {
-      headers: getAuthHeaders(),
-      credentials: 'include',
-    })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        // Статус мьюта приходит из PATCH /mute, здесь инициализируем из localStorage
-        const stored = localStorage.getItem(`ch_muted_${channelId}`);
-        if (stored !== null) setIsMuted(stored === 'true');
-      })
-      .catch(() => {});
+    const stored = localStorage.getItem(`ch_muted_${channelId}`);
+    if (stored !== null) setIsMuted(stored === 'true');
   }, [channelId, isSubscribed, isOwner]);
 
   const handleMuteToggle = useCallback(async () => {
@@ -68,9 +94,10 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         credentials: 'include',
         body: JSON.stringify({ isMuted: next }),
       });
-    } catch { /* ignore, UI уже обновлён */ }
+    } catch { /* UI уже обновлён */ }
   }, [channelId, isMuted]);
 
+  // Auto-scroll on new posts
   useEffect(() => {
     const el = feedRef.current;
     if (!el) return;
@@ -83,19 +110,33 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     const feed = feedRef.current;
     if (!feed) return;
     const handleScroll = () => {
-      const heroHeight = heroRef.current?.offsetHeight || 240;
+      const heroHeight = heroRef.current?.offsetHeight || 280;
       setShowSticky(feed.scrollTop > heroHeight - 60);
     };
     feed.addEventListener('scroll', handleScroll, { passive: true });
     return () => feed.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Auto-focus textarea when composer opens
+  // Hero parallax (subtle, 3px max)
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const handleHeroMouseMove = useCallback((e) => {
+    if (prefersReducedMotion || !heroImgRef.current) return;
+    const rect = heroRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 3;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 3;
+    heroImgRef.current.style.transform = `translate(${x}px, ${y}px) scale(1.05)`;
+  }, [prefersReducedMotion]);
+
+  const handleHeroMouseLeave = useCallback(() => {
+    if (heroImgRef.current) heroImgRef.current.style.transform = 'translate(0,0) scale(1.05)';
+  }, []);
+
+  // Auto-focus textarea
   useEffect(() => {
     if (composerOpen && textareaRef.current) textareaRef.current.focus();
   }, [composerOpen]);
 
-  // Утилита: показать ошибку с таймером (очищает предыдущий таймер)
   const showPostError = useCallback((msg) => {
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
     setPostError(msg);
@@ -156,7 +197,6 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     if (fileRef.current) fileRef.current.value = '';
   }, [channelId]);
 
-  // Upload channel avatar
   const handleAvatarUpload = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -164,26 +204,15 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     formData.append('avatar', file);
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/avatar`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders() },
-        credentials: 'include',
-        body: formData,
+        method: 'POST', headers: { ...getAuthHeaders() }, credentials: 'include', body: formData,
       });
-      if (!res.ok) {
-        let errMsg = 'Не удалось загрузить аватар';
-        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch { /* */ }
-        showPostError(errMsg);
-        return;
-      }
+      if (!res.ok) { showPostError('Не удалось загрузить аватар'); return; }
       const data = await res.json();
       if (data.avatarUrl) useChannelStore.getState().updateChannelLocal(channelId, { avatarUrl: data.avatarUrl });
-    } catch {
-      showPostError('Ошибка сети при загрузке аватара');
-    }
+    } catch { showPostError('Ошибка сети'); }
     if (avatarFileRef.current) avatarFileRef.current.value = '';
   }, [channelId, showPostError]);
 
-  // Upload channel cover
   const handleCoverUpload = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -191,43 +220,49 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     formData.append('cover', file);
     try {
       const res = await fetch(`${API_URL}/api/channels/${channelId}/cover`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders() },
-        credentials: 'include',
-        body: formData,
+        method: 'POST', headers: { ...getAuthHeaders() }, credentials: 'include', body: formData,
       });
-      if (!res.ok) {
-        let errMsg = 'Не удалось загрузить обложку';
-        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch { /* */ }
-        showPostError(errMsg);
-        return;
-      }
+      if (!res.ok) { showPostError('Не удалось загрузить обложку'); return; }
       const data = await res.json();
       if (data.coverUrl) useChannelStore.getState().updateChannelLocal(channelId, { coverUrl: data.coverUrl });
-    } catch {
-      showPostError('Ошибка сети при загрузке обложки');
-    }
+    } catch { showPostError('Ошибка сети'); }
     if (coverFileRef.current) coverFileRef.current.value = '';
   }, [channelId, showPostError]);
 
   const coverUrl = channel?.channelMeta?.coverUrl || channel?.coverUrl;
   const avatarUrl = channel?.channelMeta?.avatarUrl || channel?.avatarUrl;
 
+  // Группировка постов по датам
+  const groupedPosts = useMemo(() => {
+    const groups = [];
+    let lastGroup = null;
+    for (const post of channelPosts) {
+      const group = getDateGroup(post.createdAt);
+      if (group !== lastGroup) {
+        groups.push({ type: 'date', label: group, id: `date-${post.id}` });
+        lastGroup = group;
+      }
+      groups.push({ type: 'post', post });
+    }
+    return groups;
+  }, [channelPosts]);
+
   return (
     <div className="cv">
-      {/* ═══ Hero Banner ═══ */}
+      {/* ═══ Hero Banner — Editorial Masthead ═══ */}
       <motion.div
         className="cv__hero"
         ref={heroRef}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
+        onMouseMove={handleHeroMouseMove}
+        onMouseLeave={handleHeroMouseLeave}
       >
-        {/* Cover: custom image or gradient fallback */}
         {coverUrl ? (
-          <img className="cv__hero-bg cv__hero-bg--img" src={`${API_URL}${coverUrl}`} alt="" />
+          <img className="cv__hero-bg cv__hero-bg--img" ref={heroImgRef} src={`${API_URL}${coverUrl}`} alt="" />
         ) : (
-          <div className="cv__hero-bg" style={{ background: `linear-gradient(135deg, hsl(${hue}, 65%, 35%) 0%, hsl(${(hue + 60) % 360}, 50%, 20%) 100%)` }} />
+          <div className="cv__hero-bg" ref={heroImgRef} style={{ background: `linear-gradient(135deg, hsl(${hue}, 65%, 35%) 0%, hsl(${(hue + 60) % 360}, 50%, 20%) 100%)` }} />
         )}
         <div className="cv__hero-fade" />
         <div className="cv__hero-pattern" />
@@ -242,12 +277,9 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
           </>
         )}
 
-        {/* Back button */}
         <motion.button className="cv__back" onClick={onBack} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
           <ArrowLeft size={18} weight="bold" />
         </motion.button>
-
-        {/* Settings (owner) — TODO: connect to settings panel when implemented */}
 
         {/* Channel info overlay */}
         <div className="cv__hero-info">
@@ -261,24 +293,32 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
             ) : (
               (channel?.name || '?')[0].toUpperCase()
             )}
-            {isOwner && <div className="cv__hero-ava-overlay"><Camera size={14} weight="regular" /></div>}
+            {isOwner && <div className="cv__hero-ava-overlay"><Camera size={16} weight="regular" /></div>}
           </div>
           {isOwner && <input type="file" ref={avatarFileRef} hidden accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} />}
           <div className="cv__hero-text">
             <h1 className="cv__hero-name">{channel?.name || 'Канал'}</h1>
-            <div className="cv__hero-stats">
-              <button className="cv__hero-stat cv__hero-stat--btn" onClick={() => setShowMembers(true)} title="Открыть список подписчиков">
+            {channel?.description && (
+              <p className="cv__hero-desc">{channel.description}</p>
+            )}
+            <div className="cv__hero-meta">
+              {categoryLabel && (
+                <span className="cv__hero-cat" style={{ '--cat-color': categoryColor }}>
+                  <Sparkle size={10} weight="fill" />
+                  {categoryLabel}
+                </span>
+              )}
+              <button className="cv__hero-stat cv__hero-stat--btn" onClick={() => setShowMembers(true)} title="Подписчики">
                 <UsersThree size={12} weight="bold" />
-                {subCount} подписчиков
+                {subCount}
               </button>
               <span className="cv__hero-stat">
                 <Hash size={12} weight="bold" />
-                {postCount} постов
+                {postCount}
               </span>
             </div>
           </div>
 
-          {/* Subscribe + Mute buttons */}
           {!isOwner && (
             <div className="cv__hero-actions">
               {isSubscribed && (
@@ -309,6 +349,13 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
       <div className="cv__feed" ref={feedRef}>
         {/* Sticky channel bar */}
         <div className={`cv__sticky-bar ${showSticky ? 'cv__sticky-bar--visible' : ''}`}>
+          <div className="cv__sticky-ava" style={!avatarUrl ? { background: `linear-gradient(135deg, hsl(${hue}, 70%, 55%), hsl(${(hue + 40) % 360}, 60%, 45%))` } : {}}>
+            {avatarUrl ? (
+              <img src={`${API_URL}${avatarUrl}`} alt="" className="cv__sticky-ava-img" />
+            ) : (
+              <span>{(channel?.name || '?')[0].toUpperCase()}</span>
+            )}
+          </div>
           <span className="cv__sticky-name">{channel?.name}</span>
           <span className="cv__sticky-stats">{subCount} подписчиков</span>
           {!isOwner && (
@@ -324,40 +371,46 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         {channelPosts.length === 0 ? (
           <motion.div className="cv__empty" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <div className="cv__empty-icon">
-              <PenNib size={24} weight="regular" />
+              <PenNib size={32} weight="regular" />
             </div>
-            <span className="cv__empty-title">Пока пусто</span>
-            <span className="cv__empty-hint">{isOwner ? 'Напишите первый пост!' : 'Посты скоро появятся'}</span>
+            <span className="cv__empty-title">Пока нет постов</span>
+            <span className="cv__empty-hint">{isOwner ? 'Создайте первую публикацию' : 'Посты скоро появятся'}</span>
           </motion.div>
         ) : (
-          (channelPosts ?? []).map((post, i) => (
-            <ChannelPost
-              key={post.id}
-              post={post}
-              index={i}
-              isOwner={isAdmin}
-              onDelete={(postId) => deletePost(channelId, postId, socketRef)}
-            />
-          ))
+          groupedPosts.map((item, i) =>
+            item.type === 'date' ? (
+              <div key={item.id} className="cv__date-group">
+                <span className="cv__date-label">{item.label}</span>
+              </div>
+            ) : (
+              <ChannelPost
+                key={item.post.id}
+                post={item.post}
+                index={i}
+                isOwner={isAdmin}
+                onDelete={(postId) => deletePost(channelId, postId, socketRef)}
+              />
+            )
+          )
         )}
 
         {/* Loading state */}
         {isLoadingPosts && channelPosts.length === 0 && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 24, opacity: 0.4 }}>
-            <div style={{ width: 24, height: 24, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <div className="cv__loading">
+            <div className="cv__spinner" />
           </div>
         )}
 
         {/* Error state */}
         {loadPostsError && channelPosts.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 24, color: 'var(--danger)', fontSize: 13 }}>
+          <div className="cv__error">
             {loadPostsError}
-            <button onClick={() => loadPosts(channelId)} style={{ display: 'block', margin: '8px auto', background: 'none', border: '1px solid var(--danger)', borderRadius: 8, padding: '4px 12px', color: 'var(--danger)', cursor: 'pointer', fontSize: 12 }}>Повторить</button>
+            <button className="cv__error-retry" onClick={() => loadPosts(channelId)}>Повторить</button>
           </div>
         )}
       </div>
 
-      {/* ═══ Floating Compose Button (owner) ═══ */}
+      {/* ═══ FAB ═══ */}
       {isOwner && !composerOpen && (
         <motion.button
           className="cv__fab"
@@ -372,7 +425,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         </motion.button>
       )}
 
-      {/* ═══ Composer Panel (owner) ═══ */}
+      {/* ═══ Composer ═══ */}
       <AnimatePresence>
         {isOwner && composerOpen && (
           <motion.div
@@ -384,7 +437,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
           >
             <div className="cv__composer-glass">
               <div className="cv__composer-head">
-                <span className="cv__composer-title">Новый пост</span>
+                <span className="cv__composer-title">Новая публикация</span>
                 <motion.button className="cv__composer-close" onClick={() => setComposerOpen(false)} whileTap={{ scale: 0.85 }}>
                   Отмена
                 </motion.button>
@@ -401,11 +454,11 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
               <textarea
                 ref={textareaRef}
                 className="cv__composer-textarea"
-                placeholder="Написать пост..."
+                placeholder="О чём хотите рассказать?"
                 value={text}
                 onChange={(e) => setText(e.target.value.slice(0, 4000))}
                 onKeyDown={handleKeyDown}
-                rows={3}
+                rows={4}
                 maxLength={4000}
               />
 
@@ -433,7 +486,6 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         )}
       </AnimatePresence>
 
-      {/* ═══ Members Modal ═══ */}
       {showMembers && (
         <ChannelMembersModal channelId={channelId} onClose={() => setShowMembers(false)} />
       )}

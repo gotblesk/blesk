@@ -154,6 +154,14 @@ export default function ChatView({
       isNearBottomRef.current = true;
       setNewMsgCount(0);
       setShowScrollDown(false);
+      // Принудительный скролл к концу после загрузки сообщений
+      const scrollTimer = setTimeout(() => {
+        const msgs = useChatStore.getState().messages[chatId];
+        if (msgs?.length > 0 && virtualizer) {
+          virtualizer.scrollToIndex(msgs.length - 1, { align: 'end', behavior: 'auto' });
+        }
+      }, 150);
+      return () => clearTimeout(scrollTimer);
     }
   }, [chatId, socketRef]);
 
