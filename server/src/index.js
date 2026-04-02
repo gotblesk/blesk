@@ -180,7 +180,7 @@ app.use('/api/shield', chatLimiter, csrfProtection, shieldRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.1.0-beta' });
+  res.json({ status: 'ok', version: '1.1.1-beta' });
 });
 
 // WebSocket — авторизация + обработчики
