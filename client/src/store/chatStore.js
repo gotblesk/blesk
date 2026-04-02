@@ -3,7 +3,7 @@ import { getCurrentUserId } from '../utils/auth';
 import { decryptMessage, fetchPublicKey } from '../utils/cryptoService';
 import { getCachedMessages, setCachedMessages, appendCachedMessage, updateCachedMessage, removeCachedMessage } from '../utils/messageCache';
 import API_URL from '../config';
-import { getAuthHeaders } from '../utils/authFetch';
+import { getAuthHeaders, getRefreshToken, setTokens, clearTokens } from '../utils/authFetch';
 
 function getHeaders() {
   return {
@@ -15,23 +15,19 @@ function getHeaders() {
 async function fetchWithAuth(url, options = {}) {
   const res = await fetch(url, { ...options, credentials: 'include', headers: { ...getHeaders(), ...options.headers } });
   if (res.status === 401) {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken) {
-      const refreshRes = await fetch(`${API_URL}/api/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      });
-      if (refreshRes.ok) {
-        const data = await refreshRes.json();
-        localStorage.setItem('token', data.token);
-        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-        return fetch(url, { ...options, credentials: 'include', headers: { ...getHeaders(), ...options.headers } });
-      }
+    const refreshToken = getRefreshToken();
+    const refreshRes = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refreshToken || undefined }),
+    });
+    if (refreshRes.ok) {
+      const data = await refreshRes.json();
+      setTokens(data.token, data.refreshToken || refreshToken);
+      return fetch(url, { ...options, credentials: 'include', headers: { ...getHeaders(), ...options.headers } });
     }
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    clearTokens();
     window.location.reload();
   }
   return res;

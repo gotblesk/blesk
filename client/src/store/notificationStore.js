@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import API_URL from '../config';
-import { getAuthHeaders } from '../utils/authFetch';
+import { getAuthHeaders, getToken } from '../utils/authFetch';
 
 export const useNotificationStore = create((set, get) => ({
   notifications: [],
@@ -9,7 +9,7 @@ export const useNotificationStore = create((set, get) => ({
   // Загрузить уведомления с сервера
   fetchNotifications: async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       if (!token) return;
 
       const res = await fetch(`${API_URL}/api/notifications`, {

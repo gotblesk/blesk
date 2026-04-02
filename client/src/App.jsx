@@ -6,7 +6,7 @@ import MainScreen from './components/main/MainScreen';
 import UpdateToast from './components/ui/UpdateToast';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import { ensureKeyPair, clearCache } from './utils/cryptoService';
-import { initCsrf, clearCsrf } from './utils/authFetch';
+import { initCsrf, clearCsrf, setTokens, getToken, getRefreshToken, clearTokens, setUserId } from './utils/authFetch';
 import { useSettingsStore } from './store/settingsStore';
 import { useChatStore } from './store/chatStore';
 import { useNotificationStore } from './store/notificationStore';
@@ -76,34 +76,41 @@ export default function App() {
     });
   }, []);
 
-  // Попытка обновить токен через refresh token
+  // Извлечь userId из JWT payload и сохранить в memory
+  function extractAndStoreUserId(token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.userId) setUserId(payload.userId);
+    } catch { /* невалидный JWT */ }
+  }
+
+  // Попытка обновить токен через refresh (cookies + in-memory fallback)
   async function tryRefreshToken() {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return null;
+    const refreshToken = getRefreshToken();
 
     try {
       const res = await fetch(`${API_URL}/api/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ refreshToken: refreshToken || undefined }),
       });
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem('token', data.token);
-        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        setTokens(data.token, data.refreshToken || refreshToken);
+        extractAndStoreUserId(data.token);
         return data.token;
       }
     } catch (err) { console.error('App refreshToken:', err?.message || err); }
     return null;
   }
 
-  // Авто-логин: проверяем сохранённый токен, при неудаче пробуем refresh
+  // Авто-логин: пробуем cookie-based refresh (токены в памяти пусты после рестарта)
   useEffect(() => {
     async function checkAuth() {
-      let token = localStorage.getItem('token');
+      let token = getToken();
       if (!token) {
-        // Попробуем refresh даже без access token
+        // После рестарта приложения in-memory токен пуст — пробуем refresh через cookies
         token = await tryRefreshToken();
         if (!token) { setChecking(false); return; }
       }
@@ -126,19 +133,19 @@ export default function App() {
 
       if (res && res.ok) {
         const data = await res.json();
+        if (data.user?.id) setUserId(data.user.id);
         await initCsrf();
         if (data.user.email && data.user.emailVerified === false) {
           setNeedsVerify({
             user: data.user,
-            token: localStorage.getItem('token'),
-            refreshToken: localStorage.getItem('refreshToken'),
+            token: getToken(),
+            refreshToken: getRefreshToken(),
           });
         } else {
           setUser(data.user);
         }
       } else {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
+        clearTokens();
       }
       setChecking(false);
     }
@@ -187,10 +194,8 @@ export default function App() {
   }, [user]);
 
   const handleLogin = (data) => {
-    localStorage.setItem('token', data.token);
-    if (data.refreshToken) {
-      localStorage.setItem('refreshToken', data.refreshToken);
-    }
+    setTokens(data.token, data.refreshToken);
+    extractAndStoreUserId(data.token);
 
     initCsrf();
 
@@ -224,9 +229,8 @@ export default function App() {
     useVoiceStore.setState({ rooms: [], loading: false, userVolumes: {} });
     useCallStore.setState({ incomingCall: null, activeCall: null });
     useChannelStore.setState({ channels: [], myChannels: [], posts: {} });
-    // Токены
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    // Токены (очистка in-memory)
+    clearTokens();
   };
 
   // Пока проверяем токен — ничего не показываем (прелоадер уже скрылся)

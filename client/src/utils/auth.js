@@ -1,14 +1,9 @@
+import { getUserId } from './authFetch';
+
 /**
- * Безопасное извлечение userId из JWT токена.
- * Возвращает null если токен невалидный или отсутствует.
+ * Возвращает userId из in-memory store.
+ * userId устанавливается при логине/refresh через setUserId().
  */
 export function getCurrentUserId() {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) return null;
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.userId || null;
-  } catch {
-    return null;
-  }
+  return getUserId();
 }

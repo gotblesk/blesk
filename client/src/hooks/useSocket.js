@@ -8,6 +8,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { getCurrentUserId } from '../utils/auth';
 import { decryptMessage, fetchPublicKey, invalidateUserKeys } from '../utils/cryptoService';
 import { shieldDecrypt, replenishOPKs } from '../utils/shieldService';
+import { getToken, getRefreshToken, setTokens, clearTokens } from '../utils/authFetch';
 import API_URL from '../config';
 import { soundReceive, soundNotification, soundRingtoneStart, soundRingtoneStop, soundCallAccepted, soundCallEnded, soundCallDeclined } from '../utils/sounds';
 
@@ -16,7 +17,7 @@ export function useSocket() {
   const typingTimersRef = useRef(new Map());
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (!token) return;
 
     const { showOnline } = useSettingsStore.getState();
@@ -98,28 +99,24 @@ export function useSocket() {
     // При ошибке подключения — обновить токен через refresh API и переподключиться
     const handleConnectError = async (err) => {
       console.error('Socket connection error:', err.message);
-      // Сначала пробуем обновить токен через refresh API (не просто читаем localStorage)
-      // чтобы не переподключаться с уже истёкшим access token
+      // Пробуем обновить токен через refresh API (cookies + in-memory fallback)
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (refreshToken) {
-          const res = await fetch(`${API_URL}/api/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ refreshToken }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            localStorage.setItem('token', data.token);
-            if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-            socket.auth.token = data.token;
-            return; // socket.io автоматически повторит подключение
-          }
+        const refreshToken = getRefreshToken();
+        const res = await fetch(`${API_URL}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ refreshToken: refreshToken || undefined }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTokens(data.token, data.refreshToken || refreshToken);
+          socket.auth.token = data.token;
+          return; // socket.io автоматически повторит подключение
         }
       } catch { /* сеть недоступна — socket.io повторит по расписанию */ }
-      // Если refresh не удался — хотя бы подставить актуальный токен из localStorage
-      const freshToken = localStorage.getItem('token');
+      // Если refresh не удался — подставить актуальный in-memory токен
+      const freshToken = getToken();
       if (freshToken) socket.auth.token = freshToken;
     };
 
@@ -131,7 +128,7 @@ export function useSocket() {
     // При возврате окна в видимое состояние — обновить токен и переподключиться
     const handleVisibilityChange = () => {
       if (document.visibilityState !== 'visible') return;
-      const freshToken = localStorage.getItem('token');
+      const freshToken = getToken();
       if (freshToken) socket.auth.token = freshToken;
       if (!socket.connected) socket.connect();
     };
@@ -444,8 +441,7 @@ export function useSocket() {
     // ═══ Бан аккаунта ═══
     const handleAuthBanned = ({ reason }) => {
       console.warn('Аккаунт заблокирован:', reason);
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
+      clearTokens();
       window.location.reload();
     };
 

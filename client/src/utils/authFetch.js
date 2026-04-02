@@ -1,18 +1,39 @@
 import API_URL from '../config';
 
 // Централизованный хелпер авторизации для всех API-вызовов.
-// Включает credentials: 'include' (отправка httpOnly cookies)
-// + fallback на localStorage token для обратной совместимости.
-// + CSRF-токен для защиты мутирующих запросов.
+// Токены хранятся только в памяти (не в localStorage) — защита от XSS.
+// httpOnly cookies — основной механизм авторизации (credentials: 'include').
+// In-memory Bearer token — fallback для Socket.io auth и API-запросов.
+
+// ═══ In-memory token store (НЕ localStorage) ═══
+let _token = null;
+let _refreshToken = null;
+let _userId = null;
+
+export function setTokens(token, refreshToken) {
+  _token = token || null;
+  _refreshToken = refreshToken || null;
+}
+
+export function getToken() { return _token; }
+export function getRefreshToken() { return _refreshToken; }
+
+export function setUserId(id) { _userId = id || null; }
+export function getUserId() { return _userId; }
+
+export function clearTokens() {
+  _token = null;
+  _refreshToken = null;
+  _userId = null;
+}
 
 let csrfToken = null;
 let csrfRefreshTimer = null;
 
 async function fetchCsrfToken() {
   try {
-    const token = localStorage.getItem('token');
     const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (_token) headers['Authorization'] = `Bearer ${_token}`;
 
     const res = await fetch(`${API_URL}/api/auth/csrf`, {
       credentials: 'include',
@@ -47,8 +68,7 @@ export function clearCsrf() {
 
 export function getAuthHeaders() {
   const headers = {};
-  const token = localStorage.getItem('token');
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (_token) headers['Authorization'] = `Bearer ${_token}`;
   if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
   return headers;
 }
