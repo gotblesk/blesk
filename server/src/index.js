@@ -180,7 +180,7 @@ app.use('/api/shield', chatLimiter, csrfProtection, shieldRoutes);
 
 // Проверка работоспособности
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.1.1-beta' });
+  res.json({ status: 'ok', version: require('../package.json').version });
 });
 
 // WebSocket — авторизация + обработчики
@@ -278,9 +278,9 @@ const PORT = process.env.PORT || 3000;
 
   const gracefulShutdown = async (signal) => {
     logger.info({ signal }, 'Shutting down gracefully...');
-    clearVoiceIntervals(); // [P4] Очистить интервалы voice handler
+    clearVoiceIntervals();
     io.close();
-    httpServer.close();
+    await new Promise((resolve) => httpServer.close(resolve));
     await prisma.$disconnect();
     process.exit(0);
   };

@@ -47,8 +47,12 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
         setUserMenuOpen(false);
       }
     }
+    function handleKey(e) {
+      if (e.key === 'Escape') setUserMenuOpen(false);
+    }
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('keydown', handleKey); };
   }, [userMenuOpen]);
 
   return (
@@ -64,13 +68,16 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
           <List size={20} />
         </button>
 
-        <div className="top-nav__tabs">
+        <div className="top-nav__tabs" role="tablist">
           {tabs.map(tab => {
             const isActive = activeTab === tab.id;
             const showBadge = tab.id === 'chats' && totalUnread > 0;
             return (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={isActive ? 0 : -1}
                 className={`top-nav__tab ${isActive ? 'top-nav__tab--active' : ''}`}
                 onClick={() => onTabChange(tab.id)}
               >

@@ -54,9 +54,11 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
     return () => controller.abort();
   }, [mode, userId, fetchKey]);
 
-  // 3D tilt
+  // 3D tilt (skip if reduced motion preferred)
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+
   const handleMouseMove = useCallback((e) => {
-    if (!cardRef.current) return;
+    if (!cardRef.current || prefersReducedMotion) return;
     const rect = cardRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;

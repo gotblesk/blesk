@@ -18,14 +18,10 @@ export const useNotificationStore = create((set, get) => ({
       if (!res.ok) throw new Error('not ok');
 
       const data = await res.json();
-      if (data.length > 0) {
-        set({
-          notifications: data,
-          unreadCount: data.filter((n) => !n.isRead).length,
-        });
-      } else {
-        throw new Error('empty');
-      }
+      set({
+        notifications: Array.isArray(data) ? data : [],
+        unreadCount: Array.isArray(data) ? data.filter((n) => !n.isRead).length : 0,
+      });
     } catch {
       // [IMP-5] Не показывать mock данные в production
     }

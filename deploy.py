@@ -14,7 +14,8 @@ if not VPS_PASSWORD and not VPS_KEY_PATH:
     sys.exit(1)
 
 ssh = paramiko.SSHClient()
-ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+ssh.load_system_host_keys()
+ssh.set_missing_host_key_policy(paramiko.WarningPolicy())
 
 if VPS_KEY_PATH:
     ssh.connect(VPS_HOST, username=VPS_USER, key_filename=VPS_KEY_PATH)
@@ -22,7 +23,7 @@ else:
     ssh.connect(VPS_HOST, username=VPS_USER, password=VPS_PASSWORD)
 
 cmds = [
-    'cd /var/www/blesk && git stash && git pull origin master',
+    'cd /var/www/blesk && git pull origin master',
     'cd /var/www/blesk/server && npm install --production 2>&1 | tail -3',
     # Починить владельца файлов после git pull (root) → blesk
     'chown -R blesk:blesk /var/www/blesk',

@@ -12,6 +12,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
   const [dragOver, setDragOver] = useState(false);
+  const [fileError, setFileError] = useState(null);
   const [isExpanded, setIsExpanded] = useState(true);
   const [isFocused, setIsFocused] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -131,12 +132,14 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     const valid = arr.filter((f) => f.size <= 10 * 1024 * 1024);
     if (valid.length < arr.length) {
       const rejected = arr.length - valid.length;
-      alert(`${rejected} файл(ов) отклонено: максимальный размер 10 МБ`);
+      setFileError(`${rejected} файл(ов) отклонено: макс. 10 МБ`);
+      setTimeout(() => setFileError(null), 4000);
     }
     setPendingFiles((prev) => {
       const totalSize = prev.reduce((sum, f) => sum + f.size, 0) + valid.reduce((sum, f) => sum + f.size, 0);
       if (totalSize > 50 * 1024 * 1024) {
-        alert('Общий размер файлов не может превышать 50 МБ');
+        setFileError('Общий размер файлов не может превышать 50 МБ');
+        setTimeout(() => setFileError(null), 4000);
         return prev;
       }
       return [...prev, ...valid].slice(0, 10);
@@ -503,6 +506,13 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         onRemove={removeFile}
         uploadProgress={uploadProgress}
       />
+
+      {/* Ошибка файлов (вместо alert) */}
+      {fileError && (
+        <div style={{ padding: '4px 12px', fontSize: 12, color: 'var(--danger)', background: 'rgba(239,68,68,0.08)', borderRadius: 6, margin: '4px 8px 0' }}>
+          {fileError}
+        </div>
+      )}
 
       {/* Превью ответа */}
       {replyTo && (

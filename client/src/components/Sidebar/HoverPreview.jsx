@@ -24,7 +24,7 @@ export default function HoverPreview({ chatId, position, onClose, onOpenChat }) 
           const data = await res.json();
           setMessages((data.messages || data).reverse());
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.warn('HoverPreview fetch:', e); }
     })();
   }, [chatId]);
 
@@ -43,7 +43,7 @@ export default function HoverPreview({ chatId, position, onClose, onOpenChat }) 
       useChatStore.getState().sendMessage(chatId, text.trim());
       setText('');
       onClose?.();
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.warn('HoverPreview send:', e); }
     setSending(false);
   }, [text, chatId, sending, onClose]);
 

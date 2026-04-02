@@ -378,7 +378,7 @@ export function useVoice(socketRef) {
           sendTransportRef.current = sendTransport;
 
           sendTransport.on('connectionstatechange', (state) => {
-            console.log(`[blesk] Transport send state: ${state}`);
+            if (import.meta.env.DEV) console.log(`[blesk] Transport send state: ${state}`);
             if (state === 'failed' || state === 'disconnected') {
               console.warn(`[blesk] Transport send ${state} — may need ICE restart`);
             }
@@ -439,7 +439,7 @@ export function useVoice(socketRef) {
           recvTransportRef.current = recvTransport;
 
           recvTransport.on('connectionstatechange', (state) => {
-            console.log(`[blesk] Transport recv state: ${state}`);
+            if (import.meta.env.DEV) console.log(`[blesk] Transport recv state: ${state}`);
             if (state === 'failed' || state === 'disconnected') {
               console.warn(`[blesk] Transport recv ${state} — may need ICE restart`);
             }
@@ -905,7 +905,7 @@ export function useVoice(socketRef) {
       // [Баг #8] Показать ошибку / молчаливый fallback при отмене
       if (err.name === 'NotAllowedError') {
         // Пользователь отменил выбор — не показываем ошибку, это нормальное действие
-        console.log('Screen share cancelled by user');
+        if (import.meta.env.DEV) console.log('Screen share cancelled by user');
       } else {
         console.error('enableScreenShare error:', err);
         useVoiceStore.getState().setMediaError?.('Не удалось запустить демонстрацию экрана.');
@@ -972,7 +972,7 @@ export function useVoice(socketRef) {
         const audioInputs = devices.filter(d => d.kind === 'audioinput');
         const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
         const videoInputs = devices.filter(d => d.kind === 'videoinput');
-        console.log('[blesk] Devices changed:', { audioInputs: audioInputs.length, audioOutputs: audioOutputs.length, videoInputs: videoInputs.length });
+        if (import.meta.env.DEV) console.log('[blesk] Devices changed:', { audioInputs: audioInputs.length, audioOutputs: audioOutputs.length, videoInputs: videoInputs.length });
       } catch (err) {
         console.error('[blesk] devicechange error:', err);
       }
