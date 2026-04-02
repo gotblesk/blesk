@@ -131,9 +131,6 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     if (!window.blesk) return;
     window.blesk.onDeepLink?.(({ action, param }) => {
       if (action === 'chat' && param) handleOpenChat(param);
-      if (action === 'invite' && param) {
-        // TODO: обработать invite deep link
-      }
       if (action === 'channel' && param) {
         handleTabChange('channels');
       }

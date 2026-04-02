@@ -529,7 +529,7 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   // [IMP-4] allowPrerelease только в beta-версиях
-  autoUpdater.allowPrerelease = app.getVersion().includes('-');
+  autoUpdater.allowPrerelease = app.getVersion().includes('-beta') || app.getVersion().includes('-alpha');
 
   autoUpdater.on('update-available', (info) => {
     console.log('Доступно обновление:', info.version);
@@ -558,6 +558,9 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (err) => {
     console.error('Ошибка обновления:', err.message);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:error', err.message);
+    }
   });
 
   // [IMP-4] Проверяем обновления через 5 сек после старта, потом каждый час
@@ -725,7 +728,7 @@ if (!isDev) {
 }
 
 // [IMP-2] Whitelist допустимых deep link actions
-const VALID_DEEPLINK_ACTIONS = new Set(['invite', 'chat', 'channel', 'join', 'user']);
+const VALID_DEEPLINK_ACTIONS = new Set(['chat', 'channel', 'join', 'user']);
 
 // [IMP-1] Pending deep link для cold start
 let pendingDeepLink = null;
@@ -792,6 +795,13 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   isQuitting = true;
   if (tray) { tray.destroy(); tray = null; }
+});
+
+// Безопасность: блокируем <webview> теги (electron-development checklist)
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
 });
 
 app.on('window-all-closed', () => {
