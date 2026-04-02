@@ -203,7 +203,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     // Если передан userId — найти существующий DM или создать новый
     if (userId) {
       const existingChat = useChatStore.getState().chats.find(
-        c => c.type === 'dm' && c.otherUser?.id === userId
+        c => (c.type === 'chat' || c.type === 'dm') && c.otherUser?.id === userId
       );
       if (existingChat) {
         soundWindowOpen();

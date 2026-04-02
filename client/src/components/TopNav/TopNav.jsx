@@ -6,6 +6,7 @@ import { useNotificationStore } from '../../store/notificationStore';
 import Avatar from '../ui/Avatar';
 import SegmentedCircle from '../profile/SegmentedCircle';
 import NotificationsPanel from './NotificationsPanel';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import './TopNav.css';
 
 const BASE_TABS = [
@@ -26,6 +27,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
   const tabs = useMemo(() => isAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS, [isAdmin]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const handleNotifClose = useCallback(() => setNotifOpen(false), []);
   const handleNotifToggle = useCallback(() => setNotifOpen(prev => !prev), []);
@@ -146,7 +148,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
                 <div className="um__sep" />
 
                 {/* Logout */}
-                <button className="um__item um__item--danger" onClick={() => { setUserMenuOpen(false); onLogout?.(); }}>
+                <button className="um__item um__item--danger" onClick={() => { setUserMenuOpen(false); setLogoutConfirmOpen(true); }}>
                   <SignOut size={16} />
                   <span>Выйти</span>
                 </button>
@@ -192,6 +194,17 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
       open={notifOpen}
       onClose={handleNotifClose}
       onOpenChat={(chatId) => { setNotifOpen(false); onOpenChat?.(chatId); }}
+    />
+
+    <ConfirmDialog
+      open={logoutConfirmOpen}
+      title="Выход из аккаунта"
+      message="Вы уверены, что хотите выйти?"
+      confirmText="Выйти"
+      cancelText="Остаться"
+      danger
+      onConfirm={() => { setLogoutConfirmOpen(false); onLogout?.(); }}
+      onCancel={() => setLogoutConfirmOpen(false)}
     />
     </>
   );

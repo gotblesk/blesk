@@ -4,7 +4,7 @@ import './SegmentedCircle.css';
 
 const STATUSES = [
   { key: 'online', label: 'В сети', color: '#4ade80' },
-  { key: 'dnd', label: 'Не беспокоить', color: '#f59e0b' },
+  { key: 'dnd', label: 'Не беспокоить', color: '#ef4444' },
   { key: 'invisible', label: 'Невидимка', color: '#6b7280' },
 ];
 

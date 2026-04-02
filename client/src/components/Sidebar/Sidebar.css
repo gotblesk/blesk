@@ -80,7 +80,7 @@
 .sn__chat--offline:hover { opacity: 0.85; }
 
 /* Hover actions (mute/pin quick buttons) */
-.sn__hover-actions { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); opacity: 0; transition: opacity 0.15s; display: flex; gap: 4px; pointer-events: none; }
+.sn__hover-actions { position: absolute; right: 8px; top: 8px; opacity: 0; transition: opacity 0.15s; display: flex; gap: 2px; pointer-events: none; z-index: 2; }
 .sn__chat:hover .sn__hover-actions { opacity: 1; pointer-events: all; }
 .sn__hover-btn { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border: none; background: var(--surface-2); border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer; transition: background 0.12s, color 0.12s; }
 .sn__hover-btn:hover { background: var(--surface-3); color: var(--text-primary); }

@@ -164,7 +164,7 @@
 }
 
 .pcard__dot--online { background: var(--online, #4ade80); box-shadow: 0 0 6px var(--online, #4ade80); }
-.pcard__dot--dnd { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.pcard__dot--dnd { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
 .pcard__dot--invisible { background: #6b7280; }
 .pcard__dot--offline { background: #6b7280; }
 

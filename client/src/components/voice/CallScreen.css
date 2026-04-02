@@ -7,7 +7,7 @@
   position: fixed;
   z-index: 220;
   border-radius: var(--radius-lg);
-  overflow: visible; /* [Баг #29] Не обрезать подписи кнопок */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   min-width: 240px;

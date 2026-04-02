@@ -65,12 +65,12 @@ function VoiceMessage({ src }) {
 
     async function buildWaveform() {
       try {
-        const response = await fetch(src, { mode: 'cors' });
+        const response = await fetch(src);
         if (!response.ok) { if (!cancelled) setAudioError(true); return; }
         const arrayBuffer = await response.arrayBuffer();
 
-        // OfflineAudioContext для декодирования без воспроизведения
-        const offlineCtx = new OfflineAudioContext(1, 1, 22050);
+        // OfflineAudioContext — длительность достаточная для декодирования
+        const offlineCtx = new OfflineAudioContext(1, 44100, 44100);
         const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
 
         const data = audioBuffer.getChannelData(0);

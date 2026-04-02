@@ -11,7 +11,7 @@ import './ProfileEditor.css';
 
 const STATUS_PRESETS = [
   { id: 'online', color: '#4ade80', label: 'В сети' },
-  { id: 'dnd', color: '#f59e0b', label: 'Не беспокоить' },
+  { id: 'dnd', color: '#ef4444', label: 'Не беспокоить' },
   { id: 'invisible', color: '#6b7280', label: 'Невидимка' },
 ];
 
