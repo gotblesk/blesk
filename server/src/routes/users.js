@@ -194,7 +194,7 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
 // Обновление профиля
 router.put('/me', authenticate, async (req, res) => {
   try {
-    const { username, bio, status, customStatus, hue, showLastSeen } = req.body;
+    const { username, bio, status, customStatus, hue, showLastSeen, showOnline, showTyping } = req.body;
     const data = {};
 
     // Смена никнейма
@@ -251,6 +251,20 @@ router.put('/me', authenticate, async (req, res) => {
         return res.status(400).json({ error: 'showLastSeen должен быть boolean' });
       }
       data.showLastSeen = showLastSeen;
+    }
+
+    if (showOnline !== undefined) {
+      if (typeof showOnline !== 'boolean') {
+        return res.status(400).json({ error: 'showOnline должен быть boolean' });
+      }
+      data.showOnline = showOnline;
+    }
+
+    if (showTyping !== undefined) {
+      if (typeof showTyping !== 'boolean') {
+        return res.status(400).json({ error: 'showTyping должен быть boolean' });
+      }
+      data.showTyping = showTyping;
     }
 
     if (Object.keys(data).length === 0) {

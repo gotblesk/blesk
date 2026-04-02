@@ -442,8 +442,8 @@ function GeneralTab({ settings, toggle, setValue }) {
         </SettingRow>
       </SettingGroup>
       <SettingGroup title="Язык">
-        <SettingRow icon={<Globe size={16} />} label="Язык интерфейса" hint="Перезапуск не требуется">
-          <Select value={settings.language} options={[{ value: 'ru', label: 'Русский' }, { value: 'en', label: 'English' }]} onChange={(v) => setValue('language', v)} />
+        <SettingRow icon={<Globe size={16} />} label="Язык интерфейса" hint="Другие языки скоро">
+          <Select value="ru" options={[{ value: 'ru', label: 'Русский' }]} onChange={() => {}} />
         </SettingRow>
       </SettingGroup>
     </div>
@@ -844,10 +844,26 @@ function PrivacyTab({ settings, toggle }) {
     <div className="stg-tab">
       <SettingGroup title="Видимость">
         <SettingRow icon={<Eye size={16} />} label="Показывать онлайн" hint="Другие видят что вы в сети">
-          <Toggle value={settings.showOnline} onChange={() => toggle('showOnline')} />
+          <Toggle value={settings.showOnline} onChange={() => {
+            const next = !settings.showOnline;
+            toggle('showOnline');
+            fetch(`${API_URL}/api/users/me`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, credentials: 'include',
+              body: JSON.stringify({ showOnline: next }),
+            }).then(r => { if (!r.ok) toggle('showOnline'); }).catch(() => { toggle('showOnline'); });
+          }} />
         </SettingRow>
         <SettingRow icon={<ChatDots size={16} />} label="Индикатор набора" hint="Другие видят когда вы печатаете">
-          <Toggle value={settings.showTyping} onChange={() => toggle('showTyping')} />
+          <Toggle value={settings.showTyping} onChange={() => {
+            const next = !settings.showTyping;
+            toggle('showTyping');
+            fetch(`${API_URL}/api/users/me`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, credentials: 'include',
+              body: JSON.stringify({ showTyping: next }),
+            }).then(r => { if (!r.ok) toggle('showTyping'); }).catch(() => { toggle('showTyping'); });
+          }} />
         </SettingRow>
         <SettingRow icon={<Clock size={16} />} label="Время последнего визита" hint="Другие видят когда вы были в сети">
           <Toggle value={settings.showLastSeen} onChange={() => {

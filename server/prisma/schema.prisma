@@ -25,6 +25,8 @@ model User {
   hue          Int      @default(0) // 0-360, цвет аватара
   lastSeenAt   DateTime? @map("last_seen_at")
   showLastSeen Boolean   @default(true) @map("show_last_seen")
+  showOnline   Boolean   @default(true) @map("show_online")
+  showTyping   Boolean   @default(true) @map("show_typing")
   createdAt    DateTime @default(now()) @map("created_at")
 
   role          String    @default("user") // user, moderator, admin

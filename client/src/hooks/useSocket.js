@@ -196,7 +196,7 @@ export function useSocket() {
         }
 
         // Уведомления через main process (работают в трее)
-        if (s.notifications && s.notifMessages && !s.dnd && document.hidden) {
+        if (s.notifications && s.notifMessages && !s.dnd && (document.hidden || !document.hasFocus())) {
           const title = msg.user?.username || 'blesk';
           const body = msg.encrypted ? 'Зашифрованное сообщение' : (msg.text?.slice(0, 100) || 'Новое сообщение');
           // [IMP-4] Передать silent флаг
@@ -280,6 +280,11 @@ export function useSocket() {
       if (uid) invalidateUserKeys(uid);
     };
 
+    // Принятие дружбы — перезагрузить чаты
+    const handleFriendAccepted = () => {
+      useChatStore.getState().loadChats();
+    };
+
     // Удаление из друзей — перезагрузить чаты
     const handleFriendRemoved = (data) => {
       const { userId: uid, friendId } = data;
@@ -360,6 +365,15 @@ export function useSocket() {
       if (store.activeCall) return;
       store.setIncomingCall(data);
       soundRingtoneStart();
+      // Нативное уведомление когда окно свёрнуто или не в фокусе
+      if (document.hidden || !document.hasFocus()) {
+        const callerName = data.callerName || 'Неизвестный';
+        if (window.blesk?.notify) {
+          window.blesk.notify('Входящий звонок', callerName);
+        } else {
+          try { new Notification('Входящий звонок', { body: callerName }); } catch {}
+        }
+      }
     };
 
     // [Баг #2] Сигнал "занято" — собеседник в другом звонке
@@ -505,6 +519,7 @@ export function useSocket() {
     socket.on('user:updated', handleUserUpdated);
     socket.on('user:keyChanged', handleUserKeyChanged);
     socket.on('friend:removed', handleFriendRemoved);
+    socket.on('friend:accepted', handleFriendAccepted);
     socket.on('channel:deleted', handleChannelDeleted);
     socket.on('typing:start', handleTypingStart);
     socket.on('typing:stop', handleTypingStop);
@@ -546,6 +561,7 @@ export function useSocket() {
       socket.off('user:updated', handleUserUpdated);
       socket.off('user:keyChanged', handleUserKeyChanged);
       socket.off('friend:removed', handleFriendRemoved);
+      socket.off('friend:accepted', handleFriendAccepted);
       socket.off('channel:deleted', handleChannelDeleted);
       socket.off('typing:start', handleTypingStart);
       socket.off('typing:stop', handleTypingStop);

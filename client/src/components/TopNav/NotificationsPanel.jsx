@@ -23,6 +23,7 @@ function formatTime(dateStr) {
 export default memo(function NotificationsPanel({ open, onClose, onOpenChat }) {
   const notifications = useNotificationStore(s => s.notifications);
   const markAllAsRead = useNotificationStore(s => s.markAllAsRead);
+  const markAsRead = useNotificationStore(s => s.markAsRead);
   const panelRef = useRef(null);
 
   // Click outside to close
@@ -72,7 +73,8 @@ export default memo(function NotificationsPanel({ open, onClose, onOpenChat }) {
               key={notif.id}
               className={`notif-panel__item ${notif.isRead ? '' : 'notif-panel__item--unread'}`}
               onClick={() => {
-                if (notif.chatId) onOpenChat?.(notif.chatId);
+                if (!notif.isRead) markAsRead(notif.id);
+                if (notif.roomId) onOpenChat?.(notif.roomId);
                 onClose();
               }}
             >

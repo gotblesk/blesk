@@ -72,7 +72,10 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
   }, [channelId, isMuted]);
 
   useEffect(() => {
-    if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
+    const el = feedRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    if (isNearBottom) el.scrollTop = el.scrollHeight;
   }, [channelPosts.length]);
 
   // Sticky bar on scroll past hero

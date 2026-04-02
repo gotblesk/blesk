@@ -130,7 +130,7 @@ export const useChatStore = create((set, get) => ({
         }
       }
 
-      for (const msg of msgs) {
+      await Promise.all(msgs.map(async (msg) => {
         if (msg.encrypted && otherPubKey) {
           try {
             const plain = await decryptMessage(msg.text, otherPubKey, chatId);
@@ -140,7 +140,7 @@ export const useChatStore = create((set, get) => ({
             msg.text = 'Ошибка расшифровки';
           }
         }
-      }
+      }));
 
       // [MED-4] Финальная проверка перед записью
       if (get()._chatLoadVersions[chatId] !== loadVersion) return;
