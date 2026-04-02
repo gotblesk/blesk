@@ -382,6 +382,15 @@
   color: var(--accent);
   transform: scale(1.1);
 }
+.fr__quick-action--disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.fr__quick-action--disabled:hover {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.5);
+  transform: none;
+}
 
 /* Empty */
 .fr__empty {

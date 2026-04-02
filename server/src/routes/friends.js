@@ -202,6 +202,11 @@ router.post('/requests/:id/accept', authenticate, async (req, res) => {
       s.join(room.id);
     }
 
+    // Оповестить обоих — перезагрузить список чатов
+    const friendAcceptedData = { roomId: room.id };
+    emitToUserAll(request.senderId, 'friend:accepted', friendAcceptedData);
+    emitToUserAll(req.userId, 'friend:accepted', friendAcceptedData);
+
     res.json({ ok: true, roomId: room.id });
   } catch (err) {
     logger.error({ err }, 'POST /api/friends/requests/:id/accept error');
@@ -293,6 +298,83 @@ router.delete('/:friendId', authenticate, async (req, res) => {
   } catch (err) {
     logger.error({ err }, 'DELETE /api/friends/:friendId error');
     res.status(500).json({ error: 'Ошибка удаления из друзей' });
+  }
+});
+
+// Заблокировать пользователя
+router.post('/:userId/block', authenticate, async (req, res) => {
+  try {
+    const { userId: targetId } = req.params;
+    if (targetId === req.userId) {
+      return res.status(400).json({ error: 'Нельзя заблокировать себя' });
+    }
+
+    const target = await prisma.user.findUnique({
+      where: { id: targetId },
+      select: { id: true },
+    });
+    if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    // Создаём запись блокировки (upsert чтобы не дублировать)
+    await prisma.blockedUser.upsert({
+      where: { userId_blockedId: { userId: req.userId, blockedId: targetId } },
+      create: { userId: req.userId, blockedId: targetId },
+      update: {},
+    });
+
+    // Удалить дружбу если есть
+    const friendship = await prisma.friendRequest.findFirst({
+      where: {
+        status: 'accepted',
+        OR: [
+          { senderId: req.userId, receiverId: targetId },
+          { senderId: targetId, receiverId: req.userId },
+        ],
+      },
+    });
+    if (friendship) {
+      await prisma.friendRequest.delete({ where: { id: friendship.id } });
+      emitToUserAll(req.userId, 'friend:removed', { userId: req.userId, friendId: targetId });
+      emitToUserAll(targetId, 'friend:removed', { userId: req.userId, friendId: targetId });
+    }
+
+    // Отклонить pending заявки между пользователями
+    await prisma.friendRequest.updateMany({
+      where: {
+        status: 'pending',
+        OR: [
+          { senderId: req.userId, receiverId: targetId },
+          { senderId: targetId, receiverId: req.userId },
+        ],
+      },
+      data: { status: 'declined' },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, 'POST /api/friends/:userId/block error');
+    res.status(500).json({ error: 'Ошибка блокировки' });
+  }
+});
+
+// Разблокировать пользователя
+router.delete('/:userId/block', authenticate, async (req, res) => {
+  try {
+    const { userId: targetId } = req.params;
+
+    const record = await prisma.blockedUser.findUnique({
+      where: { userId_blockedId: { userId: req.userId, blockedId: targetId } },
+    });
+    if (!record) {
+      return res.status(404).json({ error: 'Пользователь не заблокирован' });
+    }
+
+    await prisma.blockedUser.delete({ where: { id: record.id } });
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, 'DELETE /api/friends/:userId/block error');
+    res.status(500).json({ error: 'Ошибка разблокировки' });
   }
 });
 

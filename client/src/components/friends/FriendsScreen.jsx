@@ -196,7 +196,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                         <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); onOpenChat?.(friend.id, null); }} title="Чат">
                           <ChatCircle size={16} weight="regular" />
                         </button>
-                        <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); onOpenChat?.(friend.id, null); }} title="Позвонить">
+                        <button className="fr__quick-action fr__quick-action--disabled" onClick={(e) => e.stopPropagation()} title="Скоро" disabled>
                           <Phone size={16} weight="regular" />
                         </button>
                       </div>
