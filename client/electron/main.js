@@ -200,17 +200,18 @@ function createMainWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  // Безопасность: блокируем DevTools в production
-  if (!isDev) {
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      if (input.key === 'F12' || (input.control && input.shift && (input.key === 'I' || input.key === 'J'))) {
-        event.preventDefault();
-      }
-    });
-    mainWindow.webContents.on('devtools-opened', () => {
-      mainWindow.webContents.closeDevTools();
-    });
-  }
+  // DevTools: F12 для диагностики (production)
+  // После отладки раскомментировать блокировку ниже
+  // if (!isDev) {
+  //   mainWindow.webContents.on('before-input-event', (event, input) => {
+  //     if (input.key === 'F12' || (input.control && input.shift && (input.key === 'I' || input.key === 'J'))) {
+  //       event.preventDefault();
+  //     }
+  //   });
+  //   mainWindow.webContents.on('devtools-opened', () => {
+  //     mainWindow.webContents.closeDevTools();
+  //   });
+  // }
 }
 
 // Плавный переход: сплеш "расширяется" (CSS) → основное окно появляется
