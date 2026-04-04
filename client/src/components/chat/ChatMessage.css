@@ -13,6 +13,18 @@
   margin-bottom: var(--space-3);
 }
 
+/* Больше воздуха перед первым сообщением нового пользователя */
+.chat-message--first,
+.chat-message--solo {
+  margin-top: var(--space-4);
+}
+
+/* Минимум внутри группы одного пользователя */
+.chat-message--mid,
+.chat-message--last {
+  margin-top: 2px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .chat-message {
     animation: msgAppearOther 0.15s ease-out both;
@@ -99,8 +111,8 @@
 }
 
 .chat-message--own .chat-message__bubble-outer {
-  background: rgba(200,255,0,0.10);
-  border: 1px solid rgba(200,255,0,0.16);
+  background: rgba(200,255,0,0.14);
+  border: 1px solid rgba(200,255,0,0.18);
   box-shadow:
     0 1.5px 6px rgba(0,0,0,0.1),
     0 0 16px rgba(200,255,0,0.06);
@@ -136,8 +148,8 @@
 }
 
 .chat-message--own .chat-message__bubble-inner {
-  background: rgba(200,255,0,0.14);
-  border-top: 1px solid rgba(200,255,0,0.18);
+  background: rgba(200,255,0,0.18);
+  border-top: 1px solid rgba(200,255,0,0.22);
   box-shadow: inset 0 -1px 1px rgba(0,0,0,0.05);
 }
 
@@ -186,10 +198,13 @@
 /* [CRIT-1] Failed — красная рамка, клик для retry */
 .chat-message--failed { opacity: 0.75; }
 .chat-message--failed .chat-message__bubble-outer {
-  border-color: rgba(239,68,68,0.3) !important;
+  background: rgba(239,68,68,0.08) !important;
+  border-color: rgba(239,68,68,0.25) !important;
+  box-shadow: 0 1.5px 6px rgba(239,68,68,0.08) !important;
 }
 .chat-message--failed .chat-message__bubble-inner {
-  background: rgba(239,68,68,0.06) !important;
+  background: rgba(239,68,68,0.10) !important;
+  border-top-color: rgba(239,68,68,0.15) !important;
 }
 .chat-message--failed .chat-message__time {
   color: var(--danger) !important;
@@ -289,12 +304,17 @@
   font-size: var(--text-xs);
   color: var(--text-muted);
   text-align: center;
-  margin: var(--space-5) 0;
+  margin: var(--space-2) 0;
   padding: var(--space-1) 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+
+/* Слипание подряд идущих системных сообщений */
+.chat-message--system + .chat-message--system {
+  margin-top: 0;
 }
 
 /* ===== Animations ===== */
@@ -365,6 +385,17 @@
 
 [data-theme="light"] .chat-message__bubble-inner::before {
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+}
+
+[data-theme="light"] .chat-message--failed .chat-message__bubble-outer {
+  background: rgba(239,68,68,0.08) !important;
+  border-color: rgba(239,68,68,0.2) !important;
+  box-shadow: 0 1px 3px rgba(239,68,68,0.1) !important;
+}
+
+[data-theme="light"] .chat-message--failed .chat-message__bubble-inner {
+  background: rgba(239,68,68,0.06) !important;
+  color: var(--danger);
 }
 
 /* ═══════ СТИЛЬ СООБЩЕНИЙ: minimal ═══════ */

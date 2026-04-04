@@ -3,6 +3,7 @@ import { Device } from 'mediasoup-client';
 import { useVoiceStore } from '../store/voiceStore';
 import { getCurrentUserId } from '../utils/auth';
 import { soundUserJoined, soundUserLeft } from '../utils/sounds';
+import { createSuppressedStream } from '../utils/noiseSuppress';
 
 // Voice Activity Detection
 const VAD_INTERVAL = 100;
@@ -22,10 +23,12 @@ export function useVoice(socketRef) {
   const consumerUserMapRef = useRef(new Map()); // consumerId → userId
   const pendingProducersRef = useRef([]); // Очередь для продюсеров до готовности recvTransport
   const qualityIntervalRef = useRef(null); // Интервал проверки качества соединения
+  const noisePipelineRef = useRef(null); // AI noise suppression pipeline
 
   // Видео refs
   const cameraProducerRef = useRef(null);
   const screenProducerRef = useRef(null);
+  const screenAudioProducerRef = useRef(null);
   const localCameraStreamRef = useRef(null);
   const localScreenStreamRef = useRef(null);
 
@@ -310,11 +313,26 @@ export function useVoice(socketRef) {
         }
 
         useVoiceStore.getState().setConnectionQuality(quality);
+
+        // Simulcast: адаптивное переключение слоя видео-consumer'ов
+        const socket = socketRef?.current;
+        if (socket) {
+          const layer = quality === 'poor' ? 0 : quality === 'fair' ? 1 : 2;
+          consumersRef.current.forEach((consumer) => {
+            if (consumer.kind === 'video') {
+              socket.emit('voice:setConsumerLayer', {
+                consumerId: consumer.id,
+                spatialLayer: layer,
+                temporalLayer: layer,
+              });
+            }
+          });
+        }
       } catch {
         // Stats недоступны
       }
     }, QUALITY_CHECK_INTERVAL);
-  }, []);
+  }, [socketRef]);
 
   // Refs для актуальных функций (против stale closure) — объявлены до joinRoom
   const leaveRoomRef = useRef(null);
@@ -377,10 +395,24 @@ export function useVoice(socketRef) {
           const sendTransport = device.createSendTransport(res.params);
           sendTransportRef.current = sendTransport;
 
-          sendTransport.on('connectionstatechange', (state) => {
+          sendTransport.on('connectionstatechange', async (state) => {
             if (import.meta.env.DEV) console.log(`[blesk] Transport send state: ${state}`);
-            if (state === 'failed' || state === 'disconnected') {
-              console.warn(`[blesk] Transport send ${state} — may need ICE restart`);
+            if (state === 'failed') {
+              console.warn('[blesk] Send transport failed — attempting ICE restart');
+              try {
+                const iceParameters = await new Promise((resolve, reject) => {
+                  socketRef.current.emit('voice:restartIce', {
+                    transportId: sendTransport.id,
+                  }, (res) => {
+                    if (res.error) reject(new Error(res.error));
+                    else resolve(res.iceParameters);
+                  });
+                });
+                await sendTransport.restartIce({ iceParameters });
+                console.log('[blesk] ICE restart successful (send)');
+              } catch (err) {
+                console.error('[blesk] ICE restart failed (send):', err);
+              }
             }
           });
 
@@ -408,13 +440,29 @@ export function useVoice(socketRef) {
             });
           });
 
+          // AI шумоподавление (spectral gating + noise gate + compressor)
+          let processedStream = stream;
+          if (useVoiceStore.getState().aiNoiseSuppression) {
+            try {
+              const result = await createSuppressedStream(stream);
+              processedStream = result.stream;
+              noisePipelineRef.current = result;
+            } catch (e) {
+              console.warn('[blesk] AI noise suppression init failed:', e);
+            }
+          }
+
           // Начать отправку аудио
-          const track = stream.getAudioTracks()[0];
+          const track = processedStream.getAudioTracks()[0];
           track.onended = () => {
             console.warn('[blesk] Microphone track ended (device disconnected?)');
             if (window.__bleskBgPulse) window.__bleskBgPulse();
+            useVoiceStore.getState().setMediaError('Микрофон отключён. Подключите устройство и перезайдите в комнату.');
+            if (!useVoiceStore.getState().isMuted) {
+              useVoiceStore.getState().toggleMute();
+            }
           };
-          const producer = await sendTransport.produce({ track });
+          const producer = await sendTransport.produce({ track, appData: { type: 'audio' } });
           producerRef.current = producer;
 
           // [Баг #13] Синхронизировать мут после создания producer
@@ -438,10 +486,24 @@ export function useVoice(socketRef) {
           const recvTransport = device.createRecvTransport(res.params);
           recvTransportRef.current = recvTransport;
 
-          recvTransport.on('connectionstatechange', (state) => {
+          recvTransport.on('connectionstatechange', async (state) => {
             if (import.meta.env.DEV) console.log(`[blesk] Transport recv state: ${state}`);
-            if (state === 'failed' || state === 'disconnected') {
-              console.warn(`[blesk] Transport recv ${state} — may need ICE restart`);
+            if (state === 'failed') {
+              console.warn('[blesk] Recv transport failed — attempting ICE restart');
+              try {
+                const iceParameters = await new Promise((resolve, reject) => {
+                  socketRef.current.emit('voice:restartIce', {
+                    transportId: recvTransport.id,
+                  }, (res) => {
+                    if (res.error) reject(new Error(res.error));
+                    else resolve(res.iceParameters);
+                  });
+                });
+                await recvTransport.restartIce({ iceParameters });
+                console.log('[blesk] ICE restart successful (recv)');
+              } catch (err) {
+                console.error('[blesk] ICE restart failed (recv):', err);
+              }
             }
           });
 
@@ -562,6 +624,12 @@ export function useVoice(socketRef) {
 
     // Очистить маппинг consumer→user (фикс stale volume)
     consumerUserMapRef.current.clear();
+
+    // Закрыть AI noise suppression pipeline
+    if (noisePipelineRef.current) {
+      noisePipelineRef.current.destroy();
+      noisePipelineRef.current = null;
+    }
 
     // Закрыть transports
     if (sendTransportRef.current) {
@@ -797,7 +865,11 @@ export function useVoice(socketRef) {
       const producer = await sendTransportRef.current.produce({
         track,
         appData: { type: 'camera' },
-        encodings: [{ maxBitrate: bitrate }],
+        encodings: [
+          { rid: 'r0', maxBitrate: 100000, scaleResolutionDownBy: 4 },
+          { rid: 'r1', maxBitrate: 500000, scaleResolutionDownBy: 2 },
+          { rid: 'r2', maxBitrate: bitrate },
+        ],
         codecOptions: { videoGoogleStartBitrate: 1000 },
       });
       cameraProducerRef.current = producer;
@@ -833,7 +905,7 @@ export function useVoice(socketRef) {
   }, []);
 
   // ═══ Видео: демонстрация экрана ═══
-  const enableScreenShare = useCallback(async () => {
+  const enableScreenShare = useCallback(async (contentHint = 'detail') => {
     if (Date.now() - lastScreenToggleRef.current < TOGGLE_COOLDOWN_MS) return;
     lastScreenToggleRef.current = Date.now();
     if (enablingScreenRef.current) return;
@@ -869,7 +941,12 @@ export function useVoice(socketRef) {
         }
 
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
+          audio: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: selectedSourceId,
+            },
+          },
           video: {
             mandatory: {
               chromeMediaSource: 'desktop',
@@ -885,21 +962,38 @@ export function useVoice(socketRef) {
       } else {
         stream = await navigator.mediaDevices.getDisplayMedia({
           video: { width: { ideal: res.w }, height: { ideal: res.h }, frameRate: { ideal: screenFps, max: screenFps } },
+          audio: true,
         });
       }
       localScreenStreamRef.current = stream;
       // [Баг #7] Сохранить локальный стрим экрана в store для отображения шарящему
       useVoiceStore.getState().setLocalScreenStream?.(stream);
       const track = stream.getVideoTracks()[0];
-      track.contentHint = 'detail'; // Оптимизация для текста/кода
+      track.contentHint = contentHint; // 'detail' для текста/кода, 'motion' для видео/игр
       track.onended = () => disableScreenShareRef.current();
       const producer = await sendTransportRef.current.produce({
         track,
         appData: { type: 'screen' },
-        encodings: [{ maxBitrate: finalBitrate }],
+        encodings: [
+          { rid: 'r0', maxBitrate: 500000, scaleResolutionDownBy: 2 },
+          { rid: 'r1', maxBitrate: finalBitrate },
+        ],
         codecOptions: { videoGoogleStartBitrate: 1000 },
       });
       screenProducerRef.current = producer;
+      // Если есть аудио-трек экрана — создать отдельный producer
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack && sendTransportRef.current) {
+        try {
+          const audioProducer = await sendTransportRef.current.produce({
+            track: audioTrack,
+            appData: { type: 'screen-audio' },
+          });
+          screenAudioProducerRef.current = audioProducer;
+        } catch (e) {
+          if (import.meta.env.DEV) console.warn('Screen audio producer failed:', e);
+        }
+      }
       useVoiceStore.getState().setScreenShareOn(true);
     } catch (err) {
       // [Баг #8] Показать ошибку / молчаливый fallback при отмене
@@ -919,6 +1013,10 @@ export function useVoice(socketRef) {
     if (Date.now() - lastScreenToggleRef.current < TOGGLE_COOLDOWN_MS) return;
     lastScreenToggleRef.current = Date.now();
     try {
+      if (screenAudioProducerRef.current) {
+        screenAudioProducerRef.current.close();
+        screenAudioProducerRef.current = null;
+      }
       if (screenProducerRef.current) {
         screenProducerRef.current.close();
         screenProducerRef.current = null;
@@ -932,6 +1030,57 @@ export function useVoice(socketRef) {
       useVoiceStore.getState().setScreenShareOn(false);
     } catch (err) {
       console.error('disableScreenShare error:', err);
+    }
+  }, []);
+
+  // ═══ Сменить источник screen share на лету (replaceTrack) ═══
+  const switchScreenSource = useCallback(async (newSourceId, contentHint = 'detail') => {
+    if (!screenProducerRef.current || !sendTransportRef.current) return;
+    try {
+      if (localScreenStreamRef.current) {
+        localScreenStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      const { screenResolution, screenFps } = (() => {
+        try { const s = JSON.parse(localStorage.getItem('blesk-settings') || '{}'); return { screenResolution: s.screenResolution || '1080p', screenFps: s.screenFps || 30 }; }
+        catch { return { screenResolution: '1080p', screenFps: 30 }; }
+      })();
+      const resMap = { '720p': { w: 1280, h: 720 }, '1080p': { w: 1920, h: 1080 }, '1440p': { w: 2560, h: 1440 } };
+      const res = resMap[screenResolution] || resMap['1080p'];
+      let stream;
+      if (window.blesk?.screen?.getSources) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: newSourceId } },
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop', chromeMediaSourceId: newSourceId,
+              minWidth: res.w * 0.5, maxWidth: res.w, minHeight: res.h * 0.5, maxHeight: res.h,
+              maxFrameRate: screenFps,
+            },
+          },
+        });
+      } else {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { width: { ideal: res.w }, height: { ideal: res.h }, frameRate: { ideal: screenFps, max: screenFps } },
+          audio: true,
+        });
+      }
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.contentHint = contentHint;
+        videoTrack.onended = () => disableScreenShareRef.current();
+        await screenProducerRef.current.replaceTrack({ track: videoTrack });
+      }
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack && screenAudioProducerRef.current) {
+        await screenAudioProducerRef.current.replaceTrack({ track: audioTrack });
+      }
+      localScreenStreamRef.current = stream;
+      useVoiceStore.getState().setLocalScreenStream?.(stream);
+    } catch (err) {
+      if (err.name !== 'NotAllowedError') {
+        console.error('switchScreenSource error:', err);
+        useVoiceStore.getState().setMediaError?.('Не удалось сменить источник демонстрации.');
+      }
     }
   }, []);
 
@@ -984,5 +1133,5 @@ export function useVoice(socketRef) {
     };
   }, []);
 
-  return { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare };
+  return { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare, switchScreenSource };
 }

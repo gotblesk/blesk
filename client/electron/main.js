@@ -283,6 +283,40 @@ ipcMain.on('open-external', (event, url) => {
   }
 });
 
+// ═══ Refresh token — безопасное хранение для авто-логина ═══
+const refreshTokenPath = path.join(app.getPath('userData'), 'blesk.refresh');
+
+ipcMain.handle('auth:saveRefreshToken', async (_, token) => {
+  try {
+    if (typeof token !== 'string' || token.length > 2000) return false;
+    const encrypted = safeStorage.encryptString(token);
+    await fs.promises.writeFile(refreshTokenPath, encrypted);
+    return true;
+  } catch (err) {
+    console.error('auth:saveRefreshToken error:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('auth:getRefreshToken', async () => {
+  try {
+    await fs.promises.access(refreshTokenPath);
+    const encrypted = await fs.promises.readFile(refreshTokenPath);
+    return safeStorage.decryptString(encrypted);
+  } catch (err) {
+    if (err.code === 'ENOENT') return null;
+    console.error('auth:getRefreshToken error:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('auth:clearRefreshToken', async () => {
+  try {
+    await fs.promises.unlink(refreshTokenPath);
+  } catch {}
+  return true;
+});
+
 // ═══ E2E шифрование — безопасное хранение приватного ключа ═══
 const keyPath = path.join(app.getPath('userData'), 'blesk.key');
 

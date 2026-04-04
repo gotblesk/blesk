@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, MagnifyingGlass, Radio, Newspaper, GameController, MusicNotes, Palette, Cpu, DotsThree, Sparkle } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, Radio, Newspaper, GameController, MusicNotes, Palette, Cpu, DotsThree, Sparkle, Link } from '@phosphor-icons/react';
 import ChannelCard from './ChannelCard';
 import CreateChannelModal from './CreateChannelModal';
 import { ChannelGridSkeleton } from '../ui/GlassSkeleton';
@@ -31,6 +31,7 @@ export default function ChannelBrowser({ onOpenChannel }) {
   const [category, setCategory] = useState(null);
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
 
   const { channels, myChannels, loadingBrowse, browseError, subscribe, unsubscribe } = useChannelStore();
   const userId = getCurrentUserId();
@@ -73,6 +74,12 @@ export default function ChannelBrowser({ onOpenChannel }) {
     if (isSub) unsubscribe(channel.id);
     else subscribe(channel.id);
   }, [myChannels, subscribe, unsubscribe]);
+
+  const handleJoinByLink = useCallback(() => {
+    if (!inviteLink.trim()) return;
+    // TODO: POST /api/channels/join-by-link
+    setInviteLink('');
+  }, [inviteLink]);
 
   const allChannels = channels.map((ch) => {
     const isOwned = ch.ownerId === userId;
@@ -173,6 +180,25 @@ export default function ChannelBrowser({ onOpenChannel }) {
             />
           </motion.div>
         ))}
+      </div>
+
+      {/* Присоединиться по ссылке */}
+      <div className="mo__invite">
+        <Link size={16} className="mo__invite-icon" />
+        <input
+          className="mo__invite-input"
+          placeholder="Вставьте ссылку-приглашение..."
+          value={inviteLink}
+          onChange={e => setInviteLink(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleJoinByLink()}
+        />
+        <button
+          className="mo__invite-btn"
+          onClick={handleJoinByLink}
+          disabled={!inviteLink.trim()}
+        >
+          Присоединиться
+        </button>
       </div>
 
       <AnimatePresence>

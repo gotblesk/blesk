@@ -145,6 +145,11 @@ function voiceHandler(io, socket) {
   // ═══ Войти в голосовую комнату ═══
   socket.on('voice:join', async ({ roomId }, callback) => {
     try {
+      // Rate limiting на voice:join
+      if (isVoiceSignalRateLimited(userId)) {
+        return callback?.({ error: 'Rate limited' });
+      }
+
       // Для звонков (call:chatId) — проверить что пользователь участник чата
       const isCall = roomId.startsWith('call:');
 
@@ -344,7 +349,7 @@ function voiceHandler(io, socket) {
 
       // [P21] Санитизация appData — разрешаем только { type: 'camera'|'screen'|'audio' }
       const rawType = appData?.type;
-      const ALLOWED_TYPES = ['camera', 'screen', 'audio'];
+      const ALLOWED_TYPES = ['camera', 'screen', 'audio', 'screen-audio'];
       const sanitizedType = ALLOWED_TYPES.includes(rawType)
         ? rawType
         : (kind === 'audio' ? 'audio' : 'camera');
@@ -425,6 +430,11 @@ function voiceHandler(io, socket) {
         paused: true, // Начинаем на паузе, клиент сделает resume
       });
 
+      // Simulcast: установить средний слой по умолчанию
+      if (consumer.type === 'simulcast') {
+        await consumer.setPreferredLayers({ spatialLayer: 0, temporalLayer: 0 });
+      }
+
       peer.consumers.set(consumer.id, consumer);
 
       consumer.on('transportclose', () => {
@@ -469,6 +479,31 @@ function voiceHandler(io, socket) {
     } catch (err) {
       logger.error({ err }, 'voice:resume error');
       callback?.({ error: 'Ошибка resume' });
+    }
+  });
+
+  // ═══ Переключить simulcast слой consumer'а ═══
+  socket.on('voice:setConsumerLayer', async ({ consumerId, spatialLayer, temporalLayer }, callback) => {
+    if (isVoiceSignalRateLimited(userId)) return callback?.({ error: 'Rate limited' });
+
+    try {
+      for (const [, room] of voiceRooms) {
+        const peer = room.peers.get(userId);
+        if (!peer) continue;
+        const consumer = peer.consumers.get(consumerId);
+        if (consumer && consumer.type === 'simulcast') {
+          await consumer.setPreferredLayers({
+            spatialLayer: Math.min(Math.max(0, spatialLayer || 0), 2),
+            temporalLayer: Math.min(Math.max(0, temporalLayer || 0), 2),
+          });
+          callback?.({ ok: true });
+          return;
+        }
+      }
+      callback?.({ error: 'Consumer not found' });
+    } catch (err) {
+      logger.error({ err }, 'voice:setConsumerLayer error');
+      callback?.({ error: err.message });
     }
   });
 
@@ -557,9 +592,17 @@ function voiceHandler(io, socket) {
       const room = voiceRooms.get(roomId);
       if (!room) return callback?.({ error: 'Комната не найдена' });
 
-      // Проверить что инициатор — владелец комнаты (для звонков — любой участник)
+      // Проверить права на кик
       const isCall = roomId.startsWith('call:');
-      if (!isCall) {
+      if (isCall) {
+        // В звонках кикать может только инициатор звонка
+        const chatId = roomId.slice(5);
+        const activeCall = activeCalls.get(chatId);
+        if (!activeCall || activeCall.callerId !== userId) {
+          return callback?.({ error: 'Only call initiator can kick' });
+        }
+      } else {
+        // В комнатах — только владелец
         const dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
         if (!dbRoom || dbRoom.ownerId !== userId) {
           return callback?.({ error: 'Недостаточно прав' });
@@ -588,6 +631,31 @@ function voiceHandler(io, socket) {
       callback?.({ success: true });
     } catch (err) {
       logger.error({ err }, 'voice:kick error');
+      callback?.({ error: err.message });
+    }
+  });
+
+  // ═══ ICE restart при потере сети ═══
+  socket.on('voice:restartIce', async ({ transportId }, callback) => {
+    try {
+      if (isVoiceSignalRateLimited(userId)) return callback?.({ error: 'Слишком много запросов' });
+      if (!transportId || typeof transportId !== 'string') {
+        return callback?.({ error: 'Некорректный transportId' });
+      }
+
+      for (const [, room] of voiceRooms) {
+        const peer = room.peers.get(userId);
+        if (!peer) continue;
+
+        const transport = peer.transports.get(transportId);
+        if (transport) {
+          const iceParameters = await transport.restartIce();
+          return callback?.({ iceParameters });
+        }
+      }
+      callback?.({ error: 'Transport not found' });
+    } catch (err) {
+      logger.error({ err }, 'voice:restartIce error');
       callback?.({ error: err.message });
     }
   });

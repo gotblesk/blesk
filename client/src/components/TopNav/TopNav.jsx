@@ -1,11 +1,10 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { ChatCircleDots, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bell, GearSix, ShieldCheck, User, SignOut, List, Minus, Square, X } from '@phosphor-icons/react';
+import { ChatCircleDots, Microphone, Megaphone, UsersThree, Planet, MagnifyingGlass, Bell, GearSix, ShieldCheck, User, SignOut, List, Minus, Square, X, Check } from '@phosphor-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useChatStore } from '../../store/chatStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { useUIStore } from '../../store/uiStore';
 import Avatar from '../ui/Avatar';
-import SegmentedCircle from '../profile/SegmentedCircle';
 import NotificationsPanel from './NotificationsPanel';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import './TopNav.css';
@@ -14,12 +13,17 @@ const BASE_TABS = [
   { id: 'chats', label: 'Чаты', Icon: ChatCircleDots },
   { id: 'voice', label: 'Голос', Icon: Microphone },
   { id: 'channels', label: 'Каналы', Icon: Megaphone },
+  { id: 'spaces', label: 'Пространства', Icon: Planet },
   { id: 'friends', label: 'Друзья', Icon: UsersThree },
 ];
 
 const ADMIN_TAB = { id: 'admin', label: 'Админ', Icon: ShieldCheck };
 
-const STATUS_LABELS = { online: 'В сети', dnd: 'Не беспокоить', invisible: 'Невидимка' };
+const STATUS_OPTIONS = [
+  { id: 'online', label: 'В сети', color: 'var(--online)' },
+  { id: 'dnd', label: 'Не беспокоить', color: 'var(--danger)' },
+  { id: 'invisible', label: 'Невидимка', color: 'var(--text-disabled, rgba(255,255,255,0.25))' },
+];
 
 export default memo(function TopNav({ onOpenChat, isAdmin, user, onLogout, onNavigate, onStatusChange }) {
   const activeTab = useUIStore(s => s.activeTab);
@@ -63,7 +67,6 @@ export default memo(function TopNav({ onOpenChat, isAdmin, user, onLogout, onNav
   const userMenuRef = useRef(null);
 
   const currentStatus = user?.status || 'online';
-  const statusLabel = STATUS_LABELS[currentStatus] || 'В сети';
 
   // Отслеживаем состояние maximize для иконки кнопки
   useEffect(() => {
@@ -146,17 +149,28 @@ export default memo(function TopNav({ onOpenChat, isAdmin, user, onLogout, onNav
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ type: 'spring', damping: 28, stiffness: 450 }}
               >
-                {/* User info */}
+                {/* User card */}
                 <div className="um__header">
                   <Avatar user={user} size={44} showOnline={true} isOnline={currentStatus !== 'invisible'} userStatus={currentStatus} />
                   <div className="um__info">
                     <div className="um__name">{user?.displayName || user?.username}</div>
                     <div className="um__tag">{user?.tag?.startsWith('#') ? user.tag : `#${user?.tag || '0000'}`}</div>
-                    <div className="um__status-inline" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
-                      <SegmentedCircle currentStatus={currentStatus} onStatusChange={(key) => { onStatusChange?.(key); }} />
-                      <span className="um__status-text">{statusLabel}</span>
-                    </div>
                   </div>
+                </div>
+
+                {/* Status picker */}
+                <div className="um__status-picker">
+                  {STATUS_OPTIONS.map(s => (
+                    <button
+                      key={s.id}
+                      className={`um__status-opt${currentStatus === s.id ? ' um__status-opt--active' : ''}`}
+                      onClick={() => { onStatusChange?.(s.id); }}
+                    >
+                      <span className="um__status-opt-dot" style={{ background: s.color }} />
+                      <span className="um__status-opt-label">{s.label}</span>
+                      {currentStatus === s.id && <Check size={14} className="um__status-opt-check" />}
+                    </button>
+                  ))}
                 </div>
 
                 <div className="um__sep" />

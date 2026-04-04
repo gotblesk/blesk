@@ -59,6 +59,13 @@ contextBridge.exposeInMainWorld('blesk', {
     getSources: () => ipcRenderer.invoke('screen:getSources'),
   },
 
+  // Авто-логин — refresh token через safeStorage
+  auth: {
+    saveRefreshToken: (token) => ipcRenderer.invoke('auth:saveRefreshToken', token),
+    getRefreshToken: () => ipcRenderer.invoke('auth:getRefreshToken'),
+    clearRefreshToken: () => ipcRenderer.invoke('auth:clearRefreshToken'),
+  },
+
   // E2E шифрование — безопасное хранение ключей (legacy + blesk Shield)
   crypto: {
     // Legacy identity key

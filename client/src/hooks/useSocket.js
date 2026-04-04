@@ -122,16 +122,47 @@ export function useSocket() {
       if (freshToken) socket.auth.token = freshToken;
     };
 
-    // Heartbeat: отправлять ping каждые 45 сек чтобы Cloudflare не закрыл соединение
+    // Heartbeat: отправлять ping каждые 25 сек (серверный pingTimeout = 60 сек)
+    // Chromium throttle'ит setInterval при свёрнутом окне до ~1 раз/мин,
+    // но серверный pingTimeout 60 сек даёт запас
     const heartbeatInterval = setInterval(() => {
       if (socket.connected) socket.emit('ping');
-    }, 45000);
+    }, 25000);
+
+    // Трекинг момента ухода в фон
+    let hiddenAt = null;
 
     // При возврате окна в видимое состояние — обновить токен и переподключиться
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') return;
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      // Вернулись из фона
+      const wasHiddenMs = hiddenAt ? Date.now() - hiddenAt : 0;
+      hiddenAt = null;
+
+      // Обновить токен
       const freshToken = getToken();
       if (freshToken) socket.auth.token = freshToken;
+
+      // Если были в фоне > 50 сек — refresh token и reconnect
+      if (wasHiddenMs > 50000) {
+        try {
+          const res = await fetch(`${API_URL}/api/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ refreshToken: getRefreshToken() || undefined }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setTokens(data.token, data.refreshToken);
+            socket.auth.token = data.token;
+          }
+        } catch {}
+      }
+
       if (!socket.connected) socket.connect();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);

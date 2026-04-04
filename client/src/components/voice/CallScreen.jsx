@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Microphone, MicrophoneSlash, SpeakerHigh, SpeakerSlash, VideoCamera, VideoCameraSlash, PhoneDisconnect, ArrowsOutSimple, ArrowsInSimple, Monitor, MonitorArrowUp, GearSix, WifiHigh, WifiMedium, WifiLow, WifiSlash, X } from '@phosphor-icons/react';
+import { Microphone, MicrophoneSlash, SpeakerHigh, SpeakerSlash, VideoCamera, VideoCameraSlash, PhoneDisconnect, ArrowsOutSimple, ArrowsInSimple, Monitor, MonitorArrowUp, GearSix, WifiHigh, WifiMedium, WifiLow, WifiSlash, X, XCircle, Sliders } from '@phosphor-icons/react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useVoiceStore } from '../../store/voiceStore';
 import Avatar from '../ui/Avatar';
+import ScreenSharePicker from './ScreenSharePicker';
 import { getAvatarHue } from '../../utils/avatar';
 import API_URL from '../../config';
 import './CallScreen.css';
@@ -13,7 +14,7 @@ const MEDIUM_W = 360;
 
 export default function CallScreen({
   call, user, muted, deafened,
-  onToggleMute, onToggleDeafen, onToggleVideo, onToggleScreenShare, onEndCall,
+  onToggleMute, onToggleDeafen, onToggleVideo, onToggleScreenShare, onDisableScreenShare, onSwitchScreenSource, onEndCall,
   cameraOn, screenShareOn,
   localVideoStream, remoteVideoStream, localScreenStream, remoteScreenStream,
 }) {
@@ -29,6 +30,8 @@ export default function CallScreen({
   const resizeRef = useRef({ active: false });
   const [qualityOpen, setQualityOpen] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  const [streamCtxMenu, setStreamCtxMenu] = useState(null);
+  const [showScreenPicker, setShowScreenPicker] = useState(false);
 
   // [Баг #5] Отдельные refs для PiP и local preview видео
   const localVideoPipRef = useRef(null);
@@ -168,7 +171,25 @@ export default function CallScreen({
     }
   }, []);
 
+  // Контекстное меню screen share
+  const handleScreenCtx = useCallback((e) => {
+    if (!screenShareOn) return;
+    e.preventDefault();
+    setStreamCtxMenu({ x: e.clientX, y: e.clientY });
+  }, [screenShareOn]);
+
+  useEffect(() => {
+    if (!streamCtxMenu) return;
+    const close = () => setStreamCtxMenu(null);
+    const esc = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', esc); };
+  }, [streamCtxMenu]);
+
   const theme = useSettingsStore(s => s.theme);
+  const screenResolution = useSettingsStore(s => s.screenResolution);
+  const screenFps = useSettingsStore(s => s.screenFps);
 
   if (!call) return null;
 
@@ -252,12 +273,31 @@ export default function CallScreen({
       <div className="cs__body">
         {/* Screen share — takes main area */}
         {hasScreen && (
-          <div className="cs__screen-zone" ref={screenZoneRef}>
+          <div className="cs__screen-zone" ref={screenZoneRef} onContextMenu={handleScreenCtx}>
             <video ref={screenRef} className="cs__screen-video" autoPlay playsInline muted={!!localScreenStream} />
+            <div className="cs__stream-badges">
+              <span className="cs__badge cs__badge--live">В ЭФИРЕ</span>
+              <span className="cs__badge cs__badge--quality">
+                {screenResolution} {screenFps} FPS
+              </span>
+            </div>
             {/* [Баг #33] Кнопка fullscreen для экрана в CallScreen */}
             <button className="cs__screen-fs" onClick={toggleScreenFs} title="Полный экран">
               <ArrowsOutSimple size={14} weight="regular" />
             </button>
+            {streamCtxMenu && (
+              <div className="cs__stream-menu" style={{ top: streamCtxMenu.y, left: streamCtxMenu.x }} role="menu">
+                <button role="menuitem" onClick={() => { onDisableScreenShare?.(); setStreamCtxMenu(null); }}>
+                  <XCircle size={16} /> Прекратить стрим
+                </button>
+                <button role="menuitem" onClick={() => { setShowScreenPicker(true); setStreamCtxMenu(null); }}>
+                  <MonitorArrowUp size={16} /> Изменить источник
+                </button>
+                <button role="menuitem" onClick={() => { setQualityOpen(true); setStreamCtxMenu(null); }}>
+                  <Sliders size={16} /> Качество передачи
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -349,6 +389,19 @@ export default function CallScreen({
           </>
         )}
       </div>
+
+      {/* Screen source picker */}
+      <AnimatePresence>
+        {showScreenPicker && screenShareOn && (
+          <ScreenSharePicker
+            onSelect={(sourceId, hint) => {
+              onSwitchScreenSource?.(sourceId, hint);
+              setShowScreenPicker(false);
+            }}
+            onCancel={() => setShowScreenPicker(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

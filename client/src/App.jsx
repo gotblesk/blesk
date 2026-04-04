@@ -88,9 +88,16 @@ export default function App() {
     } catch { /* невалидный JWT */ }
   }
 
-  // Попытка обновить токен через refresh (cookies + in-memory fallback)
+  // Попытка обновить токен через refresh (safeStorage + cookies + in-memory)
   async function tryRefreshToken() {
-    const refreshToken = getRefreshToken();
+    let refreshToken = getRefreshToken();
+
+    // Если in-memory пуст (после рестарта) — попробовать safeStorage
+    if (!refreshToken && window.blesk?.auth?.getRefreshToken) {
+      try {
+        refreshToken = await window.blesk.auth.getRefreshToken();
+      } catch {}
+    }
 
     try {
       const res = await fetch(`${API_URL}/api/auth/refresh`, {
@@ -101,8 +108,13 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        setTokens(data.token, data.refreshToken || refreshToken);
+        const newRefresh = data.refreshToken || refreshToken;
+        setTokens(data.token, newRefresh);
         extractAndStoreUserId(data.token);
+        // Сохранить refresh token в safeStorage для следующего запуска
+        if (newRefresh && window.blesk?.auth?.saveRefreshToken) {
+          window.blesk.auth.saveRefreshToken(newRefresh).catch(() => {});
+        }
         return data.token;
       }
     } catch (err) { console.error('App refreshToken:', err?.message || err); }
@@ -200,6 +212,10 @@ export default function App() {
   const handleLogin = (data) => {
     setTokens(data.token, data.refreshToken);
     extractAndStoreUserId(data.token);
+    // Сохранить refresh token в safeStorage для авто-логина после перезапуска
+    if (data.refreshToken && window.blesk?.auth?.saveRefreshToken) {
+      window.blesk.auth.saveRefreshToken(data.refreshToken).catch(() => {});
+    }
 
     initCsrf();
 
@@ -221,6 +237,8 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    // Удалить refresh token из safeStorage
+    await window.blesk?.auth?.clearRefreshToken?.().catch(() => {});
     // Удалить E2E ключевые файлы с диска
     await window.blesk?.crypto?.clearAll?.();
     setUser(null);

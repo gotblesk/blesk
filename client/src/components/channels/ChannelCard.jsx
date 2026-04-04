@@ -110,6 +110,18 @@ export default function ChannelCard({ channel, variant = 'compact', isSubscribed
           </div>
         </div>
 
+        {/* Stats — онлайн + участники */}
+        <div className="mc__stats">
+          <span className="mc__stat mc__stat--online">
+            <span className="mc__stat-dot" />
+            {channel.onlineCount || 0} онлайн
+          </span>
+          <span className="mc__stat">
+            <span className="mc__stat-dot mc__stat-dot--total" />
+            {subCount} участников
+          </span>
+        </div>
+
         {channel.description && (variant === 'medium' || variant === 'featured') && (
           <div className="mc__desc">{channel.description}</div>
         )}

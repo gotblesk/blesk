@@ -73,7 +73,7 @@ function setAuthCookies(res, tokens) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 дней
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
     path: '/api/auth',
   });
 }
@@ -99,7 +99,7 @@ const CODE_LOCKOUT_MS = 10 * 60 * 1000;
 // [HIGH-1] Защита от brute-force логина: username → { attempts, lockedUntil }
 const loginAttempts = new Map();
 const MAX_LOGIN_ATTEMPTS = 5;
-const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 минут
+const LOGIN_LOCKOUT_MS = 5 * 60 * 1000; // 5 минут
 
 // Проверить rate limit для конкретного эндпоинта
 function isEmailCodeRateLimited(limitsMap, email) {
@@ -302,7 +302,7 @@ router.post('/register', registerIpLimiter, async (req, res) => {
         data: {
           userId: user.id,
           tokenHash: hashRefreshToken(tokens.refreshToken),
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
     } catch (err) { logger.error({ err: err.message }, 'Failed to save refresh token on register'); }
@@ -488,7 +488,7 @@ router.post('/login', loginIpLimiter, async (req, res) => {
         data: {
           userId: user.id,
           tokenHash: hashRefreshToken(tokens.refreshToken),
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
     } catch (err) { logger.error({ err: err.message }, 'Failed to save refresh token on login'); }
@@ -578,7 +578,7 @@ router.post('/refresh', async (req, res) => {
       data: {
         userId: user.id,
         tokenHash: hashRefreshToken(tokens.refreshToken),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
 

@@ -1,6 +1,6 @@
-/* ═══════ CreateChannelModal — Double Glass + 3D Tilt ═══════ */
+/* ═══════ CreateChannelWizard — 3-Step Glass Morph ═══════ */
 
-.ccm__overlay {
+.ccw__overlay {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
@@ -9,7 +9,7 @@
   -webkit-backdrop-filter: blur(12px);
 }
 
-.ccm__wrap {
+.ccw__wrap {
   position: fixed;
   inset: 0;
   z-index: calc(var(--z-modal) + 1);
@@ -20,9 +20,8 @@
   pointer-events: none;
 }
 
-/* Outer glass */
-.ccm {
-  width: 380px;
+/* ── Outer glass container ── */
+.ccw {
   max-width: 92vw;
   border-radius: var(--radius-lg, 22px);
   position: relative;
@@ -35,11 +34,12 @@
     0 24px 80px rgba(0, 0, 0, 0.45),
     0 0 0 0.5px rgba(255, 255, 255, 0.06) inset;
   transform-style: preserve-3d;
-  will-change: transform;
+  will-change: transform, width, height;
+  overflow: hidden;
 }
 
 /* Specular glare */
-.ccm__glare {
+.ccw__glare {
   position: absolute;
   inset: 0;
   border-radius: var(--radius-lg, 22px);
@@ -47,8 +47,8 @@
   z-index: 1;
 }
 
-/* Inner glass layer */
-.ccm__inner {
+/* ── Inner glass layer ── */
+.ccw__inner {
   position: relative;
   z-index: 2;
   margin: 6px;
@@ -57,24 +57,21 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.04);
+  height: calc(100% - 12px);
+  display: flex;
+  flex-direction: column;
 }
 
-/* Header */
-.ccm__head {
+/* ── Header ── */
+.ccw__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px var(--space-5) 0;
+  padding: 16px var(--space-5, 20px) 0;
+  flex-shrink: 0;
 }
 
-.ccm__title {
-  font-size: 17px;
-  font-weight: 800;
-  color: var(--text);
-  letter-spacing: -0.03em;
-}
-
-.ccm__close {
+.ccw__close {
   width: 30px;
   height: 30px;
   border-radius: var(--radius-sm, 8px);
@@ -87,31 +84,127 @@
   justify-content: center;
   transition: all 0.15s;
 }
-.ccm__close:hover {
+.ccw__close:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
 }
 
-/* Body */
-.ccm__body {
-  padding: var(--space-4) var(--space-5) var(--space-5);
+/* ── Progress dots ── */
+.ccw__progress {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-/* Field */
-.ccm__field {
-  display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 6px;
 }
 
-.ccm__field-wrap {
+.ccw__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-disabled, rgba(255, 255, 255, 0.2));
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ccw__dot--active {
+  background: var(--accent, #c8ff00);
+  width: 18px;
+  border-radius: var(--radius-pill, 100px);
+}
+.ccw__dot--done {
+  background: var(--accent, #c8ff00);
+  opacity: 0.4;
+}
+
+/* ── Body ── */
+.ccw__body {
+  flex: 1;
+  overflow: hidden;
+  padding: var(--space-3, 12px) var(--space-5, 20px) 0;
+}
+
+.ccw__content {
+  height: 100%;
+}
+
+/* ── Steps shared ── */
+.ccw__step {
+  display: flex;
+  flex-direction: column;
+}
+
+.ccw__title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+  letter-spacing: -0.03em;
+  margin: 0 0 2px;
+}
+
+.ccw__subtitle {
+  font-size: 12px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  margin: 0 0 var(--space-4, 16px);
+}
+
+/* ── Step 1: Type cards ── */
+.ccw__types {
+  display: flex;
+  gap: var(--space-2, 8px);
+}
+
+.ccw__type {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-4, 16px) var(--space-3, 12px);
+  border-radius: var(--radius-md, 14px);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+  background: var(--surface-1, rgba(255, 255, 255, 0.04));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex: 1;
+  text-align: center;
+}
+.ccw__type:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.ccw__type--active {
+  border-color: var(--accent, #c8ff00);
+  background: var(--surface-active, rgba(200, 255, 0, 0.08));
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+  box-shadow: 0 0 16px rgba(200, 255, 0, 0.08);
+}
+
+.ccw__type-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ccw__type-hint {
+  font-size: 10px;
+  opacity: 0.5;
+  line-height: 1.3;
+}
+
+/* ── Step 2: Settings fields ── */
+.ccw__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-3, 12px);
+}
+
+.ccw__field:last-of-type {
+  margin-bottom: 0;
+}
+
+.ccw__field-wrap {
   position: relative;
 }
 
-.ccm__label {
+.ccw__label {
   font-size: 9px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.2);
@@ -119,52 +212,52 @@
   letter-spacing: 0.8px;
 }
 
-.ccm__input,
-.ccm__textarea {
+.ccw__input,
+.ccw__textarea {
   width: 100%;
-  padding: 11px var(--space-3);
-  border-radius: 14px;
+  padding: 11px var(--space-3, 12px);
+  border-radius: var(--radius-md, 14px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.03);
-  color: var(--text);
+  color: var(--text, rgba(255, 255, 255, 0.85));
   font-size: 13px;
   font-family: inherit;
   outline: none;
   resize: none;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
-.ccm__input::placeholder,
-.ccm__textarea::placeholder {
+.ccw__input::placeholder,
+.ccw__textarea::placeholder {
   color: rgba(255, 255, 255, 0.1);
 }
-.ccm__input:focus,
-.ccm__textarea:focus {
+.ccw__input:focus,
+.ccw__textarea:focus {
   border-color: rgba(200, 255, 0, 0.25);
   box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.05);
 }
 
-.ccm__counter {
+.ccw__counter {
   position: absolute;
   right: 10px;
-  bottom: var(--space-2);
+  bottom: var(--space-2, 8px);
   font-size: 10px;
   color: var(--text-muted);
   pointer-events: none;
   opacity: 0.5;
 }
 
-/* Categories */
-.ccm__cats {
+/* ── Categories ── */
+.ccw__cats {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.ccm__cat {
+.ccw__cat {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 5px var(--space-3);
+  padding: 5px var(--space-3, 12px);
   border-radius: var(--radius-lg, 22px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.03);
@@ -174,11 +267,11 @@
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
-.ccm__cat:hover {
+.ccw__cat:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.ccm__cat-dot {
+.ccw__cat-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -186,112 +279,227 @@
   flex-shrink: 0;
 }
 
-.ccm__cat--active {
+.ccw__cat--active {
   background: color-mix(in srgb, var(--cat-color) 12%, transparent);
   color: var(--cat-color);
   border-color: color-mix(in srgb, var(--cat-color) 25%, transparent);
 }
 
-/* Error */
-.ccm__error {
+/* ── Step 3: Preview ── */
+.ccw__preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-5, 20px) 0;
+}
+
+.ccw__preview-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--surface-active, rgba(200, 255, 0, 0.08));
+  border: 1px solid rgba(200, 255, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent, #c8ff00);
+  margin-bottom: var(--space-2, 8px);
+}
+
+.ccw__preview-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+  letter-spacing: -0.02em;
+}
+
+.ccw__preview-type {
   font-size: 12px;
-  color: var(--danger);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  font-weight: 500;
+}
+
+.ccw__preview-desc {
+  font-size: 12px;
+  color: var(--text-disabled, rgba(255, 255, 255, 0.2));
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* ── Error ── */
+.ccw__error {
+  font-size: 12px;
+  color: var(--danger, #ef4444);
   padding: 2px 0;
   overflow: hidden;
 }
 
-/* Submit */
-.ccm__submit {
-  width: 100%;
-  padding: var(--space-3) 0;
-  border-radius: 14px;
-  border: none;
-  background: var(--accent, #c8ff00);
-  color: var(--accent-text, #0a0a0a);
+/* ── Navigation footer ── */
+.ccw__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-5, 20px) var(--space-4, 16px);
+  flex-shrink: 0;
+}
+
+.ccw__btn {
+  font-family: inherit;
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  border-radius: var(--radius-sm, 8px);
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ccw__btn--back {
+  background: transparent;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  border: none;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  font-weight: 500;
+}
+.ccw__btn--back:hover {
+  color: var(--text-primary, rgba(255, 255, 255, 0.92));
+}
+
+.ccw__btn--next,
+.ccw__btn--create {
+  background: var(--accent, #c8ff00);
+  color: var(--accent-text, #0a0a0f);
+  border: none;
+  padding: var(--space-2, 8px) var(--space-5, 20px);
+  border-radius: var(--radius-sm, 8px);
+  font-weight: 700;
   position: relative;
   overflow: hidden;
-  transition: opacity 0.15s;
 }
-.ccm__submit:disabled {
+.ccw__btn--next:disabled,
+.ccw__btn--create:disabled {
   opacity: 0.25;
   cursor: default;
 }
-.ccm__submit:hover:not(:disabled) {
-  opacity: 0.95;
+.ccw__btn--next:hover:not(:disabled),
+.ccw__btn--create:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(200, 255, 0, 0.2);
+}
+.ccw__btn--next:active:not(:disabled),
+.ccw__btn--create:active:not(:disabled) {
+  transform: scale(0.96) translateY(1px);
 }
 
-/* Shimmer */
-.ccm__submit-shimmer {
+/* Shimmer on create button */
+.ccw__btn-shimmer {
   position: absolute;
   inset: 0;
   background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.25) 50%, transparent 65%);
-  animation: ccmShimmer 3s ease-in-out infinite;
+  animation: ccwShimmer 3s ease-in-out infinite;
   pointer-events: none;
 }
-.ccm__submit:disabled .ccm__submit-shimmer {
+.ccw__btn--create:disabled .ccw__btn-shimmer {
   display: none;
 }
 
-@keyframes ccmShimmer {
+@keyframes ccwShimmer {
   0%, 100% { transform: translateX(-120%); }
   50% { transform: translateX(120%); }
 }
 
-/* ═══════ Light theme v4 ═══════ */
-[data-theme="light"] .ccm__overlay {
+
+/* ═══════════════════════════════════════════
+   Light theme
+   ═══════════════════════════════════════════ */
+
+[data-theme="light"] .ccw__overlay {
   background: rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="light"] .ccm {
+[data-theme="light"] .ccw {
   background: #ffffff;
   border-color: var(--light-border, #e5e7eb);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 8px 20px rgba(0, 0, 0, 0.06);
 }
 
-[data-theme="light"] .ccm__inner {
+[data-theme="light"] .ccw__inner {
   background: rgba(255, 255, 255, 0.8);
   border-color: var(--light-border, #e5e7eb);
 }
 
-[data-theme="light"] .ccm__close {
+[data-theme="light"] .ccw__close {
   background: var(--bg-sidebar);
   color: var(--light-text-tertiary, #9ca3af);
 }
-[data-theme="light"] .ccm__close:hover {
+[data-theme="light"] .ccw__close:hover {
   background: rgba(239, 68, 68, 0.1);
   color: var(--danger);
 }
 
-[data-theme="light"] .ccm__label {
+[data-theme="light"] .ccw__label {
   color: var(--light-text-secondary, #4b5563);
 }
 
-[data-theme="light"] .ccm__input,
-[data-theme="light"] .ccm__textarea {
-  background: var(--bg-input);
-  border: 1.5px solid var(--border);
+[data-theme="light"] .ccw__type {
+  border-color: var(--light-border, #e5e7eb);
+  background: var(--bg-sidebar, #f9fafb);
+  color: var(--text-secondary);
+}
+[data-theme="light"] .ccw__type:hover {
+  background: var(--light-accent-tint, #f5f3ff);
+  border-color: rgba(200, 255, 0, 0.2);
+}
+[data-theme="light"] .ccw__type--active {
+  border-color: var(--accent);
+  background: var(--surface-active);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ccw__input,
+[data-theme="light"] .ccw__textarea {
+  background: var(--bg-input, #f9fafb);
+  border: 1.5px solid var(--border, #e5e7eb);
   color: var(--text);
 }
-[data-theme="light"] .ccm__input::placeholder,
-[data-theme="light"] .ccm__textarea::placeholder {
+[data-theme="light"] .ccw__input::placeholder,
+[data-theme="light"] .ccw__textarea::placeholder {
   color: var(--light-text-tertiary, #9ca3af);
 }
-[data-theme="light"] .ccm__input:focus,
-[data-theme="light"] .ccm__textarea:focus {
+[data-theme="light"] .ccw__input:focus,
+[data-theme="light"] .ccw__textarea:focus {
   border-color: var(--accent);
   background: #ffffff;
   box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.1);
 }
 
-[data-theme="light"] .ccm__cat {
+[data-theme="light"] .ccw__cat {
   border-color: var(--light-border, #e5e7eb);
-  background: var(--bg-sidebar);
+  background: var(--bg-sidebar, #f9fafb);
 }
-[data-theme="light"] .ccm__cat:hover {
+[data-theme="light"] .ccw__cat:hover {
   background: var(--light-accent-tint, #f5f3ff);
   border-color: rgba(200, 255, 0, 0.2);
+}
+
+[data-theme="light"] .ccw__btn--back {
+  color: var(--text-secondary);
+}
+[data-theme="light"] .ccw__btn--back:hover {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ccw__preview-icon {
+  background: var(--surface-active);
+  border-color: rgba(74, 122, 0, 0.15);
+}
+
+[data-theme="light"] .ccw__dot {
+  background: var(--text-disabled, rgba(0, 0, 0, 0.15));
+}
+[data-theme="light"] .ccw__dot--active {
+  background: var(--accent);
+}
+[data-theme="light"] .ccw__dot--done {
+  background: var(--accent);
+  opacity: 0.4;
 }

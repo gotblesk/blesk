@@ -42,6 +42,7 @@ export default function ChatView({
   onMorphEnd,
   socketRef,
   onCall,
+  onVideoCall,
   activeCall,
   onJoinCall,
 }) {
@@ -477,6 +478,9 @@ export default function ChatView({
   };
 
   // Отправка файлов
+  // TODO: E2E encryption for file/voice uploads not yet implemented
+  // Files are uploaded in cleartext even when E2E is enabled for text messages
+  // See: https://github.com/nicedreams/nacl-blob for potential approach
   const handleSendFiles = useCallback(async (files, text) => {
     for (const file of files) {
       try {
@@ -689,7 +693,7 @@ export default function ChatView({
           userStatus={userStatusDirect}
           typingUsernames={typingNames}
           onCall={onCall}
-          onVideoCall={onCall}
+          onVideoCall={onVideoCall}
           onMembers={chat.type === 'group' ? () => setMembersOpen(true) : undefined}
           onAvatarClick={(e) => { if (chat.otherUser?.id) setProfilePopover({ open: true, userId: chat.otherUser.id, anchorRef: { current: e?.currentTarget || e?.target } }); }}
           shieldActive={chat.e2eEnabled}

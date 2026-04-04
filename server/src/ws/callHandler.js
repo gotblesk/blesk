@@ -4,6 +4,28 @@ const socketUtils = require('../utils/socketUtils');
 // Активные звонки: chatId → { callerId, callerSocketId, startedAt, participants: Set<userId>, timeout }
 const activeCalls = new Map();
 
+// Rate limiter для call:initiate (userId → [timestamps])
+const callRateLimits = new Map();
+const CALL_RATE_WINDOW = 60000; // 1 минута
+const CALL_RATE_MAX = 10; // макс 10 звонков в минуту
+
+function isCallRateLimited(uid) {
+  const now = Date.now();
+  let timestamps = callRateLimits.get(uid);
+  if (!timestamps) {
+    timestamps = [];
+    callRateLimits.set(uid, timestamps);
+  }
+  while (timestamps.length > 0 && now - timestamps[0] > CALL_RATE_WINDOW) {
+    timestamps.shift();
+  }
+  if (timestamps.length >= CALL_RATE_MAX) {
+    return true;
+  }
+  timestamps.push(now);
+  return false;
+}
+
 // [HIGH-4] O(1) поиск сокетов через socketUtils
 // setUserSockets сохранён для обратной совместимости с index.js
 let _userSockets = null;
@@ -64,8 +86,12 @@ function callHandler(io, socket) {
   const userId = socket.userId;
 
   // ═══ Инициировать звонок ═══
-  socket.on('call:initiate', async ({ chatId }) => {
+  socket.on('call:initiate', async ({ chatId, video }) => {
     if (!chatId || typeof chatId !== 'string') return socket.emit('call:error', { error: 'Некорректный chatId' });
+    // Rate limiting на инициацию звонков
+    if (isCallRateLimited(userId)) {
+      return socket.emit('call:error', { chatId, error: 'Too many calls. Try again later.' });
+    }
     try {
       // Проверить что пользователь участник комнаты
       const participant = await prisma.roomParticipant.findUnique({
@@ -160,6 +186,7 @@ function callHandler(io, socket) {
         callerName: caller.username,
         callerHue: caller.hue,
         callerAvatar: caller.avatar,
+        videoEnabled: !!video,
         type: chatInfo.type,
         chatName: chatInfo.room.name,
       };
@@ -386,6 +413,9 @@ function callHandler(io, socket) {
 
   // ═══ Отключение сокета — cleanup звонков ═══
   socket.on('disconnect', () => {
+    // Очистить rate limits отключившегося пользователя
+    callRateLimits.delete(userId);
+
     // Собрать chatId-ы в массив, чтобы не мутировать Map во время итерации
     const chatIds = [];
     for (const [chatId, call] of activeCalls) {
@@ -529,4 +559,9 @@ function formatDuration(seconds) {
   return `${mins} мин ${secs} сек`;
 }
 
-module.exports = { callHandler, activeCalls, setUserSockets };
+// Очистка rate limits (для graceful shutdown)
+function clearCallRateLimits() {
+  callRateLimits.clear();
+}
+
+module.exports = { callHandler, activeCalls, setUserSockets, clearCallRateLimits };

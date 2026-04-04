@@ -39,6 +39,9 @@ const io = new Server(httpServer, {
   cors: { origin: corsHandler, methods: ['GET', 'POST'], credentials: true },
   // [CRIT-3] maxHttpBufferSize для защиты от oversized payloads
   maxHttpBufferSize: 1e6, // 1MB макс. размер WebSocket пакета
+  // Увеличенные таймауты для Electron (при свёрнутом окне Chromium throttle'ит ответы)
+  pingInterval: 30000,  // пинг каждые 30 сек (дефолт 25)
+  pingTimeout: 60000,   // ждать ответ 60 сек (дефолт 20) — Electron может задержать
 });
 
 // [CRIT-3] Redis adapter — для горизонтального масштабирования

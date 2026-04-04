@@ -13,6 +13,7 @@ import VoiceRoomList from '../voice/VoiceRoomList';
 import VoiceRoom from '../voice/VoiceRoom';
 import VoiceControls from '../voice/VoiceControls';
 import ChannelBrowser from '../channels/ChannelBrowser';
+import SpacesPlaceholder from '../spaces/SpacesPlaceholder';
 import ChannelView from '../channels/ChannelView';
 import UpdateBanner from '../ui/UpdateBanner';
 import SpotlightSearch from '../ui/SpotlightSearch';
@@ -126,7 +127,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
   const theme = useSettingsStore((s) => s.theme);
   const socketRef = useSocket();
-  const { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare } = useVoice(socketRef);
+  const { joinRoom, leaveRoom, joinCall, leaveCall, enableCamera, disableCamera, enableScreenShare, disableScreenShare, switchScreenSource } = useVoice(socketRef);
 
   // Применить тему
   useEffect(() => {
@@ -299,6 +300,15 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     joinCall(chatId, chat?.name || chat?.otherUser?.username || 'Звонок');
   }, [socketRef, joinCall, chats]);
 
+  const handleInitiateVideoCall = useCallback((chatId) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    useCallStore.getState().initiateCall(chatId, { video: true });
+    socket.emit('call:initiate', { chatId, video: true });
+    const chat = chats.find((c) => c.id === chatId);
+    joinCall(chatId, chat?.name || chat?.otherUser?.username || 'Звонок');
+  }, [socketRef, joinCall, chats]);
+
   // Panel chat open
   const handlePanelOpenChat = useCallback((chatId) => {
     setOrbitOpen(false);
@@ -386,6 +396,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
             onClose={handleCloseChat}
             socketRef={socketRef}
             onCall={() => handleInitiateCall(activeChatId)}
+            onVideoCall={() => handleInitiateVideoCall(activeChatId)}
             activeCall={activeCall?.chatId === activeChatId ? activeCall : null}
             onJoinCall={() => joinCall(activeChatId)}
           />
@@ -398,6 +409,8 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
               socketRef={socketRef}
               onToggleCamera={() => cameraOn ? disableCamera() : enableCamera()}
               onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
+              onDisableScreenShare={disableScreenShare}
+              onSwitchScreenSource={switchScreenSource}
               onLeave={() => { leaveRoom(); setVoiceExpanded(false); }}
             />
           );
@@ -424,6 +437,9 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
           );
         }
         return <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />;
+
+      case 'spaces':
+        return <SpacesPlaceholder />;
 
       case 'friends':
         return (
@@ -454,7 +470,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
         <MetaballBackground
           subtle
           ambientHue={ambientHue}
-          contentActive={activeTab === 'chats' || activeTab === 'friends' || activeTab === 'channels'}
+          contentActive={activeTab === 'chats' || activeTab === 'friends' || activeTab === 'channels' || activeTab === 'spaces'}
         />
       </Suspense>
 
@@ -591,6 +607,8 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
                 onToggleDeafen={() => useVoiceStore.getState().toggleDeafen()}
                 onToggleVideo={() => cameraOn ? disableCamera() : enableCamera()}
                 onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
+                onDisableScreenShare={disableScreenShare}
+                onSwitchScreenSource={switchScreenSource}
                 screenShareOn={screenShareOn}
                 localVideoStream={localCameraStream}
                 remoteVideoStream={remoteStreams?.camera || null}

@@ -103,6 +103,18 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     }
   }, [editingMsg]);
 
+  // Отмена записи голосового по Escape (глобальный listener, т.к. textarea скрыта при записи)
+  useEffect(() => {
+    if (!isRecording) return;
+    const handleEscapeRecording = (e) => {
+      if (e.key === 'Escape') {
+        cancelRecording();
+      }
+    };
+    document.addEventListener('keydown', handleEscapeRecording);
+    return () => document.removeEventListener('keydown', handleEscapeRecording);
+  }, [isRecording]);
+
   // Авто-ресайз textarea
   const resizeTextarea = () => {
     const el = inputRef.current;
@@ -359,8 +371,20 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
           noiseSuppression: true,
           autoGainControl: true,
           sampleRate: 48000,
+          channelCount: 1,
         },
       });
+
+      // Обработка отключения микрофона во время записи
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.onended = () => {
+          console.warn('[blesk] Mic track ended during recording');
+          cancelRecording();
+          setMicError('Микрофон отключён');
+          setTimeout(() => setMicError(''), 3000);
+        };
+      }
 
       // Web Audio analyser для живого waveform
       try {
@@ -375,7 +399,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
       } catch { /* Если Web Audio API недоступен — waveform будет статичным */ }
 
       const mimeType = getRecorderMimeType();
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 48000 });
       mediaRecorderRef.current = mediaRecorder;
       recordingStreamRef.current = stream;
       audioChunksRef.current = [];

@@ -2,7 +2,7 @@
 
 .di {
   position: fixed;
-  bottom: 20px;
+  top: 52px; /* под TopNav (высота ~48px + 4px gap) */
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-island);
@@ -106,7 +106,7 @@
 /* scale(0.8) через transform-origin center — не влияет на layout */
 .di--idle .di__glass {
   transform: scale(0.8);
-  transform-origin: center bottom;
+  transform-origin: center top;
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -259,6 +259,15 @@
 /* ── CALL state ── */
 .di--call .di__glass {
   border-color: rgba(74, 222, 128, 0.2);
+  background: var(--surface-solid, rgba(18, 16, 28, 0.95));
+  backdrop-filter: blur(4px); /* минимальный blur для edge softness */
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.di--incoming .di__glass {
+  background: var(--surface-solid, rgba(18, 16, 28, 0.95));
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .di__call-pulse {
@@ -282,16 +291,15 @@
 }
 
 .di__call-name {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
 }
 
 .di__call-timer {
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   font-family: var(--font-mono, 'SF Mono', monospace);
-  color: var(--online, #4ade80);
-  opacity: 0.8;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .di__call-btns {
@@ -301,8 +309,8 @@
 }
 
 .di__call-btn {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   display: flex;
@@ -373,8 +381,8 @@
 }
 
 .di__in-btn {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: none;
   display: flex;
@@ -631,6 +639,15 @@
 [data-theme="light"] .di__upd-text {
   color: rgba(26, 26, 46, 0.55);
 }
+[data-theme="light"] .di--call .di__glass,
+[data-theme="light"] .di--incoming .di__glass {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .di__call-timer {
+  color: rgba(26, 26, 46, 0.6);
+}
+
 [data-theme="light"] .di__call-btn {
   background: rgba(0, 0, 0, 0.06);
   color: rgba(26, 26, 46, 0.6);

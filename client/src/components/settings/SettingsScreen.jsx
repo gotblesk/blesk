@@ -6,10 +6,11 @@ import {
   ChatDots, UsersThree, At, Shield, Clock, GithubLogo,
   ArrowSquareOut, ChatCircle, Confetti, Eye, Keyboard,
   HardDrive, Wheelchair, ArrowCounterClockwise, Trash, DownloadSimple,
-  SignOut, CaretRight, GearSix, Sparkle
+  SignOut, CaretRight, GearSix, Sparkle, MagnifyingGlass, User
 } from '@phosphor-icons/react';
 import VoiceSettings from '../voice/VoiceSettings';
 import FeedbackScreen from './FeedbackScreen';
+import Avatar from '../ui/Avatar';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
 import useAppVersion from '../../hooks/useAppVersion';
@@ -18,19 +19,36 @@ import { getAuthHeaders } from '../../utils/authFetch';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import './SettingsScreen.css';
 
-/* ═══════ TABS CONFIG ═══════ */
-const TABS = [
-  { id: 'general',       label: 'Общие',        icon: GearSix },
-  { id: 'appearance',    label: 'Вид',           icon: Palette },
-  { id: 'chat',          label: 'Чат',           icon: ChatDots },
-  { id: 'notifications', label: 'Уведомления',   icon: Bell },
-  { id: 'voice',         label: 'Голос',          icon: SpeakerHigh },
-  { id: 'privacy',       label: 'Приватность',    icon: Shield },
-  { id: 'hotkeys',       label: 'Клавиши',        icon: Keyboard },
-  { id: 'storage',       label: 'Данные',         icon: HardDrive },
-  { id: 'accessibility', label: 'Доступность',    icon: Wheelchair },
-  { id: 'about',         label: 'О blesk',        icon: Sparkle },
+/* ═══════ GROUPED TABS CONFIG ═══════ */
+const GROUPED_TABS = [
+  {
+    label: 'Аккаунт',
+    items: [
+      { id: 'general', label: 'Профиль', icon: User },
+      { id: 'privacy', label: 'Приватность', icon: Shield },
+    ],
+  },
+  {
+    label: 'Приложение',
+    items: [
+      { id: 'appearance', label: 'Внешний вид', icon: Palette },
+      { id: 'chat', label: 'Чат', icon: ChatDots },
+      { id: 'notifications', label: 'Уведомления', icon: Bell },
+      { id: 'voice', label: 'Голос и видео', icon: SpeakerHigh },
+      { id: 'hotkeys', label: 'Горячие клавиши', icon: Keyboard },
+    ],
+  },
+  {
+    label: 'Другое',
+    items: [
+      { id: 'accessibility', label: 'Доступность', icon: Wheelchair },
+      { id: 'storage', label: 'Хранилище', icon: HardDrive },
+      { id: 'about', label: 'О blesk', icon: Sparkle },
+    ],
+  },
 ];
+
+const ALL_TAB_IDS = GROUPED_TABS.flatMap(g => g.items.map(t => t.id));
 
 const ACCENT_COLORS = [
   { color: '#c8ff00', label: 'Лайм' },
@@ -43,28 +61,28 @@ const ACCENT_COLORS = [
 /* ═══════ ANIMATION VARIANTS ═══════ */
 const backdropV = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.25 } },
-  exit: { opacity: 0, transition: { duration: 0.2 } },
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
 };
 
-const panelV = {
-  hidden: { x: '100%', opacity: 0.5 },
+const modalV = {
+  hidden: { scale: 0.98, opacity: 0 },
   visible: {
-    x: 0,
+    scale: 1,
     opacity: 1,
-    transition: { type: 'spring', damping: 32, stiffness: 300, mass: 0.8 },
+    transition: { type: 'spring', damping: 28, stiffness: 350 },
   },
   exit: {
-    x: '100%',
+    scale: 0.98,
     opacity: 0,
-    transition: { duration: 0.25, ease: [0.4, 0, 1, 1] },
+    transition: { duration: 0.15, ease: [0.4, 0, 1, 1] },
   },
 };
 
 const contentV = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.25, 0.1, 0.25, 1] } },
-  exit: { opacity: 0, y: -6, transition: { duration: 0.12 } },
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.15, ease: [0.25, 0.1, 0.25, 1] } },
+  exit: { opacity: 0, transition: { duration: 0.1 } },
 };
 
 const staggerContainer = {
@@ -79,15 +97,34 @@ const staggerItem = {
 /* ═══════ MAIN COMPONENT ═══════ */
 export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) {
   const [tab, setTab] = useState(() => localStorage.getItem('blesk_settings_tab') || 'general');
+  const [search, setSearch] = useState('');
   const openFeedback = onFeedback || (() => {});
   const [logoClicks, setLogoClicks] = useState(0);
   const [easterEgg, setEasterEgg] = useState(false);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [user, setUser] = useState(null);
   const clickTimerRef = useRef(null);
+  const searchRef = useRef(null);
 
   const settings = useSettingsStore();
   const { toggle, setValue } = settings;
   const version = useAppVersion();
+
+  // Загрузка данных текущего пользователя
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/auth/me`, {
+          headers: { ...getAuthHeaders() }, credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) setUser(data.user);
+        }
+      } catch { /* тихий fallback */ }
+    })();
+  }, [open]);
 
   // Escape закрывает настройки ТОЛЬКО если нет открытых ConfirmDialog
   useEffect(() => {
@@ -100,7 +137,7 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
   }, [open, onClose, logoutConfirm]);
 
   useEffect(() => {
-    if (!open) { setLogoClicks(0); setEasterEgg(false); }
+    if (!open) { setLogoClicks(0); setEasterEgg(false); setSearch(''); }
     return () => clearTimeout(clickTimerRef.current);
   }, [open]);
 
@@ -199,7 +236,17 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
     tabEls[next].click();
   }, []);
 
-  const activeTabData = TABS.find(t => t.id === tab);
+  // Найти label текущего таба
+  const currentTabLabel = GROUPED_TABS.flatMap(g => g.items).find(t => t.id === tab)?.label || '';
+
+  // Фильтрация групп по поиску
+  const searchLower = search.toLowerCase();
+  const filteredGroups = GROUPED_TABS
+    .map(group => ({
+      ...group,
+      items: group.items.filter(t => !search || t.label.toLowerCase().includes(searchLower)),
+    }))
+    .filter(group => group.items.length > 0);
 
   return (
     <AnimatePresence>
@@ -214,8 +261,8 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
             onClick={onClose}
           />
           <motion.div
-            className="stg-panel"
-            variants={panelV}
+            className="stg"
+            variants={modalV}
             initial="hidden"
             animate="visible"
             exit="exit"
@@ -235,98 +282,75 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
               }
             }}
           >
-            {/* ═══ LEFT: Navigation Rail ═══ */}
-            <nav className="stg-rail">
-              <div className="stg-rail__top" role="tablist" aria-orientation="vertical" onKeyDown={handleTabKeyDown}>
-                {TABS.map((t, i) => {
-                  const Icon = t.icon;
-                  const isActive = tab === t.id;
-                  // separators after indices 2 (after chat), 4 (after voice), 8 (after accessibility)
-                  const sepAfter = [2, 4, 8];
-                  return (
-                    <React.Fragment key={t.id}>
-                      <motion.button
-                        className={`stg-rail__item ${isActive ? 'stg-rail__item--active' : ''}`}
-                        onClick={() => handleTabChange(t.id)}
-                        whileHover={{ scale: 1.08 }}
-                        whileTap={{ scale: 0.92 }}
-                        title={t.label}
-                        role="tab"
-                        aria-selected={isActive}
-                        tabIndex={isActive ? 0 : -1}
-                      >
-                        {isActive && (
-                          <motion.div
-                            className="stg-rail__indicator"
-                            layoutId="railIndicator"
-                            transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                          />
-                        )}
-                        <Icon size={18} weight={isActive ? 'bold' : 'regular'} />
-                      </motion.button>
-                      {sepAfter.includes(i) && <div className="stg-rail__sep" />}
-                    </React.Fragment>
-                  );
-                })}
+            {/* ═══ LEFT: Sidebar ═══ */}
+            <aside className="stg__sidebar">
+              {/* Account card */}
+              <div className="stg__account">
+                <Avatar user={user} size={36} />
+                <div className="stg__account-info">
+                  <span className="stg__account-name">{user?.username || '...'}</span>
+                  <span className="stg__account-tag">#{user?.tag || '0000'}</span>
+                </div>
               </div>
 
-              {/* Logout at bottom of rail */}
-              {onLogout && (
-                <motion.button
-                  className="stg-rail__item stg-rail__item--danger"
-                  onClick={() => setLogoutConfirm(true)}
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.92 }}
-                  title="Выйти"
-                >
-                  <SignOut size={18} weight="regular" />
-                </motion.button>
-              )}
-            </nav>
+              {/* Search */}
+              <div className="stg__search">
+                <MagnifyingGlass size={14} />
+                <input
+                  ref={searchRef}
+                  placeholder="Поиск настроек..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Escape' && setSearch('')}
+                />
+              </div>
+
+              {/* Grouped navigation */}
+              <nav className="stg__nav" role="tablist" aria-orientation="vertical" onKeyDown={handleTabKeyDown}>
+                {filteredGroups.map(group => (
+                  <div key={group.label} className="stg__group">
+                    <span className="stg__group-label">{group.label}</span>
+                    {group.items.map(t => {
+                      const Icon = t.icon;
+                      const isActive = tab === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          role="tab"
+                          aria-selected={isActive}
+                          className={`stg__tab ${isActive ? 'stg__tab--active' : ''}`}
+                          onClick={() => handleTabChange(t.id)}
+                          tabIndex={isActive ? 0 : -1}
+                        >
+                          <Icon size={18} />
+                          <span>{t.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+
+                {/* Logout внизу */}
+                {onLogout && (
+                  <div className="stg__group stg__group--bottom">
+                    <button className="stg__tab stg__tab--danger" onClick={() => setLogoutConfirm(true)}>
+                      <SignOut size={18} />
+                      <span>Выйти</span>
+                    </button>
+                  </div>
+                )}
+              </nav>
+            </aside>
 
             {/* ═══ RIGHT: Content Area ═══ */}
-            <div className="stg-content">
-              {/* Header */}
-              <div className="stg-header">
-                <div className="stg-header__left">
-                  <motion.div
-                    className="stg-header__icon"
-                    key={tab}
-                    initial={{ scale: 0.5, opacity: 0, rotate: -30 }}
-                    animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                  >
-                    {activeTabData && <activeTabData.icon size={20} weight="regular" />}
-                  </motion.div>
-                  <div>
-                    <AnimatePresence mode="wait">
-                      <motion.h2
-                        key={tab}
-                        className="stg-header__title"
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.15 }}
-                      >
-                        {activeTabData?.label}
-                      </motion.h2>
-                    </AnimatePresence>
-                    <div className="stg-header__subtitle">Настройки</div>
-                  </div>
-                </div>
-                <motion.button
-                  className="stg-header__close"
-                  onClick={onClose}
-                  whileHover={{ scale: 1.1, rotate: 90 }}
-                  whileTap={{ scale: 0.85 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                >
-                  <X size={16} weight="bold" />
-                </motion.button>
+            <main className="stg__content">
+              <div className="stg__header">
+                <h2 className="stg__title">{currentTabLabel}</h2>
+                <button className="stg__close" onClick={onClose} aria-label="Закрыть настройки">
+                  <X size={20} />
+                </button>
               </div>
-
-              {/* Scrollable Body */}
-              <div className="stg-body">
+              <div className="stg__body">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={tab}
@@ -348,7 +372,7 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
                   </motion.div>
                 </AnimatePresence>
               </div>
-            </div>
+            </main>
           </motion.div>
           <ConfirmDialog
             open={logoutConfirm}
@@ -636,7 +660,7 @@ function VoiceTab() {
 }
 
 function TwoFactorSection() {
-  const [status, setStatus] = useState('idle'); // idle, loading, setup, verify, enabled, disabling
+  const [status, setStatus] = useState('idle');
   const [qrUrl, setQrUrl] = useState('');
   const [secret, setSecret] = useState('');
   const [code, setCode] = useState('');
@@ -644,7 +668,6 @@ function TwoFactorSection() {
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // Проверить текущий статус 2FA
   useEffect(() => {
     (async () => {
       try {
@@ -653,8 +676,6 @@ function TwoFactorSection() {
         });
         if (res.ok) {
           const data = await res.json();
-          // twoFactorEnabled может приходить через /me если добавлен
-          // Пока используем отдельный запрос или проверяем поле
           setIs2FAEnabled(!!data.user?.twoFactorEnabled);
         }
       } catch { /* игнорируем */ }
@@ -749,7 +770,6 @@ function TwoFactorSection() {
           </span>
         </div>
 
-        {/* QR-код и секрет при настройке */}
         {status === 'setup' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             {qrUrl && <img src={qrUrl} alt="QR" style={{ width: 180, height: 180, borderRadius: 12, background: '#fff', padding: 8 }} />}
@@ -791,7 +811,6 @@ function TwoFactorSection() {
           </div>
         )}
 
-        {/* Форма отключения */}
         {status === 'disabling' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 12 }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
@@ -830,7 +849,6 @@ function TwoFactorSection() {
           </div>
         )}
 
-        {/* Кнопки */}
         {status === 'idle' && !is2FAEnabled && (
           <button
             onClick={handleSetup}
@@ -1018,7 +1036,6 @@ function StorageTab() {
         <SettingRow icon={<Trash size={16} />} label="Сбросить все настройки" hint="Перезагрузит приложение" danger onClick={resetSettings} />
       </SettingGroup>
 
-      {/* [IMP-1 A2] Подтверждение сброса настроек */}
       <ConfirmDialog
         open={resetConfirm}
         title="Сбросить все настройки?"

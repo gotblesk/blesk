@@ -28,6 +28,15 @@ export const useVoiceStore = create((set, get) => ({
     try { const v = localStorage.getItem('blesk-echo-cancellation'); return v === null ? true : v === 'true'; } catch { return true; }
   })(),
 
+  // AI шумоподавление (spectral gating + noise gate + compressor)
+  aiNoiseSuppression: (() => {
+    try { const v = localStorage.getItem('blesk-ai-noise'); return v === null ? true : JSON.parse(v); } catch { return true; }
+  })(),
+  setAiNoiseSuppression: (v) => {
+    localStorage.setItem('blesk-ai-noise', JSON.stringify(v));
+    set({ aiNoiseSuppression: v });
+  },
+
   // Порог VAD (чувствительность микрофона, 0-100)
   vadThreshold: (() => {
     try { const v = localStorage.getItem('blesk-vad-threshold'); return v === null ? 15 : Number(v); } catch { return 15; }
@@ -310,14 +319,24 @@ export const useVoiceStore = create((set, get) => ({
     });
   },
 
-  // Переключить мут
+  // Cooldown timestamp для debounce mute/deafen
+  _lastMuteToggle: 0,
+  _lastDeafenToggle: 0,
+
+  // Переключить мут (debounce 200ms)
   toggleMute: () => {
-    set((state) => ({ isMuted: !state.isMuted }));
+    const now = Date.now();
+    const state = get();
+    if (state._lastMuteToggle && now - state._lastMuteToggle < 200) return;
+    set({ isMuted: !state.isMuted, _lastMuteToggle: now });
   },
 
-  // Переключить деафен
+  // Переключить деафен (debounce 200ms)
   toggleDeafen: () => {
-    set((state) => ({ isDeafened: !state.isDeafened }));
+    const now = Date.now();
+    const state = get();
+    if (state._lastDeafenToggle && now - state._lastDeafenToggle < 200) return;
+    set({ isDeafened: !state.isDeafened, _lastDeafenToggle: now });
   },
 
   // Установить уровень звука

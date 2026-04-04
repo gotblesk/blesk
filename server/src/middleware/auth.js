@@ -57,7 +57,7 @@ async function authenticate(req, res, next) {
 // [CRIT-1] Генерация токенов с раздельными секретами
 function generateTokens(userId) {
   const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '15m' });
-  const refreshToken = jwt.sign({ userId, type: 'refresh' }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  const refreshToken = jwt.sign({ userId, type: 'refresh' }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
   return { token, refreshToken };
 }
 

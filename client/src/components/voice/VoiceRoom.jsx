@@ -2,14 +2,17 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   MicrophoneSlash, Microphone, SpeakerSlash, Headphones,
   UserPlus, UsersThree, MagnifyingGlass, Check, X, ChatCircle,
-  ArrowsOutSimple, VideoCamera, VideoCameraSlash, Monitor,
-  PhoneDisconnect,
+  ArrowsOutSimple, VideoCamera, VideoCameraSlash, Monitor, MonitorArrowUp,
+  PhoneDisconnect, CaretDown, XCircle, Sliders,
 } from '@phosphor-icons/react';
+import { AnimatePresence } from 'framer-motion';
 import { useVoiceStore } from '../../store/voiceStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import ProfilePopover from '../profile/ProfilePopover';
 import Avatar from '../ui/Avatar';
 import VoiceChat from './VoiceChat';
 import VideoGrid from './VideoGrid';
+import ScreenSharePicker from './ScreenSharePicker';
 import { getCurrentUserId } from '../../utils/auth';
 import { getAvatarHue } from '../../utils/avatar';
 import { getAuthHeaders } from '../../utils/authFetch';
@@ -136,9 +139,12 @@ function InviteModal({ roomId, onClose }) {
 }
 
 /* ── Screen share tile ── */
-function ScreenShareTile({ stream, name }) {
+function ScreenShareTile({ stream, name, isSelf, onStop, onChangeSource, onQuality }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
+  const [ctxMenu, setCtxMenu] = useState(null);
+  const screenResolution = useSettingsStore((s) => s.screenResolution);
+  const screenFps = useSettingsStore((s) => s.screenFps);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -160,16 +166,50 @@ function ScreenShareTile({ stream, name }) {
     }
   }, []);
 
+  const handleCtx = useCallback((e) => {
+    if (!isSelf) return;
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  }, [isSelf]);
+
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    const esc = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', esc); };
+  }, [ctxMenu]);
+
   return (
-    <div className="vr__screen" ref={containerRef}>
+    <div className="vr__screen" ref={containerRef} onContextMenu={handleCtx}>
       <video ref={videoRef} autoPlay playsInline />
       <div className="vr__screen-badge">
         <div className="vr__screen-rec" />
         {name} демонстрирует
       </div>
+      <div className="vr__stream-badges">
+        <span className="vr__badge vr__badge--live">В ЭФИРЕ</span>
+        <span className="vr__badge vr__badge--quality">
+          {screenResolution} {screenFps} FPS
+        </span>
+      </div>
       <button className="vr__screen-fs" onClick={toggleFs} title="Полный экран">
         <ArrowsOutSimple size={14} />
       </button>
+      {ctxMenu && (
+        <div className="vr__stream-menu" style={{ top: ctxMenu.y, left: ctxMenu.x }} role="menu">
+          <button role="menuitem" onClick={() => { onStop?.(); setCtxMenu(null); }}>
+            <XCircle size={16} /> Прекратить стрим
+          </button>
+          <button role="menuitem" onClick={() => { onChangeSource?.(); setCtxMenu(null); }}>
+            <MonitorArrowUp size={16} /> Изменить источник
+          </button>
+          <button role="menuitem" onClick={() => { onQuality?.(); setCtxMenu(null); }}>
+            <Sliders size={16} /> Качество передачи
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -240,7 +280,7 @@ function ParticipantStrip({ participantList, videoStreams, currentUserId, audioL
 /* ════════════════════════════════════
    VoiceRoom -- 5-state redesign
    ════════════════════════════════════ */
-export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenShare, onLeave }) {
+export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenShare, onDisableScreenShare, onSwitchScreenSource, onLeave }) {
   const currentRoomId = useVoiceStore((s) => s.currentRoomId);
   const currentRoomName = useVoiceStore((s) => s.currentRoomName);
   const participants = useVoiceStore((s) => s.participants);
@@ -260,7 +300,12 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
   const [volumePopup, setVolumePopup] = useState(null);
   const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
   const [showInvite, setShowInvite] = useState(false);
+  const [showScreenPicker, setShowScreenPicker] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
+  const [micDropdown, setMicDropdown] = useState(false);
+  const [camDropdown, setCamDropdown] = useState(false);
+  const [audioInputDevices, setAudioInputDevices] = useState([]);
+  const [videoInputDevices, setVideoInputDevices] = useState([]);
   const popupRef = useRef(null);
   const participantRefs = useRef({});
   const currentUserId = useRef(getCurrentUserId());
@@ -284,6 +329,57 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [volumePopup]);
+
+  // Загрузка устройств
+  useEffect(() => {
+    const load = () => {
+      navigator.mediaDevices.enumerateDevices().then(devices => {
+        setAudioInputDevices(devices.filter(d => d.kind === 'audioinput'));
+        setVideoInputDevices(devices.filter(d => d.kind === 'videoinput'));
+      }).catch(() => {});
+    };
+    load();
+    navigator.mediaDevices.addEventListener('devicechange', load);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', load);
+  }, []);
+
+  // Закрытие dropdown по клику снаружи и Escape
+  useEffect(() => {
+    if (!micDropdown && !camDropdown) return;
+    const handleClick = (e) => {
+      if (!e.target.closest('.vr__split-btn')) {
+        setMicDropdown(false);
+        setCamDropdown(false);
+      }
+    };
+    const handleKey = (e) => {
+      if (e.key === 'Escape') {
+        setMicDropdown(false);
+        setCamDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [micDropdown, camDropdown]);
+
+  const inputDeviceId = useVoiceStore((s) => s.inputDeviceId);
+
+  const switchMic = useCallback((deviceId) => {
+    useVoiceStore.setState({ inputDeviceId: deviceId });
+    try { localStorage.setItem('blesk-input-device', deviceId); } catch {}
+  }, []);
+
+  const currentCamId = (() => {
+    try { return localStorage.getItem('blesk-camera-device') || ''; } catch { return ''; }
+  })();
+
+  const switchCam = useCallback((deviceId) => {
+    try { localStorage.setItem('blesk-camera-device', deviceId); } catch {}
+  }, []);
 
   const participantList = Object.entries(participants);
   const count = participantList.length;
@@ -500,6 +596,10 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
                     key={`screen-${userId}`}
                     stream={stream}
                     name={getUserName(userId)}
+                    isSelf={userId === currentUserId.current}
+                    onStop={onDisableScreenShare}
+                    onChangeSource={() => setShowScreenPicker(true)}
+                    onQuality={() => {}}
                   />
                 ))}
               </div>
@@ -528,13 +628,41 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
 
       {/* Controls bar */}
       <div className="vr__controls">
-        <button
-          className={`vr__ctrl ${isMuted ? 'vr__ctrl--danger' : ''}`}
-          onClick={toggleMute}
-          title={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
-        >
-          {isMuted ? <MicrophoneSlash size={20} weight="bold" /> : <Microphone size={20} weight="bold" />}
-        </button>
+        {/* Mic split-button */}
+        <div className="vr__split-btn">
+          <button
+            className={`vr__ctrl ${isMuted ? 'vr__ctrl--danger' : ''}`}
+            onClick={toggleMute}
+            title={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
+          >
+            {isMuted ? <MicrophoneSlash size={20} weight="bold" /> : <Microphone size={20} weight="bold" />}
+          </button>
+          <button
+            className="vr__ctrl-arrow"
+            onClick={() => { setCamDropdown(false); setMicDropdown(prev => !prev); }}
+            aria-label="Выбрать микрофон"
+          >
+            <CaretDown size={10} />
+          </button>
+          {micDropdown && (
+            <div className="vr__dropdown">
+              <div className="vr__dropdown-label">Микрофон</div>
+              {audioInputDevices.map(d => (
+                <button
+                  key={d.deviceId}
+                  className={`vr__dropdown-item ${d.deviceId === inputDeviceId ? 'vr__dropdown-item--active' : ''}`}
+                  onClick={() => { switchMic(d.deviceId); setMicDropdown(false); }}
+                >
+                  <span className="vr__dropdown-text">{d.label || 'Микрофон'}</span>
+                  {d.deviceId === inputDeviceId && <Check size={14} />}
+                </button>
+              ))}
+              {audioInputDevices.length === 0 && (
+                <div className="vr__dropdown-empty">Устройства не найдены</div>
+              )}
+            </div>
+          )}
+        </div>
 
         <button
           className={`vr__ctrl ${isDeafened ? 'vr__ctrl--danger' : ''}`}
@@ -544,14 +672,42 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
           {isDeafened ? <SpeakerSlash size={20} weight="bold" /> : <Headphones size={20} weight="bold" />}
         </button>
 
+        {/* Camera split-button */}
         {onToggleCamera && (
-          <button
-            className={`vr__ctrl ${cameraOn ? 'vr__ctrl--active' : ''}`}
-            onClick={onToggleCamera}
-            title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
-          >
-            {cameraOn ? <VideoCamera size={20} weight="bold" /> : <VideoCameraSlash size={20} weight="bold" />}
-          </button>
+          <div className="vr__split-btn">
+            <button
+              className={`vr__ctrl ${cameraOn ? 'vr__ctrl--active' : ''}`}
+              onClick={onToggleCamera}
+              title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
+            >
+              {cameraOn ? <VideoCamera size={20} weight="bold" /> : <VideoCameraSlash size={20} weight="bold" />}
+            </button>
+            <button
+              className="vr__ctrl-arrow"
+              onClick={() => { setMicDropdown(false); setCamDropdown(prev => !prev); }}
+              aria-label="Выбрать камеру"
+            >
+              <CaretDown size={10} />
+            </button>
+            {camDropdown && (
+              <div className="vr__dropdown">
+                <div className="vr__dropdown-label">Камера</div>
+                {videoInputDevices.map(d => (
+                  <button
+                    key={d.deviceId}
+                    className={`vr__dropdown-item ${d.deviceId === currentCamId ? 'vr__dropdown-item--active' : ''}`}
+                    onClick={() => { switchCam(d.deviceId); setCamDropdown(false); }}
+                  >
+                    <span className="vr__dropdown-text">{d.label || 'Камера'}</span>
+                    {d.deviceId === currentCamId && <Check size={14} />}
+                  </button>
+                ))}
+                {videoInputDevices.length === 0 && (
+                  <div className="vr__dropdown-empty">Устройства не найдены</div>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {onToggleScreenShare && (
@@ -590,6 +746,19 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
           onClose={() => setShowInvite(false)}
         />
       )}
+
+      {/* Screen source picker */}
+      <AnimatePresence>
+        {showScreenPicker && screenShareOn && (
+          <ScreenSharePicker
+            onSelect={(sourceId, hint) => {
+              onSwitchScreenSource?.(sourceId, hint);
+              setShowScreenPicker(false);
+            }}
+            onCancel={() => setShowScreenPicker(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Profile modal */}
       <ProfilePopover

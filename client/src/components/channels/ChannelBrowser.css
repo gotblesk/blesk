@@ -130,3 +130,69 @@
 [data-theme="light"] .mo__cat:hover { color: var(--light-text-primary, #111827); }
 [data-theme="light"] .mo__create-bg { background: var(--light-accent-tint, #f5f3ff); border-color: rgba(200,255,0,0.2); }
 [data-theme="light"] .mo__empty-icon { background: var(--bg-sidebar); color: var(--light-text-tertiary, #9ca3af); }
+
+/* ═══════ Invite Link ═══════ */
+.mo__invite {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  margin-top: var(--space-2, 8px);
+  background: var(--surface-2, rgba(255,255,255,0.03));
+  border-radius: var(--radius-md, 14px);
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.06));
+  flex-shrink: 0;
+}
+.mo__invite-icon {
+  color: var(--text-tertiary, rgba(255,255,255,0.35));
+  flex-shrink: 0;
+}
+.mo__invite-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, rgba(255,255,255,0.85));
+  font-size: var(--text-sm, 13px);
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+.mo__invite-input::placeholder {
+  color: var(--text-tertiary, rgba(255,255,255,0.35));
+}
+.mo__invite-btn {
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+  border-radius: var(--radius-sm, 8px);
+  border: none;
+  background: var(--accent, #c8ff00);
+  color: var(--accent-text, #0a0a0f);
+  font-size: var(--text-xs, 12px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mo__invite-btn:hover {
+  opacity: 0.85;
+}
+.mo__invite-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Light theme — invite */
+[data-theme="light"] .mo__invite {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: var(--light-border, #e5e7eb);
+}
+[data-theme="light"] .mo__invite-icon {
+  color: var(--light-text-tertiary, #9ca3af);
+}
+[data-theme="light"] .mo__invite-input {
+  color: var(--light-text-primary, #111827);
+}
+[data-theme="light"] .mo__invite-input::placeholder {
+  color: var(--light-text-tertiary, #9ca3af);
+}

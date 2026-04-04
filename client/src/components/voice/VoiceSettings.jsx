@@ -17,8 +17,11 @@ export default function VoiceSettings() {
   const [outputDevices, setOutputDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(inputDeviceId || '');
   const [selectedOutput, setSelectedOutput] = useState(outputDeviceId || 'default');
+  const aiNoiseSuppression = useVoiceStore(s => s.aiNoiseSuppression);
+  const setAiNoiseSuppression = useVoiceStore(s => s.setAiNoiseSuppression);
   const [noise, setNoise] = useState(noiseSuppression);
   const [echo, setEcho] = useState(echoCancellation);
+  const [aiNoise, setAiNoise] = useState(aiNoiseSuppression);
   const [localVadThreshold, setLocalVadThreshold] = useState(vadThreshold);
   const [testing, setTesting] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
@@ -134,6 +137,11 @@ export default function VoiceSettings() {
     setEcho(val);
     useVoiceStore.setState({ echoCancellation: val });
     localStorage.setItem('blesk-echo-cancellation', String(val));
+  };
+
+  const handleAiNoiseChange = (val) => {
+    setAiNoise(val);
+    setAiNoiseSuppression(val);
   };
 
   const handleOutputChange = (deviceId) => {
@@ -259,6 +267,19 @@ export default function VoiceSettings() {
           <button
             className={`voice-settings__toggle ${echo ? 'voice-settings__toggle--on' : ''}`}
             onClick={() => handleEchoChange(!echo)}
+          >
+            <div className="voice-settings__toggle-knob" />
+          </button>
+        </div>
+
+        <div className="voice-settings__toggle-row">
+          <div>
+            <span className="voice-settings__toggle-text">AI шумоподавление</span>
+            <span className="voice-settings__hint">Подавляет фоновый шум, гул, шипение</span>
+          </div>
+          <button
+            className={`voice-settings__toggle ${aiNoise ? 'voice-settings__toggle--on' : ''}`}
+            onClick={() => handleAiNoiseChange(!aiNoise)}
           >
             <div className="voice-settings__toggle-knob" />
           </button>
