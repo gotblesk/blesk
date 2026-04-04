@@ -1,7 +1,7 @@
 {
-  "tool_name": "Read",
-  "tool_input_preview": "{\"file_path\":\"C:\\\\Users\\\\mxkar\\\\OneDrive\\\\Рабочий стол\\\\blesk\\\\client\\\\src\\\\hooks\\\\useVoice.js\"}",
-  "error": "File content (13723 tokens) exceeds maximum allowed tokens (10000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
-  "timestamp": "2026-04-04T13:25:22.825Z",
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"/c/Users/mxkar/OneDrive/Рабочий стол/blesk\\\" && rm -f .git/index.lock 2>/dev/null && git add -A && git commit -m \\\"fix: THREE.Color called at module level before lazy load - use ensur...",
+  "error": "Exit code 1",
+  "timestamp": "2026-04-04T14:49:43.113Z",
   "retry_count": 1
 }

@@ -53,6 +53,6 @@ export default class ErrorBoundary extends Component {
         </div>
       );
     }
-    return <div key={this.state.retryKey} style={{ display: 'contents' }}>{this.props.children}</div>;
+    return this.props.children;
   }
 }

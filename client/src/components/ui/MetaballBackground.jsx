@@ -206,17 +206,22 @@ const fragmentShader = `
 `;
 
 // ═══════ FULLSCREEN QUAD ═══════
-// Целевые цвета для плавной интерполяции (мутабельные)
-const targetColor1 = new THREE.Color().setHSL(0.22, 0.7, 0.45);
-const targetColor2 = new THREE.Color().setHSL(0.52, 0.6, 0.4);
-// [IMP-1] Light theme constants — hoisted чтобы не аллоцировать 120 раз/сек в useFrame
-const LIGHT_C1 = new THREE.Color('#a78bfa');
-const LIGHT_C2 = new THREE.Color('#818cf8');
+// Целевые цвета — ленивая инициализация (THREE загружается динамически)
+let targetColor1, targetColor2, LIGHT_C1, LIGHT_C2;
+function ensureColors() {
+  if (!targetColor1 && THREE) {
+    targetColor1 = new THREE.Color().setHSL(0.22, 0.7, 0.45);
+    targetColor2 = new THREE.Color().setHSL(0.52, 0.6, 0.4);
+    LIGHT_C1 = new THREE.Color('#a78bfa');
+    LIGHT_C2 = new THREE.Color('#818cf8');
+  }
+}
 // Дефолтные цвета (иммутабельные копии)
 const DEFAULT_C1_H = 0.22, DEFAULT_C1_S = 0.7, DEFAULT_C1_L = 0.45;
 const DEFAULT_C2_H = 0.52, DEFAULT_C2_S = 0.6, DEFAULT_C2_L = 0.4;
 
 function MetaballScene({ ambientHue, subtle, contentActive, theme }) {
+  ensureColors();
   const meshRef = useRef();
   const { size } = useThree();
 
