@@ -405,11 +405,17 @@ export const useChatStore = create((set, get) => ({
   },
 
   // Обновить аватар пользователя во всех чатах
-  updateUserAvatar: (userId, avatar) => {
+  updateUserAvatar: (userId, avatar, updatedAt) => {
     set((state) => ({
       chats: state.chats.map((chat) => {
         if (chat.otherUser?.id === userId) {
-          return { ...chat, otherUser: { ...chat.otherUser, avatar } };
+          return { ...chat, otherUser: { ...chat.otherUser, avatar, ...(updatedAt ? { updatedAt } : {}) } };
+        }
+        if (chat.members) {
+          const updated = chat.members.map(m =>
+            m.id === userId ? { ...m, avatar, ...(updatedAt ? { updatedAt } : {}) } : m
+          );
+          if (updated !== chat.members) return { ...chat, members: updated };
         }
         return chat;
       }),

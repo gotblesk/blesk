@@ -180,7 +180,6 @@ function VoiceMessage({ src }) {
         ref={audioRef}
         src={src}
         preload="metadata"
-        crossOrigin="anonymous"
         onEnded={handleEnded}
         onLoadedMetadata={handleLoaded}
         onError={() => setAudioError(true)}

@@ -299,9 +299,9 @@ export function useSocket() {
 
     // Обновление аватара пользователя (профиль изменён)
     const handleUserUpdated = (data) => {
-      const { userId: uid, avatar } = data;
+      const { userId: uid, avatar, updatedAt } = data;
       if (uid && avatar) {
-        useChatStore.getState().updateUserAvatar(uid, avatar);
+        useChatStore.getState().updateUserAvatar(uid, avatar, updatedAt);
       }
     };
 

@@ -149,12 +149,18 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
         credentials: 'include',
         body: formData,
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        let errMsg = 'Не удалось загрузить файл';
+        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
+        throw new Error(errMsg);
+      }
       const data = await res.json();
       if (data.message) useChannelStore.getState().receivePost(data.message);
-    } catch { /* ignore */ }
+    } catch (err) {
+      showPostError(err?.message || 'Ошибка сети при загрузке файла');
+    }
     if (fileRef.current) fileRef.current.value = '';
-  }, [channelId]);
+  }, [channelId, showPostError]);
 
   // Upload channel avatar
   const handleAvatarUpload = useCallback(async (e) => {

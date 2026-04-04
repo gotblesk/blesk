@@ -80,7 +80,20 @@ export function useVoice(socketRef) {
       },
     };
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      // Если сохранённое устройство недоступно — попробовать дефолтное
+      if (inputDeviceId && err.name === 'OverconstrainedError') {
+        console.warn('[blesk] Saved input device unavailable, falling back to default');
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation, noiseSuppression, autoGainControl: true, sampleRate: 48000 },
+        });
+      } else {
+        throw err;
+      }
+    }
     localStreamRef.current = stream;
     return stream;
   }, [echoCancellation, noiseSuppression, inputDeviceId]);
@@ -358,6 +371,8 @@ export function useVoice(socketRef) {
         if (response.error) {
           console.error('voice:join error:', response.error);
           stream.getTracks().forEach((t) => t.stop());
+          localStreamRef.current = null;
+          useVoiceStore.getState().setMediaError(response.error);
           return;
         }
 

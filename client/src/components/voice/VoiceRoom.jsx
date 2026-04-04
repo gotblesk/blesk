@@ -411,7 +411,7 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
   const stageMode = useMemo(() => {
     if (screenEntries.length > 0) return 'stream';
     if (hasVideo) return 'video';
-    if (count <= 1) return 'waiting';
+    if (count === 0) return 'waiting';
     return 'voice';
   }, [screenEntries.length, hasVideo, count]);
 

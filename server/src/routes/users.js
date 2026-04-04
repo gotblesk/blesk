@@ -177,7 +177,7 @@ router.post('/me/avatar', authenticate, avatarUpload.single('avatar'), async (re
         select: { roomId: true },
       });
       for (const p of participations) {
-        io.to(p.roomId).emit('user:updated', { userId: req.userId, avatar: filename });
+        io.to(p.roomId).emit('user:updated', { userId: req.userId, avatar: filename, updatedAt: new Date().toISOString() });
       }
     }
 

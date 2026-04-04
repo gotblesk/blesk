@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChatCircleDots, Microphone, UsersThree } from '@phosphor-icons/react';
+import { X, Megaphone } from '@phosphor-icons/react';
 import { useChannelStore } from '../../store/channelStore';
 import './CreateChannelModal.css';
 
@@ -10,23 +10,17 @@ const CATEGORIES = [
   { key: 'music', label: 'Музыка', color: '#ec4899' },
   { key: 'tech', label: 'Технологии', color: '#06b6d4' },
   { key: 'art', label: 'Творчество', color: '#f59e0b' },
+  { key: 'news', label: 'Новости', color: '#10b981' },
+  { key: 'other', label: 'Другое', color: '#9ca3af' },
 ];
 
 const STEP_SIZES = [
-  { width: 360, height: 300 },
-  { width: 420, height: 450 },
-  { width: 420, height: 380 },
-];
-
-const TYPE_OPTIONS = [
-  { key: 'text', icon: ChatCircleDots, label: 'Текстовый', hint: 'Для обсуждений и медиа' },
-  { key: 'voice', icon: Microphone, label: 'Голосовой', hint: 'Общение голосом' },
-  { key: 'friends', icon: UsersThree, label: 'Для друзей', hint: 'Приватная группа' },
+  { width: 420, height: 400 },
+  { width: 420, height: 350 },
 ];
 
 export default function CreateChannelModal({ onClose, onCreated }) {
   const [step, setStep] = useState(0);
-  const [type, setType] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('general');
@@ -61,8 +55,7 @@ export default function CreateChannelModal({ onClose, onCreated }) {
   }, []);
 
   const handleNext = () => {
-    if (step === 0 && !type) return;
-    if (step === 1) {
+    if (step === 0) {
       if (!name.trim() || name.trim().length < 2) {
         setError(name.trim().length < 2 ? 'Минимум 2 символа' : 'Введите название');
         return;
@@ -94,32 +87,10 @@ export default function CreateChannelModal({ onClose, onCreated }) {
     }
   };
 
-  const renderStepType = () => (
+  const renderStepInfo = () => (
     <div className="ccw__step">
       <h2 className="ccw__title">Создать канал</h2>
-      <p className="ccw__subtitle">Выберите тип канала</p>
-      <div className="ccw__types">
-        {TYPE_OPTIONS.map((opt) => {
-          const Icon = opt.icon;
-          return (
-            <button
-              key={opt.key}
-              className={`ccw__type ${type === opt.key ? 'ccw__type--active' : ''}`}
-              onClick={() => setType(opt.key)}
-            >
-              <Icon size={28} weight={type === opt.key ? 'fill' : 'regular'} />
-              <span className="ccw__type-label">{opt.label}</span>
-              <span className="ccw__type-hint">{opt.hint}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const renderStepSettings = () => (
-    <div className="ccw__step">
-      <h2 className="ccw__title">Настройки</h2>
+      <p className="ccw__subtitle">Канал для публикации постов подписчикам</p>
       <div className="ccw__field">
         <label className="ccw__label">Название</label>
         <div className="ccw__field-wrap">
@@ -148,6 +119,24 @@ export default function CreateChannelModal({ onClose, onCreated }) {
           <span className="ccw__counter">{description.length}/300</span>
         </div>
       </div>
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            className="ccw__error"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
+  const renderStepSettings = () => (
+    <div className="ccw__step">
+      <h2 className="ccw__title">Настройки канала</h2>
       <div className="ccw__field">
         <label className="ccw__label">Категория</label>
         <div className="ccw__cats">
@@ -164,6 +153,13 @@ export default function CreateChannelModal({ onClose, onCreated }) {
           ))}
         </div>
       </div>
+      <div className="ccw__preview">
+        <div className="ccw__preview-icon">
+          <Megaphone size={40} weight="fill" />
+        </div>
+        <span className="ccw__preview-name">{name || 'Без названия'}</span>
+        {description && <span className="ccw__preview-desc">{description}</span>}
+      </div>
       <AnimatePresence>
         {error && (
           <motion.div
@@ -178,39 +174,6 @@ export default function CreateChannelModal({ onClose, onCreated }) {
       </AnimatePresence>
     </div>
   );
-
-  const renderStepPreview = () => {
-    const matched = TYPE_OPTIONS.find((o) => o.key === type);
-    const Icon = matched ? matched.icon : ChatCircleDots;
-    const typeLabel = matched
-      ? (type === 'text' ? 'Текстовый канал' : type === 'voice' ? 'Голосовой канал' : 'Для друзей')
-      : '';
-    return (
-      <div className="ccw__step">
-        <h2 className="ccw__title">Почти готово!</h2>
-        <div className="ccw__preview">
-          <div className="ccw__preview-icon">
-            <Icon size={40} weight="fill" />
-          </div>
-          <span className="ccw__preview-name">{name || 'Без названия'}</span>
-          <span className="ccw__preview-type">{typeLabel}</span>
-          {description && <span className="ccw__preview-desc">{description}</span>}
-        </div>
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              className="ccw__error"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  };
 
   return (
     <>
@@ -257,7 +220,7 @@ export default function CreateChannelModal({ onClose, onCreated }) {
           <div className="ccw__inner">
             <div className="ccw__head">
               <div className="ccw__progress">
-                {[0, 1, 2].map((i) => (
+                {[0, 1].map((i) => (
                   <span key={i} className={`ccw__dot ${step === i ? 'ccw__dot--active' : step > i ? 'ccw__dot--done' : ''}`} />
                 ))}
               </div>
@@ -282,9 +245,8 @@ export default function CreateChannelModal({ onClose, onCreated }) {
                   transition={{ duration: 0.15 }}
                   className="ccw__content"
                 >
-                  {step === 0 && renderStepType()}
+                  {step === 0 && renderStepInfo()}
                   {step === 1 && renderStepSettings()}
-                  {step === 2 && renderStepPreview()}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -297,11 +259,10 @@ export default function CreateChannelModal({ onClose, onCreated }) {
               ) : (
                 <span />
               )}
-              {step < 2 ? (
+              {step < 1 ? (
                 <button
                   className="ccw__btn ccw__btn--next"
                   onClick={handleNext}
-                  disabled={step === 0 && !type}
                 >
                   Далее
                 </button>
