@@ -9,7 +9,7 @@ export default defineConfig({
     host: '127.0.0.1',
   },
   esbuild: {
-    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+    // drop console disabled — causes TDZ in production builds
   },
   build: {
     target: 'chrome108',
