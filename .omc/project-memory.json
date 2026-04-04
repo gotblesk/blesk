@@ -383,6 +383,12 @@
       "type": "directory"
     },
     {
+      "path": "client\\vite.config.js",
+      "accessCount": 12,
+      "lastAccessed": 1775320026285,
+      "type": "file"
+    },
+    {
       "path": "client\\src\\components\\ContentArea\\Placeholder.jsx",
       "accessCount": 11,
       "lastAccessed": 1775301391018,
@@ -398,12 +404,6 @@
       "path": "server\\package.json",
       "accessCount": 11,
       "lastAccessed": 1775309241195,
-      "type": "file"
-    },
-    {
-      "path": "client\\vite.config.js",
-      "accessCount": 10,
-      "lastAccessed": 1775301455697,
       "type": "file"
     },
     {

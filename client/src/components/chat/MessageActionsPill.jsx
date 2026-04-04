@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowBendUpLeft, ArrowBendUpRight, SmileySticker, PencilSimple, Trash, PushPin } from '@phosphor-icons/react';
-// import ReactionPicker from './ReactionPicker';
+import ReactionPicker from './ReactionPicker';
 import './MessageActionsPill.css';
 
 export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onDelete, onForward, onPin }) {
@@ -55,7 +55,16 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
         style={{ left: pos.x, top: pos.y }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ReactionPicker temporarily disabled */}
+        {emojiOpen && (
+          <ReactionPicker
+            onReact={(emoji) => {
+              setOpen(false);
+              setEmojiOpen(false);
+              onReact?.(emoji);
+            }}
+            onClose={() => setEmojiOpen(false)}
+          />
+        )}
         <div className="msg-actions-pill__actions">
           <button className="msg-actions-pill__btn" onClick={handleAction(onReply)} title="Ответить">
             <ArrowBendUpLeft />
