@@ -17,14 +17,20 @@ export default function TitleBar() {
     isDragging.current = true;
     window.blesk?.window.startDrag(e.screenX - window.screenX, e.screenY - window.screenY);
 
+    let rafId = null;
     const handleMouseMove = (ev) => {
-      if (isDragging.current) {
-        window.blesk?.window.dragging(ev.screenX, ev.screenY);
-      }
+      if (!isDragging.current) return;
+      const sx = ev.screenX, sy = ev.screenY;
+      if (rafId) return; // throttle to 1 per frame
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (isDragging.current) window.blesk?.window.dragging(sx, sy);
+      });
     };
 
     const handleMouseUp = () => {
       isDragging.current = false;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
       window.blesk?.window.stopDrag();
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
