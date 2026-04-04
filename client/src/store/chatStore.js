@@ -134,6 +134,14 @@ export const useChatStore = create((set, get) => ({
 
     try {
       const res = await fetch(`${API_URL}/api/chats/${chatId}/messages?limit=200`, { headers: getHeaders(), credentials: 'include' });
+      if (res.status === 403) {
+        // Чат удалён или нет доступа — убираем из списка
+        set((state) => ({
+          chats: state.chats.filter(c => c.id !== chatId),
+          activeChats: new Set([...state.activeChats].filter(id => id !== chatId)),
+        }));
+        return;
+      }
       if (!res.ok) throw new Error();
       const msgs = await res.json();
 

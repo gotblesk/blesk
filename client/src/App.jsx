@@ -17,6 +17,18 @@ import API_URL from './config';
 
 const MetaballFilter = React.lazy(() => import('./components/ui/MetaballFilter'));
 
+// Очистка stale кэша при смене мажорной версии
+const CACHE_VERSION = '1.3';
+(function checkCacheVersion() {
+  const saved = localStorage.getItem('blesk-cache-version');
+  if (saved !== CACHE_VERSION) {
+    // Удалить кэшированные данные чатов из IndexedDB
+    try { indexedDB.deleteDatabase('blesk-msg-cache'); } catch {}
+    localStorage.removeItem('blesk-chats');
+    localStorage.setItem('blesk-cache-version', CACHE_VERSION);
+  }
+})();
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [transition, setTransition] = useState(null); // 'collapsing' | 'revealing'
