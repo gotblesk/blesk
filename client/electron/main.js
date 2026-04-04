@@ -200,18 +200,8 @@ function createMainWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  // DevTools: F12 для диагностики (production)
-  // После отладки раскомментировать блокировку ниже
-  // if (!isDev) {
-  //   mainWindow.webContents.on('before-input-event', (event, input) => {
-  //     if (input.key === 'F12' || (input.control && input.shift && (input.key === 'I' || input.key === 'J'))) {
-  //       event.preventDefault();
-  //     }
-  //   });
-  //   mainWindow.webContents.on('devtools-opened', () => {
-  //     mainWindow.webContents.closeDevTools();
-  //   });
-  // }
+  // DevTools: временно открываем для диагностики TDZ
+  mainWindow.webContents.openDevTools({ mode: 'detach' });
 }
 
 // Плавный переход: сплеш "расширяется" (CSS) → основное окно появляется
