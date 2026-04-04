@@ -392,7 +392,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
 
               <AnimatePresence>
                 {postError && (
-                  <motion.div className="cv__composer-error" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                  <motion.div className="cv__composer-error" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} role="alert" aria-live="polite">
                     {postError}
                   </motion.div>
                 )}

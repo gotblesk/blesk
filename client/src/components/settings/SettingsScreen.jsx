@@ -178,6 +178,27 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
     localStorage.setItem('blesk_settings_tab', id);
   };
 
+  const handleTabKeyDown = useCallback((e) => {
+    const tabEls = [...e.currentTarget.querySelectorAll('[role="tab"]')];
+    const current = tabEls.indexOf(e.target);
+    if (current === -1) return;
+
+    let next;
+    if (e.key === 'ArrowDown') {
+      next = (current + 1) % tabEls.length;
+    } else if (e.key === 'ArrowUp') {
+      next = (current - 1 + tabEls.length) % tabEls.length;
+    } else if (e.key === 'Home') {
+      next = 0;
+    } else if (e.key === 'End') {
+      next = tabEls.length - 1;
+    } else return;
+
+    e.preventDefault();
+    tabEls[next].focus();
+    tabEls[next].click();
+  }, []);
+
   const activeTabData = TABS.find(t => t.id === tab);
 
   return (
@@ -216,7 +237,7 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
           >
             {/* ═══ LEFT: Navigation Rail ═══ */}
             <nav className="stg-rail">
-              <div className="stg-rail__top">
+              <div className="stg-rail__top" role="tablist" aria-orientation="vertical" onKeyDown={handleTabKeyDown}>
                 {TABS.map((t, i) => {
                   const Icon = t.icon;
                   const isActive = tab === t.id;
@@ -230,6 +251,9 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
                         whileHover={{ scale: 1.08 }}
                         whileTap={{ scale: 0.92 }}
                         title={t.label}
+                        role="tab"
+                        aria-selected={isActive}
+                        tabIndex={isActive ? 0 : -1}
                       >
                         {isActive && (
                           <motion.div

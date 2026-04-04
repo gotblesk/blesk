@@ -2,13 +2,17 @@ import { useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import SidebarCollapsed from './SidebarCollapsed';
 import SidebarNormal from './SidebarNormal';
+import { useUIStore } from '../../store/uiStore';
 import './Sidebar.css';
 
 // Ширины сайдбара в двух состояниях
 const WIDTH_NORMAL = 320;
 const WIDTH_COLLAPSED = 72;
 
-export default function Sidebar({ collapsed, activeTab, activeChatId, onSelectChat, onOpenChat }) {
+export default function Sidebar({ onSelectChat, onOpenChat }) {
+  const collapsed = useUIStore(s => s.sidebarCollapsed);
+  const activeTab = useUIStore(s => s.activeTab);
+  const activeChatId = useUIStore(s => s.activeChatId);
   const sidebarRef = useRef(null);
   const prevCollapsed = useRef(collapsed);
 

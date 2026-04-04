@@ -69,6 +69,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           onClick={toggleMute}
           title={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
           aria-label={isMuted ? 'Включить микрофон' : 'Выключить микрофон'}
+          aria-pressed={isMuted}
         >
           {isMuted ? <MicrophoneSlash size={17} /> : <Microphone size={17} />}
         </button>
@@ -79,6 +80,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           onClick={toggleDeafen}
           title={isDeafened ? 'Включить звук' : 'Выключить звук'}
           aria-label={isDeafened ? 'Включить звук' : 'Выключить звук'}
+          aria-pressed={isDeafened}
         >
           {isDeafened ? <SpeakerSlash size={17} /> : <Headphones size={17} />}
         </button>
@@ -91,6 +93,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           onClick={onCameraToggle}
           title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
           aria-label={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
+          aria-pressed={cameraOn}
         >
           {cameraOn ? <VideoCamera size={17} /> : <VideoCameraSlash size={17} />}
         </button>
@@ -101,6 +104,7 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
           onClick={onScreenShareToggle}
           title={screenShareOn ? 'Остановить показ экрана' : 'Показать экран'}
           aria-label={screenShareOn ? 'Остановить показ экрана' : 'Показать экран'}
+          aria-pressed={screenShareOn}
         >
           {screenShareOn ? <MonitorArrowUp size={17} /> : <Monitor size={17} />}
         </button>

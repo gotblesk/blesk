@@ -2,7 +2,7 @@
 
 .chat-message {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   max-width: min(65%, 600px);
   min-width: 0;
   margin-bottom: 6px;
@@ -15,10 +15,10 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .chat-message {
-    animation: msgAppearOther 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation: msgAppearOther 0.15s ease-out both;
   }
   .chat-message--own {
-    animation: msgAppearOwn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation: msgAppearOwn 0.15s ease-out both;
   }
 }
 
@@ -56,7 +56,7 @@
 
 /* ===== Sender name ===== */
 .chat-message__name {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   padding-left: var(--space-3);
   margin-bottom: 1px;
@@ -69,7 +69,7 @@
 
 /* ===== Time ===== */
 .chat-message__time {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: rgba(255,255,255,0.45);
   padding: 1px var(--space-3);
 }
@@ -109,7 +109,7 @@
 /* ===== Bubble Inner Layer ===== */
 .chat-message__bubble-inner {
   padding: var(--space-3) var(--space-4);
-  font-size: 15px;
+  font-size: var(--text-base);
   line-height: 1.5;
   /* NO backdrop-filter — performance fix (outer layer handles the single blur) */
   position: relative;
@@ -192,14 +192,14 @@
   background: rgba(239,68,68,0.06) !important;
 }
 .chat-message--failed .chat-message__time {
-  color: #ef4444 !important;
+  color: var(--danger) !important;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .chat-message__failed-icon {
-  color: #ef4444;
+  color: var(--danger);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -222,34 +222,8 @@
 .chat-message--emoji-3 .chat-message__emoji { font-size: 28px; line-height: 1.2; }
 
 .chat-message--emoji-only .chat-message__emoji {
-  animation: emojiExplode 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: emojiAppear 0.15s ease-out both;
 }
-
-/* Emoji explosion particles */
-.chat-message__emoji-particles {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.chat-message__particle {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--accent, #c8ff00);
-  top: 50%;
-  left: 50%;
-  animation: emojiParticle 0.8s ease-out forwards;
-}
-
-.chat-message__particle:nth-child(1) { --px: -20px; --py: -25px; animation-delay: 0s; }
-.chat-message__particle:nth-child(2) { --px: 22px; --py: -18px; animation-delay: 0.05s; }
-.chat-message__particle:nth-child(3) { --px: -15px; --py: 20px; animation-delay: 0.1s; }
-.chat-message__particle:nth-child(4) { --px: 18px; --py: 22px; animation-delay: 0.15s; }
-.chat-message__particle:nth-child(5) { --px: -25px; --py: 5px; animation-delay: 0.08s; }
-.chat-message__particle:nth-child(6) { --px: 20px; --py: -10px; animation-delay: 0.12s; }
 
 /* ===== Reply quote inside bubble ===== */
 .chat-message__reply-quote {
@@ -277,13 +251,13 @@
 }
 
 .chat-message__reply-name {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   color: var(--reply-hue-color, #c8ff00);
 }
 
 .chat-message__reply-text {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: rgba(255,255,255,0.4);
   white-space: nowrap;
   overflow: hidden;
@@ -302,27 +276,6 @@
   z-index: 2;
 }
 
-.chat-message__read-icon--animate {
-  animation: readPulse 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes readPulse {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.35); }
-  70% { transform: scale(0.95); }
-  100% { transform: scale(1); }
-}
-
-@keyframes readGlow {
-  0% { box-shadow: 0 0 0 0 rgba(200,255,0,0.15); }
-  50% { box-shadow: 0 0 8px 2px rgba(200,255,0,0.08); }
-  100% { box-shadow: 0 0 0 0 rgba(200,255,0,0); }
-}
-
-.chat-message__bubble-outer--read-glow {
-  animation: readGlow 0.6s ease-out;
-}
-
 /* ===== Highlighted (scroll-to-original) — box-shadow only, no layout shift ===== */
 .chat-message--highlighted .chat-message__bubble-outer {
   box-shadow: 0 0 0 2px rgba(200,255,0,0.35), 0 0 20px rgba(200,255,0,0.1);
@@ -333,7 +286,7 @@
 .chat-message--system {
   align-self: center;
   max-width: 80%;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   text-align: center;
   margin: var(--space-5) 0;
@@ -346,36 +299,18 @@
 
 /* ===== Animations ===== */
 @keyframes msgAppearOwn {
-  from { opacity: 0; transform: translateY(10px) translateX(6px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) translateX(0) scale(1); }
+  from { opacity: 0; transform: translateX(6px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes msgAppearOther {
-  from { opacity: 0; transform: translateX(-10px) scale(0.97); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
-@keyframes emojiExplode {
-  0% { transform: scale(0.3); opacity: 0; }
-  50% { transform: scale(1.3); }
-  70% { transform: scale(0.95); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes emojiParticle {
-  0% { opacity: 0; transform: translate(0,0) scale(0); }
-  20% { opacity: 0.8; transform: scale(1); }
-  100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0.3); }
-}
-
-@keyframes readSweep {
-  0% { transform: translateX(-100%); opacity: 1; }
-  100% { transform: translateX(100%); opacity: 0; }
-}
-
-@keyframes readIconAppear {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+@keyframes emojiAppear {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes highlightPulse {
@@ -385,21 +320,10 @@
 
 /* ===== Reduced motion ===== */
 @media (prefers-reduced-motion: reduce) {
-  .chat-message {
-    animation: fadeIn 0.2s ease both;
-  }
-
+  .chat-message,
   .chat-message--emoji-only .chat-message__emoji {
-    animation: fadeIn 0.2s ease both;
-  }
-
-  .chat-message__particle { display: none; }
-
-  .chat-message__bubble-outer--read-glow::after { display: none; }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    animation: none;
+    opacity: 1;
   }
 }
 
@@ -510,7 +434,7 @@
   -webkit-backdrop-filter: none;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.15s;
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1;
 }
 
@@ -531,12 +455,12 @@
 }
 
 .chat-message__reaction-emoji {
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
 }
 
 .chat-message__reaction-count {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   color: rgba(255,255,255,0.5);
 }
@@ -585,7 +509,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 6px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
   background: rgba(14, 12, 24, 0.85);
   backdrop-filter: blur(16px);
@@ -610,7 +534,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: var(--text-md);
   line-height: 1;
   cursor: pointer;
   transition: background 0.12s ease, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -630,7 +554,7 @@
 /* "+" more button — icon style */
 .reaction-bar__more {
   color: rgba(255, 255, 255, 0.4);
-  font-size: 13px;
+  font-size: var(--text-xs);
   border-left: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
   width: 26px;

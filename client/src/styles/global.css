@@ -176,6 +176,10 @@
   --duration-normal: 250ms;     /* hover, toggles */
   --duration-fluid: 400ms;      /* панели, модалки, glass transitions */
   --duration-slow: 600ms;       /* морфинг, page transitions */
+
+  /* Solid surfaces (no blur) — для контраста с glass, 30% элементов */
+  --surface-solid: rgba(18, 16, 28, 0.95);
+  --surface-solid-light: rgba(255, 255, 255, 0.92);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -278,6 +282,10 @@
   --glare-color: rgba(0, 0, 0, 0.03);
   --edit-color: #d97706;
   --glass-bg-solid: rgba(255, 255, 255, 0.97);
+
+  /* Solid surfaces — светлая тема */
+  --surface-solid: rgba(255, 255, 255, 0.95);
+  --surface-solid-light: rgba(245, 245, 250, 0.95);
 }
 
 /* Анимация смены темы — плавный переход конкретных свойств */

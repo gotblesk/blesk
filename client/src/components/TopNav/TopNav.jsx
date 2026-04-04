@@ -3,6 +3,7 @@ import { ChatCircleDots, Microphone, Megaphone, UsersThree, MagnifyingGlass, Bel
 import { AnimatePresence, motion } from 'framer-motion';
 import { useChatStore } from '../../store/chatStore';
 import { useNotificationStore } from '../../store/notificationStore';
+import { useUIStore } from '../../store/uiStore';
 import Avatar from '../ui/Avatar';
 import SegmentedCircle from '../profile/SegmentedCircle';
 import NotificationsPanel from './NotificationsPanel';
@@ -20,11 +21,38 @@ const ADMIN_TAB = { id: 'admin', label: 'Админ', Icon: ShieldCheck };
 
 const STATUS_LABELS = { online: 'В сети', dnd: 'Не беспокоить', invisible: 'Невидимка' };
 
-export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, onSearch, onSettings, onOpenChat, isAdmin, user, onLogout, onNavigate, onStatusChange }) {
+export default memo(function TopNav({ onOpenChat, isAdmin, user, onLogout, onNavigate, onStatusChange }) {
+  const activeTab = useUIStore(s => s.activeTab);
+  const setActiveTab = useUIStore(s => s.setActiveTab);
+  const toggleSidebar = useUIStore(s => s.toggleSidebar);
+  const setSettingsOpen = useUIStore(s => s.setSettingsOpen);
+  const setSpotlightOpen = useUIStore(s => s.setSpotlightOpen);
+
   const totalUnread = useChatStore(s => s.chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0));
   const isConnected = useChatStore(s => s.isConnected);
   const unreadNotifs = useNotificationStore(s => s.unreadCount);
   const tabs = useMemo(() => isAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS, [isAdmin]);
+
+  const handleTabKeyDown = useCallback((e) => {
+    const tabEls = [...e.currentTarget.querySelectorAll('[role="tab"]')];
+    const current = tabEls.indexOf(e.target);
+    if (current === -1) return;
+
+    let next;
+    if (e.key === 'ArrowRight') {
+      next = (current + 1) % tabEls.length;
+    } else if (e.key === 'ArrowLeft') {
+      next = (current - 1 + tabEls.length) % tabEls.length;
+    } else if (e.key === 'Home') {
+      next = 0;
+    } else if (e.key === 'End') {
+      next = tabEls.length - 1;
+    } else return;
+
+    e.preventDefault();
+    tabEls[next].focus();
+    tabEls[next].click();
+  }, []);
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -66,11 +94,11 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
       <div className="top-nav__drag" />
 
       <div className="top-nav__left">
-        <button className="top-nav__toggle" onClick={onToggleSidebar} title="Sidebar" aria-label="Переключить боковую панель">
+        <button className="top-nav__toggle" onClick={toggleSidebar} title="Sidebar" aria-label="Переключить боковую панель">
           <List size={20} />
         </button>
 
-        <div className="top-nav__tabs" role="tablist">
+        <div className="top-nav__tabs" role="tablist" onKeyDown={handleTabKeyDown}>
           {tabs.map(tab => {
             const isActive = activeTab === tab.id;
             const showBadge = tab.id === 'chats' && totalUnread > 0;
@@ -81,7 +109,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
                 aria-selected={isActive}
                 tabIndex={isActive ? 0 : -1}
                 className={`top-nav__tab ${isActive ? 'top-nav__tab--active' : ''}`}
-                onClick={() => onTabChange(tab.id)}
+                onClick={() => setActiveTab(tab.id)}
               >
                 <tab.Icon size={17} weight={isActive ? 'fill' : 'regular'} />
                 <span>{tab.label}</span>
@@ -93,14 +121,14 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
       </div>
 
       <div className="top-nav__right">
-        <button className="top-nav__action" onClick={onSearch} title="Поиск (Ctrl+K)" aria-label="Поиск">
+        <button className="top-nav__action" onClick={() => setSpotlightOpen(true)} title="Поиск (Ctrl+K)" aria-label="Поиск">
           <MagnifyingGlass size={18} />
         </button>
         <button className="top-nav__action top-nav__action--notif" onClick={handleNotifToggle} title="Уведомления" aria-label="Уведомления">
           <Bell size={18} />
           {unreadNotifs > 0 && <span className="top-nav__notif-dot" aria-live="polite" role="status">{unreadNotifs}</span>}
         </button>
-        <button className="top-nav__action" onClick={onSettings} title="Настройки" aria-label="Настройки">
+        <button className="top-nav__action" onClick={() => setSettingsOpen(true)} title="Настройки" aria-label="Настройки">
           <GearSix size={18} />
         </button>
 
@@ -139,7 +167,7 @@ export default memo(function TopNav({ activeTab, onTabChange, onToggleSidebar, o
                     <User size={16} />
                     <span>Профиль</span>
                   </button>
-                  <button className="um__item" onClick={() => { setUserMenuOpen(false); onSettings?.(); }}>
+                  <button className="um__item" onClick={() => { setUserMenuOpen(false); setSettingsOpen(true); }}>
                     <GearSix size={16} />
                     <span>Настройки</span>
                   </button>

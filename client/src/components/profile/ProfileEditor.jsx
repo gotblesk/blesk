@@ -350,8 +350,10 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
                 onChange={e => setNickname(e.target.value.slice(0, 32))}
                 placeholder="Никнейм"
                 maxLength={32}
+                aria-invalid={!!nickError}
+                aria-describedby={nickError ? 'nick-error' : undefined}
               />
-              {nickError && <span className="peditor__err">{nickError}</span>}
+              {nickError && <span className="peditor__err" id="nick-error">{nickError}</span>}
             </div>
 
             {/* Email */}
@@ -551,7 +553,7 @@ function PwInput({ value, onChange, show, toggle, placeholder }) {
   return (
     <div className="peditor__pw-wrap">
       <input className="peditor__cell-input" type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} onClick={e => e.stopPropagation()} />
-      <button className="peditor__eye" onClick={e => { e.stopPropagation(); toggle(); }} type="button" tabIndex={-1}>
+      <button className="peditor__eye" onClick={e => { e.stopPropagation(); toggle(); }} type="button" tabIndex={-1} aria-pressed={show} aria-label={show ? 'Скрыть пароль' : 'Показать пароль'}>
         {show ? <EyeSlash size={13} weight="regular" /> : <Eye size={13} weight="regular" />}
       </button>
     </div>

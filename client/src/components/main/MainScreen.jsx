@@ -1,32 +1,35 @@
-import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
+import { useState, useCallback, useEffect, useMemo, memo, lazy, Suspense } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
-import MetaballBackground from '../ui/MetaballBackground';
+// Eager imports — всегда видимые компоненты
 import AppShell from '../AppShell/AppShell';
 import TopNav from '../TopNav/TopNav';
 import Sidebar from '../Sidebar/Sidebar';
 import ContentArea from '../ContentArea/ContentArea';
 import ChatView from '../chat/ChatView';
-import OrbitPanel from '../panels/OrbitPanel';
-import VibeMeter from '../panels/VibeMeter';
-import AboutScreen from '../settings/AboutScreen';
-import FeedbackScreen from '../settings/FeedbackScreen';
-import SettingsScreen from '../settings/SettingsScreen';
-import ProfileEditor from '../profile/ProfileEditor';
-import ProfilePopover from '../profile/ProfilePopover';
 import FriendsScreen from '../friends/FriendsScreen';
 import VoiceRoomList from '../voice/VoiceRoomList';
 import VoiceRoom from '../voice/VoiceRoom';
 import VoiceControls from '../voice/VoiceControls';
-import IncomingCallOverlay from '../voice/IncomingCallOverlay';
-import CallScreen from '../voice/CallScreen';
 import ChannelBrowser from '../channels/ChannelBrowser';
 import ChannelView from '../channels/ChannelView';
-import AdminPanel from '../admin/AdminPanel';
 import UpdateBanner from '../ui/UpdateBanner';
 import SpotlightSearch from '../ui/SpotlightSearch';
 import ErrorBoundary from '../ui/ErrorBoundary';
+
+// Lazy imports — условные/тяжёлые компоненты
+const MetaballBackground = lazy(() => import('../ui/MetaballBackground'));
+const OrbitPanel = lazy(() => import('../panels/OrbitPanel'));
+const VibeMeter = lazy(() => import('../panels/VibeMeter'));
+const AboutScreen = lazy(() => import('../settings/AboutScreen'));
+const FeedbackScreen = lazy(() => import('../settings/FeedbackScreen'));
+const SettingsScreen = lazy(() => import('../settings/SettingsScreen'));
+const ProfileEditor = lazy(() => import('../profile/ProfileEditor'));
+const ProfilePopover = lazy(() => import('../profile/ProfilePopover'));
+const IncomingCallOverlay = lazy(() => import('../voice/IncomingCallOverlay'));
+const CallScreen = lazy(() => import('../voice/CallScreen'));
+const AdminPanel = lazy(() => import('../admin/AdminPanel'));
 import { soundTabSwitch, soundWindowOpen, soundWindowClose, soundVoiceJoin, soundVoiceLeave, soundRingtoneStop, soundClick } from '../../utils/sounds';
 import { initializeShield } from '../../utils/shieldService';
 import { useSocket } from '../../hooks/useSocket';
@@ -35,6 +38,7 @@ import { useChatStore } from '../../store/chatStore';
 import { useVoiceStore } from '../../store/voiceStore';
 import { useCallStore } from '../../store/callStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useUIStore } from '../../store/uiStore';
 import { useHotkeys } from '../../hooks/useHotkeys';
 import DynamicIsland from '../DynamicIsland/DynamicIsland';
 import { useIslandState } from '../DynamicIsland/useIslandState';
@@ -83,29 +87,42 @@ const OfflineBanner = memo(function OfflineBanner({ lastConnectedAt, visible, on
 });
 
 export default function MainScreen({ user, onLogout, isAdmin }) {
-  // ═══════ CORE STATE ═══════
-  const [activeTab, setActiveTab] = useState('chats');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeChatId, setActiveChatId] = useState(null);
+  // ═══════ UI STATE (Zustand) ═══════
+  const activeTab = useUIStore((s) => s.activeTab);
+  const setActiveTab = useUIStore((s) => s.setActiveTab);
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
+  const activeChatId = useUIStore((s) => s.activeChatId);
+  const setActiveChatId = useUIStore((s) => s.setActiveChatId);
+  const orbitOpen = useUIStore((s) => s.orbitOpen);
+  const setOrbitOpen = useUIStore((s) => s.setOrbitOpen);
+  const vibeOpen = useUIStore((s) => s.vibeOpen);
+  const setVibeOpen = useUIStore((s) => s.setVibeOpen);
+  const aboutOpen = useUIStore((s) => s.aboutOpen);
+  const setAboutOpen = useUIStore((s) => s.setAboutOpen);
+  const feedbackOpen = useUIStore((s) => s.feedbackOpen);
+  const setFeedbackOpen = useUIStore((s) => s.setFeedbackOpen);
+  const editorOpen = useUIStore((s) => s.editorOpen);
+  const setEditorOpen = useUIStore((s) => s.setEditorOpen);
+  const profilePopover = useUIStore((s) => s.profilePopover);
+  const setProfilePopover = useUIStore((s) => s.setProfilePopover);
+  const spotlightOpen = useUIStore((s) => s.spotlightOpen);
+  const setSpotlightOpen = useUIStore((s) => s.setSpotlightOpen);
+  const voiceExpanded = useUIStore((s) => s.voiceExpanded);
+  const setVoiceExpanded = useUIStore((s) => s.setVoiceExpanded);
+  const activeChannelId = useUIStore((s) => s.activeChannelId);
+  const setActiveChannelId = useUIStore((s) => s.setActiveChannelId);
+  const settingsOpen = useUIStore((s) => s.settingsOpen);
+  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
+  const focusMode = useUIStore((s) => s.focusMode);
+  const setFocusMode = useUIStore((s) => s.setFocusMode);
 
-  // Модалки
-  const [orbitOpen, setOrbitOpen] = useState(false);
-  const [vibeOpen, setVibeOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
   // Восстановить сохранённый статус из localStorage при монтировании
   const [currentUser, setCurrentUser] = useState(() => {
     const savedStatus = localStorage.getItem('blesk-user-status');
     if (savedStatus && user) return { ...user, status: savedStatus };
     return user;
   });
-  const [spotlightOpen, setSpotlightOpen] = useState(false);
-  const [voiceExpanded, setVoiceExpanded] = useState(false);
-  const [activeChannelId, setActiveChannelId] = useState(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [focusMode, setFocusMode] = useState(false);
 
   const theme = useSettingsStore((s) => s.theme);
   const socketRef = useSocket();
@@ -188,7 +205,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   }, []);
 
   const handleToggleSidebar = useCallback(() => {
-    setSidebarCollapsed(prev => !prev);
+    useUIStore.getState().toggleSidebar();
   }, []);
 
   // Открыть чат по chatId или найти/создать DM по userId
@@ -316,10 +333,8 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     const handler = (e) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'F') {
         e.preventDefault();
-        setFocusMode((f) => {
-          soundClick();
-          return !f;
-        });
+        soundClick();
+        useUIStore.getState().toggleFocusMode();
       }
       if (e.key === 'Escape' && focusMode) {
         setFocusMode(false);
@@ -331,7 +346,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
 
   // ═══════ HOTKEYS ═══════
   useHotkeys({
-    search: () => setSpotlightOpen(prev => !prev),
+    search: () => useUIStore.getState().setSpotlightOpen(!useUIStore.getState().spotlightOpen),
     tabChats: () => handleTabChange('chats'),
     tabVoice: () => handleTabChange('voice'),
     tabChannels: () => handleTabChange('channels'),
@@ -419,7 +434,11 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
         );
 
       case 'admin':
-        return <AdminPanel onBack={() => handleTabChange('chats')} />;
+        return (
+          <Suspense fallback={null}>
+            <AdminPanel onBack={() => handleTabChange('chats')} />
+          </Suspense>
+        );
 
       default:
         return null;
@@ -431,20 +450,17 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
   // ═══════ RENDER ═══════
   return (
     <main className={`main-screen${focusMode ? ' main-screen--focus' : ''}`}>
-      <MetaballBackground
-        subtle
-        ambientHue={ambientHue}
-        contentActive={activeTab === 'chats' || activeTab === 'friends' || activeTab === 'channels'}
-      />
+      <Suspense fallback={<div className="bg-placeholder" />}>
+        <MetaballBackground
+          subtle
+          ambientHue={ambientHue}
+          contentActive={activeTab === 'chats' || activeTab === 'friends' || activeTab === 'channels'}
+        />
+      </Suspense>
 
       <AppShell
         topNav={
           <TopNav
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            onToggleSidebar={handleToggleSidebar}
-            onSearch={() => setSpotlightOpen(true)}
-            onSettings={() => setSettingsOpen(true)}
             onOpenChat={handleOpenChat}
             isAdmin={isAdmin}
             user={currentUser}
@@ -464,9 +480,6 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
         }
         sidebar={
           <Sidebar
-            collapsed={sidebarCollapsed}
-            activeTab={activeTab}
-            activeChatId={activeChatId}
             onSelectChat={handleSelectChat}
             onOpenChat={handleOpenChat}
           />
@@ -509,37 +522,53 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
       />
 
       {/* ═══════ PANELS ═══════ */}
-      <OrbitPanel open={orbitOpen} onClose={() => setOrbitOpen(false)} onOpenChat={handlePanelOpenChat} />
-      <VibeMeter open={vibeOpen} onClose={() => setVibeOpen(false)} onOpenChat={handlePanelOpenChat} />
+      <Suspense fallback={null}>
+        <OrbitPanel open={orbitOpen} onClose={() => setOrbitOpen(false)} onOpenChat={handlePanelOpenChat} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <VibeMeter open={vibeOpen} onClose={() => setVibeOpen(false)} onOpenChat={handlePanelOpenChat} />
+      </Suspense>
 
       {/* ═══════ MODALS ═══════ */}
-      <SettingsScreen open={settingsOpen} onClose={() => setSettingsOpen(false)} onLogout={onLogout} onFeedback={() => setFeedbackOpen(true)} />
+      <Suspense fallback={null}>
+        <SettingsScreen open={settingsOpen} onClose={() => setSettingsOpen(false)} onLogout={onLogout} onFeedback={() => setFeedbackOpen(true)} />
+      </Suspense>
 
-      <AboutScreen open={aboutOpen} onClose={() => setAboutOpen(false)} />
-      <FeedbackScreen open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
-      <ProfileEditor
-        open={editorOpen}
-        onClose={() => setEditorOpen(false)}
-        user={currentUser}
-        onUserUpdate={(updated) => setCurrentUser(prev => ({ ...prev, ...updated }))}
-      />
-      <ProfilePopover
-        anchorRef={profilePopover.anchorRef}
-        userId={profilePopover.userId}
-        user={currentUser}
-        isOpen={profilePopover.open}
-        onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })}
-        onEdit={() => { setProfilePopover({ open: false, userId: null, anchorRef: null }); setEditorOpen(true); }}
-        onOpenChat={(userId) => handleOpenChat(null, userId)}
-      />
+      <Suspense fallback={null}>
+        <AboutScreen open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <FeedbackScreen open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ProfileEditor
+          open={editorOpen}
+          onClose={() => setEditorOpen(false)}
+          user={currentUser}
+          onUserUpdate={(updated) => setCurrentUser(prev => ({ ...prev, ...updated }))}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ProfilePopover
+          anchorRef={profilePopover.anchorRef}
+          userId={profilePopover.userId}
+          user={currentUser}
+          isOpen={profilePopover.open}
+          onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })}
+          onEdit={() => { setProfilePopover({ open: false, userId: null, anchorRef: null }); setEditorOpen(true); }}
+          onOpenChat={(userId) => handleOpenChat(null, userId)}
+        />
+      </Suspense>
 
       {/* Входящий звонок */}
       {incomingCall && (
-        <IncomingCallOverlay
-          call={incomingCall}
-          onAccept={handleAcceptCall}
-          onDecline={handleDeclineCall}
-        />
+        <Suspense fallback={null}>
+          <IncomingCallOverlay
+            call={incomingCall}
+            onAccept={handleAcceptCall}
+            onDecline={handleDeclineCall}
+          />
+        </Suspense>
       )}
 
       {/* Личный звонок — Call Screen */}
@@ -550,27 +579,29 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
           const otherUserId = callChat.otherUser?.id;
           const remoteStreams = otherUserId ? videoStreams[otherUserId] : null;
           return (
-            <CallScreen
-              key="call-screen"
-              call={activeCall}
-              user={callChat.otherUser}
-              muted={muted}
-              deafened={deafened}
-              cameraOn={cameraOn}
-              onToggleMute={() => useVoiceStore.getState().toggleMute()}
-              onToggleDeafen={() => useVoiceStore.getState().toggleDeafen()}
-              onToggleVideo={() => cameraOn ? disableCamera() : enableCamera()}
-              onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
-              screenShareOn={screenShareOn}
-              localVideoStream={localCameraStream}
-              remoteVideoStream={remoteStreams?.camera || null}
-              remoteScreenStream={remoteStreams?.screen || null}
-              onEndCall={() => {
-                soundVoiceLeave();
-                leaveCall(activeCall.chatId);
-                useCallStore.getState().clearActiveCall();
-              }}
-            />
+            <Suspense fallback={null} key="call-screen-suspense">
+              <CallScreen
+                key="call-screen"
+                call={activeCall}
+                user={callChat.otherUser}
+                muted={muted}
+                deafened={deafened}
+                cameraOn={cameraOn}
+                onToggleMute={() => useVoiceStore.getState().toggleMute()}
+                onToggleDeafen={() => useVoiceStore.getState().toggleDeafen()}
+                onToggleVideo={() => cameraOn ? disableCamera() : enableCamera()}
+                onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
+                screenShareOn={screenShareOn}
+                localVideoStream={localCameraStream}
+                remoteVideoStream={remoteStreams?.camera || null}
+                remoteScreenStream={remoteStreams?.screen || null}
+                onEndCall={() => {
+                  soundVoiceLeave();
+                  leaveCall(activeCall.chatId);
+                  useCallStore.getState().clearActiveCall();
+                }}
+              />
+            </Suspense>
           );
         })()}
       </AnimatePresence>

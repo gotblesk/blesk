@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PushPin, Lock, Checks, PhoneIncoming, PhoneDisconnect, PhoneX, Clock, ArrowClockwise, Plus } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
@@ -46,8 +46,6 @@ const ChatMessage = React.memo(function ChatMessage({
   reactions,
   currentUserId,
 }) {
-  const [readAnimated, setReadAnimated] = useState(false);
-  const prevReadRef = useRef(isRead);
   const [showReactionBar, setShowReactionBar] = useState(false);
 
   const { handleContextMenu, menu: actionsMenu } = useMessageActions({
@@ -58,14 +56,6 @@ const ChatMessage = React.memo(function ChatMessage({
     onDelete: () => onDelete?.(message.id),
     onForward: () => onForward?.(message),
   });
-
-  // Анимация при переходе в "прочитано"
-  useEffect(() => {
-    if (isRead && !prevReadRef.current) {
-      prevReadRef.current = true;
-      setReadAnimated(true);
-    }
-  }, [isRead]);
 
   // Настройки из store
   const bubbleStyle = useSettingsStore((s) => s.chatBubbleStyle);
@@ -120,12 +110,6 @@ const ChatMessage = React.memo(function ChatMessage({
     message.pinned ? 'chat-message--pinned' : '',
     isEmojiOnly ? `chat-message--emoji-only chat-message--emoji-${emojiCount}` : '',
   ].filter(Boolean).join(' ');
-
-  const readGlowClass = isOwn && isRead && readAnimated
-    ? 'chat-message__bubble-outer--read-glow'
-    : '';
-
-  const readIconAnimClass = readAnimated ? 'chat-message__read-icon--animate' : '';
 
   const handleReplyClick = () => {
     if (!message.replyTo?.id) return;
@@ -191,14 +175,9 @@ const ChatMessage = React.memo(function ChatMessage({
         )}
 
         {isEmojiOnly ? (
-          <div style={{ position: 'relative', display: 'inline-block' }}>
-            <div className="chat-message__emoji">{text}</div>
-            <div className="chat-message__emoji-particles">
-              {[...Array(6)].map((_, i) => <div key={i} className="chat-message__particle" />)}
-            </div>
-          </div>
+          <div className="chat-message__emoji">{text}</div>
         ) : (
-          <div className={`chat-message__bubble-outer ${readGlowClass}`}>
+          <div className="chat-message__bubble-outer">
             <div className="chat-message__bubble-inner">
               {replyTo && (
                 <div
@@ -251,7 +230,7 @@ const ChatMessage = React.memo(function ChatMessage({
               )}
 
               {isOwn && isRead && (
-                <Checks size={12} className={`chat-message__read-icon ${readIconAnimClass}`} />
+                <Checks size={12} className="chat-message__read-icon" />
               )}
             </div>
           </div>

@@ -1,7 +1,7 @@
 /* ===== ChatInput — Morph Capsule ===== */
 
 .chat-input-zone {
-  padding: 8px 12px 12px;
+  padding: var(--space-2) var(--space-3) var(--space-3);
   position: relative;
   z-index: 10;
 }
@@ -29,7 +29,7 @@
 .chat-input-compact {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 10px 18px;
   width: clamp(200px, 40%, 320px);
   justify-self: center;
@@ -53,7 +53,7 @@
 
 .chat-input-compact__hint {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: rgba(255,255,255,0.35);
 }
 
@@ -100,35 +100,35 @@
   pointer-events: auto;
 }
 
-/* Outer glass */
+/* Outer — solid surface для контраста с glass-панелями */
 .chat-input__outer {
   flex: 1;
   padding: 3px;
-  background: rgba(255,255,255,0.04);
-  backdrop-filter: blur(40px) saturate(1.4);
-  -webkit-backdrop-filter: blur(40px) saturate(1.4);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--surface-solid, rgba(18, 16, 28, 0.95));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg, 22px);
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   transition: border-color 0.3s, box-shadow 0.3s;
 }
 
 .chat-input__outer--focused {
-  border-color: rgba(200,255,0,0.08);
-  box-shadow: 0 0 20px rgba(200,255,0,0.04);
+  border-color: rgba(200,255,0,0.18);
+  box-shadow: 0 0 20px rgba(200,255,0,0.06);
 }
 
-/* Inner glass */
+/* Inner — solid, без лишнего blur */
 .chat-input__inner {
   display: flex;
   align-items: flex-end;
   gap: 6px;
   padding: 8px 6px 8px 16px;
-  background: rgba(255,255,255,0.05);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--surface-2);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-radius: 21px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid rgba(255,255,255,0.05);
 }
 
 /* Textarea */
@@ -139,7 +139,7 @@
   outline: none;
   color: rgba(255,255,255,0.85);
   font-family: inherit;
-  font-size: 15px;
+  font-size: var(--text-base);
   line-height: 1.5;
   padding: 4px 0;
   resize: none;
@@ -206,7 +206,7 @@
   justify-content: center;
   flex-shrink: 0;
   align-self: center;
-  margin-left: 8px;
+  margin-left: var(--space-2);
   box-shadow: 0 0 16px rgba(200,255,0,0.2);
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
@@ -242,13 +242,46 @@
   to { transform: scale(2.5); opacity: 0; }
 }
 
+/* Send pulse ring */
+@keyframes sendPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(200, 255, 0, 0.35), 0 0 16px rgba(200, 255, 0, 0.2);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(200, 255, 0, 0), 0 0 16px rgba(200, 255, 0, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(200, 255, 0, 0), 0 0 16px rgba(200, 255, 0, 0.2);
+  }
+}
+
+.chat-input__send--sending {
+  animation: sendPulse 0.5s ease-out;
+}
+
+[data-theme="light"] .chat-input__send--sending {
+  animation-name: sendPulseLight;
+}
+
+@keyframes sendPulseLight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(74, 122, 0, 0.3), 0 0 16px rgba(74, 122, 0, 0.15);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(74, 122, 0, 0), 0 0 16px rgba(74, 122, 0, 0.15);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(74, 122, 0, 0), 0 0 16px rgba(74, 122, 0, 0.15);
+  }
+}
+
 /* Reply preview above input */
 .chat-input__reply-preview {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 14px;
-  margin: 0 12px 4px;
+  padding: var(--space-2) 14px;
+  margin: 0 var(--space-3) var(--space-1);
   background: rgba(255,255,255,0.03);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.05);
@@ -265,13 +298,13 @@
 }
 
 .chat-input__reply-name {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   color: var(--accent);
 }
 
 .chat-input__reply-text {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: rgba(255,255,255,0.4);
   white-space: nowrap;
   overflow: hidden;
@@ -342,12 +375,16 @@
 }
 
 [data-theme="light"] .chat-input__outer {
-  background: var(--light-surface, #ffffff);
+  background: var(--surface-solid, rgba(255, 255, 255, 0.95));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-color: var(--light-border, #e5e7eb);
 }
 
 [data-theme="light"] .chat-input__inner {
-  background: var(--light-surface, #ffffff);
+  background: rgba(0, 0, 0, 0.03);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 [data-theme="light"] .chat-input__textarea {
@@ -476,7 +513,7 @@
 .chat-input__recording-cancel:hover {
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  color: var(--danger);
 }
 
 /* Живой waveform — занимает всё свободное место */
@@ -504,7 +541,7 @@
 /* Таймер */
 .chat-input__rec-timer {
   font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   color: rgba(255,255,255,0.7);
@@ -519,7 +556,7 @@
   height: 38px;
   border-radius: 50%;
   border: none;
-  background: #ef4444;
+  background: var(--danger);
   color: #fff;
   cursor: pointer;
   display: flex;
@@ -569,7 +606,7 @@
 .chat-input__mic-hold:active {
   transform: scale(0.92);
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .chat-input__mic-hold svg {
@@ -632,6 +669,7 @@
   }
   .chat-input__recording { animation: none; }
   .chat-input__rec-bar { transition: none; }
+  .chat-input__send--sending { animation: none; }
 }
 
 /* Mic wrapper — позиционирование для tooltip ошибки */
@@ -649,9 +687,9 @@
   transform: translateX(-50%);
   background: rgba(239,68,68,0.92);
   color: #fff;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   white-space: nowrap;
   pointer-events: none;
   animation: micErrFadeInOut 3s ease forwards;

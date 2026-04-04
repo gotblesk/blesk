@@ -45,6 +45,27 @@ export default function ChannelBrowser({ onOpenChannel }) {
     return () => clearTimeout(timeout);
   }, [category, search]);
 
+  const handleTabKeyDown = useCallback((e) => {
+    const tabEls = [...e.currentTarget.querySelectorAll('[role="tab"]')];
+    const current = tabEls.indexOf(e.target);
+    if (current === -1) return;
+
+    let next;
+    if (e.key === 'ArrowRight') {
+      next = (current + 1) % tabEls.length;
+    } else if (e.key === 'ArrowLeft') {
+      next = (current - 1 + tabEls.length) % tabEls.length;
+    } else if (e.key === 'Home') {
+      next = 0;
+    } else if (e.key === 'End') {
+      next = tabEls.length - 1;
+    } else return;
+
+    e.preventDefault();
+    tabEls[next].focus();
+    tabEls[next].click();
+  }, []);
+
   const handleOpen = useCallback((id) => { onOpenChannel?.(id); }, [onOpenChannel]);
 
   const handleSubscribeToggle = useCallback((channel) => {
@@ -82,10 +103,10 @@ export default function ChannelBrowser({ onOpenChannel }) {
 
       <div className="mo__search-wrap">
         <MagnifyingGlass size={15} weight="regular" className="mo__search-icon" />
-        <input className="mo__search" placeholder="Найти канал..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="mo__search" placeholder="Найти канал..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Поиск каналов" onKeyDown={(e) => e.key === 'Escape' && setSearch('')} />
       </div>
 
-      <div className="mo__cats">
+      <div className="mo__cats" role="tablist" onKeyDown={handleTabKeyDown}>
         {CATEGORIES.map((cat) => {
           const isActive = category === cat.key;
           return (
@@ -97,6 +118,9 @@ export default function ChannelBrowser({ onOpenChannel }) {
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.9 }}
               layout
+              role="tab"
+              aria-selected={isActive}
+              tabIndex={isActive ? 0 : -1}
             >
               <span className="mo__cat-icon"><cat.icon size={12} weight="bold" /></span>
               <span className="mo__cat-label">{cat.label}</span>

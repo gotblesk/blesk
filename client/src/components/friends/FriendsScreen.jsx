@@ -37,6 +37,27 @@ const itemV = {
 
 export default function FriendsScreen({ onBack, onOpenChat }) {
   const [tab, setTab] = useState('friends');
+
+  const handleTabKeyDown = useCallback((e) => {
+    const tabEls = [...e.currentTarget.querySelectorAll('[role="tab"]')];
+    const current = tabEls.indexOf(e.target);
+    if (current === -1) return;
+
+    let next;
+    if (e.key === 'ArrowRight') {
+      next = (current + 1) % tabEls.length;
+    } else if (e.key === 'ArrowLeft') {
+      next = (current - 1 + tabEls.length) % tabEls.length;
+    } else if (e.key === 'Home') {
+      next = 0;
+    } else if (e.key === 'End') {
+      next = tabEls.length - 1;
+    } else return;
+
+    e.preventDefault();
+    tabEls[next].focus();
+    tabEls[next].click();
+  }, []);
   const [friends, setFriends] = useState([]);
   const [pending, setPending] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,9 +143,9 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
       </div>
 
       {/* Tabs */}
-      <div className="fr__tabs">
+      <div className="fr__tabs" role="tablist" onKeyDown={handleTabKeyDown}>
         {TABS.map(t => (
-          <button key={t.id} className={`fr__tab ${tab === t.id ? 'fr__tab--active' : ''}`} onClick={() => setTab(t.id)}>
+          <button key={t.id} className={`fr__tab ${tab === t.id ? 'fr__tab--active' : ''}`} onClick={() => setTab(t.id)} role="tab" aria-selected={tab === t.id} tabIndex={tab === t.id ? 0 : -1}>
             {t.label}
             {t.id === 'requests' && pending.length > 0 && <span className="fr__badge">{pending.length}</span>}
             {tab === t.id && <motion.div className="fr__tab-pill" layoutId="frTabPill" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />}
@@ -156,7 +177,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                   <div className="fr__section-label">Сейчас онлайн — {onlineFriends.length}</div>
                   <div className="fr__online-scroll">
                     {onlineFriends.map(f => (
-                      <button key={f.id} className="fr__online-item" onClick={() => onOpenChat?.(f.id, null)}>
+                      <button key={f.id} className="fr__online-item" onClick={() => onOpenChat?.(f.id, null)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenChat?.(f.id, null); } }}>
                         <Avatar user={f} size={44} showOnline />
                         <span className="fr__online-name">{f.username}</span>
                       </button>
@@ -167,8 +188,8 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
 
               {/* Online filter */}
               <div className="fr__filter">
-                <button className={`fr__filter-btn ${filter === 'all' ? 'fr__filter-btn--active' : ''}`} onClick={() => setFilter('all')}>Все</button>
-                <button className={`fr__filter-btn ${filter === 'online' ? 'fr__filter-btn--active' : ''}`} onClick={() => setFilter('online')}>
+                <button className={`fr__filter-btn ${filter === 'all' ? 'fr__filter-btn--active' : ''}`} onClick={() => setFilter('all')} aria-pressed={filter === 'all'}>Все</button>
+                <button className={`fr__filter-btn ${filter === 'online' ? 'fr__filter-btn--active' : ''}`} onClick={() => setFilter('online')} aria-pressed={filter === 'online'}>
                   Онлайн
                   <span className="fr__filter-dot" />
                 </button>
@@ -184,7 +205,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                 <div className="fr__list">
                   <div className="fr__section-label">Все друзья — {filteredFriends.length}</div>
                   {filteredFriends.map((friend, i) => (
-                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })}>
+                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })} role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })}>
                       <Avatar user={friend} size={36} showOnline={friend.status === 'online'} />
                       <div className="fr__item-info">
                         <div className="fr__item-name">{friend.username}<span className="fr__item-tag">{friend.tag}</span></div>

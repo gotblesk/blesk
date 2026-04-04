@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { BellSlash, Checks, Trash, UserMinus, PushPin, Prohibit } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
@@ -32,6 +32,24 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
   const [ctxMenu, setCtxMenu] = useState(null);
   const [dangerConfirm, setDangerConfirm] = useState(false);
   const [blockConfirm, setBlockConfirm] = useState(false);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const innerRef = useRef(null);
+
+  const reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+  const handleMouseMove = useCallback((e) => {
+    if (reducedMotion) return;
+    const el = innerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: x * 4, y: y * 3 });
+  }, [reducedMotion]);
+
+  const handleMouseLeave = useCallback(() => {
+    setTilt({ x: 0, y: 0 });
+  }, []);
   const isGroup = chat.type === 'group';
   const user = chat.otherUser;
 
@@ -126,7 +144,19 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
         className={`chat-row ${isOpen ? 'chat-row--open' : ''}`}
         onClick={onClick}
         onContextMenu={handleContextMenu}
-        ref={cardRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        ref={(el) => {
+          innerRef.current = el;
+          if (typeof cardRef === 'function') cardRef(el);
+          else if (cardRef) cardRef.current = el;
+        }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick?.()}
+        style={tilt.x !== 0 || tilt.y !== 0 ? {
+          transform: `perspective(600px) rotateY(${tilt.x}deg) rotateX(${-tilt.y}deg)`,
+        } : undefined}
       >
         <div className="chat-row__avatar-wrap">
           {isGroup ? (

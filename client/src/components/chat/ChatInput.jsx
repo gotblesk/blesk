@@ -21,6 +21,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const [recordingTime, setRecordingTime] = useState(0);
   const [micError, setMicError] = useState('');
   const [waveformBars, setWaveformBars] = useState(() => Array(28).fill(0.15));
+  const [sendPulse, setSendPulse] = useState(false);
 
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef(null);
@@ -165,6 +166,10 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
 
     // Звук
     soundSend();
+
+    // Pulse ring на кнопке отправки
+    setSendPulse(true);
+    setTimeout(() => setSendPulse(false), 500);
 
     // Ripple на кнопке отправки
     const btn = sendBtnRef.current;
@@ -565,6 +570,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         multiple
         className="chat-input__file-hidden"
         onChange={handleFileSelect}
+        aria-label="Прикрепить файлы"
       />
 
       {/* Emoji picker popup — CSS transition вместо instant show/hide */}
@@ -643,13 +649,14 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
                 onFocus={handleFocus}
                 onBlur={handleBlur}
                 rows={1}
+                aria-label="Написать сообщение"
               />
               <div className="chat-input__tools">
                 <button
                   className={`chat-input__tool-btn ${showEmojiPicker ? 'chat-input__tool-btn--active' : ''}`}
                   onClick={() => setShowEmojiPicker(v => !v)}
                   title="Эмодзи"
-                  aria-label="Эмодзи"
+                  aria-label={showEmojiPicker ? 'Закрыть эмодзи' : 'Открыть эмодзи'}
                 >
                   <Smiley size={18} />
                 </button>
@@ -667,7 +674,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
           {/* Mic button (input empty) или Send button (есть текст/файлы) */}
           {!text.trim() && !pendingFiles.length ? (
             <div className="chat-input__mic-wrap">
-              {micError && <span className="chat-input__mic-error">{micError}</span>}
+              {micError && <div role="alert" aria-live="assertive" className="chat-input__mic-error">{micError}</div>}
               <button
                 className="chat-input__mic-hold"
                 onClick={handleMicClick}
@@ -680,7 +687,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
           ) : (
             <button
               ref={sendBtnRef}
-              className="chat-input__send"
+              className={`chat-input__send${sendPulse ? ' chat-input__send--sending' : ''}`}
               onClick={handleSend}
               disabled={Object.keys(uploadProgress).length > 0}
               aria-label="Отправить сообщение"

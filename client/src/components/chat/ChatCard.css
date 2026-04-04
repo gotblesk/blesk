@@ -6,11 +6,24 @@
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.4s ease;
+  transform-style: preserve-3d;
+  will-change: auto;
 }
 
 .chat-row:hover {
   background: rgba(255, 255, 255, 0.04);
+  will-change: transform;
+}
+
+/* Parallax depth layers */
+.chat-row .avatar,
+.chat-row__avatar-wrap {
+  transform: translateZ(8px);
+}
+
+.chat-row__info {
+  transform: translateZ(2px);
 }
 
 .chat-row:active {
@@ -72,7 +85,7 @@
 }
 
 .chat-row__name {
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
@@ -81,7 +94,7 @@
 }
 
 .chat-row__preview {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -104,12 +117,12 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
 .chat-row__time {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: rgba(255, 255, 255, 0.2);
   white-space: nowrap;
 }
@@ -120,7 +133,7 @@
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-text);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -181,4 +194,17 @@
 
 [data-theme="light"] .chat-card__group-circle {
   border-color: var(--light-border, #e5e7eb);
+}
+
+/* Reduced motion — отключить parallax */
+@media (prefers-reduced-motion: reduce) {
+  .chat-row {
+    transform-style: flat;
+    transition: background 0.15s;
+  }
+  .chat-row .avatar,
+  .chat-row__avatar-wrap,
+  .chat-row__info {
+    transform: none;
+  }
 }

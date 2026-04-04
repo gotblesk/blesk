@@ -27,6 +27,9 @@ import './ChatView.css';
 // Resize edges
 const EDGES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
 
+// Вынесено за компонент чтобы не создавать новый массив при каждом рендере
+const EMPTY_MESSAGES = [];
+
 export default function ChatView({
   chatId,
   morphRect,
@@ -45,11 +48,12 @@ export default function ChatView({
   // Inline mode — встроен в layout без windowState
   const isInline = !windowState;
   // [CRIT-2] Гранулярные селекторы вместо подписки на весь store
-  const EMPTY = [];
-  const chatMessages = useChatStore((s) => s.messages[chatId] ?? EMPTY);
+  const chatMessages = useChatStore((s) => s.messages[chatId] ?? EMPTY_MESSAGES);
   const chat = useChatStore((s) => s.chats.find((c) => c.id === chatId));
-  const onlineUsers = useChatStore((s) => s.onlineUsers);
-  const userStatuses = useChatStore((s) => s.userStatuses);
+  // Подписка только на нужные данные конкретного пользователя (не весь массив/объект)
+  const otherUserId = chat?.otherUser?.id ?? null;
+  const isOnlineDirect = useChatStore((s) => otherUserId ? s.onlineUsers.includes(otherUserId) : false);
+  const userStatusDirect = useChatStore((s) => otherUserId ? (s.userStatuses[otherUserId] ?? null) : null);
   const typingUsers = useChatStore((s) => s.typingUsers);
   const allReactions = useChatStore((s) => s.reactions);
   const showTyping = useSettingsStore((s) => s.showTyping);
@@ -175,7 +179,15 @@ export default function ChatView({
   const virtualizer = useVirtualizer({
     count: messageCount,
     getScrollElement: () => messagesContainerRef.current,
-    estimateSize: () => 52, // Средняя высота сообщения (bubble + padding)
+    estimateSize: useCallback((index) => {
+      const msg = chatMessages[index];
+      if (!msg) return 52;
+      let height = 52; // базовая высота bubble + padding
+      if (msg.attachments?.length) height += 200;
+      if (msg.replyTo) height += 40;
+      if (msg.text?.length > 200) height += Math.floor(msg.text.length / 80) * 20;
+      return height;
+    }, [chatMessages]),
     overscan: 10,
   });
 
@@ -574,12 +586,17 @@ export default function ChatView({
     }
   }, [deleteConfirm, chatId, socketRef]);
 
+  // Стабильный callback для onImageClick (не ломает React.memo в ChatMessage)
+  const handleImageClickStable = useCallback((url) => {
+    setLightboxSrc(url);
+  }, []);
+
   if (!chat) return null;
 
-  const isOnline = chat.otherUser ? onlineUsers.includes(chat.otherUser.id) : false;
+  const isOnline = isOnlineDirect;
   const typingInChat = typingUsers[chatId] || [];
   // Резолвим userId → username для хедера
-  const typingNames = React.useMemo(() => {
+  const typingNames = useMemo(() => {
     if (!typingInChat.length) return [];
     if (chat?.type !== 'group' && chat?.otherUser) {
       return typingInChat.length ? [chat.otherUser.username] : [];
@@ -619,6 +636,7 @@ export default function ChatView({
     <div
       className={`chat-view ${isInline ? 'chat-view--inline' : ''} ${morphRect ? 'chat-view--morph' : ''} ${isFocused ? 'chat-view--focused' : ''} ${closing ? 'chat-view--closing' : ''} ${viewDragOver ? 'chat-view--drag-over' : ''}`}
       ref={viewRef}
+      role="main"
       onDragOver={(e) => { e.preventDefault(); setViewDragOver(true); }}
       onDragLeave={(e) => { if (e.target === e.currentTarget) setViewDragOver(false); }}
       onDrop={(e) => {
@@ -668,7 +686,7 @@ export default function ChatView({
         <ChatHeader
           chat={chat}
           isOnline={isOnline}
-          userStatus={chat.otherUser ? userStatuses[chat.otherUser.id] : null}
+          userStatus={userStatusDirect}
           typingUsernames={typingNames}
           onCall={onCall}
           onVideoCall={onCall}
@@ -771,7 +789,7 @@ export default function ChatView({
                   onDelete={handleDeleteStable}
                   onForward={handleForwardStable}
                   onRetry={handleRetryStable}
-                  onImageClick={setLightboxSrc}
+                  onImageClick={handleImageClickStable}
                   reactions={allReactions[msg.id]}
                   currentUserId={userId.current}
                 />

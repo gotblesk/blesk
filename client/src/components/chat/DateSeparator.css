@@ -9,19 +9,18 @@
 
 .date-separator__pill {
   padding: 4px 14px;
-  border-radius: 100px;
-  background: rgba(255,255,255,0.04);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-pill, 100px);
+  background: var(--surface-3, rgba(255,255,255,0.14));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
   font-size: 11px;
   font-weight: 500;
-  color: rgba(255,255,255,0.35);
-  transition: backdrop-filter 0.3s;
+  color: var(--text-tertiary, rgba(255,255,255,0.38));
 }
 
 [data-theme="light"] .date-separator__pill {
-  background: var(--light-surface, #ffffff);
-  border-color: var(--light-border, #e5e7eb);
-  color: var(--light-text-secondary, #4b5563);
+  background: rgba(0, 0, 0, 0.07);
+  border: none;
+  color: var(--light-text-tertiary, #9ca3af);
 }
