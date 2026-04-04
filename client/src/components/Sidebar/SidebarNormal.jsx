@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+// import { useVirtualizer } from '@tanstack/react-virtual'; // disabled: causes TDZ in minified builds
 import { MagnifyingGlass, PushPin, BellSlash, ChatCircle } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import Avatar from '../ui/Avatar';
@@ -77,18 +77,7 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
     return items;
   }, [pinned, unread, rest]);
 
-  const useVirtual = flatList.length > 30;
-
-  const virtualizer = useVirtualizer({
-    count: useVirtual ? flatList.length : 0,
-    getScrollElement: () => listRef.current,
-    estimateSize: useCallback((idx) => {
-      const item = flatList[idx];
-      return item?.type === 'label' ? 32 : 64;
-    }, [flatList]),
-    overscan: 10,
-    enabled: useVirtual,
-  });
+  // Virtualization disabled (causes TDZ in minified builds)
 
   const renderChat = (chat) => {
     const user = chat.otherUser;
@@ -183,34 +172,7 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
             ))}
           </div>
         )}
-        {useVirtual ? (
-          <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
-            {virtualizer.getVirtualItems().map((vRow) => {
-              const item = flatList[vRow.index];
-              if (!item) return null;
-              return (
-                <div
-                  key={item.key}
-                  data-index={vRow.index}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${vRow.start}px)`,
-                  }}
-                >
-                  {renderItem(item)}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <>
-            {flatList.map(renderItem)}
-          </>
-        )}
+        {flatList.map(renderItem)}
         {filtered.length === 0 && search.trim() && (
           <div className="sn__empty">Ничего не найдено</div>
         )}
