@@ -210,8 +210,8 @@
     },
     {
       "path": "client\\electron\\main.js",
-      "accessCount": 101,
-      "lastAccessed": 1775315642094,
+      "accessCount": 106,
+      "lastAccessed": 1775319324867,
       "type": "file"
     },
     {
@@ -222,8 +222,8 @@
     },
     {
       "path": "client\\src\\hooks\\useSocket.js",
-      "accessCount": 74,
-      "lastAccessed": 1775316287498,
+      "accessCount": 77,
+      "lastAccessed": 1775319175552,
       "type": "file"
     },
     {
@@ -258,8 +258,8 @@
     },
     {
       "path": "server\\src\\ws\\chatHandler.js",
-      "accessCount": 51,
-      "lastAccessed": 1775305601212,
+      "accessCount": 52,
+      "lastAccessed": 1775319205753,
       "type": "file"
     },
     {
@@ -287,6 +287,12 @@
       "type": "file"
     },
     {
+      "path": "server\\src\\routes\\chats.js",
+      "accessCount": 31,
+      "lastAccessed": 1775319126041,
+      "type": "file"
+    },
+    {
       "path": "client\\src\\components\\chat\\ChatHeader.jsx",
       "accessCount": 29,
       "lastAccessed": 1775303196045,
@@ -296,12 +302,6 @@
       "path": "server\\src\\routes\\admin.js",
       "accessCount": 29,
       "lastAccessed": 1775303203008,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\routes\\chats.js",
-      "accessCount": 29,
-      "lastAccessed": 1775317046839,
       "type": "file"
     },
     {

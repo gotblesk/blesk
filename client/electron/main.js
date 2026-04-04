@@ -200,8 +200,17 @@ function createMainWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  // DevTools: временно открываем для диагностики TDZ
-  mainWindow.webContents.openDevTools({ mode: 'detach' });
+  // Безопасность: блокируем DevTools в production
+  if (!isDev) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12' || (input.control && input.shift && (input.key === 'I' || input.key === 'J'))) {
+        event.preventDefault();
+      }
+    });
+    mainWindow.webContents.on('devtools-opened', () => {
+      mainWindow.webContents.closeDevTools();
+    });
+  }
 }
 
 // Плавный переход: сплеш "расширяется" (CSS) → основное окно появляется
@@ -695,6 +704,19 @@ ipcMain.handle('app:setAutoStart', (_, enabled) => {
 
 ipcMain.handle('app:getAutoStart', () => {
   return app.getLoginItemSettings().openAtLogin;
+});
+
+ipcMain.handle('app:checkForUpdates', () => {
+  const { autoUpdater } = require('electron-updater');
+  return autoUpdater.checkForUpdates().catch(() => null);
+});
+
+ipcMain.handle('app:clearCache', async () => {
+  if (mainWindow) {
+    await mainWindow.webContents.session.clearCache();
+    return true;
+  }
+  return false;
 });
 
 // ═══ System Tray ═══

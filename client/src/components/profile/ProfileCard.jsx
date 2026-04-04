@@ -94,7 +94,7 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
 
   // Написать
   const handleMessage = () => {
-    onOpenChat?.(userId);
+    onOpenChat?.(null, userId);
     onClose?.();
   };
 

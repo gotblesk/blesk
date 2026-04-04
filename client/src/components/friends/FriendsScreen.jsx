@@ -296,7 +296,7 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
                   <div className="fr__section-label">Сейчас онлайн — {onlineFriends.length}</div>
                   <div className="fr__online-scroll">
                     {onlineFriends.map(f => (
-                      <button key={f.id} className="fr__online-item" onClick={() => onOpenChat?.(f.id, null)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenChat?.(f.id, null); } }}>
+                      <button key={f.id} className="fr__online-item" onClick={() => onOpenChat?.(null, f.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenChat?.(null, f.id); } }}>
                         <Avatar user={f} size={44} showOnline />
                         <span className="fr__online-name">{f.username}</span>
                       </button>
@@ -336,7 +336,7 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
                         </div>
                       </div>
                       <div className="fr__hover-actions">
-                        <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); onOpenChat?.(friend.id, null); }} title="Чат" aria-label="Написать сообщение">
+                        <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); onOpenChat?.(null, friend.id); }} title="Чат" aria-label="Написать сообщение">
                           <ChatCircle size={16} weight="regular" />
                         </button>
                         <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); handleCall(friend.id); }} title="Позвонить" aria-label="Позвонить">
