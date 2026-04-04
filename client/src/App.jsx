@@ -124,46 +124,50 @@ export default function App() {
   // Авто-логин: пробуем cookie-based refresh (токены в памяти пусты после рестарта)
   useEffect(() => {
     async function checkAuth() {
-      let token = getToken();
-      if (!token) {
-        // После рестарта приложения in-memory токен пуст — пробуем refresh через cookies
-        token = await tryRefreshToken();
-        if (!token) { setChecking(false); return; }
-      }
-
-      let res = await fetch(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      }).catch(() => null);
-
-      // Если токен истёк — пробуем обновить
-      if (!res || !res.ok) {
-        const newToken = await tryRefreshToken();
-        if (newToken) {
-          res = await fetch(`${API_URL}/api/auth/me`, {
-            headers: { Authorization: `Bearer ${newToken}` },
-            credentials: 'include',
-          }).catch(() => null);
+      try {
+        let token = getToken();
+        if (!token) {
+          token = await tryRefreshToken();
+          if (!token) { setChecking(false); return; }
         }
-      }
 
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data.user?.id) setUserId(data.user.id);
-        await initCsrf();
-        if (data.user.email && data.user.emailVerified === false) {
-          setNeedsVerify({
-            user: data.user,
-            token: getToken(),
-            refreshToken: getRefreshToken(),
-          });
+        let res = await fetch(`${API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        }).catch(() => null);
+
+        if (!res || !res.ok) {
+          const newToken = await tryRefreshToken();
+          if (newToken) {
+            res = await fetch(`${API_URL}/api/auth/me`, {
+              headers: { Authorization: `Bearer ${newToken}` },
+              credentials: 'include',
+            }).catch(() => null);
+          }
+        }
+
+        if (res && res.ok) {
+          const data = await res.json();
+          if (data.user?.id) setUserId(data.user.id);
+          await initCsrf().catch(() => {});
+          if (data.user.email && data.user.emailVerified === false) {
+            setNeedsVerify({
+              user: data.user,
+              token: getToken(),
+              refreshToken: getRefreshToken(),
+            });
+          } else {
+            setUser(data.user);
+          }
         } else {
-          setUser(data.user);
+          clearTokens();
         }
-      } else {
+      } catch (err) {
+        console.warn('checkAuth error:', err?.message || err);
         clearTokens();
+      } finally {
+        setChecking(false);
       }
-      setChecking(false);
     }
 
     checkAuth();
@@ -257,10 +261,18 @@ export default function App() {
     clearTokens();
   };
 
-  // Пока проверяем токен — ничего не показываем (прелоадер уже скрылся)
+  // Fallback: если checking застрял, принудительно сбросить через 5 сек
+  useEffect(() => {
+    if (!checking) return;
+    const t = setTimeout(() => setChecking(false), 5000);
+    return () => clearTimeout(t);
+  }, [checking]);
+
+  // Пока проверяем токен — показываем TitleBar чтобы окно не было пустым
   if (checking) {
     return (
       <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
+        <TitleBar />
         <UpdateToast />
       </div>
     );
