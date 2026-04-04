@@ -243,7 +243,7 @@ export default function VoiceSettings() {
             />
           </div>
           <span className="voice-settings__hint">
-            Выше = микрофон активируется при более тихом голосе
+            Выше = нужен более громкий голос для активации микрофона
           </span>
         </div>
       </div>

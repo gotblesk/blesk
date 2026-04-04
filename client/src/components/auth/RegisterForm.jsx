@@ -7,7 +7,7 @@ import PasswordCard from './PasswordCard';
 import { getPasswordScore } from './StrengthDots';
 import API_URL from '../../config';
 
-export default function RegisterForm({ onModeChange, onVerifyRequired }) {
+export default function RegisterForm({ onModeChange, onVerifyRequired, onLogin }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +24,14 @@ export default function RegisterForm({ onModeChange, onVerifyRequired }) {
   const validate = () => {
     if (username.length < 3) {
       triggerError('Имя пользователя — минимум 3 символа');
+      return false;
+    }
+    if (username.length > 24) {
+      triggerError('Имя пользователя — максимум 24 символа');
+      return false;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      triggerError('Имя пользователя — только буквы, цифры и _');
       return false;
     }
     if (password.length < 8) {
@@ -103,6 +111,10 @@ export default function RegisterForm({ onModeChange, onVerifyRequired }) {
           user: data.user,
         });
         return;
+      } else if (data.user.emailVerified === true) {
+        // Аккаунт уже верифицирован (напр. создан админом) — логиним сразу
+        onLogin(data);
+        return;
       }
     } catch {
       triggerError('Не удалось подключиться к серверу');
@@ -137,6 +149,7 @@ export default function RegisterForm({ onModeChange, onVerifyRequired }) {
             placeholder="имя пользователя"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            maxLength={24}
             autoComplete="off"
             spellCheck="false"
             autoFocus
@@ -151,7 +164,7 @@ export default function RegisterForm({ onModeChange, onVerifyRequired }) {
         icon={<span style={{ color: 'var(--accent)', display: 'flex' }}><Envelope size={16} weight="regular" /></span>}
         title="Куда писать?"
         subtitle="Для подтверждения"
-        error={error && error.includes('email') ? error : null}
+        error={error && error.toLowerCase().includes('email') ? error : null}
         errorKey={errorKey}
       >
         <div className="g-input-wrap">

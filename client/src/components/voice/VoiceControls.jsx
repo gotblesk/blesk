@@ -57,17 +57,39 @@ export default function VoiceControls({ onLeave, onExpand, cameraOn, screenShare
     };
   }, [micDropdown, camDropdown]);
 
-  const switchMic = useCallback((deviceId) => {
+  const switchMic = useCallback(async (deviceId) => {
     useVoiceStore.setState({ inputDeviceId: deviceId });
     try { localStorage.setItem('blesk-input-device', deviceId); } catch {}
+    // Переключить микрофон на лету
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const newTrack = stream.getAudioTracks()[0];
+      if (newTrack) {
+        const replaceTrack = useVoiceStore.getState().replaceAudioTrack;
+        if (replaceTrack) await replaceTrack(newTrack);
+      }
+    } catch (err) { console.error('[blesk] switchMic re-acquire failed:', err?.message || err); }
   }, []);
 
   const currentCamId = (() => {
     try { return localStorage.getItem('blesk-camera-device') || ''; } catch { return ''; }
   })();
 
-  const switchCam = useCallback((deviceId) => {
+  const switchCam = useCallback(async (deviceId) => {
     try { localStorage.setItem('blesk-camera-device', deviceId); } catch {}
+    // Переключить камеру на лету
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+      });
+      const newTrack = stream.getVideoTracks()[0];
+      if (newTrack) {
+        const replaceTrack = useVoiceStore.getState().replaceCameraTrack;
+        if (replaceTrack) await replaceTrack(newTrack);
+      }
+    } catch (err) { console.error('[blesk] switchCam re-acquire failed:', err?.message || err); }
   }, []);
 
   const participantList = Object.entries(participants);

@@ -4,6 +4,7 @@
  * Одинаковый паттерн у обоих собеседников — для out-of-band верификации
  */
 import { useState, useEffect, useMemo } from 'react';
+import { Shield, ShieldCheck } from '@phosphor-icons/react';
 import { getVisualFingerprint } from '../../utils/shieldService';
 
 export default function ShieldFingerprint({ myPublicKey, peerPublicKey, size = 'normal' }) {
@@ -37,8 +38,8 @@ export default function ShieldFingerprint({ myPublicKey, peerPublicKey, size = '
         gap: `${gap}px`,
         padding: gap * 2,
         borderRadius: size === 'large' ? 16 : 10,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
+        background: 'var(--surface-1, rgba(255,255,255,0.03))',
+        border: '1px solid var(--glass-border, rgba(255,255,255,0.06))',
       }}
       title="Shield отпечаток — сравните с собеседником"
     >
@@ -83,8 +84,8 @@ export function ShieldBadge({ active, onClick }) {
         padding: '3px 8px',
         borderRadius: 100,
         border: 'none',
-        background: active ? 'rgba(200,255,0,0.08)' : 'rgba(255,255,255,0.04)',
-        color: active ? '#c8ff00' : 'rgba(255,255,255,0.3)',
+        background: active ? 'var(--surface-active, rgba(200,255,0,0.08))' : 'var(--surface-1, rgba(255,255,255,0.04))',
+        color: active ? 'var(--accent, #c8ff00)' : 'var(--text-disabled, rgba(255,255,255,0.3))',
         fontSize: 10,
         fontWeight: 700,
         cursor: 'pointer',
@@ -92,10 +93,7 @@ export function ShieldBadge({ active, onClick }) {
         letterSpacing: '0.02em',
       }}
     >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        {active && <polyline points="9 12 11 14 15 10" />}
-      </svg>
+      {active ? <ShieldCheck size={12} weight="bold" /> : <Shield size={12} weight="bold" />}
       Shield
     </button>
   );

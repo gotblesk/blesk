@@ -35,6 +35,7 @@ export const useAdminStore = create((set, get) => ({
   loadingFeedbacks: false,
 
   channels: [],
+  channelsTotal: 0,
   loadingChannels: false,
 
   dbTables: [],
@@ -46,14 +47,17 @@ export const useAdminStore = create((set, get) => ({
 
   serverConfig: null,
 
+  lastError: null,
+  clearError: () => set({ lastError: null }),
+
   fetchStats: async () => {
     set({ loadingStats: true });
     try {
       const res = await fetch(`${API_URL}/api/internal/stats`, { headers: getHeaders(), credentials: 'include' });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(`Stats: ${res.status}`);
       const data = await res.json();
       set({ stats: data });
-    } catch { /* ignore */ }
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки статистики', ts: Date.now() } }); }
     set({ loadingStats: false });
   },
 
@@ -65,7 +69,7 @@ export const useAdminStore = create((set, get) => ({
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ users: data.users, usersTotal: data.total, usersPage: data.page });
-    } catch { /* ignore */ }
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки пользователей', ts: Date.now() } }); }
     set({ loadingUsers: false });
   },
 
@@ -149,7 +153,7 @@ export const useAdminStore = create((set, get) => ({
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ tags: data.tags || data });
-    } catch { /* ignore */ }
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки тегов', ts: Date.now() } }); }
     set({ loadingTags: false });
   },
 
@@ -196,7 +200,7 @@ export const useAdminStore = create((set, get) => ({
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ reports: data.reports, reportsTotal: data.total });
-    } catch { /* ignore */ }
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки жалоб', ts: Date.now() } }); }
     set({ loadingReports: false });
   },
 
@@ -229,7 +233,7 @@ export const useAdminStore = create((set, get) => ({
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ logs: data.logs, logsTotal: data.total });
-    } catch { /* ignore */ }
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки логов', ts: Date.now() } }); }
     set({ loadingLogs: false });
   },
 
@@ -241,7 +245,7 @@ export const useAdminStore = create((set, get) => ({
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ feedbacks: data.feedbacks, feedbacksTotal: data.total });
-    } catch { /* ignore */ }
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки фидбэков', ts: Date.now() } }); }
     set({ loadingFeedbacks: false });
   },
 
@@ -256,14 +260,16 @@ export const useAdminStore = create((set, get) => ({
     } catch { return false; }
   },
 
-  fetchChannels: async () => {
+  fetchChannels: async (page = 1) => {
     set({ loadingChannels: true });
     try {
-      const res = await fetch(`${API_URL}/api/internal/channels`, { headers: getHeaders(), credentials: 'include' });
-      if (!res.ok) throw new Error();
+      const params = new URLSearchParams({ page, limit: 20 });
+      const res = await fetch(`${API_URL}/api/internal/channels?${params}`, { headers: getHeaders(), credentials: 'include' });
+      if (!res.ok) throw new Error(`Channels: ${res.status}`);
       const data = await res.json();
-      set({ channels: data.channels || data });
-    } catch { /* ignore */ }
+      const list = data.channels || data;
+      set({ channels: Array.isArray(list) ? list : [], channelsTotal: data.total ?? (Array.isArray(list) ? list.length : 0) });
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки каналов', ts: Date.now() } }); }
     set({ loadingChannels: false });
   },
 
@@ -284,7 +290,7 @@ export const useAdminStore = create((set, get) => ({
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ dbTables: data.tables || data });
-    } catch { /* ignore */ }
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки таблиц', ts: Date.now() } }); }
   },
 
   fetchDbTable: async (table, page = 1) => {
@@ -295,7 +301,7 @@ export const useAdminStore = create((set, get) => ({
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ dbRows: data.rows, dbTotal: data.total, dbColumns: data.columns });
-    } catch { /* ignore */ }
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки таблицы', ts: Date.now() } }); }
     set({ loadingDb: false });
   },
 
@@ -305,7 +311,7 @@ export const useAdminStore = create((set, get) => ({
       if (!res.ok) throw new Error();
       const data = await res.json();
       set({ serverConfig: data });
-    } catch { /* ignore */ }
+    } catch (err) { set({ lastError: { message: err?.message || 'Ошибка загрузки конфигурации', ts: Date.now() } }); }
   },
 
   broadcastUpdate: async (version, changelog) => {

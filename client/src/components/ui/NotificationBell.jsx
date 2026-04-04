@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, BellSlash, Check, X, Warning, Trash, SignIn, Lightning, User, UserCheck, ChatCircle, At, Sparkle } from '@phosphor-icons/react';
 import Avatar from './Avatar';
 import { useNotificationStore } from '../../store/notificationStore';
+import { useAdminStore } from '../../store/adminStore';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
 import './NotificationBell.css';
@@ -30,13 +31,24 @@ function timeAgo(d) {
 }
 
 function smartGroup(list) {
+  const WINDOW_MS = 5 * 60 * 1000; // 5 минут
   const out = [];
   for (const n of list) {
     const prev = out[out.length - 1];
-    if (prev && prev.type === n.type && prev.title === n.title && n.type !== 'friend_request') {
+    if (
+      prev &&
+      prev.type === n.type &&
+      prev.title === n.title &&
+      n.type !== 'friend_request' &&
+      Math.abs(new Date(prev.createdAt).getTime() - new Date(n.createdAt).getTime()) < WINDOW_MS
+    ) {
       prev.count++;
       prev.ids.push(n.id);
       prev.unread = prev.unread || !n.isRead;
+      // Обновить body для сгруппированных сообщений от одного отправителя
+      if (prev.count > 1 && prev.type === 'message' && prev.title) {
+        prev.body = `${prev.count} сообщений`;
+      }
     } else {
       out.push({ ...n, count: 1, ids: [n.id], unread: !n.isRead });
     }
@@ -71,6 +83,17 @@ export default function NotificationBell({ onOpenChat }) {
   const [anchor, setAnchor] = useState(null);
 
   const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead, clearAll, removeNotification } = useNotificationStore();
+  const lastError = useAdminStore((s) => s.lastError);
+  const clearError = useAdminStore((s) => s.clearError);
+  const [errorToast, setErrorToast] = useState(null);
+
+  useEffect(() => {
+    if (lastError?.message) {
+      setErrorToast(lastError.message);
+      const t = setTimeout(() => { setErrorToast(null); clearError(); }, 5000);
+      return () => clearTimeout(t);
+    }
+  }, [lastError, clearError]);
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
   useEffect(() => {
@@ -158,6 +181,28 @@ export default function NotificationBell({ onOpenChat }) {
           </motion.span>
         )}
       </button>
+
+      {errorToast && createPortal(
+        <motion.div
+          className="rs-error-toast"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          style={{
+            position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+            padding: '10px 16px', borderRadius: 10,
+            background: 'rgba(239, 68, 68, 0.15)', backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(239, 68, 68, 0.25)', color: '#ef4444',
+            fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
+            maxWidth: 340,
+          }}
+          onClick={() => { setErrorToast(null); clearError(); }}
+        >
+          <Warning size={14} weight="bold" />
+          {errorToast}
+        </motion.div>,
+        document.body
+      )}
 
       {createPortal(
         <AnimatePresence>

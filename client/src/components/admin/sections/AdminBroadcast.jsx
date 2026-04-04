@@ -27,7 +27,7 @@ export default function AdminBroadcast() {
     setTimeout(() => setResult(null), 5000);
   };
 
-  const onlineCount = stats?.onlineCount ?? '---';
+  const onlineCount = stats?.usersOnline ?? '---';
 
   return (
     <div className="admin-section">

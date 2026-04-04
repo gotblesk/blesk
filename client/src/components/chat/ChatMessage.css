@@ -347,6 +347,97 @@
   }
 }
 
+/* ===== Markdown: inline code ===== */
+.msg-code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.chat-message--own .msg-code {
+  background: rgba(200, 255, 0, 0.1);
+  border-color: rgba(200, 255, 0, 0.12);
+}
+
+/* ===== Markdown: code block ===== */
+.msg-codeblock {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 12px 16px;
+  border-radius: var(--radius-md, 14px);
+  font-size: 0.85em;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 6px 0 2px;
+  display: block;
+}
+
+.msg-codeblock code {
+  font-family: inherit;
+  background: none;
+  padding: 0;
+  border: none;
+  font-size: inherit;
+}
+
+/* ===== Markdown: spoiler ===== */
+.msg-spoiler {
+  background: rgba(255, 255, 255, 0.65);
+  color: transparent;
+  border-radius: 4px;
+  padding: 0 4px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+  user-select: none;
+}
+
+.msg-spoiler--revealed {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, rgba(255, 255, 255, 0.85));
+  user-select: text;
+}
+
+/* ===== Markdown: blockquote ===== */
+.msg-quote {
+  border-left: 3px solid var(--accent, #c8ff00);
+  padding-left: 12px;
+  margin: 4px 0;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  font-style: italic;
+}
+
+/* ===== Markdown: ссылки ===== */
+.msg-link {
+  color: var(--accent, #c8ff00);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(200, 255, 0, 0.25);
+  transition: border-color 0.15s ease;
+  word-break: break-all;
+}
+
+.msg-link:hover {
+  border-bottom-color: var(--accent, #c8ff00);
+}
+
+/* ===== Markdown: strong / em / del ===== */
+.chat-message__bubble-inner strong {
+  font-weight: 700;
+}
+
+.chat-message__bubble-inner em {
+  font-style: italic;
+}
+
+.chat-message__bubble-inner del {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
 /* ===== Light theme v4 ===== */
 [data-theme="light"] .chat-message--other .chat-message__bubble-outer {
   background: #ffffff;
@@ -396,6 +487,69 @@
 [data-theme="light"] .chat-message--failed .chat-message__bubble-inner {
   background: rgba(239,68,68,0.06) !important;
   color: var(--danger);
+}
+
+/* ===== Light theme: markdown ===== */
+[data-theme="light"] .msg-code {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #d63384;
+}
+
+[data-theme="light"] .chat-message--own .msg-code {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .msg-codeblock {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: var(--text, #111827);
+}
+
+[data-theme="light"] .chat-message--own .msg-codeblock {
+  background: rgba(0, 0, 0, 0.12);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .msg-spoiler {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .msg-spoiler--revealed {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text, #111827);
+}
+
+[data-theme="light"] .chat-message--own .msg-spoiler--revealed {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+[data-theme="light"] .msg-quote {
+  border-left-color: var(--accent-light, #4a7a00);
+  color: var(--text-secondary, rgba(26, 26, 46, 0.65));
+}
+
+[data-theme="light"] .msg-link {
+  color: var(--accent-light, #4a7a00);
+  border-bottom-color: rgba(74, 122, 0, 0.3);
+}
+
+[data-theme="light"] .msg-link:hover {
+  border-bottom-color: var(--accent-light, #4a7a00);
+}
+
+[data-theme="light"] .chat-message--own .msg-link {
+  color: rgba(255, 255, 255, 0.95);
+  border-bottom-color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="light"] .chat-message--own .msg-quote {
+  border-left-color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 /* ═══════ СТИЛЬ СООБЩЕНИЙ: minimal ═══════ */

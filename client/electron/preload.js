@@ -34,6 +34,16 @@ contextBridge.exposeInMainWorld('blesk', {
   // Версия приложения
   getVersion: () => ipcRenderer.invoke('app:version'),
 
+  // Автозапуск
+  getAutoStart: () => ipcRenderer.invoke('app:getAutoStart'),
+  setAutoStart: (enabled) => ipcRenderer.invoke('app:setAutoStart', enabled),
+
+  // Кеш
+  clearCache: () => ipcRenderer.invoke('app:clearCache'),
+
+  // Проверка обновлений
+  checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+
   // Обновления
   update: {
     onAvailable: (callback) => {

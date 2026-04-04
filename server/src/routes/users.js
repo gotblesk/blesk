@@ -2,6 +2,7 @@ const { Router } = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const sharp = require('sharp');
@@ -10,6 +11,15 @@ const { findUserSockets } = require('../utils/socketUtils');
 const logger = require('../utils/logger');
 
 const router = Router();
+
+// Rate limiter для экспорта данных — 1 запрос в час
+const exportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком частые запросы на экспорт. Попробуйте через час.' },
+});
 
 // Санитизация текста — защита от XSS
 function sanitizeText(str) {
@@ -29,6 +39,51 @@ const avatarUpload = multer({
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
     cb(null, allowed.includes(file.mimetype));
   },
+});
+
+// Экспорт данных аккаунта (data portability)
+router.get('/me/export', authenticate, exportLimiter, async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const [user, messages, friends, channels] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { username: true, email: true, bio: true, status: true, createdAt: true },
+      }),
+      prisma.message.findMany({
+        where: { userId },
+        take: 1000,
+        orderBy: { createdAt: 'desc' },
+        select: { text: true, createdAt: true, roomId: true },
+      }),
+      prisma.friendRequest.findMany({
+        where: {
+          OR: [{ senderId: userId }, { receiverId: userId }],
+          status: 'accepted',
+        },
+        include: {
+          sender: { select: { username: true } },
+          receiver: { select: { username: true } },
+        },
+      }),
+      prisma.roomParticipant.findMany({
+        where: { userId },
+        include: { room: { select: { name: true, type: true } } },
+      }),
+    ]);
+
+    res.json({
+      user,
+      messages,
+      friends: friends.map(f => f.senderId === userId ? f.receiver.username : f.sender.username),
+      channels: channels.map(c => ({ name: c.room.name, type: c.room.type })),
+      exportedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    logger.error({ err: err.message }, 'Data export error');
+    res.status(500).json({ error: 'Ошибка экспорта данных' });
+  }
 });
 
 // Поиск пользователей по username

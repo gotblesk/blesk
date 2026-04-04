@@ -73,9 +73,9 @@
   color: rgba(0, 0, 0, 0.3);
 }
 [data-theme="light"] .titlebar__btn {
-  color: var(--light-text-tertiary, #9ca3af);
+  color: var(--text-tertiary, #9ca3af);
 }
 [data-theme="light"] .titlebar__btn:hover {
-  background: var(--light-surface-hover, #f0f2f5);
-  color: var(--light-text-secondary, #4b5563);
+  background: var(--bg-hover, #f0f2f5);
+  color: var(--text-secondary, #4b5563);
 }

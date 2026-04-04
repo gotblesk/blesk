@@ -1,9 +1,19 @@
 const { Router } = require('express');
+const rateLimit = require('express-rate-limit');
 const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
 const router = Router();
+
+// Rate limiter для отправки feedback — 5 в час на пользователя
+const feedbackLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много отзывов. Попробуйте позже.' },
+});
 
 // Санитизация текста — защита от XSS
 function sanitizeText(str) {
@@ -13,7 +23,7 @@ function sanitizeText(str) {
 }
 
 // POST /api/feedback — создать обратную связь
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, feedbackLimiter, async (req, res) => {
   try {
     const { type, text, appVersion, osInfo } = req.body;
 

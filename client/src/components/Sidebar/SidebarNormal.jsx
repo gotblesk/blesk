@@ -1,4 +1,5 @@
-import { useState, useEffect, memo, useMemo } from 'react';
+import { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { MagnifyingGlass, PushPin, BellSlash, ChatCircle } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import Avatar from '../ui/Avatar';
@@ -22,6 +23,8 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
   const onlineUsers = useChatStore(s => s.onlineUsers);
   const pinnedChats = useChatStore(s => s.pinnedChats);
   const typingUsers = useChatStore(s => s.typingUsers);
+  const drafts = useChatStore(s => s.drafts);
+  const listRef = useRef(null);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return chats;
@@ -53,14 +56,68 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
     return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
   };
 
+  // Собрать плоский список для виртуализации:
+  // [{type:'label',text}, {type:'chat',chat}, ...]
+  const flatList = useMemo(() => {
+    const items = [];
+    if (pinned.length > 0) {
+      items.push({ type: 'label', text: 'Закреплённые', key: 'label-pinned' });
+      pinned.forEach(c => items.push({ type: 'chat', chat: c, key: c.id }));
+    }
+    if (unread.length > 0) {
+      items.push({ type: 'label', text: 'Непрочитанные', key: 'label-unread' });
+      unread.forEach(c => items.push({ type: 'chat', chat: c, key: c.id }));
+    }
+    if (rest.length > 0) {
+      if (pinned.length > 0 || unread.length > 0) {
+        items.push({ type: 'label', text: 'Все чаты', key: 'label-rest' });
+      }
+      rest.forEach(c => items.push({ type: 'chat', chat: c, key: c.id }));
+    }
+    return items;
+  }, [pinned, unread, rest]);
+
+  const useVirtual = flatList.length > 30;
+
+  const virtualizer = useVirtualizer({
+    count: useVirtual ? flatList.length : 0,
+    getScrollElement: () => listRef.current,
+    estimateSize: useCallback((idx) => {
+      const item = flatList[idx];
+      return item?.type === 'label' ? 32 : 64;
+    }, [flatList]),
+    overscan: 10,
+    enabled: useVirtual,
+  });
+
   const renderChat = (chat) => {
     const user = chat.otherUser;
     const name = user?.username || chat.name || 'Чат';
     const isActive = activeChatId === chat.id;
     const isTyping = typingUsers[chat.id]?.length > 0;
-    const preview = isTyping ? null : (chat.lastMessage?.text || 'Нет сообщений');
+    const draft = drafts[chat.id];
     const online = isOnline(chat);
     const isPinned = pinnedChats.has(chat.id);
+
+    let previewContent;
+    if (isTyping) {
+      previewContent = (
+        <span className="sn__typing-dots">
+          <span className="sn__typing-dot" />
+          <span className="sn__typing-dot" />
+          <span className="sn__typing-dot" />
+        </span>
+      );
+    } else if (draft) {
+      previewContent = (
+        <span className="sn__draft">
+          <span className="sn__draft-label">Черновик: </span>
+          {draft.length > 40 ? draft.slice(0, 40) + '...' : draft}
+        </span>
+      );
+    } else {
+      previewContent = chat.lastMessage?.text || 'Нет сообщений';
+    }
 
     return (
       <div
@@ -74,14 +131,8 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
             <span className="sn__chat-name">{name}</span>
             <span className="sn__chat-time">{formatTime(chat.lastMessage?.createdAt)}</span>
           </div>
-          <div className={`sn__chat-preview ${isTyping ? 'sn__chat-preview--typing' : ''}`}>
-            {isTyping ? (
-              <span className="sn__typing-dots">
-                <span className="sn__typing-dot" />
-                <span className="sn__typing-dot" />
-                <span className="sn__typing-dot" />
-              </span>
-            ) : preview}
+          <div className={`sn__chat-preview ${isTyping ? 'sn__chat-preview--typing' : ''} ${draft && !isTyping ? 'sn__chat-preview--draft' : ''}`}>
+            {previewContent}
           </div>
         </div>
         {chat.unreadCount > 0 && (
@@ -99,6 +150,13 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
     );
   };
 
+  const renderItem = (item) => {
+    if (item.type === 'label') {
+      return <div key={item.key} className="sn__group-label">{item.text}</div>;
+    }
+    return renderChat(item.chat);
+  };
+
   return (
     <div className="sn">
       <div className="sn__search">
@@ -111,7 +169,7 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
         />
       </div>
 
-      <div className="sn__list">
+      <div className="sn__list" ref={listRef}>
         {initialLoad && chats.length === 0 && (
           <div className="sn__skeleton">
             {[1,2,3,4].map(i => (
@@ -125,22 +183,34 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
             ))}
           </div>
         )}
-        {pinned.length > 0 && (
-          <div className="sn__section">
-            <div className="sn__group-label">Закреплённые</div>
-            {pinned.map(renderChat)}
+        {useVirtual ? (
+          <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
+            {virtualizer.getVirtualItems().map((vRow) => {
+              const item = flatList[vRow.index];
+              if (!item) return null;
+              return (
+                <div
+                  key={item.key}
+                  data-index={vRow.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${vRow.start}px)`,
+                  }}
+                >
+                  {renderItem(item)}
+                </div>
+              );
+            })}
           </div>
+        ) : (
+          <>
+            {flatList.map(renderItem)}
+          </>
         )}
-        {unread.length > 0 && (
-          <div className="sn__section">
-            <div className="sn__group-label">Непрочитанные</div>
-            {unread.map(renderChat)}
-          </div>
-        )}
-        {rest.length > 0 && (pinned.length > 0 || unread.length > 0) && (
-          <div className="sn__group-label">Все чаты</div>
-        )}
-        {rest.map(renderChat)}
         {filtered.length === 0 && search.trim() && (
           <div className="sn__empty">Ничего не найдено</div>
         )}

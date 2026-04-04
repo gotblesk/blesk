@@ -52,7 +52,7 @@ export default function PasswordCard({
           placeholder="Придумай пароль"
           value={password}
           onChange={(e) => onPasswordChange(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); confirmRef.current?.focus(); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmRef.current?.focus(); } }}
           aria-label="Пароль"
         />
         <button

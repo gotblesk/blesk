@@ -96,7 +96,7 @@ export default function App() {
     if (!refreshToken && window.blesk?.auth?.getRefreshToken) {
       try {
         refreshToken = await window.blesk.auth.getRefreshToken();
-      } catch {}
+      } catch (e) { console.warn('App init error:', e.message); }
     }
 
     try {
@@ -271,18 +271,22 @@ export default function App() {
       <ErrorBoundary>
         <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
           <TitleBar />
-          <AuthScreen
-            onLogin={handleLogin}
-            collapsing={transition === 'collapsing'}
-            pendingVerification={needsVerify}
-            onVerified={() => {
-              if (needsVerify) {
-                setUser({ ...needsVerify.user, emailVerified: true });
-                setNeedsVerify(null);
-              }
-            }}
-          />
-          <UpdateToast />
+          <ErrorBoundary compact>
+            <AuthScreen
+              onLogin={handleLogin}
+              collapsing={transition === 'collapsing'}
+              pendingVerification={needsVerify}
+              onVerified={() => {
+                if (needsVerify) {
+                  setUser({ ...needsVerify.user, emailVerified: true });
+                  setNeedsVerify(null);
+                }
+              }}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary compact>
+            <UpdateToast />
+          </ErrorBoundary>
         </div>
       </ErrorBoundary>
     );
@@ -294,9 +298,13 @@ export default function App() {
         <div className={`app${isMaximized ? ' app--maximized' : ''}`}>
           <Suspense fallback={null}><MetaballFilter /></Suspense>
           <div className={transition === 'revealing' ? 'main-reveal' : ''} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />
+            <ErrorBoundary compact>
+              <MainScreen user={user} onLogout={handleLogout} isAdmin={user?.role === 'admin'} />
+            </ErrorBoundary>
           </div>
-          <UpdateToast />
+          <ErrorBoundary compact>
+            <UpdateToast />
+          </ErrorBoundary>
         </div>
       </ErrorBoundary>
     </MotionConfig>

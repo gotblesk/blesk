@@ -1,29 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
 const ACTION_TYPES = [
   { value: '', label: 'Все действия' },
-  { value: 'ban', label: 'Бан' },
-  { value: 'unban', label: 'Разбан' },
-  { value: 'role_change', label: 'Смена роли' },
-  { value: 'delete_message', label: 'Удаление сообщения' },
-  { value: 'delete_channel', label: 'Удаление канала' },
-  { value: 'tag_grant', label: 'Выдача тега' },
-  { value: 'tag_revoke', label: 'Отзыв тега' },
-  { value: 'broadcast', label: 'Рассылка' },
+  { value: 'user.ban', label: 'Бан' },
+  { value: 'user.unban', label: 'Разбан' },
+  { value: 'user.edit', label: 'Смена роли' },
+  { value: 'message.delete', label: 'Удаление сообщения' },
+  { value: 'channel.delete', label: 'Удаление канала' },
+  { value: 'tag.create', label: 'Создание тега' },
+  { value: 'tag.edit', label: 'Редактирование тега' },
+  { value: 'broadcast.send', label: 'Рассылка' },
 ];
 
 const actionBadgeColor = {
-  ban: 'admin-badge--banned',
-  unban: 'admin-badge--active',
-  role_change: 'admin-badge--moderator',
-  delete_message: 'admin-badge--rejected',
-  delete_channel: 'admin-badge--banned',
-  tag_grant: 'admin-badge--admin',
-  tag_revoke: 'admin-badge--new',
-  broadcast: 'admin-badge--reviewed',
+  'user.ban': 'admin-badge--banned',
+  'user.unban': 'admin-badge--active',
+  'user.edit': 'admin-badge--moderator',
+  'message.delete': 'admin-badge--rejected',
+  'channel.delete': 'admin-badge--banned',
+  'tag.create': 'admin-badge--admin',
+  'tag.edit': 'admin-badge--new',
+  'broadcast.send': 'admin-badge--reviewed',
 };
 
 export default function AdminLogs() {
@@ -33,23 +33,33 @@ export default function AdminLogs() {
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(logsTotal / 50));
+  const mountedRef = useRef(false);
 
   useEffect(() => {
-    setPage(1);
     const filters = {};
     if (actionFilter) filters.action = actionFilter;
     if (dateFrom) filters.from = dateFrom;
     if (dateTo) filters.to = dateTo;
+
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      fetchLogs(1, filters);
+      return;
+    }
+
+    setPage(1);
     fetchLogs(1, filters);
   }, [actionFilter, dateFrom, dateTo, fetchLogs]);
 
   useEffect(() => {
+    if (!mountedRef.current) return;
+    if (page === 1) return;
     const filters = {};
     if (actionFilter) filters.action = actionFilter;
     if (dateFrom) filters.from = dateFrom;
     if (dateTo) filters.to = dateTo;
     fetchLogs(page, filters);
-  }, [page, actionFilter, dateFrom, dateTo, fetchLogs]);
+  }, [page]);
 
   return (
     <div className="admin-section">

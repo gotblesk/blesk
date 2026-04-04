@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   MicrophoneSlash, Microphone, SpeakerSlash, Headphones,
-  UserPlus, UsersThree, MagnifyingGlass, Check, X, ChatCircle,
+  UserPlus, UserMinus, UsersThree, MagnifyingGlass, Check, X, ChatCircle,
   ArrowsOutSimple, VideoCamera, VideoCameraSlash, Monitor, MonitorArrowUp,
   PhoneDisconnect, CaretDown, XCircle, Sliders,
 } from '@phosphor-icons/react';
 import { AnimatePresence } from 'framer-motion';
 import { useVoiceStore } from '../../store/voiceStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import ProfilePopover from '../profile/ProfilePopover';
 import Avatar from '../ui/Avatar';
 import VoiceChat from './VoiceChat';
@@ -297,6 +298,9 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
   const toggleMute = useVoiceStore((s) => s.toggleMute);
   const toggleDeafen = useVoiceStore((s) => s.toggleDeafen);
 
+  const rooms = useVoiceStore((s) => s.rooms);
+  const clearCurrentRoom = useVoiceStore((s) => s.clearCurrentRoom);
+
   const [volumePopup, setVolumePopup] = useState(null);
   const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
   const [showInvite, setShowInvite] = useState(false);
@@ -306,9 +310,45 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
   const [camDropdown, setCamDropdown] = useState(false);
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [videoInputDevices, setVideoInputDevices] = useState([]);
+  const [kickTarget, setKickTarget] = useState(null);
+  const [toastMsg, setToastMsg] = useState('');
   const popupRef = useRef(null);
   const participantRefs = useRef({});
   const currentUserId = useRef(getCurrentUserId());
+
+  // Определить, является ли текущий пользователь владельцем комнаты
+  const currentRoom = useMemo(() => rooms.find((r) => r.id === currentRoomId), [rooms, currentRoomId]);
+  const isRoomOwner = currentRoom?.ownerId === currentUserId.current;
+
+  // Утилита для показа тоста
+  const showToast = useCallback((msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
+  }, []);
+
+  // Кик участника через сокет
+  const handleKickConfirm = useCallback(() => {
+    if (!kickTarget || !socketRef?.current) return;
+    socketRef.current.emit('voice:kick', { roomId: currentRoomId, userId: kickTarget.id }, (res) => {
+      if (res?.error) showToast(res.error);
+    });
+    setKickTarget(null);
+  }, [kickTarget, currentRoomId, socketRef, showToast]);
+
+  // Слушать voice:kicked — если выгнали текущего пользователя
+  useEffect(() => {
+    const socket = socketRef?.current;
+    if (!socket) return;
+    const handler = ({ roomId }) => {
+      if (roomId === currentRoomId) {
+        clearCurrentRoom();
+        onLeave?.();
+        showToast('Вас исключили из комнаты');
+      }
+    };
+    socket.on('voice:kicked', handler);
+    return () => socket.off('voice:kicked', handler);
+  }, [socketRef, currentRoomId, clearCurrentRoom, onLeave, showToast]);
 
   // Volume popup click
   const handleVolumeClick = useCallback((userId) => {
@@ -368,17 +408,40 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
 
   const inputDeviceId = useVoiceStore((s) => s.inputDeviceId);
 
-  const switchMic = useCallback((deviceId) => {
+  const switchMic = useCallback(async (deviceId) => {
     useVoiceStore.setState({ inputDeviceId: deviceId });
     try { localStorage.setItem('blesk-input-device', deviceId); } catch {}
-  }, []);
+    // Переключить микрофон на лету — получить новый поток и заменить трек в producer
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const newTrack = stream.getAudioTracks()[0];
+      if (newTrack && socketRef?.current) {
+        // Обновить через voiceStore producer (если useVoice выставил replaceTrack)
+        const replaceTrack = useVoiceStore.getState().replaceAudioTrack;
+        if (replaceTrack) await replaceTrack(newTrack);
+      }
+    } catch (err) { console.error('[blesk] switchMic re-acquire failed:', err?.message || err); }
+  }, [socketRef]);
 
   const currentCamId = (() => {
     try { return localStorage.getItem('blesk-camera-device') || ''; } catch { return ''; }
   })();
 
-  const switchCam = useCallback((deviceId) => {
+  const switchCam = useCallback(async (deviceId) => {
     try { localStorage.setItem('blesk-camera-device', deviceId); } catch {}
+    // Переключить камеру на лету
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+      });
+      const newTrack = stream.getVideoTracks()[0];
+      if (newTrack) {
+        const replaceTrack = useVoiceStore.getState().replaceCameraTrack;
+        if (replaceTrack) await replaceTrack(newTrack);
+      }
+    } catch (err) { console.error('[blesk] switchCam re-acquire failed:', err?.message || err); }
   }, []);
 
   const participantList = Object.entries(participants);
@@ -531,6 +594,20 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
                       onVolumeClick={handleVolumeClick}
                       onProfileOpen={(id) => setProfilePopover({ open: true, userId: id, anchorRef: { current: null } })}
                     />
+
+                    {/* Kick button (только для владельца комнаты, не на себе) */}
+                    {isRoomOwner && !isSelf && (
+                      <button
+                        className="vr__kick-btn"
+                        title="Выгнать из комнаты"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setKickTarget({ id: userId, username: peer.username });
+                        }}
+                      >
+                        <UserMinus size={14} weight="bold" />
+                      </button>
+                    )}
 
                     {/* Volume popup */}
                     {volumePopup === userId && (
@@ -767,6 +844,23 @@ export default function VoiceRoom({ socketRef, onToggleCamera, onToggleScreenSha
         isOpen={profilePopover.open}
         onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })}
       />
+
+      {/* Kick confirm dialog */}
+      <ConfirmDialog
+        open={!!kickTarget}
+        title="Выгнать участника"
+        message={`Вы уверены что хотите выгнать ${kickTarget?.username || ''}?`}
+        confirmText="Выгнать"
+        cancelText="Отмена"
+        danger
+        onConfirm={handleKickConfirm}
+        onCancel={() => setKickTarget(null)}
+      />
+
+      {/* Toast */}
+      {toastMsg && (
+        <div className="vr__toast">{toastMsg}</div>
+      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Envelope, Key } from '@phosphor-icons/react';
 import gsap from 'gsap';
 import GravityCard from './GravityCard';
 import PasswordCard from './PasswordCard';
+import { getPasswordScore } from './StrengthDots';
 import API_URL from '../../config';
 
 export default function ForgotPasswordFlow({ mode, onModeChange }) {
@@ -17,6 +18,30 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotCodeDigits, setForgotCodeDigits] = useState(['', '', '', '', '', '']);
   const forgotCodeRefs = useRef([]);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const resendTimerRef = useRef(null);
+
+  // Таймер обратного отсчёта для повторной отправки
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    resendTimerRef.current = setTimeout(() => {
+      setResendCooldown((c) => c - 1);
+    }, 1000);
+    return () => clearTimeout(resendTimerRef.current);
+  }, [resendCooldown]);
+
+  const handleResendCode = useCallback(async () => {
+    if (resendCooldown > 0 || !forgotEmail) return;
+    try {
+      await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+    } catch { /* ignore */ }
+    setResendCooldown(60);
+  }, [resendCooldown, forgotEmail]);
 
   const triggerForgotError = (msg) => {
     setForgotError(msg);
@@ -74,6 +99,7 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
       }
       setForgotError('');
       setForgotCodeDigits(['', '', '', '', '', '']);
+      setResendCooldown(60);
       onModeChange('forgot-code');
     } catch {
       triggerForgotError('Не удалось подключиться к серверу');
@@ -121,6 +147,10 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
     e.preventDefault();
     if (forgotNewPassword.length < 8) {
       triggerForgotError('Пароль — минимум 8 символов');
+      return;
+    }
+    if (getPasswordScore(forgotNewPassword) < 3) {
+      triggerForgotError('Пароль слишком простой');
       return;
     }
     if (forgotNewPassword !== forgotConfirm) {
@@ -246,7 +276,7 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
                 className={`verify-code-cell ${digit ? 'filled' : ''}`}
                 type="text"
                 inputMode="numeric"
-                maxLength={6}
+                maxLength={1}
                 value={digit}
                 onChange={(e) => handleForgotCodeInput(i, e.target.value)}
                 onKeyDown={(e) => handleForgotCodeKeyDown(i, e)}
@@ -256,6 +286,22 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
             ))}
           </div>
         </GravityCard>
+
+        <div className="verify-resend">
+          {resendCooldown > 0 ? (
+            <span className="verify-resend-timer">
+              Отправить повторно ({resendCooldown}с)
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="verify-resend-btn"
+              onClick={handleResendCode}
+            >
+              Отправить повторно
+            </button>
+          )}
+        </div>
 
         <div className="auth-footer">
           <button type="button" className="auth-footer-link" onClick={() => {

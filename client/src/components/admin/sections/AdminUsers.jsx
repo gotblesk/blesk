@@ -55,10 +55,16 @@ export default function AdminUsers() {
     if (tags.length === 0) fetchTags();
   }, [tags.length, fetchTags]);
 
+  const normalizeTags = (user) => {
+    const raw = user.userTags || user.tags || [];
+    return raw.map((ut) => ut.tag || ut);
+  };
+
   const openDetail = async (user) => {
     const full = await fetchUser(user.id);
     if (full) {
-      setDetailUser(full);
+      const normalized = { ...full, tags: normalizeTags(full) };
+      setDetailUser(normalized);
       setEditData({
         tag: full.tag || '',
         role: full.role || 'user',

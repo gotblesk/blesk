@@ -249,6 +249,14 @@ export function useVoice(socketRef) {
             // Видео — сохранить стрим в store
             const stream = new MediaStream([consumer.track]);
             useVoiceStore.getState().setVideoStream(producerUserId, producerType || 'camera', stream);
+
+            // Simulcast: запросить начальный слой (низкий для превью, высокий для screen share)
+            const initialLayer = (producerType === 'screen') ? 2 : 0;
+            socket.emit('voice:setConsumerLayer', {
+              consumerId,
+              spatialLayer: initialLayer,
+              temporalLayer: initialLayer,
+            });
           } else {
             // Аудио — воспроизвести как раньше
             playRemoteAudio(consumerId, consumer.track);
@@ -882,10 +890,10 @@ export function useVoice(socketRef) {
         appData: { type: 'camera' },
         encodings: [
           { rid: 'r0', maxBitrate: 100000, scaleResolutionDownBy: 4 },
-          { rid: 'r1', maxBitrate: 500000, scaleResolutionDownBy: 2 },
-          { rid: 'r2', maxBitrate: bitrate },
+          { rid: 'r1', maxBitrate: 300000, scaleResolutionDownBy: 2 },
+          { rid: 'r2', maxBitrate: Math.min(bitrate, 900000), scaleResolutionDownBy: 1 },
         ],
-        codecOptions: { videoGoogleStartBitrate: 1000 },
+        codecOptions: { videoGoogleStartBitrate: 300 },
       });
       cameraProducerRef.current = producer;
       useVoiceStore.getState().setCameraOn(true);
@@ -991,9 +999,9 @@ export function useVoice(socketRef) {
         appData: { type: 'screen' },
         encodings: [
           { rid: 'r0', maxBitrate: 500000, scaleResolutionDownBy: 2 },
-          { rid: 'r1', maxBitrate: finalBitrate },
+          { rid: 'r1', maxBitrate: Math.max(finalBitrate, 2500000), scaleResolutionDownBy: 1 },
         ],
-        codecOptions: { videoGoogleStartBitrate: 1000 },
+        codecOptions: { videoGoogleStartBitrate: 300 },
       });
       screenProducerRef.current = producer;
       // Если есть аудио-трек экрана — создать отдельный producer

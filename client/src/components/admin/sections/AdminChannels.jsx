@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Trash } from '@phosphor-icons/react';
+import { Trash, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
 
 export default function AdminChannels() {
-  const { channels, loadingChannels, fetchChannels, deleteChannel } = useAdminStore();
+  const { channels, channelsTotal, loadingChannels, fetchChannels, deleteChannel } = useAdminStore();
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil((channelsTotal || 0) / 20));
 
-  useEffect(() => { fetchChannels(); }, [fetchChannels]);
+  useEffect(() => { fetchChannels(page); }, [page, fetchChannels]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -68,6 +70,18 @@ export default function AdminChannels() {
           )}
         </div>
       </Glass>
+
+      {totalPages > 1 && (
+        <div className="admin-pagination">
+          <button className="admin-pagination__btn" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            <CaretLeft size={14} />
+          </button>
+          <span className="admin-pagination__info">{page} / {totalPages}</span>
+          <button className="admin-pagination__btn" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <CaretRight size={14} />
+          </button>
+        </div>
+      )}
 
       {confirmDelete && (
         <div className="admin-modal" onClick={() => setConfirmDelete(null)}>

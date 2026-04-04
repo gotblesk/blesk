@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const FALLBACK = '0.4.0-alpha';
+const FALLBACK = '1.2.1-beta';
 let cached = null;
 
 export default function useAppVersion() {

@@ -14,3 +14,7 @@ server/prisma/dev.db-journal
 CLAUDE.md
 .claude/
 .superpowers/
+
+# Scripts with plaintext credentials
+restart_server.py
+test_smtp.py

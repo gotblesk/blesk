@@ -341,7 +341,7 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .admin-pagination__btn:hover:not(:disabled) {
@@ -430,6 +430,10 @@
 @keyframes adminModalIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-modal { animation: none; }
 }
 
 .admin-modal__card {
@@ -648,7 +652,7 @@
 }
 
 [data-theme="light"] .admin-nav-item--active {
-  background: var(--light-accent-light, #ede9fe);
+  background: var(--light-accent-light, #e8f5d0);
 }
 
 [data-theme="light"] .admin-table th {

@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState, useCallback, Fragment, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { MagnifyingGlass, X, Check } from '@phosphor-icons/react';
+import { MagnifyingGlass, X, Check, CaretUp, CaretDown } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import ChatHeader from './ChatHeader';
@@ -50,6 +50,8 @@ export default function ChatView({
   const isInline = !windowState;
   // [CRIT-2] Гранулярные селекторы вместо подписки на весь store
   const chatMessages = useChatStore((s) => s.messages[chatId] ?? EMPTY_MESSAGES);
+  const hasMoreMessages = useChatStore((s) => s.hasMoreMessages[chatId] !== false);
+  const loadingMore = useChatStore((s) => !!s.loadingMoreMessages?.[chatId]);
   const chat = useChatStore((s) => s.chats.find((c) => c.id === chatId));
   // Подписка только на нужные данные конкретного пользователя (не весь массив/объект)
   const otherUserId = chat?.otherUser?.id ?? null;
@@ -71,6 +73,10 @@ export default function ChatView({
   const [forwardMsg, setForwardMsg] = useState(null);
   const [forwardSuccess, setForwardSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [chatSearchIndex, setChatSearchIndex] = useState(0);
+  const chatSearchInputRef = useRef(null);
   const initialUnreadRef = useRef(null);
 
   // Пространственная навигация — направление анимации при смене чата
@@ -145,6 +151,68 @@ export default function ChatView({
     }, 300);
   }, [closing, onClose]);
 
+  // Поиск в чате (Ctrl+F)
+  const chatSearchMatches = useMemo(() => {
+    if (!chatSearchQuery.trim()) return [];
+    const q = chatSearchQuery.toLowerCase();
+    const matches = [];
+    chatMessages.forEach((msg, idx) => {
+      if (msg.text && msg.text.toLowerCase().includes(q)) {
+        matches.push(idx);
+      }
+    });
+    return matches;
+  }, [chatMessages, chatSearchQuery]);
+
+  useEffect(() => {
+    const handleCtrlF = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setChatSearchOpen(true);
+        setChatSearchQuery('');
+        setChatSearchIndex(0);
+        setTimeout(() => chatSearchInputRef.current?.focus(), 50);
+      }
+    };
+    window.addEventListener('keydown', handleCtrlF);
+    return () => window.removeEventListener('keydown', handleCtrlF);
+  }, []);
+
+  const closeChatSearch = useCallback(() => {
+    setChatSearchOpen(false);
+    setChatSearchQuery('');
+    setChatSearchIndex(0);
+  }, []);
+
+  const navigateSearchMatch = useCallback((direction) => {
+    if (chatSearchMatches.length === 0) return;
+    let next = chatSearchIndex + direction;
+    if (next < 0) next = chatSearchMatches.length - 1;
+    if (next >= chatSearchMatches.length) next = 0;
+    setChatSearchIndex(next);
+    const msgIdx = chatSearchMatches[next];
+    virtualizer.scrollToIndex(msgIdx, { align: 'center', behavior: 'smooth' });
+    // Подсветка
+    setTimeout(() => {
+      const msg = chatMessages[msgIdx];
+      if (msg) {
+        const el = document.getElementById(`msg-${msg.id}`);
+        if (el) {
+          el.classList.add('chat-message--highlighted');
+          setTimeout(() => el.classList.remove('chat-message--highlighted'), 1500);
+        }
+      }
+    }, 200);
+  }, [chatSearchMatches, chatSearchIndex, chatMessages, virtualizer]);
+
+  // Скроллить к первому совпадению при смене запроса
+  useEffect(() => {
+    if (chatSearchMatches.length > 0) {
+      setChatSearchIndex(0);
+      virtualizer.scrollToIndex(chatSearchMatches[0], { align: 'center', behavior: 'smooth' });
+    }
+  }, [chatSearchQuery]); // eslint-disable-line
+
   // Загрузить сообщения (только при смене chatId)
   useEffect(() => {
     if (chatId) {
@@ -200,7 +268,21 @@ export default function ChatView({
     setShowScrollDown(!near);
     // Сбросить бейдж когда пользователь долистал до конца
     if (near) setNewMsgCount(0);
-  }, []);
+
+    // Пагинация: подгрузка старых сообщений при скролле вверх
+    if (el.scrollTop < 200 && hasMoreMessages && !loadingMore && chatMessages.length > 0) {
+      const prevScrollHeight = el.scrollHeight;
+      useChatStore.getState().loadMoreMessages(chatId).then(() => {
+        // Сохранить позицию скролла после вставки старых сообщений
+        requestAnimationFrame(() => {
+          if (el) {
+            const newScrollHeight = el.scrollHeight;
+            el.scrollTop += newScrollHeight - prevScrollHeight;
+          }
+        });
+      });
+    }
+  }, [chatId, hasMoreMessages, loadingMore, chatMessages.length]);
 
   // [BUG 1.1] Автоскролл при новых сообщениях
   useEffect(() => {
@@ -452,7 +534,7 @@ export default function ChatView({
       if (pending) useChatStore.getState().failMessage(sendTempId, chatId);
       // Убрать из списка tracked таймеров
       ackTimeoutsRef.current = ackTimeoutsRef.current.filter(t => t !== ackTimeout);
-    }, 10000);
+    }, 30000);
     ackTimeoutsRef.current.push(ackTimeout);
 
     socketRef.current?.emit('message:send', payload, (ack) => {
@@ -524,6 +606,18 @@ export default function ChatView({
   const handleEditStable = useCallback((msg) => { setEditingMsg(msg); setReplyTo(null); }, []);
   const handleDeleteStable = useCallback((msgId) => setDeleteConfirm(msgId), []);
   const handleForwardStable = useCallback((msg) => setForwardMsg(msg), []);
+  const handlePinStable = useCallback((msg) => {
+    const socket = socketRef.current;
+    if (socket) {
+      socket.emit('message:pin', { messageId: msg.id, chatId }, (res) => {
+        if (res?.error === 'not_implemented' || !res?.ok) {
+          window.blesk?.notify?.('blesk', 'Функция в разработке');
+        }
+      });
+    } else {
+      window.blesk?.notify?.('blesk', 'Функция в разработке');
+    }
+  }, [chatId, socketRef]);
   const handleRetryStable = useCallback((msg) => {
     const socket = socketRef.current;
     if (socket && msg.text) {
@@ -713,6 +807,46 @@ export default function ChatView({
         <CallBanner activeCall={activeCall} onJoin={onJoinCall} />
       )}
 
+      {/* Поиск в чате */}
+      {chatSearchOpen && (
+        <div className="chat-view__search-bar">
+          <MagnifyingGlass size={14} className="chat-view__search-bar-icon" />
+          <input
+            ref={chatSearchInputRef}
+            className="chat-view__search-bar-input"
+            type="text"
+            placeholder="Поиск по сообщениям..."
+            value={chatSearchQuery}
+            onChange={(e) => setChatSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') closeChatSearch();
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                navigateSearchMatch(e.shiftKey ? -1 : 1);
+              }
+              if (e.key === 'ArrowDown') { e.preventDefault(); navigateSearchMatch(1); }
+              if (e.key === 'ArrowUp') { e.preventDefault(); navigateSearchMatch(-1); }
+            }}
+          />
+          {chatSearchQuery && (
+            <span className="chat-view__search-bar-count">
+              {chatSearchMatches.length > 0
+                ? `${chatSearchIndex + 1} / ${chatSearchMatches.length}`
+                : 'Нет совпадений'}
+            </span>
+          )}
+          <button className="chat-view__search-bar-btn" onClick={() => navigateSearchMatch(-1)} disabled={chatSearchMatches.length === 0} title="Предыдущее" aria-label="Предыдущее совпадение">
+            <CaretUp size={14} />
+          </button>
+          <button className="chat-view__search-bar-btn" onClick={() => navigateSearchMatch(1)} disabled={chatSearchMatches.length === 0} title="Следующее" aria-label="Следующее совпадение">
+            <CaretDown size={14} />
+          </button>
+          <button className="chat-view__search-bar-btn" onClick={closeChatSearch} title="Закрыть" aria-label="Закрыть поиск">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Виртуализированный список сообщений */}
       <AnimatePresence mode="wait" custom={chatNavDirection.current}>
       <motion.div
@@ -733,8 +867,19 @@ export default function ChatView({
         aria-relevant="additions"
         aria-label="Сообщения"
       >
+        {/* Спиннер подгрузки старых сообщений */}
+        {loadingMore && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
+            <div style={{
+              width: 20, height: 20, border: '2px solid rgba(255,255,255,0.1)',
+              borderTopColor: 'rgba(200,255,0,0.5)', borderRadius: '50%',
+              animation: 'spin 0.6s linear infinite',
+            }} />
+          </div>
+        )}
+
         {/* Empty state: нет сообщений */}
-        {messageCount === 0 && (
+        {messageCount === 0 && !loadingMore && (
           <EmptyState
             type="no-messages"
             title="Начните разговор"
@@ -792,6 +937,7 @@ export default function ChatView({
                   onEdit={handleEditStable}
                   onDelete={handleDeleteStable}
                   onForward={handleForwardStable}
+                  onPin={handlePinStable}
                   onRetry={handleRetryStable}
                   onImageClick={handleImageClickStable}
                   reactions={allReactions[msg.id]}
@@ -848,6 +994,7 @@ export default function ChatView({
       )}
 
       <ChatInput
+        chatId={chatId}
         onSend={editingMsg ? handleEditSend : handleSend}
         onSendFiles={handleSendFiles}
         onTypingStart={handleTypingStart}

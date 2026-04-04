@@ -671,9 +671,9 @@ router.post('/broadcast-update', authenticate, requireAdmin, async (req, res) =>
       }
     }
 
-    await logAdminAction('system', 'broadcast.update', 'system', null, { version, notified: connectedUserIds.size });
+    await logAdminAction('system', 'broadcast.update', 'system', null, { version, notified: connectedUserIds.length });
 
-    res.json({ ok: true, notified: connectedUserIds.size, version });
+    res.json({ ok: true, notified: connectedUserIds.length, version });
   } catch (err) {
     logger.error({ err }, 'broadcast-update error');
     res.status(500).json({ error: 'Ошибка рассылки' });

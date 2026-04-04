@@ -99,10 +99,9 @@ export async function clearChatCache(chatId) {
 export async function clearAllCache() {
   try {
     const allKeys = await keys();
-    for (const key of allKeys) {
-      if (typeof key === 'string' && key.startsWith(PREFIX)) {
-        await del(key);
-      }
+    const keysToDelete = allKeys.filter(key => typeof key === 'string' && key.startsWith(PREFIX));
+    if (keysToDelete.length > 0) {
+      await Promise.all(keysToDelete.map(key => del(key)));
     }
   } catch (err) { console.error('messageCache clearAllCache:', err?.message || err); }
 }
@@ -118,8 +117,8 @@ async function evictOldChats() {
 
     // Удалить самые старые (те, что добавлены первыми — порядок keys())
     const toDelete = msgKeys.slice(0, msgKeys.length - MAX_CACHED_CHATS);
-    for (const key of toDelete) {
-      await del(key);
+    if (toDelete.length > 0) {
+      await Promise.all(toDelete.map(key => del(key)));
     }
   } catch (err) { console.error('messageCache evictOldChats:', err?.message || err); }
 }

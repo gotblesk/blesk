@@ -179,8 +179,12 @@ export const useVoiceStore = create((set, get) => ({
   },
 
   // Создать голосовую комнату
-  createRoom: async (name) => {
+  createRoom: async (name, limit) => {
     try {
+      const body = { name };
+      if (limit && typeof limit === 'number' && limit >= 2 && limit <= 50) {
+        body.limit = limit;
+      }
       const res = await fetch(`${API_URL}/api/voice/rooms`, {
         method: 'POST',
         headers: {
@@ -188,7 +192,7 @@ export const useVoiceStore = create((set, get) => ({
           ...getAuthHeaders(),
         },
         credentials: 'include',
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (res.ok) {
@@ -353,5 +357,13 @@ export const useVoiceStore = create((set, get) => ({
         r.id === roomId ? { ...r, participantCount: count } : r
       ),
     }));
+  },
+
+  // Получить ownerId текущей комнаты из списка загруженных комнат
+  getCurrentRoomOwnerId: () => {
+    const state = get();
+    if (!state.currentRoomId) return null;
+    const room = state.rooms.find((r) => r.id === state.currentRoomId);
+    return room?.ownerId ?? null;
   },
 }));

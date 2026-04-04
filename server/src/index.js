@@ -114,12 +114,13 @@ app.use('/uploads/attachments', uploadsHeaders, express.static(path.join(__dirna
 app.use('/uploads/thumbs', uploadsHeaders, express.static(path.join(__dirname, '..', 'uploads', 'thumbs')));
 
 // Health check — до rate limiting и роутов
+const pkg = require('../package.json');
 app.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', uptime: process.uptime(), db: 'connected' });
+    res.json({ status: 'ok', version: pkg.version, uptime: process.uptime(), db: 'connected' });
   } catch {
-    res.status(503).json({ status: 'degraded', uptime: process.uptime(), db: 'disconnected' });
+    res.status(503).json({ status: 'degraded', version: pkg.version, uptime: process.uptime(), db: 'disconnected' });
   }
 });
 
@@ -183,11 +184,6 @@ app.use('/api/feedback', chatLimiter, csrfProtection, feedbackRoutes);
 app.use('/api/voice', voiceLimiter, csrfProtection, voiceRoutes);
 app.use('/api/internal', internalLimiter, csrfProtection, internalRoutes);
 app.use('/api/shield', chatLimiter, csrfProtection, shieldRoutes);
-
-// Проверка работоспособности
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: require('../package.json').version });
-});
 
 // WebSocket — авторизация + обработчики
 const { socketAuth } = require('./ws/authMiddleware');
@@ -282,19 +278,8 @@ const PORT = process.env.PORT || 3000;
     logger.info({ port: PORT }, 'blesk server запущен');
   });
 
-  const gracefulShutdown = async (signal) => {
-    logger.info({ signal }, 'Shutting down gracefully...');
-    clearVoiceIntervals();
-    io.close();
-    await new Promise((resolve) => httpServer.close(resolve));
-    await prisma.$disconnect();
-    process.exit(0);
-  };
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
   // Очистка expired refresh tokens каждые 6 часов
-  setInterval(async () => {
+  const refreshTokenCleanup = setInterval(async () => {
     try {
       const result = await prisma.refreshToken.deleteMany({
         where: { expiresAt: { lt: new Date() } },
@@ -308,7 +293,7 @@ const PORT = process.env.PORT || 3000;
   }, 6 * 60 * 60 * 1000);
 
   // Очистка expired email codes каждые 2 часа
-  setInterval(async () => {
+  const emailCodeCleanup = setInterval(async () => {
     try {
       const result = await prisma.emailCode.deleteMany({
         where: { expiresAt: { lt: new Date() } },
@@ -320,6 +305,26 @@ const PORT = process.env.PORT || 3000;
       logger.error({ err: err.message }, 'Ошибка очистки email codes');
     }
   }, 2 * 60 * 60 * 1000);
+
+  const gracefulShutdown = async (signal) => {
+    logger.info({ signal }, 'Shutting down gracefully...');
+
+    // Принудительный выход если drain не завершится за 10 секунд
+    const forceExitTimer = setTimeout(() => process.exit(1), 10000);
+    forceExitTimer.unref();
+
+    clearInterval(refreshTokenCleanup);
+    clearInterval(emailCodeCleanup);
+    clearVoiceIntervals();
+
+    // Сначала закрыть HTTP (прекратить приём новых подключений), потом WebSocket
+    await new Promise((resolve) => httpServer.close(resolve));
+    io.close();
+    await prisma.$disconnect();
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 })();
 
 // [IMP-3 A1] Graceful crash — exit на fatal errors (PM2 перезапустит)

@@ -113,21 +113,31 @@ async function sendVerificationCode(email, code) {
     }
   } catch (err) { logger.error({ err: err.message }, 'Failed to attach email logo'); }
 
+  const mailOptions = {
+    from: {
+      name: 'blesk',
+      address: process.env.SMTP_FROM || process.env.SMTP_USER,
+    },
+    to: email,
+    subject: `${code} — blesk`,
+    html: buildEmailHTML(code),
+    attachments,
+  };
+
   try {
-    await transporter.sendMail({
-      from: {
-        name: 'blesk',
-        address: process.env.SMTP_FROM || process.env.SMTP_USER,
-      },
-      to: email,
-      subject: `${code} — blesk`,
-      html: buildEmailHTML(code),
-      attachments,
-    });
+    await transporter.sendMail(mailOptions);
     return true;
   } catch (err) {
-    logger.error({ err: err.message }, 'Email send error');
-    return false;
+    logger.warn({ err: err.message }, 'Email send failed, retrying in 2s');
+    // Одна повторная попытка через 2 секунды (transient-ошибки SMTP)
+    try {
+      await new Promise(r => setTimeout(r, 2000));
+      await transporter.sendMail(mailOptions);
+      return true;
+    } catch (retryErr) {
+      logger.error({ err: retryErr.message }, 'Email send failed after retry');
+      return false;
+    }
   }
 }
 

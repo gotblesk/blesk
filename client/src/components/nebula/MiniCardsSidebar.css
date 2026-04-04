@@ -94,7 +94,7 @@
   gap: 10px;
   padding: 8px 10px;
   border-radius: 0 var(--radius-md, 14px) var(--radius-md, 14px) 0;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateX(-4px);
   position: relative;
 }

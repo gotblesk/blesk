@@ -101,7 +101,7 @@ export default function TwoFactorForm({ tempToken, onLogin, onModeChange }) {
               className={`verify-code-cell ${digit ? 'filled' : ''}`}
               type="text"
               inputMode="numeric"
-              maxLength={6}
+              maxLength={1}
               value={digit}
               onChange={(e) => handleTfaCodeInput(i, e.target.value)}
               onKeyDown={(e) => handleTfaCodeKeyDown(i, e)}

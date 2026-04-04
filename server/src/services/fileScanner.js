@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 let scanner = null;
 let scannerAvailable = false;
 
@@ -9,7 +11,6 @@ async function initScanner() {
 
   try {
     const NodeClam = require('clamscan');
-const logger = require('../utils/logger');
     scanner = await new NodeClam().init({
       clamdscan: {
         socket: process.env.CLAMAV_SOCKET || '/var/run/clamav/clamd.ctl',

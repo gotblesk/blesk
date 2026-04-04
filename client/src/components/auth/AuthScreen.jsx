@@ -18,7 +18,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     () => !!localStorage.getItem('blesk_onboarded') || !!pendingVerification
   );
 
-  // Phase: intro → form
+  // Phase: intro → autoLogin → form
   const [phase, setPhase] = useState(pendingVerification ? 'form' : 'intro');
 
   // Mode: login | register | verify | forgot | forgot-code | forgot-reset | 2fa
@@ -33,11 +33,44 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     user: pendingVerification?.user || null,
   });
 
+  // Auto-login через refresh token
+  const [autoLoginTried, setAutoLoginTried] = useState(false);
+  useEffect(() => {
+    if (pendingVerification || autoLoginTried) return;
+    const refreshToken = localStorage.getItem('blesk_refresh_token');
+    if (!refreshToken) { setAutoLoginTried(true); return; }
+
+    setPhase('autoLogin');
+    (async () => {
+      try {
+        const API_URL = (await import('../../config')).default;
+        const res = await fetch(`${API_URL}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.token && data.user) {
+            localStorage.setItem('blesk_token', data.token);
+            if (data.refreshToken) localStorage.setItem('blesk_refresh_token', data.refreshToken);
+            onLogin?.(data);
+            return;
+          }
+        }
+      } catch { /* тихий fallback */ }
+      setAutoLoginTried(true);
+      setPhase('form');
+    })();
+  }, [pendingVerification, autoLoginTried, onLogin]);
+
   // Brand intro → form (пропускаем для повторных визитов)
   useEffect(() => {
     if (pendingVerification) return;
+    if (phase === 'autoLogin') return;
     if (localStorage.getItem('blesk-auth-seen')) {
-      setPhase('form');
+      if (phase === 'intro') setPhase('form');
       return;
     }
     const timer = setTimeout(() => {
@@ -45,7 +78,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
       localStorage.setItem('blesk-auth-seen', '1');
     }, 2500);
     return () => clearTimeout(timer);
-  }, [pendingVerification]);
+  }, [pendingVerification, phase]);
 
   const switchMode = (newMode) => {
     setMode(newMode);
@@ -62,6 +95,22 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     setVerifyData({ email: user.email, token, refreshToken, user });
     setMode('verify');
   };
+
+  // Auto-login loading
+  if (phase === 'autoLogin') {
+    return (
+      <div className="auth-screen">
+        <MetaballBackground subtle />
+        <div className="auth-center">
+          <div className="auth-autoLogin">
+            <img className="auth-autoLogin__logo" src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
+            <div className="auth-autoLogin__spinner" />
+            <div className="auth-autoLogin__text">Вход в аккаунт...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Brand intro
   if (phase === 'intro') {
@@ -97,6 +146,7 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
           <RegisterForm
             onModeChange={switchMode}
             onVerifyRequired={handleVerifyRequired}
+            onLogin={onLogin}
           />
         );
       case 'verify':

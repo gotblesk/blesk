@@ -102,6 +102,8 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
   const pinnedChats = useChatStore(s => s.pinnedChats);
   const isPinned = pinnedChats.has(chat.id);
 
+  const draft = useChatStore(s => s.drafts[chat.id]);
+
   const handleTogglePin = useCallback(() => {
     useChatStore.getState().togglePinChat(chat.id);
   }, [chat.id]);
@@ -169,7 +171,12 @@ export default function ChatCard({ chat, isOnline, userStatus, isOpen, onClick, 
         <div className="chat-row__info">
           <div className="chat-row__name">{displayName}</div>
           <div className="chat-row__preview">
-            {chat.lastMessage ? (
+            {draft ? (
+              <span className="chat-row__draft">
+                <span className="chat-row__draft-label">Черновик: </span>
+                {draft.length > 50 ? draft.slice(0, 50) + '...' : draft}
+              </span>
+            ) : chat.lastMessage ? (
               <>
                 {isGroup && chat.lastMessage.username && (
                   <span className="chat-row__author">{chat.lastMessage.username}: </span>

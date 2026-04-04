@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1775096060209,
+  "lastScanned": 1775263602024,
   "projectRoot": "C:\\Users\\mxkar\\OneDrive\\Рабочий стол\\blesk",
   "techStack": {
     "languages": [
@@ -44,7 +44,7 @@
       "path": "client",
       "purpose": null,
       "fileCount": 5,
-      "lastAccessed": 1775096060182,
+      "lastAccessed": 1775263602004,
       "keyFiles": [
         "index.html",
         "package-lock.json",
@@ -52,29 +52,64 @@
         "vite.config.js"
       ]
     },
+    "developer-kit": {
+      "path": "developer-kit",
+      "purpose": null,
+      "fileCount": 11,
+      "lastAccessed": 1775263602005,
+      "keyFiles": [
+        "CHANGELOG.md",
+        "context7.json",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "Makefile"
+      ]
+    },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 0,
-      "lastAccessed": 1775096060182,
+      "lastAccessed": 1775263602009,
       "keyFiles": []
     },
     "server": {
       "path": "server",
       "purpose": null,
       "fileCount": 5,
-      "lastAccessed": 1775096060190,
+      "lastAccessed": 1775263602009,
       "keyFiles": [
         "ecosystem.config.js",
         "package-lock.json",
         "package.json"
       ]
     },
+    "ux-designer": {
+      "path": "ux-designer",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1775263602010,
+      "keyFiles": [
+        "LICENSE",
+        "README.md",
+        "SKILL.md"
+      ]
+    },
+    "vercel-agent": {
+      "path": "vercel-agent",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1775263602010,
+      "keyFiles": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md"
+      ]
+    },
     "website": {
       "path": "website",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1775096060190,
+      "lastAccessed": 1775263602010,
       "keyFiles": [
         "icon.png",
         "index.html",
@@ -87,7 +122,7 @@
       "path": "client\\build",
       "purpose": "Build output",
       "fileCount": 5,
-      "lastAccessed": 1775096060190,
+      "lastAccessed": 1775263602010,
       "keyFiles": [
         "gen-license.js",
         "installer.nsh",
@@ -97,8 +132,8 @@
     "client\\dist": {
       "path": "client\\dist",
       "purpose": "Distribution/build output",
-      "fileCount": 6,
-      "lastAccessed": 1775096060191,
+      "fileCount": 7,
+      "lastAccessed": 1775263602011,
       "keyFiles": [
         "blesk.png",
         "icon.ico",
@@ -109,14 +144,23 @@
       "path": "client\\node_modules",
       "purpose": "Dependencies",
       "fileCount": 1,
-      "lastAccessed": 1775096060191,
+      "lastAccessed": 1775263602011,
       "keyFiles": []
+    },
+    "developer-kit\\docs": {
+      "path": "developer-kit\\docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1775263602012,
+      "keyFiles": [
+        "README.md"
+      ]
     },
     "server\\assets": {
       "path": "server\\assets",
       "purpose": "Static assets",
       "fileCount": 1,
-      "lastAccessed": 1775096060192,
+      "lastAccessed": 1775263602012,
       "keyFiles": [
         "blesk-email.png"
       ]
@@ -125,14 +169,14 @@
       "path": "server\\node_modules",
       "purpose": "Dependencies",
       "fileCount": 1,
-      "lastAccessed": 1775096060192,
+      "lastAccessed": 1775263602012,
       "keyFiles": []
     },
     "server\\scripts": {
       "path": "server\\scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1775096060193,
+      "lastAccessed": 1775263602013,
       "keyFiles": [
         "pg-backup.sh",
         "setup-backups.sh"
@@ -142,212 +186,248 @@
   "hotPaths": [
     {
       "path": "client\\src",
-      "accessCount": 190,
-      "lastAccessed": 1775135184929,
+      "accessCount": 290,
+      "lastAccessed": 1775307033266,
+      "type": "directory"
+    },
+    {
+      "path": "",
+      "accessCount": 165,
+      "lastAccessed": 1775306258656,
       "type": "directory"
     },
     {
       "path": "client\\src\\styles\\global.css",
-      "accessCount": 120,
-      "lastAccessed": 1775134693885,
+      "accessCount": 149,
+      "lastAccessed": 1775306952068,
       "type": "file"
     },
     {
-      "path": "",
-      "accessCount": 105,
-      "lastAccessed": 1775134600742,
-      "type": "directory"
-    },
-    {
       "path": "server\\src\\routes\\auth.js",
-      "accessCount": 75,
-      "lastAccessed": 1775135263618,
+      "accessCount": 117,
+      "lastAccessed": 1775305601956,
       "type": "file"
     },
     {
       "path": "client\\electron\\main.js",
-      "accessCount": 59,
-      "lastAccessed": 1775134111892,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\index.js",
-      "accessCount": 56,
-      "lastAccessed": 1775134064643,
+      "accessCount": 94,
+      "lastAccessed": 1775306948352,
       "type": "file"
     },
     {
       "path": "client\\src\\components\\DynamicIsland\\island.css",
-      "accessCount": 52,
-      "lastAccessed": 1775106464242,
+      "accessCount": 91,
+      "lastAccessed": 1775305722356,
       "type": "directory"
-    },
-    {
-      "path": "client\\src\\components\\ui\\MetaballBackground.jsx",
-      "accessCount": 46,
-      "lastAccessed": 1775116864734,
-      "type": "file"
     },
     {
       "path": "client\\src\\hooks\\useSocket.js",
-      "accessCount": 46,
-      "lastAccessed": 1775135274015,
+      "accessCount": 72,
+      "lastAccessed": 1775306290939,
       "type": "file"
     },
     {
-      "path": "server\\src\\ws\\chatHandler.js",
-      "accessCount": 43,
-      "lastAccessed": 1775134315769,
+      "path": "server\\src\\index.js",
+      "accessCount": 71,
+      "lastAccessed": 1775303211445,
       "type": "file"
-    },
-    {
-      "path": "server\\src",
-      "accessCount": 40,
-      "lastAccessed": 1775134121391,
-      "type": "directory"
     },
     {
       "path": "client\\src\\App.jsx",
-      "accessCount": 40,
-      "lastAccessed": 1775134627395,
+      "accessCount": 64,
+      "lastAccessed": 1775306940042,
+      "type": "file"
+    },
+    {
+      "path": "client\\src\\components\\ui\\MetaballBackground.jsx",
+      "accessCount": 56,
+      "lastAccessed": 1775306945250,
       "type": "file"
     },
     {
       "path": "client\\src\\components\\channels\\ChannelView.jsx",
-      "accessCount": 29,
-      "lastAccessed": 1775134647786,
+      "accessCount": 54,
+      "lastAccessed": 1775306947025,
       "type": "file"
     },
     {
       "path": "server\\src\\ws\\voiceHandler.js",
-      "accessCount": 27,
-      "lastAccessed": 1775134080183,
+      "accessCount": 52,
+      "lastAccessed": 1775309202324,
       "type": "file"
     },
     {
-      "path": "server\\src\\services\\mediasoup.js",
-      "accessCount": 25,
-      "lastAccessed": 1774973328814,
+      "path": "server\\src\\ws\\chatHandler.js",
+      "accessCount": 51,
+      "lastAccessed": 1775305601212,
       "type": "file"
     },
     {
-      "path": "server\\src\\routes\\admin.js",
-      "accessCount": 25,
-      "lastAccessed": 1775118245422,
-      "type": "file"
-    },
-    {
-      "path": "client\\package.json",
-      "accessCount": 25,
-      "lastAccessed": 1775136079200,
-      "type": "file"
-    },
-    {
-      "path": "client\\src\\components\\chat\\ChatHeader.jsx",
-      "accessCount": 23,
-      "lastAccessed": 1775135614823,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\routes\\friends.js",
-      "accessCount": 22,
-      "lastAccessed": 1775134066088,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\routes\\chats.js",
-      "accessCount": 22,
-      "lastAccessed": 1775134066837,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\routes\\channels.js",
-      "accessCount": 18,
-      "lastAccessed": 1775134316205,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\routes\\users.js",
-      "accessCount": 18,
-      "lastAccessed": 1775134318003,
-      "type": "file"
-    },
-    {
-      "path": "client\\electron\\preload.js",
-      "accessCount": 16,
-      "lastAccessed": 1775134111951,
-      "type": "file"
-    },
-    {
-      "path": "server\\prisma\\schema.prisma",
-      "accessCount": 15,
-      "lastAccessed": 1775134082012,
-      "type": "file"
-    },
-    {
-      "path": "client",
-      "accessCount": 14,
-      "lastAccessed": 1775116834503,
+      "path": "server\\src",
+      "accessCount": 47,
+      "lastAccessed": 1775306762931,
       "type": "directory"
     },
     {
-      "path": "server\\src\\middleware\\csrf.js",
-      "accessCount": 14,
-      "lastAccessed": 1775135260132,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\middleware\\auth.js",
-      "accessCount": 12,
-      "lastAccessed": 1775134080711,
-      "type": "file"
-    },
-    {
-      "path": "deploy.py",
-      "accessCount": 11,
-      "lastAccessed": 1775118715881,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\routes\\upload.js",
-      "accessCount": 11,
-      "lastAccessed": 1775134074292,
-      "type": "file"
-    },
-    {
-      "path": "client\\src\\components\\ContentArea\\Placeholder.jsx",
-      "accessCount": 10,
-      "lastAccessed": 1774976499989,
+      "path": "client\\package.json",
+      "accessCount": 46,
+      "lastAccessed": 1775309239981,
       "type": "file"
     },
     {
       "path": "server\\src\\ws\\callHandler.js",
-      "accessCount": 10,
-      "lastAccessed": 1775134080616,
+      "accessCount": 36,
+      "lastAccessed": 1775305521947,
       "type": "file"
     },
     {
-      "path": "client\\vite.config.js",
-      "accessCount": 9,
-      "lastAccessed": 1774971576804,
+      "path": "server\\src\\services\\mediasoup.js",
+      "accessCount": 33,
+      "lastAccessed": 1775309201444,
       "type": "file"
     },
     {
-      "path": "server\\src\\routes\\shield.js",
-      "accessCount": 9,
-      "lastAccessed": 1774973871060,
+      "path": "client\\src\\components\\chat\\ChatHeader.jsx",
+      "accessCount": 29,
+      "lastAccessed": 1775303196045,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\routes\\admin.js",
+      "accessCount": 29,
+      "lastAccessed": 1775303203008,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\routes\\channels.js",
+      "accessCount": 28,
+      "lastAccessed": 1775305521115,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\routes\\chats.js",
+      "accessCount": 26,
+      "lastAccessed": 1775304153780,
+      "type": "file"
+    },
+    {
+      "path": "client\\electron\\preload.js",
+      "accessCount": 24,
+      "lastAccessed": 1775308432340,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\routes\\friends.js",
+      "accessCount": 23,
+      "lastAccessed": 1775301393760,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\routes\\users.js",
+      "accessCount": 23,
+      "lastAccessed": 1775304115749,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\routes\\upload.js",
+      "accessCount": 22,
+      "lastAccessed": 1775301491025,
+      "type": "file"
+    },
+    {
+      "path": "server\\prisma\\schema.prisma",
+      "accessCount": 22,
+      "lastAccessed": 1775304147053,
+      "type": "file"
+    },
+    {
+      "path": "client",
+      "accessCount": 21,
+      "lastAccessed": 1775305632638,
+      "type": "directory"
+    },
+    {
+      "path": "server\\src\\middleware\\auth.js",
+      "accessCount": 17,
+      "lastAccessed": 1775303149217,
+      "type": "file"
+    },
+    {
+      "path": "deploy.py",
+      "accessCount": 16,
+      "lastAccessed": 1775303231817,
       "type": "file"
     },
     {
       "path": "server",
-      "accessCount": 9,
-      "lastAccessed": 1774976944488,
+      "accessCount": 16,
+      "lastAccessed": 1775303244977,
       "type": "directory"
     },
     {
+      "path": "server\\src\\middleware\\csrf.js",
+      "accessCount": 15,
+      "lastAccessed": 1775301488744,
+      "type": "file"
+    },
+    {
       "path": "server\\src\\routes\\voice.js",
-      "accessCount": 7,
-      "lastAccessed": 1774938655636,
+      "accessCount": 13,
+      "lastAccessed": 1775303201826,
+      "type": "file"
+    },
+    {
+      "path": "client\\electron",
+      "accessCount": 12,
+      "lastAccessed": 1775306781834,
+      "type": "directory"
+    },
+    {
+      "path": "client\\src\\components\\ContentArea\\Placeholder.jsx",
+      "accessCount": 11,
+      "lastAccessed": 1775301391018,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\services\\fileValidator.js",
+      "accessCount": 11,
+      "lastAccessed": 1775301490895,
+      "type": "file"
+    },
+    {
+      "path": "server\\package.json",
+      "accessCount": 11,
+      "lastAccessed": 1775309241195,
+      "type": "file"
+    },
+    {
+      "path": "client\\vite.config.js",
+      "accessCount": 10,
+      "lastAccessed": 1775301455697,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\routes\\shield.js",
+      "accessCount": 10,
+      "lastAccessed": 1775301508239,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\routes\\notifications.js",
+      "accessCount": 10,
+      "lastAccessed": 1775303233195,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\services\\ogScraper.js",
+      "accessCount": 10,
+      "lastAccessed": 1775304206953,
+      "type": "file"
+    },
+    {
+      "path": "server\\src\\ws\\authMiddleware.js",
+      "accessCount": 9,
+      "lastAccessed": 1775301499514,
       "type": "file"
     },
     {
@@ -357,57 +437,27 @@
       "type": "file"
     },
     {
-      "path": "client\\electron",
-      "accessCount": 7,
-      "lastAccessed": 1775117352789,
-      "type": "directory"
-    },
-    {
-      "path": "server\\src\\ws\\authMiddleware.js",
-      "accessCount": 7,
-      "lastAccessed": 1775117990520,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\services\\fileValidator.js",
-      "accessCount": 6,
-      "lastAccessed": 1775116891744,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\services\\ogScraper.js",
-      "accessCount": 5,
-      "lastAccessed": 1774918454009,
-      "type": "file"
-    },
-    {
       "path": "client\\src\\components\\voice\\IncomingCallOverlay.css",
-      "accessCount": 4,
-      "lastAccessed": 1774973246246,
-      "type": "file"
-    },
-    {
-      "path": "server\\src\\routes\\notifications.js",
-      "accessCount": 4,
-      "lastAccessed": 1774974399258,
-      "type": "file"
-    },
-    {
-      "path": "client\\src\\utils\\cryptoService.js",
-      "accessCount": 4,
-      "lastAccessed": 1775117308965,
-      "type": "file"
-    },
-    {
-      "path": "server\\package.json",
-      "accessCount": 4,
-      "lastAccessed": 1775136071884,
+      "accessCount": 6,
+      "lastAccessed": 1775304120854,
       "type": "file"
     },
     {
       "path": "server\\src\\middleware\\adminAuth.js",
-      "accessCount": 3,
-      "lastAccessed": 1775117317347,
+      "accessCount": 5,
+      "lastAccessed": 1775301489628,
+      "type": "file"
+    },
+    {
+      "path": "client\\src\\utils\\cryptoService.js",
+      "accessCount": 5,
+      "lastAccessed": 1775301500364,
+      "type": "file"
+    },
+    {
+      "path": "client\\electron\\splash-preload.js",
+      "accessCount": 5,
+      "lastAccessed": 1775306485683,
       "type": "file"
     },
     {
@@ -423,15 +473,9 @@
       "type": "file"
     },
     {
-      "path": "client\\electron\\splash-preload.js",
-      "accessCount": 1,
-      "lastAccessed": 1774916651175,
-      "type": "file"
-    },
-    {
       "path": "server\\src\\routes\\feedback.js",
-      "accessCount": 1,
-      "lastAccessed": 1774916700133,
+      "accessCount": 2,
+      "lastAccessed": 1775301441233,
       "type": "file"
     },
     {

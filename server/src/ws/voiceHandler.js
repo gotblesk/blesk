@@ -375,6 +375,14 @@ function voiceHandler(io, socket) {
       const producer = await transport.produce({ kind, rtpParameters, appData: appData || {} });
       peer.producers.set(producer.id, producer);
 
+      // Simulcast: логировать если видео с несколькими encoding-слоями
+      if (kind === 'video' && rtpParameters?.encodings?.length > 1) {
+        logger.info(
+          { userId, producerId: producer.id, layers: rtpParameters.encodings.length, type: appData.type },
+          '[voice] Simulcast producer created'
+        );
+      }
+
       producer.on('transportclose', () => {
         producer.close();
         peer.producers.delete(producer.id);

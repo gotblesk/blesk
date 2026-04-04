@@ -200,6 +200,7 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
+  @@index([fromUserId])
   @@map("notifications")
 }
 

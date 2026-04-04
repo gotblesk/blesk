@@ -23,9 +23,10 @@ const STEPS = [
 
 export default function OnboardingIntro({ onComplete }) {
   const [step, setStep] = useState(0);
+  const [alreadyOnboarded] = useState(() => !!localStorage.getItem('blesk_onboarded'));
 
   // Показываем только один раз
-  if (localStorage.getItem('blesk_onboarded')) return null;
+  if (alreadyOnboarded) return null;
 
   const current = STEPS[step];
 

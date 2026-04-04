@@ -3,7 +3,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 # Credentials из переменных окружения (НЕ hardcode)
 VPS_HOST = os.environ.get('BLESK_VPS_HOST', '83.222.16.169')
-VPS_USER = os.environ.get('BLESK_VPS_USER', 'root')
+VPS_USER = os.environ.get('BLESK_VPS_USER', 'blesk')
 VPS_PASSWORD = os.environ.get('BLESK_VPS_PASSWORD')
 VPS_KEY_PATH = os.environ.get('BLESK_VPS_KEY', '')
 

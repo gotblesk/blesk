@@ -74,7 +74,7 @@
 .vibe-panel__meter {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 14px;
   border-radius: 14px;
   background: rgba(200, 255, 0, 0.03);
@@ -123,7 +123,7 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding-right: 4px;
 }
 
@@ -144,7 +144,7 @@
 .vibe-card {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 10px 12px;
   border-radius: var(--radius-md, 14px);
   background: rgba(255, 255, 255, 0.02);

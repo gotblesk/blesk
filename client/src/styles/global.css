@@ -7,7 +7,7 @@
 
 @font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-SemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-SemiBold.ttf') format('truetype'); font-weight: 600 700; font-style: normal; font-display: swap; }
 
 :root {
   /* Z-index hierarchy (ordered low→high, no conflicts) */
@@ -20,6 +20,7 @@
   --z-island: 90;
   --z-tooltip: 150;
   --z-toast: 200;
+  --z-context-menu: 300;
   --z-modal: 1000;
   --z-call-overlay: 2000;
 
@@ -366,11 +367,12 @@ h1, h2, h3, h4, h5, h6 {
 :is(button, a, [role="button"], [tabindex]):focus:not(:focus-visible) {
   outline: none;
 }
-/* Инпуты — без outline, используют border-color при :focus */
+/* Инпуты — видимый фокус для a11y */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 [data-theme="light"] :is(button, a, [role="button"], [tabindex]):focus-visible {
@@ -457,13 +459,13 @@ select:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
   transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb-hover);
 }
 
 ::-webkit-scrollbar-corner {
@@ -1985,3 +1987,16 @@ button:active, [role="button"]:active, .clickable:active {
 .accent-glow {
   box-shadow: 0 0 30px rgba(200, 255, 0, 0.06);
 }
+
+/* ═══ Custom text selection ═══ */
+::selection {
+  background: rgba(200, 255, 0, 0.3);
+  color: var(--text-primary);
+}
+[data-theme="light"] ::selection {
+  background: rgba(74, 122, 0, 0.25);
+}
+
+/* ═══ Cursor semantics ═══ */
+input, textarea { cursor: text; }
+[disabled] { cursor: not-allowed; opacity: 0.5; }

@@ -11,6 +11,7 @@ module.exports = {
       NODE_ENV: 'production',
     },
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    max_size: '50M',
     error_file: 'logs/error.log',
     out_file: 'logs/out.log',
     merge_logs: true,

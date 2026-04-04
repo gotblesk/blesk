@@ -10,7 +10,7 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s;
   -webkit-app-region: no-drag;
 }
 
@@ -66,7 +66,7 @@
   background: rgba(8, 6, 15, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  z-index: 200;
+  z-index: var(--z-modal, 1000);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -253,4 +253,66 @@
   text-align: center;
   font-size: 9px;
   color: var(--text-muted);
+}
+
+/* ═══════ LIGHT THEME ═══════ */
+[data-theme="light"] .spotlight-overlay {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .spotlight-card {
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .spotlight-header {
+  border-bottom-color: var(--light-border, #e5e7eb);
+}
+
+[data-theme="light"] .spotlight-name {
+  color: var(--light-text-primary, #111827);
+}
+
+[data-theme="light"] .spotlight-tag {
+  color: var(--light-text-tertiary, #9ca3af);
+}
+
+[data-theme="light"] .spotlight-item {
+  color: var(--light-text-primary, #111827);
+}
+
+[data-theme="light"] .spotlight-item:hover {
+  background: var(--light-surface-hover, #f0f2f5);
+}
+
+[data-theme="light"] .spotlight-item--danger {
+  color: var(--danger);
+}
+
+[data-theme="light"] .spotlight-item--danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+[data-theme="light"] .spotlight-item__icon {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--light-text-secondary, #4b5563);
+}
+
+[data-theme="light"] .spotlight-item--danger .spotlight-item__icon {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
+}
+
+[data-theme="light"] .spotlight-item__hint {
+  color: var(--light-text-tertiary, #9ca3af);
+}
+
+[data-theme="light"] .spotlight-sep {
+  background: var(--light-border, #e5e7eb);
+}
+
+[data-theme="light"] .spotlight-footer {
+  border-top-color: var(--light-border, #e5e7eb);
+  color: var(--light-text-tertiary, #9ca3af);
 }

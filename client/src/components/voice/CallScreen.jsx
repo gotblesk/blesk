@@ -74,6 +74,16 @@ export default function CallScreen({
     setInitialized(true);
   }, [initialized, size]);
 
+  // Очистка MediaStream при размонтировании
+  useEffect(() => {
+    return () => {
+      if (localVideoStream) localVideoStream.getTracks().forEach(t => t.stop());
+      if (localScreenStream) localScreenStream.getTracks().forEach(t => t.stop());
+      if (remoteVideoStream) remoteVideoStream.getTracks().forEach(t => t.stop());
+      if (remoteScreenStream) remoteScreenStream.getTracks().forEach(t => t.stop());
+    };
+  }, [localVideoStream, localScreenStream, remoteVideoStream, remoteScreenStream]);
+
   // Горячие клавиши: M — мут, D — динамик, V — камера, Escape — завершить
   useEffect(() => {
     const handler = (e) => {

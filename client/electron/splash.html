@@ -224,6 +224,40 @@
     }
   }
 
+  /* ═══════ ERROR STATE ═══════ */
+  .error-state .dots {
+    display: none;
+  }
+
+  .error-state .status {
+    color: rgba(239, 68, 68, 0.7);
+  }
+
+  .retry-btn {
+    display: none;
+    margin-top: 14px;
+    padding: 8px 24px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 10px;
+    color: rgba(239, 68, 68, 0.85);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .retry-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+  }
+
+  .error-state .retry-btn {
+    display: inline-block;
+  }
+
   /* ═══════ REDUCED MOTION ═══════ */
   @media (prefers-reduced-motion: reduce) {
     .dot { animation: none; opacity: 0.5; }
@@ -255,6 +289,7 @@
       <div class="dot"></div>
     </div>
     <div class="status" id="status">Запуск...</div>
+    <button class="retry-btn" id="retryBtn">Повторить</button>
     <div class="version" id="version"></div>
   </div>
 </div>
@@ -313,9 +348,31 @@
 
   // ═══════ READY SIGNAL ═══════
   // Send ready after statuses finish (~3s)
+  let readySent = false;
+
   setTimeout(() => {
+    readySent = true;
     window.splashApi?.ready();
   }, 3000);
+
+  // Если через 8 сек после ready основное окно не загрузилось — показать ошибку
+  setTimeout(() => {
+    const splash = document.getElementById('splash');
+    if (splash && !splash.classList.contains('expand-out')) {
+      splash.classList.add('error-state');
+      statusEl.textContent = 'Не удалось загрузить приложение';
+      statusEl.style.opacity = '1';
+    }
+  }, 8000);
+
+  // Кнопка «Повторить» — перезапуск загрузки
+  document.getElementById('retryBtn').addEventListener('click', () => {
+    const splash = document.getElementById('splash');
+    splash.classList.remove('error-state');
+    statusEl.textContent = 'Повторная загрузка...';
+    statusEl.style.opacity = '1';
+    window.splashApi?.retry();
+  });
 
 })();
 </script>

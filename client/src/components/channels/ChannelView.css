@@ -107,7 +107,7 @@
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: var(--radius-sm, 8px);
   border: none; cursor: pointer; font-family: inherit; flex-shrink: 0;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s;
   background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
@@ -123,7 +123,7 @@
   padding: var(--space-1) var(--space-3); border-radius: var(--radius-md, 14px);
   border: none; font-size: 11px; font-weight: 700;
   cursor: pointer; font-family: inherit; flex-shrink: 0;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
 .cv__sub:not(.cv__sub--active) {
   background: var(--accent, #c8ff00); color: var(--accent-text, #08060f);
@@ -212,6 +212,41 @@
   pointer-events: none;
 }
 
+/* ═══ Load More ═══ */
+.cv__load-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2) 0 var(--space-4);
+}
+.cv__load-more-btn {
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-secondary, rgba(255,255,255,0.55));
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.cv__load-more-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-primary);
+}
+.cv__load-more-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+[data-theme="light"] .cv__load-more-btn {
+  border-color: rgba(0,0,0,0.08);
+  background: rgba(0,0,0,0.03);
+  color: var(--light-text-secondary, #4b5563);
+}
+[data-theme="light"] .cv__load-more-btn:hover {
+  background: rgba(0,0,0,0.06);
+}
+
 /* ═══ Empty State ═══ */
 .cv__empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -261,7 +296,7 @@
 .cv__composer-close {
   border: none; background: none; color: rgba(255,255,255,0.3);
   font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
-  padding: var(--space-1) var(--space-2); border-radius: 8px; transition: all 0.15s;
+  padding: var(--space-1) var(--space-2); border-radius: 8px; transition: color 0.15s, background 0.15s;
 }
 .cv__composer-close:hover { color: var(--text); background: rgba(255,255,255,0.04); }
 
@@ -339,4 +374,116 @@
 }
 [data-theme="light"] .cv__sticky-stats {
   color: rgba(0,0,0,0.4);
+}
+
+/* ═══ Delete Channel Button ═══ */
+.cv__delete-btn {
+  position: absolute; top: 12px; right: 12px; z-index: 3;
+  width: 32px; height: 32px; border-radius: var(--radius-sm, 8px);
+  border: none; background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  color: rgba(239, 68, 68, 0.7); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.2s, color 0.2s, background 0.2s;
+}
+.cv__hero:hover .cv__delete-btn { opacity: 1; }
+.cv__delete-btn:hover { color: #ef4444; background: rgba(239, 68, 68, 0.15); }
+
+/* ═══ Delete Channel Dialog ═══ */
+.cv__del-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+}
+.cv__del-dialog {
+  width: 380px; max-width: 90vw;
+  background: rgba(14, 12, 24, 0.95);
+  backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+  border-radius: var(--radius-lg, 22px);
+  padding: var(--space-5, 20px) var(--space-6, 24px);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+.cv__del-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+  display: flex; align-items: center; justify-content: center;
+  color: #ef4444;
+}
+.cv__del-title {
+  font-size: 17px; font-weight: 700; color: var(--text-primary, rgba(255,255,255,0.92));
+  margin: 0; letter-spacing: -0.02em;
+}
+.cv__del-text {
+  font-size: 13px; color: var(--text-secondary, rgba(255,255,255,0.55));
+  text-align: center; margin: 0; line-height: 1.5;
+}
+.cv__del-field {
+  width: 100%; display: flex; flex-direction: column; gap: 6px;
+}
+.cv__del-label {
+  font-size: 11px; color: var(--text-tertiary, rgba(255,255,255,0.35));
+}
+.cv__del-label strong {
+  color: var(--text-primary, rgba(255,255,255,0.9));
+}
+.cv__del-input {
+  width: 100%; padding: 10px var(--space-3, 12px);
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.04);
+  color: var(--text, rgba(255,255,255,0.85));
+  font-size: 13px; font-family: inherit; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.cv__del-input::placeholder { color: rgba(255,255,255,0.15); }
+.cv__del-input:focus {
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.06);
+}
+.cv__del-error {
+  font-size: 12px; color: #ef4444; text-align: center;
+}
+.cv__del-actions {
+  display: flex; gap: 8px; width: 100%; margin-top: 4px;
+}
+.cv__del-btn {
+  flex: 1; padding: 10px; border-radius: var(--radius-sm, 8px);
+  font-size: 13px; font-weight: 700; font-family: inherit;
+  cursor: pointer; border: none; transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.cv__del-btn--cancel {
+  background: rgba(255,255,255,0.04); color: var(--text-secondary, rgba(255,255,255,0.55));
+}
+.cv__del-btn--cancel:hover {
+  background: rgba(255,255,255,0.08); color: var(--text-primary);
+}
+.cv__del-btn--danger {
+  background: #ef4444; color: #fff;
+}
+.cv__del-btn--danger:hover:not(:disabled) {
+  background: #dc2626; box-shadow: 0 0 16px rgba(239, 68, 68, 0.25);
+}
+.cv__del-btn--danger:disabled {
+  opacity: 0.3; cursor: default;
+}
+
+/* Delete dialog light theme */
+[data-theme="light"] .cv__del-dialog {
+  background: #ffffff; border-color: rgba(239, 68, 68, 0.15);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .cv__del-input {
+  background: rgba(239, 68, 68, 0.03); border-color: rgba(239, 68, 68, 0.12);
+}
+[data-theme="light"] .cv__del-btn--cancel {
+  background: var(--bg-sidebar); color: var(--light-text-secondary);
+}
+[data-theme="light"] .cv__delete-btn {
+  background: rgba(255,255,255,0.8); color: rgba(239, 68, 68, 0.6);
+}
+[data-theme="light"] .cv__delete-btn:hover {
+  color: #ef4444; background: rgba(239, 68, 68, 0.08);
 }

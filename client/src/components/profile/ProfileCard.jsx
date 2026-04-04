@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { PencilSimple, ChatCircle, UserPlus, Check, Calendar, Clock, Lock, Warning } from '@phosphor-icons/react';
+import { PencilSimple, ChatCircle, UserPlus, Check, Calendar, Clock, Lock, Warning, ProhibitInset, UserMinus } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import AvatarLightbox from './AvatarLightbox';
 import API_URL from '../../config';
@@ -8,6 +8,7 @@ import { getAuthHeaders } from '../../utils/authFetch';
 import { getAvatarHue } from '../../utils/avatar';
 import { formatJoinDate, formatLastSeen } from '../../utils/months';
 import { useChatStore } from '../../store/chatStore';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import './ProfileCard.css';
 
 const statusLabels = { online: 'В сети', dnd: 'Не беспокоить', invisible: 'Невидимый', offline: 'Не в сети' };
@@ -27,6 +28,9 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
   const [error, setError] = useState(null);
   const [friendReqSent, setFriendReqSent] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [blockConfirm, setBlockConfirm] = useState(false);
+  const [removeConfirm, setRemoveConfirm] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const cardRef = useRef(null);
 
   // Определяем данные пользователя
@@ -92,6 +96,38 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
   const handleMessage = () => {
     onOpenChat?.(userId);
     onClose?.();
+  };
+
+  // Заблокировать
+  const handleBlock = async () => {
+    try {
+      await fetch(`${API_URL}/api/friends/${userId}/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+      });
+      setBlocked(true);
+      setBlockConfirm(false);
+    } catch (err) {
+      console.error('ProfileCard block:', err?.message || err);
+      setBlockConfirm(false);
+    }
+  };
+
+  // Удалить из друзей
+  const handleRemoveFriend = async () => {
+    try {
+      await fetch(`${API_URL}/api/friends/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+      });
+      setRemoveConfirm(false);
+      if (userData) setUserData({ ...userData, isFriend: false });
+    } catch (err) {
+      console.error('ProfileCard removeFriend:', err?.message || err);
+      setRemoveConfirm(false);
+    }
   };
 
   // Аватар lightbox
@@ -269,30 +305,74 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
             >
               <PencilSimple size={15} /> Редактировать
             </motion.button>
-          ) : user.isFriend ? (
-            <motion.button
-              className="pcard__btn pcard__btn--primary"
-              onClick={handleMessage}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              data-testid="profile-card-action-btn"
-            >
-              <ChatCircle size={15} /> Написать
-            </motion.button>
-          ) : friendReqSent ? (
+          ) : blocked ? (
             <div className="pcard__btn pcard__btn--sent" data-testid="profile-card-action-btn">
-              <Check size={15} /> Запрос отправлен
+              <ProhibitInset size={15} /> Заблокирован
             </div>
+          ) : user.isFriend ? (
+            <>
+              <motion.button
+                className="pcard__btn pcard__btn--primary"
+                onClick={handleMessage}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                data-testid="profile-card-action-btn"
+              >
+                <ChatCircle size={15} /> Написать
+              </motion.button>
+              <div className="pcard__actions-row">
+                <motion.button
+                  className="pcard__btn-sm pcard__btn-sm--ghost"
+                  onClick={() => setRemoveConfirm(true)}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <UserMinus size={13} /> Удалить
+                </motion.button>
+                <motion.button
+                  className="pcard__btn-sm pcard__btn-sm--danger"
+                  onClick={() => setBlockConfirm(true)}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <ProhibitInset size={13} /> Заблокировать
+                </motion.button>
+              </div>
+            </>
+          ) : friendReqSent ? (
+            <>
+              <div className="pcard__btn pcard__btn--sent" data-testid="profile-card-action-btn">
+                <Check size={15} /> Запрос отправлен
+              </div>
+              <div className="pcard__actions-row">
+                <motion.button
+                  className="pcard__btn-sm pcard__btn-sm--danger"
+                  onClick={() => setBlockConfirm(true)}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <ProhibitInset size={13} /> Заблокировать
+                </motion.button>
+              </div>
+            </>
           ) : (
-            <motion.button
-              className="pcard__btn pcard__btn--outline"
-              onClick={handleAddFriend}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              data-testid="profile-card-action-btn"
-            >
-              <UserPlus size={15} /> Добавить в друзья
-            </motion.button>
+            <>
+              <motion.button
+                className="pcard__btn pcard__btn--outline"
+                onClick={handleAddFriend}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                data-testid="profile-card-action-btn"
+              >
+                <UserPlus size={15} /> Добавить в друзья
+              </motion.button>
+              <div className="pcard__actions-row">
+                <motion.button
+                  className="pcard__btn-sm pcard__btn-sm--danger"
+                  onClick={() => setBlockConfirm(true)}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <ProhibitInset size={13} /> Заблокировать
+                </motion.button>
+              </div>
+            </>
           )}
         </motion.div>
       </motion.div>
@@ -302,6 +382,26 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
         userId={id}
         isOpen={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={blockConfirm}
+        title="Заблокировать пользователя?"
+        message={`${user.username} не сможет отправлять вам сообщения и заявки в друзья`}
+        confirmText="Заблокировать"
+        danger
+        onConfirm={handleBlock}
+        onCancel={() => setBlockConfirm(false)}
+      />
+
+      <ConfirmDialog
+        open={removeConfirm}
+        title="Удалить из друзей?"
+        message={`${user.username} будет удалён из вашего списка друзей`}
+        confirmText="Удалить"
+        danger
+        onConfirm={handleRemoveFriend}
+        onCancel={() => setRemoveConfirm(false)}
       />
     </>
   );

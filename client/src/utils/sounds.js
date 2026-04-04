@@ -99,6 +99,7 @@ function createNote(freq, duration, {
     oscGain.connect(masterGain);
     osc.start(t);
     osc.stop(t + duration + 0.05);
+    osc.onended = () => { try { oscGain.disconnect(); osc.disconnect(); } catch {} };
   });
 }
 
@@ -467,6 +468,39 @@ export function soundFocus() {
   };
   createNote(523, 0.5, opts);
   setTimeout(() => createNote(784, 0.6, { ...opts, reverb: 0.7 }), 200);
+}
+
+// Friend request — two ascending bright notes (major third interval)
+export function soundFriendRequest() {
+  const opts = {
+    harmonics: [1, 2, 3], harmonicVolumes: [1, 0.2, 0.06],
+    reverb: 0.4, attack: 0.005, decay: 0.12, sustain: 0.45, detune: 2,
+    volume: getVolume() * 0.7,
+  };
+  createNote(659, 0.3, opts); // E5
+  setTimeout(() => createNote(831, 0.35, { ...opts, reverb: 0.5 }), 130); // G#5 (major third up)
+}
+
+// Mention — quick double tap, slightly louder than regular notification
+export function soundMention() {
+  const opts = {
+    harmonics: [1, 2], harmonicVolumes: [1, 0.15],
+    reverb: 0.25, attack: 0.002, decay: 0.06, sustain: 0.3,
+    volume: getVolume() * 0.85,
+  };
+  createNote(1320, 0.12, opts); // E6 high ping
+  setTimeout(() => createNote(1320, 0.14, { ...opts, reverb: 0.35 }), 100); // repeat
+}
+
+// Call ended — low descending tone
+export function soundCallEnd() {
+  const opts = {
+    harmonics: [1, 2], harmonicVolumes: [1, 0.2],
+    reverb: 0.35, attack: 0.008, decay: 0.15, sustain: 0.35,
+    volume: getVolume() * 0.6,
+  };
+  createNote(392, 0.3, opts);  // G4
+  setTimeout(() => createNote(294, 0.4, { ...opts, reverb: 0.45 }), 150); // D4 down
 }
 
 // Screenshot — shutter click

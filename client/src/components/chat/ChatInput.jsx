@@ -1,14 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowUp, Paperclip, X, Smiley, Microphone, PaperPlaneTilt, Pause, Play } from '@phosphor-icons/react';
+import { ArrowUp, Paperclip, X, Smiley, Microphone, PaperPlaneTilt, Pause, Play, Gif } from '@phosphor-icons/react';
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import AttachmentPreview from './AttachmentPreview';
+import GifPicker from './GifPicker';
 import { soundSend } from '../../utils/sounds';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useChatStore } from '../../store/chatStore';
 import './ChatInput.css';
 
-export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTypingStop, replyTo, onCancelReply, editingMsg, onCancelEdit }) {
-  const [text, setText] = useState('');
+export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, onTypingStop, replyTo, onCancelReply, editingMsg, onCancelEdit }) {
+  const [text, setText] = useState(() => {
+    if (!chatId) return '';
+    return useChatStore.getState().getDraft(chatId) || '';
+  });
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
   const [dragOver, setDragOver] = useState(false);
@@ -16,6 +21,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const [isExpanded, setIsExpanded] = useState(true);
   const [isFocused, setIsFocused] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -39,6 +45,29 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
   const cancelledRef = useRef(false);
 
   const theme = useSettingsStore(s => s.theme);
+  const draftTimerRef = useRef(null);
+
+  // Загрузить черновик при смене чата
+  useEffect(() => {
+    if (!chatId) return;
+    const draft = useChatStore.getState().getDraft(chatId);
+    setText(draft || '');
+    // Ресайз textarea после установки текста
+    setTimeout(() => {
+      const el = inputRef.current;
+      if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+    }, 0);
+  }, [chatId]);
+
+  // Сохранение черновика с debounce 500ms
+  useEffect(() => {
+    if (!chatId) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      useChatStore.getState().saveDraft(chatId, text);
+    }, 500);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [text, chatId]);
 
   // Очистить typing timeout при unmount
   useEffect(() => {
@@ -141,11 +170,22 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
 
   const addFiles = useCallback((newFiles) => {
     const arr = Array.from(newFiles);
-    // Лимит 10 МБ на файл
-    const valid = arr.filter((f) => f.size <= 10 * 1024 * 1024);
+    // Лимит зависит от типа файла (согласовано с сервером)
+    const getMaxSize = (file) => {
+      if (file.type.startsWith('video/')) return 50 * 1024 * 1024;  // 50 МБ для видео
+      if (file.type.startsWith('audio/')) return 20 * 1024 * 1024;  // 20 МБ для аудио
+      return 10 * 1024 * 1024;                                      // 10 МБ для остальных
+    };
+    const formatLimit = (file) => {
+      if (file.type.startsWith('video/')) return '50 МБ';
+      if (file.type.startsWith('audio/')) return '20 МБ';
+      return '10 МБ';
+    };
+    const valid = arr.filter((f) => f.size <= getMaxSize(f));
     if (valid.length < arr.length) {
       const rejected = arr.length - valid.length;
-      setFileError(`${rejected} файл(ов) отклонено: макс. 10 МБ`);
+      const first = arr.find((f) => f.size > getMaxSize(f));
+      setFileError(`${rejected} файл(ов) отклонено: макс. ${first ? formatLimit(first) : '10 МБ'}`);
       setTimeout(() => setFileError(null), 4000);
     }
     setPendingFiles((prev) => {
@@ -201,6 +241,7 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     }
 
     setText('');
+    if (chatId) useChatStore.getState().clearDraft(chatId);
     if (inputRef.current) inputRef.current.style.height = '';
     typingRef.current = false;
     onTypingStop?.();
@@ -314,6 +355,16 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
     } else {
       setText(prev => prev + sym);
     }
+  };
+
+  // GIF picker
+  const handleGifSelect = (gifUrl) => {
+    if (!gifUrl) return;
+    soundSend();
+    setSendPulse(true);
+    setTimeout(() => setSendPulse(false), 500);
+    onSend(gifUrl);
+    setShowGifPicker(false);
   };
 
   // Voice recording
@@ -614,6 +665,14 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
         </div>
       </div>
 
+      {/* GIF picker popup */}
+      {showGifPicker && (
+        <GifPicker
+          onSelect={handleGifSelect}
+          onClose={() => setShowGifPicker(false)}
+        />
+      )}
+
       {/* Morph container — grid stack for crossfade */}
       <div className="chat-input-morph">
         {/* Recording bar — полностью заменяет input во время записи */}
@@ -678,11 +737,19 @@ export default function ChatInput({ onSend, onSendFiles, onTypingStart, onTyping
               <div className="chat-input__tools">
                 <button
                   className={`chat-input__tool-btn ${showEmojiPicker ? 'chat-input__tool-btn--active' : ''}`}
-                  onClick={() => setShowEmojiPicker(v => !v)}
+                  onClick={() => { setShowEmojiPicker(v => !v); setShowGifPicker(false); }}
                   title="Эмодзи"
                   aria-label={showEmojiPicker ? 'Закрыть эмодзи' : 'Открыть эмодзи'}
                 >
                   <Smiley size={18} />
+                </button>
+                <button
+                  className={`chat-input__tool-btn ${showGifPicker ? 'chat-input__tool-btn--active' : ''}`}
+                  onClick={() => { setShowGifPicker(v => !v); setShowEmojiPicker(false); }}
+                  title="GIF"
+                  aria-label={showGifPicker ? 'Закрыть GIF' : 'Открыть GIF'}
+                >
+                  <Gif size={18} />
                 </button>
                 <button
                   className="chat-input__tool-btn"

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Bug, Lightbulb, Question, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
@@ -17,21 +17,31 @@ export default function AdminFeedback() {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(feedbacksTotal / 50));
+  const mountedRef = useRef(false);
 
   useEffect(() => {
-    setPage(1);
     const filters = {};
     if (typeFilter) filters.type = typeFilter;
     if (statusFilter) filters.status = statusFilter;
+
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      fetchFeedbacks(1, filters);
+      return;
+    }
+
+    setPage(1);
     fetchFeedbacks(1, filters);
   }, [typeFilter, statusFilter, fetchFeedbacks]);
 
   useEffect(() => {
+    if (!mountedRef.current) return;
+    if (page === 1) return;
     const filters = {};
     if (typeFilter) filters.type = typeFilter;
     if (statusFilter) filters.status = statusFilter;
     fetchFeedbacks(page, filters);
-  }, [page, typeFilter, statusFilter, fetchFeedbacks]);
+  }, [page]);
 
   const handleStatus = async (id, status) => {
     await updateFeedback(id, status);

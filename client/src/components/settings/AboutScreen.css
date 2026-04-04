@@ -80,7 +80,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
+  transition: background 0.15s ease, color 0.15s ease;
   z-index: 2;
 }
 
@@ -324,15 +324,22 @@
 }
 
 /* ═══════════════════════════════════════════
-   Ссылка GitHub
+   Ссылки
    ═══════════════════════════════════════════ */
+
+.about-links {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
 .about-link {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: var(--radius-md, 14px);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -340,7 +347,7 @@
   color: var(--text);
   font-size: 12px;
   font-weight: 500;
-  transition: all 0.15s;
+  transition: background 0.15s ease, border-color 0.15s ease;
   cursor: pointer;
 }
 

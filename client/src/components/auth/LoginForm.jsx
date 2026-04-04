@@ -12,6 +12,7 @@ export default function LoginForm({ onLogin, onModeChange, onTfaRequired, onVeri
   const [error, setError] = useState('');
   const [errorKey, setErrorKey] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const triggerError = (msg) => {
     setError(msg);
@@ -92,7 +93,7 @@ export default function LoginForm({ onLogin, onModeChange, onTfaRequired, onVeri
         return;
       }
 
-      onLogin(data);
+      onLogin({ ...data, rememberMe });
     } catch {
       triggerError('Не удалось подключиться к серверу');
     } finally {
@@ -130,6 +131,7 @@ export default function LoginForm({ onLogin, onModeChange, onTfaRequired, onVeri
             placeholder="имя пользователя"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            maxLength={24}
             autoComplete="off"
             spellCheck="false"
             autoFocus
@@ -166,6 +168,20 @@ export default function LoginForm({ onLogin, onModeChange, onTfaRequired, onVeri
           </button>
         </div>
       </GravityCard>
+
+      <label className="auth-remember">
+        <span
+          className={`auth-remember-toggle ${rememberMe ? 'active' : ''}`}
+          role="checkbox"
+          aria-checked={rememberMe}
+          tabIndex={0}
+          onClick={() => setRememberMe(!rememberMe)}
+          onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setRememberMe(!rememberMe); } }}
+        >
+          <span className="auth-remember-knob" />
+        </span>
+        <span className="auth-remember-label">Запомнить меня</span>
+      </label>
 
       <div className="g-action">
         <button

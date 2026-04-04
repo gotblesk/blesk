@@ -10,7 +10,7 @@ import { decryptMessage, fetchPublicKey, invalidateUserKeys } from '../utils/cry
 import { shieldDecrypt, replenishOPKs } from '../utils/shieldService';
 import { getToken, getRefreshToken, setTokens, clearTokens } from '../utils/authFetch';
 import API_URL from '../config';
-import { soundReceive, soundNotification, soundRingtoneStart, soundRingtoneStop, soundCallAccepted, soundCallEnded, soundCallDeclined } from '../utils/sounds';
+import { soundReceive, soundNotification, soundFriendRequest, soundMention, soundCallEnd, soundRingtoneStart, soundRingtoneStop, soundCallAccepted, soundCallEnded, soundCallDeclined } from '../utils/sounds';
 
 export function useSocket() {
   const socketRef = useRef(null);
@@ -214,19 +214,22 @@ export function useSocket() {
           window.__bleskBgPulse?.();
         }
 
-        // [CRIT-2, IMP-1] Звук — только если не DND и чат не открыт
+        // Звук — только если не DND, чат не открыт и не замьючен
         const s = useSettingsStore.getState();
         if (msg.userId !== userId && !s.dnd) {
-          const activeChats = useChatStore.getState().activeChats;
+          const chatState = useChatStore.getState();
           const chatId = msg.chatId || msg.roomId;
-          // Не играть звук если пользователь сейчас в этом чате и окно видимо
-          if (!activeChats.has(chatId) || document.hidden) {
+          const isMuted = chatState.mutedChats?.has(chatId);
+          // Не играть звук если чат замьючен, или пользователь сейчас в этом чате и окно видимо
+          if (!isMuted && (!chatState.activeChats.has(chatId) || document.hidden)) {
             soundReceive();
           }
         }
 
-        // Уведомления через main process (работают в трее)
-        if (s.notifications && s.notifMessages && !s.dnd && (document.hidden || !document.hasFocus())) {
+        // Уведомления через main process (работают в трее), пропускаем замьюченные чаты
+        const msgChatId = msg.chatId || msg.roomId;
+        const isChatMuted = useChatStore.getState().mutedChats?.has(msgChatId);
+        if (s.notifications && s.notifMessages && !s.dnd && !isChatMuted && (document.hidden || !document.hasFocus())) {
           const title = msg.user?.username || 'blesk';
           const body = msg.encrypted ? 'Зашифрованное сообщение' : (msg.text?.slice(0, 100) || 'Новое сообщение');
           // [IMP-4] Передать silent флаг
@@ -380,12 +383,19 @@ export function useSocket() {
     const handleNotificationNew = (notification) => {
       useNotificationStore.getState().addNotification(notification);
       const ns = useSettingsStore.getState();
-      // [CRIT-3] DND подавляет все звуки уведомлений
+      // DND подавляет все звуки и нативные уведомления
       if (ns.dnd) return;
       const type = notification.type;
       if (type === 'friend_request' && !ns.notifFriends) return;
       if (type === 'mention' && !ns.notifMentions) return;
-      soundNotification(notification.fromUser?.hue || 0);
+      // Дифференцированные звуки по типу уведомления
+      if (type === 'friend_request') {
+        soundFriendRequest();
+      } else if (type === 'mention') {
+        soundMention();
+      } else {
+        soundNotification(notification.fromUser?.hue || 0);
+      }
     };
 
     // ═══ Звонки ═══
@@ -394,14 +404,17 @@ export function useSocket() {
       const store = useCallStore.getState();
       if (store.activeCall) return;
       store.setIncomingCall(data);
-      soundRingtoneStart();
-      // Нативное уведомление когда окно свёрнуто или не в фокусе
-      if (document.hidden || !document.hasFocus()) {
-        const callerName = data.callerName || 'Неизвестный';
-        if (window.blesk?.notify) {
-          window.blesk.notify('Входящий звонок', callerName);
-        } else {
-          try { new Notification('Входящий звонок', { body: callerName }); } catch {}
+      const dnd = useSettingsStore.getState().dnd;
+      if (!dnd) {
+        soundRingtoneStart();
+        // Нативное уведомление когда окно свёрнуто или не в фокусе
+        if (document.hidden || !document.hasFocus()) {
+          const callerName = data.callerName || 'Неизвестный';
+          if (window.blesk?.notify) {
+            window.blesk.notify('Входящий звонок', callerName, data.chatId);
+          } else {
+            try { new Notification('Входящий звонок', { body: callerName }); } catch {}
+          }
         }
       }
     };
@@ -417,7 +430,7 @@ export function useSocket() {
 
     const handleCallAccepted = ({ chatId, userId: uid, startedAt }) => {
       soundRingtoneStop();
-      soundCallAccepted();
+      if (!useSettingsStore.getState().dnd) soundCallAccepted();
       const store = useCallStore.getState();
       if (store.activeCall?.chatId === chatId) {
         store.addCallParticipant(uid);
@@ -432,7 +445,7 @@ export function useSocket() {
       const store = useCallStore.getState();
       if (store.activeCall?.chatId === chatId) {
         soundRingtoneStop();
-        soundCallDeclined(); // [IMP-2] Звук отклонённого звонка
+        if (!useSettingsStore.getState().dnd) soundCallDeclined();
         store.clearActiveCall();
       }
     };
@@ -455,7 +468,7 @@ export function useSocket() {
 
     const handleCallEnded = () => {
       soundRingtoneStop();
-      soundCallEnded();
+      if (!useSettingsStore.getState().dnd) soundCallEnded();
       useCallStore.getState().clearActiveCall();
       useCallStore.getState().clearIncomingCall(); // [Баг #3] Очистить и входящий звонок
     };

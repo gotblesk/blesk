@@ -19,6 +19,8 @@ export const useChannelStore = create((set, get) => ({
   postsError: {},     // { [channelId]: string }
   browseError: null,  // string | null
   activeChannelId: null,
+  hasMorePosts: {},   // { [channelId]: boolean }
+  loadingMorePosts: {}, // { [channelId]: true }
 
   // Загрузить каналы для обзора
   loadBrowse: async ({ sort, category, search } = {}) => {
@@ -71,7 +73,8 @@ export const useChannelStore = create((set, get) => ({
       });
       if (!res.ok) throw new Error('Не удалось загрузить посты');
       const data = await res.json();
-      const incoming = [...(data.posts ?? data ?? [])].reverse();
+      const rawPosts = data.posts ?? data ?? [];
+      const incoming = [...rawPosts].reverse();
       // Merge с существующими (не перезаписывать socket-полученные)
       set((state) => {
         const existing = state.posts[channelId] || [];
@@ -80,6 +83,7 @@ export const useChannelStore = create((set, get) => ({
         merged.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         return {
           posts: { ...state.posts, [channelId]: merged },
+          hasMorePosts: { ...state.hasMorePosts, [channelId]: rawPosts.length >= 20 },
         };
       });
     } catch (err) {
@@ -90,6 +94,46 @@ export const useChannelStore = create((set, get) => ({
     } finally {
       set((state) => ({
         loadingPosts: { ...state.loadingPosts, [channelId]: false },
+      }));
+    }
+  },
+
+  // Загрузить старые посты (cursor-based pagination)
+  loadMorePosts: async (channelId, beforeId) => {
+    if (!beforeId) return;
+    const state = get();
+    if (state.loadingMorePosts[channelId]) return;
+    if (state.hasMorePosts[channelId] === false) return;
+
+    set((s) => ({
+      loadingMorePosts: { ...s.loadingMorePosts, [channelId]: true },
+    }));
+    try {
+      const res = await fetch(
+        `${API_URL}/api/channels/${channelId}/posts?before=${beforeId}&limit=20`,
+        { headers: getHeaders(), credentials: 'include' }
+      );
+      if (!res.ok) throw new Error('Не удалось загрузить посты');
+      const data = await res.json();
+      const rawPosts = data.posts ?? data ?? [];
+      const older = [...rawPosts].reverse();
+
+      set((s) => {
+        const existing = s.posts[channelId] || [];
+        const existingIds = new Set(existing.map(p => p.id));
+        const newPosts = older.filter(p => !existingIds.has(p.id));
+        const merged = [...newPosts, ...existing];
+        merged.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        return {
+          posts: { ...s.posts, [channelId]: merged },
+          hasMorePosts: { ...s.hasMorePosts, [channelId]: rawPosts.length >= 20 },
+        };
+      });
+    } catch (err) {
+      console.error('Ошибка загрузки старых постов:', err);
+    } finally {
+      set((s) => ({
+        loadingMorePosts: { ...s.loadingMorePosts, [channelId]: false },
       }));
     }
   },
@@ -204,6 +248,32 @@ export const useChannelStore = create((set, get) => ({
         c.id === channelId ? { ...c, ...data, channelMeta: { ...c.channelMeta, ...data } } : c
       ),
     }));
+  },
+
+  // Удалить канал (API + локально)
+  deleteChannel: async (channelId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/channels/${channelId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Не удалось удалить канал');
+      }
+      set((state) => ({
+        channels: state.channels.filter((c) => c.id !== channelId),
+        myChannels: state.myChannels.filter((c) => c.id !== channelId),
+        posts: Object.fromEntries(
+          Object.entries(state.posts).filter(([k]) => k !== channelId)
+        ),
+      }));
+      return { ok: true };
+    } catch (err) {
+      console.error('deleteChannel:', err);
+      return { error: err.message || 'Ошибка удаления' };
+    }
   },
 
   // Удалить канал из локального состояния

@@ -117,7 +117,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
 }
 .top-nav__toggle:hover {
@@ -134,7 +134,7 @@
 .top-nav__tab {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 16px;
   border-radius: 100px;
   border: none;
@@ -144,7 +144,7 @@
   font-weight: 600;
   font-family: var(--font-body, inherit);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   position: relative;
   white-space: nowrap;
 }
@@ -213,7 +213,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s ease, color 0.15s ease;
   position: relative;
 }
 .top-nav__action:hover {
@@ -429,7 +429,7 @@
 .um__item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 36px;
   padding: 8px 12px;
   border: none;
@@ -439,7 +439,7 @@
   font-size: var(--text-xs);
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.1s ease, color 0.1s ease;
   text-align: left;
   width: 100%;
 }
@@ -589,7 +589,7 @@
 
 .notif-panel__actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -606,7 +606,7 @@
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.15s;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .notif-panel__read-all:hover {
   background: rgba(255, 255, 255, 0.08);
@@ -624,7 +624,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .notif-panel__close:hover {
   background: rgba(255, 255, 255, 0.08);
@@ -646,8 +646,8 @@
 
 .notif-panel__item {
   display: flex;
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  padding: 8px;
   border-radius: var(--radius-sm, 8px);
   cursor: pointer;
   transition: background 0.12s;

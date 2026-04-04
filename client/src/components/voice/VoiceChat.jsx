@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { ChatCircle, X, PaperPlaneTilt } from '@phosphor-icons/react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { ChatCircle, X, PaperPlaneTilt, SpeakerSlash } from '@phosphor-icons/react';
 import { useVoiceStore } from '../../store/voiceStore';
+import { getCurrentUserId } from '../../utils/auth';
 import { getAvatarHue, getAvatarColor } from '../../utils/avatar';
 import './VoiceChat.css';
 
@@ -9,9 +10,37 @@ export default function VoiceChat({ roomId, socketRef, inline = false, onClose }
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [muteAllToast, setMuteAllToast] = useState('');
   const listRef = useRef(null);
   const openRef = useRef(inline || open);
   openRef.current = inline || open;
+
+  // Проверка владельца комнаты
+  const rooms = useVoiceStore((s) => s.rooms);
+  const currentRoom = useMemo(() => rooms.find((r) => r.id === roomId), [rooms, roomId]);
+  const currentUserId = useRef(getCurrentUserId());
+  const isRoomOwner = currentRoom?.ownerId === currentUserId.current;
+
+  const handleMuteAll = useCallback(() => {
+    const socket = socketRef?.current;
+    if (!socket) return;
+    socket.emit('voice:muteAll', { roomId }, (res) => {
+      if (res?.error === 'not_implemented' || res?.error) {
+        setMuteAllToast('Функция в разработке');
+        setTimeout(() => setMuteAllToast(''), 3000);
+      }
+    });
+    // Таймаут на случай если сервер не ответит (событие ещё не реализовано)
+    setTimeout(() => {
+      setMuteAllToast((prev) => {
+        if (!prev) {
+          return 'Функция в разработке';
+        }
+        return prev;
+      });
+      setTimeout(() => setMuteAllToast(''), 3000);
+    }, 1000);
+  }, [roomId, socketRef]);
 
   // Слушаем сообщения (ref вместо open в deps — нет потери сообщений)
   useEffect(() => {
@@ -125,14 +154,28 @@ export default function VoiceChat({ roomId, socketRef, inline = false, onClose }
       <div className="voice-chat voice-chat--inline">
         <div className="voice-chat__header">
           <span>Чат комнаты</span>
-          {onClose && (
-            <button className="voice-chat__close" onClick={onClose}>
-              <X size={16} weight="bold" />
-            </button>
-          )}
+          <div className="voice-chat__header-actions">
+            {isRoomOwner && (
+              <button
+                className="voice-chat__mute-all"
+                onClick={handleMuteAll}
+                title="Заглушить всех"
+              >
+                <SpeakerSlash size={14} weight="bold" />
+              </button>
+            )}
+            {onClose && (
+              <button className="voice-chat__close" onClick={onClose}>
+                <X size={16} weight="bold" />
+              </button>
+            )}
+          </div>
         </div>
         {renderMessages()}
         {renderInput()}
+        {muteAllToast && (
+          <div className="voice-chat__toast">{muteAllToast}</div>
+        )}
       </div>
     );
   }

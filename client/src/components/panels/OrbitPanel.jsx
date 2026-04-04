@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Planet } from '@phosphor-icons/react';
+import { Planet, HandPointing } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import Glass from '../ui/Glass';
 import './OrbitPanel.css';
@@ -175,8 +175,8 @@ export default function OrbitPanel({ open, onClose, onOpenChat }) {
 
         {/* Подсказка снизу */}
         <div className="orbit-panel__hint">
-          <span>👆 нажми</span> — открыть чат &nbsp;
-          <span>👆 зажми</span> — предпросмотр
+          <span><HandPointing size={14} weight="regular" /> нажми</span> — открыть чат &nbsp;
+          <span><HandPointing size={14} weight="fill" /> зажми</span> — предпросмотр
         </div>
       </Glass>
 

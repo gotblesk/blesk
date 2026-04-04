@@ -295,16 +295,12 @@ router.get('/ice-servers', authenticate, (req, res) => {
   const iceServers = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: process.env.TURN_URL || 'turn:turn.blesk.fun:3478',
+      username: process.env.TURN_USER || 'blesk',
+      credential: process.env.TURN_PASS || '',
+    },
   ];
-
-  // TURN server (если настроен)
-  if (process.env.TURN_URL) {
-    iceServers.push({
-      urls: process.env.TURN_URL,
-      username: process.env.TURN_USERNAME || 'blesk',
-      credential: process.env.TURN_CREDENTIAL || '',
-    });
-  }
 
   res.json({ iceServers });
 });

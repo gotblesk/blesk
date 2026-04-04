@@ -1,7 +1,14 @@
-const { app, BrowserWindow, ipcMain, screen, desktopCapturer, safeStorage, shell, Tray, Menu, Notification, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, desktopCapturer, safeStorage, shell, Tray, Menu, Notification, nativeImage, globalShortcut } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
 
 const isDev = !app.isPackaged;
 const iconPath = isDev
@@ -34,6 +41,46 @@ const SPLASH_HEIGHT = 400;
 const MAIN_WIDTH = 1280;
 const MAIN_HEIGHT = 800;
 
+// Сохранение/восстановление позиции и размера окна
+const windowStatePath = path.join(app.getPath('userData'), 'window-state.json');
+
+function loadWindowState() {
+  try {
+    const data = fs.readFileSync(windowStatePath, 'utf-8');
+    const state = JSON.parse(data);
+    if (typeof state.x !== 'number' || typeof state.y !== 'number' ||
+        typeof state.width !== 'number' || typeof state.height !== 'number') {
+      return null;
+    }
+    // Проверяем что окно попадает хотя бы на один из экранов
+    const displays = screen.getAllDisplays();
+    const visible = displays.some((d) => {
+      const b = d.bounds;
+      return state.x < b.x + b.width && state.x + state.width > b.x &&
+             state.y < b.y + b.height && state.y + state.height > b.y;
+    });
+    if (!visible) return null;
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+function saveWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMinimized()) return;
+  try {
+    const bounds = mainWindow.getBounds();
+    const state = {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      maximized: mainWindow.isMaximized(),
+    };
+    fs.writeFileSync(windowStatePath, JSON.stringify(state));
+  } catch { /* ignore */ }
+}
+
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
     width: SPLASH_WIDTH,
@@ -62,14 +109,18 @@ function createSplashWindow() {
 }
 
 function createMainWindow() {
+  const savedState = loadWindowState();
+
   mainWindow = new BrowserWindow({
-    width: MAIN_WIDTH,
-    height: MAIN_HEIGHT,
+    width: savedState ? savedState.width : MAIN_WIDTH,
+    height: savedState ? savedState.height : MAIN_HEIGHT,
+    x: savedState ? savedState.x : undefined,
+    y: savedState ? savedState.y : undefined,
     minWidth: 900,
     minHeight: 600,
     frame: false,
     backgroundColor: '#0a0a0f',
-    center: true,
+    center: !savedState,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -81,6 +132,16 @@ function createMainWindow() {
     show: false,
   });
 
+  // Восстановить maximized состояние
+  if (savedState && savedState.maximized) {
+    mainWindow.maximize();
+  }
+
+  // Сохранять позицию/размер при изменении
+  mainWindow.on('resize', saveWindowState);
+  mainWindow.on('move', saveWindowState);
+  mainWindow.on('close', saveWindowState);
+
   // CSP headers (electron-development skill: Production Security Checklist)
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -89,7 +150,7 @@ function createMainWindow() {
         'Content-Security-Policy': [
           isDev
             ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://localhost:* https://*.blesk.fun https://api.blesk.fun; font-src 'self' data:; connect-src 'self' https://*.blesk.fun wss://*.blesk.fun ws://localhost:* http://localhost:*; media-src 'self' blob: http://localhost:*;"
-            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blesk.fun https://api.blesk.fun; font-src 'self' data:; connect-src 'self' https://*.blesk.fun wss://*.blesk.fun ws://localhost:* http://localhost:*; media-src 'self' blob:;"
+            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blesk.fun https://api.blesk.fun; font-src 'self' data:; connect-src 'self' https://*.blesk.fun wss://*.blesk.fun; media-src 'self' blob:;"
         ],
       },
     });
@@ -142,7 +203,7 @@ function createMainWindow() {
   // Безопасность: блокируем DevTools в production
   if (!isDev) {
     mainWindow.webContents.on('before-input-event', (event, input) => {
-      if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+      if (input.key === 'F12' || (input.control && input.shift && (input.key === 'I' || input.key === 'J'))) {
         event.preventDefault();
       }
     });
@@ -202,6 +263,9 @@ ipcMain.on('splash:ready', () => {
 
   // Ждём пока основное окно загрузит HTML
   mainWindow.webContents.once('did-finish-load', () => {
+    // Запросить DND состояние из renderer
+    mainWindow.webContents.send('request:dnd-state');
+
     // Даём React время отрисоваться
     setTimeout(() => {
       doTransition();
@@ -219,6 +283,28 @@ ipcMain.on('splash:ready', () => {
   });
 
   // Fallback — если did-finish-load не сработал за 5 сек
+  setTimeout(doTransition, 5000);
+});
+
+// Повторная загрузка при ошибке на сплеше
+ipcMain.on('splash:retry', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.destroy();
+    mainWindow = null;
+  }
+  createMainWindow();
+
+  let transitioned = false;
+  function doTransition() {
+    if (transitioned) return;
+    transitioned = true;
+    transitionToMain();
+  }
+
+  mainWindow.webContents.once('did-finish-load', () => {
+    mainWindow.webContents.send('request:dnd-state');
+    setTimeout(doTransition, 600);
+  });
   setTimeout(doTransition, 5000);
 });
 
@@ -313,7 +399,7 @@ ipcMain.handle('auth:getRefreshToken', async () => {
 ipcMain.handle('auth:clearRefreshToken', async () => {
   try {
     await fs.promises.unlink(refreshTokenPath);
-  } catch {}
+  } catch (e) { console.warn('Main process error:', e.message); }
   return true;
 });
 
@@ -610,6 +696,16 @@ ipcMain.on('update:install', () => {
   autoUpdater.quitAndInstall(false, true);
 });
 
+// ═══ Автозапуск с Windows ═══
+ipcMain.handle('app:setAutoStart', (_, enabled) => {
+  app.setLoginItemSettings({ openAtLogin: !!enabled });
+  return app.getLoginItemSettings().openAtLogin;
+});
+
+ipcMain.handle('app:getAutoStart', () => {
+  return app.getLoginItemSettings().openAtLogin;
+});
+
 // ═══ System Tray ═══
 let dndEnabled = false;
 
@@ -665,6 +761,12 @@ function createTray() {
 
   // [IMP-4] Синхронизация DND из renderer → tray menu
   ipcMain.on('dnd:sync', (_, enabled) => {
+    dndEnabled = !!enabled;
+    updateTrayMenu();
+  });
+
+  // Запрос DND состояния из renderer при старте
+  ipcMain.on('dnd:state', (_, enabled) => {
     dndEnabled = !!enabled;
     updateTrayMenu();
   });
@@ -741,19 +843,15 @@ ipcMain.on('badge:update', (_, count) => {
 // [CRIT-1] Badge icon через DataURL (PNG) вместо SVG buffer
 function createBadgeIcon(count) {
   const label = count > 9 ? '9+' : String(count);
-  const size = 32; // Больший размер для чёткости при масштабировании
-  // Генерируем PNG через canvas-подобный DataURL
-  // Electron поддерживает data: URI в nativeImage.createFromDataURL
+  const size = 64; // Высокое разрешение для чёткости на HiDPI
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
     <circle cx="${size/2}" cy="${size/2}" r="${size/2}" fill="#ef4444"/>
-    <text x="${size/2}" y="${size/2 + 5}" text-anchor="middle" fill="white" font-size="18" font-weight="bold" font-family="Arial,sans-serif">${label}</text>
+    <text x="${size/2}" y="${size/2 + 10}" text-anchor="middle" fill="white" font-size="36" font-weight="bold" font-family="Arial,sans-serif">${label}</text>
   </svg>`;
-  // Конвертировать SVG в data URI
   const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
   try {
     return nativeImage.createFromDataURL(dataUrl).resize({ width: 16, height: 16 });
   } catch {
-    // Fallback — пустая иконка
     return nativeImage.createEmpty();
   }
 }
@@ -822,6 +920,14 @@ app.whenReady().then(() => {
   createTray();
   setupAutoUpdater();
 
+  // Глобальная горячая клавиша для восстановления окна из трея
+  globalShortcut.register('Ctrl+Shift+B', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
   // [IMP-1] Проверить deep link из командной строки (cold start)
   const deepLink = process.argv.find(arg => arg.startsWith('blesk://'));
   if (deepLink) pendingDeepLink = { raw: deepLink };
@@ -831,6 +937,10 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   isQuitting = true;
   if (tray) { tray.destroy(); tray = null; }
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 
 // Безопасность: блокируем <webview> теги (electron-development checklist)

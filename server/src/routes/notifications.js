@@ -78,8 +78,11 @@ router.post('/:id/read', authenticate, async (req, res) => {
     const notification = await prisma.notification.findUnique({
       where: { id: req.params.id },
     });
-    if (!notification || notification.userId !== req.userId) {
+    if (!notification) {
       return res.status(404).json({ error: 'Уведомление не найдено' });
+    }
+    if (notification.userId !== req.userId) {
+      return res.status(403).json({ error: 'Нет доступа' });
     }
     await prisma.notification.update({
       where: { id: req.params.id },
@@ -98,8 +101,11 @@ router.delete('/:id', authenticate, async (req, res) => {
     const notification = await prisma.notification.findUnique({
       where: { id: req.params.id },
     });
-    if (!notification || notification.userId !== req.userId) {
+    if (!notification) {
       return res.status(404).json({ error: 'Уведомление не найдено' });
+    }
+    if (notification.userId !== req.userId) {
+      return res.status(403).json({ error: 'Нет доступа' });
     }
     await prisma.notification.delete({ where: { id: req.params.id } });
     res.json({ ok: true });

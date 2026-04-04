@@ -82,7 +82,7 @@
 .avatar-crop__zoom {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 0 4px;
 }
 
@@ -136,7 +136,7 @@
 
 .avatar-crop__actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .avatar-crop__btn {
@@ -148,7 +148,7 @@
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
 }
 
 .avatar-crop__btn--cancel {

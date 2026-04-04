@@ -44,10 +44,38 @@ function savePinnedChats(pinned) {
   localStorage.setItem('blesk-pinned-chats', JSON.stringify([...pinned]));
 }
 
+function loadMutedChats() {
+  try {
+    const raw = localStorage.getItem('blesk-muted-chats');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+}
+
+function saveMutedChats(muted) {
+  localStorage.setItem('blesk-muted-chats', JSON.stringify([...muted]));
+}
+
+function loadDrafts() {
+  try {
+    const raw = localStorage.getItem('blesk-drafts');
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+let _draftSaveTimer = null;
+function saveDraftsDebounced(drafts) {
+  if (_draftSaveTimer) clearTimeout(_draftSaveTimer);
+  _draftSaveTimer = setTimeout(() => {
+    localStorage.setItem('blesk-drafts', JSON.stringify(drafts));
+  }, 400);
+}
+
 export const useChatStore = create((set, get) => ({
   chats: [],
   activeChats: new Set(),
   pinnedChats: loadPinnedChats(),
+  mutedChats: loadMutedChats(),
+  drafts: loadDrafts(),
   messages: {},
   loadingChats: new Set(),
   // [CRIT-2] Состояние подключения (false до первого connect)
@@ -57,6 +85,8 @@ export const useChatStore = create((set, get) => ({
   _chatLoadVersions: {},
   loadingChatList: false,
   chatsInitialized: false,
+  hasMoreMessages: {},    // { [chatId]: boolean } — есть ли ещё старые сообщения
+  loadingMoreMessages: {},// { [chatId]: boolean } — идёт ли подгрузка
   onlineUsers: [],
   userStatuses: {}, // { [userId]: 'online' | 'dnd' | 'invisible' }
   customStatuses: {}, // { [userId]: 'текст статуса' }
@@ -178,6 +208,78 @@ export const useChatStore = create((set, get) => ({
         },
       }));
     } catch (err) { console.error('chatStore refreshChat:', err?.message || err); }
+  },
+
+  // Подгрузка старых сообщений (пагинация при скролле вверх)
+  loadMoreMessages: async (chatId) => {
+    const { messages, loadingMoreMessages, hasMoreMessages } = get();
+    // Если уже грузим или больше нет — выход
+    if (loadingMoreMessages[chatId] || hasMoreMessages[chatId] === false) return;
+    const existing = messages[chatId];
+    if (!existing || existing.length === 0) return;
+
+    // Найти самое старое сообщение с серверным id (не temp)
+    const oldestMsg = existing.find(m => m.id && !m.tempId);
+    if (!oldestMsg) return;
+
+    set((state) => ({
+      loadingMoreMessages: { ...state.loadingMoreMessages, [chatId]: true },
+    }));
+
+    try {
+      const res = await fetch(
+        `${API_URL}/api/chats/${chatId}/messages?before=${oldestMsg.id}&limit=50`,
+        { headers: getHeaders(), credentials: 'include' }
+      );
+      if (!res.ok) throw new Error('loadMoreMessages fetch failed');
+      const olderMsgs = await res.json();
+
+      // Расшифровать E2E если нужно
+      const myId = getCurrentUserId();
+      const hasEncrypted = olderMsgs.some((m) => m.encrypted);
+      if (hasEncrypted) {
+        let otherUserId = olderMsgs.find((m) => m.userId !== myId)?.userId;
+        if (!otherUserId) {
+          const chat = get().chats.find((c) => c.id === chatId);
+          otherUserId = chat?.otherUser?.id;
+        }
+        if (otherUserId) {
+          const otherPubKey = await fetchPublicKey(otherUserId);
+          if (otherPubKey) {
+            await Promise.all(olderMsgs.map(async (msg) => {
+              if (msg.encrypted) {
+                try {
+                  const plain = await decryptMessage(msg.text, otherPubKey, chatId);
+                  if (plain) msg.text = plain;
+                  else msg.text = 'Не удалось расшифровать';
+                } catch { msg.text = 'Ошибка расшифровки'; }
+              }
+            }));
+          }
+        }
+      }
+
+      // Дедупликация и вставка в начало
+      const existingIds = new Set(existing.map(m => m.id).filter(Boolean));
+      const newMsgs = olderMsgs.filter(m => m.id && !existingIds.has(m.id));
+
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [chatId]: [...newMsgs, ...(state.messages[chatId] || [])],
+        },
+        hasMoreMessages: {
+          ...state.hasMoreMessages,
+          [chatId]: olderMsgs.length >= 50, // Если вернулось меньше 50 — больше нет
+        },
+        loadingMoreMessages: { ...state.loadingMoreMessages, [chatId]: false },
+      }));
+    } catch (err) {
+      console.error('chatStore loadMoreMessages:', err?.message || err);
+      set((state) => ({
+        loadingMoreMessages: { ...state.loadingMoreMessages, [chatId]: false },
+      }));
+    }
   },
 
   closeChat: (chatId) => {
@@ -429,6 +531,43 @@ export const useChatStore = create((set, get) => ({
       else next.add(chatId);
       savePinnedChats(next);
       return { pinnedChats: next };
+    });
+  },
+
+  toggleMuteChat: (chatId) => {
+    set((state) => {
+      const next = new Set(state.mutedChats);
+      if (next.has(chatId)) next.delete(chatId);
+      else next.add(chatId);
+      saveMutedChats(next);
+      return { mutedChats: next };
+    });
+  },
+
+  // ═══ Черновики ═══
+  saveDraft: (chatId, text) => {
+    set((state) => {
+      if (!text || !text.trim()) {
+        // Пустой текст — удалить черновик
+        const { [chatId]: _, ...rest } = state.drafts;
+        saveDraftsDebounced(rest);
+        return { drafts: rest };
+      }
+      const next = { ...state.drafts, [chatId]: text };
+      saveDraftsDebounced(next);
+      return { drafts: next };
+    });
+  },
+
+  getDraft: (chatId) => {
+    return get().drafts[chatId] || '';
+  },
+
+  clearDraft: (chatId) => {
+    set((state) => {
+      const { [chatId]: _, ...rest } = state.drafts;
+      saveDraftsDebounced(rest);
+      return { drafts: rest };
     });
   },
 }));

@@ -6,6 +6,7 @@ import MediaMessage from './MediaMessage';
 import LinkPreviewCard from './LinkPreviewCard';
 import useMessageActions from './MessageActionsPill';
 import { getHueStyles } from '../../utils/hueIdentity';
+import { parseMarkdown } from '../../utils/markdown';
 import { useSettingsStore } from '../../store/settingsStore';
 import './ChatMessage.css';
 
@@ -41,6 +42,7 @@ const ChatMessage = React.memo(function ChatMessage({
   onEdit,
   onDelete,
   onForward,
+  onPin,
   onImageClick,
   onRetry,
   reactions,
@@ -55,6 +57,7 @@ const ChatMessage = React.memo(function ChatMessage({
     onEdit: () => onEdit?.(message),
     onDelete: () => onDelete?.(message.id),
     onForward: () => onForward?.(message),
+    onPin: () => onPin?.(message),
   });
 
   // Настройки из store
@@ -201,7 +204,7 @@ const ChatMessage = React.memo(function ChatMessage({
                 </div>
               )}
 
-              {text}
+              {parseMarkdown(text)}
 
               {message.editedAt && (
                 <span className="chat-message__edited"> (ред.)</span>

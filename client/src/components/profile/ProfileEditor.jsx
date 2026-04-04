@@ -186,6 +186,24 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
   };
 
   // Password change
+  const [pwResendCooldown, setPwResendCooldown] = useState(0);
+  const pwResendTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => clearInterval(pwResendTimerRef.current);
+  }, []);
+
+  const startPwResendCooldown = () => {
+    setPwResendCooldown(60);
+    clearInterval(pwResendTimerRef.current);
+    pwResendTimerRef.current = setInterval(() => {
+      setPwResendCooldown(prev => {
+        if (prev <= 1) { clearInterval(pwResendTimerRef.current); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const handlePwRequest = async () => {
     setPwError(''); setPwLoading(true);
     try {
@@ -193,7 +211,21 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
         method: 'POST', headers: getH(), credentials: 'include',
       });
       const d = await res.json();
-      if (res.ok) { setPwEmail(d.email || ''); setPwStep('code'); }
+      if (res.ok) { setPwEmail(d.email || ''); setPwStep('code'); startPwResendCooldown(); }
+      else setPwError(d.error || 'Ошибка');
+    } catch { setPwError('Ошибка'); }
+    finally { setPwLoading(false); }
+  };
+
+  const handlePwResendCode = async () => {
+    if (pwResendCooldown > 0) return;
+    setPwError(''); setPwLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/change-password/request`, {
+        method: 'POST', headers: getH(), credentials: 'include',
+      });
+      const d = await res.json();
+      if (res.ok) { setPwEmail(d.email || ''); startPwResendCooldown(); }
       else setPwError(d.error || 'Ошибка');
     } catch { setPwError('Ошибка'); }
     finally { setPwLoading(false); }
@@ -425,10 +457,18 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
                   <PwInput value={pwNew} onChange={setPwNew} show={showPwNew} toggle={() => setShowPwNew(p => !p)} placeholder="Новый (мин. 8)" />
                   <PwInput value={pwConfirm} onChange={setPwConfirm} show={showPwConfirm} toggle={() => setShowPwConfirm(p => !p)} placeholder="Повторите" />
                   <input className="peditor__cell-input" value={pwCode} onChange={e => setPwCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Код из email" maxLength={6} />
+                  <motion.button
+                    className="peditor__cell-action peditor__cell-action--ghost peditor__resend"
+                    onClick={handlePwResendCode}
+                    disabled={pwResendCooldown > 0 || pwLoading}
+                    whileTap={pwResendCooldown > 0 ? {} : { scale: 0.95 }}
+                  >
+                    {pwResendCooldown > 0 ? `Отправить повторно (${pwResendCooldown})` : 'Отправить код повторно'}
+                  </motion.button>
                   {pwError && <span className="peditor__err">{pwError}</span>}
                   <div className="peditor__cell-row">
                     <motion.button className="peditor__cell-action" onClick={handlePwConfirm} disabled={pwLoading} whileTap={{ scale: 0.95 }}>{pwLoading ? '...' : 'Подтвердить'}</motion.button>
-                    <motion.button className="peditor__cell-action peditor__cell-action--ghost" onClick={() => { setPwStep('idle'); setPwError(''); setOpenCell(null); }} whileTap={{ scale: 0.95 }}>Отмена</motion.button>
+                    <motion.button className="peditor__cell-action peditor__cell-action--ghost" onClick={() => { setPwStep('idle'); setPwError(''); setOpenCell(null); clearInterval(pwResendTimerRef.current); setPwResendCooldown(0); }} whileTap={{ scale: 0.95 }}>Отмена</motion.button>
                   </div>
                 </>
               ) : null}

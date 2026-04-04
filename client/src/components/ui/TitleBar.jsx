@@ -43,12 +43,12 @@ export default function TitleBar() {
     <div className="titlebar" ref={dragRef} onMouseDown={handleMouseDown} onDoubleClick={handleDoubleClick}>
       <span className="titlebar__title">blesk</span>
       <div className="titlebar__controls">
-        <button className="titlebar__btn" onMouseDown={e => e.stopPropagation()} onClick={() => window.blesk?.window.minimize()} title="Свернуть">
+        <button className="titlebar__btn" onMouseDown={e => e.stopPropagation()} onClick={() => window.blesk?.window.minimize()} title="Свернуть" aria-label="Свернуть">
           <svg width="10" height="1" viewBox="0 0 10 1">
             <rect width="10" height="1" fill="currentColor" rx="0.5"/>
           </svg>
         </button>
-        <button className="titlebar__btn" onMouseDown={e => e.stopPropagation()} onClick={() => window.blesk?.window.maximize()} title={maximized ? 'Восстановить' : 'Развернуть'}>
+        <button className="titlebar__btn" onMouseDown={e => e.stopPropagation()} onClick={() => window.blesk?.window.maximize()} title={maximized ? 'Восстановить' : 'Развернуть'} aria-label={maximized ? 'Восстановить' : 'Развернуть'}>
           {maximized ? (
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
               <rect x="3" y="0.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1"/>
@@ -60,7 +60,7 @@ export default function TitleBar() {
             </svg>
           )}
         </button>
-        <button className="titlebar__btn titlebar__btn--close" onMouseDown={e => e.stopPropagation()} onClick={() => window.blesk?.window.close()} title="Закрыть">
+        <button className="titlebar__btn titlebar__btn--close" onMouseDown={e => e.stopPropagation()} onClick={() => window.blesk?.window.close()} title="Закрыть" aria-label="Закрыть">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
           </svg>

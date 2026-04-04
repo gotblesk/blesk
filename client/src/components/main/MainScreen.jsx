@@ -173,6 +173,12 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     });
   }, []);
 
+  // DND из settingsStore → синхронизировать с main process (трей, уведомления)
+  const dnd = useSettingsStore((s) => s.dnd);
+  useEffect(() => {
+    window.blesk?.syncDnd?.(!!dnd);
+  }, [dnd]);
+
   const { chats } = useChatStore();
   const isConnected = useChatStore((s) => s.isConnected);
   const lastConnectedAt = useChatStore((s) => s.lastConnectedAt);
@@ -446,6 +452,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
           <FriendsScreen
             onBack={() => handleTabChange('chats')}
             onOpenChat={handleOpenChat}
+            socketRef={socketRef}
           />
         );
 

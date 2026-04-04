@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowBendUpLeft, SmileySticker, PencilSimple, Trash, ShareNetwork } from '@phosphor-icons/react';
+import { ArrowBendUpLeft, ArrowBendUpRight, SmileySticker, PencilSimple, Trash, PushPin } from '@phosphor-icons/react';
+import ReactionPicker from './ReactionPicker';
 import './MessageActionsPill.css';
 
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
-
-export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onDelete, onForward }) {
+export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onDelete, onForward, onPin }) {
   const [open, setOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -47,13 +46,6 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
     setEmojiOpen((prev) => !prev);
   };
 
-  const handleEmojiPick = (emoji) => (e) => {
-    e.stopPropagation();
-    setOpen(false);
-    setEmojiOpen(false);
-    onReact?.(emoji);
-  };
-
   return {
     handleContextMenu,
     menu: open ? (
@@ -64,20 +56,24 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
         onClick={(e) => e.stopPropagation()}
       >
         {emojiOpen && (
-          <div className="msg-actions-pill__emoji-row">
-            {QUICK_EMOJIS.map((em) => (
-              <button key={em} className="msg-actions-pill__emoji-btn" onClick={handleEmojiPick(em)}>
-                {em}
-              </button>
-            ))}
-          </div>
+          <ReactionPicker
+            onReact={(emoji) => {
+              setOpen(false);
+              setEmojiOpen(false);
+              onReact?.(emoji);
+            }}
+            onClose={() => setEmojiOpen(false)}
+          />
         )}
         <div className="msg-actions-pill__actions">
           <button className="msg-actions-pill__btn" onClick={handleAction(onReply)} title="Ответить">
             <ArrowBendUpLeft />
           </button>
           <button className="msg-actions-pill__btn" onClick={handleAction(onForward)} title="Переслать">
-            <ShareNetwork />
+            <ArrowBendUpRight />
+          </button>
+          <button className="msg-actions-pill__btn" onClick={handleAction(onPin)} title="Закрепить">
+            <PushPin />
           </button>
           <button className="msg-actions-pill__btn" onClick={handleEmojiToggle} title="Реакция">
             <SmileySticker />

@@ -8,15 +8,19 @@ const CATEGORIES = [
   { key: 'general', label: 'Общее', color: '#6b7280' },
   { key: 'gaming', label: 'Игры', color: '#8b5cf6' },
   { key: 'music', label: 'Музыка', color: '#ec4899' },
-  { key: 'tech', label: 'Технологии', color: '#06b6d4' },
   { key: 'art', label: 'Творчество', color: '#f59e0b' },
-  { key: 'news', label: 'Новости', color: '#10b981' },
-  { key: 'other', label: 'Другое', color: '#9ca3af' },
+  { key: 'tech', label: 'Технологии', color: '#06b6d4' },
+  { key: 'education', label: 'Образование', color: '#10b981' },
+  { key: 'entertainment', label: 'Развлечения', color: '#f97316' },
+  { key: 'news', label: 'Новости', color: '#3b82f6' },
+  { key: 'sports', label: 'Спорт', color: '#eab308' },
+  { key: 'science', label: 'Наука', color: '#14b8a6' },
+  { key: 'other', label: 'Другое', color: '#6b7280' },
 ];
 
 const STEP_SIZES = [
   { width: 420, height: 400 },
-  { width: 420, height: 350 },
+  { width: 420, height: 420 },
 ];
 
 export default function CreateChannelModal({ onClose, onCreated }) {

@@ -15,7 +15,7 @@
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   color: var(--text-muted);
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
   -webkit-app-region: no-drag;
 }
 .rs-bell:hover { background: rgba(255,255,255,0.08); color: var(--text); }
@@ -68,7 +68,7 @@
   font-size: 10px;
   font-weight: 600;
   font-family: inherit;
-  transition: all 0.12s;
+  transition: background 0.12s, color 0.12s;
 }
 .rs-tbtn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
 .rs-tbtn--red { background: rgba(239,68,68,0.1); color: var(--danger); }
@@ -195,14 +195,14 @@
 .rs-card__time {
   font-size: 9.5px;
   font-weight: 500;
-  color: rgba(255,255,255,0.35);
+  color: var(--text-tertiary);
   flex-shrink: 0;
   margin-right: 18px;
 }
 
 .rs-card__desc {
   font-size: 10.5px;
-  color: rgba(255,255,255,0.28);
+  color: var(--text-disabled);
   margin-top: 1px;
   display: block;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -215,11 +215,11 @@
   width: 22px; height: 22px;
   border-radius: 7px;
   border: none;
-  background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.45);
+  background: var(--surface-2);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0; transition: all 0.15s;
+  opacity: 0; transition: opacity 0.15s, color 0.15s, background 0.15s, transform 0.15s;
   z-index: 2;
 }
 .rs-card:hover .rs-card__x { opacity: 1; }
@@ -247,7 +247,7 @@
   font-family: inherit;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 4px;
-  transition: all 0.12s;
+  transition: background 0.12s, box-shadow 0.12s;
 }
 
 .rs-btn--yes { background: var(--accent); color: var(--accent-text, #08060f); }
@@ -316,7 +316,7 @@
   color: rgba(255,255,255,0.35);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.12s;
+  transition: background 0.12s, color 0.12s;
   z-index: 2;
 }
 .rs-exp__close:hover { background: rgba(239,68,68,0.08); color: var(--danger); }

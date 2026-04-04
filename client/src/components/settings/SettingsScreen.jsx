@@ -3,10 +3,11 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { gsap } from 'gsap';
 import {
   X, SpeakerHigh, Globe, Monitor, Palette, Sun, Moon, Bell,
-  ChatDots, UsersThree, At, Shield, Clock, GithubLogo,
+  ChatDots, UsersThree, At, Shield, Clock, GithubLogo, Scales,
   ArrowSquareOut, ChatCircle, Confetti, Eye, Keyboard,
   HardDrive, Wheelchair, ArrowCounterClockwise, Trash, DownloadSimple,
-  SignOut, CaretRight, GearSix, Sparkle, MagnifyingGlass, User
+  SignOut, CaretRight, GearSix, Sparkle, MagnifyingGlass, User, Warning,
+  Lock, EyeSlash, Desktop, DeviceMobile, Browser, Power
 } from '@phosphor-icons/react';
 import VoiceSettings from '../voice/VoiceSettings';
 import FeedbackScreen from './FeedbackScreen';
@@ -103,12 +104,25 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
   const [easterEgg, setEasterEgg] = useState(false);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [user, setUser] = useState(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const clickTimerRef = useRef(null);
   const searchRef = useRef(null);
 
   const settings = useSettingsStore();
   const { toggle, setValue } = settings;
   const version = useAppVersion();
+
+  // Restore accent color + UI zoom on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('blesk-accent-color');
+    if (saved) {
+      document.documentElement.style.setProperty('--accent', saved);
+    }
+    const zoom = settings.uiZoom;
+    if (zoom && zoom !== 1) {
+      document.body.style.zoom = zoom;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Загрузка данных текущего пользователя
   useEffect(() => {
@@ -214,6 +228,14 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
     setTab(id);
     localStorage.setItem('blesk_settings_tab', id);
   };
+
+  const handleCheckUpdate = useCallback(() => {
+    setCheckingUpdate(true);
+    try {
+      window.blesk?.checkForUpdates?.();
+    } catch { /* fallback */ }
+    setTimeout(() => setCheckingUpdate(false), 5000);
+  }, []);
 
   const handleTabKeyDown = useCallback((e) => {
     const tabEls = [...e.currentTarget.querySelectorAll('[role="tab"]')];
@@ -368,7 +390,7 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
                     {tab === 'hotkeys' && <HotkeysTab />}
                     {tab === 'storage' && <StorageTab />}
                     {tab === 'accessibility' && <AccessibilityTab settings={settings} toggle={toggle} />}
-                    {tab === 'about' && <AboutTab version={version} logoClicks={logoClicks} easterEgg={easterEgg} handleLogoClick={handleLogoClick} setFeedbackOpen={openFeedback} />}
+                    {tab === 'about' && <AboutTab version={version} logoClicks={logoClicks} easterEgg={easterEgg} handleLogoClick={handleLogoClick} setFeedbackOpen={openFeedback} checkingUpdate={checkingUpdate} onCheckUpdate={handleCheckUpdate} />}
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -479,6 +501,16 @@ function Select({ value, options, onChange }) {
    ═══════════════════════════════════════════════ */
 
 function GeneralTab({ settings, toggle, setValue }) {
+  const [autoStart, setAutoStart] = useState(false);
+  useEffect(() => {
+    window.blesk?.getAutoStart?.().then((v) => setAutoStart(!!v)).catch(() => {});
+  }, []);
+  const handleAutoStart = () => {
+    const next = !autoStart;
+    setAutoStart(next);
+    window.blesk?.setAutoStart?.(next);
+  };
+
   return (
     <div className="stg-tab">
       <SettingGroup title="Основные">
@@ -487,6 +519,9 @@ function GeneralTab({ settings, toggle, setValue }) {
         </SettingRow>
         <SettingRow icon={<Monitor size={16} />} label="Анимированный фон" hint="Цветные шары на фоне">
           <Toggle value={settings.animatedBg} onChange={() => toggle('animatedBg')} />
+        </SettingRow>
+        <SettingRow icon={<Power size={16} />} label="Запускать при старте системы" hint="Открывать blesk при включении ПК">
+          <Toggle value={autoStart} onChange={handleAutoStart} />
         </SettingRow>
       </SettingGroup>
       <SettingGroup title="Язык">
@@ -553,7 +588,11 @@ function AppearanceTab({ settings, toggle, setValue, handleThemeChange }) {
               key={c.color}
               className={`stg-accent-dot ${settings.accentColor === c.color ? 'stg-accent-dot--active' : ''}`}
               style={{ '--dot': c.color }}
-              onClick={() => setValue('accentColor', c.color)}
+              onClick={() => {
+                setValue('accentColor', c.color);
+                document.documentElement.style.setProperty('--accent', c.color);
+                localStorage.setItem('blesk-accent-color', c.color);
+              }}
               title={c.label}
               whileHover={{ scale: 1.15, y: -2 }}
               whileTap={{ scale: 0.9 }}
@@ -581,6 +620,19 @@ function AppearanceTab({ settings, toggle, setValue, handleThemeChange }) {
             min={12} max={18} step={1}
             value={settings.fontSize}
             onChange={(e) => setValue('fontSize', Number(e.target.value))}
+          />
+        </SettingRow>
+        <SettingRow icon={<Scales size={16} />} label="Масштаб интерфейса" hint={`${Math.round((settings.uiZoom ?? 1) * 100)}%`}>
+          <input
+            type="range"
+            className="stg-slider"
+            min={0.8} max={1.2} step={0.05}
+            value={settings.uiZoom ?? 1}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setValue('uiZoom', v);
+              document.body.style.zoom = v;
+            }}
           />
         </SettingRow>
       </SettingGroup>
@@ -626,6 +678,11 @@ function ChatTab({ settings, toggle, setValue }) {
 function NotificationsTab({ settings, toggle }) {
   return (
     <div className="stg-tab">
+      <SettingGroup title="Режим">
+        <SettingRow icon={<Bell size={16} />} label="Не беспокоить" hint="Отключить все уведомления и звуки">
+          <Toggle value={settings.dnd} onChange={() => toggle('dnd')} accent />
+        </SettingRow>
+      </SettingGroup>
       <SettingGroup title="Уведомления">
         <SettingRow icon={<Bell size={16} />} label="Уведомления" hint="Показывать уведомления">
           <Toggle value={settings.notifications} onChange={() => toggle('notifications')} accent />
@@ -753,30 +810,24 @@ function TwoFactorSection() {
 
   return (
     <SettingGroup title="Двухфакторная аутентификация">
-      <div style={{ padding: '12px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <Shield size={16} style={{ color: is2FAEnabled ? 'var(--online)' : 'var(--text-muted)' }} />
-          <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+      <div className="tfa">
+        <div className="tfa__header">
+          <Shield size={16} className={is2FAEnabled ? 'tfa__icon--active' : 'tfa__icon--inactive'} />
+          <span className="tfa__label">
             {is2FAEnabled ? '2FA включена' : '2FA отключена'}
           </span>
-          <span style={{
-            fontSize: 11,
-            padding: '2px 8px',
-            borderRadius: 8,
-            background: is2FAEnabled ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255,255,255,0.06)',
-            color: is2FAEnabled ? 'var(--online)' : 'var(--text-muted)',
-          }}>
+          <span className={`tfa__badge ${is2FAEnabled ? 'tfa__badge--active' : ''}`}>
             {is2FAEnabled ? 'Активна' : 'Не настроена'}
           </span>
         </div>
 
         {status === 'setup' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            {qrUrl && <img src={qrUrl} alt="QR" style={{ width: 180, height: 180, borderRadius: 12, background: '#fff', padding: 8 }} />}
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', wordBreak: 'break-all', maxWidth: 260 }}>
-              Ручной ввод: <span style={{ color: 'var(--accent)', fontFamily: 'monospace', fontSize: 12 }}>{secret}</span>
+          <div className="tfa__setup">
+            {qrUrl && <img src={qrUrl} alt="QR" className="tfa__qr" />}
+            <div className="tfa__secret-hint">
+              Ручной ввод: <span className="tfa__secret-code">{secret}</span>
             </div>
-            <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 260 }}>
+            <div className="tfa__input-row">
               <input
                 type="text"
                 inputMode="numeric"
@@ -784,27 +835,19 @@ function TwoFactorSection() {
                 placeholder="000000"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                style={{
-                  flex: 1, padding: '8px 12px', borderRadius: 10, border: 'none',
-                  background: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)',
-                  fontSize: 14, fontFamily: 'monospace', textAlign: 'center', outline: 'none',
-                }}
+                className="tfa__code-input"
               />
               <button
                 onClick={handleVerify}
                 disabled={status === 'loading'}
-                style={{
-                  padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                  background: 'var(--accent)', color: '#000', fontSize: 13, fontWeight: 600,
-                  opacity: status === 'loading' ? 0.5 : 1,
-                }}
+                className={`tfa__btn tfa__btn--confirm ${status === 'loading' ? 'tfa__btn--loading' : ''}`}
               >
                 {status === 'loading' ? '...' : 'Подтвердить'}
               </button>
             </div>
             <button
               onClick={() => { setStatus('idle'); setCode(''); setError(''); }}
-              style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+              className="tfa__cancel"
             >
               Отмена
             </button>
@@ -812,11 +855,11 @@ function TwoFactorSection() {
         )}
 
         {status === 'disabling' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+          <div className="tfa__disable">
+            <div className="tfa__disable-hint">
               Введите код из приложения-аутентификатора
             </div>
-            <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 260 }}>
+            <div className="tfa__input-row">
               <input
                 type="text"
                 inputMode="numeric"
@@ -824,25 +867,18 @@ function TwoFactorSection() {
                 placeholder="000000"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                style={{
-                  flex: 1, padding: '8px 12px', borderRadius: 10, border: 'none',
-                  background: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)',
-                  fontSize: 14, fontFamily: 'monospace', textAlign: 'center', outline: 'none',
-                }}
+                className="tfa__code-input"
               />
               <button
                 onClick={handleDisable}
-                style={{
-                  padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                  background: 'var(--danger)', color: '#fff', fontSize: 13, fontWeight: 600,
-                }}
+                className="tfa__btn tfa__btn--danger"
               >
                 Отключить
               </button>
             </div>
             <button
               onClick={() => { setStatus('idle'); setCode(''); setError(''); }}
-              style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+              className="tfa__cancel"
             >
               Отмена
             </button>
@@ -850,13 +886,7 @@ function TwoFactorSection() {
         )}
 
         {status === 'idle' && !is2FAEnabled && (
-          <button
-            onClick={handleSetup}
-            style={{
-              padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: 'var(--accent)', color: '#000', fontSize: 13, fontWeight: 600,
-            }}
-          >
+          <button onClick={handleSetup} className="tfa__btn tfa__btn--confirm">
             Включить 2FA
           </button>
         )}
@@ -864,24 +894,182 @@ function TwoFactorSection() {
         {status === 'idle' && is2FAEnabled && (
           <button
             onClick={() => { setStatus('disabling'); setCode(''); setError(''); }}
-            style={{
-              padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: 'rgba(239, 68, 68, 0.15)', color: 'var(--danger)', fontSize: 13, fontWeight: 600,
-            }}
+            className="tfa__btn tfa__btn--danger-ghost"
           >
             Отключить 2FA
           </button>
         )}
 
         {error && (
-          <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 8 }}>{error}</div>
+          <div className="tfa__error">{error}</div>
         )}
       </div>
     </SettingGroup>
   );
 }
 
+function SessionsSection() {
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [revoking, setRevoking] = useState(null);
+  const [revokingAll, setRevokingAll] = useState(false);
+
+  const loadSessions = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/sessions`, {
+        headers: { ...getAuthHeaders() }, credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(Array.isArray(data.sessions) ? data.sessions : Array.isArray(data) ? data : []);
+      }
+    } catch { /* тихий fallback */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadSessions(); }, [loadSessions]);
+
+  const parseUA = (ua) => {
+    if (!ua) return { device: 'Неизвестно', browser: '' };
+    const isMobile = /mobile|android|iphone/i.test(ua);
+    const isElectron = /electron/i.test(ua);
+    let browser = 'Браузер';
+    if (isElectron) browser = 'blesk Desktop';
+    else if (/firefox/i.test(ua)) browser = 'Firefox';
+    else if (/edg/i.test(ua)) browser = 'Edge';
+    else if (/chrome/i.test(ua)) browser = 'Chrome';
+    else if (/safari/i.test(ua)) browser = 'Safari';
+    const device = isElectron ? 'Desktop' : isMobile ? 'Мобильное' : 'Desktop';
+    return { device, browser };
+  };
+
+  const handleRevoke = async (sessionId) => {
+    setRevoking(sessionId);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }, credentials: 'include',
+      });
+      if (res.ok) {
+        setSessions(prev => prev.filter(s => s.id !== sessionId));
+      }
+    } catch { /* */ }
+    setRevoking(null);
+  };
+
+  const handleRevokeAll = async () => {
+    setRevokingAll(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/sessions`, {
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }, credentials: 'include',
+      });
+      if (res.ok) {
+        setSessions(prev => prev.filter(s => s.current));
+      }
+    } catch { /* */ }
+    setRevokingAll(false);
+  };
+
+  const otherSessions = sessions.filter(s => !s.current);
+
+  return (
+    <SettingGroup title="Активные сессии">
+      <div className="stg-sessions">
+        {otherSessions.length > 0 && (
+          <button
+            className="stg-sessions__revoke-all"
+            onClick={handleRevokeAll}
+            disabled={revokingAll}
+          >
+            <SignOut size={13} weight="bold" />
+            {revokingAll ? 'Завершение...' : 'Завершить все другие'}
+          </button>
+        )}
+
+        {loading && (
+          <div className="stg-sessions__loading">Загрузка...</div>
+        )}
+
+        {!loading && sessions.length === 0 && (
+          <div className="stg-sessions__empty">Нет данных о сессиях</div>
+        )}
+
+        {sessions.map((session) => {
+          const { device, browser } = parseUA(session.userAgent);
+          const isMobile = device === 'Мобильное';
+          const created = session.createdAt ? new Date(session.createdAt).toLocaleDateString('ru-RU', {
+            day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+          }) : '';
+
+          return (
+            <div key={session.id} className={`stg-sessions__item ${session.current ? 'stg-sessions__item--current' : ''}`}>
+              <div className="stg-sessions__item-icon">
+                {isMobile ? <DeviceMobile size={16} /> : <Desktop size={16} />}
+              </div>
+              <div className="stg-sessions__item-info">
+                <div className="stg-sessions__item-name">
+                  {browser}
+                  {session.current && <span className="stg-sessions__badge">Текущая</span>}
+                </div>
+                <div className="stg-sessions__item-meta">
+                  {device}{created ? ` \u00b7 ${created}` : ''}
+                </div>
+              </div>
+              {!session.current && (
+                <motion.button
+                  className="stg-sessions__item-revoke"
+                  onClick={() => handleRevoke(session.id)}
+                  disabled={revoking === session.id}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.9 }}
+                  title="Завершить сессию"
+                >
+                  <SignOut size={14} weight="bold" />
+                </motion.button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </SettingGroup>
+  );
+}
+
 function PrivacyTab({ settings, toggle }) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteShowPw, setDeleteShowPw] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) { setDeleteError('Введите пароль'); return; }
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/account`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({ password: deletePassword }),
+      });
+      if (res.ok) {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.blesk?.clearCache?.();
+        window.location.reload();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setDeleteError(data.error || 'Неверный пароль');
+      }
+    } catch {
+      setDeleteError('Не удалось подключиться к серверу');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div className="stg-tab">
       <SettingGroup title="Видимость">
@@ -925,6 +1113,83 @@ function PrivacyTab({ settings, toggle }) {
         </SettingRow>
       </SettingGroup>
       <TwoFactorSection />
+      <SessionsSection />
+
+      <SettingGroup title="Опасная зона">
+        <SettingRow
+          icon={<Trash size={16} />}
+          label="Удалить аккаунт"
+          hint="Навсегда удалить аккаунт и все данные"
+          danger
+          onClick={() => { setDeleteOpen(true); setDeletePassword(''); setDeleteError(''); setDeleteShowPw(false); }}
+        />
+      </SettingGroup>
+
+      <AnimatePresence>
+        {deleteOpen && (
+          <motion.div
+            className="stg-delete-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setDeleteOpen(false)}
+          >
+            <motion.div
+              className="stg-delete-dialog"
+              initial={{ opacity: 0, scale: 0.85, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0, transition: { type: 'spring', stiffness: 500, damping: 30 } }}
+              exit={{ opacity: 0, scale: 0.9, y: 8, transition: { duration: 0.15 } }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="stg-delete-dialog__icon">
+                <Warning size={28} weight="fill" />
+              </div>
+              <h3 className="stg-delete-dialog__title">Удалить аккаунт?</h3>
+              <p className="stg-delete-dialog__text">
+                Это действие необратимо. Все ваши данные будут удалены.
+              </p>
+              <div className="stg-delete-dialog__field">
+                <label className="stg-delete-dialog__label">Подтвердите паролем</label>
+                <div className="stg-delete-dialog__pw-wrap">
+                  <input
+                    type={deleteShowPw ? 'text' : 'password'}
+                    className="stg-delete-dialog__input"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="Ваш пароль"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleDeleteAccount(); }}
+                  />
+                  <button
+                    className="stg-delete-dialog__eye"
+                    onClick={() => setDeleteShowPw(p => !p)}
+                    type="button"
+                    tabIndex={-1}
+                  >
+                    {deleteShowPw ? <EyeSlash size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+              {deleteError && <div className="stg-delete-dialog__error">{deleteError}</div>}
+              <div className="stg-delete-dialog__actions">
+                <button
+                  className="stg-delete-dialog__btn stg-delete-dialog__btn--cancel"
+                  onClick={() => setDeleteOpen(false)}
+                >
+                  Отмена
+                </button>
+                <button
+                  className="stg-delete-dialog__btn stg-delete-dialog__btn--danger"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading || !deletePassword}
+                >
+                  {deleteLoading ? '...' : 'Удалить навсегда'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -934,6 +1199,7 @@ function HotkeysTab() {
   const setHotkey = useSettingsStore((s) => s.setHotkey);
   const resetHotkeys = useSettingsStore((s) => s.resetHotkeys);
   const [editing, setEditing] = useState(null);
+  const [conflict, setConflict] = useState(null);
 
   const HOTKEY_LABELS = {
     search: 'Поиск (Spotlight)',
@@ -956,14 +1222,26 @@ function HotkeysTab() {
       if (e.altKey) parts.push('Alt');
       const key = e.key;
       if (!['Control', 'Shift', 'Alt', 'Meta'].includes(key)) {
-        parts.push(key.length === 1 ? key.toUpperCase() : key);
-        setHotkey(editing, parts.join('+'));
+        const combo = parts.join('+') + (parts.length ? '+' : '') + (key.length === 1 ? key.toUpperCase() : key);
+
+        // Проверка конфликтов
+        const conflictEntry = Object.entries(hotkeys).find(
+          ([act, val]) => act !== editing && val === combo
+        );
+        if (conflictEntry) {
+          setConflict({ combo, existing: HOTKEY_LABELS[conflictEntry[0]] || conflictEntry[0] });
+          setTimeout(() => setConflict(null), 3000);
+        } else {
+          setConflict(null);
+        }
+
+        setHotkey(editing, combo);
         setEditing(null);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [editing, setHotkey]);
+  }, [editing, setHotkey, hotkeys]);
 
   return (
     <div className="stg-tab">
@@ -973,7 +1251,7 @@ function HotkeysTab() {
             key={action}
             icon={<Keyboard size={16} />}
             label={label}
-            onClick={() => setEditing(editing === action ? null : action)}
+            onClick={() => { setEditing(editing === action ? null : action); setConflict(null); }}
           >
             <motion.div
               className={`stg-hotkey ${editing === action ? 'stg-hotkey--editing' : ''}`}
@@ -985,6 +1263,21 @@ function HotkeysTab() {
           </SettingRow>
         ))}
       </SettingGroup>
+
+      <AnimatePresence>
+        {conflict && (
+          <motion.div
+            className="stg-hotkey-conflict"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <Warning size={14} weight="bold" />
+            <span>Клавиша «{conflict.combo}» уже используется для «{conflict.existing}»</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <SettingGroup>
         <SettingRow icon={<ArrowCounterClockwise size={16} />} label="Сбросить горячие клавиши" hint="Вернуть стандартные" onClick={resetHotkeys} />
       </SettingGroup>
@@ -994,9 +1287,25 @@ function HotkeysTab() {
 
 function StorageTab() {
   const [cleared, setCleared] = useState(null);
+  const [storageUsage, setStorageUsage] = useState(null);
   const chats = useChatStore((s) => s.chats);
   const messages = useChatStore((s) => s.messages);
   const msgCount = Object.values(messages).reduce((sum, arr) => sum + arr.length, 0);
+
+  useEffect(() => {
+    if (navigator.storage?.estimate) {
+      navigator.storage.estimate().then(({ usage, quota }) => {
+        setStorageUsage({ usage: usage || 0, quota: quota || 0 });
+      }).catch(() => {});
+    }
+  }, []);
+
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 Б';
+    const units = ['Б', 'КБ', 'МБ', 'ГБ'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
+  };
 
   const clearMessages = () => {
     useChatStore.setState({ messages: {} });
@@ -1006,6 +1315,11 @@ function StorageTab() {
   const clearNebula = () => {
     localStorage.removeItem('blesk_nebula');
     setCleared('nebula');
+    setTimeout(() => setCleared(null), 2000);
+  };
+  const clearBrowserCache = () => {
+    window.blesk?.clearCache?.();
+    setCleared('browser');
     setTimeout(() => setCleared(null), 2000);
   };
   const [resetConfirm, setResetConfirm] = useState(false);
@@ -1020,6 +1334,18 @@ function StorageTab() {
 
   return (
     <div className="stg-tab">
+      {storageUsage && (
+        <SettingGroup title="Использование">
+          <SettingRow icon={<HardDrive size={16} />} label="Занято" hint={`${formatBytes(storageUsage.usage)} из ${formatBytes(storageUsage.quota)}`}>
+            <div className="stg-storage-bar">
+              <div
+                className="stg-storage-bar__fill"
+                style={{ width: `${Math.min((storageUsage.usage / storageUsage.quota) * 100, 100).toFixed(1)}%` }}
+              />
+            </div>
+          </SettingRow>
+        </SettingGroup>
+      )}
       <SettingGroup title="Кеш">
         <SettingRow icon={<HardDrive size={16} />} label="Кеш сообщений" hint={`${chats.length} чатов, ${msgCount} сообщений`}>
           <motion.button className="stg-btn" onClick={clearMessages} whileTap={{ scale: 0.95 }}>
@@ -1029,6 +1355,11 @@ function StorageTab() {
         <SettingRow icon={<DownloadSimple size={16} />} label="Позиции карточек" hint="Сохранённые позиции в Nebula">
           <motion.button className="stg-btn" onClick={clearNebula} whileTap={{ scale: 0.95 }}>
             {cleared === 'nebula' ? 'Очищено' : 'Сбросить'}
+          </motion.button>
+        </SettingRow>
+        <SettingRow icon={<Trash size={16} />} label="Кеш браузера" hint="Очистить сессионный кеш Electron">
+          <motion.button className="stg-btn" onClick={clearBrowserCache} whileTap={{ scale: 0.95 }}>
+            {cleared === 'browser' ? 'Очищено' : 'Очистить'}
           </motion.button>
         </SettingRow>
       </SettingGroup>
@@ -1068,7 +1399,7 @@ function AccessibilityTab({ settings, toggle }) {
   );
 }
 
-function AboutTab({ version, logoClicks, easterEgg, handleLogoClick, setFeedbackOpen }) {
+function AboutTab({ version, logoClicks, easterEgg, handleLogoClick, setFeedbackOpen, checkingUpdate, onCheckUpdate }) {
   return (
     <div className="stg-tab stg-about">
       <div className="stg-about__hero">
@@ -1107,6 +1438,17 @@ function AboutTab({ version, logoClicks, easterEgg, handleLogoClick, setFeedback
         <div className="stg-about__ver">v{version}</div>
         <div className="stg-about__slogan">Твой блеск. Твои правила.</div>
 
+        <motion.button
+          className="stg-about__update-btn"
+          onClick={onCheckUpdate}
+          disabled={checkingUpdate}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+        >
+          <DownloadSimple size={14} weight="bold" />
+          {checkingUpdate ? 'Проверка...' : 'Проверить обновления'}
+        </motion.button>
+
         <AnimatePresence>
           {easterEgg && (
             <motion.div
@@ -1123,14 +1465,19 @@ function AboutTab({ version, logoClicks, easterEgg, handleLogoClick, setFeedback
       </div>
 
       <SettingGroup>
-        <a className="stg-about__link" href="https://github.com/gotblesk/blesk" target="_blank" rel="noopener noreferrer">
+        <a className="stg-about__link" href="https://github.com/gotblesk/blesk" target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); window.blesk?.openExternal?.('https://github.com/gotblesk/blesk') || window.open('https://github.com/gotblesk/blesk', '_blank'); }}>
           <GithubLogo size={16} />
           <span>GitHub</span>
           <CaretRight size={14} className="stg-about__link-arrow" />
         </a>
-        <a className="stg-about__link" href="https://blesk.fun" target="_blank" rel="noopener noreferrer">
+        <a className="stg-about__link" href="https://blesk.fun" target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); window.blesk?.openExternal?.('https://blesk.fun') || window.open('https://blesk.fun', '_blank'); }}>
           <Globe size={16} />
           <span>blesk.fun</span>
+          <CaretRight size={14} className="stg-about__link-arrow" />
+        </a>
+        <a className="stg-about__link" href="https://github.com/gotblesk/blesk/blob/master/LICENSE" target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); window.blesk?.openExternal?.('https://github.com/gotblesk/blesk/blob/master/LICENSE') || window.open('https://github.com/gotblesk/blesk/blob/master/LICENSE', '_blank'); }}>
+          <Scales size={16} />
+          <span>Лицензия AGPL-3.0</span>
           <CaretRight size={14} className="stg-about__link-arrow" />
         </a>
         <div className="stg-about__link" onClick={() => setFeedbackOpen(true)} role="button" tabIndex={0}>

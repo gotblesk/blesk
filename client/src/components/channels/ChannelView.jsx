@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, GearSix, PaperPlaneTilt, Paperclip, UsersThree, Bell, BellSlash, PenNib, Hash, Camera, ImageSquare } from '@phosphor-icons/react';
+import { ArrowLeft, GearSix, PaperPlaneTilt, Paperclip, UsersThree, Bell, BellSlash, PenNib, Hash, Camera, ImageSquare, Trash, Warning } from '@phosphor-icons/react';
 import ChannelPost from './ChannelPost';
 import ChannelMembersModal from './ChannelMembersModal';
 import { useChannelStore } from '../../store/channelStore';
@@ -25,7 +25,12 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
   const coverFileRef = useRef(null);
   const errorTimerRef = useRef(null);
 
-  const { posts, loadPosts, deletePost, loadingPosts, postsError, myChannels, channels } = useChannelStore();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const { posts, loadPosts, loadMorePosts, deletePost, deleteChannel, loadingPosts, postsError, myChannels, channels, hasMorePosts, loadingMorePosts } = useChannelStore();
   const channelPosts = posts[channelId] || [];
   const isLoadingPosts = loadingPosts[channelId] || false;
   const loadPostsError = postsError[channelId] || null;
@@ -151,7 +156,7 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
       });
       if (!res.ok) {
         let errMsg = 'Не удалось загрузить файл';
-        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch {}
+        try { const d = await res.json(); if (d.error) errMsg = d.error; } catch (e) { console.warn('Channel response parse error:', e.message); }
         throw new Error(errMsg);
       }
       const data = await res.json();
@@ -216,6 +221,20 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
     if (coverFileRef.current) coverFileRef.current.value = '';
   }, [channelId, showPostError]);
 
+  const handleDeleteChannel = useCallback(async () => {
+    if (deleteConfirmName !== channel?.name) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    const result = await deleteChannel(channelId);
+    setDeleteLoading(false);
+    if (result?.ok) {
+      setDeleteOpen(false);
+      onBack?.();
+    } else {
+      setDeleteError(result?.error || 'Не удалось удалить канал');
+    }
+  }, [channelId, channel?.name, deleteConfirmName, deleteChannel, onBack]);
+
   const coverUrl = channel?.channelMeta?.coverUrl || channel?.coverUrl;
   const avatarUrl = channel?.channelMeta?.avatarUrl || channel?.avatarUrl;
 
@@ -253,7 +272,18 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
           <ArrowLeft size={18} weight="bold" />
         </motion.button>
 
-        {/* Settings (owner) — TODO: connect to settings panel when implemented */}
+        {/* Delete channel button (owner) */}
+        {isOwner && (
+          <motion.button
+            className="cv__delete-btn"
+            onClick={() => { setDeleteOpen(true); setDeleteConfirmName(''); setDeleteError(''); }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.9 }}
+            title="Удалить канал"
+          >
+            <Trash size={14} weight="regular" />
+          </motion.button>
+        )}
 
         {/* Channel info overlay */}
         <div className="cv__hero-info">
@@ -326,6 +356,19 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
             </button>
           )}
         </div>
+
+        {/* Load more (older posts) */}
+        {channelPosts.length > 0 && hasMorePosts[channelId] && (
+          <div className="cv__load-more">
+            <button
+              className="cv__load-more-btn"
+              onClick={() => loadMorePosts(channelId, channelPosts[0]?.id)}
+              disabled={loadingMorePosts?.[channelId]}
+            >
+              {loadingMorePosts?.[channelId] ? 'Загрузка...' : 'Загрузить ранние посты'}
+            </button>
+          </div>
+        )}
 
         {channelPosts.length === 0 ? (
           <motion.div className="cv__empty" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -443,6 +486,64 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
       {showMembers && (
         <ChannelMembersModal channelId={channelId} onClose={() => setShowMembers(false)} />
       )}
+
+      {/* ═══ Delete Channel Dialog ═══ */}
+      <AnimatePresence>
+        {deleteOpen && (
+          <motion.div
+            className="cv__del-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setDeleteOpen(false)}
+          >
+            <motion.div
+              className="cv__del-dialog"
+              initial={{ opacity: 0, scale: 0.85, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0, transition: { type: 'spring', stiffness: 500, damping: 30 } }}
+              exit={{ opacity: 0, scale: 0.9, y: 8, transition: { duration: 0.15 } }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="cv__del-icon">
+                <Warning size={28} weight="fill" />
+              </div>
+              <h3 className="cv__del-title">Удаление канала</h3>
+              <p className="cv__del-text">
+                Это действие необратимо. Все сообщения и подписчики будут удалены.
+              </p>
+              <div className="cv__del-field">
+                <label className="cv__del-label">
+                  Введите <strong>{channel?.name}</strong> для подтверждения
+                </label>
+                <input
+                  className="cv__del-input"
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  placeholder={channel?.name}
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter' && deleteConfirmName === channel?.name) handleDeleteChannel(); }}
+                />
+              </div>
+              {deleteError && <div className="cv__del-error">{deleteError}</div>}
+              <div className="cv__del-actions">
+                <button
+                  className="cv__del-btn cv__del-btn--cancel"
+                  onClick={() => setDeleteOpen(false)}
+                >
+                  Отмена
+                </button>
+                <button
+                  className="cv__del-btn cv__del-btn--danger"
+                  onClick={handleDeleteChannel}
+                  disabled={deleteLoading || deleteConfirmName !== channel?.name}
+                >
+                  {deleteLoading ? '...' : 'Удалить навсегда'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { X, FileText, Image as ImageIcon, FilmStrip, MusicNote, Archive } from '@phosphor-icons/react';
 import './AttachmentPreview.css';
 
@@ -15,6 +16,20 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
 }
 
+function ImageThumb({ file }) {
+  const urlRef = useRef(null);
+  const imgRef = useRef(null);
+
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(file);
+    urlRef.current = objectUrl;
+    if (imgRef.current) imgRef.current.src = objectUrl;
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  return <img ref={imgRef} alt="" className="attach-preview__thumb" />;
+}
+
 export default function AttachmentPreview({ files, onRemove, uploadProgress }) {
   if (!files.length) return null;
   return (
@@ -22,7 +37,7 @@ export default function AttachmentPreview({ files, onRemove, uploadProgress }) {
       {files.map((file, i) => (
         <div key={i} className="attach-preview__item">
           {file.type.startsWith('image/') ? (
-            <img src={URL.createObjectURL(file)} alt="" className="attach-preview__thumb" />
+            <ImageThumb file={file} />
           ) : (
             <div className="attach-preview__icon">{getFileIcon(file.type)}</div>
           )}

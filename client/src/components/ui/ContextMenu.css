@@ -1,6 +1,6 @@
 .ctx-menu {
   position: fixed;
-  z-index: 500;
+  z-index: var(--z-context-menu, 300);
   min-width: 180px;
   padding: 6px;
   border-radius: var(--radius-md);

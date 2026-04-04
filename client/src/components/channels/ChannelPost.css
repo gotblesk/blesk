@@ -75,7 +75,7 @@
 .cp__head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .cp__ava {

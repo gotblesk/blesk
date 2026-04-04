@@ -52,6 +52,8 @@ const DEFAULTS = {
   largeControls: false,
   // [CRIT-4] Не беспокоить
   dnd: false,
+  // Масштаб интерфейса (0.8 — 1.2)
+  uiZoom: 1,
 };
 
 // Загрузить из localStorage

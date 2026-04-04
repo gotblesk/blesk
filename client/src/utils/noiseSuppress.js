@@ -101,7 +101,7 @@ export function createNoiseSuppressionPipeline(audioContext, sourceNode) {
       // Не полностью закрывать — оставить -40dB чтобы не было мёртвой тишины
       const finalGain = Math.max(currentGate, 0.01);
       gateGain.gain.setTargetAtTime(finalGain, audioContext.currentTime, 0.01);
-    }, 10); // 100 раз в секунду — smooth gating
+    }, 25); // 40 раз в секунду — smooth gating, меньше нагрузки на CPU
   }
 
   // Цепочка: source -> highPass -> notch50 -> notch60 -> lowPass -> analyser -> gateGain -> compressor -> output

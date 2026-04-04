@@ -1,6 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import * as THREE from 'three';
+import { useRef, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 
 // 3D Metaball Background — замена CSS orbs на Three.js raymarching shader
@@ -8,6 +6,50 @@ import { useSettingsStore } from '../../store/settingsStore';
 
 // Храним позицию мыши глобально (без re-render)
 const mousePos = { x: 0, y: 0 };
+
+// Three.js imports are deferred until actually needed
+let Canvas, useFrame, useThree, THREE;
+let threeLoaded = false;
+
+function loadThreeDeps() {
+  if (threeLoaded) return Promise.resolve();
+  return Promise.all([
+    import('@react-three/fiber'),
+    import('three'),
+  ]).then(([fiber, three]) => {
+    Canvas = fiber.Canvas;
+    useFrame = fiber.useFrame;
+    useThree = fiber.useThree;
+    THREE = three;
+    threeLoaded = true;
+  });
+}
+
+// Lazy-loaded scene wrapper
+const LazyMetaballCanvas = lazy(() =>
+  loadThreeDeps().then(() => ({
+    default: function MetaballCanvas({ subtle, ambientHue, contentActive, theme }) {
+      const effectiveSubtle = contentActive ? true : subtle;
+      return (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          overflow: 'hidden',
+        }}>
+          <Canvas
+            dpr={[1, 1.5]}
+            gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }}
+            style={{ width: '100%', height: '100%' }}
+          >
+            <MetaballScene ambientHue={ambientHue} subtle={effectiveSubtle} contentActive={contentActive} theme={theme} />
+          </Canvas>
+        </div>
+      );
+    }
+  }))
+);
 
 // ═══════ RAYMARCHING SHADER ═══════
 const vertexShader = `
@@ -366,6 +408,21 @@ function useIdleBreathing(enabled) {
   }, [enabled]);
 }
 
+// CSS gradient fallback (no Three.js needed)
+function MetaballFallback() {
+  return (
+    <div className="metaball-fallback" style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 0,
+      background: `radial-gradient(ellipse at 30% 50%, rgba(200,255,0,0.03) 0%, transparent 50%),
+                    radial-gradient(ellipse at 70% 30%, rgba(200,255,0,0.02) 0%, transparent 50%),
+                    var(--bg, #0a0a0f)`,
+      pointerEvents: 'none',
+    }} />
+  );
+}
+
 // ═══════ MAIN COMPONENT ═══════
 export default function MetaballBackground({ subtle = false, ambientHue = null, contentActive = false }) {
   const animatedBg = useSettingsStore((s) => s.animatedBg);
@@ -375,51 +432,25 @@ export default function MetaballBackground({ subtle = false, ambientHue = null, 
 
   if (!animatedBg) return null;
 
-  // Eco-mode: пропускаем WebGL если пользователь выбрал экономию или включён reduced motion
+  // Eco-mode: skip WebGL when user prefers reduced motion or eco performance
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let performanceMode = 'auto';
   try {
     const settings = JSON.parse(localStorage.getItem('blesk-settings') || '{}');
     performanceMode = settings.performanceMode || 'auto';
-  } catch {}
+  } catch (e) { console.warn('WebGL shader error:', e.message); }
 
   const useShader = performanceMode === 'high' ||
     (performanceMode === 'auto' && !reducedMotion);
 
   if (!useShader) {
-    return (
-      <div className="metaball-fallback" style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 0,
-        background: `radial-gradient(ellipse at 30% 50%, rgba(200,255,0,0.03) 0%, transparent 50%),
-                      radial-gradient(ellipse at 70% 30%, rgba(200,255,0,0.02) 0%, transparent 50%),
-                      var(--bg, #0a0a0f)`,
-        pointerEvents: 'none',
-      }} />
-    );
+    return <MetaballFallback />;
   }
 
-  // contentActive — дополнительное снижение яркости метаболов когда
-  // пользователь в чате/каналах/друзьях (контент на переднем плане)
-  const effectiveSubtle = contentActive ? true : subtle;
-
   return (
-    <div style={{
-      position: 'absolute',
-      inset: 0,
-      zIndex: 0,
-      pointerEvents: 'none',
-      overflow: 'hidden',
-    }}>
-      <Canvas
-        dpr={[1, 1.5]}
-        gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }}
-        style={{ width: '100%', height: '100%' }}
-      >
-        <MetaballScene ambientHue={ambientHue} subtle={effectiveSubtle} contentActive={contentActive} theme={theme} />
-      </Canvas>
-    </div>
+    <Suspense fallback={<MetaballFallback />}>
+      <LazyMetaballCanvas subtle={subtle} ambientHue={ambientHue} contentActive={contentActive} theme={theme} />
+    </Suspense>
   );
 }

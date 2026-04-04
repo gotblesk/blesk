@@ -274,6 +274,63 @@
   padding: 60px 0;
 }
 
+/* ─── Header actions row ─── */
+.voice-chat__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ─── Mute All button ─── */
+.voice-chat__mute-all {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(239, 68, 68, 0.08);
+  color: rgba(239, 68, 68, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.voice-chat__mute-all:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+}
+
+.voice-chat__mute-all:active {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* ─── Toast inside voice chat ─── */
+.voice-chat__toast {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: var(--radius-sm, 8px);
+  background: rgba(14, 12, 24, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+  animation: vc-toast-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vc-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 [data-theme="light"] .voice-chat--inline {
   background: transparent;
 }
@@ -343,4 +400,21 @@
 [data-theme="light"] .voice-chat__send {
   background: var(--light-accent-light, #ede9fe);
   color: var(--accent, #c8ff00);
+}
+
+[data-theme="light"] .voice-chat__mute-all {
+  background: rgba(239, 68, 68, 0.06);
+  color: rgba(239, 68, 68, 0.4);
+}
+
+[data-theme="light"] .voice-chat__mute-all:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+[data-theme="light"] .voice-chat__toast {
+  background: var(--light-surface, #ffffff);
+  border-color: var(--light-border, #e5e7eb);
+  color: var(--light-text-primary, #111827);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }

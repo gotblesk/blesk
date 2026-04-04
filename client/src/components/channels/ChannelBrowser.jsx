@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, MagnifyingGlass, Radio, Newspaper, GameController, MusicNotes, Palette, Cpu, DotsThree, Sparkle, Link } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, Newspaper, GameController, MusicNotes, Palette, Cpu, DotsThree, Sparkle, GraduationCap, FilmSlate, Trophy, Atom, Info } from '@phosphor-icons/react';
 import ChannelCard from './ChannelCard';
 import CreateChannelModal from './CreateChannelModal';
 import { ChannelGridSkeleton } from '../ui/GlassSkeleton';
@@ -11,11 +11,15 @@ import './ChannelBrowser.css';
 
 const CATEGORIES = [
   { key: null, label: 'Все', icon: Sparkle, color: '#c8ff00' },
-  { key: 'news', label: 'Новости', icon: Newspaper, color: '#3b82f6' },
   { key: 'gaming', label: 'Игры', icon: GameController, color: '#8b5cf6' },
   { key: 'music', label: 'Музыка', icon: MusicNotes, color: '#ec4899' },
-  { key: 'art', label: 'Арт', icon: Palette, color: '#f59e0b' },
-  { key: 'tech', label: 'Тех', icon: Cpu, color: '#06b6d4' },
+  { key: 'art', label: 'Творчество', icon: Palette, color: '#f59e0b' },
+  { key: 'tech', label: 'Технологии', icon: Cpu, color: '#06b6d4' },
+  { key: 'education', label: 'Образование', icon: GraduationCap, color: '#10b981' },
+  { key: 'entertainment', label: 'Развлечения', icon: FilmSlate, color: '#f97316' },
+  { key: 'news', label: 'Новости', icon: Newspaper, color: '#3b82f6' },
+  { key: 'sports', label: 'Спорт', icon: Trophy, color: '#eab308' },
+  { key: 'science', label: 'Наука', icon: Atom, color: '#14b8a6' },
   { key: 'other', label: 'Другое', icon: DotsThree, color: '#6b7280' },
 ];
 
@@ -31,7 +35,7 @@ export default function ChannelBrowser({ onOpenChannel }) {
   const [category, setCategory] = useState(null);
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
+  const [toastMsg, setToastMsg] = useState('');
 
   const { channels, myChannels, loadingBrowse, browseError, subscribe, unsubscribe } = useChannelStore();
   const userId = getCurrentUserId();
@@ -75,11 +79,10 @@ export default function ChannelBrowser({ onOpenChannel }) {
     else subscribe(channel.id);
   }, [myChannels, subscribe, unsubscribe]);
 
-  const handleJoinByLink = useCallback(() => {
-    if (!inviteLink.trim()) return;
-    // TODO: POST /api/channels/join-by-link
-    setInviteLink('');
-  }, [inviteLink]);
+  const showToast = useCallback((msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 2500);
+  }, []);
 
   const allChannels = channels.map((ch) => {
     const isOwned = ch.ownerId === userId;
@@ -182,24 +185,25 @@ export default function ChannelBrowser({ onOpenChannel }) {
         ))}
       </div>
 
-      {/* Присоединиться по ссылке */}
-      <div className="mo__invite">
-        <Link size={16} className="mo__invite-icon" />
-        <input
-          className="mo__invite-input"
-          placeholder="Вставьте ссылку-приглашение..."
-          value={inviteLink}
-          onChange={e => setInviteLink(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleJoinByLink()}
-        />
-        <button
-          className="mo__invite-btn"
-          onClick={handleJoinByLink}
-          disabled={!inviteLink.trim()}
-        >
-          Присоединиться
-        </button>
-      </div>
+      {/* Присоединиться по ссылке — в разработке */}
+      <button className="mo__invite-stub" onClick={() => showToast('Функция в разработке')}>
+        <Info size={14} weight="regular" />
+        <span>Присоединиться по ссылке-приглашению</span>
+      </button>
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            className="mo__toast"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+          >
+            {toastMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {createOpen && (

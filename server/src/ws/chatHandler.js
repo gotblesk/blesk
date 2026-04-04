@@ -242,6 +242,9 @@ function chatHandler(io, socket) {
       }
       io.to(chatId).emit('message:new', emitData);
 
+      // ACK callback — подтвердить отправителю что сообщение сохранено
+      if (typeof callback === 'function') callback({ ok: true, messageId: message.id });
+
       // Фоновый скрапинг OG-данных для ссылок в сообщении
       if (!encrypted) {
         const urlMatch = text?.match(/(https?:\/\/[^\s]+)/);
@@ -506,6 +509,47 @@ function chatHandler(io, socket) {
       });
     } catch (err) {
       logger.error({ err }, 'message:react error');
+    }
+  });
+
+  // Закрепить / открепить сообщение
+  socket.on('message:pin', async ({ messageId, roomId }, callback) => {
+    if (!messageId || typeof messageId !== 'string' || messageId.length > 36) return;
+    if (!roomId || typeof roomId !== 'string' || roomId.length > 36) return;
+    if (isEventRateLimited(userId, 'message:pin', 10, 10000)) return;
+
+    try {
+      // Проверить что пользователь — участник комнаты
+      const participant = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId, userId } },
+      });
+      if (!participant) return;
+
+      // Проверить что сообщение существует и принадлежит этой комнате
+      const message = await prisma.message.findUnique({
+        where: { id: messageId },
+        select: { roomId: true, pinned: true },
+      });
+      if (!message || message.roomId !== roomId) return;
+
+      // Toggle pinned
+      const newPinned = !message.pinned;
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { pinned: newPinned },
+      });
+
+      io.to(roomId).emit('message:pinned', {
+        messageId,
+        roomId,
+        pinnedBy: userId,
+        pinned: newPinned,
+      });
+
+      if (typeof callback === 'function') callback({ ok: true, pinned: newPinned });
+    } catch (err) {
+      logger.error({ err }, 'message:pin error');
+      if (typeof callback === 'function') callback({ error: 'Не удалось закрепить' });
     }
   });
 

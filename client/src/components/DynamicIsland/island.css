@@ -319,7 +319,7 @@
   cursor: pointer;
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.7);
-  transition: all 0.15s cubic-bezier(.34, 1.56, .64, 1);
+  transition: background 0.15s cubic-bezier(.34, 1.56, .64, 1), color 0.15s cubic-bezier(.34, 1.56, .64, 1), transform 0.15s cubic-bezier(.34, 1.56, .64, 1);
 }
 .di__call-btn:hover {
   background: rgba(255, 255, 255, 0.14);
@@ -376,7 +376,7 @@
 
 .di__in-btns {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   margin-left: 4px;
 }
 
@@ -389,7 +389,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(.34, 1.56, .64, 1);
+  transition: background 0.2s cubic-bezier(.34, 1.56, .64, 1), color 0.2s cubic-bezier(.34, 1.56, .64, 1), transform 0.2s cubic-bezier(.34, 1.56, .64, 1);
 }
 
 .di__in-btn--no {

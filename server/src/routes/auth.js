@@ -60,6 +60,18 @@ const loginIpLimiter = rateLimit({
   },
 });
 
+// IP-лимит для /reset-password — 10 запросов за 15 минут
+const resetPasswordIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Слишком много попыток сброса пароля. Попробуйте через 15 минут.' });
+  },
+});
+
 // httpOnly cookie helper — устанавливает access + refresh cookies
 function setAuthCookies(res, tokens) {
   res.cookie('blesk_token', tokens.token, {
@@ -455,11 +467,6 @@ router.post('/login', loginIpLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Неверное имя или пароль' });
     }
 
-    // [HIGH-7] Бан-проверка ПЕРЕД проверкой пароля
-    if (user.banned) {
-      return res.status(403).json({ error: 'Аккаунт заблокирован', bannedReason: user.bannedReason });
-    }
-
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       // [HIGH-1] Записать неудачную попытку
@@ -474,6 +481,11 @@ router.post('/login', loginIpLimiter, async (req, res) => {
 
     // Успешный вход — сбросить счётчик
     loginAttempts.delete(username);
+
+    // Бан-проверка ПОСЛЕ проверки пароля — чтобы не раскрывать наличие аккаунта
+    if (user.banned) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован', bannedReason: user.bannedReason });
+    }
 
     // Проверка 2FA
     if (user.twoFactorEnabled) {
@@ -655,16 +667,17 @@ router.post('/forgot-password', forgotPasswordIpLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Введите корректный email' });
     }
 
+    // Rate limit ПЕРЕД поиском пользователя — чтобы не раскрывать наличие аккаунта
+    // (429 при существующем email vs success при несуществующем = утечка)
+    const waitSec = isEmailCodeRateLimited(forgotPasswordLimits, email);
+    if (waitSec > 0) {
+      return res.status(429).json({ error: 'Подождите перед повторной отправкой' });
+    }
+
     const user = await prisma.user.findUnique({ where: { email } });
     // Всегда отвечаем успехом — чтобы не раскрывать наличие аккаунта
     if (!user) {
       return res.json({ success: true });
-    }
-
-    // Rate limit: раздельный для forgot-password (не мешает resend-code и change-password)
-    const waitSec = isEmailCodeRateLimited(forgotPasswordLimits, email);
-    if (waitSec > 0) {
-      return res.status(429).json({ error: 'Подождите перед повторной отправкой' });
     }
 
     const code = generateCode();
@@ -687,7 +700,7 @@ router.post('/forgot-password', forgotPasswordIpLimiter, async (req, res) => {
 });
 
 // POST /api/auth/reset-password — проверить код и сменить пароль
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', resetPasswordIpLimiter, async (req, res) => {
   try {
     const { email, code, newPassword } = req.body;
 
@@ -696,6 +709,15 @@ router.post('/reset-password', async (req, res) => {
     }
     if (newPassword.length < 8) {
       return res.status(400).json({ error: 'Пароль: минимум 8 символов' });
+    }
+    // Проверка сложности: минимум 2 класса символов (как при регистрации)
+    const hasLower = /[a-zа-яё]/.test(newPassword);
+    const hasUpper = /[A-ZА-ЯЁ]/.test(newPassword);
+    const hasDigit = /[0-9]/.test(newPassword);
+    const hasSpecial = /[^a-zA-Zа-яА-ЯёЁ0-9]/.test(newPassword);
+    const classes = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+    if (classes < 2) {
+      return res.status(400).json({ error: 'Пароль должен содержать минимум 2 типа символов (буквы, цифры, спецсимволы)' });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -1014,6 +1036,171 @@ router.post('/keys', authenticate, async (req, res) => {
   } catch (err) {
     logger.error({ err }, 'keys error');
     res.status(500).json({ error: 'Ошибка сохранения ключа' });
+  }
+});
+
+// Rate limiter для удаления аккаунта — 1 запрос в час
+const deleteAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.userId || req.ip,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Удаление аккаунта: не более 1 запроса в час.' });
+  },
+});
+
+// DELETE /api/auth/account — полное удаление аккаунта
+router.delete('/account', authenticate, deleteAccountLimiter, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'Пароль обязателен для подтверждения' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      return res.status(403).json({ error: 'Неверный пароль' });
+    }
+
+    // Удаление всех данных в транзакции (порядок — для foreign keys)
+    await prisma.$transaction([
+      // Реакции на сообщения
+      prisma.messageReaction.deleteMany({ where: { userId } }),
+      // Вложения в сообщениях пользователя
+      prisma.attachment.deleteMany({ where: { message: { userId } } }),
+      // Сообщения
+      prisma.message.deleteMany({ where: { userId } }),
+      // Участие в комнатах
+      prisma.roomParticipant.deleteMany({ where: { userId } }),
+      // Подписки на каналы
+      prisma.channelSubscriber.deleteMany({ where: { userId } }),
+      // Дружба (обе стороны)
+      prisma.friendRequest.deleteMany({ where: { OR: [{ senderId: userId }, { receiverId: userId }] } }),
+      // Блокировки (обе стороны)
+      prisma.blockedUser.deleteMany({ where: { OR: [{ userId }, { blockedId: userId }] } }),
+      // Уведомления
+      prisma.notification.deleteMany({ where: { userId } }),
+      // Уведомления от пользователя
+      prisma.notification.deleteMany({ where: { fromUserId: userId } }),
+      // Обратная связь
+      prisma.feedback.deleteMany({ where: { userId } }),
+      // Теги пользователя
+      prisma.userTag.deleteMany({ where: { userId } }),
+      // Репорты от пользователя
+      prisma.report.deleteMany({ where: { reporterId: userId } }),
+      // Refresh токены
+      prisma.refreshToken.deleteMany({ where: { userId } }),
+      // Email коды
+      prisma.emailCode.deleteMany({ where: { email: user.email } }),
+      // Крипто-ключи
+      prisma.preKeyBundle.deleteMany({ where: { userId } }),
+      prisma.oneTimePreKey.deleteMany({ where: { userId } }),
+      prisma.keyTransparencyLog.deleteMany({ where: { userId } }),
+      // Аудит-логи
+      prisma.auditLog.deleteMany({ where: { userId } }),
+      // Пользователь
+      prisma.user.delete({ where: { id: userId } }),
+    ]);
+
+    // Очистить cookies
+    clearAuthCookies(res);
+
+    // Отключить все сокеты пользователя
+    const io = req.app.locals.io;
+    if (io) {
+      const { findUserSockets } = require('../utils/socketUtils');
+      for (const s of findUserSockets(userId)) {
+        s.emit('account:deleted');
+        s.disconnect(true);
+      }
+    }
+
+    logger.info({ userId }, 'Account deleted');
+    res.json({ ok: true, message: 'Аккаунт удалён' });
+  } catch (err) {
+    logger.error({ err }, 'DELETE /api/auth/account error');
+    res.status(500).json({ error: 'Ошибка удаления аккаунта' });
+  }
+});
+
+// ═══ Управление сессиями ═══
+
+// GET /api/auth/sessions — список активных сессий (refresh tokens)
+router.get('/sessions', authenticate, async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const tokens = await prisma.refreshToken.findMany({
+      where: { userId },
+      select: { id: true, createdAt: true, expiresAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Определить текущую сессию по refresh token из cookie/body
+    const currentRefresh = req.cookies?.blesk_refresh;
+    let currentTokenHash = null;
+    if (currentRefresh) {
+      currentTokenHash = hashRefreshToken(currentRefresh);
+    }
+
+    let currentId = null;
+    if (currentTokenHash) {
+      const current = await prisma.refreshToken.findUnique({
+        where: { tokenHash: currentTokenHash },
+        select: { id: true },
+      });
+      if (current) currentId = current.id;
+    }
+
+    const sessions = tokens.map((t) => ({
+      id: t.id,
+      createdAt: t.createdAt,
+      expiresAt: t.expiresAt,
+      current: t.id === currentId,
+    }));
+
+    res.json({ sessions });
+  } catch (err) {
+    logger.error({ err }, 'GET /auth/sessions error');
+    res.status(500).json({ error: 'Ошибка получения сессий' });
+  }
+});
+
+// DELETE /api/auth/sessions/:id — отозвать конкретную сессию
+router.delete('/sessions/:id', authenticate, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+
+    // Проверить что токен принадлежит этому пользователю
+    const token = await prisma.refreshToken.findUnique({ where: { id } });
+    if (!token || token.userId !== userId) {
+      return res.status(404).json({ error: 'Сессия не найдена' });
+    }
+
+    // Не позволять отзывать текущую сессию (для этого есть logout)
+    const currentRefresh = req.cookies?.blesk_refresh;
+    if (currentRefresh) {
+      const currentHash = hashRefreshToken(currentRefresh);
+      if (token.tokenHash === currentHash) {
+        return res.status(400).json({ error: 'Нельзя отозвать текущую сессию. Используйте выход.' });
+      }
+    }
+
+    await prisma.refreshToken.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, 'DELETE /auth/sessions/:id error');
+    res.status(500).json({ error: 'Ошибка отзыва сессии' });
   }
 });
 

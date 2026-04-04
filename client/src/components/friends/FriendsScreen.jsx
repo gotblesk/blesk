@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UsersThree, Tray, MagnifyingGlass, Check, X, UserPlus, ChatCircle, Phone } from '@phosphor-icons/react';
+import { UsersThree, Tray, MagnifyingGlass, Check, X, UserPlus, ChatCircle, Phone, Trash, ProhibitInset, MinusCircle } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import ProfilePopover from '../profile/ProfilePopover';
 import { FriendListSkeleton } from '../ui/GlassSkeleton';
 import EmptyState from '../ui/EmptyState';
+import ConfirmDialog from '../ui/ConfirmDialog';
+import { useCallStore } from '../../store/callStore';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
 import './FriendsScreen.css';
@@ -22,6 +24,7 @@ const TABS = [
   { id: 'friends', label: 'Друзья' },
   { id: 'requests', label: 'Заявки' },
   { id: 'search', label: 'Найти друзей' },
+  { id: 'blocked', label: 'Заблокированные' },
 ];
 
 const tabV = {
@@ -35,7 +38,47 @@ const itemV = {
   visible: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.25, ease: [0.16, 1, 0.3, 1] } }),
 };
 
-export default function FriendsScreen({ onBack, onOpenChat }) {
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'только что';
+  if (mins < 60) return `${mins} мин назад`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} ч назад`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} д назад`;
+  return `${Math.floor(days / 7)} нед назад`;
+}
+
+function getStatusLabel(status) {
+  switch (status) {
+    case 'online': return 'В сети';
+    case 'dnd': return 'Не беспокоить';
+    case 'invisible': return 'Невидимка';
+    default: return 'Не в сети';
+  }
+}
+
+function getStatusClass(status) {
+  switch (status) {
+    case 'online': return 'fr__item-status--on';
+    case 'dnd': return 'fr__item-status--dnd';
+    case 'invisible': return 'fr__item-status--invisible';
+    default: return 'fr__item-status--offline';
+  }
+}
+
+function sortFriends(friends) {
+  return [...friends].sort((a, b) => {
+    const aOnline = a.status === 'online' || a.status === 'dnd' ? 0 : 1;
+    const bOnline = b.status === 'online' || b.status === 'dnd' ? 0 : 1;
+    if (aOnline !== bOnline) return aOnline - bOnline;
+    return (a.username || '').localeCompare(b.username || '', 'ru');
+  });
+}
+
+export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
   const [tab, setTab] = useState('friends');
 
   const handleTabKeyDown = useCallback((e) => {
@@ -58,8 +101,10 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     tabEls[next].focus();
     tabEls[next].click();
   }, []);
+
   const [friends, setFriends] = useState([]);
   const [pending, setPending] = useState([]);
+  const [blocked, setBlocked] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [sentRequests, setSentRequests] = useState(new Set());
@@ -67,7 +112,8 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
   const [friendsLoading, setFriendsLoading] = useState(true);
   const [error, setError] = useState('');
   const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
-  const [filter, setFilter] = useState('all'); // 'all' | 'online'
+  const [filter, setFilter] = useState('all');
+  const [removeConfirm, setRemoveConfirm] = useState(null);
 
   const debouncedQuery = useDebounce(searchQuery, 300);
 
@@ -91,7 +137,54 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     } catch { setError('Не удалось загрузить заявки'); }
   }, []);
 
+  const loadBlocked = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/users/blocked`, { headers: getHeaders(), credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setBlocked(Array.isArray(data) ? data : []);
+      }
+    } catch { /* тихий fallback */ }
+  }, []);
+
   useEffect(() => { loadFriends(); loadPending(); }, [loadFriends, loadPending]);
+
+  useEffect(() => {
+    if (tab === 'blocked') loadBlocked();
+  }, [tab, loadBlocked]);
+
+  // Socket listeners for real-time friend updates
+  useEffect(() => {
+    const socket = socketRef?.current;
+    if (!socket) return;
+
+    const handleFriendRequest = () => {
+      loadPending();
+    };
+
+    const handleFriendAccepted = () => {
+      loadFriends();
+      loadPending();
+    };
+
+    const handleFriendRemoved = (data) => {
+      if (data?.userId) {
+        setFriends(prev => prev.filter(f => f.id !== data.userId));
+      } else {
+        loadFriends();
+      }
+    };
+
+    socket.on('friend:request', handleFriendRequest);
+    socket.on('friend:accepted', handleFriendAccepted);
+    socket.on('friend:removed', handleFriendRemoved);
+
+    return () => {
+      socket.off('friend:request', handleFriendRequest);
+      socket.off('friend:accepted', handleFriendAccepted);
+      socket.off('friend:removed', handleFriendRemoved);
+    };
+  }, [socketRef, loadFriends, loadPending]);
 
   useEffect(() => {
     if (tab !== 'search' || debouncedQuery.length < 2) { setSearchResults([]); return; }
@@ -127,12 +220,37 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
     } catch { setError('Ошибка'); }
   };
 
+  const removeFriend = async (friendId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/friends/${friendId}`, { method: 'DELETE', headers: getHeaders(), credentials: 'include' });
+      if (res.ok) setFriends(prev => prev.filter(f => f.id !== friendId));
+      else setError('Не удалось удалить из друзей');
+    } catch { setError('Ошибка соединения'); }
+    setRemoveConfirm(null);
+  };
+
+  const unblockUser = async (userId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/friends/${userId}/block`, { method: 'DELETE', headers: getHeaders(), credentials: 'include' });
+      if (res.ok) setBlocked(prev => prev.filter(u => u.id !== userId));
+      else setError('Не удалось разблокировать');
+    } catch { setError('Ошибка соединения'); }
+  };
+
+  const handleCall = (friendId) => {
+    const socket = socketRef?.current;
+    if (!socket) return;
+    useCallStore.getState().initiateCall(friendId);
+    socket.emit('call:initiate', { chatId: friendId, type: 'personal' });
+  };
+
   const isFriend = (userId) => friends.some(f => f.id === userId);
 
-  const onlineFriends = friends.filter(f => f.status === 'online');
+  const onlineFriends = friends.filter(f => f.status === 'online' || f.status === 'dnd');
+  const sortedFriends = sortFriends(friends);
   const filteredFriends = filter === 'online'
-    ? onlineFriends
-    : friends;
+    ? sortedFriends.filter(f => f.status === 'online' || f.status === 'dnd')
+    : sortedFriends;
 
   return (
     <div className="fr">
@@ -148,6 +266,7 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
           <button key={t.id} className={`fr__tab ${tab === t.id ? 'fr__tab--active' : ''}`} onClick={() => setTab(t.id)} role="tab" aria-selected={tab === t.id} tabIndex={tab === t.id ? 0 : -1}>
             {t.label}
             {t.id === 'requests' && pending.length > 0 && <span className="fr__badge">{pending.length}</span>}
+            {t.id === 'blocked' && blocked.length > 0 && <span className="fr__badge fr__badge--muted">{blocked.length}</span>}
             {tab === t.id && <motion.div className="fr__tab-pill" layoutId="frTabPill" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />}
           </button>
         ))}
@@ -206,19 +325,25 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
                   <div className="fr__section-label">Все друзья — {filteredFriends.length}</div>
                   {filteredFriends.map((friend, i) => (
                     <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })} role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })}>
-                      <Avatar user={friend} size={36} showOnline={friend.status === 'online'} />
+                      <Avatar user={friend} size={36} showOnline={friend.status === 'online' || friend.status === 'dnd'} />
                       <div className="fr__item-info">
                         <div className="fr__item-name">{friend.username}<span className="fr__item-tag">{friend.tag}</span></div>
-                        <div className={`fr__item-status ${friend.status === 'online' ? 'fr__item-status--on' : 'fr__item-status--offline'}`}>
-                          {friend.status === 'online' ? 'В сети' : 'Не в сети'}
+                        <div className={`fr__item-status ${getStatusClass(friend.status)}`}>
+                          {getStatusLabel(friend.status)}
+                          {friend.status !== 'online' && friend.status !== 'dnd' && friend.lastSeenAt && (
+                            <span className="fr__item-lastseen"> — {formatRelativeTime(friend.lastSeenAt)}</span>
+                          )}
                         </div>
                       </div>
                       <div className="fr__hover-actions">
                         <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); onOpenChat?.(friend.id, null); }} title="Чат" aria-label="Написать сообщение">
                           <ChatCircle size={16} weight="regular" />
                         </button>
-                        <button className="fr__quick-action fr__quick-action--disabled" onClick={(e) => e.stopPropagation()} title="Скоро" aria-label="Позвонить (скоро)" disabled>
+                        <button className="fr__quick-action" onClick={(e) => { e.stopPropagation(); handleCall(friend.id); }} title="Позвонить" aria-label="Позвонить">
                           <Phone size={16} weight="regular" />
+                        </button>
+                        <button className="fr__quick-action fr__quick-action--danger" onClick={(e) => { e.stopPropagation(); setRemoveConfirm(friend); }} title="Удалить из друзей" aria-label="Удалить из друзей">
+                          <Trash size={16} weight="regular" />
                         </button>
                       </div>
                     </motion.div>
@@ -295,11 +420,45 @@ export default function FriendsScreen({ onBack, onOpenChat }) {
               </div>
             </motion.div>
           )}
+
+          {tab === 'blocked' && (
+            <motion.div key="blocked" variants={tabV} initial="initial" animate="animate" exit="exit">
+              {blocked.length === 0 ? (
+                <EmptyState icon={<ProhibitInset size={40} weight="regular" />} text="Нет заблокированных" hint="Заблокированные пользователи будут показаны здесь" />
+              ) : (
+                <div className="fr__list">
+                  <div className="fr__section-label">Заблокированные — {blocked.length}</div>
+                  {blocked.map((user, i) => (
+                    <motion.div key={user.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible">
+                      <Avatar user={user} size={36} />
+                      <div className="fr__item-info">
+                        <div className="fr__item-name">{user.username}<span className="fr__item-tag">{user.tag}</span></div>
+                      </div>
+                      <div className="fr__item-actions">
+                        <motion.button className="fr__act fr__act--unblock" onClick={() => unblockUser(user.id)} whileTap={{ scale: 0.9 }}>
+                          <MinusCircle size={14} weight="regular" /> Разблокировать
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
       <ProfilePopover anchorRef={profilePopover.anchorRef} userId={profilePopover.userId} isOpen={profilePopover.open} onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })} onAddFriend={sendRequest} onOpenChat={(userId) => { setProfilePopover({ open: false, userId: null, anchorRef: null }); onOpenChat?.(null, userId); }} />
+
+      <ConfirmDialog
+        open={!!removeConfirm}
+        title="Удалить из друзей?"
+        message={`${removeConfirm?.username || 'Пользователь'} будет удалён из вашего списка друзей`}
+        confirmText="Удалить"
+        danger
+        onConfirm={() => removeConfirm && removeFriend(removeConfirm.id)}
+        onCancel={() => setRemoveConfirm(null)}
+      />
     </div>
   );
 }
-

@@ -1,4 +1,5 @@
 import { useMemo, useRef } from 'react';
+import { Fire, Lightning, ChatCircle, Cloud, Drop } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import Glass from '../ui/Glass';
 import './VibeMeter.css';
@@ -16,10 +17,10 @@ function calcEnergy(chat) {
 
 // Общий вайб: эмодзи + текст
 function getVibeData(avgEnergy) {
-  if (avgEnergy >= 70) return { emoji: '🔥', label: 'Горит!', color: '#ef4444' };
-  if (avgEnergy >= 45) return { emoji: '⚡', label: 'Активно', color: '#c8ff00' };
-  if (avgEnergy >= 20) return { emoji: '💬', label: 'Общаетесь', color: '#818cf8' };
-  return { emoji: '☁️', label: 'Спокойно', color: 'rgba(255,255,255,0.3)' };
+  if (avgEnergy >= 70) return { icon: <Fire size={20} weight="fill" />, label: 'Горит!', color: '#ef4444' };
+  if (avgEnergy >= 45) return { icon: <Lightning size={20} weight="fill" />, label: 'Активно', color: '#c8ff00' };
+  if (avgEnergy >= 20) return { icon: <ChatCircle size={20} weight="fill" />, label: 'Общаетесь', color: '#818cf8' };
+  return { icon: <Cloud size={20} weight="regular" />, label: 'Спокойно', color: 'rgba(255,255,255,0.3)' };
 }
 
 export default function VibeMeter({ open, onClose, onOpenChat }) {
@@ -73,10 +74,10 @@ export default function VibeMeter({ open, onClose, onOpenChat }) {
 
   // Описание активности
   const activityText = (friend) => {
-    if (friend.energy >= 70) return '💬 общаетесь часто';
-    if (friend.energy >= 40) return '💬 активный чат';
-    if (friend.energy >= 20) return '💤 иногда пишете';
-    return '💤 давно не общались';
+    if (friend.energy >= 70) return 'общаетесь часто';
+    if (friend.energy >= 40) return 'активный чат';
+    if (friend.energy >= 20) return 'иногда пишете';
+    return 'давно не общались';
   };
 
   return (
@@ -91,7 +92,7 @@ export default function VibeMeter({ open, onClose, onOpenChat }) {
 
         {/* Общий вайб-метр */}
         <div className="vibe-panel__meter">
-          <div className="vibe-panel__meter-emoji">{vibe.emoji}</div>
+          <div className="vibe-panel__meter-emoji" style={{ color: vibe.color }}>{vibe.icon}</div>
           <div className="vibe-panel__meter-info">
             <div className="vibe-panel__meter-label">{vibe.label}</div>
             <div className="vibe-panel__meter-bar-wrap">
@@ -155,7 +156,7 @@ export default function VibeMeter({ open, onClose, onOpenChat }) {
             })
           ) : (
             <div className="vibe-panel__empty">
-              <div className="vibe-panel__empty-icon">🫧</div>
+              <div className="vibe-panel__empty-icon"><Drop size={28} weight="regular" /></div>
               <div className="vibe-panel__empty-text">Нет активности</div>
             </div>
           )}

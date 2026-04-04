@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import Glass from '../../ui/Glass';
 import { useAdminStore } from '../../../store/adminStore';
@@ -16,15 +16,23 @@ export default function AdminModeration() {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(reportsTotal / 50));
+  const mountedRef = useRef(false);
 
   useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      fetchReports(1, statusFilter);
+      return;
+    }
     setPage(1);
     fetchReports(1, statusFilter);
   }, [statusFilter, fetchReports]);
 
   useEffect(() => {
+    if (!mountedRef.current) return;
+    if (page === 1) return;
     fetchReports(page, statusFilter);
-  }, [page, statusFilter, fetchReports]);
+  }, [page]);
 
   const handleStatus = async (id, status) => {
     await updateReport(id, status);

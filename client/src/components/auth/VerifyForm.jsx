@@ -151,7 +151,7 @@ export default function VerifyForm({
               className={`verify-code-cell ${digit ? 'filled' : ''}`}
               type="text"
               inputMode="numeric"
-              maxLength={6}
+              maxLength={1}
               value={digit}
               onChange={(e) => handleCodeInput(i, e.target.value)}
               onKeyDown={(e) => handleCodeKeyDown(i, e)}
