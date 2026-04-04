@@ -6,7 +6,7 @@ import MediaMessage from './MediaMessage';
 import LinkPreviewCard from './LinkPreviewCard';
 import useMessageActions from './MessageActionsPill';
 import { getHueStyles } from '../../utils/hueIdentity';
-import { parseMarkdown } from '../../utils/markdown';
+// import { parseMarkdown } from '../../utils/markdown';
 import { useSettingsStore } from '../../store/settingsStore';
 import './ChatMessage.css';
 
@@ -204,7 +204,7 @@ const ChatMessage = React.memo(function ChatMessage({
                 </div>
               )}
 
-              {parseMarkdown(text)}
+              {text}
 
               {message.editedAt && (
                 <span className="chat-message__edited"> (ред.)</span>

@@ -3,7 +3,7 @@ import { ArrowUp, Paperclip, X, Smiley, Microphone, PaperPlaneTilt, Pause, Play,
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import AttachmentPreview from './AttachmentPreview';
-import GifPicker from './GifPicker';
+// import GifPicker from './GifPicker';
 import { soundSend } from '../../utils/sounds';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
@@ -665,13 +665,8 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
         </div>
       </div>
 
-      {/* GIF picker popup */}
-      {showGifPicker && (
-        <GifPicker
-          onSelect={handleGifSelect}
-          onClose={() => setShowGifPicker(false)}
-        />
-      )}
+      {/* GIF picker popup — temporarily disabled */}
+      {/* showGifPicker && <GifPicker onSelect={handleGifSelect} onClose={() => setShowGifPicker(false)} /> */}
 
       {/* Morph container — grid stack for crossfade */}
       <div className="chat-input-morph">
