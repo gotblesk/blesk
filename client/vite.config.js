@@ -16,15 +16,5 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
     minify: 'esbuild',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          three: ['three'],
-          animation: ['framer-motion', 'gsap'],
-          emoji: ['@emoji-mart/react', '@emoji-mart/data'],
-        },
-      },
-    },
   },
 });
