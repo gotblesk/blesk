@@ -50,6 +50,7 @@ const DEFAULTS = {
   reducedMotion: false,
   highContrast: false,
   largeControls: false,
+  showFocusRing: true,
   // [CRIT-4] Не беспокоить
   dnd: false,
   dndStart: '23:00',

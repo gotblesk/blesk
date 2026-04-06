@@ -381,6 +381,12 @@ select:focus-visible {
   box-shadow: 0 0 0 4px rgba(74,122,0,0.12);
 }
 
+/* Отключение обводки фокуса через настройки */
+[data-focus-ring="off"] *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* Idle "дыхание" glass-панелей (body.app-idle добавляется через AnimatedBackground) */
 .app-idle .nav-shelf,
 .app-idle .chat-input {

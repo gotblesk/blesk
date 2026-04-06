@@ -1527,6 +1527,9 @@ function AccessibilityTab({ settings, toggle }) {
         <SettingRow icon={<Wheelchair size={16} />} label="Увеличенные элементы" hint="Кнопки и текст крупнее">
           <Toggle value={settings.largeControls} onChange={() => toggle('largeControls')} />
         </SettingRow>
+        <SettingRow icon={<Eye size={16} />} label="Обводка фокуса" hint="Зелёная рамка вокруг активного элемента при навигации клавиатурой">
+          <Toggle value={settings.showFocusRing !== false} onChange={() => toggle('showFocusRing')} />
+        </SettingRow>
       </SettingGroup>
     </div>
   );
