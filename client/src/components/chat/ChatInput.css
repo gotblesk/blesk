@@ -331,6 +331,27 @@
   height: 12px;
 }
 
+/* Счётчик символов */
+.chat-input__counter {
+  position: absolute;
+  right: 52px;
+  bottom: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary, rgba(255,255,255,0.35));
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.chat-input__counter--over {
+  color: var(--danger, #ef4444);
+  font-weight: 600;
+  animation: counterShake 0.3s ease;
+}
+@keyframes counterShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
 /* Скрытый file input */
 .chat-input__file-hidden {
   display: none;

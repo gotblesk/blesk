@@ -93,7 +93,7 @@ export default function TwoFactorForm({ tempToken, onLogin, onModeChange }) {
         error={tfaError}
         errorKey={tfaErrorKey}
       >
-        <div className="verify-code-grid">
+        <div className="verify-code-grid" role="group" aria-label="Код подтверждения">
           {tfaCode.map((digit, i) => (
             <input
               key={i}
@@ -108,6 +108,7 @@ export default function TwoFactorForm({ tempToken, onLogin, onModeChange }) {
               onFocus={(e) => e.target.select()}
               autoFocus={i === 0}
               disabled={tfaLoading}
+              aria-label={`Цифра ${i + 1} из 6`}
             />
           ))}
         </div>

@@ -1,10 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import Picker from '@emoji-mart/react';
+import data from '@emoji-mart/data';
 import './ReactionPicker.css';
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 export default function ReactionPicker({ onReact, onClose }) {
   const ref = useRef(null);
+  const [showFullPicker, setShowFullPicker] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -28,6 +31,11 @@ export default function ReactionPicker({ onReact, onClose }) {
     onClose?.();
   };
 
+  const handleFullPickerSelect = (emoji) => {
+    onReact?.(emoji.native);
+    onClose?.();
+  };
+
   return (
     <div ref={ref} className="reaction-picker reaction-picker--entering" onClick={(e) => e.stopPropagation()}>
       {QUICK_REACTIONS.map((emoji) => (
@@ -40,6 +48,18 @@ export default function ReactionPicker({ onReact, onClose }) {
           {emoji}
         </button>
       ))}
+      <button
+        className="reaction-picker__btn"
+        onClick={(e) => { e.stopPropagation(); setShowFullPicker(true); }}
+        title="Ещё"
+      >
+        +
+      </button>
+      {showFullPicker && (
+        <div className="reaction-picker__full" onClick={(e) => e.stopPropagation()}>
+          <Picker data={data} onEmojiSelect={handleFullPickerSelect} theme="dark" locale="ru" previewPosition="none" skinTonePosition="none" />
+        </div>
+      )}
     </div>
   );
 }

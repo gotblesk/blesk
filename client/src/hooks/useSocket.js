@@ -9,6 +9,7 @@ import { getCurrentUserId } from '../utils/auth';
 import { decryptMessage, fetchPublicKey, invalidateUserKeys } from '../utils/cryptoService';
 import { shieldDecrypt, replenishOPKs } from '../utils/shieldService';
 import { getToken, getRefreshToken, setTokens, clearTokens } from '../utils/authFetch';
+import { getQueue, removeFromQueue } from '../utils/offlineQueue';
 import API_URL from '../config';
 import { soundReceive, soundNotification, soundFriendRequest, soundMention, soundCallEnd, soundRingtoneStart, soundRingtoneStop, soundCallAccepted, soundCallEnded, soundCallDeclined } from '../utils/sounds';
 
@@ -54,15 +55,16 @@ export function useSocket() {
           useChatStore.getState().refreshChat?.(chatId);
         }
 
-        // Повторная отправка неотправленных сообщений (failed + offline)
+        // Повторная отправка неотправленных сообщений (failed + offline in memory)
         const allMessages = useChatStore.getState().messages;
+        const retriedTempIds = new Set();
         for (const chatId of Object.keys(allMessages)) {
           const msgs = allMessages[chatId];
           if (!msgs) continue;
           for (const msg of msgs) {
             if (!msg.failed && !msg.offline) continue;
-            // Убрать failed/offline, поставить pending
             const matchKey = msg.tempId || msg.id;
+            retriedTempIds.add(matchKey);
             useChatStore.setState((state) => {
               const chatMsgs = state.messages[chatId];
               if (!chatMsgs) return state;
@@ -76,13 +78,53 @@ export function useSocket() {
                 },
               };
             });
-            // Переотправить
             socket.emit('message:send', {
               chatId,
               text: msg.text,
               tempId: msg.tempId || msg.id,
             });
           }
+        }
+
+        // Flush persistent offline queue (localStorage)
+        const queued = getQueue();
+        for (const entry of queued) {
+          // Skip if already retried from in-memory state above
+          if (retriedTempIds.has(entry.tempId)) {
+            removeFromQueue(entry.tempId);
+            continue;
+          }
+          // Restore optimistic message in store if chat is loaded but message is missing
+          const chatMsgs = useChatStore.getState().messages[entry.chatId];
+          if (chatMsgs && !chatMsgs.some(m => m.tempId === entry.tempId)) {
+            useChatStore.setState((state) => ({
+              messages: {
+                ...state.messages,
+                [entry.chatId]: [...(state.messages[entry.chatId] || []), {
+                  id: entry.tempId,
+                  tempId: entry.tempId,
+                  chatId: entry.chatId,
+                  userId,
+                  text: entry.text,
+                  createdAt: new Date(entry.queuedAt).toISOString(),
+                  pending: true,
+                }],
+              },
+            }));
+          }
+          socket.emit('message:send', {
+            chatId: entry.chatId,
+            text: entry.text,
+            tempId: entry.tempId,
+            replyToId: entry.replyToId,
+            encrypted: entry.encrypted,
+            shieldHeader: entry.shieldHeader,
+          }, (ack) => {
+            if (!ack?.error) {
+              removeFromQueue(entry.tempId);
+            }
+            // On error: keep in queue for next reconnect
+          });
         }
       }
       hasConnectedOnce = true;
@@ -175,6 +217,12 @@ export function useSocket() {
         return;
       }
 
+      // Скрыть сообщения от заблокированных пользователей
+      try {
+        const blockedSet = new Set(JSON.parse(localStorage.getItem('blesk-blocked-users') || '[]'));
+        if (blockedSet.has(msg.userId)) return;
+      } catch { /* ignore parse errors */ }
+
       // Расшифровать E2E сообщение от другого пользователя
       if (msg.encrypted && msg.userId !== userId) {
         try {
@@ -203,8 +251,9 @@ export function useSocket() {
         }
       }
 
-      // Свои зашифрованные сообщения — восстановить оригинальный текст из tempMsg
+      // Свои сообщения — подтвердить и убрать из offline-очереди
       if (msg.userId === userId && msg.tempId) {
+        removeFromQueue(msg.tempId);
         useChatStore.getState().confirmMessage(msg.tempId, msg);
       } else {
         useChatStore.getState().receiveMessage(msg);
@@ -236,7 +285,7 @@ export function useSocket() {
           if (window.blesk?.notify) {
             window.blesk.notify(title, body, msg.chatId || msg.roomId, !s.sounds);
           } else {
-            try { new Notification(title, { body, silent: !s.sounds }); } catch (err) { console.error('Notification create:', err?.message || err); }
+            console.warn('blesk.notify unavailable — native notification skipped');
           }
         }
       }
@@ -407,14 +456,11 @@ export function useSocket() {
       const dnd = useSettingsStore.getState().dnd;
       if (!dnd) {
         soundRingtoneStart();
-        // Нативное уведомление когда окно свёрнуто или не в фокусе
+        // Нативное уведомление + мигание таскбара когда окно свёрнуто или не в фокусе
         if (document.hidden || !document.hasFocus()) {
           const callerName = data.callerName || 'Неизвестный';
-          if (window.blesk?.notify) {
-            window.blesk.notify('Входящий звонок', callerName, data.chatId);
-          } else {
-            try { new Notification('Входящий звонок', { body: callerName }); } catch {}
-          }
+          window.blesk?.notify?.(`Входящий звонок от ${callerName}`, 'Нажмите чтобы ответить', data.chatId);
+          window.blesk?.window?.flash?.();
         }
       }
     };

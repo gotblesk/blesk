@@ -53,10 +53,10 @@ export default function CallScreen({
     return () => clearTimeout(t);
   }, [mediaError, clearMediaError]);
 
-  // [Баг #9] Клиентский fallback-таймаут: если ringing > 35 сек — завершить
+  // [Баг #9] Клиентский fallback-таймаут: если ringing > 30 сек — завершить
   useEffect(() => {
     if (call?.status !== 'ringing') return;
-    const t = setTimeout(() => onEndCall?.(), 35000);
+    const t = setTimeout(() => onEndCall?.(), 30000);
     return () => clearTimeout(t);
   }, [call?.status, onEndCall]);
 
@@ -74,15 +74,14 @@ export default function CallScreen({
     setInitialized(true);
   }, [initialized, size]);
 
-  // Очистка MediaStream при размонтировании
+  // Очистка MediaStream при размонтировании — только LOCAL tracks (мы ими владеем)
+  // Remote streams очищаются через закрытие consumers, не через stop()
   useEffect(() => {
     return () => {
-      if (localVideoStream) localVideoStream.getTracks().forEach(t => t.stop());
-      if (localScreenStream) localScreenStream.getTracks().forEach(t => t.stop());
-      if (remoteVideoStream) remoteVideoStream.getTracks().forEach(t => t.stop());
-      if (remoteScreenStream) remoteScreenStream.getTracks().forEach(t => t.stop());
+      localVideoStream?.getTracks().forEach(t => t.stop());
+      localScreenStream?.getTracks().forEach(t => t.stop());
     };
-  }, [localVideoStream, localScreenStream, remoteVideoStream, remoteScreenStream]);
+  }, [localVideoStream, localScreenStream]);
 
   // Горячие клавиши: M — мут, D — динамик, V — камера, Escape — завершить
   useEffect(() => {
@@ -117,6 +116,25 @@ export default function CallScreen({
       remoteVideoRef.current.srcObject = remoteVideoStream;
       setVideoPlaying(false);
     }
+    setHasRemoteVideo(!!remoteVideoStream);
+  }, [remoteVideoStream]);
+
+  // Fallback на аватар когда удалённая камера выключается (track ended/muted)
+  useEffect(() => {
+    if (!remoteVideoStream) return;
+    const track = remoteVideoStream.getVideoTracks()[0];
+    if (!track) return;
+    const handleEnded = () => setHasRemoteVideo(false);
+    const handleMute = () => setHasRemoteVideo(false);
+    const handleUnmute = () => setHasRemoteVideo(true);
+    track.addEventListener('ended', handleEnded);
+    track.addEventListener('mute', handleMute);
+    track.addEventListener('unmute', handleUnmute);
+    return () => {
+      track.removeEventListener('ended', handleEnded);
+      track.removeEventListener('mute', handleMute);
+      track.removeEventListener('unmute', handleUnmute);
+    };
   }, [remoteVideoStream]);
 
   useEffect(() => {
@@ -216,7 +234,7 @@ export default function CallScreen({
 
   // Determine what's shown in the main area
   const hasScreen = screenShareOn || remoteScreenStream;
-  const hasRemoteVideo = !!remoteVideoStream;
+  const [hasRemoteVideo, setHasRemoteVideo] = useState(!!remoteVideoStream);
   const hasLocalVideo = cameraOn && !!localVideoStream;
 
   const EDGES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];

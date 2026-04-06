@@ -137,9 +137,14 @@ function createMainWindow() {
     mainWindow.maximize();
   }
 
-  // Сохранять позицию/размер при изменении
-  mainWindow.on('resize', saveWindowState);
-  mainWindow.on('move', saveWindowState);
+  // Сохранять позицию/размер при изменении (debounce для resize/move)
+  let saveTimeout;
+  function debouncedSaveWindowState() {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveWindowState, 500);
+  }
+  mainWindow.on('resize', debouncedSaveWindowState);
+  mainWindow.on('move', debouncedSaveWindowState);
   mainWindow.on('close', saveWindowState);
 
   // CSP headers (electron-development skill: Production Security Checklist)
@@ -203,7 +208,7 @@ function createMainWindow() {
   // Безопасность: блокируем DevTools в production
   if (!isDev) {
     mainWindow.webContents.on('before-input-event', (event, input) => {
-      if (input.key === 'F12' || (input.control && input.shift && (input.key === 'I' || input.key === 'J'))) {
+      if (input.key === 'F12' || (input.control && input.shift && (input.key === 'I' || input.key === 'J' || input.key === 'C'))) {
         event.preventDefault();
       }
     });
@@ -282,8 +287,8 @@ ipcMain.on('splash:ready', () => {
     }, 600);
   });
 
-  // Fallback — если did-finish-load не сработал за 5 сек
-  setTimeout(doTransition, 5000);
+  // Fallback — если did-finish-load не сработал за 6 сек
+  setTimeout(doTransition, 6000);
 });
 
 // Повторная загрузка при ошибке на сплеше
@@ -305,7 +310,7 @@ ipcMain.on('splash:retry', () => {
     mainWindow.webContents.send('request:dnd-state');
     setTimeout(doTransition, 600);
   });
-  setTimeout(doTransition, 5000);
+  setTimeout(doTransition, 6000);
 });
 
 // [IMP-9] Управление окном — fromWebContents вместо getFocusedWindow (может быть null)
@@ -333,6 +338,13 @@ ipcMain.on('window:close', (event) => {
   }
 });
 
+// Мигание иконки в таскбаре (входящий звонок и т.д.)
+ipcMain.on('window:flash', () => {
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isFocused()) {
+    mainWindow.flashFrame(true);
+  }
+});
+
 // Ручное перетаскивание окна (обход бага -webkit-app-region на Windows)
 let dragOffset = null;
 
@@ -341,7 +353,7 @@ ipcMain.on('window:start-drag', (event, offsetX, offsetY) => {
   if (typeof offsetX !== 'number' || typeof offsetY !== 'number') return;
   dragOffset = {
     x: Math.max(0, Math.min(offsetX, MAIN_WIDTH)),
-    y: Math.max(0, Math.min(offsetY, 80)),
+    y: Math.max(0, Math.min(offsetY, 36)),
   };
 });
 
@@ -656,7 +668,10 @@ function setupAutoUpdater() {
   autoUpdater.on('update-available', (info) => {
     console.log('Доступно обновление:', info.version);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update:available', info.version);
+      mainWindow.webContents.send('update:available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes || '',
+      });
     }
   });
 
@@ -809,6 +824,8 @@ ipcMain.on('notification:show', (_, data) => {
     icon: iconPath,
     // [IMP-4] Уважать настройку звуков пользователя
     silent: !!silent,
+    // Группировка по чату — Windows заменяет предыдущее уведомление из того же чата
+    ...(chatId ? { tag: chatId } : {}),
   });
 
   notification.on('click', () => {

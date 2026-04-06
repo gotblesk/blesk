@@ -173,6 +173,28 @@ function chatHandler(io, socket) {
         return;
       }
 
+      // [HIGH] Блокировка — в личных чатах проверяем что ни один из участников не заблокировал другого
+      if (room?.type === 'chat' || room?.type === 'dm') {
+        const otherParticipant = await prisma.roomParticipant.findFirst({
+          where: { roomId: chatId, userId: { not: userId } },
+          select: { userId: true },
+        });
+        if (otherParticipant) {
+          const block = await prisma.blockedUser.findFirst({
+            where: {
+              OR: [
+                { userId, blockedId: otherParticipant.userId },
+                { userId: otherParticipant.userId, blockedId: userId },
+              ],
+            },
+          });
+          if (block) {
+            if (typeof callback === 'function') callback({ error: 'Сообщение не может быть доставлено' });
+            return;
+          }
+        }
+      }
+
       // Потом rate limiting — макс 5 сообщений за 3 секунды
       if (isRateLimited(userId)) {
         socket.emit('message:error', { tempId, error: 'Слишком быстро! Подождите немного.' });
@@ -526,11 +548,23 @@ function chatHandler(io, socket) {
       if (!participant) return;
 
       // Проверить что сообщение существует и принадлежит этой комнате
-      const message = await prisma.message.findUnique({
-        where: { id: messageId },
-        select: { roomId: true, pinned: true },
-      });
+      const [message, room] = await Promise.all([
+        prisma.message.findUnique({
+          where: { id: messageId },
+          select: { roomId: true, pinned: true },
+        }),
+        prisma.room.findUnique({
+          where: { id: roomId },
+          select: { type: true, ownerId: true },
+        }),
+      ]);
       if (!message || message.roomId !== roomId) return;
+
+      // [13.9] В каналах только владелец может закреплять сообщения
+      if (room?.type === 'channel') {
+        const isOwner = room.ownerId === userId;
+        if (!isOwner) return callback?.({ error: 'Только владелец канала может закреплять сообщения' });
+      }
 
       // Toggle pinned
       const newPinned = !message.pinned;
@@ -620,6 +654,15 @@ function chatHandler(io, socket) {
       }
       if (!targetParticipant) {
         return callback?.({ error: 'Нет доступа к целевому чату' });
+      }
+
+      // [13.10] В каналах только владелец может публиковать (пересылать)
+      const targetRoom = await prisma.room.findUnique({
+        where: { id: targetChatId },
+        select: { type: true, ownerId: true },
+      });
+      if (targetRoom?.type === 'channel' && targetRoom.ownerId !== userId) {
+        return callback?.({ error: 'Только владелец канала может публиковать' });
       }
 
       // Не пересылать зашифрованные сообщения (E2E)

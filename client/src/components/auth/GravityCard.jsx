@@ -10,7 +10,6 @@ export default function GravityCard({
   title,
   subtitle,
   error,
-  errorKey = 0,
   index = 0,
   dimmed = false,
   children,
@@ -63,7 +62,6 @@ export default function GravityCard({
     <motion.div
       ref={cardRef}
       className={className}
-      key={error ? `error-${errorKey}` : 'card'}
       initial={reduced ? {} : { opacity: 0, y: 30, rotate: 0 }}
       animate={{
         opacity: dimmed ? 0.7 : 1,

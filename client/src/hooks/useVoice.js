@@ -1136,6 +1136,29 @@ export function useVoice(socketRef) {
     };
   }, []);
 
+  // ═══ Авто-переподключение к голосовой при реконнекте сокета ═══
+  useEffect(() => {
+    const socket = socketRef?.current;
+    if (!socket) return;
+
+    const handleReconnect = () => {
+      const roomId = currentRoomIdRef.current;
+      if (roomId) {
+        console.log('[blesk] Voice: auto-rejoining room after reconnect', roomId);
+        socket.emit('voice:join', { roomId }, (res) => {
+          if (res?.error) {
+            console.warn('[blesk] Voice: auto-rejoin failed:', res.error);
+            leaveRoomRef.current();
+            useVoiceStore.getState().setMediaError('Не удалось переподключиться к голосовой комнате');
+          }
+        });
+      }
+    };
+
+    socket.on('connect', handleReconnect);
+    return () => socket.off('connect', handleReconnect);
+  }, [socketRef]);
+
   // ═══ Слушатель подключения/отключения устройств ═══
   useEffect(() => {
     const handleDeviceChange = async () => {

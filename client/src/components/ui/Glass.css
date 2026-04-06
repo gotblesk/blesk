@@ -93,7 +93,7 @@
 .glass--depth-3 {
   box-shadow:
     0 12px 48px rgba(0, 0, 0, 0.3),
-    0 0 40px rgba(200, 255, 0, 0.03);
+    0 0 40px color-mix(in srgb, var(--accent) 3%, transparent);
 }
 .glass--depth-3 .glass__outer {
   backdrop-filter: blur(16px);

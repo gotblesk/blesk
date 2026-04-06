@@ -169,6 +169,67 @@ export function invalidateUserKeys(userId) {
   sharedKeyCache.clear();
 }
 
+// ─── E2E шифрование файлов (только для 1-on-1 DM чатов) ───
+// Для групповых чатов E2E файлов пока не реализовано —
+// нужно шифровать для каждого участника отдельно (multi-recipient encryption)
+
+// Зашифровать файл (ArrayBuffer) для собеседника
+// Возвращает Uint8Array: [24 байта nonce][ciphertext]
+export async function encryptFile(fileArrayBuffer, otherPublicKeyB64, roomId) {
+  const sharedKey = await getSharedKey(otherPublicKeyB64, roomId);
+  if (!sharedKey) return null;
+
+  const nonce = nacl.randomBytes(24);
+  const plaintext = new Uint8Array(fileArrayBuffer);
+  const encrypted = nacl.box.after(plaintext, nonce, sharedKey);
+
+  // nonce (24) + ciphertext
+  const combined = new Uint8Array(nonce.length + encrypted.length);
+  combined.set(nonce);
+  combined.set(encrypted, nonce.length);
+  return combined;
+}
+
+// Расшифровать файл от собеседника
+// Принимает ArrayBuffer (nonce + ciphertext), возвращает ArrayBuffer расшифрованных данных
+export async function decryptFile(encryptedArrayBuffer, senderPublicKeyB64, roomId) {
+  try {
+    const sharedKey = await getSharedKey(senderPublicKeyB64, roomId);
+    if (!sharedKey) return null;
+
+    const data = new Uint8Array(encryptedArrayBuffer);
+    if (data.length <= 24) return null; // Слишком короткий — нет данных после nonce
+
+    const nonce = data.slice(0, 24);
+    const ciphertext = data.slice(24);
+    const decrypted = nacl.box.open.after(ciphertext, nonce, sharedKey);
+
+    if (!decrypted) return null;
+    return decrypted.buffer;
+  } catch {
+    return null;
+  }
+}
+
+// Зашифровать метаданные файла (имя, MIME-тип) как JSON-строку
+// Возвращает строку в формате base64(nonce).base64(ciphertext)
+export async function encryptFileMeta(meta, otherPublicKeyB64, roomId) {
+  const json = JSON.stringify(meta);
+  return encryptMessage(json, otherPublicKeyB64, roomId);
+}
+
+// Расшифровать метаданные файла
+// Возвращает объект { filename, mimeType } или null
+export async function decryptFileMeta(payload, senderPublicKeyB64, roomId) {
+  const json = await decryptMessage(payload, senderPublicKeyB64, roomId);
+  if (!json) return null;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 // Получить fingerprint ключа (SHA-256, первые 16 символов hex)
 export async function getKeyFingerprint(publicKeyB64) {
   if (!publicKeyB64) return null;

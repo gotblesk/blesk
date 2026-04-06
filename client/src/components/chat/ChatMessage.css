@@ -240,6 +240,14 @@
   animation: emojiAppear 0.15s ease-out both;
 }
 
+/* ===== GIF inline ===== */
+.chat-msg__gif {
+  max-width: 280px;
+  max-height: 200px;
+  border-radius: 12px;
+  display: block;
+}
+
 /* ===== Reply quote inside bubble ===== */
 .chat-message__reply-quote {
   display: flex;

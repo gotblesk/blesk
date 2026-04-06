@@ -39,8 +39,8 @@ async function scanFile(filePath) {
     }
     return { clean: true, skipped: false };
   } catch (err) {
-    logger.error({ err: err.message }, 'Ошибка сканирования');
-    return { clean: true, skipped: true };
+    logger.error({ err: err.message }, 'Ошибка сканирования — файл отклонён из безопасности');
+    return { clean: false, skipped: true, error: err.message };
   }
 }
 

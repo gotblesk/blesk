@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Monitor, AppWindow, X, TextT, Play } from '@phosphor-icons/react';
+import { Monitor, AppWindow, X, TextT, Play, SpeakerHigh } from '@phosphor-icons/react';
 import './ScreenSharePicker.css';
 
 export default function ScreenSharePicker({ onSelect, onCancel }) {
@@ -9,6 +9,8 @@ export default function ScreenSharePicker({ onSelect, onCancel }) {
   const [tab, setTab] = useState('screen');
   // contentHint: 'detail' для текста/кода, 'motion' для видео/игр
   const [contentHint, setContentHint] = useState('detail');
+  // Включить системный звук (только для экранов, не для окон)
+  const [includeAudio, setIncludeAudio] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -75,7 +77,7 @@ export default function ScreenSharePicker({ onSelect, onCancel }) {
                 key={src.id}
                 className={`ssp__source ${selected === src.id ? 'ssp__source--selected' : ''}`}
                 onClick={() => setSelected(src.id)}
-                onDoubleClick={() => onSelect(src.id, contentHint)}
+                onDoubleClick={() => onSelect(src.id, contentHint, includeAudio && tab === 'screen')}
               >
                 <img src={src.thumbnail} alt={src.name} className="ssp__thumb" />
                 <div className="ssp__name">
@@ -109,12 +111,24 @@ export default function ScreenSharePicker({ onSelect, onCancel }) {
           </button>
         </div>
 
+        {tab === 'screen' && (
+          <label className="ssp__audio-toggle">
+            <input
+              type="checkbox"
+              checked={includeAudio}
+              onChange={(e) => setIncludeAudio(e.target.checked)}
+            />
+            <SpeakerHigh size={14} />
+            <span>Включить звук системы</span>
+          </label>
+        )}
+
         <div className="ssp__footer">
           <button className="ssp__btn ssp__btn--cancel" onClick={onCancel}>Отмена</button>
           <button
             className="ssp__btn ssp__btn--share"
             disabled={!selected}
-            onClick={() => selected && onSelect(selected, contentHint)}
+            onClick={() => selected && onSelect(selected, contentHint, includeAudio && tab === 'screen')}
           >
             Демонстрировать
           </button>

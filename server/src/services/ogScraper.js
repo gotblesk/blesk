@@ -97,4 +97,12 @@ async function fetchOgData(url) {
   }
 }
 
-module.exports = { fetchOgData };
+// Периодическая очистка просроченных записей кеша — раз в час
+const ogCacheCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [url, entry] of ogCache) {
+    if (now - entry.ts > OG_CACHE_TTL) ogCache.delete(url);
+  }
+}, 60 * 60 * 1000);
+
+module.exports = { fetchOgData, ogCacheCleanupInterval };

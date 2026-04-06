@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Lock, Eye, EyeSlash } from '@phosphor-icons/react';
-import gsap from 'gsap';
 import GravityCard from './GravityCard';
+import useRipple from '../../hooks/useRipple';
 import API_URL from '../../config';
 
 export default function LoginForm({ onLogin, onModeChange, onTfaRequired, onVerifyRequired }) {
@@ -13,6 +13,7 @@ export default function LoginForm({ onLogin, onModeChange, onTfaRequired, onVeri
   const [errorKey, setErrorKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const handleRipple = useRipple();
 
   const triggerError = (msg) => {
     setError(msg);
@@ -29,31 +30,6 @@ export default function LoginForm({ onLogin, onModeChange, onTfaRequired, onVeri
       return false;
     }
     return true;
-  };
-
-  const handleRipple = (e) => {
-    const btn = e.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const ripple = document.createElement('div');
-    ripple.style.cssText = `
-      position: absolute; border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,255,255,0.25), transparent);
-      width: 0; height: 0; left: ${x}px; top: ${y}px;
-      transform: translate(-50%, -50%); pointer-events: none;
-    `;
-    btn.appendChild(ripple);
-
-    gsap.to(ripple, {
-      width: rect.width * 2.5,
-      height: rect.width * 2.5,
-      opacity: 0,
-      duration: 0.5,
-      ease: 'power2.out',
-      onComplete: () => ripple.remove(),
-    });
   };
 
   const handleSubmit = async (e) => {
@@ -132,7 +108,7 @@ export default function LoginForm({ onLogin, onModeChange, onTfaRequired, onVeri
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             maxLength={24}
-            autoComplete="off"
+            autoComplete="username"
             spellCheck="false"
             autoFocus
             aria-label="Имя пользователя"
@@ -156,6 +132,8 @@ export default function LoginForm({ onLogin, onModeChange, onTfaRequired, onVeri
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            maxLength={128}
+            autoComplete="current-password"
             aria-label="Пароль"
           />
           <button

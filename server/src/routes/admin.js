@@ -700,10 +700,24 @@ const TABLE_MAP = {
   notifications: 'notification',
 };
 
-// Поля, которые скрываем для каждой таблицы
+// Поля, которые полностью скрываем для каждой таблицы
 const HIDDEN_FIELDS = {
   users: ['passwordHash', 'publicKey', 'email', 'phone'],
 };
+
+// Колонки с чувствительными данными — маскируются как '***'
+const SENSITIVE_COLUMNS = {
+  User: ['passwordHash', 'publicKey'],
+  Message: [],
+  Room: [],
+  Notification: [],
+  Report: [],
+  Feedback: [],
+  BotToken: ['tokenHash'],
+};
+
+// Generic паттерн: любое имя колонки содержащее эти слова — маскировать
+const SENSITIVE_PATTERNS = /password|secret|token|hash|key/i;
 
 // ─── GET /db/:table ─── данные таблицы (read-only) ───
 router.get('/db/:table', authenticate, requireAdmin, async (req, res) => {
@@ -727,11 +741,24 @@ router.get('/db/:table', authenticate, requireAdmin, async (req, res) => {
       prisma[model].count(),
     ]);
 
-    // Скрыть чувствительные поля
+    // Скрыть чувствительные поля (полное удаление)
     const hidden = HIDDEN_FIELDS[table] || [];
+    // Маскировка чувствительных колонок (замена на '***')
+    const modelName = model.charAt(0).toUpperCase() + model.slice(1);
+    const sensitiveForModel = SENSITIVE_COLUMNS[modelName] || [];
     const cleanRows = rows.map((row) => {
       const clean = { ...row };
       for (const field of hidden) delete clean[field];
+      // Маскировать известные чувствительные колонки для модели
+      for (const field of sensitiveForModel) {
+        if (field in clean) clean[field] = '***';
+      }
+      // Маскировать по generic паттерну (password, secret, token, hash, key)
+      for (const key of Object.keys(clean)) {
+        if (SENSITIVE_PATTERNS.test(key) && clean[key] !== null && clean[key] !== undefined) {
+          clean[key] = '***';
+        }
+      }
       return clean;
     });
 

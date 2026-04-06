@@ -42,6 +42,7 @@ export default function TitleBar() {
 
   // Двойной клик = maximize/unmaximize
   const handleDoubleClick = useCallback(() => {
+    setMaximized(m => !m); // optimistic toggle before IPC round-trip
     window.blesk?.window.maximize();
   }, []);
 

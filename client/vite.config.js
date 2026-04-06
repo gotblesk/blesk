@@ -15,12 +15,21 @@ export default defineConfig({
     target: 'chrome108',
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
-    minify: false,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        toplevel: false,
+        arrows: false,
+      },
+      mangle: {
+        toplevel: false,
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
+          three: ['three'],
           animation: ['framer-motion', 'gsap'],
           emoji: ['@emoji-mart/react', '@emoji-mart/data'],
         },

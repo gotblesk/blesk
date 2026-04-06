@@ -239,7 +239,7 @@
 .cs__btn--end:hover { box-shadow: 0 6px 28px rgba(239,68,68,0.35); background: #dc2626; }
 
 /* [Баг #10] Недоступные кнопки до принятия звонка */
-.cs__btn--disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
+.cs__btn--disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .cs__btn--disabled:hover { transform: none; background: rgba(255,255,255,0.04); }
 
 /* [Баг #3] Пульсация точки при ожидании ответа */
@@ -330,7 +330,7 @@
   position: relative;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: #000;
+  background: var(--bg, #0a0a0f);
   margin: 0 var(--space-2);
   min-height: 0;
 }

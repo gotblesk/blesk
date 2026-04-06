@@ -33,15 +33,19 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     user: pendingVerification?.user || null,
   });
 
-  // Auto-login через refresh token
+  // Auto-login через refresh token (safeStorage, не localStorage)
   const [autoLoginTried, setAutoLoginTried] = useState(false);
   useEffect(() => {
     if (pendingVerification || autoLoginTried) return;
-    const refreshToken = localStorage.getItem('blesk_refresh_token');
-    if (!refreshToken) { setAutoLoginTried(true); return; }
 
-    setPhase('autoLogin');
     (async () => {
+      let refreshToken = null;
+      try {
+        refreshToken = await window.blesk?.auth?.getRefreshToken?.();
+      } catch { /* safeStorage недоступен */ }
+      if (!refreshToken) { setAutoLoginTried(true); return; }
+
+      setPhase('autoLogin');
       try {
         const API_URL = (await import('../../config')).default;
         const res = await fetch(`${API_URL}/api/auth/refresh`, {
@@ -54,7 +58,9 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
           const data = await res.json();
           if (data.token && data.user) {
             localStorage.setItem('blesk_token', data.token);
-            if (data.refreshToken) localStorage.setItem('blesk_refresh_token', data.refreshToken);
+            if (data.refreshToken) {
+              window.blesk?.auth?.saveRefreshToken?.(data.refreshToken).catch(() => {});
+            }
             onLogin?.(data);
             return;
           }
@@ -112,8 +118,8 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
     );
   }
 
-  // Brand intro
-  if (phase === 'intro') {
+  // Brand intro — только после завершения onboarding
+  if (onboardingDone && phase === 'intro') {
     return (
       <div className="auth-screen">
         <motion.div
@@ -122,6 +128,8 @@ export default function AuthScreen({ onLogin, collapsing, pendingVerification, o
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
+          onClick={() => { setPhase('form'); localStorage.setItem('blesk-auth-seen', '1'); }}
+          style={{ cursor: 'pointer' }}
         >
           <img src="./blesk.png" alt="blesk" onError={(e) => { e.target.style.display = 'none'; }} />
           <div className="auth-intro-tagline">Твой блеск. Твои правила.</div>

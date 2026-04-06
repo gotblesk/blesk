@@ -1,7 +1,7 @@
 const prisma = require('../db');
 const logger = require('../utils/logger');
 const { createRouter, createWebRtcTransport } = require('../services/mediasoup');
-const { activeCalls } = require('./callHandler');
+const { getActiveCall } = require('./callHandler');
 // In-memory хранилище голосовых комнат
 // roomId → { router, peers: Map<userId, PeerData> }
 const voiceRooms = new Map();
@@ -156,7 +156,7 @@ function voiceHandler(io, socket) {
       if (isCall) {
         const chatId = roomId.slice(5); // убрать 'call:'
         // [HIGH-5] Проверить что звонок активен (с grace period)
-        const activeCall = activeCalls.get(chatId);
+        const activeCall = getActiveCall(chatId);
         if (!activeCall) {
           return callback?.({ error: 'Нет активного звонка' });
         }
@@ -605,7 +605,7 @@ function voiceHandler(io, socket) {
       if (isCall) {
         // В звонках кикать может только инициатор звонка
         const chatId = roomId.slice(5);
-        const activeCall = activeCalls.get(chatId);
+        const activeCall = getActiveCall(chatId);
         if (!activeCall || activeCall.callerId !== userId) {
           return callback?.({ error: 'Only call initiator can kick' });
         }
@@ -664,6 +664,25 @@ function voiceHandler(io, socket) {
       callback?.({ error: 'Transport not found' });
     } catch (err) {
       logger.error({ err }, 'voice:restartIce error');
+      callback?.({ error: err.message });
+    }
+  });
+
+  // ═══ Замьютить всех в комнате (только владелец) ═══
+  socket.on('voice:muteAll', async ({ roomId }, callback) => {
+    try {
+      const room = voiceRooms.get(roomId);
+      if (!room) return callback?.({ error: 'Комната не найдена' });
+
+      const dbRoom = await prisma.room.findUnique({ where: { id: roomId } });
+      if (!dbRoom || dbRoom.ownerId !== userId) {
+        return callback?.({ error: 'Только владелец' });
+      }
+
+      io.to(`voice:${roomId}`).emit('voice:forceMute');
+      callback?.({ success: true });
+    } catch (err) {
+      logger.error({ err }, 'voice:muteAll error');
       callback?.({ error: err.message });
     }
   });

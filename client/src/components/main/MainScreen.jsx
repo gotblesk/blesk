@@ -8,13 +8,15 @@ import TopNav from '../TopNav/TopNav';
 import Sidebar from '../Sidebar/Sidebar';
 import ContentArea from '../ContentArea/ContentArea';
 import ChatView from '../chat/ChatView';
-import FriendsScreen from '../friends/FriendsScreen';
-import VoiceRoomList from '../voice/VoiceRoomList';
-import VoiceRoom from '../voice/VoiceRoom';
 import VoiceControls from '../voice/VoiceControls';
-import ChannelBrowser from '../channels/ChannelBrowser';
 import SpacesPlaceholder from '../spaces/SpacesPlaceholder';
-import ChannelView from '../channels/ChannelView';
+
+// Lazy imports — контент вкладок (загружаются при переключении)
+const FriendsScreen = lazy(() => import('../friends/FriendsScreen'));
+const VoiceRoomList = lazy(() => import('../voice/VoiceRoomList'));
+const VoiceRoom = lazy(() => import('../voice/VoiceRoom'));
+const ChannelBrowser = lazy(() => import('../channels/ChannelBrowser'));
+const ChannelView = lazy(() => import('../channels/ChannelView'));
 import UpdateBanner from '../ui/UpdateBanner';
 import SpotlightSearch from '../ui/SpotlightSearch';
 import ErrorBoundary from '../ui/ErrorBoundary';
@@ -179,7 +181,7 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
     window.blesk?.syncDnd?.(!!dnd);
   }, [dnd]);
 
-  const { chats } = useChatStore();
+  const chats = useChatStore((s) => s.chats);
   const isConnected = useChatStore((s) => s.isConnected);
   const lastConnectedAt = useChatStore((s) => s.lastConnectedAt);
 
@@ -411,52 +413,65 @@ export default function MainScreen({ user, onLogout, isAdmin }) {
       case 'voice':
         if (voiceRoomId && voiceExpanded) {
           return (
-            <VoiceRoom
-              socketRef={socketRef}
-              onToggleCamera={() => cameraOn ? disableCamera() : enableCamera()}
-              onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
-              onDisableScreenShare={disableScreenShare}
-              onSwitchScreenSource={switchScreenSource}
-              onLeave={() => { leaveRoom(); setVoiceExpanded(false); }}
-            />
+            <Suspense fallback={null}>
+              <VoiceRoom
+                socketRef={socketRef}
+                onToggleCamera={() => cameraOn ? disableCamera() : enableCamera()}
+                onToggleScreenShare={() => screenShareOn ? disableScreenShare() : enableScreenShare()}
+                onDisableScreenShare={disableScreenShare}
+                onSwitchScreenSource={switchScreenSource}
+                onLeave={() => { leaveRoom(); setVoiceExpanded(false); }}
+              />
+            </Suspense>
           );
         }
         return (
-          <VoiceRoomList
-            onJoinRoom={(roomId, roomName) => {
-              soundVoiceJoin();
-              joinRoom(roomId, roomName);
-              setVoiceExpanded(true);
-            }}
-          />
+          <Suspense fallback={null}>
+            <VoiceRoomList
+              onJoinRoom={(roomId, roomName) => {
+                soundVoiceJoin();
+                joinRoom(roomId, roomName);
+                setVoiceExpanded(true);
+              }}
+            />
+          </Suspense>
         );
 
       case 'channels':
         if (activeChannelId) {
           return (
-            <ChannelView
-              channelId={activeChannelId}
-              onBack={() => setActiveChannelId(null)}
-              user={currentUser}
-              socketRef={socketRef}
-            />
+            <Suspense fallback={null}>
+              <ChannelView
+                channelId={activeChannelId}
+                onBack={() => setActiveChannelId(null)}
+                user={currentUser}
+                socketRef={socketRef}
+              />
+            </Suspense>
           );
         }
-        return <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />;
+        return (
+          <Suspense fallback={null}>
+            <ChannelBrowser onOpenChannel={(id) => setActiveChannelId(id)} />
+          </Suspense>
+        );
 
       case 'spaces':
         return <SpacesPlaceholder />;
 
       case 'friends':
         return (
-          <FriendsScreen
-            onBack={() => handleTabChange('chats')}
-            onOpenChat={handleOpenChat}
-            socketRef={socketRef}
-          />
+          <Suspense fallback={null}>
+            <FriendsScreen
+              onBack={() => handleTabChange('chats')}
+              onOpenChat={handleOpenChat}
+              socketRef={socketRef}
+            />
+          </Suspense>
         );
 
       case 'admin':
+        if (!isAdmin) return null;
         return (
           <Suspense fallback={null}>
             <AdminPanel onBack={() => handleTabChange('chats')} />

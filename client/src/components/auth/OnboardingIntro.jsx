@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './OnboardingIntro.css';
 
@@ -24,6 +24,16 @@ const STEPS = [
 export default function OnboardingIntro({ onComplete }) {
   const [step, setStep] = useState(0);
   const [alreadyOnboarded] = useState(() => !!localStorage.getItem('blesk_onboarded'));
+
+  // Навигация стрелками
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'ArrowRight') setStep(s => Math.min(s + 1, STEPS.length - 1));
+      if (e.key === 'ArrowLeft') setStep(s => Math.max(s - 1, 0));
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Показываем только один раз
   if (alreadyOnboarded) return null;
@@ -52,6 +62,10 @@ export default function OnboardingIntro({ onComplete }) {
           <div
             key={i}
             className={`onboarding__dot${i === step ? ' onboarding__dot--active' : ''}`}
+            onClick={() => setStep(i)}
+            style={{ cursor: 'pointer' }}
+            role="button"
+            aria-label={`Шаг ${i + 1}`}
           />
         ))}
       </div>

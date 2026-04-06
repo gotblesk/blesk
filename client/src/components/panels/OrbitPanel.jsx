@@ -15,7 +15,8 @@ function orbitPosition(index, total, radiusX, radiusY, rotation) {
 }
 
 export default function OrbitPanel({ open, onClose, onOpenChat }) {
-  const { chats, onlineUsers } = useChatStore();
+  const chats = useChatStore((s) => s.chats);
+  const onlineUsers = useChatStore((s) => s.onlineUsers);
   const [rotation, setRotation] = useState(0);
   const [nodesVisible, setNodesVisible] = useState(false);
   const [entranceDone, setEntranceDone] = useState(false);
@@ -50,9 +51,9 @@ export default function OrbitPanel({ open, onClose, onOpenChat }) {
       isOnline: onlineUsers.includes(c.otherUser.id),
     }));
 
-  // Медленное автовращение — начинается ПОСЛЕ entrance-анимации
+  // Медленное автовращение — начинается ПОСЛЕ entrance-анимации, останавливается когда скрыт
   useEffect(() => {
-    if (!entranceDone) return;
+    if (!entranceDone || !open) return;
     let running = true;
     let last = performance.now();
 
@@ -68,7 +69,7 @@ export default function OrbitPanel({ open, onClose, onOpenChat }) {
       running = false;
       cancelAnimationFrame(animRef.current);
     };
-  }, [entranceDone]);
+  }, [entranceDone, open]);
 
   // Peek (зажатие)
   const handlePointerDown = useCallback((e, friend) => {

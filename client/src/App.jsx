@@ -47,6 +47,7 @@ export default function App() {
   const reducedMotion = useSettingsStore((s) => s.reducedMotion);
   const highContrast = useSettingsStore((s) => s.highContrast);
   const largeControls = useSettingsStore((s) => s.largeControls);
+  const uiZoom = useSettingsStore((s) => s.uiZoom);
 
   const theme = useSettingsStore((s) => s.theme);
 
@@ -83,7 +84,12 @@ export default function App() {
     root.classList.toggle('reduced-motion', !!reducedMotion);
     root.classList.toggle('high-contrast', !!highContrast);
     root.classList.toggle('large-controls', !!largeControls);
-  }, [accentColor, fontSize, reducedMotion, highContrast, largeControls, theme]);
+    if (uiZoom && uiZoom !== 1) {
+      document.body.style.zoom = uiZoom;
+    } else {
+      document.body.style.zoom = '';
+    }
+  }, [accentColor, fontSize, reducedMotion, highContrast, largeControls, theme, uiZoom]);
 
   // Слушаем maximize/unmaximize от Electron
   useEffect(() => {

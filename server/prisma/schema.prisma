@@ -28,6 +28,7 @@ model User {
   showOnline   Boolean   @default(true) @map("show_online")
   showTyping   Boolean   @default(true) @map("show_typing")
   createdAt    DateTime @default(now()) @map("created_at")
+  deletedAt    DateTime? @map("deleted_at")
 
   role          String    @default("user") // user, moderator, admin
   banned        Boolean   @default(false)
@@ -38,6 +39,7 @@ model User {
 
   twoFactorEnabled  Boolean  @default(false) @map("two_factor_enabled")
   twoFactorSecret   String?  @map("two_factor_secret")
+  recoveryCodes     String?  @map("recovery_codes") // JSON array of bcrypt-hashed recovery codes
 
   sentMessages           Message[]
   ownedRooms             Room[]            @relation("RoomOwner")
@@ -150,18 +152,20 @@ model Message {
 }
 
 model Attachment {
-  id           String   @id @default(uuid())
-  messageId    String   @map("message_id")
-  message      Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  filename     String
-  storedName   String   @map("stored_name")
-  mimeType     String   @map("mime_type")
-  size         Int
-  url          String
-  thumbnailUrl String?  @map("thumbnail_url")
-  width        Int?
-  height       Int?
-  createdAt    DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid())
+  messageId     String   @map("message_id")
+  message       Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  filename      String
+  storedName    String   @map("stored_name")
+  mimeType      String   @map("mime_type")
+  size          Int
+  url           String
+  thumbnailUrl  String?  @map("thumbnail_url")
+  width         Int?
+  height        Int?
+  encrypted     Boolean  @default(false)
+  encryptedMeta String?  @map("encrypted_meta") // base64(nonce).base64({filename, mimeType}) — расшифровывается на клиенте
+  createdAt     DateTime @default(now()) @map("created_at")
 
   @@index([messageId])
   @@map("attachments")

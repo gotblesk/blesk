@@ -23,15 +23,16 @@ export default function PasswordCard({
 
   const cardError = mismatch ? 'Пароли не совпадают' : error;
 
-  // Подсказки о требованиях к паролю (показываем только если пользователь начал вводить)
-  const getPasswordHint = () => {
-    if (!password) return null;
-    if (password.length < 8) return 'Минимум 8 символов';
-    if (!/[A-Z]/.test(password)) return 'Добавь заглавную букву';
-    if (!/\d/.test(password)) return 'Добавь хотя бы одну цифру';
-    return null;
+  // Подсказки о требованиях к паролю (показываем все невыполненные)
+  const getPasswordHints = () => {
+    if (!password) return [];
+    const hints = [];
+    if (password.length < 8) hints.push('Минимум 8 символов');
+    if (!/[A-Z]/.test(password)) hints.push('Заглавная буква');
+    if (!/\d/.test(password)) hints.push('Цифра');
+    return hints;
   };
-  const passwordHint = getPasswordHint();
+  const passwordHints = getPasswordHints();
 
   return (
     <GravityCard
@@ -65,10 +66,12 @@ export default function PasswordCard({
         </button>
       </div>
       <StrengthDots password={password} />
-      {/* Inline подсказка о требованиях к паролю */}
-      {passwordHint && (
-        <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4, paddingLeft: 2, opacity: 0.85 }}>
-          {passwordHint}
+      {/* Inline подсказки о требованиях к паролю */}
+      {passwordHints.length > 0 && (
+        <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4, paddingLeft: 2, opacity: 0.85, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {passwordHints.map((hint, i) => (
+            <span key={i}>{hint}</span>
+          ))}
         </div>
       )}
 

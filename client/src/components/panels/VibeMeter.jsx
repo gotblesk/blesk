@@ -24,7 +24,8 @@ function getVibeData(avgEnergy) {
 }
 
 export default function VibeMeter({ open, onClose, onOpenChat }) {
-  const { chats, onlineUsers } = useChatStore();
+  const chats = useChatStore((s) => s.chats);
+  const onlineUsers = useChatStore((s) => s.onlineUsers);
 
   // Друзья из DM-чатов, отсортированные по энергии
   const friends = useMemo(() => {

@@ -149,6 +149,18 @@
   transition: background 0.15s, color 0.15s;
   width: 100%;
 }
+.mo__invite-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: rgba(200,255,0,0.08);
+  border: 1px solid rgba(200,255,0,0.15);
+  color: var(--accent, #c8ff00);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .mo__invite-stub:hover {
   background: rgba(255,255,255,0.05);
   color: var(--text-secondary, rgba(255,255,255,0.55));
@@ -182,6 +194,11 @@
 [data-theme="light"] .mo__invite-stub:hover {
   background: rgba(0, 0, 0, 0.05);
   color: var(--light-text-secondary, #4b5563);
+}
+[data-theme="light"] .mo__invite-badge {
+  background: rgba(74,122,0,0.08);
+  border-color: rgba(74,122,0,0.15);
+  color: var(--accent, #4a7a00);
 }
 [data-theme="light"] .mo__toast {
   background: rgba(255, 255, 255, 0.95);

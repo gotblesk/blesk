@@ -1,21 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowUp, Paperclip, X, Smiley, Microphone, PaperPlaneTilt, Pause, Play, Gif } from '@phosphor-icons/react';
+import { ArrowUp, Paperclip, X, Smiley, Microphone, PaperPlaneTilt, Pause, Play, Gif, Sticker } from '@phosphor-icons/react';
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import AttachmentPreview from './AttachmentPreview';
 import GifPicker from './GifPicker';
+import MentionSuggestions from './MentionSuggestions';
 import { soundSend } from '../../utils/sounds';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
 import './ChatInput.css';
 
-export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, onTypingStop, replyTo, onCancelReply, editingMsg, onCancelEdit }) {
+export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, onTypingStop, replyTo, onCancelReply, editingMsg, onCancelEdit, uploadProgress: uploadProgressProp, participants = [] }) {
   const [text, setText] = useState(() => {
     if (!chatId) return '';
     return useChatStore.getState().getDraft(chatId) || '';
   });
   const [pendingFiles, setPendingFiles] = useState([]);
-  const [uploadProgress, setUploadProgress] = useState({});
+  const uploadProgress = uploadProgressProp || {};
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState(null);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -28,6 +29,8 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
   const [micError, setMicError] = useState('');
   const [waveformBars, setWaveformBars] = useState(() => Array(28).fill(0.15));
   const [sendPulse, setSendPulse] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
 
   const typingRef = useRef(false);
   const typingTimeoutRef = useRef(null);
@@ -153,10 +156,22 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
   };
 
   const handleChange = (e) => {
-    setText(e.target.value);
+    const val = e.target.value;
+    setText(val);
     resizeTextarea();
 
-    if (!typingRef.current && e.target.value) {
+    // Детекция @mention
+    const cursorPos = e.target.selectionStart;
+    const textBefore = val.slice(0, cursorPos);
+    const atMatch = textBefore.match(/@(\w*)$/);
+    if (atMatch) {
+      setMentionQuery(atMatch[1]);
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+    }
+
+    if (!typingRef.current && val) {
       typingRef.current = true;
       onTypingStart?.();
     }
@@ -201,7 +216,6 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
 
   const removeFile = useCallback((index) => {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
-    setUploadProgress({});
   }, []);
 
   const MAX_MESSAGE_LENGTH = 4000;
@@ -235,12 +249,12 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
     if (pendingFiles.length > 0) {
       onSendFiles?.(pendingFiles, trimmed);
       setPendingFiles([]);
-      setUploadProgress({});
     } else {
       onSend(trimmed);
     }
 
     setText('');
+    setMentionQuery(null);
     if (chatId) useChatStore.getState().clearDraft(chatId);
     if (inputRef.current) inputRef.current.style.height = '';
     typingRef.current = false;
@@ -248,8 +262,58 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
     clearTimeout(typingTimeoutRef.current);
   };
 
+  // Вставка @mention в текст
+  const handleMentionSelect = useCallback((username) => {
+    const el = inputRef.current;
+    if (!el) return;
+    const cursorPos = el.selectionStart;
+    const textBefore = text.slice(0, cursorPos);
+    const textAfter = text.slice(cursorPos);
+    const atIdx = textBefore.lastIndexOf('@');
+    if (atIdx === -1) return;
+    const newText = textBefore.slice(0, atIdx) + '@' + username + ' ' + textAfter;
+    setText(newText);
+    setMentionQuery(null);
+    setMentionIndex(0);
+    // Курсор после вставленного username
+    const newCursor = atIdx + username.length + 2; // @ + username + space
+    setTimeout(() => {
+      el.focus();
+      el.selectionStart = el.selectionEnd = newCursor;
+    }, 0);
+  }, [text]);
+
+  // Фильтрованные участники для mention (нужно для навигации клавишами)
+  const mentionFiltered = mentionQuery !== null
+    ? participants.filter(p => p.username.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 6)
+    : [];
+
   // [IMP-5] getState() вместо подписки — не вызывает ре-рендер
   const handleKeyDown = (e) => {
+    // Клавиатурная навигация по @mention popup
+    if (mentionQuery !== null && mentionFiltered.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex(i => (i + 1) % mentionFiltered.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex(i => (i - 1 + mentionFiltered.length) % mentionFiltered.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleMentionSelect(mentionFiltered[mentionIndex]?.username);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMentionQuery(null);
+        return;
+      }
+    }
+
     if (e.key === 'Enter') {
       const enterToSend = useSettingsStore.getState().enterToSend;
       if (enterToSend && !e.shiftKey) {
@@ -595,6 +659,17 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
         uploadProgress={uploadProgress}
       />
 
+      {/* @mention автозавершение */}
+      {mentionQuery !== null && participants.length > 0 && (
+        <MentionSuggestions
+          query={mentionQuery}
+          participants={participants}
+          selectedIndex={mentionIndex}
+          onSelect={handleMentionSelect}
+          onClose={() => setMentionQuery(null)}
+        />
+      )}
+
       {/* Ошибка файлов (вместо alert) */}
       {fileError && (
         <div style={{ padding: '4px 12px', fontSize: 12, color: 'var(--danger)', background: 'rgba(239,68,68,0.08)', borderRadius: 6, margin: '4px 8px 0' }}>
@@ -611,7 +686,7 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
               {replyTo.user?.username || replyTo.username || 'Сообщение'}
             </div>
             <div className="chat-input__reply-text">
-              {replyTo.text?.slice(0, 60) || '[Сообщение]'}
+              {replyTo.text?.slice(0, 60) || (replyTo.attachments?.length ? (replyTo.attachments[0].type?.startsWith('image') ? 'Фото' : replyTo.attachments[0].type?.startsWith('audio') ? 'Голосовое сообщение' : `Файл: ${replyTo.attachments[0].name || 'файл'}`) : '[Сообщение]')}
               {replyTo.text && replyTo.text.length > 60 ? '...' : ''}
             </div>
           </div>
@@ -643,6 +718,7 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
         ref={fileInputRef}
         type="file"
         multiple
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z"
         className="chat-input__file-hidden"
         onChange={handleFileSelect}
         aria-label="Прикрепить файлы"
@@ -733,7 +809,13 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
                 onBlur={handleBlur}
                 rows={1}
                 aria-label="Написать сообщение"
+                maxLength={4200}
               />
+              {text.length > 3500 && (
+                <span className={`chat-input__counter ${text.length > MAX_MESSAGE_LENGTH ? 'chat-input__counter--over' : ''}`}>
+                  {text.length} / {MAX_MESSAGE_LENGTH}
+                </span>
+              )}
               <div className="chat-input__tools">
                 <button
                   className={`chat-input__tool-btn ${showEmojiPicker ? 'chat-input__tool-btn--active' : ''}`}
@@ -750,6 +832,14 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
                   aria-label={showGifPicker ? 'Закрыть GIF' : 'Открыть GIF'}
                 >
                   <Gif size={18} />
+                </button>
+                <button
+                  className="chat-input__tool-btn"
+                  onClick={() => window.__bleskToast?.('Стикеры скоро появятся')}
+                  title="Стикеры (скоро)"
+                  aria-label="Стикеры (скоро)"
+                >
+                  <Sticker size={18} />
                 </button>
                 <button
                   className="chat-input__tool-btn"

@@ -439,6 +439,53 @@
   color: var(--text);
 }
 
+/* ═══════ DND SCHEDULE ═══════ */
+.stg-dnd-schedule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.stg-dnd-schedule__input {
+  background: var(--surface-1, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-sm, 8px);
+  padding: 6px 10px;
+  color: var(--text-primary, rgba(255, 255, 255, 0.85));
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.stg-dnd-schedule__input:focus {
+  border-color: var(--accent, rgba(200, 255, 0, 0.2));
+}
+.stg-dnd-schedule__sep {
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.35));
+  font-size: 14px;
+}
+
+/* ═══════ UNMUTE BUTTON ═══════ */
+.stg-unmute-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text, rgba(255, 255, 255, 0.75));
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.stg-unmute-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.stg-unmute-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 /* ═══════ SLIDER ═══════ */
 .stg-slider {
   width: 100px;
@@ -499,6 +546,10 @@
 .stg-hotkey--editing {
   background: rgba(200, 255, 0, 0.06);
   border-color: rgba(200, 255, 0, 0.2);
+}
+.stg-hotkey--fixed {
+  opacity: 0.55;
+  cursor: default;
 }
 
 /* Hotkey conflict warning */
@@ -648,6 +699,32 @@
   border: 2px solid var(--dot);
   box-shadow: 0 0 12px var(--dot);
   pointer-events: none;
+}
+
+/* Custom accent color picker */
+.stg-accent-custom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.stg-accent-custom__input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.stg-accent-custom__input::-webkit-color-swatch-wrapper { padding: 0; }
+.stg-accent-custom__input::-webkit-color-swatch { border: none; border-radius: 50%; }
+.stg-accent-custom__label {
+  font-size: 10px;
+  color: var(--text-tertiary);
 }
 
 /* ═══════ ABOUT ═══════ */
@@ -953,6 +1030,53 @@
   font-size: 12px;
   color: var(--danger);
   margin-top: 8px;
+}
+
+.tfa__recovery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: var(--radius-md, 14px);
+  background: var(--surface-1, rgba(255,255,255,0.04));
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.tfa__recovery-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--warning, #f59e0b);
+  line-height: 1.4;
+}
+
+.tfa__recovery-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.tfa__recovery-code {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-primary);
+  text-align: center;
+  letter-spacing: 1px;
+  user-select: all;
+}
+
+[data-theme="light"] .tfa__recovery {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .tfa__recovery-code {
+  background: rgba(0,0,0,0.05);
 }
 
 /* ═══════ ACCOUNT DELETE DIALOG ═══════ */
@@ -1286,6 +1410,29 @@
   color: #111827;
 }
 
+/* DND schedule */
+[data-theme="light"] .stg-dnd-schedule__input {
+  background: var(--bg-input, #f0f2f5);
+  border-color: var(--border, #e5e7eb);
+  color: var(--text, #111827);
+}
+[data-theme="light"] .stg-dnd-schedule__input:focus {
+  border-color: var(--accent, #c8ff00);
+}
+[data-theme="light"] .stg-dnd-schedule__sep {
+  color: var(--text-tertiary, rgba(26, 26, 46, 0.4));
+}
+
+/* Unmute button */
+[data-theme="light"] .stg-unmute-btn {
+  background: var(--bg-input, #f0f2f5);
+  border-color: var(--border, #e5e7eb);
+  color: var(--text, #111827);
+}
+[data-theme="light"] .stg-unmute-btn:hover {
+  background: #e5e7eb;
+}
+
 /* Slider */
 [data-theme="light"] .stg-slider {
   background: var(--border, #e5e7eb);
@@ -1340,6 +1487,12 @@
 }
 [data-theme="light"] .stg-accent-dot__ring {
   box-shadow: 0 0 10px var(--dot);
+}
+[data-theme="light"] .stg-accent-custom__input {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+[data-theme="light"] .stg-accent-custom__label {
+  color: var(--text-tertiary, #9ca3af);
 }
 
 /* About */

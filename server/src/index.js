@@ -5,6 +5,10 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   console.error('FATAL: JWT_SECRET must be set and at least 32 characters');
   process.exit(1);
 }
+if (process.env.JWT_SECRET.includes('change-in-production') || process.env.JWT_SECRET.includes('dev-secret')) {
+  console.error('FATAL: JWT_SECRET contains a known dev placeholder — generate a strong random secret for production');
+  process.exit(1);
+}
 if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 32) {
   console.error('FATAL: JWT_REFRESH_SECRET must be set and at least 32 characters');
   process.exit(1);
@@ -26,6 +30,7 @@ const httpServer = createServer(app);
 
 // CORS: разрешаем запросы без origin (Electron, мобильные) + явные origins
 const corsHandler = (origin, callback) => {
+  // null origin: Electron app + privacy proxies. All sensitive endpoints require Bearer token via CSRF middleware.
   if (!origin) return callback(null, true);
   const allowed = [process.env.CLIENT_URL].filter(Boolean);
   if (process.env.NODE_ENV !== 'production') {
@@ -74,10 +79,13 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   crossOriginEmbedderPolicy: false,
   strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true },
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
+      // 'unsafe-inline' is required for React inline styles and framer-motion.
+      // Nonce-based CSP is not practical with the current CSS-in-JS usage.
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: [
@@ -91,6 +99,11 @@ app.use(helmet({
     },
   },
 }));
+// Permissions-Policy: ограничить browser APIs
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(), payment=(), usb=()');
+  next();
+});
 app.use(cors({ origin: corsHandler, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: '100kb' }));
@@ -170,7 +183,9 @@ const internalRoutes = require('./routes/admin');
 const uploadRoutes = require('./routes/upload');
 const channelRoutes = require('./routes/channels');
 const shieldRoutes = require('./routes/shield');
-const { csrfProtection } = require('./middleware/csrf');
+const gifRoutes = require('./routes/gif');
+const { csrfProtection, csrfCleanupInterval } = require('./middleware/csrf');
+const { ogCacheCleanupInterval } = require('./services/ogScraper');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/channels', chatLimiter, csrfProtection, channelRoutes);
@@ -184,6 +199,7 @@ app.use('/api/feedback', chatLimiter, csrfProtection, feedbackRoutes);
 app.use('/api/voice', voiceLimiter, csrfProtection, voiceRoutes);
 app.use('/api/internal', internalLimiter, csrfProtection, internalRoutes);
 app.use('/api/shield', chatLimiter, csrfProtection, shieldRoutes);
+app.use('/api/gif', chatLimiter, csrfProtection, gifRoutes);
 
 // WebSocket — авторизация + обработчики
 const { socketAuth } = require('./ws/authMiddleware');
@@ -261,6 +277,9 @@ const PORT = process.env.PORT || 3000;
       process.exit(1);
     }
     logger.warn('WARNING: ADMIN_SECRET не задан или слишком короткий — admin broadcast отключён');
+  } else if (process.env.ADMIN_SECRET.includes('super-secret') || process.env.ADMIN_SECRET.includes('admin-2026')) {
+    logger.error('FATAL: ADMIN_SECRET contains a known weak placeholder — generate a strong random secret');
+    if (process.env.NODE_ENV === 'production') process.exit(1);
   }
 
   try {
@@ -315,6 +334,8 @@ const PORT = process.env.PORT || 3000;
 
     clearInterval(refreshTokenCleanup);
     clearInterval(emailCodeCleanup);
+    clearInterval(csrfCleanupInterval);
+    clearInterval(ogCacheCleanupInterval);
     clearVoiceIntervals();
 
     // Сначала закрыть HTTP (прекратить приём новых подключений), потом WebSocket

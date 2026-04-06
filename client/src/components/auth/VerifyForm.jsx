@@ -143,7 +143,7 @@ export default function VerifyForm({
         error={verifyError}
         errorKey={verifyErrorKey}
       >
-        <div className="verify-code-grid">
+        <div className="verify-code-grid" role="group" aria-label="Код подтверждения">
           {codeDigits.map((digit, i) => (
             <input
               key={i}
@@ -158,6 +158,7 @@ export default function VerifyForm({
               onFocus={(e) => e.target.select()}
               autoFocus={i === 0}
               disabled={verifyLoading}
+              aria-label={`Цифра ${i + 1} из 6`}
             />
           ))}
         </div>

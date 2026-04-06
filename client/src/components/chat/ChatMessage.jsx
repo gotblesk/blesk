@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PushPin, Lock, Checks, PhoneIncoming, PhoneDisconnect, PhoneX, Clock, ArrowClockwise, Plus } from '@phosphor-icons/react';
+import { PushPin, Lock, Check, Checks, PhoneIncoming, PhoneDisconnect, PhoneX, Clock, ArrowClockwise, Plus } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import MediaMessage from './MediaMessage';
 import LinkPreviewCard from './LinkPreviewCard';
@@ -15,6 +15,7 @@ const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 const EMOJI_ONLY_RE = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]{1,3}$/u;
 const URL_RE = /https?:\/\/[^\s<>"']+/;
 const MEDIA_EXT_RE = /\.(png|jpe?g|gif|webp|svg|mp4|webm|mov|avi|mkv|bmp|ico|tiff?)(\?|#|$)/i;
+const TENOR_GIF_RE = /^https?:\/\/[^\s]*tenor[^\s]*\.(gif|mp4)$/i;
 
 function extractPreviewUrl(text) {
   if (!text) return null;
@@ -33,6 +34,7 @@ function countEmojis(text) {
 const ChatMessage = React.memo(function ChatMessage({
   message,
   isOwn,
+  isAdmin,
   groupPosition = 'solo',
   hue,
   senderName,
@@ -45,6 +47,7 @@ const ChatMessage = React.memo(function ChatMessage({
   onPin,
   onImageClick,
   onRetry,
+  onReport,
   reactions,
   currentUserId,
 }) {
@@ -52,12 +55,15 @@ const ChatMessage = React.memo(function ChatMessage({
 
   const { handleContextMenu, menu: actionsMenu } = useMessageActions({
     isOwn,
+    isAdmin,
     onReply,
     onReact: (emoji) => onReact?.(message.id, emoji),
     onEdit: () => onEdit?.(message),
     onDelete: () => onDelete?.(message.id),
     onForward: () => onForward?.(message),
     onPin: () => onPin?.(message),
+    onCopy: () => { if (message.text) navigator.clipboard.writeText(message.text); },
+    onReport: () => onReport?.(message),
   });
 
   // Настройки из store
@@ -93,7 +99,8 @@ const ChatMessage = React.memo(function ChatMessage({
   }
 
   const text = message.text || '';
-  const isEmojiOnly = text.length > 0 && EMOJI_ONLY_RE.test(text.trim());
+  const isTenorGif = text && TENOR_GIF_RE.test(text.trim()) && text.trim().split(/\s+/).length === 1;
+  const isEmojiOnly = !isTenorGif && text.length > 0 && EMOJI_ONLY_RE.test(text.trim());
   const emojiCount = isEmojiOnly ? countEmojis(text.trim()) : 0;
 
   const showAvatar = showAvatarsSetting && !isOwn && (groupPosition === 'last' || groupPosition === 'solo');
@@ -177,7 +184,13 @@ const ChatMessage = React.memo(function ChatMessage({
           <div className="chat-message__name">{senderName}</div>
         )}
 
-        {isEmojiOnly ? (
+        {isTenorGif ? (
+          <div className="chat-message__bubble-outer">
+            <div className="chat-message__bubble-inner">
+              <img src={text.trim()} alt="GIF" className="chat-msg__gif" loading="lazy" />
+            </div>
+          </div>
+        ) : isEmojiOnly ? (
           <div className="chat-message__emoji">{text}</div>
         ) : (
           <div className="chat-message__bubble-outer">
@@ -229,11 +242,20 @@ const ChatMessage = React.memo(function ChatMessage({
               })()}
 
               {message.attachments?.length > 0 && (
-                <MediaMessage attachments={message.attachments} onImageClick={onImageClick} />
+                <MediaMessage
+                  attachments={message.attachments}
+                  onImageClick={onImageClick}
+                  senderUserId={message.userId}
+                  roomId={message.roomId || message.chatId}
+                />
               )}
 
-              {isOwn && isRead && (
+              {/* [4.5.1] Статус доставки: pending → sent → read | failed */}
+              {isOwn && !message.pending && !message.failed && isRead && (
                 <Checks size={12} className="chat-message__read-icon" />
+              )}
+              {isOwn && !message.pending && !message.failed && !isRead && (
+                <Check size={12} className="chat-message__read-icon chat-message__read-icon--sent" />
               )}
             </div>
           </div>

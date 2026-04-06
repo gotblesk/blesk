@@ -9,6 +9,7 @@ let _unMaxHandler = null;
 let _updateAvailHandler = null;
 let _updateProgressHandler = null;
 let _updateDownloadedHandler = null;
+let _updateErrorHandler = null;
 
 contextBridge.exposeInMainWorld('blesk', {
   // Управление окном
@@ -20,6 +21,7 @@ contextBridge.exposeInMainWorld('blesk', {
     startDrag: (offsetX, offsetY) => ipcRenderer.send('window:start-drag', offsetX, offsetY),
     dragging: (screenX, screenY) => ipcRenderer.send('window:dragging', screenX, screenY),
     stopDrag: () => ipcRenderer.send('window:stop-drag'),
+    flash: () => ipcRenderer.send('window:flash'),
     onMaximizeChange: (callback) => {
       // Снять предыдущие хэндлеры (не трогая чужие)
       if (_maxHandler) ipcRenderer.off('window:maximized', _maxHandler);
@@ -48,7 +50,7 @@ contextBridge.exposeInMainWorld('blesk', {
   update: {
     onAvailable: (callback) => {
       if (_updateAvailHandler) ipcRenderer.off('update:available', _updateAvailHandler);
-      _updateAvailHandler = (_, version) => callback(version);
+      _updateAvailHandler = (_, data) => callback(data);
       ipcRenderer.on('update:available', _updateAvailHandler);
     },
     onProgress: (callback) => {
@@ -60,6 +62,11 @@ contextBridge.exposeInMainWorld('blesk', {
       if (_updateDownloadedHandler) ipcRenderer.off('update:downloaded', _updateDownloadedHandler);
       _updateDownloadedHandler = () => callback();
       ipcRenderer.on('update:downloaded', _updateDownloadedHandler);
+    },
+    onError: (callback) => {
+      if (_updateErrorHandler) ipcRenderer.off('update:error', _updateErrorHandler);
+      _updateErrorHandler = (_, msg) => callback(msg);
+      ipcRenderer.on('update:error', _updateErrorHandler);
     },
     install: () => ipcRenderer.send('update:install'),
   },

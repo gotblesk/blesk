@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import { Skeleton } from '../ui/GlassSkeleton';
+import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
 import './GifPicker.css';
 
-const TENOR_KEY = 'AIzaSyBqwDKjwi9kGJGUUBpxJ7v0Qi9HPVVn8hg';
-const TENOR_BASE = 'https://tenor.googleapis.com/v2';
+const GIF_BASE = `${API_URL}/api/gif`;
 const LIMIT = 20;
 
 export default function GifPicker({ onSelect, onClose }) {
@@ -52,9 +53,10 @@ export default function GifPicker({ onSelect, onClose }) {
     setError(null);
     try {
       const res = await fetch(
-        `${TENOR_BASE}/featured?key=${TENOR_KEY}&limit=${LIMIT}&media_filter=tinygif,gif`
+        `${GIF_BASE}/featured?limit=${LIMIT}`,
+        { headers: getAuthHeaders(), credentials: 'include' }
       );
-      if (!res.ok) throw new Error('Tenor API error');
+      if (!res.ok) throw new Error('GIF API error');
       const data = await res.json();
       setGifs(extractGifs(data.results));
     } catch {
@@ -73,9 +75,10 @@ export default function GifPicker({ onSelect, onClose }) {
     setError(null);
     try {
       const res = await fetch(
-        `${TENOR_BASE}/search?q=${encodeURIComponent(q)}&key=${TENOR_KEY}&limit=${LIMIT}&media_filter=tinygif,gif`
+        `${GIF_BASE}/search?q=${encodeURIComponent(q)}&limit=${LIMIT}`,
+        { headers: getAuthHeaders(), credentials: 'include' }
       );
-      if (!res.ok) throw new Error('Tenor API error');
+      if (!res.ok) throw new Error('GIF API error');
       const data = await res.json();
       setGifs(extractGifs(data.results));
     } catch {

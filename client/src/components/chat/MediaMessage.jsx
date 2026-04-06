@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { FileText, DownloadSimple, FilmStrip, MusicNote, Archive, ImageBroken, Play, Pause } from '@phosphor-icons/react';
+import { FileText, FilePdf, DownloadSimple, FilmStrip, MusicNote, Archive, ImageBroken, Play, Pause, PlayCircle, Lock } from '@phosphor-icons/react';
 import API_URL from '../../config';
+import { getAuthHeaders } from '../../utils/authFetch';
+import { decryptFile, decryptFileMeta, fetchPublicKey } from '../../utils/cryptoService';
 import './MediaMessage.css';
 
 function getIcon(mime) {
@@ -8,6 +10,7 @@ function getIcon(mime) {
   if (m.startsWith('video/')) return <FilmStrip size={20} />;
   if (m.startsWith('audio/')) return <MusicNote size={20} />;
   if (m.includes('zip')) return <Archive size={20} />;
+  if (m === 'application/pdf') return <FilePdf size={20} />;
   return <FileText size={20} />;
 }
 
@@ -218,10 +221,237 @@ function formatSize(bytes) {
   return `${(b / (1024 * 1024)).toFixed(1)} МБ`;
 }
 
-export default function MediaMessage({ attachments, onImageClick }) {
+// [5.3.1] Видеоплеер с play overlay — показывает кнопку поверх видео до начала воспроизведения
+function VideoPlayer({ src, filename, size }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef(null);
+
+  const handlePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.play();
+    setIsPlaying(true);
+  };
+
+  const handlePause = () => setIsPlaying(false);
+  const handleEnded = () => setIsPlaying(false);
+
+  return (
+    <div className="media-msg__video-wrap">
+      <div className="media-msg__video-container">
+        <video
+          ref={videoRef}
+          src={src}
+          controls
+          preload="metadata"
+          className="media-msg__video"
+          onPlay={() => setIsPlaying(true)}
+          onPause={handlePause}
+          onEnded={handleEnded}
+        />
+        {!isPlaying && (
+          <div className="media-msg__play-overlay" onClick={handlePlay}>
+            <PlayCircle size={48} weight="fill" />
+          </div>
+        )}
+      </div>
+      <div className="media-msg__video-info">
+        <span className="media-msg__file-name">{filename}</span>
+        <span className="media-msg__file-size">{formatSize(size)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── E2E: обёртка для зашифрованных вложений ───
+// Скачивает зашифрованный блоб, расшифровывает, создаёт object URL и рендерит через обычные компоненты
+// Кеш расшифрованных URL чтобы не расшифровывать повторно при ре-рендере
+const decryptedUrlCache = new Map();
+
+function EncryptedAttachment({ attachment, senderUserId, roomId, onImageClick }) {
+  const [state, setState] = useState('loading'); // loading | ready | error
+  const [decryptedUrl, setDecryptedUrl] = useState(null);
+  const [meta, setMeta] = useState(null); // { filename, mimeType }
+  const objectUrlRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function decrypt() {
+      // Проверить кеш
+      const cacheKey = attachment.id;
+      if (decryptedUrlCache.has(cacheKey)) {
+        const cached = decryptedUrlCache.get(cacheKey);
+        if (!cancelled) {
+          setDecryptedUrl(cached.url);
+          setMeta(cached.meta);
+          setState('ready');
+        }
+        return;
+      }
+
+      try {
+        // 1. Получить публичный ключ отправителя
+        const senderPubKey = await fetchPublicKey(senderUserId);
+        if (!senderPubKey) {
+          if (!cancelled) setState('error');
+          return;
+        }
+
+        // 2. Расшифровать метаданные (filename + mimeType)
+        let fileMeta = { filename: 'file', mimeType: 'application/octet-stream' };
+        if (attachment.encryptedMeta) {
+          const decMeta = await decryptFileMeta(attachment.encryptedMeta, senderPubKey, roomId);
+          if (decMeta) fileMeta = decMeta;
+        }
+
+        // 3. Скачать зашифрованный файл
+        const fullUrl = `${API_URL}${attachment.url}`;
+        const headers = getAuthHeaders();
+        const response = await fetch(fullUrl, { headers, credentials: 'include' });
+        if (!response.ok) {
+          if (!cancelled) setState('error');
+          return;
+        }
+        const encryptedBuffer = await response.arrayBuffer();
+
+        // 4. Расшифровать содержимое файла
+        const decryptedBuffer = await decryptFile(encryptedBuffer, senderPubKey, roomId);
+        if (!decryptedBuffer) {
+          if (!cancelled) setState('error');
+          return;
+        }
+
+        // 5. Создать object URL из расшифрованных данных
+        const blob = new Blob([decryptedBuffer], { type: fileMeta.mimeType });
+        const url = URL.createObjectURL(blob);
+
+        // Кешировать
+        decryptedUrlCache.set(cacheKey, { url, meta: fileMeta });
+
+        if (!cancelled) {
+          objectUrlRef.current = url;
+          setDecryptedUrl(url);
+          setMeta(fileMeta);
+          setState('ready');
+        } else {
+          // Если компонент размонтирован до завершения — не отзываем URL (он в кеше)
+        }
+      } catch (err) {
+        console.error('E2E file decrypt error:', err);
+        if (!cancelled) setState('error');
+      }
+    }
+
+    decrypt();
+    return () => { cancelled = true; };
+  }, [attachment.id, attachment.url, attachment.encryptedMeta, senderUserId, roomId]);
+
+  // Загрузка
+  if (state === 'loading') {
+    return (
+      <div className="media-msg__file media-msg__file--encrypted-loading">
+        <div className="media-msg__file-icon"><Lock size={20} /></div>
+        <div className="media-msg__file-info">
+          <span className="media-msg__file-name">Расшифровка...</span>
+          <span className="media-msg__file-size">{formatSize(attachment.size)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Ошибка расшифровки
+  if (state === 'error') {
+    return (
+      <div className="media-msg__file media-msg__file--encrypted-error">
+        <div className="media-msg__file-icon"><Lock size={20} /></div>
+        <div className="media-msg__file-info">
+          <span className="media-msg__file-name">Не удалось расшифровать</span>
+          <span className="media-msg__file-size">E2E зашифрованный файл</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Расшифровано — рендерим как обычное вложение
+  const mime = meta?.mimeType || '';
+  const filename = meta?.filename || 'file';
+  const isVoice = filename.startsWith('voice-') && /\.(webm|ogg)$/i.test(filename);
+  const isImage = mime.startsWith('image/');
+  const isVideo = mime.startsWith('video/') && !isVoice;
+  const isAudio = mime.startsWith('audio/');
+
+  if (isVoice) {
+    return <VoiceMessage src={decryptedUrl} />;
+  }
+
+  if (isImage) {
+    return (
+      <ImageWithFallback
+        src={decryptedUrl}
+        fullSrc={decryptedUrl}
+        filename={filename}
+        onImageClick={onImageClick}
+      />
+    );
+  }
+
+  if (isVideo) {
+    return <VideoPlayer src={decryptedUrl} filename={filename} size={attachment.size} />;
+  }
+
+  if (isAudio) {
+    return (
+      <div className="media-msg__audio-wrap">
+        <audio src={decryptedUrl} controls preload="metadata" className="media-msg__audio" />
+        <div className="media-msg__audio-info">
+          <span className="media-msg__file-name">{filename}</span>
+          <span className="media-msg__file-size">{formatSize(attachment.size)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Скачивание расшифрованного файла
+  return (
+    <div className="media-msg__file">
+      <div className="media-msg__file-icon">
+        <Lock size={14} style={{ marginRight: 2, opacity: 0.5 }} />
+        {getIcon(mime)}
+      </div>
+      <div className="media-msg__file-info">
+        <span className="media-msg__file-name">{filename}</span>
+        <span className="media-msg__file-size">{formatSize(attachment.size)}</span>
+      </div>
+      <a
+        href={decryptedUrl}
+        download={filename}
+        className="media-msg__download"
+      >
+        <DownloadSimple size={16} />
+      </a>
+    </div>
+  );
+}
+
+export default function MediaMessage({ attachments, onImageClick, senderUserId, roomId }) {
   return (
     <div className="media-msg">
       {attachments.map((a) => {
+        // E2E зашифрованные вложения — расшифровка на клиенте
+        if (a.encrypted) {
+          return (
+            <EncryptedAttachment
+              key={a.id}
+              attachment={a}
+              senderUserId={senderUserId}
+              roomId={roomId}
+              onImageClick={onImageClick}
+            />
+          );
+        }
+
+        // Обычные (не зашифрованные) вложения — как раньше
         const src = `${API_URL}${a.thumbnailUrl || a.url}`;
         const fullSrc = `${API_URL}${a.url}`;
         // [BUG 3] Guard against null/undefined mimeType + fallback по расширению
@@ -252,22 +482,9 @@ export default function MediaMessage({ attachments, onImageClick }) {
           );
         }
 
-        // [MED-4] Видео — инлайн-плеер
+        // [MED-4] Видео — инлайн-плеер с play overlay [5.3.1]
         if (isVideo) {
-          return (
-            <div key={a.id} className="media-msg__video-wrap">
-              <video
-                src={fullSrc}
-                controls
-                preload="metadata"
-                className="media-msg__video"
-              />
-              <div className="media-msg__video-info">
-                <span className="media-msg__file-name">{a.filename}</span>
-                <span className="media-msg__file-size">{formatSize(a.size)}</span>
-              </div>
-            </div>
-          );
+          return <VideoPlayer key={a.id} src={fullSrc} filename={a.filename} size={a.size} />;
         }
 
         // Аудиофайлы (музыка и т.д.) — стандартный плеер
@@ -290,12 +507,13 @@ export default function MediaMessage({ attachments, onImageClick }) {
 
         // Остальные файлы — карточка скачивания
         // [HIGH-4] download={a.filename} сохраняет оригинальное имя
+        const isPdf = mime === 'application/pdf' || /\.pdf$/i.test(a.filename || '');
         return (
           <div key={a.id} className="media-msg__file">
-            <div className="media-msg__file-icon">{getIcon(a.mimeType)}</div>
+            <div className="media-msg__file-icon">{isPdf ? <FilePdf size={20} /> : getIcon(a.mimeType)}</div>
             <div className="media-msg__file-info">
               <span className="media-msg__file-name">{a.filename}</span>
-              <span className="media-msg__file-size">{formatSize(a.size)}</span>
+              <span className="media-msg__file-size">{isPdf ? 'PDF документ · ' : ''}{formatSize(a.size)}</span>
             </div>
             <a
               href={fullSrc}

@@ -16,8 +16,9 @@ import GroupMembersPanel from './GroupMembersPanel';
 import { MIN_WIDTH, MIN_HEIGHT } from '../../hooks/useWindowManager';
 import { getCurrentUserId } from '../../utils/auth';
 import uploadFile from '../../utils/uploadFile';
-import { encryptMessage, fetchPublicKey } from '../../utils/cryptoService';
+import { encryptMessage, fetchPublicKey, encryptFile, encryptFileMeta } from '../../utils/cryptoService';
 import { shieldEncrypt, isShieldReady } from '../../utils/shieldService';
+import { addToQueue } from '../../utils/offlineQueue';
 import { getHueFromString } from '../../utils/hueIdentity';
 import ProfilePopover from '../profile/ProfilePopover';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -73,6 +74,7 @@ export default function ChatView({
   const [forwardMsg, setForwardMsg] = useState(null);
   const [forwardSuccess, setForwardSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState({});
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [chatSearchIndex, setChatSearchIndex] = useState(0);
@@ -525,26 +527,31 @@ export default function ChatView({
       }
     }
 
-    // [HIGH-1] ACK callback + [IMP-4] timeout для ACK
-    const sendTempId = payload.tempId;
-    const ackTimeout = setTimeout(() => {
-      if (!isMountedRef.current) return;
-      const msgs = useChatStore.getState().messages[chatId];
-      const pending = msgs?.find(m => m.tempId === sendTempId && m.pending);
-      if (pending) useChatStore.getState().failMessage(sendTempId, chatId);
-      // Убрать из списка tracked таймеров
-      ackTimeoutsRef.current = ackTimeoutsRef.current.filter(t => t !== ackTimeout);
-    }, 30000);
-    ackTimeoutsRef.current.push(ackTimeout);
+    // Offline queue: если сокет не подключён — сохранить в очередь и не эмитить
+    if (!socketRef.current?.connected) {
+      addToQueue({ chatId, text: payload.text, tempId: payload.tempId, replyToId: payload.replyToId, encrypted: payload.encrypted, shieldHeader: payload.shieldHeader });
+      setReplyTo(null);
+    } else {
+      // [HIGH-1] ACK callback + [IMP-4] timeout для ACK
+      const sendTempId = payload.tempId;
+      const ackTimeout = setTimeout(() => {
+        if (!isMountedRef.current) return;
+        const msgs = useChatStore.getState().messages[chatId];
+        const pending = msgs?.find(m => m.tempId === sendTempId && m.pending);
+        if (pending) useChatStore.getState().failMessage(sendTempId, chatId);
+        ackTimeoutsRef.current = ackTimeoutsRef.current.filter(t => t !== ackTimeout);
+      }, 30000);
+      ackTimeoutsRef.current.push(ackTimeout);
 
-    socketRef.current?.emit('message:send', payload, (ack) => {
-      clearTimeout(ackTimeout);
-      ackTimeoutsRef.current = ackTimeoutsRef.current.filter(t => t !== ackTimeout);
-      if (ack?.error) {
-        useChatStore.getState().failMessage(sendTempId, chatId);
-      }
-    });
-    setReplyTo(null);
+      socketRef.current.emit('message:send', payload, (ack) => {
+        clearTimeout(ackTimeout);
+        ackTimeoutsRef.current = ackTimeoutsRef.current.filter(t => t !== ackTimeout);
+        if (ack?.error) {
+          useChatStore.getState().failMessage(sendTempId, chatId);
+        }
+      });
+      setReplyTo(null);
+    }
 
     // [BUG 1.1] Всегда скролл к концу после отправки
     isNearBottomRef.current = true;
@@ -559,16 +566,63 @@ export default function ChatView({
     });
   };
 
-  // Отправка файлов
-  // TODO: E2E encryption for file/voice uploads not yet implemented
-  // Files are uploaded in cleartext even when E2E is enabled for text messages
-  // See: https://github.com/nicedreams/nacl-blob for potential approach
+  // Отправка файлов (с E2E шифрованием для 1-on-1 DM чатов)
+  // Для групповых чатов файлы загружаются в открытом виде —
+  // multi-recipient encryption требует шифрования для каждого участника
   const handleSendFiles = useCallback(async (files, text) => {
-    for (const file of files) {
+    setUploadProgress({});
+    const { e2eEnabled } = useSettingsStore.getState();
+    const shouldEncrypt = e2eEnabled && chat?.type === 'chat' && chat?.otherUser?.id;
+
+    // Получить публичный ключ собеседника заранее (один раз для всех файлов)
+    let otherPubKey = null;
+    if (shouldEncrypt) {
       try {
-        await uploadFile(chatId, file, {
+        otherPubKey = await fetchPublicKey(chat.otherUser.id);
+      } catch (err) {
+        console.error('E2E: не удалось получить публичный ключ:', err);
+      }
+    }
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        let fileToUpload = file;
+        let encryptedFlag = false;
+        let encryptedMeta = null;
+
+        // E2E шифрование файла перед загрузкой
+        if (shouldEncrypt && otherPubKey) {
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const encryptedBytes = await encryptFile(arrayBuffer, otherPubKey, chatId);
+            if (encryptedBytes) {
+              // Зашифрованные метаданные (имя + MIME) — расшифровываются на клиенте получателя
+              encryptedMeta = await encryptFileMeta(
+                { filename: file.name, mimeType: file.type || 'application/octet-stream' },
+                otherPubKey,
+                chatId,
+              );
+              // Создаём новый Blob из зашифрованных байтов
+              fileToUpload = new File([encryptedBytes], 'encrypted.enc', { type: 'application/octet-stream' });
+              encryptedFlag = true;
+            }
+          } catch (err) {
+            console.error('E2E file encrypt error:', err);
+            // При ошибке шифрования НЕ отправляем файл в открытом виде — это нарушило бы ожидания
+            const errMsg = 'Не удалось зашифровать файл. Отправка отменена.';
+            setUploadError(errMsg);
+            setTimeout(() => setUploadError(''), 4000);
+            continue;
+          }
+        }
+
+        await uploadFile(chatId, fileToUpload, {
           text: text || undefined,
           replyToId: replyTo?.id,
+          onProgress: (pct) => setUploadProgress((prev) => ({ ...prev, [i]: pct })),
+          encrypted: encryptedFlag,
+          encryptedMeta,
         });
         // Текст отправляем только с первым файлом
         text = undefined;
@@ -579,8 +633,9 @@ export default function ChatView({
         setTimeout(() => setUploadError(''), 4000);
       }
     }
+    setUploadProgress({});
     setReplyTo(null);
-  }, [chatId, replyTo]);
+  }, [chatId, replyTo, chat]);
 
   // Дебаунс typing:start — не чаще 1 раза в 2 секунды
   const lastTypingRef = useRef(0);
@@ -619,23 +674,25 @@ export default function ChatView({
     }
   }, [chatId, socketRef]);
   const handleRetryStable = useCallback((msg) => {
+    if (!msg.text) return;
+    const tempId = msg.tempId || msg.id;
+    // Вернуть в pending
+    useChatStore.setState(state => ({
+      messages: {
+        ...state.messages,
+        [chatId]: state.messages[chatId]?.map(m =>
+          m.id === msg.id || m.tempId === msg.tempId
+            ? { ...m, failed: false, offline: !socketRef.current?.connected, pending: true }
+            : m
+        ),
+      },
+    }));
     const socket = socketRef.current;
-    if (socket && msg.text) {
-      useChatStore.setState(state => ({
-        messages: {
-          ...state.messages,
-          [chatId]: state.messages[chatId]?.map(m =>
-            m.id === msg.id || m.tempId === msg.tempId
-              ? { ...m, failed: false, pending: true }
-              : m
-          ),
-        },
-      }));
-      socket.emit('message:send', {
-        chatId,
-        text: msg.text,
-        tempId: msg.tempId || msg.id,
-      });
+    if (socket?.connected) {
+      socket.emit('message:send', { chatId, text: msg.text, tempId });
+    } else {
+      // Сокет недоступен — сохранить в очередь
+      addToQueue({ chatId, text: msg.text, tempId });
     }
   }, [chatId, socketRef]);
 
@@ -704,8 +761,26 @@ export default function ChatView({
     for (const msg of chatMessages) {
       if (msg.user?.username) nameMap[msg.userId] = msg.user.username;
     }
-    return typingInChat.map(uid => nameMap[uid] || uid).filter(Boolean);
+    return typingInChat.map(uid => nameMap[uid] || 'Кто-то').filter(Boolean);
   }, [typingInChat, chat, chatMessages]);
+
+  // Участники чата для @mention автозавершения
+  const mentionParticipants = useMemo(() => {
+    const seen = new Map();
+    const myId = userId.current;
+    // Для DM — otherUser
+    if (chat?.type !== 'group' && chat?.otherUser) {
+      const u = chat.otherUser;
+      if (u.id !== myId) seen.set(u.id, { id: u.id, username: u.username, avatar: u.avatar });
+    }
+    // Для группы — уникальные отправители из загруженных сообщений
+    for (const msg of chatMessages) {
+      if (msg.userId && msg.userId !== myId && !seen.has(msg.userId) && msg.user?.username) {
+        seen.set(msg.userId, { id: msg.userId, username: msg.user.username, avatar: msg.user?.avatar });
+      }
+    }
+    return Array.from(seen.values());
+  }, [chat, chatMessages]);
 
   // Вычисляем ID первого непрочитанного сообщения (для UnreadDivider)
   const savedUnread = initialUnreadRef.current || 0;
@@ -788,6 +863,7 @@ export default function ChatView({
           typingUsernames={typingNames}
           onCall={onCall}
           onVideoCall={onVideoCall}
+          onSearch={() => { setChatSearchOpen(true); setChatSearchQuery(''); setChatSearchIndex(0); setTimeout(() => chatSearchInputRef.current?.focus(), 50); }}
           onMembers={chat.type === 'group' ? () => setMembersOpen(true) : undefined}
           onAvatarClick={(e) => { if (chat.otherUser?.id) setProfilePopover({ open: true, userId: chat.otherUser.id, anchorRef: { current: e?.currentTarget || e?.target } }); }}
           shieldActive={chat.e2eEnabled}
@@ -928,6 +1004,7 @@ export default function ChatView({
                 <ChatMessage
                   message={msg}
                   isOwn={isOwn}
+                  isAdmin={chat.type === 'group' && chat.ownerId === userId.current}
                   groupPosition={groupPosition}
                   hue={hue}
                   senderName={msg.user?.username || msg.username || 'Unknown'}
@@ -940,6 +1017,7 @@ export default function ChatView({
                   onPin={handlePinStable}
                   onRetry={handleRetryStable}
                   onImageClick={handleImageClickStable}
+                  onReport={() => { /* TODO: open report modal */ }}
                   reactions={allReactions[msg.id]}
                   currentUserId={userId.current}
                 />
@@ -1003,6 +1081,8 @@ export default function ChatView({
         onCancelReply={() => setReplyTo(null)}
         editingMsg={editingMsg}
         onCancelEdit={() => setEditingMsg(null)}
+        uploadProgress={uploadProgress}
+        participants={mentionParticipants}
       />
 
       {lightboxSrc && (

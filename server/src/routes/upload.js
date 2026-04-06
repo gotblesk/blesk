@@ -179,6 +179,9 @@ router.post('/:chatId/upload', uploadLimiter, authenticate, upload.single('file'
     const { chatId } = req.params;
     const { text, replyToId } = req.body;
     const userId = req.userId;
+    // E2E: клиент передаёт encrypted=true + encryptedMeta (зашифрованные filename/mimeType)
+    const isEncrypted = req.body.encrypted === 'true';
+    const encryptedMeta = isEncrypted ? (req.body.encryptedMeta || null) : null;
 
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
 
@@ -191,28 +194,53 @@ router.post('/:chatId/upload', uploadLimiter, authenticate, upload.single('file'
       return res.status(403).json({ error: 'Вы не участник этого чата' });
     }
 
-    // Валидация файла
-    const validation = await validateFile(req.file.path, req.file.originalname, req.file.mimetype, req.file.size);
-    if (!validation.ok) {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({ error: validation.error });
+    let storedName, mime, fileSize;
+
+    if (isEncrypted) {
+      // E2E зашифрованный файл — magic bytes не совпадут, пропускаем валидацию типа
+      // Сохраняем как .enc, реальный MIME зашифрован в encryptedMeta
+      storedName = `${crypto.randomUUID()}.enc`;
+      mime = 'application/octet-stream';
+      fileSize = req.file.size;
+      finalPath = path.join(attachDir, storedName);
+      fs.renameSync(req.file.path, finalPath);
+
+      // ClamAV: зашифрованные данные не содержат паттернов вирусов,
+      // но всё равно проверяем — false positive маловероятен
+      const scanResult = await scanFile(finalPath);
+      if (!scanResult.clean) {
+        fs.unlinkSync(finalPath);
+        finalPath = null;
+        return res.status(400).json({ error: 'Файл заблокирован: обнаружена угроза' });
+      }
+    } else {
+      // Обычный (не зашифрованный) файл — полная валидация
+      const validation = await validateFile(req.file.path, req.file.originalname, req.file.mimetype, req.file.size);
+      if (!validation.ok) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: validation.error });
+      }
+
+      const ext = MIME_EXT[validation.mime] || '.bin';
+      storedName = `${crypto.randomUUID()}${ext}`;
+      mime = validation.mime;
+      fileSize = req.file.size;
+      finalPath = path.join(attachDir, storedName);
+      fs.renameSync(req.file.path, finalPath);
+
+      // ClamAV антивирусная проверка
+      const scanResult = await scanFile(finalPath);
+      if (!scanResult.clean) {
+        fs.unlinkSync(finalPath);
+        finalPath = null;
+        return res.status(400).json({ error: 'Файл заблокирован: обнаружена угроза' });
+      }
     }
 
-    const ext = MIME_EXT[validation.mime] || '.bin';
-    const storedName = `${crypto.randomUUID()}${ext}`;
-    finalPath = path.join(attachDir, storedName);
-    fs.renameSync(req.file.path, finalPath);
-
-    // ClamAV антивирусная проверка (graceful — если недоступен, пропускает)
-    const scanResult = await scanFile(finalPath);
-    if (!scanResult.clean) {
-      fs.unlinkSync(finalPath);
-      finalPath = null;
-      return res.status(400).json({ error: 'Файл заблокирован: обнаружена угроза' });
-    }
-
-    // Обработка изображений (EXIF strip + thumbnail)
-    const media = await processImage(finalPath, storedName, validation.mime);
+    // Обработка изображений — только для незашифрованных (зашифрованные = непарсимые байты)
+    const media = isEncrypted
+      ? { url: `/uploads/attachments/${storedName}`, thumbnailUrl: null, width: null, height: null }
+      : await processImage(finalPath, storedName, mime);
 
     // Валидация replyToId — должен быть из того же чата
     let validReplyToId = undefined;
@@ -233,17 +261,20 @@ router.post('/:chatId/upload', uploadLimiter, authenticate, upload.single('file'
         userId,
         text: text?.trim() || '',
         type: 'media',
+        encrypted: isEncrypted,
         replyToId: validReplyToId,
         attachments: {
           create: [{
-            filename: sanitizeFilename(req.file.originalname),
+            filename: isEncrypted ? 'encrypted-file.enc' : sanitizeFilename(req.file.originalname),
             storedName,
-            mimeType: validation.mime,
-            size: req.file.size,
+            mimeType: mime,
+            size: fileSize,
             url: media.url,
             thumbnailUrl: media.thumbnailUrl,
             width: media.width,
             height: media.height,
+            encrypted: isEncrypted,
+            encryptedMeta,
           }],
         },
       },

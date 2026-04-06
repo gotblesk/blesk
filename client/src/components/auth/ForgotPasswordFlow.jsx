@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Envelope, Key } from '@phosphor-icons/react';
-import gsap from 'gsap';
 import GravityCard from './GravityCard';
 import PasswordCard from './PasswordCard';
 import { getPasswordScore } from './StrengthDots';
+import useRipple from '../../hooks/useRipple';
 import API_URL from '../../config';
 
 export default function ForgotPasswordFlow({ mode, onModeChange }) {
@@ -20,6 +20,7 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
   const forgotCodeRefs = useRef([]);
   const [resendCooldown, setResendCooldown] = useState(0);
   const resendTimerRef = useRef(null);
+  const handleRipple = useRipple();
 
   // Таймер обратного отсчёта для повторной отправки
   useEffect(() => {
@@ -46,31 +47,6 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
   const triggerForgotError = (msg) => {
     setForgotError(msg);
     setForgotErrorKey((k) => k + 1);
-  };
-
-  const handleRipple = (e) => {
-    const btn = e.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const ripple = document.createElement('div');
-    ripple.style.cssText = `
-      position: absolute; border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,255,255,0.25), transparent);
-      width: 0; height: 0; left: ${x}px; top: ${y}px;
-      transform: translate(-50%, -50%); pointer-events: none;
-    `;
-    btn.appendChild(ripple);
-
-    gsap.to(ripple, {
-      width: rect.width * 2.5,
-      height: rect.width * 2.5,
-      opacity: 0,
-      duration: 0.5,
-      ease: 'power2.out',
-      onComplete: () => ripple.remove(),
-    });
   };
 
   // ═══ ШАГ 1: отправка email ═══
@@ -108,6 +84,33 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
     }
   };
 
+  // Проверка кода на сервере перед переходом к сбросу пароля
+  const verifyResetCode = useCallback(async (fullCode) => {
+    setForgotLoading(true);
+    setForgotError('');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/verify-reset-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: forgotEmail, code: fullCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        triggerForgotError(data.error || 'Неверный код');
+        setForgotCodeDigits(['', '', '', '', '', '']);
+        setTimeout(() => forgotCodeRefs.current[0]?.focus(), 50);
+        return;
+      }
+      setForgotCode(fullCode);
+      onModeChange('forgot-reset');
+    } catch {
+      triggerForgotError('Не удалось подключиться к серверу');
+    } finally {
+      setForgotLoading(false);
+    }
+  }, [forgotEmail, onModeChange]);
+
   // ═══ ШАГ 2: ввод кода ═══
   const handleForgotCodeInput = (index, value) => {
     if (value.length > 1) {
@@ -120,8 +123,7 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
       const nextIdx = Math.min(index + digits.length, 5);
       forgotCodeRefs.current[nextIdx]?.focus();
       if (newCode.every((d) => d !== '')) {
-        setForgotCode(newCode.join(''));
-        onModeChange('forgot-reset');
+        verifyResetCode(newCode.join(''));
       }
       return;
     }
@@ -131,8 +133,7 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
     setForgotCodeDigits(newCode);
     if (digit && index < 5) forgotCodeRefs.current[index + 1]?.focus();
     if (newCode.every((d) => d !== '')) {
-      setForgotCode(newCode.join(''));
-      onModeChange('forgot-reset');
+      verifyResetCode(newCode.join(''));
     }
   };
 
@@ -268,7 +269,7 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
           error={forgotError}
           errorKey={forgotErrorKey}
         >
-          <div className="verify-code-grid">
+          <div className="verify-code-grid" role="group" aria-label="Код подтверждения">
             {forgotCodeDigits.map((digit, i) => (
               <input
                 key={i}
@@ -282,6 +283,7 @@ export default function ForgotPasswordFlow({ mode, onModeChange }) {
                 onKeyDown={(e) => handleForgotCodeKeyDown(i, e)}
                 onFocus={(e) => e.target.select()}
                 autoFocus={i === 0}
+                aria-label={`Цифра ${i + 1} из 6`}
               />
             ))}
           </div>

@@ -1,0 +1,58 @@
+/* ===== MentionSuggestions — Glass autocomplete popup ===== */
+
+.mention-suggestions {
+  position: absolute;
+  bottom: 100%;
+  left: var(--space-3, 12px);
+  right: var(--space-3, 12px);
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md, 14px);
+  background: var(--surface-solid, rgba(18, 16, 28, 0.95));
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25);
+  z-index: 50;
+  scrollbar-width: thin;
+}
+
+.mention-suggestions__header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.mention-suggestions__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm, 8px);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.mention-suggestions__item--active,
+.mention-suggestions__item:hover {
+  background: var(--surface-hover, rgba(255, 255, 255, 0.06));
+}
+
+.mention-suggestions__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

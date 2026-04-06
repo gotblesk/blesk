@@ -52,7 +52,9 @@ export default function VoiceRoomList({ onJoinRoom }) {
 
   useEffect(() => {
     loadRooms();
-    const iv = setInterval(loadRooms, 10000);
+    const iv = setInterval(() => {
+      if (!document.hidden) loadRooms();
+    }, 10000);
     return () => clearInterval(iv);
   }, [loadRooms]);
 
@@ -449,7 +451,7 @@ function CreateRoomModal({ newName, setNewName, newLimit, setNewLimit, onClose, 
               </motion.div>
               <motion.label className="vrl__modal-label" custom={3} variants={childV} initial="hidden" animate="visible">Лимит участников</motion.label>
               <motion.div className="vrl__modal-limit" custom={4} variants={childV} initial="hidden" animate="visible">
-                <input type="range" className="vrl__modal-range" min={2} max={50} value={newLimit} onChange={e => setNewLimit(+e.target.value)} />
+                <input type="range" className="vrl__modal-range" min={2} max={25} value={newLimit} onChange={e => setNewLimit(+e.target.value)} />
                 <motion.span className="vrl__modal-limit-val" key={newLimit} initial={{ scale: 1.3, opacity: 0.5 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.2 }}>
                   {newLimit}
                 </motion.span>

@@ -70,11 +70,11 @@ function csrfProtection(req, res, next) {
 }
 
 // Cleanup expired tokens every 30 min
-setInterval(() => {
+const csrfCleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of csrfTokens) {
     if (now - entry.createdAt > CSRF_TTL) csrfTokens.delete(key);
   }
 }, 30 * 60 * 1000);
 
-module.exports = { generateCsrfToken, validateCsrfToken, csrfProtection };
+module.exports = { generateCsrfToken, validateCsrfToken, csrfProtection, csrfCleanupInterval };

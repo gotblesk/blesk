@@ -171,12 +171,7 @@ setInterval(() => {
   }
 }, 300000);
 
-// [IMP-6] Очистка просроченных email кодов — раз в час
-setInterval(async () => {
-  try {
-    await prisma.emailCode.deleteMany({ where: { expiresAt: { lt: new Date() } } });
-  } catch (err) { logger.error({ err: err.message }, 'Failed to cleanup expired email codes'); }
-}, 60 * 60 * 1000);
+// [IMP-6] Очистка email кодов перенесена в index.js (единый интервал с graceful shutdown)
 
 // Генерация тега #0001–#9999
 function generateTag() {
@@ -699,6 +694,42 @@ router.post('/forgot-password', forgotPasswordIpLimiter, async (req, res) => {
   }
 });
 
+// POST /api/auth/verify-reset-code — проверить код перед показом формы сброса
+router.post('/verify-reset-code', resetPasswordIpLimiter, async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email и код обязательны' });
+    }
+
+    if (isCodeLocked(email)) {
+      return res.status(429).json({ error: 'Слишком много попыток. Подождите 10 минут.' });
+    }
+
+    const emailCode = await prisma.emailCode.findFirst({
+      where: {
+        email,
+        code: code.trim(),
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!emailCode) {
+      recordFailedAttempt(email);
+      return res.status(400).json({ error: 'Неверный или просроченный код' });
+    }
+
+    // Код валиден — НЕ удаляем и НЕ помечаем использованным (нужен для reset-password)
+    clearAttempts(email);
+    res.json({ valid: true });
+  } catch (err) {
+    logger.error({ err }, 'verify-reset-code error');
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
 // POST /api/auth/reset-password — проверить код и сменить пароль
 router.post('/reset-password', resetPasswordIpLimiter, async (req, res) => {
   try {
@@ -910,8 +941,18 @@ router.post('/2fa/verify', authenticate, async (req, res) => {
     const valid = authenticator.check(code, user.twoFactorSecret);
     if (!valid) return res.status(400).json({ error: 'Неверный код' });
 
-    await prisma.user.update({ where: { id: req.userId }, data: { twoFactorEnabled: true } });
-    res.json({ ok: true });
+    // Генерация 10 одноразовых кодов восстановления
+    const plainCodes = [];
+    for (let i = 0; i < 10; i++) {
+      plainCodes.push(crypto.randomBytes(4).toString('hex'));
+    }
+    const hashedCodes = await Promise.all(plainCodes.map(c => bcrypt.hash(c, 10)));
+
+    await prisma.user.update({
+      where: { id: req.userId },
+      data: { twoFactorEnabled: true, recoveryCodes: JSON.stringify(hashedCodes) },
+    });
+    res.json({ ok: true, recoveryCodes: plainCodes });
   } catch (err) {
     logger.error({ err }, '2fa/verify error');
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
@@ -930,7 +971,7 @@ router.post('/2fa/disable', authenticate, async (req, res) => {
     const valid = authenticator.check(code, user.twoFactorSecret);
     if (!valid) return res.status(400).json({ error: 'Неверный код' });
 
-    await prisma.user.update({ where: { id: req.userId }, data: { twoFactorEnabled: false, twoFactorSecret: null } });
+    await prisma.user.update({ where: { id: req.userId }, data: { twoFactorEnabled: false, twoFactorSecret: null, recoveryCodes: null } });
     res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, '2fa/disable error');
@@ -955,7 +996,27 @@ router.post('/2fa/login', async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user || !user.twoFactorEnabled) return res.status(400).json({ error: 'Ошибка' });
 
-    const valid = authenticator.check(code, user.twoFactorSecret);
+    // Проверка TOTP-кода или recovery-кода
+    let valid = authenticator.check(code, user.twoFactorSecret);
+    let usedRecovery = false;
+    if (!valid && user.recoveryCodes) {
+      // Попытка использовать recovery-код
+      const storedHashes = JSON.parse(user.recoveryCodes);
+      for (let i = 0; i < storedHashes.length; i++) {
+        const match = await bcrypt.compare(code, storedHashes[i]);
+        if (match) {
+          valid = true;
+          usedRecovery = true;
+          // Удалить использованный код
+          storedHashes.splice(i, 1);
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { recoveryCodes: storedHashes.length > 0 ? JSON.stringify(storedHashes) : null },
+          });
+          break;
+        }
+      }
+    }
     if (!valid) return res.status(400).json({ error: 'Неверный код' });
 
     const tokens = generateTokens(user.id);
@@ -969,7 +1030,7 @@ router.post('/2fa/login', async (req, res) => {
     // Системное уведомление о входе
     try {
       await prisma.notification.create({
-        data: { userId: user.id, type: 'system', title: 'Новый вход', body: 'Вход в аккаунт выполнен (2FA)' },
+        data: { userId: user.id, type: 'system', title: 'Новый вход', body: usedRecovery ? 'Вход через код восстановления (2FA)' : 'Вход в аккаунт выполнен (2FA)' },
       });
     } catch (err) { logger.error({ err: err.message }, 'Failed to create login notification'); }
 

@@ -30,12 +30,17 @@ function createReverbBuffer() {
   reverbBuffer = buffer;
 }
 
+let _cachedSoundsEnabled = null;
 function getVolume() {
+  if (_cachedSoundsEnabled !== null) return _cachedSoundsEnabled ? 0.18 : 0;
   try {
     const s = JSON.parse(localStorage.getItem('blesk-settings') || '{}');
-    return s.sounds === false ? 0 : 0.18;
+    _cachedSoundsEnabled = s.sounds !== false;
+    return _cachedSoundsEnabled ? 0.18 : 0;
   } catch { return 0.18; }
 }
+// Сбросить кэш при изменении настроек
+export function invalidateSoundCache() { _cachedSoundsEnabled = null; }
 
 // ═══ Premium tone generator ═══
 
@@ -204,6 +209,8 @@ export function soundRingtoneStart() {
   soundRingtoneStop();
   playRingtonePhrase();
   ringtoneInterval = setInterval(playRingtonePhrase, 3000);
+  // Safety stop: макс 60 сек звонка
+  setTimeout(() => soundRingtoneStop(), 60000);
 }
 
 export function soundRingtoneStop() {

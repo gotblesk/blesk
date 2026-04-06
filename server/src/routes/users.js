@@ -416,4 +416,42 @@ router.delete('/:id/block', authenticate, async (req, res) => {
   }
 });
 
+// DELETE /api/users/me — soft delete (помечает удалённым, данные стираются через 30 дней)
+// Примечание: поле deletedAt в модели User ещё не добавлено.
+// Необходимо добавить в schema.prisma:
+//   deletedAt DateTime? @map("deleted_at")
+// и выполнить `npx prisma db push` на сервере.
+router.delete('/me', authenticate, async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // Обезличиваем профиль — аккаунт станет «deleted_XXXXXXXX»
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        deletedAt: new Date(),
+        status: 'deleted',
+        username: `deleted_${userId.slice(0, 8)}`,
+        bio: null,
+        avatar: null,
+        customStatus: null,
+      },
+    });
+
+    // Отключить все сокеты пользователя
+    const io = req.app.locals.io;
+    if (io) {
+      for (const s of findUserSockets(userId)) {
+        s.emit('account:deleted');
+        s.disconnect(true);
+      }
+    }
+
+    res.json({ success: true, message: 'Аккаунт будет удалён через 30 дней' });
+  } catch (err) {
+    logger.error({ err: err.message }, 'Soft delete account error');
+    res.status(500).json({ error: 'Ошибка удаления' });
+  }
+});
+
 module.exports = router;

@@ -304,6 +304,12 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+.peditor__cell--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: default;
+}
+
 .peditor__cell-main {
   display: flex;
   align-items: center;

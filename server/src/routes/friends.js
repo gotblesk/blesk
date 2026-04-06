@@ -127,6 +127,45 @@ router.get('/requests/pending', authenticate, async (req, res) => {
   }
 });
 
+// Исходящие заявки (отправленные текущим пользователем)
+router.get('/requests/sent', authenticate, async (req, res) => {
+  try {
+    const requests = await prisma.friendRequest.findMany({
+      where: { senderId: req.userId, status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        receiver: { select: { id: true, username: true, hue: true, avatar: true } },
+      },
+    });
+    res.json(requests);
+  } catch (err) {
+    logger.error({ err }, 'GET /api/friends/requests/sent error');
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+// Отменить исходящую заявку
+router.delete('/requests/:id', authenticate, async (req, res) => {
+  try {
+    const request = await prisma.friendRequest.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!request || request.senderId !== req.userId) {
+      return res.status(404).json({ error: 'Заявка не найдена' });
+    }
+    if (request.status !== 'pending') {
+      return res.status(400).json({ error: 'Заявка уже обработана' });
+    }
+
+    await prisma.friendRequest.delete({ where: { id: req.params.id } });
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, 'DELETE /api/friends/requests/:id error');
+    res.status(500).json({ error: 'Ошибка отмены заявки' });
+  }
+});
+
 // Принять заявку
 router.post('/requests/:id/accept', authenticate, async (req, res) => {
   try {
@@ -251,8 +290,8 @@ router.get('/', authenticate, async (req, res) => {
         ],
       },
       include: {
-        sender: { select: { id: true, username: true, tag: true, hue: true, avatar: true, status: true } },
-        receiver: { select: { id: true, username: true, tag: true, hue: true, avatar: true, status: true } },
+        sender: { select: { id: true, username: true, tag: true, hue: true, avatar: true, status: true, lastSeenAt: true } },
+        receiver: { select: { id: true, username: true, tag: true, hue: true, avatar: true, status: true, lastSeenAt: true } },
       },
     });
 

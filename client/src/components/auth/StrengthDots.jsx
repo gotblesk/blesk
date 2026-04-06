@@ -11,7 +11,7 @@ export function getPasswordScore(pass) {
   return score;
 }
 
-const LABELS = ['', 'Слабый', 'Слабый', 'Средний', 'Сильный', 'Сильный'];
+const LABELS = ['', 'Очень слабый', 'Слабый', 'Средний', 'Сильный', 'Отличный'];
 
 function dotColor(score) {
   if (score <= 2) return 'var(--danger)';

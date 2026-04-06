@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowBendUpLeft, ArrowBendUpRight, SmileySticker, PencilSimple, Trash, PushPin } from '@phosphor-icons/react';
+import { ArrowBendUpLeft, ArrowBendUpRight, SmileySticker, PencilSimple, Trash, PushPin, ClipboardText, Flag } from '@phosphor-icons/react';
 import ReactionPicker from './ReactionPicker';
 import './MessageActionsPill.css';
 
-export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onDelete, onForward, onPin }) {
+export default function useMessageActions({ isOwn, isAdmin, onReply, onReact, onEdit, onDelete, onForward, onPin, onCopy, onReport }) {
   const [open, setOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -66,6 +66,9 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
           />
         )}
         <div className="msg-actions-pill__actions">
+          <button className="msg-actions-pill__btn" onClick={handleAction(onCopy)} title="Копировать">
+            <ClipboardText />
+          </button>
           <button className="msg-actions-pill__btn" onClick={handleAction(onReply)} title="Ответить">
             <ArrowBendUpLeft />
           </button>
@@ -79,14 +82,19 @@ export default function useMessageActions({ isOwn, onReply, onReact, onEdit, onD
             <SmileySticker />
           </button>
           {isOwn && (
-            <>
-              <button className="msg-actions-pill__btn" onClick={handleAction(onEdit)} title="Редактировать">
-                <PencilSimple />
-              </button>
-              <button className="msg-actions-pill__btn msg-actions-pill__btn--danger" onClick={handleAction(onDelete)} title="Удалить">
-                <Trash />
-              </button>
-            </>
+            <button className="msg-actions-pill__btn" onClick={handleAction(onEdit)} title="Редактировать">
+              <PencilSimple />
+            </button>
+          )}
+          {(isOwn || isAdmin) && (
+            <button className="msg-actions-pill__btn msg-actions-pill__btn--danger" onClick={handleAction(onDelete)} title="Удалить">
+              <Trash />
+            </button>
+          )}
+          {!isOwn && (
+            <button className="msg-actions-pill__btn msg-actions-pill__btn--danger" onClick={handleAction(onReport)} title="Пожаловаться">
+              <Flag />
+            </button>
           )}
         </div>
       </div>

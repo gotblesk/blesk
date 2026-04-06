@@ -52,6 +52,13 @@ const DEFAULTS = {
   largeControls: false,
   // [CRIT-4] Не беспокоить
   dnd: false,
+  dndStart: '23:00',
+  dndEnd: '08:00',
+  // Звук уведомлений
+  notifSound: 'default', // 'default' | 'soft' | 'bright' | 'none'
+  // Приватность: кто может писать/звонить
+  whoCanMessage: 'everyone', // 'everyone' | 'friends'
+  whoCanCall: 'everyone', // 'everyone' | 'friends' | 'nobody'
   // Масштаб интерфейса (0.8 — 1.2)
   uiZoom: 1,
 };

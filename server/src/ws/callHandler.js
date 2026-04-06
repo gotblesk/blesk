@@ -564,4 +564,16 @@ function clearCallRateLimits() {
   callRateLimits.clear();
 }
 
-module.exports = { callHandler, activeCalls, setUserSockets, clearCallRateLimits };
+// Accessor functions — encapsulate activeCalls Map
+function getActiveCall(chatId) {
+  return activeCalls.get(chatId);
+}
+
+function isInActiveCall(userId) {
+  for (const [, call] of activeCalls) {
+    if (call.participants.has(userId)) return true;
+  }
+  return false;
+}
+
+module.exports = { callHandler, activeCalls, getActiveCall, isInActiveCall, setUserSockets, clearCallRateLimits };

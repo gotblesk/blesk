@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
-// import { useVirtualizer } from '@tanstack/react-virtual'; // disabled: causes TDZ in minified builds
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { MagnifyingGlass, PushPin, BellSlash, ChatCircle } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import Avatar from '../ui/Avatar';
@@ -77,7 +77,12 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
     return items;
   }, [pinned, unread, rest]);
 
-  // Virtualization disabled (causes TDZ in minified builds)
+  const virtualizer = useVirtualizer({
+    count: flatList.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: (i) => flatList[i]?.type === 'label' ? 28 : 62,
+    overscan: 5,
+  });
 
   const renderChat = (chat) => {
     const user = chat.otherUser;
@@ -172,7 +177,28 @@ export default memo(function SidebarNormal({ activeTab, activeChatId, onSelectCh
             ))}
           </div>
         )}
-        {flatList.map(renderItem)}
+        {flatList.length > 0 && (
+          <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const item = flatList[virtualRow.index];
+              return (
+                <div
+                  key={item.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: virtualRow.size,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  {renderItem(item)}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {filtered.length === 0 && search.trim() && (
           <div className="sn__empty">Ничего не найдено</div>
         )}

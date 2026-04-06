@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import {
   ChartBar, UsersThree, Tag, ShieldWarning, Radio, Scroll,
-  ChatDots, Megaphone, Database, Desktop, ArrowLeft,
+  ChatDots, Megaphone, Database, Desktop, ArrowLeft, X,
 } from '@phosphor-icons/react';
+import { useAdminStore } from '../../store/adminStore';
 import Glass from '../ui/Glass';
 import AdminOverview from './sections/AdminOverview';
 import AdminUsers from './sections/AdminUsers';
@@ -17,20 +18,22 @@ import AdminServerSettings from './sections/AdminServerSettings';
 import './AdminPanel.css';
 
 const SECTIONS = [
-  { id: 'overview', icon: <ChartBar size={16} weight="regular" />, label: 'Обзор' },
-  { id: 'users', icon: <UsersThree size={16} weight="regular" />, label: 'Пользователи' },
-  { id: 'tags', icon: <Tag size={16} weight="regular" />, label: 'Теги' },
-  { id: 'moderation', icon: <ShieldWarning size={16} weight="regular" />, label: 'Модерация' },
-  { id: 'channels', icon: <Radio size={16} weight="regular" />, label: 'Каналы' },
-  { id: 'logs', icon: <Scroll size={16} weight="regular" />, label: 'Логи' },
-  { id: 'feedback', icon: <ChatDots size={16} weight="regular" />, label: 'Обратная связь' },
-  { id: 'broadcast', icon: <Megaphone size={16} weight="regular" />, label: 'Рассылка' },
-  { id: 'database', icon: <Database size={16} weight="regular" />, label: 'База данных' },
-  { id: 'server', icon: <Desktop size={16} weight="regular" />, label: 'Сервер' },
+  { id: 'overview', icon: <ChartBar size={18} weight="regular" />, label: 'Обзор' },
+  { id: 'users', icon: <UsersThree size={18} weight="regular" />, label: 'Пользователи' },
+  { id: 'tags', icon: <Tag size={18} weight="regular" />, label: 'Теги' },
+  { id: 'moderation', icon: <ShieldWarning size={18} weight="regular" />, label: 'Модерация' },
+  { id: 'channels', icon: <Radio size={18} weight="regular" />, label: 'Каналы' },
+  { id: 'logs', icon: <Scroll size={18} weight="regular" />, label: 'Логи' },
+  { id: 'feedback', icon: <ChatDots size={18} weight="regular" />, label: 'Обратная связь' },
+  { id: 'broadcast', icon: <Megaphone size={18} weight="regular" />, label: 'Рассылка' },
+  { id: 'database', icon: <Database size={18} weight="regular" />, label: 'База данных' },
+  { id: 'server', icon: <Desktop size={18} weight="regular" />, label: 'Сервер' },
 ];
 
 export default function AdminPanel({ onBack }) {
   const [section, setSection] = useState('overview');
+  const lastError = useAdminStore((s) => s.lastError);
+  const clearError = useAdminStore((s) => s.clearError);
 
   const renderSection = () => {
     switch (section) {
@@ -57,6 +60,15 @@ export default function AdminPanel({ onBack }) {
         </button>
         <div className="admin-screen__title">Панель управления</div>
       </div>
+
+      {lastError && (
+        <div className="admin-error-banner">
+          <span>{lastError.message}</span>
+          <button className="admin-error-banner__close" onClick={clearError}>
+            <X size={14} weight="bold" />
+          </button>
+        </div>
+      )}
 
       <div className="admin-screen__layout">
         <div className="admin-screen__sidebar">

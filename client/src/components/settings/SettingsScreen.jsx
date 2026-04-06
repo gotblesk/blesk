@@ -124,21 +124,28 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Загрузка данных текущего пользователя
+  // Загрузка данных текущего пользователя (re-fetch при открытии и при возврате на профиль)
+  const fetchUser = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/me`, {
+        headers: { ...getAuthHeaders() }, credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) setUser(data.user);
+      }
+    } catch { /* тихий fallback */ }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    (async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/auth/me`, {
-          headers: { ...getAuthHeaders() }, credentials: 'include',
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) setUser(data.user);
-        }
-      } catch { /* тихий fallback */ }
-    })();
-  }, [open]);
+    fetchUser();
+  }, [open, fetchUser]);
+
+  // Re-fetch user при возврате на вкладку профиля (синхронизация аватара)
+  useEffect(() => {
+    if (open && tab === 'general') fetchUser();
+  }, [tab, open, fetchUser]);
 
   // Escape закрывает настройки ТОЛЬКО если нет открытых ConfirmDialog
   useEffect(() => {
@@ -182,7 +189,7 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
     overlay.className = 'theme-wipe-overlay';
     overlay.style.setProperty('--wipe-x', xPct);
     overlay.style.setProperty('--wipe-y', yPct);
-    overlay.style.background = theme === 'light' ? '#f0f2f5' : '#08060f';
+    overlay.style.background = theme === 'light' ? '#f5f5f7' : '#0a0a0f';
     document.body.appendChild(overlay);
 
     const tl = gsap.timeline({
@@ -384,9 +391,9 @@ export default function SettingsScreen({ open, onClose, onLogout, onFeedback }) 
                     {tab === 'general' && <GeneralTab settings={settings} toggle={toggle} setValue={setValue} />}
                     {tab === 'appearance' && <AppearanceTab settings={settings} toggle={toggle} setValue={setValue} handleThemeChange={handleThemeChange} />}
                     {tab === 'chat' && <ChatTab settings={settings} toggle={toggle} setValue={setValue} />}
-                    {tab === 'notifications' && <NotificationsTab settings={settings} toggle={toggle} />}
+                    {tab === 'notifications' && <NotificationsTab settings={settings} toggle={toggle} setValue={setValue} />}
                     {tab === 'voice' && <VoiceTab />}
-                    {tab === 'privacy' && <PrivacyTab settings={settings} toggle={toggle} />}
+                    {tab === 'privacy' && <PrivacyTab settings={settings} toggle={toggle} setValue={setValue} />}
                     {tab === 'hotkeys' && <HotkeysTab />}
                     {tab === 'storage' && <StorageTab />}
                     {tab === 'accessibility' && <AccessibilityTab settings={settings} toggle={toggle} />}
@@ -606,6 +613,19 @@ function AppearanceTab({ settings, toggle, setValue, handleThemeChange }) {
               )}
             </motion.button>
           ))}
+          <label className="stg-accent-custom" title="Свой цвет">
+            <input
+              type="color"
+              value={settings.accentColor || '#c8ff00'}
+              onChange={(e) => {
+                setValue('accentColor', e.target.value);
+                document.documentElement.style.setProperty('--accent', e.target.value);
+                localStorage.setItem('blesk-accent-color', e.target.value);
+              }}
+              className="stg-accent-custom__input"
+            />
+            <span className="stg-accent-custom__label">Свой</span>
+          </label>
         </div>
       </SettingGroup>
 
@@ -675,13 +695,33 @@ function ChatTab({ settings, toggle, setValue }) {
   );
 }
 
-function NotificationsTab({ settings, toggle }) {
+function NotificationsTab({ settings, toggle, setValue }) {
+  const mutedChats = useChatStore((s) => s.mutedChats);
+  const clearAllMuted = useChatStore((s) => s.toggleMuteChat);
+  const mutedCount = mutedChats?.size || 0;
+
+  const handleUnmuteAll = () => {
+    if (!mutedChats || mutedChats.size === 0) return;
+    for (const chatId of [...mutedChats]) {
+      clearAllMuted(chatId);
+    }
+  };
+
   return (
     <div className="stg-tab">
       <SettingGroup title="Режим">
         <SettingRow icon={<Bell size={16} />} label="Не беспокоить" hint="Отключить все уведомления и звуки">
           <Toggle value={settings.dnd} onChange={() => toggle('dnd')} accent />
         </SettingRow>
+        {settings.dnd && (
+          <SettingRow icon={<Clock size={16} />} label="Расписание тишины" hint="Автоматический режим по времени">
+            <div className="stg-dnd-schedule">
+              <input type="time" value={settings.dndStart || '23:00'} onChange={e => setValue('dndStart', e.target.value)} className="stg-dnd-schedule__input" />
+              <span className="stg-dnd-schedule__sep">&mdash;</span>
+              <input type="time" value={settings.dndEnd || '08:00'} onChange={e => setValue('dndEnd', e.target.value)} className="stg-dnd-schedule__input" />
+            </div>
+          </SettingRow>
+        )}
       </SettingGroup>
       <SettingGroup title="Уведомления">
         <SettingRow icon={<Bell size={16} />} label="Уведомления" hint="Показывать уведомления">
@@ -690,6 +730,16 @@ function NotificationsTab({ settings, toggle }) {
         <SettingRow icon={<SpeakerHigh size={16} />} label="Звук уведомлений" hint="Воспроизводить звук">
           <Toggle value={settings.sounds} onChange={() => toggle('sounds')} />
         </SettingRow>
+        {settings.sounds && (
+          <SettingRow icon={<SpeakerHigh size={16} />} label="Тип звука" hint="Выберите стиль звука">
+            <select value={settings.notifSound || 'default'} onChange={e => setValue('notifSound', e.target.value)} className="stg-select">
+              <option value="default">По умолчанию</option>
+              <option value="soft">Мягкий</option>
+              <option value="bright">Яркий</option>
+              <option value="none">Без звука</option>
+            </select>
+          </SettingRow>
+        )}
       </SettingGroup>
       <SettingGroup title="Каналы">
         <SettingRow icon={<ChatDots size={16} />} label="Сообщения" hint="Новые сообщения в чатах">
@@ -700,6 +750,17 @@ function NotificationsTab({ settings, toggle }) {
         </SettingRow>
         <SettingRow icon={<At size={16} />} label="Упоминания" hint="Когда вас @упоминают">
           <Toggle value={settings.notifMentions} onChange={() => toggle('notifMentions')} />
+        </SettingRow>
+      </SettingGroup>
+      <SettingGroup title="Чаты без звука">
+        <SettingRow icon={<Bell size={16} />} label="Замьюченные чаты" hint={`${mutedCount} ${mutedCount === 1 ? 'чат' : mutedCount < 5 ? 'чата' : 'чатов'}`}>
+          <button
+            className="stg-unmute-btn"
+            onClick={handleUnmuteAll}
+            disabled={mutedCount === 0}
+          >
+            Включить все
+          </button>
         </SettingRow>
       </SettingGroup>
     </div>
@@ -724,6 +785,8 @@ function TwoFactorSection() {
   const [error, setError] = useState('');
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [recoveryCodes, setRecoveryCodes] = useState(null);
+  const [codesCopied, setCodesCopied] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -774,10 +837,16 @@ function TwoFactorSection() {
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Ошибка'); setStatus('setup'); return; }
       setIs2FAEnabled(true);
-      setStatus('idle');
       setCode('');
       setQrUrl('');
       setSecret('');
+      if (data.recoveryCodes) {
+        setRecoveryCodes(data.recoveryCodes);
+        setCodesCopied(false);
+        setStatus('recovery');
+      } else {
+        setStatus('idle');
+      }
     } catch {
       setError('Не удалось подключиться к серверу');
       setStatus('setup');
@@ -851,6 +920,37 @@ function TwoFactorSection() {
             >
               Отмена
             </button>
+          </div>
+        )}
+
+        {status === 'recovery' && recoveryCodes && (
+          <div className="tfa__recovery">
+            <div className="tfa__recovery-warning">
+              <Warning size={16} weight="bold" style={{ color: 'var(--warning, #f59e0b)', flexShrink: 0 }} />
+              <span>Сохраните эти коды в безопасном месте. Каждый код можно использовать только один раз.</span>
+            </div>
+            <div className="tfa__recovery-grid">
+              {recoveryCodes.map((c, i) => (
+                <span key={i} className="tfa__recovery-code">{c}</span>
+              ))}
+            </div>
+            <div className="tfa__input-row">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(recoveryCodes.join('\n'));
+                  setCodesCopied(true);
+                }}
+                className="tfa__btn tfa__btn--confirm"
+              >
+                {codesCopied ? 'Скопировано' : 'Копировать все'}
+              </button>
+              <button
+                onClick={() => { setRecoveryCodes(null); setStatus('idle'); }}
+                className="tfa__btn tfa__btn--confirm"
+              >
+                Готово
+              </button>
+            </div>
           </div>
         )}
 
@@ -1036,12 +1136,13 @@ function SessionsSection() {
   );
 }
 
-function PrivacyTab({ settings, toggle }) {
+function PrivacyTab({ settings, toggle, setValue }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteShowPw, setDeleteShowPw] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const privacyDebounce = useRef({});
 
   const handleDeleteAccount = async () => {
     if (!deletePassword) { setDeleteError('Введите пароль'); return; }
@@ -1077,34 +1178,58 @@ function PrivacyTab({ settings, toggle }) {
           <Toggle value={settings.showOnline} onChange={() => {
             const next = !settings.showOnline;
             toggle('showOnline');
-            fetch(`${API_URL}/api/users/me`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, credentials: 'include',
-              body: JSON.stringify({ showOnline: next }),
-            }).then(r => { if (!r.ok) toggle('showOnline'); }).catch(() => { toggle('showOnline'); });
+            clearTimeout(privacyDebounce.current.showOnline);
+            privacyDebounce.current.showOnline = setTimeout(() => {
+              fetch(`${API_URL}/api/users/me`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, credentials: 'include',
+                body: JSON.stringify({ showOnline: next }),
+              }).then(r => { if (!r.ok) toggle('showOnline'); }).catch(() => { toggle('showOnline'); });
+            }, 500);
           }} />
         </SettingRow>
         <SettingRow icon={<ChatDots size={16} />} label="Индикатор набора" hint="Другие видят когда вы печатаете">
           <Toggle value={settings.showTyping} onChange={() => {
             const next = !settings.showTyping;
             toggle('showTyping');
-            fetch(`${API_URL}/api/users/me`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, credentials: 'include',
-              body: JSON.stringify({ showTyping: next }),
-            }).then(r => { if (!r.ok) toggle('showTyping'); }).catch(() => { toggle('showTyping'); });
+            clearTimeout(privacyDebounce.current.showTyping);
+            privacyDebounce.current.showTyping = setTimeout(() => {
+              fetch(`${API_URL}/api/users/me`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, credentials: 'include',
+                body: JSON.stringify({ showTyping: next }),
+              }).then(r => { if (!r.ok) toggle('showTyping'); }).catch(() => { toggle('showTyping'); });
+            }, 500);
           }} />
         </SettingRow>
         <SettingRow icon={<Clock size={16} />} label="Время последнего визита" hint="Другие видят когда вы были в сети">
           <Toggle value={settings.showLastSeen} onChange={() => {
             const next = !settings.showLastSeen;
             toggle('showLastSeen');
-            fetch(`${API_URL}/api/users/me`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, credentials: 'include',
-              body: JSON.stringify({ showLastSeen: next }),
-            }).then(r => { if (!r.ok) toggle('showLastSeen'); }).catch(() => { toggle('showLastSeen'); });
+            clearTimeout(privacyDebounce.current.showLastSeen);
+            privacyDebounce.current.showLastSeen = setTimeout(() => {
+              fetch(`${API_URL}/api/users/me`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, credentials: 'include',
+                body: JSON.stringify({ showLastSeen: next }),
+              }).then(r => { if (!r.ok) toggle('showLastSeen'); }).catch(() => { toggle('showLastSeen'); });
+            }, 500);
           }} />
+        </SettingRow>
+      </SettingGroup>
+      <SettingGroup title="Контакты">
+        <SettingRow icon={<ChatDots size={16} />} label="Кто может писать" hint="Ограничить входящие сообщения">
+          <select value={settings.whoCanMessage || 'everyone'} onChange={e => setValue('whoCanMessage', e.target.value)} className="stg-select">
+            <option value="everyone">Все</option>
+            <option value="friends">Только друзья</option>
+          </select>
+        </SettingRow>
+        <SettingRow icon={<SpeakerHigh size={16} />} label="Кто может звонить" hint="Ограничить входящие звонки">
+          <select value={settings.whoCanCall || 'everyone'} onChange={e => setValue('whoCanCall', e.target.value)} className="stg-select">
+            <option value="everyone">Все</option>
+            <option value="friends">Только друзья</option>
+            <option value="nobody">Никто</option>
+          </select>
         </SettingRow>
       </SettingGroup>
       <SettingGroup title="Шифрование">
@@ -1202,13 +1327,17 @@ function HotkeysTab() {
   const [conflict, setConflict] = useState(null);
 
   const HOTKEY_LABELS = {
-    search: 'Поиск (Spotlight)',
-    tabChats: 'Вкладка: Чаты',
-    tabVoice: 'Вкладка: Голос',
-    tabChannels: 'Вкладка: Каналы',
-    tabFriends: 'Вкладка: Друзья',
-    toggleMute: 'Мут микрофона',
-    settings: 'Настройки',
+    search: { label: 'Поиск (Spotlight)' },
+    tabChats: { label: 'Вкладка: Чаты' },
+    tabVoice: { label: 'Вкладка: Голос' },
+    tabChannels: { label: 'Вкладка: Каналы' },
+    tabFriends: { label: 'Вкладка: Друзья' },
+    toggleMute: { label: 'Мут микрофона' },
+    settings: { label: 'Настройки' },
+    escape: { label: 'Закрыть', editable: false, key: 'Escape' },
+    chatSearch: { label: 'Поиск в чате', editable: false, key: 'Ctrl+F' },
+    focusMode: { label: 'Focus Mode', editable: false, key: 'Ctrl+Shift+F' },
+    editLast: { label: 'Редактировать последнее', editable: false, key: 'ArrowUp' },
   };
 
   useEffect(() => {
@@ -1229,7 +1358,8 @@ function HotkeysTab() {
           ([act, val]) => act !== editing && val === combo
         );
         if (conflictEntry) {
-          setConflict({ combo, existing: HOTKEY_LABELS[conflictEntry[0]] || conflictEntry[0] });
+          setHotkey(conflictEntry[0], '');
+          setConflict({ combo, existing: HOTKEY_LABELS[conflictEntry[0]]?.label || conflictEntry[0] });
           setTimeout(() => setConflict(null), 3000);
         } else {
           setConflict(null);
@@ -1246,22 +1376,25 @@ function HotkeysTab() {
   return (
     <div className="stg-tab">
       <SettingGroup title="Горячие клавиши">
-        {Object.entries(HOTKEY_LABELS).map(([action, label]) => (
-          <SettingRow
-            key={action}
-            icon={<Keyboard size={16} />}
-            label={label}
-            onClick={() => { setEditing(editing === action ? null : action); setConflict(null); }}
-          >
-            <motion.div
-              className={`stg-hotkey ${editing === action ? 'stg-hotkey--editing' : ''}`}
-              animate={editing === action ? { scale: [1, 1.05, 1] } : {}}
-              transition={{ duration: 0.8, repeat: Infinity }}
+        {Object.entries(HOTKEY_LABELS).map(([action, meta]) => {
+          const isFixed = meta.editable === false;
+          return (
+            <SettingRow
+              key={action}
+              icon={<Keyboard size={16} />}
+              label={meta.label}
+              onClick={isFixed ? undefined : () => { setEditing(editing === action ? null : action); setConflict(null); }}
             >
-              {editing === action ? 'Нажмите...' : hotkeys[action] || '—'}
-            </motion.div>
-          </SettingRow>
-        ))}
+              <motion.div
+                className={`stg-hotkey ${editing === action ? 'stg-hotkey--editing' : ''} ${isFixed ? 'stg-hotkey--fixed' : ''}`}
+                animate={editing === action ? { scale: [1, 1.05, 1] } : {}}
+                transition={{ duration: 0.8, repeat: Infinity }}
+              >
+                {isFixed ? meta.key : editing === action ? 'Нажмите...' : hotkeys[action] || '—'}
+              </motion.div>
+            </SettingRow>
+          );
+        })}
       </SettingGroup>
 
       <AnimatePresence>

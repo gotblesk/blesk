@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { PencilSimple, ChatCircle, UserPlus, Check, Calendar, Clock, Lock, Warning, ProhibitInset, UserMinus } from '@phosphor-icons/react';
+import { PencilSimple, ChatCircle, UserPlus, Check, Calendar, Clock, Lock, Warning, ProhibitInset, UserMinus, Phone, UsersThree } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import AvatarLightbox from './AvatarLightbox';
 import API_URL from '../../config';
@@ -285,6 +285,19 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
           </div>
         </motion.div>
 
+        {/* Shared groups / media — placeholder */}
+        {mode !== 'own' && (
+          <motion.div className="pcard__placeholders" variants={childV}>
+            <div className="pcard__placeholder" data-testid="profile-card-shared-placeholder">
+              <span className="pcard__placeholder-label">Общие чаты</span>
+              <div className="pcard__placeholder-body">
+                <UsersThree size={13} weight="regular" />
+                <span>Скоро</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Join date */}
         {joinDate && (
           <motion.div className="pcard__chip" variants={childV}>
@@ -311,15 +324,25 @@ export default function ProfileCard({ mode = 'other', userId, user: ownUser, onE
             </div>
           ) : user.isFriend ? (
             <>
-              <motion.button
-                className="pcard__btn pcard__btn--primary"
-                onClick={handleMessage}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                data-testid="profile-card-action-btn"
-              >
-                <ChatCircle size={15} /> Написать
-              </motion.button>
+              <div className="pcard__actions-row">
+                <motion.button
+                  className="pcard__btn pcard__btn--primary"
+                  onClick={handleMessage}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  data-testid="profile-card-action-btn"
+                >
+                  <ChatCircle size={15} /> Написать
+                </motion.button>
+                <motion.button
+                  className="pcard__btn pcard__btn--outline"
+                  onClick={() => { /* TODO: initiate call */ }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <Phone size={15} /> Позвонить
+                </motion.button>
+              </div>
               <div className="pcard__actions-row">
                 <motion.button
                   className="pcard__btn-sm pcard__btn-sm--ghost"

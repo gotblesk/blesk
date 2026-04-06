@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UsersThree, Tray, MagnifyingGlass, Check, X, UserPlus, ChatCircle, Phone, Trash, ProhibitInset, MinusCircle } from '@phosphor-icons/react';
+import ContextMenu from '../ui/ContextMenu';
 import Avatar from '../ui/Avatar';
 import ProfilePopover from '../profile/ProfilePopover';
 import { FriendListSkeleton } from '../ui/GlassSkeleton';
 import EmptyState from '../ui/EmptyState';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import { useCallStore } from '../../store/callStore';
+import { useChatStore } from '../../store/chatStore';
 import API_URL from '../../config';
 import { getAuthHeaders } from '../../utils/authFetch';
 import './FriendsScreen.css';
@@ -104,6 +106,7 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
 
   const [friends, setFriends] = useState([]);
   const [pending, setPending] = useState([]);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
   const [blocked, setBlocked] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -114,6 +117,7 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
   const [profilePopover, setProfilePopover] = useState({ open: false, userId: null, anchorRef: null });
   const [filter, setFilter] = useState('all');
   const [removeConfirm, setRemoveConfirm] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
 
   const debouncedQuery = useDebounce(searchQuery, 300);
 
@@ -137,6 +141,16 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
     } catch { setError('Не удалось загрузить заявки'); }
   }, []);
 
+  const loadOutgoing = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/friends/requests/sent`, { headers: getHeaders(), credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setOutgoingRequests(Array.isArray(data) ? data : []);
+      }
+    } catch { /* тихий fallback */ }
+  }, []);
+
   const loadBlocked = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/users/blocked`, { headers: getHeaders(), credentials: 'include' });
@@ -147,7 +161,7 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
     } catch { /* тихий fallback */ }
   }, []);
 
-  useEffect(() => { loadFriends(); loadPending(); }, [loadFriends, loadPending]);
+  useEffect(() => { loadFriends(); loadPending(); loadOutgoing(); }, [loadFriends, loadPending, loadOutgoing]);
 
   useEffect(() => {
     if (tab === 'blocked') loadBlocked();
@@ -160,11 +174,13 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
 
     const handleFriendRequest = () => {
       loadPending();
+      loadOutgoing();
     };
 
     const handleFriendAccepted = () => {
       loadFriends();
       loadPending();
+      loadOutgoing();
     };
 
     const handleFriendRemoved = (data) => {
@@ -184,7 +200,7 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
       socket.off('friend:accepted', handleFriendAccepted);
       socket.off('friend:removed', handleFriendRemoved);
     };
-  }, [socketRef, loadFriends, loadPending]);
+  }, [socketRef, loadFriends, loadPending, loadOutgoing]);
 
   useEffect(() => {
     if (tab !== 'search' || debouncedQuery.length < 2) { setSearchResults([]); return; }
@@ -220,6 +236,14 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
     } catch { setError('Ошибка'); }
   };
 
+  const cancelOutgoingRequest = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/api/friends/requests/${id}`, { method: 'DELETE', headers: getHeaders(), credentials: 'include' });
+      if (res.ok) setOutgoingRequests(prev => prev.filter(r => r.id !== id));
+      else setError('Не удалось отменить заявку');
+    } catch { setError('Ошибка соединения'); }
+  };
+
   const removeFriend = async (friendId) => {
     try {
       const res = await fetch(`${API_URL}/api/friends/${friendId}`, { method: 'DELETE', headers: getHeaders(), credentials: 'include' });
@@ -227,6 +251,16 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
       else setError('Не удалось удалить из друзей');
     } catch { setError('Ошибка соединения'); }
     setRemoveConfirm(null);
+  };
+
+  const blockUser = async (userId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/friends/${userId}/block`, { method: 'POST', headers: getHeaders(), credentials: 'include' });
+      if (res.ok) {
+        setFriends(prev => prev.filter(f => f.id !== userId));
+        loadBlocked();
+      } else setError('Не удалось заблокировать');
+    } catch { setError('Ошибка соединения'); }
   };
 
   const unblockUser = async (userId) => {
@@ -237,11 +271,29 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
     } catch { setError('Ошибка соединения'); }
   };
 
-  const handleCall = (friendId) => {
+  const handleCall = async (friendId) => {
     const socket = socketRef?.current;
     if (!socket) return;
-    useCallStore.getState().initiateCall(friendId);
-    socket.emit('call:initiate', { chatId: friendId, type: 'personal' });
+    // Найти существующий DM или создать новый — нужен roomId, не friendId
+    const existing = useChatStore.getState().chats.find(
+      c => (c.type === 'chat' || c.type === 'dm') && c.otherUser?.id === friendId
+    );
+    let chatId = existing?.id;
+    if (!chatId) {
+      try {
+        const res = await fetch(`${API_URL}/api/chats/dm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          credentials: 'include',
+          body: JSON.stringify({ userId: friendId }),
+        });
+        const data = await res.json();
+        chatId = data.id;
+      } catch { return; }
+    }
+    if (!chatId) return;
+    useCallStore.getState().initiateCall(chatId);
+    socket.emit('call:initiate', { chatId, type: 'personal' });
   };
 
   const isFriend = (userId) => friends.some(f => f.id === userId);
@@ -324,7 +376,7 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
                 <div className="fr__list">
                   <div className="fr__section-label">Все друзья — {filteredFriends.length}</div>
                   {filteredFriends.map((friend, i) => (
-                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })} role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })}>
+                    <motion.div key={friend.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible" onClick={() => setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })} role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setProfilePopover({ open: true, userId: friend.id, anchorRef: { current: null } })} onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, friend }); }}>
                       <Avatar user={friend} size={36} showOnline={friend.status === 'online' || friend.status === 'dnd'} />
                       <div className="fr__item-info">
                         <div className="fr__item-name">{friend.username}<span className="fr__item-tag">{friend.tag}</span></div>
@@ -345,6 +397,9 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
                         <button className="fr__quick-action fr__quick-action--danger" onClick={(e) => { e.stopPropagation(); setRemoveConfirm(friend); }} title="Удалить из друзей" aria-label="Удалить из друзей">
                           <Trash size={16} weight="regular" />
                         </button>
+                        <button className="fr__quick-action fr__quick-action--danger" onClick={(e) => { e.stopPropagation(); blockUser(friend.id); }} title="Заблокировать" aria-label="Заблокировать">
+                          <ProhibitInset size={16} weight="regular" />
+                        </button>
                       </div>
                     </motion.div>
                   ))}
@@ -355,29 +410,55 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
 
           {tab === 'requests' && (
             <motion.div key="requests" variants={tabV} initial="initial" animate="animate" exit="exit">
-              {pending.length === 0 ? (
-                <EmptyState icon={<Tray size={40} weight="regular" />} text="Нет входящих заявок" hint="Когда кто-то добавит тебя в друзья — заявка появится здесь" />
+              {pending.length === 0 && outgoingRequests.length === 0 ? (
+                <EmptyState icon={<Tray size={40} weight="regular" />} text="Нет заявок" hint="Когда кто-то добавит тебя в друзья — заявка появится здесь" />
               ) : (
                 <div className="fr__list">
-                  {pending.map((req, i) => (
-                    <motion.div key={req.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible">
-                      <div className="fr__item-click" onClick={() => setProfilePopover({ open: true, userId: req.sender.id, anchorRef: { current: null } })}>
-                        <Avatar user={req.sender} size={36} />
-                        <div className="fr__item-info">
-                          <div className="fr__item-name">{req.sender.username}</div>
-                          <div className="fr__item-hint">Хочет добавить вас в друзья</div>
-                        </div>
-                      </div>
-                      <div className="fr__item-actions">
-                        <motion.button className="fr__act fr__act--accept" onClick={() => acceptRequest(req.id)} whileTap={{ scale: 0.9 }} title="Принять" aria-label="Принять заявку в друзья">
-                          <Check size={16} weight="regular" />
-                        </motion.button>
-                        <motion.button className="fr__act fr__act--decline" onClick={() => declineRequest(req.id)} whileTap={{ scale: 0.9 }} title="Отклонить" aria-label="Отклонить заявку в друзья">
-                          <X size={16} weight="regular" />
-                        </motion.button>
-                      </div>
-                    </motion.div>
-                  ))}
+                  {pending.length > 0 && (
+                    <>
+                      <div className="fr__section-label">Входящие — {pending.length}</div>
+                      {pending.map((req, i) => (
+                        <motion.div key={req.id} className="fr__item" custom={i} variants={itemV} initial="hidden" animate="visible">
+                          <div className="fr__item-click" onClick={() => setProfilePopover({ open: true, userId: req.sender.id, anchorRef: { current: null } })}>
+                            <Avatar user={req.sender} size={36} />
+                            <div className="fr__item-info">
+                              <div className="fr__item-name">{req.sender.username}</div>
+                              <div className="fr__item-hint">Хочет добавить вас в друзья</div>
+                            </div>
+                          </div>
+                          <div className="fr__item-actions">
+                            <motion.button className="fr__act fr__act--accept" onClick={() => acceptRequest(req.id)} whileTap={{ scale: 0.9 }} title="Принять" aria-label="Принять заявку в друзья">
+                              <Check size={16} weight="regular" />
+                            </motion.button>
+                            <motion.button className="fr__act fr__act--decline" onClick={() => declineRequest(req.id)} whileTap={{ scale: 0.9 }} title="Отклонить" aria-label="Отклонить заявку в друзья">
+                              <X size={16} weight="regular" />
+                            </motion.button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </>
+                  )}
+                  {outgoingRequests.length > 0 && (
+                    <>
+                      <div className="fr__section-label">Исходящие — {outgoingRequests.length}</div>
+                      {outgoingRequests.map((req, i) => (
+                        <motion.div key={req.id} className="fr__item" custom={i + pending.length} variants={itemV} initial="hidden" animate="visible">
+                          <div className="fr__item-click" onClick={() => setProfilePopover({ open: true, userId: req.receiver.id, anchorRef: { current: null } })}>
+                            <Avatar user={req.receiver} size={36} />
+                            <div className="fr__item-info">
+                              <div className="fr__item-name">{req.receiver.username}</div>
+                              <div className="fr__item-hint">Ожидает ответа</div>
+                            </div>
+                          </div>
+                          <div className="fr__item-actions">
+                            <motion.button className="fr__act fr__act--decline" onClick={() => cancelOutgoingRequest(req.id)} whileTap={{ scale: 0.9 }} title="Отменить" aria-label="Отменить исходящую заявку">
+                              <X size={16} weight="regular" />
+                            </motion.button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -447,6 +528,23 @@ export default function FriendsScreen({ onBack, onOpenChat, socketRef }) {
           )}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+            items={[
+              { label: 'Написать', icon: <ChatCircle size={15} weight="regular" />, onClick: () => onOpenChat?.(null, contextMenu.friend.id) },
+              { label: 'Позвонить', icon: <Phone size={15} weight="regular" />, onClick: () => handleCall(contextMenu.friend.id) },
+              { divider: true },
+              { label: 'Заблокировать', icon: <ProhibitInset size={15} weight="regular" />, danger: true, onClick: () => blockUser(contextMenu.friend.id) },
+              { label: 'Удалить из друзей', icon: <Trash size={15} weight="regular" />, danger: true, onClick: () => setRemoveConfirm(contextMenu.friend) },
+            ]}
+          />
+        )}
+      </AnimatePresence>
 
       <ProfilePopover anchorRef={profilePopover.anchorRef} userId={profilePopover.userId} isOpen={profilePopover.open} onClose={() => setProfilePopover({ open: false, userId: null, anchorRef: null })} onAddFriend={sendRequest} onOpenChat={(userId) => { setProfilePopover({ open: false, userId: null, anchorRef: null }); onOpenChat?.(null, userId); }} />
 

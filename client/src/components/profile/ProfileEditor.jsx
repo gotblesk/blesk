@@ -34,6 +34,11 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
   const [emailCode, setEmailCode] = useState('');
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailChangeError, setEmailChangeError] = useState('');
+  const [emailChangeSaving, setEmailChangeSaving] = useState(false);
+  const [emailChangeSuccess, setEmailChangeSuccess] = useState(false);
 
   // Password
   const [openCell, setOpenCell] = useState(null);
@@ -76,6 +81,10 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
       setEmailStep('display');
       setEmailCode('');
       setEmailError('');
+      setEditingEmail(false);
+      setNewEmail('');
+      setEmailChangeError('');
+      setEmailChangeSuccess(false);
       setPwStep('idle');
       setPwCurrent('');
       setPwNew('');
@@ -183,6 +192,38 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
       } else setEmailError(d.error || 'Неверный код');
     } catch { setEmailError('Ошибка'); }
     finally { setEmailSending(false); }
+  };
+
+  // Email change
+  const handleEmailChange = async () => {
+    setEmailChangeError('');
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      setEmailChangeError('Введите корректный email');
+      return;
+    }
+    if (newEmail.trim() === user?.email) {
+      setEmailChangeError('Это ваш текущий email');
+      return;
+    }
+    setEmailChangeSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/api/users/me`, {
+        method: 'PUT', headers: getH(), credentials: 'include',
+        body: JSON.stringify({ email: newEmail.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onUserUpdate?.({ email: newEmail.trim(), emailVerified: false });
+        setEditingEmail(false);
+        setNewEmail('');
+        setEmailChangeSuccess(true);
+        setTimeout(() => setEmailChangeSuccess(false), 3000);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setEmailChangeError(err.error || 'Ошибка');
+      }
+    } catch { setEmailChangeError('Нет подключения'); }
+    finally { setEmailChangeSaving(false); }
   };
 
   // Password change
@@ -355,7 +396,7 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
             <div className="peditor__section-label">Шапка профиля</div>
             <div className="peditor__banner-upload" onClick={() => bannerInputRef.current?.click()}>
               {user?.banner ? (
-                <img className="peditor__banner-preview" src={`${API_URL}/uploads/banners/${user.banner}`} alt="" />
+                <img className="peditor__banner-preview" src={`${API_URL}/uploads/banners/${encodeURIComponent(user.banner)}`} alt="" />
               ) : (
                 <div className="peditor__banner-empty">
                   <ImageSquare size={24} weight="regular" />
@@ -400,12 +441,48 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
               onToggle={() => setOpenCell(openCell === 'email' ? null : 'email')}
               testId="profile-editor-email-cell"
             >
-              {user?.emailVerified ? (
-                <span className="peditor__hint">Email подтверждён</span>
+              {editingEmail ? (
+                <>
+                  <span className="peditor__hint">Новый email</span>
+                  <div className="peditor__cell-row">
+                    <input
+                      className="peditor__cell-input"
+                      type="email"
+                      value={newEmail}
+                      onChange={e => setNewEmail(e.target.value)}
+                      placeholder="новый@email.com"
+                      autoFocus
+                      onKeyDown={e => { if (e.key === 'Enter') handleEmailChange(); }}
+                    />
+                  </div>
+                  {emailChangeError && <span className="peditor__err">{emailChangeError}</span>}
+                  <div className="peditor__cell-row">
+                    <motion.button className="peditor__cell-action" onClick={handleEmailChange} disabled={emailChangeSaving} whileTap={{ scale: 0.95 }}>
+                      {emailChangeSaving ? '...' : 'Сохранить'}
+                    </motion.button>
+                    <motion.button className="peditor__cell-action peditor__cell-action--ghost" onClick={() => { setEditingEmail(false); setNewEmail(''); setEmailChangeError(''); }} whileTap={{ scale: 0.95 }}>
+                      Отмена
+                    </motion.button>
+                  </div>
+                </>
+              ) : emailChangeSuccess ? (
+                <span className="peditor__ok"><Check size={13} weight="regular" /> Email обновлён, подтвердите</span>
+              ) : user?.emailVerified ? (
+                <>
+                  <span className="peditor__hint">Email подтверждён</span>
+                  <motion.button className="peditor__cell-action" onClick={() => { setEditingEmail(true); setNewEmail(''); }} whileTap={{ scale: 0.95 }}>
+                    Изменить
+                  </motion.button>
+                </>
               ) : emailStep === 'display' ? (
-                <motion.button className="peditor__cell-action" onClick={handleSendEmailCode} disabled={emailSending} whileTap={{ scale: 0.95 }}>
-                  {emailSending ? '...' : 'Отправить код подтверждения'}
-                </motion.button>
+                <>
+                  <motion.button className="peditor__cell-action" onClick={handleSendEmailCode} disabled={emailSending} whileTap={{ scale: 0.95 }}>
+                    {emailSending ? '...' : 'Отправить код подтверждения'}
+                  </motion.button>
+                  <motion.button className="peditor__cell-action peditor__cell-action--ghost" onClick={() => { setEditingEmail(true); setNewEmail(''); }} whileTap={{ scale: 0.95 }}>
+                    Изменить email
+                  </motion.button>
+                </>
               ) : (
                 <>
                   <span className="peditor__hint">Код отправлен на {user?.email}</span>
@@ -418,20 +495,18 @@ export default function ProfileEditor({ open, onClose, user, onUserUpdate }) {
               )}
             </EditorCell>
 
-            {/* Phone */}
-            <EditorCell
-              icon={<DeviceMobile size={15} weight="regular" />}
-              iconBg="color-mix(in srgb, var(--edit-color, #888) 6%, transparent)"
-              iconColor="var(--edit-color, #888)"
-              label="Телефон"
-              value={user?.phone || 'Не привязан'}
-              muted={!user?.phone}
-              isOpen={openCell === 'phone'}
-              onToggle={() => setOpenCell(openCell === 'phone' ? null : 'phone')}
-              testId="profile-editor-phone-cell"
-            >
-              <span className="peditor__hint">Привязка скоро будет доступна</span>
-            </EditorCell>
+            {/* Phone — disabled, coming soon */}
+            <div className="peditor__cell peditor__cell--disabled" data-testid="profile-editor-phone-cell">
+              <div className="peditor__cell-main">
+                <div className="peditor__cell-ico" style={{ background: 'color-mix(in srgb, var(--edit-color, #888) 6%, transparent)', color: 'var(--edit-color, #888)' }}>
+                  <DeviceMobile size={15} weight="regular" />
+                </div>
+                <div className="peditor__cell-info">
+                  <div className="peditor__cell-key">Телефон</div>
+                  <div className="peditor__cell-val peditor__cell-val--muted">Привязка номера телефона &mdash; в разработке</div>
+                </div>
+              </div>
+            </div>
 
             {/* Password */}
             <EditorCell

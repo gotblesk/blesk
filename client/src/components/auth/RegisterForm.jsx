@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Envelope } from '@phosphor-icons/react';
-import gsap from 'gsap';
 import GravityCard from './GravityCard';
 import PasswordCard from './PasswordCard';
 import { getPasswordScore } from './StrengthDots';
+import useRipple from '../../hooks/useRipple';
 import API_URL from '../../config';
 
 export default function RegisterForm({ onModeChange, onVerifyRequired, onLogin }) {
@@ -15,6 +15,7 @@ export default function RegisterForm({ onModeChange, onVerifyRequired, onLogin }
   const [error, setError] = useState('');
   const [errorKey, setErrorKey] = useState(0);
   const [loading, setLoading] = useState(false);
+  const handleRipple = useRipple();
 
   const triggerError = (msg) => {
     setError(msg);
@@ -55,31 +56,6 @@ export default function RegisterForm({ onModeChange, onVerifyRequired, onLogin }
       return false;
     }
     return true;
-  };
-
-  const handleRipple = (e) => {
-    const btn = e.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const ripple = document.createElement('div');
-    ripple.style.cssText = `
-      position: absolute; border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,255,255,0.25), transparent);
-      width: 0; height: 0; left: ${x}px; top: ${y}px;
-      transform: translate(-50%, -50%); pointer-events: none;
-    `;
-    btn.appendChild(ripple);
-
-    gsap.to(ripple, {
-      width: rect.width * 2.5,
-      height: rect.width * 2.5,
-      opacity: 0,
-      duration: 0.5,
-      ease: 'power2.out',
-      onComplete: () => ripple.remove(),
-    });
   };
 
   const handleSubmit = async (e) => {

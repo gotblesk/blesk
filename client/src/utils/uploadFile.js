@@ -1,13 +1,18 @@
 import API_URL from '../config';
 import { getAuthHeaders } from './authFetch';
 
-export default function uploadFile(chatId, file, { text, replyToId, onProgress } = {}) {
+export default function uploadFile(chatId, file, { text, replyToId, onProgress, encrypted, encryptedMeta } = {}) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
     formData.append('file', file);
     if (text) formData.append('text', text);
     if (replyToId) formData.append('replyToId', replyToId);
+    // E2E: передаём флаг и зашифрованные метаданные (filename + mimeType)
+    if (encrypted) {
+      formData.append('encrypted', 'true');
+      if (encryptedMeta) formData.append('encryptedMeta', encryptedMeta);
+    }
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {

@@ -1,5 +1,5 @@
 // Global sound feedback hook for buttons and interactive elements
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { soundClick, soundHover } from '../utils/sounds';
 
 let lastHoverTime = 0;
@@ -16,8 +16,8 @@ export function useSoundFeedback() {
     soundClick();
   }, []);
 
-  // Returns props to spread onto interactive elements
-  const soundProps = useCallback(() => ({
+  // Memoized props object — stable reference, safe to spread onto elements
+  const soundProps = useMemo(() => ({
     onMouseEnter: onSoundHover,
     onMouseDown: onSoundClick,
   }), [onSoundHover, onSoundClick]);

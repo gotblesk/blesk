@@ -64,16 +64,18 @@ export default function ChannelView({ channelId, onBack, user, socketRef }) {
 
   const handleMuteToggle = useCallback(async () => {
     const next = !isMuted;
-    setIsMuted(next);
-    localStorage.setItem(`ch_muted_${channelId}`, String(next));
     try {
-      await fetch(`${API_URL}/api/channels/${channelId}/mute`, {
+      const res = await fetch(`${API_URL}/api/channels/${channelId}/mute`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         credentials: 'include',
         body: JSON.stringify({ isMuted: next }),
       });
-    } catch { /* ignore, UI уже обновлён */ }
+      if (res.ok) {
+        setIsMuted(next);
+        localStorage.setItem(`ch_muted_${channelId}`, String(next));
+      }
+    } catch { /* сервер недоступен — не меняем UI */ }
   }, [channelId, isMuted]);
 
   useEffect(() => {

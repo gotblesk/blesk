@@ -6,7 +6,10 @@ import CreateChatModal from './CreateChatModal';
 import './ChatHub.css';
 
 export default function ChatHub({ onOpenChat, visible, openChatIds = [] }) {
-  const { chats, loadChats, onlineUsers, userStatuses } = useChatStore();
+  const chats = useChatStore((s) => s.chats);
+  const loadChats = useChatStore((s) => s.loadChats);
+  const onlineUsers = useChatStore((s) => s.onlineUsers);
+  const userStatuses = useChatStore((s) => s.userStatuses);
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const cardRefs = useRef({});

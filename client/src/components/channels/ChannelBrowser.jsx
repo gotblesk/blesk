@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, MagnifyingGlass, Newspaper, GameController, MusicNotes, Palette, Cpu, DotsThree, Sparkle, GraduationCap, FilmSlate, Trophy, Atom, Info } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, Newspaper, GameController, MusicNotes, Palette, Cpu, DotsThree, Sparkle, GraduationCap, FilmSlate, Trophy, Atom, LinkSimple } from '@phosphor-icons/react';
 import ChannelCard from './ChannelCard';
 import CreateChannelModal from './CreateChannelModal';
 import { ChannelGridSkeleton } from '../ui/GlassSkeleton';
@@ -186,9 +186,10 @@ export default function ChannelBrowser({ onOpenChannel }) {
       </div>
 
       {/* Присоединиться по ссылке — в разработке */}
-      <button className="mo__invite-stub" onClick={() => showToast('Функция в разработке')}>
-        <Info size={14} weight="regular" />
+      <button className="mo__invite-stub" onClick={() => showToast('Ссылки-приглашения скоро будут доступны')}>
+        <LinkSimple size={15} weight="regular" />
         <span>Присоединиться по ссылке-приглашению</span>
+        <span className="mo__invite-badge">Скоро</span>
       </button>
 
       {/* Toast */}

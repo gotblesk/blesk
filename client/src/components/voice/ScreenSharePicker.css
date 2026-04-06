@@ -147,6 +147,28 @@
 .ssp__name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ssp__icon { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; }
 .ssp__empty { grid-column: 1 / -1; text-align: center; color: rgba(255,255,255,0.3); padding: 40px; }
+/* System audio toggle */
+.ssp__audio-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+.ssp__audio-toggle:hover {
+  color: rgba(255,255,255,0.8);
+}
+.ssp__audio-toggle input[type="checkbox"] {
+  accent-color: var(--accent, #c8ff00);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
 .ssp__footer {
   display: flex;
   justify-content: flex-end;
@@ -226,6 +248,13 @@
 
 [data-theme="light"] .ssp__empty {
   color: var(--text-tertiary);
+}
+
+[data-theme="light"] .ssp__audio-toggle {
+  color: var(--text-secondary);
+}
+[data-theme="light"] .ssp__audio-toggle:hover {
+  color: var(--text-primary);
 }
 
 [data-theme="light"] .ssp__btn--cancel {

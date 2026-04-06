@@ -118,3 +118,73 @@
   color: var(--danger, #ef4444);
   opacity: 0.75;
 }
+
+/* ═══ Video player with play overlay [5.3.1] ═══ */
+.media-msg__video-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.media-msg__video-container {
+  position: relative;
+  display: inline-block;
+  max-width: min(400px, 100%);
+  border-radius: var(--radius-sm, 8px);
+  overflow: hidden;
+}
+.media-msg__video {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: var(--radius-sm, 8px);
+}
+.media-msg__play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.3);
+  color: rgba(255,255,255,0.9);
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: var(--radius-sm, 8px);
+}
+.media-msg__play-overlay:hover {
+  background: rgba(0,0,0,0.45);
+}
+.media-msg__video-info {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 0 2px;
+}
+.media-msg__video-info .media-msg__file-name {
+  font-size: 11px;
+}
+.media-msg__video-info .media-msg__file-size {
+  font-size: 10px;
+}
+
+/* Audio wrap */
+.media-msg__audio-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.media-msg__audio {
+  max-width: min(320px, 100%);
+  height: 32px;
+}
+.media-msg__audio-info {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 0 2px;
+}
+.media-msg__audio-info .media-msg__file-name {
+  font-size: 11px;
+}
+.media-msg__audio-info .media-msg__file-size {
+  font-size: 10px;
+}

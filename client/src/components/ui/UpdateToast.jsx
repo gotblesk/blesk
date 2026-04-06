@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { DownloadSimple, Sparkle, X } from '@phosphor-icons/react';
+import { DownloadSimple, Sparkle, WarningCircle, X } from '@phosphor-icons/react';
 import './UpdateToast.css';
 
 // Форматирование размера файла
@@ -18,13 +18,15 @@ function formatSpeed(bytesPerSecond) {
 }
 
 export default function UpdateToast() {
-  const [state, setState] = useState('idle'); // idle | downloading | ready
+  const [state, setState] = useState('idle'); // idle | downloading | ready | error
   const [version, setVersion] = useState('');
+  const [releaseNotes, setReleaseNotes] = useState('');
   const [progress, setProgress] = useState(0);
   const [speed, setSpeed] = useState(0);
   const [transferred, setTransferred] = useState(0);
   const [total, setTotal] = useState(0);
   const [dismissed, setDismissed] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const registeredRef = useRef(false);
 
@@ -33,8 +35,11 @@ export default function UpdateToast() {
     if (!window.blesk?.update) return;
     registeredRef.current = true;
 
-    window.blesk.update.onAvailable((v) => {
-      setVersion(v);
+    window.blesk.update.onAvailable((data) => {
+      const ver = typeof data === 'string' ? data : data?.version || '';
+      const notes = typeof data === 'object' ? data?.releaseNotes || '' : '';
+      setVersion(ver);
+      setReleaseNotes(notes);
       setState('downloading');
       setDismissed(false);
     });
@@ -54,6 +59,12 @@ export default function UpdateToast() {
     window.blesk.update.onDownloaded(() => {
       setState('ready');
     });
+
+    window.blesk.update.onError?.((msg) => {
+      setState('error');
+      setErrorMessage(typeof msg === 'string' ? msg : 'Ошибка обновления');
+      setDismissed(false);
+    });
   }, []);
 
   if (state === 'idle' || dismissed) return null;
@@ -65,7 +76,9 @@ export default function UpdateToast() {
   return (
     <div className={`update-toast update-toast--${state}`}>
       <div className="update-toast__icon">
-        {state === 'downloading' ? <DownloadSimple size={18} weight="regular" /> : <Sparkle size={18} weight="regular" />}
+        {state === 'downloading' && <DownloadSimple size={18} weight="regular" />}
+        {state === 'ready' && <Sparkle size={18} weight="regular" />}
+        {state === 'error' && <WarningCircle size={18} weight="regular" />}
       </div>
 
       <div className="update-toast__content">
@@ -95,9 +108,21 @@ export default function UpdateToast() {
         )}
 
         {state === 'ready' && (
-          <div className="update-toast__text">
-            Обновление {version && `v${version}`} готово
-          </div>
+          <>
+            <div className="update-toast__text">
+              Обновление {version && `v${version}`} готово
+            </div>
+            {releaseNotes && (
+              <div className="update-toast__notes">{releaseNotes}</div>
+            )}
+          </>
+        )}
+
+        {state === 'error' && (
+          <>
+            <div className="update-toast__text">Ошибка обновления</div>
+            <div className="update-toast__error">{errorMessage}</div>
+          </>
         )}
       </div>
 

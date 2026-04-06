@@ -5,7 +5,6 @@ import { useChannelStore } from '../../store/channelStore';
 import './CreateChannelModal.css';
 
 const CATEGORIES = [
-  { key: 'general', label: 'Общее', color: '#6b7280' },
   { key: 'gaming', label: 'Игры', color: '#8b5cf6' },
   { key: 'music', label: 'Музыка', color: '#ec4899' },
   { key: 'art', label: 'Творчество', color: '#f59e0b' },
@@ -27,7 +26,7 @@ export default function CreateChannelModal({ onClose, onCreated }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('general');
+  const [category, setCategory] = useState('other');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

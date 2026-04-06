@@ -40,7 +40,7 @@ const LazyMetaballCanvas = lazy(() =>
         }}>
           <Canvas
             dpr={[1, 1.5]}
-            gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }}
+            gl={{ antialias: false, alpha: false, powerPreference: 'default' }}
             style={{ width: '100%', height: '100%' }}
           >
             <MetaballScene ambientHue={ambientHue} subtle={effectiveSubtle} contentActive={contentActive} theme={theme} />
@@ -206,23 +206,17 @@ const fragmentShader = `
 `;
 
 // ═══════ FULLSCREEN QUAD ═══════
-// Целевые цвета — ленивая инициализация (THREE загружается динамически)
-let targetColor1, targetColor2, LIGHT_C1, LIGHT_C2;
-function ensureColors() {
-  if (!targetColor1 && THREE) {
-    targetColor1 = new THREE.Color().setHSL(0.22, 0.7, 0.45);
-    targetColor2 = new THREE.Color().setHSL(0.52, 0.6, 0.4);
-    LIGHT_C1 = new THREE.Color('#a78bfa');
-    LIGHT_C2 = new THREE.Color('#818cf8');
-  }
-}
-// Дефолтные цвета (иммутабельные копии)
+// Дефолтные цвета (иммутабельные константы)
 const DEFAULT_C1_H = 0.22, DEFAULT_C1_S = 0.7, DEFAULT_C1_L = 0.45;
 const DEFAULT_C2_H = 0.52, DEFAULT_C2_S = 0.6, DEFAULT_C2_L = 0.4;
 
 function MetaballScene({ ambientHue, subtle, contentActive, theme }) {
-  ensureColors();
   const meshRef = useRef();
+  // Целевые цвета — per-instance refs (не module-level, чтобы избежать shared state)
+  const targetColor1Ref = useRef(new THREE.Color().setHSL(DEFAULT_C1_H, DEFAULT_C1_S, DEFAULT_C1_L));
+  const targetColor2Ref = useRef(new THREE.Color().setHSL(DEFAULT_C2_H, DEFAULT_C2_S, DEFAULT_C2_L));
+  const lightC1Ref = useRef(new THREE.Color('#a78bfa'));
+  const lightC2Ref = useRef(new THREE.Color('#818cf8'));
   const { size } = useThree();
 
   // Инициализируем цвета под текущую тему сразу
@@ -270,11 +264,11 @@ function MetaballScene({ ambientHue, subtle, contentActive, theme }) {
   // Update target colors for smooth lerp (not instant)
   useEffect(() => {
     if (ambientHue !== null && ambientHue !== undefined) {
-      targetColor1.setHSL(ambientHue / 360, 0.7, 0.45);
-      targetColor2.setHSL(((ambientHue + 60) % 360) / 360, 0.6, 0.4);
+      targetColor1Ref.current.setHSL(ambientHue / 360, 0.7, 0.45);
+      targetColor2Ref.current.setHSL(((ambientHue + 60) % 360) / 360, 0.6, 0.4);
     } else {
-      targetColor1.setHSL(DEFAULT_C1_H, DEFAULT_C1_S, DEFAULT_C1_L);
-      targetColor2.setHSL(DEFAULT_C2_H, DEFAULT_C2_S, DEFAULT_C2_L);
+      targetColor1Ref.current.setHSL(DEFAULT_C1_H, DEFAULT_C1_S, DEFAULT_C1_L);
+      targetColor2Ref.current.setHSL(DEFAULT_C2_H, DEFAULT_C2_S, DEFAULT_C2_L);
     }
   }, [ambientHue]);
 
@@ -364,17 +358,17 @@ function MetaballScene({ ambientHue, subtle, contentActive, theme }) {
         mat.uniforms.uColor2.value.set('#818cf8');
         mat.uniforms.uColor3.value.set('#c084fc');
       } else {
-        mat.uniforms.uColor1.value.copy(targetColor1);
-        mat.uniforms.uColor2.value.copy(targetColor2);
+        mat.uniforms.uColor1.value.copy(targetColor1Ref.current);
+        mat.uniforms.uColor2.value.copy(targetColor2Ref.current);
       }
     } else {
       // [IMP-1] Hoisted constants — не аллоцировать в useFrame
       if (isLight) {
-        mat.uniforms.uColor1.value.lerp(LIGHT_C1, 0.02);
-        mat.uniforms.uColor2.value.lerp(LIGHT_C2, 0.02);
+        mat.uniforms.uColor1.value.lerp(lightC1Ref.current, 0.02);
+        mat.uniforms.uColor2.value.lerp(lightC2Ref.current, 0.02);
       } else {
-        mat.uniforms.uColor1.value.lerp(targetColor1, 0.02);
-        mat.uniforms.uColor2.value.lerp(targetColor2, 0.02);
+        mat.uniforms.uColor1.value.lerp(targetColor1Ref.current, 0.02);
+        mat.uniforms.uColor2.value.lerp(targetColor2Ref.current, 0.02);
       }
     }
   });
@@ -438,13 +432,13 @@ export default function MetaballBackground({ subtle = false, ambientHue = null, 
   if (!animatedBg) return null;
 
   // Eco-mode: skip WebGL when user prefers reduced motion or eco performance
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  let performanceMode = 'auto';
-  try {
-    const settings = JSON.parse(localStorage.getItem('blesk-settings') || '{}');
-    performanceMode = settings.performanceMode || 'auto';
-  } catch (e) { console.warn('WebGL shader error:', e.message); }
+  const reducedMotion = useSettingsStore((s) => s.reducedMotion);
+  const performanceMode = useMemo(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('blesk-settings') || '{}');
+      return s.performanceMode || 'auto';
+    } catch { return 'auto'; }
+  }, []);
 
   const useShader = performanceMode === 'high' ||
     (performanceMode === 'auto' && !reducedMotion);

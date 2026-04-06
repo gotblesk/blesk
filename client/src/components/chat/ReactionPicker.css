@@ -75,6 +75,14 @@
   background: rgba(0, 0, 0, 0.06);
 }
 
+/* ===== Full emoji picker ===== */
+.reaction-picker__full {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: -8px;
+  z-index: 60;
+}
+
 /* ===== Reduced motion ===== */
 @media (prefers-reduced-motion: reduce) {
   .reaction-picker--entering {

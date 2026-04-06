@@ -279,8 +279,7 @@
 
   <!-- Content -->
   <div class="content">
-    <img class="logo" src="../dist/blesk.png" alt="blesk"
-         onerror="this.src='../public/blesk.png'">
+    <img class="logo" id="splash-logo" src="../dist/blesk.png" alt="blesk">
     <div class="tagline">твой блеск. твои правила.</div>
     <div class="dots">
       <div class="dot"></div>
@@ -297,6 +296,10 @@
 <script>
 (async function() {
   'use strict';
+
+  // ═══════ LOGO FALLBACK ═══════
+  var logo = document.getElementById('splash-logo');
+  if (logo) logo.addEventListener('error', function() { this.src = '../public/blesk.png'; });
 
   // ═══════ VERSION (async) ═══════
   try {
@@ -355,7 +358,8 @@
     window.splashApi?.ready();
   }, 3000);
 
-  // Если через 8 сек после ready основное окно не загрузилось — показать ошибку
+  // Если через 7 сек после ready основное окно не загрузилось — показать ошибку
+  // (main fallback = 6 сек, splash error = 7 сек — splash всегда разрешается первым)
   setTimeout(() => {
     const splash = document.getElementById('splash');
     if (splash && !splash.classList.contains('expand-out')) {
@@ -363,7 +367,7 @@
       statusEl.textContent = 'Не удалось загрузить приложение';
       statusEl.style.opacity = '1';
     }
-  }, 8000);
+  }, 7000);
 
   // Кнопка «Повторить» — перезапуск загрузки
   document.getElementById('retryBtn').addEventListener('click', () => {

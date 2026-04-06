@@ -15,6 +15,7 @@ CLAUDE.md
 .claude/
 .superpowers/
 
-# Scripts with plaintext credentials
+# Scripts with credentials / VPS connection details
 restart_server.py
 test_smtp.py
+deploy.py
