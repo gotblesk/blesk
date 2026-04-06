@@ -17,6 +17,7 @@ export function getHueFromString(str) {
 export function getHueStyles(hue) {
   const s = 60, l = 65;
   return {
+    '--sender-hue': String(hue),
     '--sender-hue-color': `hsl(${hue}, ${s}%, ${l}%)`,
     '--sender-bubble-bg': `hsla(${hue}, ${s}%, ${l}%, 0.03)`,
     '--sender-bubble-border': `hsla(${hue}, ${s}%, ${l}%, 0.06)`,

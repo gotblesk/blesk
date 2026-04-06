@@ -37,7 +37,7 @@ const DEFAULTS = {
   language: 'ru',
   launchOnStartup: false,
   // Чат
-  chatBubbleStyle: 'bubbles', // 'bubbles' | 'minimal' | 'classic'
+  chatBubbleStyle: 'vapor', // 'cinema' | 'vapor' | 'stamp'
   showAvatarsInChat: true,
   timeFormat: '24h', // '12h' | '24h'
   enterToSend: true,

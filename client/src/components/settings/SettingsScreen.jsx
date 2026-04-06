@@ -668,9 +668,9 @@ function ChatTab({ settings, toggle, setValue }) {
           <div className="stg-chips">
             <LayoutGroup>
               {[
-                { value: 'bubbles', label: 'Пузыри' },
-                { value: 'minimal', label: 'Минимал' },
-                { value: 'classic', label: 'Классик' },
+                { value: 'cinema', label: 'Cinema' },
+                { value: 'vapor', label: 'Vapor' },
+                { value: 'stamp', label: 'Stamp' },
               ].map((o) => (
                 <Chip key={o.value} active={settings.chatBubbleStyle === o.value} onClick={() => setValue('chatBubbleStyle', o.value)}>
                   {o.label}

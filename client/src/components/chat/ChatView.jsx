@@ -940,6 +940,7 @@ export default function ChatView({
         aria-live="polite"
         aria-relevant="additions"
         aria-label="Сообщения"
+        style={{ '--chat-hue': chat?.otherUser ? getHueFromString(chat.otherUser.username || '') : 200 }}
       >
         {/* Спиннер подгрузки старых сообщений */}
         {loadingMore && (

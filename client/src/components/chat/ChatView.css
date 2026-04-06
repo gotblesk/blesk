@@ -220,6 +220,16 @@
   scroll-behavior: smooth;
 }
 
+/* Hue fog — subtle per-conversation color tint */
+.chat-view__messages::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 20% 70%, hsla(var(--chat-hue, 200), 40%, 12%, 0.08), transparent 55%);
+}
+
 /* Сообщения используют полную ширину — max-width убран */
 
 /* Scroll-to-bottom кнопка — внутри .chat-view (position: relative) */

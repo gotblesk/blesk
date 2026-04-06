@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowUp, Paperclip, X, Smiley, Microphone, PaperPlaneTilt, Pause, Play, Gif, Sticker } from '@phosphor-icons/react';
+import { ArrowUp, Paperclip, X, Smiley, Microphone, PaperPlaneTilt, Pause, Play, Gif } from '@phosphor-icons/react';
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import AttachmentPreview from './AttachmentPreview';
@@ -795,12 +795,24 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
         {/* Expanded state */}
         {!isRecording && (
         <div className={`chat-input-expanded chat-input-expanded--visible`}>
+          {/* Mic button — standalone circle on the left */}
+          <div className="chat-input__mic-wrap">
+            {micError && <div role="alert" aria-live="assertive" className="chat-input__mic-error">{micError}</div>}
+            <button
+              className="chat-input__mic-btn"
+              onClick={handleMicClick}
+              aria-label="Голосовое сообщение"
+              title="Нажмите для записи"
+            >
+              <Microphone size={20} />
+            </button>
+          </div>
           <div className={`chat-input__outer ${isFocused ? 'chat-input__outer--focused' : ''}`}>
             <div className="chat-input__inner">
               <textarea
                 ref={inputRef}
                 className="chat-input__textarea"
-                placeholder={`Написать сообщение... (${useSettingsStore.getState().enterToSend ? 'Enter' : 'Ctrl+Enter'} — отправить)`}
+                placeholder={`Сообщение... (${useSettingsStore.getState().enterToSend ? 'Enter' : 'Ctrl+Enter'} — отправить)`}
                 value={text}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
@@ -835,47 +847,25 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
                 </button>
                 <button
                   className="chat-input__tool-btn"
-                  onClick={() => window.__bleskToast?.('Стикеры скоро появятся')}
-                  title="Стикеры (скоро)"
-                  aria-label="Стикеры (скоро)"
-                >
-                  <Sticker size={18} />
-                </button>
-                <button
-                  className="chat-input__tool-btn"
                   onClick={() => fileInputRef.current?.click()}
                   title="Прикрепить файл"
                   aria-label="Прикрепить файл"
                 >
                   <Paperclip />
                 </button>
+                {/* Send button — inside the pill, on the right */}
+                <button
+                  ref={sendBtnRef}
+                  className={`chat-input__send-inline${sendPulse ? ' chat-input__send-inline--sending' : ''}${(!text.trim() && !pendingFiles.length) ? ' chat-input__send-inline--hidden' : ''}`}
+                  onClick={handleSend}
+                  disabled={(!text.trim() && !pendingFiles.length) || Object.keys(uploadProgress).length > 0}
+                  aria-label="Отправить сообщение"
+                >
+                  <ArrowUp size={16} weight="bold" />
+                </button>
               </div>
             </div>
           </div>
-          {/* Mic button (input empty) или Send button (есть текст/файлы) */}
-          {!text.trim() && !pendingFiles.length ? (
-            <div className="chat-input__mic-wrap">
-              {micError && <div role="alert" aria-live="assertive" className="chat-input__mic-error">{micError}</div>}
-              <button
-                className="chat-input__mic-hold"
-                onClick={handleMicClick}
-                aria-label="Голосовое сообщение"
-                title="Нажмите для записи"
-              >
-                <Microphone size={18} />
-              </button>
-            </div>
-          ) : (
-            <button
-              ref={sendBtnRef}
-              className={`chat-input__send${sendPulse ? ' chat-input__send--sending' : ''}`}
-              onClick={handleSend}
-              disabled={Object.keys(uploadProgress).length > 0}
-              aria-label="Отправить сообщение"
-            >
-              <ArrowUp />
-            </button>
-          )}
         </div>
         )}
       </div>

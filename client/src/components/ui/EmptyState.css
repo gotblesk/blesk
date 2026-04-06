@@ -31,8 +31,9 @@
 
 .empty-state__title {
   font-family: var(--font-display, 'Nekst', sans-serif);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
   color: var(--text-secondary, rgba(255, 255, 255, 0.6));
   margin: 0;
   line-height: 1.3;

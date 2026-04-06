@@ -113,7 +113,7 @@ const ChatMessage = React.memo(function ChatMessage({
     'chat-message',
     isOwn ? 'chat-message--own' : 'chat-message--other',
     `chat-message--${groupPosition}`,
-    `chat-message--style-${bubbleStyle || 'bubbles'}`,
+    `chat-message--style-${bubbleStyle || 'vapor'}`,
     !showAvatarsSetting ? 'chat-message--no-avatars' : '',
     message.pending ? 'chat-message--pending' : '',
     message.failed ? 'chat-message--failed' : '',

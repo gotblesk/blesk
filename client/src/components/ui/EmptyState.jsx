@@ -19,7 +19,7 @@ const ICONS = {
 function getIcon(type) {
   const Icon = ICONS[type];
   if (!Icon) return null;
-  return <Icon size={32} weight="regular" />;
+  return <Icon size={40} weight="duotone" />;
 }
 
 export default function EmptyState({ type, icon, title, subtitle, text, hint, action }) {

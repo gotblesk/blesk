@@ -127,6 +127,9 @@ export function useSocket() {
           });
         }
       }
+      // Пульс фона при (пере)подключении
+      window.__bleskBgPulse?.();
+
       hasConnectedOnce = true;
     };
     socket.on('connect', handleConnect);
