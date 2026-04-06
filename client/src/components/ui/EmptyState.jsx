@@ -8,25 +8,39 @@ import {
 } from '@phosphor-icons/react';
 import './EmptyState.css';
 
-const ICONS = {
-  'no-chats': ChatCircleDots,
-  'no-friends': UsersThree,
-  'no-channels': Broadcast,
-  'no-messages': ChatText,
-  'no-results': MagnifyingGlass,
+const TYPE_MAP = {
+  'no-chats': {
+    icon: <ChatCircleDots size={40} weight="duotone" />,
+    title: 'Нет чатов',
+    subtitle: 'Начните общение с друзьями',
+  },
+  'no-friends': {
+    icon: <UsersThree size={40} weight="duotone" />,
+    title: 'Нет друзей',
+    subtitle: 'Добавьте кого-нибудь в друзья',
+  },
+  'no-channels': {
+    icon: <Broadcast size={40} weight="duotone" />,
+    title: 'Нет каналов',
+    subtitle: 'Создайте или найдите канал',
+  },
+  'no-messages': {
+    icon: <ChatText size={40} weight="duotone" />,
+    title: 'Нет сообщений',
+    subtitle: 'Напишите первое сообщение',
+  },
+  'no-results': {
+    icon: <MagnifyingGlass size={40} weight="duotone" />,
+    title: 'Ничего не найдено',
+    subtitle: 'Попробуйте другой запрос',
+  },
 };
 
-function getIcon(type) {
-  const Icon = ICONS[type];
-  if (!Icon) return null;
-  return <Icon size={40} weight="duotone" />;
-}
-
 export default function EmptyState({ type, icon, title, subtitle, text, hint, action }) {
-  // Поддержка двух API: {type, title, subtitle, action} и {icon, text, hint}
-  const resolvedIcon = icon ?? (type ? getIcon(type) : null);
-  const resolvedTitle = title ?? text;
-  const resolvedSubtitle = subtitle ?? hint;
+  const config = TYPE_MAP[type] || {};
+  const finalIcon = icon ?? config.icon;
+  const finalTitle = title ?? text ?? config.title;
+  const finalSubtitle = subtitle ?? hint ?? config.subtitle;
 
   return (
     <motion.div
@@ -35,16 +49,16 @@ export default function EmptyState({ type, icon, title, subtitle, text, hint, ac
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
     >
-      {resolvedIcon && (
+      {finalIcon && (
         <div className="empty-state__icon-wrap">
-          {resolvedIcon}
+          {finalIcon}
         </div>
       )}
-      {resolvedTitle && (
-        <h3 className="empty-state__title">{resolvedTitle}</h3>
+      {finalTitle && (
+        <h3 className="empty-state__title">{finalTitle}</h3>
       )}
-      {resolvedSubtitle && (
-        <p className="empty-state__subtitle">{resolvedSubtitle}</p>
+      {finalSubtitle && (
+        <p className="empty-state__subtitle">{finalSubtitle}</p>
       )}
       {action && (
         <button className="empty-state__action" onClick={action.onClick}>

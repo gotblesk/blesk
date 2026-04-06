@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowUp, Paperclip, X, Smiley, Microphone, PaperPlaneTilt, Pause, Play, Gif } from '@phosphor-icons/react';
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
+import Tooltip from '../ui/Tooltip';
 import AttachmentPreview from './AttachmentPreview';
 import GifPicker from './GifPicker';
 import MentionSuggestions from './MentionSuggestions';
@@ -755,14 +756,15 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
         {isRecording && (
           <div className="chat-input__recording">
             {/* Кнопка отмены */}
-            <button
-              className="chat-input__recording-cancel"
-              onClick={cancelRecording}
-              title="Отменить"
-              aria-label="Отменить запись"
-            >
-              <X size={16} />
-            </button>
+            <Tooltip text="Отменить" position="top" delay={300}>
+              <button
+                className="chat-input__recording-cancel"
+                onClick={cancelRecording}
+                aria-label="Отменить запись"
+              >
+                <X size={16} />
+              </button>
+            </Tooltip>
 
             {/* Живой waveform из AnalyserNode */}
             <div className="chat-input__rec-waveform">
@@ -781,14 +783,15 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
             </span>
 
             {/* Кнопка отправки */}
-            <button
-              className="chat-input__rec-send"
-              onClick={stopRecording}
-              title="Отправить"
-              aria-label="Отправить голосовое сообщение"
-            >
-              <PaperPlaneTilt size={16} weight="fill" />
-            </button>
+            <Tooltip text="Отправить" position="top" delay={300}>
+              <button
+                className="chat-input__rec-send"
+                onClick={stopRecording}
+                aria-label="Отправить голосовое сообщение"
+              >
+                <PaperPlaneTilt size={16} weight="fill" />
+              </button>
+            </Tooltip>
           </div>
         )}
 
@@ -798,14 +801,15 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
           {/* Mic button — standalone circle on the left */}
           <div className="chat-input__mic-wrap">
             {micError && <div role="alert" aria-live="assertive" className="chat-input__mic-error">{micError}</div>}
-            <button
-              className="chat-input__mic-btn"
-              onClick={handleMicClick}
-              aria-label="Голосовое сообщение"
-              title="Нажмите для записи"
-            >
-              <Microphone size={20} />
-            </button>
+            <Tooltip text="Голосовое сообщение">
+              <button
+                className="chat-input__mic-btn"
+                onClick={handleMicClick}
+                aria-label="Голосовое сообщение"
+              >
+                <Microphone size={20} />
+              </button>
+            </Tooltip>
           </div>
           <div className={`chat-input__outer ${isFocused ? 'chat-input__outer--focused' : ''}`}>
             <div className="chat-input__inner">
@@ -829,30 +833,33 @@ export default function ChatInput({ chatId, onSend, onSendFiles, onTypingStart, 
                 </span>
               )}
               <div className="chat-input__tools">
-                <button
-                  className={`chat-input__tool-btn ${showEmojiPicker ? 'chat-input__tool-btn--active' : ''}`}
-                  onClick={() => { setShowEmojiPicker(v => !v); setShowGifPicker(false); }}
-                  title="Эмодзи"
-                  aria-label={showEmojiPicker ? 'Закрыть эмодзи' : 'Открыть эмодзи'}
-                >
-                  <Smiley size={18} />
-                </button>
-                <button
-                  className={`chat-input__tool-btn ${showGifPicker ? 'chat-input__tool-btn--active' : ''}`}
-                  onClick={() => { setShowGifPicker(v => !v); setShowEmojiPicker(false); }}
-                  title="GIF"
-                  aria-label={showGifPicker ? 'Закрыть GIF' : 'Открыть GIF'}
-                >
-                  <Gif size={18} />
-                </button>
-                <button
-                  className="chat-input__tool-btn"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Прикрепить файл"
-                  aria-label="Прикрепить файл"
-                >
-                  <Paperclip />
-                </button>
+                <Tooltip text="Эмодзи">
+                  <button
+                    className={`chat-input__tool-btn ${showEmojiPicker ? 'chat-input__tool-btn--active' : ''}`}
+                    onClick={() => { setShowEmojiPicker(v => !v); setShowGifPicker(false); }}
+                    aria-label={showEmojiPicker ? 'Закрыть эмодзи' : 'Открыть эмодзи'}
+                  >
+                    <Smiley size={18} />
+                  </button>
+                </Tooltip>
+                <Tooltip text="GIF">
+                  <button
+                    className={`chat-input__tool-btn ${showGifPicker ? 'chat-input__tool-btn--active' : ''}`}
+                    onClick={() => { setShowGifPicker(v => !v); setShowEmojiPicker(false); }}
+                    aria-label={showGifPicker ? 'Закрыть GIF' : 'Открыть GIF'}
+                  >
+                    <Gif size={18} />
+                  </button>
+                </Tooltip>
+                <Tooltip text="Прикрепить файл">
+                  <button
+                    className="chat-input__tool-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Прикрепить файл"
+                  >
+                    <Paperclip />
+                  </button>
+                </Tooltip>
                 {/* Send button — inside the pill, on the right */}
                 <button
                   ref={sendBtnRef}

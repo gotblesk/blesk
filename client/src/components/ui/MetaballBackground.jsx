@@ -170,7 +170,7 @@ const fragmentShader = `
       surface *= uSubtle;
       // Смешать с фоном — в светлой теме шары невидимые, только glow
       float bgLum = dot(uBgColor, vec3(0.299, 0.587, 0.114));
-      float blobAlpha = bgLum > 0.5 ? 0.0 : 1.0;
+      float blobAlpha = bgLum > 0.5 ? 0.3 : 1.0;
       col = mix(uBgColor, surface, blobAlpha);
     } else {
       // Glow around metaballs (soft falloff)
@@ -234,8 +234,8 @@ function MetaballScene({ ambientHue, subtle, contentActive, theme }) {
     uColor1: { value: initIsLight ? new THREE.Color('#a78bfa') : new THREE.Color('#c8ff00').multiplyScalar(0.5) },
     uColor2: { value: initIsLight ? new THREE.Color('#818cf8') : new THREE.Color('#00d4ff').multiplyScalar(0.4) },
     uColor3: { value: initIsLight ? new THREE.Color('#c084fc') : new THREE.Color('#ff006a').multiplyScalar(0.4) },
-    // subtle: 0.35 (было 0.5) — мягче на фоне; contentActive: 0.25 — ещё тише
-    uSubtle: { value: contentActive ? 0.25 : subtle ? 0.35 : 0.7 },
+    // subtle: 0.55 — видимые метаболы на фоне; contentActive: 0.25 — ещё тише
+    uSubtle: { value: contentActive ? 0.25 : subtle ? 0.55 : 0.7 },
     uBgColor: { value: initIsLight ? new THREE.Color(0.941, 0.949, 0.961) : new THREE.Color(0.031, 0.024, 0.059) },
     uEventPulse: { value: 0 },
     uIdle: { value: 0 },
@@ -323,7 +323,7 @@ function MetaballScene({ ambientHue, subtle, contentActive, theme }) {
     mat.uniforms.uTime.value = shaderTimeRef.current;
 
     // Плавный lerp uSubtle при смене contentActive/subtle
-    const targetSubtle = contentActiveRef.current ? 0.25 : subtleRef.current ? 0.35 : 0.7;
+    const targetSubtle = contentActiveRef.current ? 0.25 : subtleRef.current ? 0.55 : 0.7;
     mat.uniforms.uSubtle.value += (targetSubtle - mat.uniforms.uSubtle.value) * 0.04;
 
     // Переход цвета фона при смене темы
@@ -364,11 +364,11 @@ function MetaballScene({ ambientHue, subtle, contentActive, theme }) {
     } else {
       // [IMP-1] Hoisted constants — не аллоцировать в useFrame
       if (isLight) {
-        mat.uniforms.uColor1.value.lerp(lightC1Ref.current, 0.02);
-        mat.uniforms.uColor2.value.lerp(lightC2Ref.current, 0.02);
+        mat.uniforms.uColor1.value.lerp(lightC1Ref.current, 0.05);
+        mat.uniforms.uColor2.value.lerp(lightC2Ref.current, 0.05);
       } else {
-        mat.uniforms.uColor1.value.lerp(targetColor1Ref.current, 0.02);
-        mat.uniforms.uColor2.value.lerp(targetColor2Ref.current, 0.02);
+        mat.uniforms.uColor1.value.lerp(targetColor1Ref.current, 0.05);
+        mat.uniforms.uColor2.value.lerp(targetColor2Ref.current, 0.05);
       }
     }
   });

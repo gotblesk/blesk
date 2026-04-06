@@ -34,6 +34,13 @@
   --text-lg: 17px;
   --text-xl: 20px;
   --text-2xl: 24px;
+  --text-3xl: 32px;
+  --text-4xl: 48px;
+
+  /* Line-height tokens */
+  --lh-tight: 1.15;
+  --lh-base: 1.5;
+  --lh-loose: 1.75;
 
   /* Font families */
   --font-ui: 'Onest', -apple-system, 'SF Pro Display', 'Helvetica Neue', system-ui, sans-serif;
@@ -154,8 +161,8 @@
   /* Tinted glass zones — Apple Liquid Glass principle */
   --glass-sidebar-tint: rgba(100,130,255,0.02);
   --glass-content-tint: rgba(255,255,255,0.01);
-  --glass-input-tint: rgba(200,255,0,0.015);
-  --glass-island-tint: rgba(200,255,0,0.02);
+  --glass-input-tint: transparent;
+  --glass-island-tint: transparent;
 
   /* Spacing scale (4px base) */
   --space-0: 0px;
@@ -344,6 +351,13 @@ body {
   -webkit-user-select: none;
 }
 
+/* Allow text selection inside message bubbles */
+.chat-message__bubble-inner,
+.chat-message__bubble-inner * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 button, input, a, textarea, select {
   -webkit-app-region: no-drag;
   font-family: inherit;
@@ -353,6 +367,10 @@ button, input, a, textarea, select {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
+
+/* Negative tracking for display typography */
+.text-display { letter-spacing: -0.02em; }
+.text-display-lg { letter-spacing: -0.03em; }
 
 /* [R.6] cursor-pointer на всех интерактивных элементах */
 :is(button, a, [role="button"], [tabindex]:not([tabindex="-1"]), summary, select) {

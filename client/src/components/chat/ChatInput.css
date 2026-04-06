@@ -40,7 +40,7 @@
   border-radius: 100px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   cursor: text;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity var(--duration-normal) ease, transform var(--duration-normal) ease;
   opacity: 1;
   transform: scale(1);
 }
@@ -162,7 +162,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg, 22px);
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  transition: border-color 0.3s, box-shadow 0.3s;
+  transition: border-color var(--duration-normal), box-shadow var(--duration-normal);
 }
 
 .chat-input__outer--focused {
@@ -229,7 +229,7 @@
   justify-content: center;
   color: rgba(255,255,255,0.3);
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background var(--duration-normal), color var(--duration-normal);
 }
 
 .chat-input__tool-btn:hover {

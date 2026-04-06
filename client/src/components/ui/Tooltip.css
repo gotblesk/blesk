@@ -1,0 +1,85 @@
+/* ─── blesk Tooltip ─── */
+
+.blsk-tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+}
+
+.blsk-tooltip {
+  position: fixed;
+  z-index: var(--z-tooltip, 150);
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: blskTipIn 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.blsk-tooltip--top {
+  transform: translateX(-50%) translateY(-100%);
+}
+
+.blsk-tooltip--bottom {
+  transform: translateX(-50%);
+}
+
+.blsk-tooltip__text {
+  display: inline-block;
+  padding: 5px 10px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: var(--glass-bg-solid, rgba(18, 16, 28, 0.95));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm, 8px);
+  white-space: nowrap;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+}
+
+/* ─── Entrance ─── */
+@keyframes blskTipIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(calc(-100% + 4px)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-100%) scale(1);
+  }
+}
+
+.blsk-tooltip--bottom {
+  animation-name: blskTipInBottom;
+}
+
+@keyframes blskTipInBottom {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+/* ─── Light theme ─── */
+[data-theme="light"] .blsk-tooltip__text {
+  background: var(--glass-bg-solid, rgba(255, 255, 255, 0.97));
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.10),
+    0 0 0 1px rgba(0, 0, 0, 0.04) inset;
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .blsk-tooltip,
+  .blsk-tooltip--bottom {
+    animation: none;
+  }
+}
