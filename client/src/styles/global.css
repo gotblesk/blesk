@@ -1,16 +1,14 @@
-/* ═══ FONTS — Nekst (headings) + Onest (body) ═══ */
-/* TTF format is used because Electron loads fonts from disk (no network cost).
-   Converting to WOFF2 would reduce size ~30% but only matters for web delivery. */
-@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: block; }
-@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: block; }
-@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-SemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: block; }
-@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: block; }
-@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-Black.ttf') format('truetype'); font-weight: 900; font-style: normal; font-display: block; }
+/* ═══ FONTS — Nekst (headings) + Onest (body) — WOFF2 with TTF fallback ═══ */
+@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-Regular.woff2') format('woff2'), url('../assets/fonts/Nekst-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: block; }
+@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-Medium.woff2') format('woff2'), url('../assets/fonts/Nekst-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: block; }
+@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-SemiBold.woff2') format('woff2'), url('../assets/fonts/Nekst-SemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: block; }
+@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-Bold.woff2') format('woff2'), url('../assets/fonts/Nekst-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: block; }
+@font-face { font-family: 'Nekst'; src: url('../assets/fonts/Nekst-Black.woff2') format('woff2'), url('../assets/fonts/Nekst-Black.ttf') format('truetype'); font-weight: 900; font-style: normal; font-display: block; }
 
-@font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-Regular.woff2') format('woff2'), url('../assets/fonts/Onest-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-Medium.woff2') format('woff2'), url('../assets/fonts/Onest-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
 /* 600-700: SemiBold covers both semi-bold and bold since no Onest Bold exists */
-@font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-SemiBold.ttf') format('truetype'); font-weight: 600 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Onest'; src: url('../assets/fonts/Onest-SemiBold.woff2') format('woff2'), url('../assets/fonts/Onest-SemiBold.ttf') format('truetype'); font-weight: 600 700; font-style: normal; font-display: swap; }
 
 :root {
   /* Z-index hierarchy (ordered low→high, no conflicts) */
