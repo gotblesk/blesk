@@ -15,6 +15,6 @@ export default defineConfig({
     target: 'chrome108',
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
-    minify: 'esbuild',
+    minify: false, // minification (terser/esbuild) causes TDZ across circular deps in react/three/framer-motion
   },
 });
