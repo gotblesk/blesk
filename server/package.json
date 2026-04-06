@@ -1,6 +1,6 @@
 {
   "name": "blesk-server",
-  "version": "1.6.4-beta",
+  "version": "1.6.5-beta",
   "description": "blesk — приватный десктопный мессенджер. Сервер (Node.js + Express).",
   "private": true,
   "main": "src/index.js",

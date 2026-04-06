@@ -1,6 +1,27 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useVirtualizer } from '@tanstack/react-virtual';
+// @tanstack/react-virtual removed — causes TDZ. Using plain rendering shim.
+function useVirtualizer({ count, getScrollElement, estimateSize, overscan }) {
+  const items = [];
+  let offset = 0;
+  for (let i = 0; i < count; i++) {
+    const size = typeof estimateSize === 'function' ? estimateSize(i) : 52;
+    items.push({ index: i, start: offset, size, key: i });
+    offset += size;
+  }
+  return {
+    getTotalSize: () => offset,
+    getVirtualItems: () => items,
+    scrollToIndex: (index, opts) => {
+      const el = getScrollElement();
+      if (!el) return;
+      const target = items[index];
+      if (!target) return;
+      el.scrollTo({ top: target.start, behavior: opts?.behavior || 'auto' });
+    },
+    measureElement: () => {},
+  };
+}
 import { MagnifyingGlass, X, Check, CaretUp, CaretDown } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import { useSettingsStore } from '../../store/settingsStore';
