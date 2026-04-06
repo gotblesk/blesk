@@ -15,16 +15,7 @@ export default defineConfig({
     target: 'chrome108',
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        toplevel: false,
-        arrows: false,
-      },
-      mangle: {
-        toplevel: false,
-      },
-    },
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
