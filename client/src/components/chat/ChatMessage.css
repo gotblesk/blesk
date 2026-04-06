@@ -698,11 +698,11 @@
 /* Perforated bottom edge on solo and last */
 .chat-message--style-stamp.chat-message--solo .chat-message__bubble-outer,
 .chat-message--style-stamp.chat-message--last .chat-message__bubble-outer {
-  -webkit-mask-image: radial-gradient(circle at 4px calc(100% + 1px), transparent 3px, black 3.5px);
-  mask-image: radial-gradient(circle at 4px calc(100% + 1px), transparent 3px, black 3.5px);
-  -webkit-mask-size: 8px 100%;
-  mask-size: 8px 100%;
-  padding-bottom: 6px;
+  -webkit-mask-image: radial-gradient(circle at 5px calc(100% + 1.5px), transparent 4px, black 4.5px);
+  mask-image: radial-gradient(circle at 5px calc(100% + 1.5px), transparent 4px, black 4.5px);
+  -webkit-mask-size: 10px 100%;
+  mask-size: 10px 100%;
+  padding-bottom: 10px;
 }
 /* Stamp grouping: slight offset for stacked effect */
 .chat-message--style-stamp.chat-message--mid.chat-message--own,

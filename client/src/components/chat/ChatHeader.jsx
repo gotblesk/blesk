@@ -1,6 +1,9 @@
-import { Phone, VideoCamera, MagnifyingGlass, DotsThreeOutline } from '@phosphor-icons/react';
+import { useState, useRef } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { Phone, VideoCamera, MagnifyingGlass, DotsThreeOutline, User, BellSlash, PushPin, Trash } from '@phosphor-icons/react';
 import Avatar from '../ui/Avatar';
 import { ShieldBadge } from '../ui/ShieldFingerprint';
+import ContextMenu from '../ui/ContextMenu';
 import { formatLastSeen } from '../../utils/time';
 import { useChatStore } from '../../store/chatStore';
 import './ChatHeader.css';
@@ -9,6 +12,10 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
   const isSocketConnected = useChatStore((s) => s.isConnected);
   const isGroup = chat.type === 'group';
   const otherUser = chat.otherUser;
+
+  // Context menu state for "..." button
+  const [menuPos, setMenuPos] = useState(null);
+  const moreBtnRef = useRef(null);
 
   const isTyping = typingUsernames?.length > 0;
   let statusText;
@@ -87,10 +94,63 @@ export default function ChatHeader({ chat, isOnline, userStatus, typingUsernames
               <VideoCamera size={18} weight="regular" />
             </button>
           )}
-          <button className="chat-header__btn" onClick={isGroup ? onMembers : onAvatarClick} title={isGroup ? 'Участники' : 'Подробнее'} aria-label={isGroup ? 'Участники группы' : 'Информация о чате'}>
+          <button
+            ref={moreBtnRef}
+            className="chat-header__btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = moreBtnRef.current.getBoundingClientRect();
+              setMenuPos({ x: rect.right - 180, y: rect.bottom + 6 });
+            }}
+            title="Ещё"
+            aria-label="Дополнительные действия"
+            aria-haspopup="menu"
+            aria-expanded={!!menuPos}
+          >
             <DotsThreeOutline size={18} weight="regular" />
           </button>
         </div>
+
+        {/* Context menu for "..." button */}
+        <AnimatePresence>
+          {menuPos && (
+            <ContextMenu
+              x={menuPos.x}
+              y={menuPos.y}
+              onClose={() => setMenuPos(null)}
+              items={[
+                {
+                  icon: <User size={16} weight="regular" />,
+                  label: isGroup ? 'Участники' : 'Профиль пользователя',
+                  onClick: () => { isGroup ? onMembers?.() : onAvatarClick?.(); },
+                },
+                ...(onSearch ? [{
+                  icon: <MagnifyingGlass size={16} weight="regular" />,
+                  label: 'Поиск в чате',
+                  onClick: () => onSearch?.(),
+                }] : []),
+                { divider: true },
+                {
+                  icon: <BellSlash size={16} weight="regular" />,
+                  label: 'Мут уведомлений',
+                  onClick: () => {},
+                },
+                {
+                  icon: <PushPin size={16} weight="regular" />,
+                  label: 'Закрепить чат',
+                  onClick: () => {},
+                },
+                { divider: true },
+                {
+                  icon: <Trash size={16} weight="regular" />,
+                  label: 'Очистить чат',
+                  onClick: () => {},
+                  danger: true,
+                },
+              ]}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

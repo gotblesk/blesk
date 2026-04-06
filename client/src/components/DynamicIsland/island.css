@@ -8,6 +8,14 @@
   z-index: var(--z-island);
   pointer-events: auto;
   -webkit-app-region: no-drag;
+  /* Constrain width so idle/loading pill doesn't overlap chat header buttons */
+  max-width: calc(100vw - 340px);
+}
+
+/* Idle/loading: shift left to avoid chat header action buttons on the right */
+.di--idle,
+.di--loading {
+  left: calc(50% - 60px);
 }
 
 .di--incoming {
