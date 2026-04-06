@@ -1,27 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-// @tanstack/react-virtual removed — causes TDZ. Using plain rendering shim.
-function useVirtualizer({ count, getScrollElement, estimateSize, overscan }) {
-  const items = [];
-  let offset = 0;
-  for (let i = 0; i < count; i++) {
-    const size = typeof estimateSize === 'function' ? estimateSize(i) : 52;
-    items.push({ index: i, start: offset, size, key: i });
-    offset += size;
-  }
-  return {
-    getTotalSize: () => offset,
-    getVirtualItems: () => items,
-    scrollToIndex: (index, opts) => {
-      const el = getScrollElement();
-      if (!el) return;
-      const target = items[index];
-      if (!target) return;
-      el.scrollTo({ top: target.start, behavior: opts?.behavior || 'auto' });
-    },
-    measureElement: () => {},
-  };
-}
+// @tanstack/react-virtual removed — causes TDZ in all build modes
 import { MagnifyingGlass, X, Check, CaretUp, CaretDown } from '@phosphor-icons/react';
 import { useChatStore } from '../../store/chatStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -214,7 +193,7 @@ export default function ChatView({
     if (next >= chatSearchMatches.length) next = 0;
     setChatSearchIndex(next);
     const msgIdx = chatSearchMatches[next];
-    virtualizer.scrollToIndex(msgIdx, { align: 'center', behavior: 'smooth' });
+    scrollToMessage(msgIdx, 'smooth');
     // Подсветка
     setTimeout(() => {
       const msg = chatMessages[msgIdx];
@@ -226,13 +205,13 @@ export default function ChatView({
         }
       }
     }, 200);
-  }, [chatSearchMatches, chatSearchIndex, chatMessages, virtualizer]);
+  }, [chatSearchMatches, chatSearchIndex, chatMessages]);
 
   // Скроллить к первому совпадению при смене запроса
   useEffect(() => {
     if (chatSearchMatches.length > 0) {
       setChatSearchIndex(0);
-      virtualizer.scrollToIndex(chatSearchMatches[0], { align: 'center', behavior: 'smooth' });
+      scrollToMessage(chatSearchMatches[0], 'smooth');
     }
   }, [chatSearchQuery]); // eslint-disable-line
 
@@ -253,8 +232,8 @@ export default function ChatView({
       // Принудительный скролл к концу после загрузки сообщений
       const scrollTimer = setTimeout(() => {
         const msgs = useChatStore.getState().messages[chatId];
-        if (msgs?.length > 0 && virtualizer) {
-          virtualizer.scrollToIndex(msgs.length - 1, { align: 'end', behavior: 'auto' });
+        if (msgs?.length > 0) {
+          scrollToMessage(msgs.length - 1, 'auto');
         }
       }, 150);
       return () => clearTimeout(scrollTimer);
@@ -266,22 +245,20 @@ export default function ChatView({
   const isNearBottomRef = useRef(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
 
-  // [CRIT-1] Виртуализация списка сообщений
   const messageCount = chatMessages.length;
-  const virtualizer = useVirtualizer({
-    count: messageCount,
-    getScrollElement: () => messagesContainerRef.current,
-    estimateSize: useCallback((index) => {
-      const msg = chatMessages[index];
-      if (!msg) return 52;
-      let height = 52; // базовая высота bubble + padding
-      if (msg.attachments?.length) height += 200;
-      if (msg.replyTo) height += 40;
-      if (msg.text?.length > 200) height += Math.floor(msg.text.length / 80) * 20;
-      return height;
-    }, [chatMessages]),
-    overscan: 10,
-  });
+
+  // Scroll helper — replaces virtualizer.scrollToIndex
+  const scrollToMessage = useCallback((index, behavior = 'auto') => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const msgEl = el.querySelector(`[data-msg-index="${index}"]`);
+    if (msgEl) {
+      msgEl.scrollIntoView({ behavior, block: 'center' });
+    } else {
+      // Fallback: scroll to bottom
+      el.scrollTop = el.scrollHeight;
+    }
+  }, []);
 
   const handleMessagesScroll = useCallback(() => {
     const el = messagesContainerRef.current;
@@ -319,9 +296,9 @@ export default function ChatView({
       if (container) container.style.visibility = 'hidden';
       const scrollToEnd = () => {
         if (!isMountedRef.current) return;
-        virtualizer.scrollToIndex(messageCount - 1, { align: 'end', behavior: 'auto' });
+        scrollToMessage(messageCount - 1, 'auto');
       };
-      // Несколько попыток — virtualizer пересчитывает размеры каждый frame
+      // Несколько попыток скролла
       scrollToEnd();
       requestAnimationFrame(() => {
         scrollToEnd();
@@ -343,7 +320,7 @@ export default function ChatView({
         // Пользователь внизу — скроллим к новому сообщению
         requestAnimationFrame(() => {
           if (!isMountedRef.current) return;
-          virtualizer.scrollToIndex(messageCount - 1, { align: 'end', behavior: 'smooth' });
+          scrollToMessage(messageCount - 1, 'smooth');
         });
         setNewMsgCount(0);
       } else {
@@ -582,7 +559,7 @@ export default function ChatView({
       if (!isMountedRef.current) return;
       const count = useChatStore.getState().messages[chatId]?.length || 0;
       if (count > 0) {
-        virtualizer.scrollToIndex(count - 1, { align: 'end', behavior: 'smooth' });
+        scrollToMessage(count - 1, 'smooth');
       }
     });
   };
@@ -984,10 +961,8 @@ export default function ChatView({
           />
         )}
 
-        <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
-          {virtualizer.getVirtualItems().map((virtualRow) => {
-            const idx = virtualRow.index;
-            const msg = chatMessages[idx];
+        <div>
+          {chatMessages.map((msg, idx) => {
             if (!msg) return null;
 
             const isOwn = msg.userId === userId.current;
@@ -1009,15 +984,7 @@ export default function ChatView({
             return (
               <div
                 key={msg.id || msg.tempId || idx}
-                data-index={idx}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
+                data-msg-index={idx}
               >
                 {showDateSep && <DateSeparator date={msg.createdAt} />}
                 {firstUnreadId === msg.id && <UnreadDivider />}
@@ -1077,7 +1044,7 @@ export default function ChatView({
           className="chat-view__scroll-down"
           onClick={() => {
             if (messageCount > 0) {
-              virtualizer.scrollToIndex(messageCount - 1, { align: 'end', behavior: 'smooth' });
+              scrollToMessage(messageCount - 1, 'smooth');
             }
             isNearBottomRef.current = true;
             setShowScrollDown(false);
