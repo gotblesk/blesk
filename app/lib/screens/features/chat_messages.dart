@@ -803,6 +803,15 @@ class _ChatMessagesState extends State<ChatMessages> {
             hasPhoto: msg.type == MessageType.photo,
           ));
         },
+        onReplyFragment: widget.onReply == null ? null : (fragment) {
+          widget.onReply!(ReplyQuote(
+            id: msg.id,
+            senderName: msg.own ? 'ты' : (msg.senderName ?? 'собеседник'),
+            text: fragment,
+            senderColor: msg.own ? BColors.accent : senderColorFor(msg.senderName ?? 'x'),
+            hasPhoto: false,
+          ));
+        },
         onEdit: (msg.own && msg.text != null && msg.type == MessageType.text)
             ? () => _startEdit(msg.id) : null,
         onSaveEdit: (newText) => _saveEdit(msg.id, newText),
@@ -931,6 +940,7 @@ class _MessageBubble extends StatefulWidget {
   final bool selectionMode;
   final ValueChanged<String>? onReact;
   final VoidCallback? onReply;
+  final ValueChanged<String>? onReplyFragment; // C7 quote selection
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onForward;
@@ -949,7 +959,8 @@ class _MessageBubble extends StatefulWidget {
     required this.msg, required this.pos,
     this.highlightQuery, this.isCurrentMatch = false, this.isEditing = false,
     this.isSelected = false, this.selectionMode = false,
-    this.onReact, this.onReply, this.onEdit, this.onDelete, this.onForward,
+    this.onReact, this.onReply, this.onReplyFragment,
+    this.onEdit, this.onDelete, this.onForward,
     this.onSelectTap, this.onEnterSelection, this.onViewReadBy,
     this.onTranslate, this.onUntranslate, this.onTranscribe, this.onBookmark,
     this.onSaveEdit, this.onCancelEdit,
@@ -1421,13 +1432,67 @@ class _MessageBubbleState extends State<_MessageBubble> {
       color: BColors.textPrimary, height: 1.4,
     );
     final query = widget.highlightQuery;
+    // In selection mode, use plain Text so taps toggle message selection
+    // instead of text selection
+    if (widget.selectionMode) {
+      if (query != null && query.trim().isNotEmpty && (msg.text?.isNotEmpty ?? false)) {
+        return HighlightedText(
+          text: msg.text!, highlight: query, style: style,
+          currentMatchIndex: widget.isCurrentMatch ? 0 : null,
+        );
+      }
+      return Text(msg.text ?? '', style: style);
+    }
+    // Default: SelectableText for C7 quote-selection reply
     if (query != null && query.trim().isNotEmpty && (msg.text?.isNotEmpty ?? false)) {
       return HighlightedText(
         text: msg.text!, highlight: query, style: style,
         currentMatchIndex: widget.isCurrentMatch ? 0 : null,
+        selectable: true,
+        contextMenuBuilder: _buildQuoteSelectionToolbar,
       );
     }
-    return Text(msg.text ?? '', style: style);
+    return SelectableText(
+      msg.text ?? '',
+      style: style,
+      contextMenuBuilder: _buildQuoteSelectionToolbar,
+    );
+  }
+
+  /// C7 — custom selection toolbar with "цитировать" button.
+  Widget _buildQuoteSelectionToolbar(
+    BuildContext context, EditableTextState state,
+  ) {
+    final selection = state.textEditingValue.selection;
+    final fullText = state.textEditingValue.text;
+    if (selection.isCollapsed || !selection.isValid) {
+      // No selection — render default toolbar (copy/select all)
+      return AdaptiveTextSelectionToolbar.editableText(
+        editableTextState: state,
+      );
+    }
+    final selectedText = selection.textInside(fullText);
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: state.contextMenuAnchors,
+      buttonItems: [
+        ContextMenuButtonItem(
+          label: 'цитировать',
+          onPressed: () {
+            ContextMenuController.removeAny();
+            state.hideToolbar();
+            widget.onReplyFragment?.call(selectedText);
+          },
+        ),
+        ContextMenuButtonItem(
+          label: 'копировать',
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: selectedText));
+            ContextMenuController.removeAny();
+            state.hideToolbar();
+          },
+        ),
+      ],
+    );
   }
 
   Widget _buildTimeAndStatus({bool faded = false}) {

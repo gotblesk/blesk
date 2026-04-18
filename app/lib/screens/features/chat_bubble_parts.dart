@@ -68,46 +68,54 @@ class HighlightedText extends StatelessWidget {
   final int? maxLines;
   final int? currentMatchIndex; // which occurrence is "current" — painted stronger
   final int? textMatchStart; // used by parent to offset highlight indices
+  final bool selectable; // C7 — enable text selection for quote-reply
+  final EditableTextContextMenuBuilder? contextMenuBuilder;
   const HighlightedText({
     super.key,
     required this.text, required this.highlight, required this.style,
     this.maxLines, this.currentMatchIndex, this.textMatchStart,
+    this.selectable = false, this.contextMenuBuilder,
   });
 
   @override
   Widget build(BuildContext context) {
+    TextSpan root;
     if (highlight.trim().isEmpty) {
-      return Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis,
-          style: style);
-    }
-    final spans = <TextSpan>[];
-    final lt = text.toLowerCase();
-    final hl = highlight.toLowerCase();
-    int cursor = 0, occurrence = 0;
-    while (cursor < text.length) {
-      final idx = lt.indexOf(hl, cursor);
-      if (idx < 0) {
-        spans.add(TextSpan(text: text.substring(cursor)));
-        break;
+      root = TextSpan(text: text, style: style);
+    } else {
+      final spans = <TextSpan>[];
+      final lt = text.toLowerCase();
+      final hl = highlight.toLowerCase();
+      int cursor = 0, occurrence = 0;
+      while (cursor < text.length) {
+        final idx = lt.indexOf(hl, cursor);
+        if (idx < 0) {
+          spans.add(TextSpan(text: text.substring(cursor)));
+          break;
+        }
+        if (idx > cursor) spans.add(TextSpan(text: text.substring(cursor, idx)));
+        final isCurrent = currentMatchIndex != null &&
+            occurrence == currentMatchIndex;
+        spans.add(TextSpan(
+          text: text.substring(idx, idx + hl.length),
+          style: TextStyle(
+            color: BColors.accent, fontWeight: FontWeight.w600,
+            backgroundColor: BColors.accent.withValues(
+                alpha: isCurrent ? 0.3 : 0.15),
+          ),
+        ));
+        cursor = idx + hl.length;
+        occurrence++;
       }
-      if (idx > cursor) spans.add(TextSpan(text: text.substring(cursor, idx)));
-      final isCurrent = currentMatchIndex != null &&
-          occurrence == currentMatchIndex;
-      spans.add(TextSpan(
-        text: text.substring(idx, idx + hl.length),
-        style: TextStyle(
-          color: BColors.accent, fontWeight: FontWeight.w600,
-          backgroundColor: BColors.accent.withValues(
-              alpha: isCurrent ? 0.3 : 0.15),
-        ),
-      ));
-      cursor = idx + hl.length;
-      occurrence++;
+      root = TextSpan(style: style, children: spans);
     }
-    return Text.rich(
-      TextSpan(style: style, children: spans),
-      maxLines: maxLines, overflow: TextOverflow.ellipsis,
-    );
+    if (selectable) {
+      return SelectableText.rich(
+        root, maxLines: maxLines,
+        contextMenuBuilder: contextMenuBuilder,
+      );
+    }
+    return Text.rich(root, maxLines: maxLines, overflow: TextOverflow.ellipsis);
   }
 }
 
