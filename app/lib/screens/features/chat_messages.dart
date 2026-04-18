@@ -369,6 +369,11 @@ void removeBookmark(String id) {
 bool isBookmarked(String chatId, String messageId) =>
     stubBookmarks.any((b) => b.chatId == chatId && b.messageId == messageId);
 
+/// C10 — Ghost mode: hides "online" status and read receipts from others
+/// (and reciprocally hides theirs from you).
+final ValueNotifier<bool> ghostModeEnabled = ValueNotifier(false);
+void toggleGhostMode() => ghostModeEnabled.value = !ghostModeEnabled.value;
+
 /// Offline connection state — banner shows when true.
 /// In full impl would be bound to WebSocket state.
 final ValueNotifier<bool> offlineState = ValueNotifier(false);
@@ -1432,9 +1437,32 @@ class _MessageBubbleState extends State<_MessageBubble> {
               color: BColors.textMuted.withValues(alpha: 0.7)),
         ],
         const SizedBox(width: 4),
-        ReadStatusIcon(msg.status),
+        Tooltip(
+          message: _statusTimelineText(msg),
+          waitDuration: const Duration(milliseconds: 500),
+          textStyle: const TextStyle(fontSize: 11, color: BColors.textPrimary),
+          decoration: BoxDecoration(
+            color: const Color(0xFF141418),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: ReadStatusIcon(msg.status),
+        ),
       ],
     ]);
+  }
+
+  String _statusTimelineText(MessageData msg) {
+    // C9 — Message status timeline tooltip
+    final baseTime = msg.time;
+    return switch (msg.status) {
+      MessageStatus.sending => 'отправляется...',
+      MessageStatus.sent => 'отправлено · $baseTime',
+      MessageStatus.delivered => 'доставлено · $baseTime',
+      MessageStatus.read => 'прочитано · $baseTime',
+      MessageStatus.error => 'не отправлено · попробуй снова',
+    };
   }
 
   Widget _buildHoverActions({required bool visible}) {

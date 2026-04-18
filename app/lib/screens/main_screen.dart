@@ -16,6 +16,7 @@ import 'features/chat_search_bar.dart';
 import 'features/channel_feed.dart';
 import 'features/create_flows.dart';
 import 'features/members_panel.dart';
+import 'features/bookmarks_panel.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN SHELL — Living Sidebar + Content Area
@@ -435,7 +436,22 @@ class _SidebarHeader extends StatelessWidget {
           fontFamily: 'Onest', fontSize: rf(context, 13),
           fontWeight: FontWeight.w600, color: BColors.textPrimary,
         )),
+        ValueListenableBuilder<bool>(
+          valueListenable: ghostModeEnabled,
+          builder: (_, on, _) => on ? const _GhostBadge() : const SizedBox.shrink(),
+        ),
         const Spacer(),
+        ValueListenableBuilder<int>(
+          valueListenable: bookmarksVersion,
+          builder: (_, _, _) => _HeaderBtn(
+            icon: stubBookmarks.isEmpty
+                ? SolarIconsOutline.bookmark
+                : SolarIconsBold.bookmark,
+            tooltip: 'закладки${stubBookmarks.isEmpty ? "" : " · ${stubBookmarks.length}"}',
+            onTap: () => showBookmarksPanel(context),
+          ),
+        ),
+        const SizedBox(width: 2),
         _HeaderBtn(icon: SolarIconsOutline.addCircle, tooltip: 'создать новое', onTap: onCreate),
         const SizedBox(width: 2),
         _HeaderBtn(icon: SolarIconsOutline.settings, tooltip: 'настройки', onTap: onSettings),
@@ -2202,6 +2218,63 @@ class _ContextMenuItemState extends State<_ContextMenuItem> {
         ),
       ),
     );
+  }
+}
+
+// ─── Ghost mode badge (C10) ───────────────────────────────────
+
+class _GhostBadge extends StatefulWidget {
+  const _GhostBadge();
+  @override
+  State<_GhostBadge> createState() => _GhostBadgeState();
+}
+
+class _GhostBadgeState extends State<_GhostBadge> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'ты скрыт · другие видят "был(а) недавно"',
+      textStyle: const TextStyle(fontSize: 10, color: BColors.textPrimary),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1a1a1a), borderRadius: BorderRadius.circular(6),
+      ),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _h = true),
+        onExit: (_) => setState(() => _h = false),
+        child: GestureDetector(
+          onTap: toggleGhostMode,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            margin: const EdgeInsets.only(left: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(5),
+              color: _h
+                  ? BColors.accent.withValues(alpha: 0.18)
+                  : BColors.accent.withValues(alpha: 0.1),
+              border: Border.all(
+                color: BColors.accent.withValues(alpha: _h ? 0.4 : 0.25),
+                width: 0.5,
+              ),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(SolarIconsOutline.eyeClosed, size: 11,
+                  color: BColors.accent.withValues(alpha: 0.9)),
+              const SizedBox(width: 3),
+              Text('скрыт', style: TextStyle(
+                fontFamily: 'Onest', fontSize: 9, fontWeight: FontWeight.w600,
+                color: BColors.accent.withValues(alpha: 0.9),
+                letterSpacing: 0.4,
+              )),
+            ]),
+          ),
+        ),
+      ),
+    ).animate()
+        .fadeIn(duration: 180.ms)
+        .scale(begin: const Offset(0.8, 0.8), curve: Curves.easeOutBack);
   }
 }
 
