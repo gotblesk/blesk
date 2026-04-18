@@ -293,6 +293,10 @@ void consumeReactionCounter(String chatId) {
   }
 }
 
+/// Offline connection state — banner shows when true.
+/// In full impl would be bound to WebSocket state.
+final ValueNotifier<bool> offlineState = ValueNotifier(false);
+
 /// Navigation history for "jump back" pill.
 /// Entries pushed when user jumps to a source message (reply preview
 /// click, global search result, etc.).

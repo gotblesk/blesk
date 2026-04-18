@@ -190,6 +190,11 @@ class _MainScreenState extends State<MainScreen> {
                   ),
               ]),
               Container(height: 1, color: BColors.borderLow),
+              ValueListenableBuilder<bool>(
+                valueListenable: offlineState,
+                builder: (_, isOffline, _) =>
+                    isOffline ? const _OfflineBanner() : const SizedBox.shrink(),
+              ),
               Expanded(
                 child: Stack(children: [
                   Row(children: [
@@ -2185,6 +2190,37 @@ class _ContextMenuItemState extends State<_ContextMenuItem> {
         ),
       ),
     );
+  }
+}
+
+// ─── Offline banner (B9) ──────────────────────────────────────
+
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0x1AFF5C5C),
+        border: const Border(bottom: BorderSide(color: Color(0x33FF5C5C))),
+      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Container(
+          width: 7, height: 7,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle, color: Color(0xFFFF5C5C),
+          ),
+        ).animate(onPlay: (c) => c.repeat(reverse: true))
+            .fade(begin: 0.4, end: 1.0, duration: 900.ms, curve: Curves.easeInOut),
+        const SizedBox(width: 8),
+        const Text('нет соединения · переподключение...', style: TextStyle(
+          fontFamily: 'Onest', fontSize: 12, fontWeight: FontWeight.w500,
+          color: Color(0xCCFF8888),
+        )),
+      ]),
+    ).animate().fadeIn(duration: 180.ms).slideY(begin: -1, curve: Curves.easeOut);
   }
 }
 
