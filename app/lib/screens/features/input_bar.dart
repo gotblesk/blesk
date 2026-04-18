@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:pasteboard/pasteboard.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
@@ -52,6 +55,10 @@ class _InputBarState extends State<InputBar> {
   int _popoverActive = 0;
   int _popoverItemCount = 0;
 
+  // B5 paste — pasted image attachments awaiting send
+  final List<Uint8List> _pastedImages = [];
+  bool _pasteFlashActive = false;
+
   @override
   void initState() {
     super.initState();
@@ -88,8 +95,36 @@ class _InputBarState extends State<InputBar> {
         _sendSilent();
         return KeyEventResult.handled;
       }
+      // B5 image paste: Ctrl+V checks clipboard for image bytes
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.keyV &&
+          HardwareKeyboard.instance.isControlPressed) {
+        _tryPasteImage();
+        // let native text paste proceed too
+      }
       return KeyEventResult.ignored;
     };
+  }
+
+  Future<void> _tryPasteImage() async {
+    try {
+      final bytes = await Pasteboard.image;
+      if (bytes != null && bytes.isNotEmpty) {
+        setState(() {
+          _pastedImages.add(bytes);
+          _pasteFlashActive = true;
+        });
+        Future.delayed(const Duration(milliseconds: 350), () {
+          if (mounted) setState(() => _pasteFlashActive = false);
+        });
+      }
+    } catch (_) {
+      // Silently ignore — text paste still works natively
+    }
+  }
+
+  void _removePastedImage(int idx) {
+    setState(() => _pastedImages.removeAt(idx));
   }
 
   void _sendSilent() {
@@ -325,6 +360,12 @@ class _InputBarState extends State<InputBar> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         // Draft restored banner (appears briefly)
         if (_draftBannerVisible) _DraftBanner(onDismiss: _clearDraft),
+        // B5 pasted image previews (above input when clipboard image was pasted)
+        if (_pastedImages.isNotEmpty)
+          _PastedImagesBar(
+            images: _pastedImages,
+            onRemove: _removePastedImage,
+          ),
         // Reply/Edit header
         if (_showReply) _ReplyHeader(
           name: widget.replyTo!, text: widget.replyText ?? '',
@@ -342,9 +383,16 @@ class _InputBarState extends State<InputBar> {
               duration: const Duration(milliseconds: 200),
               constraints: const BoxConstraints(minHeight: 48, maxHeight: 200),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
+                color: _pasteFlashActive
+                    ? BColors.accent.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+                border: Border.all(
+                  color: _pasteFlashActive
+                      ? BColors.accent.withValues(alpha: 0.4)
+                      : Colors.white.withValues(alpha: 0.06),
+                  width: _pasteFlashActive ? 1 : 0.5,
+                ),
               ),
               child: _recording ? _RecordingUI(
                 seconds: _recordSeconds,
@@ -856,6 +904,111 @@ class _ReplyHeader extends StatelessWidget {
 }
 
 // ─── Edit Header ──────────────────────────────────────────────
+
+// ─── Pasted Images Preview (B5) ───────────────────────────────
+
+class _PastedImagesBar extends StatelessWidget {
+  final List<Uint8List> images;
+  final ValueChanged<int> onRemove;
+  const _PastedImagesBar({required this.images, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withValues(alpha: 0.03),
+        border: Border.all(color: BColors.accent.withValues(alpha: 0.2), width: 0.5),
+      ),
+      child: Row(children: [
+        SizedBox(
+          height: 64,
+          child: ListView.separated(
+            shrinkWrap: true,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            itemCount: images.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 6),
+            itemBuilder: (_, i) => _PastedThumb(
+              bytes: images[i],
+              onRemove: () => onRemove(i),
+            ),
+          ),
+        ),
+        const Spacer(),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Text(
+            images.length == 1
+                ? '1 изображение'
+                : '${images.length} изображений',
+            style: TextStyle(
+              fontFamily: 'Onest', fontSize: 11, fontWeight: FontWeight.w500,
+              color: BColors.accent.withValues(alpha: 0.85),
+            ),
+          ),
+        ),
+      ]),
+    ).animate().fadeIn(duration: 180.ms).slideY(begin: -0.3, curve: Curves.easeOut);
+  }
+}
+
+class _PastedThumb extends StatefulWidget {
+  final Uint8List bytes;
+  final VoidCallback onRemove;
+  const _PastedThumb({required this.bytes, required this.onRemove});
+  @override
+  State<_PastedThumb> createState() => _PastedThumbState();
+}
+
+class _PastedThumbState extends State<_PastedThumb> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: Stack(children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.memory(
+            widget.bytes,
+            width: 64, height: 64, fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              width: 64, height: 64,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                color: Colors.white.withValues(alpha: 0.05),
+              ),
+              child: const Icon(SolarIconsOutline.gallery, size: 20,
+                  color: BColors.textMuted),
+            ),
+          ),
+        ),
+        if (_h) Positioned(
+          top: 2, right: 2,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: widget.onRemove,
+              child: Container(
+                width: 18, height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.7),
+                ),
+                child: const Icon(SolarIconsOutline.closeCircle, size: 11,
+                    color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
 
 class _DraftBanner extends StatelessWidget {
   final VoidCallback onDismiss;

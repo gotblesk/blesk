@@ -1,34 +1,46 @@
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
-/// Global toggle used by main_screen keyboard shortcut to demo drop state
-/// without a native drag source. Wire desktop_drop plugin here later.
+/// Global toggle — flips when OS drag enters content area or via
+/// Ctrl+Shift+D demo shortcut.
 final ValueNotifier<bool> dropOverlayActive = ValueNotifier(false);
 
+/// Accumulates last drop payload (filenames) for feedback — toast / attach.
+final ValueNotifier<List<String>> droppedFiles = ValueNotifier(const []);
+
 /// Drag & drop file overlay — shown when files are dragged over the content area.
-/// Usage: wrap content in DropOverlay, it shows/hides automatically.
+/// Wraps content with DropTarget from desktop_drop plugin.
 class DropOverlay extends StatelessWidget {
   final Widget child;
   const DropOverlay({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(children: [
-      child,
-      ValueListenableBuilder<bool>(
-        valueListenable: dropOverlayActive,
-        builder: (_, on, _) => on
-            ? Positioned.fill(
-                child: _DropZone(
-                  onDismiss: () => dropOverlayActive.value = false,
-                ),
-              )
-            : const SizedBox.shrink(),
-      ),
-    ]);
+    return DropTarget(
+      onDragEntered: (_) => dropOverlayActive.value = true,
+      onDragExited: (_) => dropOverlayActive.value = false,
+      onDragDone: (details) {
+        dropOverlayActive.value = false;
+        droppedFiles.value = details.files.map((f) => f.name).toList();
+      },
+      child: Stack(children: [
+        child,
+        ValueListenableBuilder<bool>(
+          valueListenable: dropOverlayActive,
+          builder: (_, on, _) => on
+              ? Positioned.fill(
+                  child: _DropZone(
+                    onDismiss: () => dropOverlayActive.value = false,
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ]),
+    );
   }
 }
 
