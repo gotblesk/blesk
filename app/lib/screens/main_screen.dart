@@ -9,6 +9,12 @@ import 'features/settings_screen.dart';
 import 'features/call_ui.dart';
 import 'features/input_bar.dart';
 import 'features/chat_messages.dart';
+import 'features/media_viewer.dart';
+import 'features/global_search.dart';
+import 'features/chat_search_bar.dart';
+import 'features/channel_feed.dart';
+import 'features/create_flows.dart';
+import 'features/members_panel.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN SHELL — Living Sidebar + Content Area
@@ -96,6 +102,50 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  void _showCreateMenu(BuildContext ctx) {
+    final overlay = Overlay.of(ctx);
+    late OverlayEntry entry;
+    entry = OverlayEntry(builder: (_) => _CreateMenuPopup(
+      onClose: () => entry.remove(),
+      onGroup: () {
+        entry.remove();
+        showCreateGroup(ctx, onCreated: (g) {
+          setState(() => _section = Section.chats);
+        });
+      },
+      onChannel: () {
+        entry.remove();
+        showCreateChannel(ctx, onCreated: (c) {
+          setState(() => _section = Section.channels);
+        });
+      },
+      onContact: () {
+        entry.remove();
+        showAddContact(ctx);
+      },
+    ));
+    overlay.insert(entry);
+  }
+
+  void _showGlobalSearch() {
+    showGlobalSearch(context, onPick: (result) {
+      switch (result.kind) {
+        case SearchResultKind.chat:
+        case SearchResultKind.message:
+          setState(() {
+            _section = Section.chats;
+            _openChat(result.kind == SearchResultKind.chat
+                ? result.id
+                : (result.inChat?.split(' · ').first ?? result.id));
+          });
+        case SearchResultKind.contact:
+          setState(() { _section = Section.contacts; _profileView = result.id; });
+        case SearchResultKind.channel:
+          setState(() => _section = Section.channels);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
@@ -113,7 +163,7 @@ class _MainScreenState extends State<MainScreen> {
             onInvoke: (i) { setState(() => _section = i.section); return null; },
           ),
           _SearchIntent: CallbackAction<_SearchIntent>(
-            onInvoke: (_) { _searchFocus.requestFocus(); return null; },
+            onInvoke: (_) { _showGlobalSearch(); return null; },
           ),
           _NewChatIntent: CallbackAction<_NewChatIntent>(onInvoke: (_) => null),
           _EscIntent: CallbackAction<_EscIntent>(
@@ -158,6 +208,7 @@ class _MainScreenState extends State<MainScreen> {
                         onSplit: _addSplit,
                         onProfile: () => setState(() => _profileView = 'self'),
                         onSettings: () => setState(() => _showSettings = true),
+                        onCreate: () => _showCreateMenu(context),
                       ),
                     ),
                     Container(width: 1, color: BColors.borderLow),
@@ -282,12 +333,14 @@ class _LivingSidebar extends StatelessWidget {
   final ValueChanged<String> onSplit;
   final VoidCallback onProfile;
   final VoidCallback onSettings;
+  final VoidCallback? onCreate;
 
   const _LivingSidebar({
     required this.section, required this.activeChat,
     required this.searchCtrl, required this.searchFocus,
     required this.onSection, required this.onChat, required this.onPeek,
     required this.onSplit, required this.onProfile, required this.onSettings,
+    this.onCreate,
   });
 
   @override
@@ -296,7 +349,7 @@ class _LivingSidebar extends StatelessWidget {
       color: const Color(0xFF0d0d10),
       child: Column(children: [
         // Header
-        _SidebarHeader(onAvatarTap: onProfile, onSettings: onSettings),
+        _SidebarHeader(onAvatarTap: onProfile, onSettings: onSettings, onCreate: onCreate),
         // Section capsule
         _SectionCapsule(section: section, onSection: onSection),
         // List
@@ -341,7 +394,10 @@ class _LivingSidebar extends StatelessWidget {
 class _SidebarHeader extends StatelessWidget {
   final VoidCallback onAvatarTap;
   final VoidCallback onSettings;
-  const _SidebarHeader({required this.onAvatarTap, required this.onSettings});
+  final VoidCallback? onCreate;
+  const _SidebarHeader({
+    required this.onAvatarTap, required this.onSettings, this.onCreate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +428,7 @@ class _SidebarHeader extends StatelessWidget {
           fontWeight: FontWeight.w600, color: BColors.textPrimary,
         )),
         const Spacer(),
-        _HeaderBtn(icon: Icons.add, tooltip: 'новый чат (Ctrl+N)'),
+        _HeaderBtn(icon: Icons.add, tooltip: 'создать новое', onTap: onCreate),
         const SizedBox(width: 2),
         _HeaderBtn(icon: Icons.settings_outlined, tooltip: 'настройки', onTap: onSettings),
       ]),
@@ -956,10 +1012,9 @@ class _ContactItemState extends State<_ContactItem> {
 // ═══════════════════════════════════════════════════════════════
 
 const _channels = [
-  ('ch1', 'blesk updates', '2.4k подписчиков', Icons.campaign_outlined),
-  ('ch2', 'дизайн-инспо', '890 подписчиков', Icons.palette_outlined),
-  ('ch3', 'музыка', '1.1k подписчиков', Icons.music_note_outlined),
-  ('ch4', 'код и кофе', '430 подписчиков', Icons.code_outlined),
+  ('ch_news', 'blesk news', '1.2к подписчиков', Icons.campaign_outlined),
+  ('ch_design', 'design daily', '482 подписчика', Icons.palette_outlined),
+  ('ch_music', 'soundtrack', '156 подписчиков', Icons.music_note_outlined),
 ];
 
 class _ChannelList extends StatelessWidget {
@@ -1072,16 +1127,11 @@ class _SplitContent extends StatelessWidget {
         Expanded(
           child: Container(
             color: BColors.bg,
-            child: _ChatPanel(
-              chatId: panels[fi],
-              showClose: true,
-              showFocus: true,
-              isFocusMode: true,
-              onClose: () => onClose(fi),
-              onToggleFocus: onToggleFocus,
-              onProfile: onProfile,
-              onCall: onCall,
-            ),
+            child: _panelForId(panels[fi],
+                showClose: true, showFocus: true, isFocusMode: true,
+                onClose: () => onClose(fi),
+                onToggleFocus: onToggleFocus,
+                onProfile: onProfile, onCall: onCall),
           ),
         ).animate().fadeIn(duration: 300.ms).slideX(begin: -0.02, duration: 350.ms, curve: Curves.easeOutCubic),
         // Stack
@@ -1109,22 +1159,44 @@ class _SplitContent extends StatelessWidget {
                       ? const Border(top: BorderSide(color: BColors.accent, width: 2))
                       : null,
                 ),
-                child: _ChatPanel(
-                  chatId: panels[i],
-                  showClose: panels.length > 1,
-                  showFocus: panels.length > 1,
-                  isFocusMode: false,
-                  onClose: () => onClose(i),
-                  onToggleFocus: onToggleFocus,
-                  onProfile: onProfile,
-                  onCall: onCall,
-                ),
+                child: _panelForId(panels[i],
+                    showClose: panels.length > 1,
+                    showFocus: panels.length > 1,
+                    isFocusMode: false,
+                    onClose: () => onClose(i),
+                    onToggleFocus: onToggleFocus,
+                    onProfile: onProfile, onCall: onCall),
               ),
             ),
           ).animate().fadeIn(duration: 250.ms, curve: Curves.easeOut)
               .slideX(begin: 0.03, duration: 300.ms, curve: Curves.easeOutCubic),
         ],
       ],
+    );
+  }
+
+  Widget _panelForId(String id, {
+    required bool showClose, required bool showFocus, required bool isFocusMode,
+    required VoidCallback onClose, required VoidCallback onToggleFocus,
+    required ValueChanged<String> onProfile,
+    required void Function(String id, bool video) onCall,
+  }) {
+    if (isChannelId(id)) {
+      return ChannelFeedPanel(
+        channelId: id,
+        showClose: showClose,
+        onClose: onClose,
+      );
+    }
+    return _ChatPanel(
+      chatId: id,
+      showClose: showClose,
+      showFocus: showFocus,
+      isFocusMode: isFocusMode,
+      onClose: onClose,
+      onToggleFocus: onToggleFocus,
+      onProfile: onProfile,
+      onCall: onCall,
     );
   }
 }
@@ -1274,6 +1346,77 @@ class _ChatPanel extends StatefulWidget {
 }
 
 class _ChatPanelState extends State<_ChatPanel> {
+  ReplyQuote? _replyTo;
+  String? _editText;
+  bool _searchOpen = false;
+  String _searchQuery = '';
+  int _currentMatchIdx = 0; // 0-based among matches
+  List<String> _matchMessageIds = const [];
+
+  void _recomputeMatches() {
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isEmpty) {
+      _matchMessageIds = const [];
+      _currentMatchIdx = 0;
+      return;
+    }
+    final msgs = stubMessages[widget.chatId] ?? const [];
+    _matchMessageIds = msgs
+        .where((m) => (m.text ?? '').toLowerCase().contains(q))
+        .map((m) => m.id)
+        .toList();
+    if (_currentMatchIdx >= _matchMessageIds.length) _currentMatchIdx = 0;
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _searchOpen = !_searchOpen;
+      if (!_searchOpen) {
+        _searchQuery = '';
+        _matchMessageIds = const [];
+        _currentMatchIdx = 0;
+      }
+    });
+  }
+
+  void _openMedia(BuildContext ctx, MessageData msg, String senderName) {
+    // Build media list from the current chat's messages (photo/video/gif)
+    final all = stubMessages[widget.chatId] ?? [];
+    final media = <MediaItem>[];
+    int startIndex = 0;
+    for (final m in all) {
+      if (m.type == MessageType.photo && m.photoTints != null) {
+        for (var i = 0; i < m.photoTints!.length; i++) {
+          if (m.id == msg.id && i == 0) startIndex = media.length;
+          media.add(MediaItem(
+            id: '${m.id}_$i', tint: m.photoTints![i],
+            caption: i == 0 ? m.text : null,
+          ));
+        }
+      } else if (m.type == MessageType.video) {
+        if (m.id == msg.id) startIndex = media.length;
+        media.add(MediaItem(
+          id: m.id,
+          tint: m.photoTints?.first ?? const Color(0xFF5b8fff),
+          isVideo: true, videoDuration: m.videoDuration,
+          caption: m.text,
+        ));
+      } else if (m.type == MessageType.gif && m.gifTint != null) {
+        if (m.id == msg.id) startIndex = media.length;
+        media.add(MediaItem(id: m.id, tint: m.gifTint!));
+      }
+    }
+    if (media.isEmpty) return;
+    showMediaViewer(
+      ctx,
+      items: media,
+      startIndex: startIndex,
+      senderName: msg.own ? 'ты' : senderName,
+      dateText: msg.time,
+      onDownload: () {},
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatId = widget.chatId;
@@ -1330,12 +1473,23 @@ class _ChatPanelState extends State<_ChatPanel> {
               shape: BoxShape.circle, color: Color(0xFF00E676))),
             const SizedBox(width: 8),
           ],
+          if (!compact) ...[
+            if (stubMembers(chatId).isNotEmpty) ...[
+              _CallHeaderBtn(icon: Icons.people_outline, tooltip: 'участники',
+                onTap: () => showMembersPanel(context,
+                    chatId: chatId, groupName: name)),
+              const SizedBox(width: 2),
+            ],
+            _CallHeaderBtn(icon: Icons.search_rounded, tooltip: 'поиск в чате (ctrl+f)',
+              onTap: _toggleSearch),
+            const SizedBox(width: 2),
+          ],
           if (onCall != null && !compact) ...[
             _CallHeaderBtn(icon: Icons.phone_outlined, tooltip: 'позвонить',
-              onTap: () => onCall?.call(chatId, false)),
+              onTap: () => onCall.call(chatId, false)),
             const SizedBox(width: 2),
             _CallHeaderBtn(icon: Icons.videocam_outlined, tooltip: 'видеозвонок',
-              onTap: () => onCall?.call(chatId, true)),
+              onTap: () => onCall.call(chatId, true)),
           ],
           if (showFocus && onToggleFocus != null) ...[
             const SizedBox(width: 10),
@@ -1352,13 +1506,50 @@ class _ChatPanelState extends State<_ChatPanel> {
         ]),
       );
       }),
+      // In-chat search bar (Ctrl+F)
+      if (_searchOpen) ChatSearchBar(
+        onQueryChanged: (q) {
+          setState(() { _searchQuery = q; _recomputeMatches(); });
+        },
+        onPrev: () => setState(() {
+          if (_matchMessageIds.isEmpty) return;
+          _currentMatchIdx = (_currentMatchIdx - 1 + _matchMessageIds.length)
+              % _matchMessageIds.length;
+        }),
+        onNext: () => setState(() {
+          if (_matchMessageIds.isEmpty) return;
+          _currentMatchIdx = (_currentMatchIdx + 1) % _matchMessageIds.length;
+        }),
+        onClose: _toggleSearch,
+        matchCount: _matchMessageIds.length,
+        currentMatch: _matchMessageIds.isEmpty ? 0 : _currentMatchIdx + 1,
+      ),
       // Messages
-      Expanded(child: ChatMessages(chatId: chatId)),
+      Expanded(child: ChatMessages(
+        chatId: chatId,
+        highlightQuery: _searchOpen ? _searchQuery : null,
+        currentMatchId: _matchMessageIds.isEmpty
+            ? null
+            : _matchMessageIds[_currentMatchIdx.clamp(0, _matchMessageIds.length - 1)].hashCode,
+        onReply: (q) => setState(() => _replyTo = q),
+        onEditStart: (text) => setState(() => _editText = text),
+        onOpenMedia: (msg) => _openMedia(context, msg, name),
+      )),
       // Input bar
-      InputBar(onSend: (text) {
+      InputBar(
+        replyTo: _replyTo?.senderName,
+        replyText: _replyTo?.text,
+        editText: _editText,
+        onCancelReply: () => setState(() => _replyTo = null),
+        onCancelEdit: () => setState(() => _editText = null),
+        onSend: (text) {
         final msgs = stubMessages[chatId] ??= [];
-        msgs.add(MessageData(id: '${msgs.length + 1}', text: text, time: 'сейчас', own: true, read: false));
-        setState(() {});
+        msgs.add(MessageData(
+          id: '${msgs.length + 1}', text: text,
+          time: 'сейчас', own: true, read: false,
+          reply: _replyTo,
+        ));
+        setState(() { _replyTo = null; _editText = null; });
       }),
     ]);
   }
@@ -1921,6 +2112,125 @@ class _ContextMenuItemState extends State<_ContextMenuItem> {
             const SizedBox(width: 10),
             Text(widget.item.label, style: TextStyle(
               fontFamily: 'Onest', fontSize: 13, color: color,
+            )),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CREATE MENU POPUP (anchored under + in sidebar header)
+// ═══════════════════════════════════════════════════════════════
+
+class _CreateMenuPopup extends StatelessWidget {
+  final VoidCallback onClose;
+  final VoidCallback onGroup;
+  final VoidCallback onChannel;
+  final VoidCallback onContact;
+  const _CreateMenuPopup({
+    required this.onClose, required this.onGroup,
+    required this.onChannel, required this.onContact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(color: Colors.transparent, child: Stack(children: [
+      Positioned.fill(child: GestureDetector(
+        onTap: onClose, behavior: HitTestBehavior.opaque,
+        child: const SizedBox.expand(),
+      )),
+      Positioned(
+        left: 160, top: 72,
+        child: Container(
+          width: 220,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: const Color(0xF5141418),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            boxShadow: const [BoxShadow(
+              color: Color(0x99000000), blurRadius: 28, offset: Offset(0, 10),
+            )],
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _CreateMenuItem(
+              icon: Icons.group_outlined, label: 'новая группа',
+              hint: 'чат с несколькими людьми', onTap: onGroup,
+            ),
+            _CreateMenuItem(
+              icon: Icons.campaign_outlined, label: 'новый канал',
+              hint: 'публикации для подписчиков', onTap: onChannel,
+            ),
+            _CreateMenuItem(
+              icon: Icons.person_add_alt_outlined, label: 'добавить контакт',
+              hint: 'по нику или ссылке', onTap: onContact,
+            ),
+          ]),
+        ).animate()
+            .scale(begin: const Offset(0.96, 0.96),
+                duration: 140.ms, curve: Curves.easeOutCubic)
+            .fade(duration: 120.ms),
+      ),
+    ]));
+  }
+}
+
+class _CreateMenuItem extends StatefulWidget {
+  final IconData icon;
+  final String label, hint;
+  final VoidCallback onTap;
+  const _CreateMenuItem({
+    required this.icon, required this.label,
+    required this.hint, required this.onTap,
+  });
+  @override
+  State<_CreateMenuItem> createState() => _CreateMenuItemState();
+}
+
+class _CreateMenuItemState extends State<_CreateMenuItem> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          height: 46,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(7),
+            color: _h ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+          ),
+          child: Row(children: [
+            Container(
+              width: 30, height: 30,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(7),
+                color: BColors.accent.withValues(alpha: _h ? 0.14 : 0.08),
+              ),
+              child: Icon(widget.icon, size: 15,
+                  color: BColors.accent.withValues(alpha: 0.9)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.label, style: const TextStyle(
+                  fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w500,
+                  color: BColors.textPrimary,
+                )),
+                Text(widget.hint, style: const TextStyle(
+                  fontFamily: 'Onest', fontSize: 11, color: BColors.textMuted,
+                )),
+              ],
             )),
           ]),
         ),
