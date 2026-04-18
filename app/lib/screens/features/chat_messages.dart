@@ -359,6 +359,77 @@ class _ChatMessagesState extends State<ChatMessages> {
   int _unreadNew = 0;
   String? _editingMessageId;
   OverlayEntry? _undoToastEntry;
+  // Selection mode (B3)
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
+  String? _lastSelectedId;
+
+  void _toggleSelection(String msgId, {bool range = false}) {
+    setState(() {
+      _selectionMode = true;
+      if (range && _lastSelectedId != null && _lastSelectedId != msgId) {
+        final msgs = stubMessages[widget.chatId] ?? const [];
+        final a = msgs.indexWhere((m) => m.id == _lastSelectedId);
+        final b = msgs.indexWhere((m) => m.id == msgId);
+        if (a >= 0 && b >= 0) {
+          final lo = a < b ? a : b;
+          final hi = a > b ? a : b;
+          for (var i = lo; i <= hi; i++) {
+            _selectedIds.add(msgs[i].id);
+          }
+        }
+      } else {
+        if (_selectedIds.contains(msgId)) {
+          _selectedIds.remove(msgId);
+          if (_selectedIds.isEmpty) _selectionMode = false;
+        } else {
+          _selectedIds.add(msgId);
+        }
+      }
+      _lastSelectedId = msgId;
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+      _lastSelectedId = null;
+    });
+  }
+
+  void _copySelection() {
+    final msgs = stubMessages[widget.chatId] ?? const [];
+    final lines = msgs
+        .where((m) => _selectedIds.contains(m.id) && m.text != null)
+        .map((m) => '[${m.time}] ${m.senderName ?? (m.own ? 'ты' : 'собеседник')}: ${m.text}')
+        .toList();
+    if (lines.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: lines.join('\n')));
+    }
+    _exitSelection();
+  }
+
+  void _deleteSelection() {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    setState(() {
+      msgs.removeWhere((m) => _selectedIds.contains(m.id));
+      _exitSelection();
+    });
+  }
+
+  void _forwardSelection() {
+    final msgs = stubMessages[widget.chatId] ?? const [];
+    final first = msgs.firstWhere(
+      (m) => _selectedIds.contains(m.id),
+      orElse: () => msgs.first,
+    );
+    // For demo: forward only the first selected. A real impl would
+    // support multi-forward in the modal.
+    _forwardMessage(first);
+    _exitSelection();
+  }
 
   void _startEdit(String id) => setState(() => _editingMessageId = id);
   void _cancelEdit() => setState(() => _editingMessageId = null);
@@ -549,6 +620,11 @@ class _ChatMessagesState extends State<ChatMessages> {
         isCurrentMatch: widget.currentMatchId != null &&
             widget.currentMatchId == msg.id.hashCode,
         isEditing: _editingMessageId == msg.id,
+        isSelected: _selectedIds.contains(msg.id),
+        selectionMode: _selectionMode,
+        onSelectTap: () => _toggleSelection(msg.id,
+            range: HardwareKeyboard.instance.isShiftPressed),
+        onEnterSelection: () => _toggleSelection(msg.id),
         onDelete: () => _deleteMessage(msg),
         onForward: () => _forwardMessage(msg),
         onReact: (emoji) => _toggleReaction(msg, emoji),
@@ -614,7 +690,14 @@ class _ChatMessagesState extends State<ChatMessages> {
     }
 
     return Column(children: [
-      if (pinned.isNotEmpty)
+      if (_selectionMode) _SelectionToolbar(
+        count: _selectedIds.length,
+        onClose: _exitSelection,
+        onCopy: _copySelection,
+        onForward: _forwardSelection,
+        onDelete: _deleteSelection,
+      )
+      else if (pinned.isNotEmpty)
         PinnedMessagesBar(pinned: pinned, onTap: () {}),
       Expanded(child: Stack(children: [
         ListView.builder(
@@ -669,11 +752,15 @@ class _MessageBubble extends StatefulWidget {
   final String? highlightQuery;
   final bool isCurrentMatch;
   final bool isEditing;
+  final bool isSelected;
+  final bool selectionMode;
   final ValueChanged<String>? onReact;
   final VoidCallback? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onForward;
+  final VoidCallback? onSelectTap;
+  final VoidCallback? onEnterSelection;
   final ValueChanged<String>? onSaveEdit;
   final VoidCallback? onCancelEdit;
   final VoidCallback? onOpenMedia;
@@ -681,7 +768,9 @@ class _MessageBubble extends StatefulWidget {
   const _MessageBubble({
     required this.msg, required this.pos,
     this.highlightQuery, this.isCurrentMatch = false, this.isEditing = false,
+    this.isSelected = false, this.selectionMode = false,
     this.onReact, this.onReply, this.onEdit, this.onDelete, this.onForward,
+    this.onSelectTap, this.onEnterSelection,
     this.onSaveEdit, this.onCancelEdit,
     this.onOpenMedia,
   });
@@ -799,6 +888,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         if (hasText) _CtxItem('копировать', SolarIconsOutline.copy, 'copy'),
         _CtxItem('переслать', SolarIconsOutline.forward, 'forward'),
         _CtxItem('закрепить', SolarIconsOutline.pin, 'pin'),
+        _CtxItem('выбрать', SolarIconsOutline.checkCircle, 'select'),
         if (isOwn && hasText) _CtxItem('редактировать', SolarIconsOutline.pen, 'edit'),
         if (isOwn) _CtxItem('удалить', SolarIconsOutline.trashBinTrash, 'delete', danger: true),
       ],
@@ -808,6 +898,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         if (id == 'edit') widget.onEdit?.call();
         if (id == 'delete') widget.onDelete?.call();
         if (id == 'forward') widget.onForward?.call();
+        if (id == 'select') widget.onEnterSelection?.call();
         if (id == 'copy' && widget.msg.text != null) {
           Clipboard.setData(ClipboardData(text: widget.msg.text!));
         }
@@ -935,8 +1026,19 @@ class _MessageBubbleState extends State<_MessageBubble> {
     if (isSticker) {
       return Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
         GestureDetector(
+          onTap: widget.selectionMode ? widget.onSelectTap : null,
           onSecondaryTapDown: (d) => _showContextMenu(d.globalPosition),
-          child: StickerContent(emoji: msg.stickerEmoji ?? '🎉'),
+          child: Container(
+            decoration: widget.isSelected
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: BColors.accent.withValues(alpha: 0.08),
+                    border: Border.all(color: BColors.accent.withValues(alpha: 0.4), width: 2),
+                  )
+                : null,
+            padding: widget.isSelected ? const EdgeInsets.all(4) : EdgeInsets.zero,
+            child: StickerContent(emoji: msg.stickerEmoji ?? '🎉'),
+          ),
         ),
         _buildTimeAndStatus(faded: true),
       ]);
@@ -944,22 +1046,27 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
     // Normal bubble
     final editing = widget.isEditing;
+    final selected = widget.isSelected;
     final bgColor = noBubbleBg
         ? Colors.transparent
-        : editing
-            ? BColors.accent.withValues(alpha: 0.1)
-            : own
-                ? BColors.accent.withValues(alpha: 0.06)
-                : const Color(0xFF141418);
+        : selected
+            ? BColors.accent.withValues(alpha: 0.12)
+            : editing
+                ? BColors.accent.withValues(alpha: 0.1)
+                : own
+                    ? BColors.accent.withValues(alpha: 0.06)
+                    : const Color(0xFF141418);
     final borderColor = noBubbleBg
         ? Colors.transparent
-        : editing
-            ? BColors.accent.withValues(alpha: 0.4)
-            : isError
-                ? const Color(0xFFff5c5c).withValues(alpha: 0.35)
-                : own
-                    ? BColors.accent.withValues(alpha: 0.1)
-                    : Colors.white.withValues(alpha: 0.05);
+        : selected
+            ? BColors.accent
+            : editing
+                ? BColors.accent.withValues(alpha: 0.4)
+                : isError
+                    ? const Color(0xFFff5c5c).withValues(alpha: 0.35)
+                    : own
+                        ? BColors.accent.withValues(alpha: 0.1)
+                        : Colors.white.withValues(alpha: 0.05);
 
     // Padding strategy — tighter for media-only
     final mediaOnly = (isPhoto || isVideo || isGif) &&
@@ -969,6 +1076,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : const EdgeInsets.fromLTRB(14, 8, 12, 7);
 
     return GestureDetector(
+      onTap: widget.selectionMode ? widget.onSelectTap : null,
       onSecondaryTapDown: (d) => _showContextMenu(d.globalPosition),
       child: Container(
         padding: padding,
@@ -2020,6 +2128,126 @@ class _UndoToast extends StatefulWidget {
   const _UndoToast({required this.onUndo, required this.onDismiss});
   @override
   State<_UndoToast> createState() => _UndoToastState();
+}
+
+// ─── SELECTION TOOLBAR (B3) ───────────────────────────────────
+
+class _SelectionToolbar extends StatelessWidget {
+  final int count;
+  final VoidCallback onClose;
+  final VoidCallback onCopy;
+  final VoidCallback onForward;
+  final VoidCallback onDelete;
+  const _SelectionToolbar({
+    required this.count,
+    required this.onClose,
+    required this.onCopy,
+    required this.onForward,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: const BoxDecoration(
+        color: Color(0x0AFFFFFF),
+        border: Border(bottom: BorderSide(color: BColors.borderLow)),
+      ),
+      child: Row(children: [
+        _ToolbarBtn(icon: SolarIconsOutline.closeCircle, onTap: onClose),
+        const SizedBox(width: 10),
+        Text(
+          count == 0 ? 'ничего не выбрано' : 'выбрано: $count',
+          style: TextStyle(
+            fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w500,
+            color: count == 0 ? BColors.textMuted : BColors.textPrimary,
+          ),
+        ),
+        const Spacer(),
+        _ToolbarBtn(
+          icon: SolarIconsOutline.copy,
+          tooltip: 'копировать',
+          enabled: count > 0,
+          onTap: onCopy,
+        ),
+        const SizedBox(width: 2),
+        _ToolbarBtn(
+          icon: SolarIconsOutline.forward,
+          tooltip: 'переслать',
+          enabled: count > 0,
+          onTap: onForward,
+        ),
+        const SizedBox(width: 2),
+        _ToolbarBtn(
+          icon: SolarIconsOutline.trashBinTrash,
+          tooltip: 'удалить',
+          danger: true,
+          enabled: count > 0,
+          onTap: onDelete,
+        ),
+      ]),
+    ).animate().fadeIn(duration: 180.ms).slideY(begin: -0.3, curve: Curves.easeOut);
+  }
+}
+
+class _ToolbarBtn extends StatefulWidget {
+  final IconData icon;
+  final String? tooltip;
+  final bool danger;
+  final bool enabled;
+  final VoidCallback onTap;
+  const _ToolbarBtn({
+    required this.icon, this.tooltip,
+    this.danger = false, this.enabled = true,
+    required this.onTap,
+  });
+  @override
+  State<_ToolbarBtn> createState() => _ToolbarBtnState();
+}
+
+class _ToolbarBtnState extends State<_ToolbarBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    final color = !widget.enabled
+        ? BColors.textMuted.withValues(alpha: 0.4)
+        : widget.danger
+            ? (_h ? const Color(0xFFff7070) : const Color(0xFFff5c5c))
+            : (_h ? BColors.textPrimary : BColors.textSecondary);
+    final child = MouseRegion(
+      cursor: widget.enabled
+          ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.enabled ? widget.onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: 28, height: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            color: _h && widget.enabled
+                ? (widget.danger
+                    ? const Color(0xFFff5c5c).withValues(alpha: 0.1)
+                    : Colors.white.withValues(alpha: 0.06))
+                : Colors.transparent,
+          ),
+          child: Icon(widget.icon, size: 16, color: color),
+        ),
+      ),
+    );
+    if (widget.tooltip == null) return child;
+    return Tooltip(
+      message: widget.tooltip!,
+      textStyle: const TextStyle(fontSize: 10, color: BColors.textPrimary),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1a1a1a), borderRadius: BorderRadius.circular(6),
+      ),
+      child: child,
+    );
+  }
 }
 
 // ─── JUMP-BACK PILL (B2) ──────────────────────────────────────
