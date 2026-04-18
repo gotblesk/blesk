@@ -41,6 +41,7 @@ class MessageData {
   final Duration? voiceDuration;
   final List<double>? waveform;
   final bool voicePlayed;
+  final String? voiceTranscript; // C5 voice-to-text
   // File
   final String? fileName;
   final String? fileSize;
@@ -51,6 +52,9 @@ class MessageData {
   final LinkPreviewData? linkPreview;
   // System
   final String? systemText;
+  // C3 silent send + C4 translation
+  final bool silent;
+  final String? translation;
 
   const MessageData({
     required this.id,
@@ -73,12 +77,15 @@ class MessageData {
     this.voiceDuration,
     this.waveform,
     this.voicePlayed = false,
+    this.voiceTranscript,
     this.fileName,
     this.fileSize,
     this.fileExt,
     this.stickerEmoji,
     this.linkPreview,
     this.systemText,
+    this.silent = false,
+    this.translation,
   }) : status = status ?? (read == true
             ? MessageStatus.read
             : (own ? MessageStatus.delivered : MessageStatus.delivered));
@@ -88,6 +95,8 @@ class MessageData {
     List<Reaction>? reactions,
     String? text,
     bool? edited,
+    String? voiceTranscript,
+    String? translation,
   }) =>
       MessageData(
         id: id, text: text ?? this.text, time: time, sentAt: sentAt, own: own,
@@ -98,9 +107,11 @@ class MessageData {
         photoTints: photoTints, videoDuration: videoDuration,
         gifTint: gifTint, voiceDuration: voiceDuration,
         waveform: waveform, voicePlayed: voicePlayed,
+        voiceTranscript: voiceTranscript ?? this.voiceTranscript,
         fileName: fileName, fileSize: fileSize, fileExt: fileExt,
         stickerEmoji: stickerEmoji, linkPreview: linkPreview,
-        systemText: systemText,
+        systemText: systemText, silent: silent,
+        translation: translation ?? this.translation,
       );
 }
 
@@ -295,6 +306,35 @@ void consumeReactionCounter(String chatId) {
   }
 }
 
+/// Personal bookmarks on messages (C6). Separate from forwards/saved.
+class BookmarkEntry {
+  final String id, chatId, messageId, preview, senderName, chatName, date;
+  const BookmarkEntry({
+    required this.id, required this.chatId, required this.messageId,
+    required this.preview, required this.senderName,
+    required this.chatName, required this.date,
+  });
+}
+
+final List<BookmarkEntry> stubBookmarks = [];
+final ValueNotifier<int> bookmarksVersion = ValueNotifier(0);
+
+void addBookmark(BookmarkEntry entry) {
+  // Replace if exists
+  stubBookmarks.removeWhere((b) => b.id == entry.id);
+  stubBookmarks.add(entry);
+  bookmarksVersion.value++;
+}
+
+void removeBookmark(String id) {
+  final before = stubBookmarks.length;
+  stubBookmarks.removeWhere((b) => b.id == id);
+  if (stubBookmarks.length != before) bookmarksVersion.value++;
+}
+
+bool isBookmarked(String chatId, String messageId) =>
+    stubBookmarks.any((b) => b.chatId == chatId && b.messageId == messageId);
+
 /// Offline connection state — banner shows when true.
 /// In full impl would be bound to WebSocket state.
 final ValueNotifier<bool> offlineState = ValueNotifier(false);
@@ -445,6 +485,66 @@ class _ChatMessagesState extends State<ChatMessages> {
       msgs[idx] = msgs[idx].copyWith(text: newText, edited: true);
       _editingMessageId = null;
     });
+  }
+
+  void _translateMessage(MessageData msg) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == msg.id);
+    if (idx < 0 || msg.text == null) return;
+    // Stub: fake translation by reversing emoji-stripped text
+    final fake = 'перевод: ${msg.text}';
+    setState(() {
+      msgs[idx] = msgs[idx].copyWith(translation: fake);
+    });
+  }
+
+  void _untranslateMessage(MessageData msg) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == msg.id);
+    if (idx < 0) return;
+    setState(() {
+      final m = msgs[idx];
+      msgs[idx] = MessageData(
+        id: m.id, text: m.text, time: m.time, own: m.own,
+        status: m.status, type: m.type,
+        senderName: m.senderName, senderInitial: m.senderInitial,
+        reactions: m.reactions, reply: m.reply, forwardFrom: m.forwardFrom,
+        edited: m.edited, photoTints: m.photoTints,
+        videoDuration: m.videoDuration, gifTint: m.gifTint,
+        voiceDuration: m.voiceDuration, waveform: m.waveform,
+        voicePlayed: m.voicePlayed, voiceTranscript: m.voiceTranscript,
+        fileName: m.fileName, fileSize: m.fileSize, fileExt: m.fileExt,
+        stickerEmoji: m.stickerEmoji, linkPreview: m.linkPreview,
+        systemText: m.systemText, silent: m.silent,
+        // translation: null — explicit clear via new instance
+      );
+    });
+  }
+
+  void _transcribeMessage(MessageData msg) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == msg.id);
+    if (idx < 0) return;
+    // Stub transcript
+    const fake = 'привет, как дела? я сегодня работаю над blesk с кислотным зелёным акцентом.';
+    setState(() {
+      msgs[idx] = msgs[idx].copyWith(voiceTranscript: fake);
+    });
+  }
+
+  void _bookmarkMessage(MessageData msg) {
+    addBookmark(BookmarkEntry(
+      id: '${widget.chatId}_${msg.id}',
+      chatId: widget.chatId,
+      messageId: msg.id,
+      preview: msg.text ?? _previewForType(msg),
+      senderName: msg.own ? 'ты' : (msg.senderName ?? _resolveChatName(widget.chatId)),
+      chatName: _resolveChatName(widget.chatId),
+      date: msg.time,
+    ));
   }
 
   void _viewReadBy(MessageData msg) {
@@ -638,6 +738,10 @@ class _ChatMessagesState extends State<ChatMessages> {
         onEnterSelection: () => _toggleSelection(msg.id),
         onViewReadBy: (msg.own && stubMembers(widget.chatId).length >= 3)
             ? () => _viewReadBy(msg) : null,
+        onTranslate: () => _translateMessage(msg),
+        onUntranslate: () => _untranslateMessage(msg),
+        onTranscribe: () => _transcribeMessage(msg),
+        onBookmark: () => _bookmarkMessage(msg),
         onDelete: () => _deleteMessage(msg),
         onForward: () => _forwardMessage(msg),
         onReact: (emoji) => _toggleReaction(msg, emoji),
@@ -775,6 +879,10 @@ class _MessageBubble extends StatefulWidget {
   final VoidCallback? onSelectTap;
   final VoidCallback? onEnterSelection;
   final VoidCallback? onViewReadBy;
+  final VoidCallback? onTranslate;
+  final VoidCallback? onUntranslate;
+  final VoidCallback? onTranscribe;
+  final VoidCallback? onBookmark;
   final ValueChanged<String>? onSaveEdit;
   final VoidCallback? onCancelEdit;
   final VoidCallback? onOpenMedia;
@@ -785,6 +893,7 @@ class _MessageBubble extends StatefulWidget {
     this.isSelected = false, this.selectionMode = false,
     this.onReact, this.onReply, this.onEdit, this.onDelete, this.onForward,
     this.onSelectTap, this.onEnterSelection, this.onViewReadBy,
+    this.onTranslate, this.onUntranslate, this.onTranscribe, this.onBookmark,
     this.onSaveEdit, this.onCancelEdit,
     this.onOpenMedia,
   });
@@ -905,6 +1014,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
         _CtxItem('выбрать', SolarIconsOutline.checkCircle, 'select'),
         if (widget.onViewReadBy != null)
           _CtxItem('кто прочитал', SolarIconsOutline.eye, 'readby'),
+        if (hasText && widget.msg.translation == null)
+          _CtxItem('перевести', SolarIconsOutline.global, 'translate'),
+        if (hasText && widget.msg.translation != null)
+          _CtxItem('убрать перевод', SolarIconsOutline.global, 'untranslate'),
+        if (widget.msg.type == MessageType.voice && widget.msg.voiceTranscript == null)
+          _CtxItem('расшифровать', SolarIconsOutline.documentText, 'transcribe'),
+        _CtxItem('в закладки', SolarIconsOutline.bookmark, 'bookmark'),
         if (isOwn && hasText) _CtxItem('редактировать', SolarIconsOutline.pen, 'edit'),
         if (isOwn) _CtxItem('удалить', SolarIconsOutline.trashBinTrash, 'delete', danger: true),
       ],
@@ -916,6 +1032,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
         if (id == 'forward') widget.onForward?.call();
         if (id == 'select') widget.onEnterSelection?.call();
         if (id == 'readby') widget.onViewReadBy?.call();
+        if (id == 'translate') widget.onTranslate?.call();
+        if (id == 'untranslate') widget.onUntranslate?.call();
+        if (id == 'transcribe') widget.onTranscribe?.call();
+        if (id == 'bookmark') widget.onBookmark?.call();
         if (id == 'copy' && widget.msg.text != null) {
           Clipboard.setData(ClipboardData(text: widget.msg.text!));
         }
@@ -1167,7 +1287,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
     }
     switch (msg.type) {
       case MessageType.text:
-        return _textContent();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _textContent(),
+            if (msg.translation != null) _TranslationBlock(text: msg.translation!),
+          ],
+        );
       case MessageType.photo:
         return GestureDetector(
           onTap: widget.onOpenMedia,
@@ -1186,12 +1313,20 @@ class _MessageBubbleState extends State<_MessageBubble> {
           ),
         );
       case MessageType.voice:
-        return VoiceContent(
-          duration: msg.voiceDuration ?? const Duration(seconds: 10),
-          waveform: msg.waveform ?? List.generate(22, (i) =>
-              0.3 + 0.7 * ((i * 37) % 100) / 100),
-          own: msg.own,
-          played: msg.voicePlayed,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            VoiceContent(
+              duration: msg.voiceDuration ?? const Duration(seconds: 10),
+              waveform: msg.waveform ?? List.generate(22, (i) =>
+                  0.3 + 0.7 * ((i * 37) % 100) / 100),
+              own: msg.own,
+              played: msg.voicePlayed,
+            ),
+            if (msg.voiceTranscript != null)
+              _TranscriptBlock(text: msg.voiceTranscript!),
+          ],
         );
       case MessageType.file:
         return FileContent(
@@ -1256,6 +1391,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ),
       ),
       if (msg.own) ...[
+        if (msg.silent) ...[
+          const SizedBox(width: 4),
+          Icon(SolarIconsOutline.moon, size: 11,
+              color: BColors.textMuted.withValues(alpha: 0.7)),
+        ],
         const SizedBox(width: 4),
         ReadStatusIcon(msg.status),
       ],
@@ -2145,6 +2285,81 @@ class _UndoToast extends StatefulWidget {
   const _UndoToast({required this.onUndo, required this.onDismiss});
   @override
   State<_UndoToast> createState() => _UndoToastState();
+}
+
+// ─── TRANSLATION BLOCK (C4) ───────────────────────────────────
+
+class _TranslationBlock extends StatelessWidget {
+  final String text;
+  const _TranslationBlock({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 1, color: Colors.white.withValues(alpha: 0.06),
+            margin: const EdgeInsets.only(bottom: 6),
+          ),
+          Row(children: [
+            Icon(SolarIconsOutline.global, size: 11,
+                color: BColors.textMuted.withValues(alpha: 0.8)),
+            const SizedBox(width: 4),
+            Text(text, style: const TextStyle(
+              fontFamily: 'Onest', fontSize: 13,
+              color: BColors.textSecondary, fontStyle: FontStyle.italic,
+              height: 1.4,
+            )),
+          ]),
+          const SizedBox(height: 2),
+          Text('перевод (auto)', style: TextStyle(
+            fontFamily: 'Onest', fontSize: 9,
+            color: BColors.textMuted.withValues(alpha: 0.7),
+          )),
+        ],
+      ),
+    ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.2, curve: Curves.easeOut);
+  }
+}
+
+// ─── TRANSCRIPT BLOCK (C5 voice-to-text) ──────────────────────
+
+class _TranscriptBlock extends StatelessWidget {
+  final String text;
+  const _TranscriptBlock({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 1, color: Colors.white.withValues(alpha: 0.06),
+            margin: const EdgeInsets.only(bottom: 6),
+          ),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(SolarIconsOutline.documentText, size: 12,
+                color: BColors.accent.withValues(alpha: 0.7)),
+            const SizedBox(width: 6),
+            Flexible(child: Text(text, style: const TextStyle(
+              fontFamily: 'Onest', fontSize: 13,
+              color: BColors.textPrimary, height: 1.4,
+            ))),
+          ]),
+          const SizedBox(height: 2),
+          Text('расшифровано', style: TextStyle(
+            fontFamily: 'Onest', fontSize: 9,
+            color: BColors.textMuted.withValues(alpha: 0.7),
+          )),
+        ],
+      ),
+    ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.2, curve: Curves.easeOut);
+  }
 }
 
 // ─── SELECTION TOOLBAR (B3) ───────────────────────────────────
