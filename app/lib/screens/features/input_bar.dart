@@ -382,6 +382,7 @@ class _InputBarState extends State<InputBar> {
                   isEdit: _showEdit,
                   onSend: _send,
                   onVoice: _toggleRecord,
+                  onLongPress: () => _showScheduleMenu(context),
                 ),
               ]),
             ),
@@ -408,6 +409,71 @@ class _InputBarState extends State<InputBar> {
       onClose: () => entry.remove(),
     ));
     overlay.insert(entry);
+  }
+
+  void _showScheduleMenu(BuildContext ctx) {
+    // C2 Schedule message popup (demo: shows toast instead of actual scheduling)
+    final overlay = Overlay.of(ctx);
+    late OverlayEntry entry;
+    final box = ctx.findRenderObject() as RenderBox;
+    final pos = box.localToGlobal(Offset.zero);
+    void handle(String label, bool silent) {
+      entry.remove();
+      if (silent) {
+        _sendSilent();
+      } else {
+        _showScheduleToast(label);
+      }
+    }
+
+    entry = OverlayEntry(builder: (_) => Stack(children: [
+      Positioned.fill(child: GestureDetector(onTap: () => entry.remove(),
+        child: Container(color: Colors.transparent))),
+      Positioned(
+        right: 12, bottom: MediaQuery.of(ctx).size.height - pos.dy + 8,
+        child: _SchedulePopover(onSelect: handle),
+      ),
+    ]));
+    overlay.insert(entry);
+  }
+
+  void _showScheduleToast(String label) {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    // For demo we don't actually schedule — show a toast + clear input
+    final overlay = Overlay.of(context);
+    late OverlayEntry toast;
+    toast = OverlayEntry(builder: (_) => Positioned(
+      left: 0, right: 0, bottom: 80,
+      child: Center(child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xF5141418),
+            border: Border(
+              left: BorderSide(color: BColors.accent, width: 3),
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+              right: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(SolarIconsOutline.clockCircle, size: 14,
+                color: BColors.accent.withValues(alpha: 0.85)),
+            const SizedBox(width: 8),
+            Text('запланировано: $label', style: const TextStyle(
+              fontFamily: 'Onest', fontSize: 13, color: BColors.textPrimary,
+            )),
+          ]),
+        ).animate().fadeIn(duration: 180.ms).slideY(begin: 0.4, curve: Curves.easeOut),
+      )),
+    ));
+    overlay.insert(toast);
+    Future.delayed(const Duration(seconds: 3), () { toast.remove(); });
+    _ctrl.clear();
+    widget.onTextChanged?.call('');
   }
 
   void _showAttachMenu(BuildContext ctx) {
@@ -469,8 +535,9 @@ class _SendOrVoiceBtn extends StatefulWidget {
   final bool isEdit;
   final VoidCallback onSend;
   final VoidCallback onVoice;
+  final VoidCallback? onLongPress; // C2 schedule menu
   const _SendOrVoiceBtn({required this.hasText, required this.isEdit,
-    required this.onSend, required this.onVoice});
+    required this.onSend, required this.onVoice, this.onLongPress});
   @override
   State<_SendOrVoiceBtn> createState() => _SendOrVoiceBtnState();
 }
@@ -486,6 +553,7 @@ class _SendOrVoiceBtnState extends State<_SendOrVoiceBtn> {
       onExit: (_) => setState(() => _h = false),
       child: GestureDetector(
         onTap: isSend ? widget.onSend : widget.onVoice,
+        onLongPress: isSend ? widget.onLongPress : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           width: 36, height: 44,
@@ -510,6 +578,111 @@ class _SendOrVoiceBtnState extends State<_SendOrVoiceBtn> {
                       color: _h ? BColors.accent.withValues(alpha: 0.5) : BColors.textMuted),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Schedule Popover (C2) ────────────────────────────────────
+
+class _SchedulePopover extends StatelessWidget {
+  final void Function(String label, bool silent) onSelect;
+  const _SchedulePopover({required this.onSelect});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xF5141418),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: const [BoxShadow(
+          color: Color(0x99000000), blurRadius: 32, offset: Offset(0, -8),
+        )],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 6, 16, 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('когда отправить?', style: TextStyle(
+              fontFamily: 'Onest', fontSize: 10, fontWeight: FontWeight.w600,
+              color: BColors.textMuted, letterSpacing: 1.2,
+            )),
+          ),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.clockCircle, label: 'через 15 минут',
+          onTap: () => onSelect('через 15 минут', false),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.sun, label: 'завтра в 9:00',
+          onTap: () => onSelect('завтра в 9:00', false),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.calendar, label: 'следующий пн в 9:00',
+          onTap: () => onSelect('пн в 9:00', false),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.settings, label: 'настроить время...',
+          onTap: () => onSelect('настроенное время', false),
+        ),
+        Container(height: 1, margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+            color: Colors.white.withValues(alpha: 0.06)),
+        _ScheduleRow(
+          icon: SolarIconsOutline.moon, label: 'без звука (сразу)',
+          onTap: () => onSelect('silent', true),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.eyeClosed, label: 'когда будет онлайн',
+          onTap: () => onSelect('когда будет онлайн', false),
+        ),
+      ]),
+    ).animate()
+        .scale(begin: const Offset(0.94, 0.94), duration: 150.ms, curve: Curves.easeOutCubic)
+        .fade(duration: 140.ms);
+  }
+}
+
+class _ScheduleRow extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _ScheduleRow({required this.icon, required this.label, required this.onTap});
+  @override
+  State<_ScheduleRow> createState() => _ScheduleRowState();
+}
+
+class _ScheduleRowState extends State<_ScheduleRow> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            color: _h ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+          ),
+          child: Row(children: [
+            Icon(widget.icon, size: 14,
+                color: _h ? BColors.accent : BColors.textSecondary),
+            const SizedBox(width: 10),
+            Text(widget.label, style: TextStyle(
+              fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w400,
+              color: _h ? BColors.textPrimary : BColors.textSecondary,
+            )),
+          ]),
         ),
       ),
     );

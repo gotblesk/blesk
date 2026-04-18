@@ -728,11 +728,20 @@ class _ChatMessagesState extends State<ChatMessages> {
   List<Widget> _buildItems(List<MessageData> messages) {
     final items = <Widget>[];
     String? lastDateLabel;
+    String? lastSmartGroup; // C8 smart date grouping
 
     for (var i = 0; i < messages.length; i++) {
       final msg = messages[i];
       final prev = i > 0 ? messages[i - 1] : null;
       final next = i < messages.length - 1 ? messages[i + 1] : null;
+
+      // C8 — Smart group separator (larger time gaps)
+      final smartGroup = _smartGroupFor(msg.time);
+      if (smartGroup != null && smartGroup != lastSmartGroup &&
+          msg.type != MessageType.system) {
+        items.add(DateSeparator(label: smartGroup, highlighted: true));
+        lastSmartGroup = smartGroup;
+      }
 
       // Date separator (stub: group by .time field when it changes meaningfully)
       final dayLabel = _dayLabelFor(msg.time);
@@ -803,6 +812,15 @@ class _ChatMessagesState extends State<ChatMessages> {
     }
 
     return items;
+  }
+
+  /// C8 — Returns a broader "smart" group label for larger time gaps.
+  /// Emitted only once per group (highlighted in accent).
+  String? _smartGroupFor(String time) {
+    // Weekday labels → "на прошлой неделе"
+    const weekdays = {'пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'};
+    if (weekdays.contains(time)) return 'на прошлой неделе';
+    return null;
   }
 
   String? _dayLabelFor(String time) {
