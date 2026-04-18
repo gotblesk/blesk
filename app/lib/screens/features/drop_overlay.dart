@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
@@ -53,7 +54,7 @@ class _DropZone extends StatelessWidget {
         margin: const EdgeInsets.all(16),
         child: Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.cloud_upload_outlined, size: 64,
+            Icon(SolarIconsOutline.uploadMinimalistic, size: 64,
               color: BColors.accent.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text('бросьте чтобы прикрепить', style: TextStyle(

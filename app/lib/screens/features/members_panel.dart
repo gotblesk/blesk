@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 import 'chat_bubble_parts.dart' show senderColorFor;
@@ -235,7 +236,7 @@ class _CloseBtnState extends State<_CloseBtn> {
             borderRadius: BorderRadius.circular(6),
             color: _h ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
           ),
-          child: Icon(Icons.close, size: 16,
+          child: Icon(SolarIconsOutline.closeCircle, size: 16,
               color: _h ? BColors.textPrimary : BColors.textMuted),
         ),
       ),
@@ -263,7 +264,7 @@ class _SearchBar extends StatelessWidget {
           border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
         ),
         child: Row(children: [
-          Icon(Icons.search_rounded, size: 14,
+          Icon(SolarIconsOutline.magnifier, size: 14,
               color: BColors.textMuted.withValues(alpha: 0.9)),
           const SizedBox(width: 8),
           Expanded(child: TextField(
@@ -325,15 +326,15 @@ class _MemberRowState extends State<_MemberRow> {
     entry = OverlayEntry(builder: (_) => _CtxMenu(
       position: pos,
       items: [
-        const ('profile', 'профиль', Icons.person_outline, false),
-        const ('message', 'написать', Icons.chat_bubble_outline_rounded, false),
-        const ('call', 'позвонить', Icons.phone_outlined, false),
+        const ('profile', 'профиль', SolarIconsOutline.user, false),
+        const ('message', 'написать', SolarIconsOutline.chatRound, false),
+        const ('call', 'позвонить', SolarIconsOutline.phone, false),
         if (canManage) const (null, null, null, false),
         if (canManage) m.role == MemberRole.admin
-            ? const ('demote', 'снять админа', Icons.remove_moderator_outlined, false)
-            : const ('promote', 'назначить админом', Icons.shield_outlined, false),
-        if (canManage) const ('mute', 'заглушить', Icons.volume_off_outlined, false),
-        if (canManage) const ('kick', 'удалить из группы', Icons.person_remove_outlined, true),
+            ? const ('demote', 'снять админа', SolarIconsOutline.shieldCross, false)
+            : const ('promote', 'назначить админом', SolarIconsOutline.shield, false),
+        if (canManage) const ('mute', 'заглушить', SolarIconsOutline.volumeCross, false),
+        if (canManage) const ('kick', 'удалить из группы', SolarIconsOutline.userMinus, true),
       ],
       onClose: () => entry.remove(),
     ));
@@ -407,7 +408,7 @@ class _MemberRowState extends State<_MemberRow> {
                     )),
               ],
             )),
-            if (_h) _RowAction(icon: Icons.more_horiz,
+            if (_h) _RowAction(icon: SolarIconsOutline.menuDots,
                 onTap: () => _showContextMenu(Offset.zero)),
           ]),
         ),
@@ -424,11 +425,11 @@ class _RoleBadge extends StatelessWidget {
     switch (role) {
       case MemberRole.owner:
         return _Badge(
-          icon: Icons.workspace_premium_outlined,
+          icon: SolarIconsOutline.crown,
           tint: const Color(0xFFFFD166),
         );
       case MemberRole.admin:
-        return _Badge(icon: Icons.shield_outlined, tint: BColors.accent);
+        return _Badge(icon: SolarIconsOutline.shield, tint: BColors.accent);
       case MemberRole.member:
         return const SizedBox.shrink();
     }
@@ -509,7 +510,7 @@ class _AddMemberBtnState extends State<_AddMemberBtn> {
             ),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.person_add_alt_outlined, size: 14, color: BColors.accent),
+            Icon(SolarIconsOutline.userPlus, size: 14, color: BColors.accent),
             const SizedBox(width: 8),
             Text('добавить участника', style: TextStyle(
               fontFamily: 'Onest', fontSize: 12, fontWeight: FontWeight.w500,

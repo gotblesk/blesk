@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
@@ -131,19 +132,24 @@ class ReadStatusIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (icon, color, size) = switch (status) {
-      MessageStatus.sending => (Icons.schedule_outlined,
-          BColors.textMuted.withValues(alpha: 0.5), 11.0),
-      MessageStatus.sent => (Icons.done,
-          BColors.textMuted.withValues(alpha: 0.55), 12.0),
-      MessageStatus.delivered => (Icons.done_all,
-          BColors.textMuted.withValues(alpha: 0.55), 12.0),
-      MessageStatus.read => (Icons.done_all,
-          BColors.accent.withValues(alpha: 0.75), 12.0),
-      MessageStatus.error => (Icons.error_outline,
-          const Color(0xFFff5c5c), 12.0),
-    };
-    return Icon(icon, size: size, color: color);
+    switch (status) {
+      case MessageStatus.sending:
+        return Icon(SolarIconsOutline.clockCircle, size: 11,
+            color: BColors.textMuted.withValues(alpha: 0.5));
+      case MessageStatus.sent:
+        return Icon(SolarIconsOutline.checkCircle, size: 12,
+            color: BColors.textMuted.withValues(alpha: 0.6));
+      case MessageStatus.delivered:
+        return Icon(SolarIconsBold.checkCircle, size: 12,
+            color: BColors.textMuted.withValues(alpha: 0.7));
+      case MessageStatus.read:
+        // Wow-accent #1: read receipts in accent Bold
+        return Icon(SolarIconsBold.checkCircle, size: 13,
+            color: BColors.accent.withValues(alpha: 0.85));
+      case MessageStatus.error:
+        return const Icon(SolarIconsOutline.dangerCircle,
+            size: 12, color: Color(0xFFff5c5c));
+    }
   }
 }
 
@@ -251,7 +257,7 @@ class _ScrollToBottomBtnState extends State<ScrollToBottomBtn> {
               ],
             ),
             child: Icon(
-              Icons.arrow_downward_rounded,
+              SolarIconsOutline.arrowDown,
               size: 18,
               color: hasUnread ? BColors.accent : BColors.textSecondary,
             ),
@@ -318,7 +324,7 @@ class _PinnedMessagesBarState extends State<PinnedMessagesBar> {
               ),
             ),
             const SizedBox(width: 10),
-            Icon(Icons.push_pin_outlined, size: 13,
+            Icon(SolarIconsOutline.pin, size: 13,
                 color: BColors.accent.withValues(alpha: 0.7)),
             const SizedBox(width: 8),
             Expanded(child: Column(
@@ -340,13 +346,13 @@ class _PinnedMessagesBarState extends State<PinnedMessagesBar> {
                 fontFamily: 'Onest', fontSize: 11, color: BColors.textMuted,
               )),
               const SizedBox(width: 4),
-              _PinArrow(icon: Icons.keyboard_arrow_up, onTap: () =>
+              _PinArrow(icon: SolarIconsOutline.altArrowUp, onTap: () =>
                   setState(() => _active = (_active - 1 + widget.pinned.length) % widget.pinned.length)),
-              _PinArrow(icon: Icons.keyboard_arrow_down, onTap: () =>
+              _PinArrow(icon: SolarIconsOutline.altArrowDown, onTap: () =>
                   setState(() => _active = (_active + 1) % widget.pinned.length)),
             ],
             if (widget.onDismiss != null)
-              _PinArrow(icon: Icons.close, onTap: widget.onDismiss!),
+              _PinArrow(icon: SolarIconsOutline.closeCircle, onTap: widget.onDismiss!),
           ]),
         ),
       ),
@@ -419,7 +425,7 @@ class ReplyPreview extends StatelessWidget {
                       quote.senderColor.withValues(alpha: 0.15)],
                   ),
                 ),
-                child: Icon(Icons.image_outlined, size: 14,
+                child: Icon(SolarIconsOutline.gallery, size: 14,
                     color: Colors.white.withValues(alpha: 0.7)),
               ),
               const SizedBox(width: 8),
@@ -461,7 +467,7 @@ class ForwardLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.reply_rounded, size: 11,
+        Icon(SolarIconsOutline.undoLeft, size: 11,
             color: BColors.accent.withValues(alpha: 0.55)),
         const SizedBox(width: 4),
         Text('от $senderName', style: TextStyle(
@@ -499,6 +505,124 @@ class SystemMessage extends StatelessWidget {
         ),
       ])),
     );
+  }
+}
+
+// ─── TYPING BUBBLE (in-stream) ────────────────────────────────
+
+/// Single typing user — shows bubble with 3 bouncing dots.
+/// Used both as standalone (1:1 chat) and stacked (group chat).
+class TypingBubble extends StatelessWidget {
+  final String? senderName; // null for 1:1 — no avatar
+  final String? senderInitial;
+  const TypingBubble({super.key, this.senderName, this.senderInitial});
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = senderName != null
+        ? senderColorFor(senderName!)
+        : BColors.textMuted;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4, left: 14, right: 14),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (senderName != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 2),
+              child: GroupAvatar(
+                initial: senderInitial ?? senderName![0].toUpperCase(),
+                tint: tint,
+              ),
+            ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF141418),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16), topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(4), bottomRight: Radius.circular(16),
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 1),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: const [
+              _TypingDot(delay: 0),
+              SizedBox(width: 3),
+              _TypingDot(delay: 150),
+              SizedBox(width: 3),
+              _TypingDot(delay: 300),
+            ]),
+          ),
+        ],
+      ),
+    ).animate()
+        .fadeIn(duration: 200.ms)
+        .slideY(begin: 0.4, end: 0, curve: Curves.easeOut, duration: 200.ms);
+  }
+}
+
+class _TypingDot extends StatelessWidget {
+  final int delay;
+  const _TypingDot({required this.delay});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 6, height: 6,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: BColors.textMuted.withValues(alpha: 0.95),
+      ),
+    ).animate(onPlay: (c) => c.repeat(), delay: Duration(milliseconds: delay))
+        .moveY(begin: 0, end: -4, duration: 300.ms, curve: Curves.easeOut)
+        .fadeIn(begin: 0.4, duration: 300.ms, curve: Curves.easeOut)
+        .then()
+        .moveY(begin: -4, end: 0, duration: 300.ms, curve: Curves.easeIn)
+        .fadeOut(duration: 300.ms, curve: Curves.easeIn, begin: 1)
+        .then(delay: 600.ms);
+  }
+}
+
+/// Stacked typing indicators — used in group chats.
+/// Shows up to 3 bubbles; beyond that collapses to text.
+class TypingStack extends StatelessWidget {
+  final List<({String name, String initial})> users;
+  const TypingStack({super.key, required this.users});
+
+  @override
+  Widget build(BuildContext context) {
+    if (users.isEmpty) return const SizedBox.shrink();
+    if (users.length <= 3) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final u in users)
+            TypingBubble(senderName: u.name, senderInitial: u.initial),
+        ],
+      );
+    }
+    final names = users.take(2).map((u) => u.name).join(', ');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const _TypingDot(delay: 0),
+        const SizedBox(width: 3),
+        const _TypingDot(delay: 150),
+        const SizedBox(width: 3),
+        const _TypingDot(delay: 300),
+        const SizedBox(width: 8),
+        Flexible(child: Text(
+          '$names и ещё ${users.length - 2} печатают...',
+          style: TextStyle(
+            fontFamily: 'Onest', fontSize: 12,
+            color: BColors.textMuted.withValues(alpha: 0.9),
+            fontStyle: FontStyle.italic,
+          ),
+        )),
+      ]),
+    ).animate().fadeIn(duration: 200.ms);
   }
 }
 
@@ -611,7 +735,7 @@ class _StubImage extends StatelessWidget {
           opacity: 0.12,
           child: CustomPaint(painter: _NoisePainter(tint)),
         )),
-        Center(child: Icon(Icons.image_outlined, size: 28,
+        Center(child: Icon(SolarIconsOutline.gallery, size: 28,
             color: Colors.white.withValues(alpha: 0.35))),
       ]),
     );
@@ -662,7 +786,7 @@ class VideoContent extends StatelessWidget {
               color: Colors.black.withValues(alpha: 0.55),
               border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1),
             ),
-            child: const Icon(Icons.play_arrow_rounded, size: 34, color: Colors.white),
+            child: const Icon(SolarIconsBold.play, size: 34, color: Colors.white),
           ))),
           // Duration badge
           Positioned(
@@ -775,7 +899,7 @@ class _VoiceContentState extends State<VoiceContent> with SingleTickerProviderSt
                 color: BColors.accent.withValues(alpha: _playing ? 0.9 : 0.75),
               ),
               child: Icon(
-                _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                _playing ? SolarIconsBold.pause : SolarIconsBold.play,
                 size: 18, color: BColors.bg,
               ),
             ),
@@ -988,7 +1112,7 @@ class _DownloadBtnState extends State<_DownloadBtn> {
             borderRadius: BorderRadius.circular(6),
             color: _h ? BColors.accent.withValues(alpha: 0.14) : Colors.transparent,
           ),
-          child: Icon(Icons.file_download_outlined, size: 16,
+          child: Icon(SolarIconsOutline.downloadMinimalistic, size: 16,
               color: _h ? BColors.accent : BColors.textSecondary),
         ),
       ),

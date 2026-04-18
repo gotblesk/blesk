@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 import 'chat_bubble_parts.dart' show senderColorFor;
@@ -87,7 +88,7 @@ class _ModalHeader extends StatelessWidget {
           color: BColors.textPrimary, letterSpacing: 0.3,
         )))),
         if (trailing != null) trailing!
-        else _IconBtn(icon: Icons.close, onTap: onClose),
+        else _IconBtn(icon: SolarIconsOutline.closeCircle, onTap: onClose),
       ]),
     );
   }
@@ -194,7 +195,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
           title: _step == 0 ? 'новая группа' : 'настройка группы',
           onClose: widget.onClose,
           leading: _step == 1
-              ? _IconBtn(icon: Icons.arrow_back_ios_new_rounded,
+              ? _IconBtn(icon: SolarIconsOutline.altArrowLeft,
                   onTap: () => setState(() => _step = 0))
               : null,
           trailing: _step == 0
@@ -284,7 +285,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
             ]),
             border: Border.all(color: BColors.accent.withValues(alpha: 0.3)),
           ),
-          child: const Icon(Icons.camera_alt_outlined, size: 26, color: BColors.accent),
+          child: const Icon(SolarIconsOutline.camera, size: 26, color: BColors.accent),
         ),
         const SizedBox(height: 6),
         const Text('добавить фото', style: TextStyle(
@@ -371,7 +372,7 @@ class _SearchField extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
       ),
       child: Row(children: [
-        Icon(Icons.search_rounded, size: 15,
+        Icon(SolarIconsOutline.magnifier, size: 15,
             color: BColors.textMuted.withValues(alpha: 0.9)),
         const SizedBox(width: 8),
         Expanded(child: TextField(
@@ -456,7 +457,7 @@ class _ContactChipState extends State<_ContactChip> {
               color: _h ? const Color(0xFFff9b9b) : BColors.accent.withValues(alpha: 0.95),
             )),
             const SizedBox(width: 4),
-            Icon(Icons.close, size: 10,
+            Icon(SolarIconsOutline.closeCircle, size: 10,
                 color: _h ? const Color(0xFFff9b9b) : BColors.accent.withValues(alpha: 0.7)),
           ]),
         ),
@@ -558,7 +559,7 @@ class _Checkbox extends StatelessWidget {
           width: 1.2,
         ),
       ),
-      child: checked ? const Icon(Icons.check, size: 12, color: BColors.bg) : null,
+      child: checked ? const Icon(SolarIconsBold.checkCircle, size: 12, color: BColors.bg) : null,
     );
   }
 }
@@ -735,7 +736,7 @@ class _SentNotice extends StatelessWidget {
         border: Border.all(color: BColors.accent.withValues(alpha: 0.25), width: 0.5),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.check_circle_rounded, size: 14, color: BColors.accent),
+        Icon(SolarIconsBold.checkCircle, size: 14, color: BColors.accent),
         const SizedBox(width: 8),
         Expanded(child: Text(
           'запрос отправлен пользователю $nick',
@@ -813,7 +814,7 @@ class _InviteLinkState extends State<_InviteLink> {
                     : Colors.white.withValues(alpha: 0.05),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(_copied ? Icons.check : Icons.copy_rounded, size: 12,
+                Icon(_copied ? SolarIconsBold.checkCircle : SolarIconsOutline.copy, size: 12,
                     color: _copied ? BColors.accent : BColors.textMuted),
                 const SizedBox(width: 4),
                 Text(_copied ? 'скопировано' : 'копировать', style: TextStyle(
@@ -1005,7 +1006,7 @@ class _CreateChannelModalState extends State<CreateChannelModal> {
                 ),
                 border: Border.all(color: BColors.accent.withValues(alpha: 0.3)),
               ),
-              child: const Icon(Icons.campaign_outlined, size: 26, color: BColors.accent),
+              child: const Icon(SolarIconsOutline.podcast, size: 26, color: BColors.accent),
             ),
             const SizedBox(height: 6),
             const Text('добавить фото', style: TextStyle(

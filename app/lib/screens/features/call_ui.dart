@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
@@ -65,7 +66,7 @@ class _CallViewState extends State<CallView> {
           alignment: Alignment.topRight,
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: _CallIconBtn(icon: Icons.close_fullscreen, tooltip: 'свернуть',
+            child: _CallIconBtn(icon: SolarIconsOutline.minimizeSquare, tooltip: 'свернуть',
               onTap: widget.onMinimize),
           ),
         ),
@@ -107,16 +108,16 @@ class _CallViewState extends State<CallView> {
             border: Border(top: BorderSide(color: BColors.borderLow)),
           ),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _CallToggleBtn(icon: Icons.mic_off, activeIcon: Icons.mic, label: 'мьют',
+            _CallToggleBtn(icon: SolarIconsOutline.muted, activeIcon: SolarIconsBold.microphone, label: 'мьют',
               active: _muted, onTap: () => setState(() => _muted = !_muted)),
             const SizedBox(width: 16),
-            _CallToggleBtn(icon: Icons.videocam_off, activeIcon: Icons.videocam, label: 'видео',
+            _CallToggleBtn(icon: SolarIconsOutline.videocameraRecord, activeIcon: SolarIconsBold.videocamera, label: 'видео',
               active: _videoOn, onTap: () => setState(() => _videoOn = !_videoOn)),
             const SizedBox(width: 16),
-            _CallToggleBtn(icon: Icons.screen_share_outlined, activeIcon: Icons.stop_screen_share, label: 'экран',
+            _CallToggleBtn(icon: SolarIconsOutline.monitor, activeIcon: SolarIconsBold.monitor, label: 'экран',
               active: _screenShare, onTap: () => setState(() => _screenShare = !_screenShare)),
             const SizedBox(width: 16),
-            _CallToggleBtn(icon: Icons.chat_bubble_outline, activeIcon: Icons.chat_bubble_outline, label: 'чат',
+            _CallToggleBtn(icon: SolarIconsOutline.chatRound, activeIcon: SolarIconsBold.chatRound, label: 'чат',
               active: false, onTap: () {}),
             const SizedBox(width: 32),
             // End call
@@ -203,7 +204,10 @@ class _EndCallBtnState extends State<_EndCallBtn> {
               borderRadius: BorderRadius.circular(24),
               color: const Color(0xFFef4444),
             ),
-            child: const Center(child: Icon(Icons.call_end, size: 22, color: Colors.white)),
+            child: Center(child: Transform.rotate(
+              angle: 2.356, // 135° — visual hangup indicator
+              child: const Icon(SolarIconsBold.phone, size: 22, color: Colors.white),
+            )),
           ),
         ),
       ),
@@ -293,9 +297,9 @@ class IncomingCallOverlay extends StatelessWidget {
             const SizedBox(height: 24),
             // Buttons
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _RoundCallBtn(color: const Color(0xFFef4444), icon: Icons.close, onTap: onDecline),
+              _RoundCallBtn(color: const Color(0xFFef4444), icon: SolarIconsOutline.closeCircle, onTap: onDecline),
               const SizedBox(width: 40),
-              _RoundCallBtn(color: const Color(0xFF22c55e), icon: Icons.call, onTap: onAccept),
+              _RoundCallBtn(color: const Color(0xFF22c55e), icon: SolarIconsBold.phone, onTap: onAccept),
             ]),
           ]),
         ).animate()

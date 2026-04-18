@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 import 'chat_bubble_parts.dart';
 import 'emoji_picker.dart';
+import 'forward_modal.dart';
 
 export 'chat_bubble_parts.dart' show
     MessageStatus, MessageType, Reaction, ReplyQuote, LinkPreviewData;
@@ -81,13 +84,15 @@ class MessageData {
   MessageData copyWith({
     MessageStatus? status,
     List<Reaction>? reactions,
+    String? text,
+    bool? edited,
   }) =>
       MessageData(
-        id: id, text: text, time: time, sentAt: sentAt, own: own,
+        id: id, text: text ?? this.text, time: time, sentAt: sentAt, own: own,
         status: status ?? this.status, type: type,
         senderName: senderName, senderInitial: senderInitial,
         reactions: reactions ?? this.reactions,
-        reply: reply, forwardFrom: forwardFrom, edited: edited,
+        reply: reply, forwardFrom: forwardFrom, edited: edited ?? this.edited,
         photoTints: photoTints, videoDuration: videoDuration,
         gifTint: gifTint, voiceDuration: voiceDuration,
         waveform: waveform, voicePlayed: voicePlayed,
@@ -225,6 +230,69 @@ final Map<String, List<({String sender, String text})>> stubPinned = {
   ],
 };
 
+// Users currently typing per chat (stub). Empty list = nobody typing.
+final Map<String, List<({String name, String initial})>> stubTyping = {
+  'c1': [(name: 'Катя', initial: 'К')],
+  'c2': [(name: 'Артём', initial: 'А'), (name: 'Лиза', initial: 'Л')],
+};
+
+// Draft text per chatId — persists between chat switches.
+final Map<String, String> stubDrafts = {};
+
+/// Bump this to notify listeners (sidebar) that drafts changed.
+final ValueNotifier<int> draftsVersion = ValueNotifier(0);
+
+void updateDraft(String chatId, String text) {
+  if (text.isEmpty) {
+    if (stubDrafts.remove(chatId) != null) draftsVersion.value++;
+  } else if (stubDrafts[chatId] != text) {
+    stubDrafts[chatId] = text;
+    draftsVersion.value++;
+  }
+}
+
+void clearDraft(String chatId) {
+  if (stubDrafts.remove(chatId) != null) draftsVersion.value++;
+}
+
+/// Chats user has manually marked as unread. Cleared on chat open.
+final Set<String> manuallyUnread = {};
+final ValueNotifier<int> unreadStateVersion = ValueNotifier(0);
+
+void markChatAsUnread(String chatId) {
+  if (manuallyUnread.add(chatId)) unreadStateVersion.value++;
+}
+void markChatAsRead(String chatId) {
+  if (manuallyUnread.remove(chatId)) unreadStateVersion.value++;
+}
+
+/// Unseen mentions of current user per chat (stub).
+final Map<String, int> stubMentionCounts = {
+  'c2': 2, // user was mentioned 2 times in group
+};
+
+/// New reactions on user's own messages since last view (stub).
+final Map<String, int> stubNewReactionCounts = {
+  'c1': 3,
+  'c2': 1,
+};
+
+final ValueNotifier<int> counterStateVersion = ValueNotifier(0);
+
+void consumeMentionCounter(String chatId) {
+  if (stubMentionCounts.containsKey(chatId)) {
+    stubMentionCounts.remove(chatId);
+    counterStateVersion.value++;
+  }
+}
+
+void consumeReactionCounter(String chatId) {
+  if (stubNewReactionCounts.containsKey(chatId)) {
+    stubNewReactionCounts.remove(chatId);
+    counterStateVersion.value++;
+  }
+}
+
 // ─── GROUP POSITION ──────────────────────────────────────────
 
 enum _GroupPos { single, first, middle, last }
@@ -254,6 +322,92 @@ class _ChatMessagesState extends State<ChatMessages> {
   final _scroll = ScrollController();
   bool _showScrollBtn = false;
   int _unreadNew = 0;
+  String? _editingMessageId;
+  OverlayEntry? _undoToastEntry;
+
+  void _startEdit(String id) => setState(() => _editingMessageId = id);
+  void _cancelEdit() => setState(() => _editingMessageId = null);
+
+  void _saveEdit(String id, String newText) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == id);
+    if (idx < 0) return;
+    setState(() {
+      msgs[idx] = msgs[idx].copyWith(text: newText, edited: true);
+      _editingMessageId = null;
+    });
+  }
+
+  void _forwardMessage(MessageData msg) {
+    showForwardModal(
+      context,
+      source: msg,
+      sourceChatId: widget.chatId,
+      sourceSenderName: msg.own
+          ? 'ты'
+          : (msg.senderName ?? _resolveChatName(widget.chatId)),
+    );
+  }
+
+  String _resolveChatName(String chatId) {
+    return switch (chatId) {
+      'c1' => 'Катя',
+      'c2' => 'Дизайн-банда',
+      'c3' => 'Максим',
+      'c4' => 'blesk team',
+      'c5' => 'Аня',
+      'c6' => 'Лиза',
+      _ => 'собеседник',
+    };
+  }
+
+  void _deleteMessage(MessageData msg) {
+    final modalCtx = context;
+    late OverlayEntry modal;
+    modal = OverlayEntry(builder: (_) => _DeleteMessageModal(
+      msg: msg,
+      canDeleteForAll: msg.own,
+      onConfirm: (forAll) {
+        modal.remove();
+        _performDelete(msg);
+      },
+      onClose: () => modal.remove(),
+    ));
+    Overlay.of(modalCtx).insert(modal);
+  }
+
+  void _performDelete(MessageData msg) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == msg.id);
+    if (idx < 0) return;
+
+    // Soft-remove: keep a copy for undo
+    final removed = msgs.removeAt(idx);
+    setState(() {});
+
+    _undoToastEntry?.remove();
+    final overlay = Overlay.of(context);
+    bool restored = false;
+    late OverlayEntry toast;
+    toast = OverlayEntry(builder: (_) => _UndoToast(
+      onUndo: () {
+        if (restored) return;
+        restored = true;
+        msgs.insert(idx.clamp(0, msgs.length), removed);
+        setState(() {});
+        toast.remove();
+        _undoToastEntry = null;
+      },
+      onDismiss: () {
+        if (_undoToastEntry == toast) _undoToastEntry = null;
+        toast.remove();
+      },
+    ));
+    _undoToastEntry = toast;
+    overlay.insert(toast);
+  }
 
   @override
   void initState() {
@@ -265,6 +419,8 @@ class _ChatMessagesState extends State<ChatMessages> {
   void dispose() {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
+    _undoToastEntry?.remove();
+    _undoToastEntry = null;
     super.dispose();
   }
 
@@ -357,6 +513,9 @@ class _ChatMessagesState extends State<ChatMessages> {
         highlightQuery: widget.highlightQuery,
         isCurrentMatch: widget.currentMatchId != null &&
             widget.currentMatchId == msg.id.hashCode,
+        isEditing: _editingMessageId == msg.id,
+        onDelete: () => _deleteMessage(msg),
+        onForward: () => _forwardMessage(msg),
         onReact: (emoji) => _toggleReaction(msg, emoji),
         onReply: widget.onReply == null ? null : () {
           widget.onReply!(ReplyQuote(
@@ -367,8 +526,10 @@ class _ChatMessagesState extends State<ChatMessages> {
             hasPhoto: msg.type == MessageType.photo,
           ));
         },
-        onEdit: (msg.own && msg.text != null && widget.onEditStart != null)
-            ? () => widget.onEditStart!(msg.text!) : null,
+        onEdit: (msg.own && msg.text != null && msg.type == MessageType.text)
+            ? () => _startEdit(msg.id) : null,
+        onSaveEdit: (newText) => _saveEdit(msg.id, newText),
+        onCancelEdit: _cancelEdit,
         onOpenMedia: widget.onOpenMedia == null ? null : () => widget.onOpenMedia!(msg),
       ));
     }
@@ -402,7 +563,20 @@ class _ChatMessagesState extends State<ChatMessages> {
   Widget build(BuildContext context) {
     final messages = stubMessages[widget.chatId] ?? [];
     final pinned = stubPinned[widget.chatId] ?? const [];
+    final typing = stubTyping[widget.chatId] ?? const [];
+    final isGroup = messages.any((m) => m.senderName != null);
     final items = _buildItems(messages);
+    // Append typing widget(s) at the end (bottom of chat when reversed).
+    if (typing.isNotEmpty) {
+      if (isGroup) {
+        items.add(TypingStack(users: typing));
+      } else {
+        items.add(TypingBubble(
+          senderName: typing.first.name,
+          senderInitial: typing.first.initial,
+        ));
+      }
+    }
 
     return Column(children: [
       if (pinned.isNotEmpty)
@@ -445,15 +619,22 @@ class _MessageBubble extends StatefulWidget {
   final _GroupPos pos;
   final String? highlightQuery;
   final bool isCurrentMatch;
+  final bool isEditing;
   final ValueChanged<String>? onReact;
   final VoidCallback? onReply;
   final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onForward;
+  final ValueChanged<String>? onSaveEdit;
+  final VoidCallback? onCancelEdit;
   final VoidCallback? onOpenMedia;
 
   const _MessageBubble({
     required this.msg, required this.pos,
-    this.highlightQuery, this.isCurrentMatch = false,
-    this.onReact, this.onReply, this.onEdit, this.onOpenMedia,
+    this.highlightQuery, this.isCurrentMatch = false, this.isEditing = false,
+    this.onReact, this.onReply, this.onEdit, this.onDelete, this.onForward,
+    this.onSaveEdit, this.onCancelEdit,
+    this.onOpenMedia,
   });
 
   @override
@@ -565,17 +746,22 @@ class _MessageBubbleState extends State<_MessageBubble> {
       position: pos,
       own: isOwn,
       items: [
-        _CtxItem('ответить', Icons.reply_outlined, 'reply'),
-        if (hasText) _CtxItem('копировать', Icons.copy_outlined, 'copy'),
-        _CtxItem('переслать', Icons.forward_outlined, 'forward'),
-        _CtxItem('закрепить', Icons.push_pin_outlined, 'pin'),
-        if (isOwn && hasText) _CtxItem('редактировать', Icons.edit_outlined, 'edit'),
-        if (isOwn) _CtxItem('удалить', Icons.delete_outline, 'delete', danger: true),
+        _CtxItem('ответить', SolarIconsOutline.reply, 'reply'),
+        if (hasText) _CtxItem('копировать', SolarIconsOutline.copy, 'copy'),
+        _CtxItem('переслать', SolarIconsOutline.forward, 'forward'),
+        _CtxItem('закрепить', SolarIconsOutline.pin, 'pin'),
+        if (isOwn && hasText) _CtxItem('редактировать', SolarIconsOutline.pen, 'edit'),
+        if (isOwn) _CtxItem('удалить', SolarIconsOutline.trashBinTrash, 'delete', danger: true),
       ],
       onSelect: (id) {
         entry.remove();
         if (id == 'reply') widget.onReply?.call();
         if (id == 'edit') widget.onEdit?.call();
+        if (id == 'delete') widget.onDelete?.call();
+        if (id == 'forward') widget.onForward?.call();
+        if (id == 'copy' && widget.msg.text != null) {
+          Clipboard.setData(ClipboardData(text: widget.msg.text!));
+        }
       },
       onClose: () => entry.remove(),
     ));
@@ -708,18 +894,23 @@ class _MessageBubbleState extends State<_MessageBubble> {
     }
 
     // Normal bubble
+    final editing = widget.isEditing;
     final bgColor = noBubbleBg
         ? Colors.transparent
-        : own
-            ? BColors.accent.withValues(alpha: 0.06)
-            : const Color(0xFF141418);
+        : editing
+            ? BColors.accent.withValues(alpha: 0.1)
+            : own
+                ? BColors.accent.withValues(alpha: 0.06)
+                : const Color(0xFF141418);
     final borderColor = noBubbleBg
         ? Colors.transparent
-        : isError
-            ? const Color(0xFFff5c5c).withValues(alpha: 0.35)
-            : own
-                ? BColors.accent.withValues(alpha: 0.1)
-                : Colors.white.withValues(alpha: 0.05);
+        : editing
+            ? BColors.accent.withValues(alpha: 0.4)
+            : isError
+                ? const Color(0xFFff5c5c).withValues(alpha: 0.35)
+                : own
+                    ? BColors.accent.withValues(alpha: 0.1)
+                    : Colors.white.withValues(alpha: 0.05);
 
     // Padding strategy — tighter for media-only
     final mediaOnly = (isPhoto || isVideo || isGif) &&
@@ -754,8 +945,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 )),
               ),
             // Time + status inline for text / bottom-right for media
-            if (msg.type == MessageType.text || msg.text?.isNotEmpty == true ||
-                msg.type == MessageType.file || msg.type == MessageType.voice)
+            if (widget.isEditing)
+              const SizedBox.shrink()
+            else if (msg.type == MessageType.text ||
+                msg.text?.isNotEmpty == true ||
+                msg.type == MessageType.file ||
+                msg.type == MessageType.voice)
               Padding(
                 padding: EdgeInsets.only(top: mediaOnly ? 4 : 2, left: mediaOnly ? 6 : 0),
                 child: _buildTimeAndStatus(),
@@ -773,6 +968,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   Widget _buildContent() {
     final msg = widget.msg;
+    // Inline edit mode replaces text content with an editor
+    if (widget.isEditing &&
+        msg.type == MessageType.text &&
+        widget.onSaveEdit != null) {
+      return _InlineEditor(
+        initial: msg.text ?? '',
+        onSave: widget.onSaveEdit!,
+        onCancel: widget.onCancelEdit ?? () {},
+      );
+    }
     switch (msg.type) {
       case MessageType.text:
         return _textContent();
@@ -903,17 +1108,17 @@ class _HoverActions extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       _HoverBtn(
-        icon: Icons.mood_outlined, tooltip: 'реакция',
+        icon: SolarIconsOutline.smileCircle, tooltip: 'реакция',
         onTap: (anchor) => onReact(anchor),
       ),
       const SizedBox(width: 2),
       _HoverBtn(
-        icon: Icons.reply_outlined, tooltip: 'ответить',
+        icon: SolarIconsOutline.reply, tooltip: 'ответить',
         onTap: (_) => onReply(),
       ),
       const SizedBox(width: 2),
       _HoverBtn(
-        icon: Icons.more_horiz, tooltip: 'ещё',
+        icon: SolarIconsOutline.menuDots, tooltip: 'ещё',
         onTap: (anchor) => onMore(anchor),
       ),
     ]);
@@ -1086,7 +1291,7 @@ class _QuickMoreState extends State<_QuickMore> {
             shape: BoxShape.circle,
             color: _h ? Colors.white.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.04),
           ),
-          child: Icon(Icons.add, size: 16,
+          child: Icon(SolarIconsOutline.addCircle, size: 16,
               color: _h ? BColors.textPrimary : BColors.textMuted),
         ),
       ),
@@ -1279,3 +1484,542 @@ class _CtxRowState extends State<_CtxRow> {
     );
   }
 }
+
+// ─── INLINE EDITOR (replaces text when editing) ───────────────
+
+class _InlineEditor extends StatefulWidget {
+  final String initial;
+  final ValueChanged<String> onSave;
+  final VoidCallback onCancel;
+  const _InlineEditor({
+    required this.initial, required this.onSave, required this.onCancel,
+  });
+  @override
+  State<_InlineEditor> createState() => _InlineEditorState();
+}
+
+class _InlineEditorState extends State<_InlineEditor> {
+  late final TextEditingController _ctrl;
+  late final FocusNode _focus;
+  late String _initial;
+
+  @override
+  void initState() {
+    super.initState();
+    _initial = widget.initial;
+    _ctrl = TextEditingController(text: _initial);
+    _ctrl.selection = TextSelection.collapsed(offset: _initial.length);
+    _focus = FocusNode();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  bool get _canSave {
+    final t = _ctrl.text.trim();
+    return t.isNotEmpty && t != _initial.trim();
+  }
+
+  void _handleKey(KeyEvent e) {
+    if (e is! KeyDownEvent) return;
+    final k = e.logicalKey;
+    if (k == LogicalKeyboardKey.escape) {
+      widget.onCancel();
+    } else if (k == LogicalKeyboardKey.enter &&
+        !HardwareKeyboard.instance.isShiftPressed) {
+      if (_canSave) widget.onSave(_ctrl.text.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyboardListener(
+      focusNode: FocusNode(skipTraversal: true),
+      onKeyEvent: _handleKey,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 220),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            TextField(
+              controller: _ctrl,
+              focusNode: _focus,
+              maxLines: null,
+              onChanged: (_) => setState(() {}),
+              style: TextStyle(
+                fontFamily: 'Onest', fontSize: rf(context, 14),
+                fontWeight: FontWeight.w400,
+                color: BColors.textPrimary, height: 1.4,
+              ),
+              cursorColor: BColors.accent,
+              decoration: const InputDecoration(
+                border: InputBorder.none, isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              _EditActionBtn(
+                label: 'отмена', onTap: widget.onCancel,
+                accent: false, enabled: true,
+              ),
+              const SizedBox(width: 12),
+              _EditActionBtn(
+                label: 'сохранить', onTap: () {
+                  if (_canSave) widget.onSave(_ctrl.text.trim());
+                },
+                accent: true, enabled: _canSave,
+              ),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditActionBtn extends StatefulWidget {
+  final String label;
+  final bool accent, enabled;
+  final VoidCallback onTap;
+  const _EditActionBtn({
+    required this.label, required this.accent,
+    required this.enabled, required this.onTap,
+  });
+  @override
+  State<_EditActionBtn> createState() => _EditActionBtnState();
+}
+
+class _EditActionBtnState extends State<_EditActionBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    final color = !widget.enabled
+        ? BColors.textMuted
+        : widget.accent
+            ? (_h ? const Color(0xFFd4ff33) : BColors.accent)
+            : (_h ? BColors.textPrimary : BColors.textSecondary);
+    return Opacity(
+      opacity: widget.enabled ? 1.0 : 0.4,
+      child: MouseRegion(
+        cursor: widget.enabled
+            ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+        onEnter: (_) => setState(() => _h = true),
+        onExit: (_) => setState(() => _h = false),
+        child: GestureDetector(
+          onTap: widget.enabled ? widget.onTap : null,
+          child: Text(widget.label, style: TextStyle(
+            fontFamily: 'Onest',
+            fontSize: 12,
+            fontWeight: widget.accent ? FontWeight.w600 : FontWeight.w500,
+            color: color,
+          )),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── DELETE MESSAGE MODAL ─────────────────────────────────────
+
+class _DeleteMessageModal extends StatefulWidget {
+  final MessageData msg;
+  final bool canDeleteForAll;
+  final ValueChanged<bool> onConfirm; // forAll flag
+  final VoidCallback onClose;
+  const _DeleteMessageModal({
+    required this.msg, required this.canDeleteForAll,
+    required this.onConfirm, required this.onClose,
+  });
+  @override
+  State<_DeleteMessageModal> createState() => _DeleteMessageModalState();
+}
+
+class _DeleteMessageModalState extends State<_DeleteMessageModal> {
+  bool _forAll = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _forAll = widget.canDeleteForAll;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: KeyboardListener(
+        focusNode: FocusNode()..requestFocus(),
+        onKeyEvent: (e) {
+          if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.escape) {
+            widget.onClose();
+          }
+        },
+        child: Stack(children: [
+          Positioned.fill(child: GestureDetector(
+            onTap: widget.onClose,
+            behavior: HitTestBehavior.opaque,
+            child: Container(color: Colors.black.withValues(alpha: 0.4)),
+          )),
+          Center(child: Container(
+            width: 400,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xF50e0e12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              boxShadow: const [BoxShadow(
+                color: Color(0xA6000000), blurRadius: 48, offset: Offset(0, 16),
+              )],
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Header
+              Container(
+                height: 48,
+                padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: BColors.borderLow)),
+                ),
+                child: Row(children: [
+                  const Expanded(child: Text(
+                    'удалить сообщение?',
+                    style: TextStyle(
+                      fontFamily: 'Nekst', fontSize: 14, fontWeight: FontWeight.w600,
+                      color: BColors.textPrimary,
+                    ),
+                  )),
+                  _ModalCloseBtn(onTap: widget.onClose),
+                ]),
+              ),
+              // Body
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Preview
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.white.withValues(alpha: 0.03),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+                      ),
+                      child: Opacity(opacity: 0.72, child: Text(
+                        _previewText(widget.msg),
+                        maxLines: 3, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Onest', fontSize: 13,
+                          color: BColors.textPrimary, height: 1.4,
+                        ),
+                      )),
+                    ),
+                    const SizedBox(height: 14),
+                    _DeleteRadio(
+                      selected: !_forAll, title: 'удалить у себя',
+                      subtitle: 'будет скрыто только у тебя',
+                      onTap: () => setState(() => _forAll = false),
+                    ),
+                    const SizedBox(height: 6),
+                    _DeleteRadio(
+                      selected: _forAll,
+                      title: 'удалить для всех',
+                      subtitle: widget.canDeleteForAll
+                          ? 'исчезнет у всех участников'
+                          : 'нельзя — это чужое сообщение',
+                      enabled: widget.canDeleteForAll,
+                      onTap: widget.canDeleteForAll
+                          ? () => setState(() => _forAll = true) : null,
+                    ),
+                    const SizedBox(height: 18),
+                    Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                      _ModalGhostBtn(label: 'отмена', onTap: widget.onClose),
+                      const SizedBox(width: 10),
+                      _ModalDangerBtn(
+                        label: _forAll ? 'удалить для всех' : 'удалить',
+                        onTap: () => widget.onConfirm(_forAll),
+                      ),
+                    ]),
+                  ],
+                ),
+              ),
+            ]),
+          ).animate()
+              .scale(begin: const Offset(0.94, 0.94),
+                  duration: 180.ms, curve: Curves.easeOutCubic)
+              .fade(duration: 150.ms)),
+        ]),
+      ),
+    );
+  }
+
+  String _previewText(MessageData m) {
+    if (m.text != null && m.text!.isNotEmpty) return m.text!;
+    return switch (m.type) {
+      MessageType.photo => '📷 фото',
+      MessageType.video => '🎞 видео',
+      MessageType.voice => '🎤 голосовое сообщение',
+      MessageType.file => '📄 ${m.fileName ?? "файл"}',
+      MessageType.sticker => '${m.stickerEmoji ?? "🎉"} стикер',
+      MessageType.gif => 'GIF',
+      MessageType.link => m.linkPreview?.url ?? 'ссылка',
+      _ => 'сообщение',
+    };
+  }
+}
+
+class _ModalCloseBtn extends StatefulWidget {
+  final VoidCallback onTap;
+  const _ModalCloseBtn({required this.onTap});
+  @override
+  State<_ModalCloseBtn> createState() => _ModalCloseBtnState();
+}
+
+class _ModalCloseBtnState extends State<_ModalCloseBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: 28, height: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            color: _h ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+          ),
+          child: Icon(SolarIconsOutline.closeCircle, size: 16,
+              color: _h ? BColors.textPrimary : BColors.textMuted),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteRadio extends StatelessWidget {
+  final bool selected;
+  final String title, subtitle;
+  final VoidCallback? onTap;
+  final bool enabled;
+  const _DeleteRadio({
+    required this.selected, required this.title, required this.subtitle,
+    this.onTap, this.enabled = true,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(opacity: enabled ? 1.0 : 0.4,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: selected
+                  ? BColors.accent.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              border: Border.all(
+                color: selected
+                    ? BColors.accent.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.05),
+                width: 0.5,
+              ),
+            ),
+            child: Row(children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 16, height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? BColors.accent : Colors.white.withValues(alpha: 0.25),
+                    width: 1.5,
+                  ),
+                ),
+                child: Center(child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: selected ? 8 : 0, height: selected ? 8 : 0,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle, color: BColors.accent,
+                  ),
+                )),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: const TextStyle(
+                    fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w500,
+                    color: BColors.textPrimary,
+                  )),
+                  const SizedBox(height: 1),
+                  Text(subtitle, style: const TextStyle(
+                    fontFamily: 'Onest', fontSize: 11, color: BColors.textMuted,
+                  )),
+                ],
+              )),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModalGhostBtn extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _ModalGhostBtn({required this.label, required this.onTap});
+  @override
+  State<_ModalGhostBtn> createState() => _ModalGhostBtnState();
+}
+
+class _ModalGhostBtnState extends State<_ModalGhostBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          height: 32, padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(7),
+            color: _h ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+          ),
+          alignment: Alignment.center,
+          child: Text(widget.label, style: TextStyle(
+            fontFamily: 'Onest', fontSize: 12, fontWeight: FontWeight.w500,
+            color: _h ? BColors.textPrimary : BColors.textSecondary,
+          )),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModalDangerBtn extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _ModalDangerBtn({required this.label, required this.onTap});
+  @override
+  State<_ModalDangerBtn> createState() => _ModalDangerBtnState();
+}
+
+class _ModalDangerBtnState extends State<_ModalDangerBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: 32, padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(7),
+            color: _h
+                ? const Color(0xFFff7070)
+                : const Color(0xFFff5c5c),
+          ),
+          alignment: Alignment.center,
+          child: Text(widget.label, style: const TextStyle(
+            fontFamily: 'Onest', fontSize: 12, fontWeight: FontWeight.w600,
+            color: Colors.white,
+          )),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── UNDO TOAST ───────────────────────────────────────────────
+
+class _UndoToast extends StatefulWidget {
+  final VoidCallback onUndo;
+  final VoidCallback onDismiss;
+  const _UndoToast({required this.onUndo, required this.onDismiss});
+  @override
+  State<_UndoToast> createState() => _UndoToastState();
+}
+
+class _UndoToastState extends State<_UndoToast> {
+  bool _actioned = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!mounted || _actioned) return;
+      widget.onDismiss();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 0, right: 0, bottom: 24,
+      child: Center(child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xF5141418),
+            border: Border(
+              left: BorderSide(color: BColors.accent, width: 3),
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+              right: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+            ),
+            boxShadow: const [BoxShadow(
+              color: Color(0x99000000), blurRadius: 32, offset: Offset(0, 12),
+            )],
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(SolarIconsOutline.checkCircle, size: 14,
+                color: BColors.accent.withValues(alpha: 0.85)),
+            const SizedBox(width: 10),
+            const Text('сообщение удалено', style: TextStyle(
+              fontFamily: 'Onest', fontSize: 13, color: BColors.textPrimary,
+            )),
+            const SizedBox(width: 16),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  _actioned = true;
+                  widget.onUndo();
+                },
+                child: Text('вернуть', style: TextStyle(
+                  fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w600,
+                  color: BColors.accent,
+                )),
+              ),
+            ),
+          ]),
+        ).animate()
+            .fadeIn(duration: 200.ms)
+            .slideY(begin: 0.5, end: 0, curve: Curves.easeOutCubic, duration: 220.ms),
+      )),
+    );
+  }
+}
+
