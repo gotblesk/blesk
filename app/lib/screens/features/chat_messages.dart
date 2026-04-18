@@ -7,6 +7,8 @@ import '../shared/theme.dart';
 import 'chat_bubble_parts.dart';
 import 'emoji_picker.dart';
 import 'forward_modal.dart';
+import 'read_receipts_panel.dart';
+import 'members_panel.dart' show stubMembers;
 
 export 'chat_bubble_parts.dart' show
     MessageStatus, MessageType, Reaction, ReplyQuote, LinkPreviewData;
@@ -445,6 +447,15 @@ class _ChatMessagesState extends State<ChatMessages> {
     });
   }
 
+  void _viewReadBy(MessageData msg) {
+    showReadReceiptsPanel(
+      context,
+      chatId: widget.chatId,
+      messagePreview: msg.text ?? _previewForType(msg),
+      messageTime: msg.time,
+    );
+  }
+
   void _forwardMessage(MessageData msg) {
     showForwardModal(
       context,
@@ -625,6 +636,8 @@ class _ChatMessagesState extends State<ChatMessages> {
         onSelectTap: () => _toggleSelection(msg.id,
             range: HardwareKeyboard.instance.isShiftPressed),
         onEnterSelection: () => _toggleSelection(msg.id),
+        onViewReadBy: (msg.own && stubMembers(widget.chatId).length >= 3)
+            ? () => _viewReadBy(msg) : null,
         onDelete: () => _deleteMessage(msg),
         onForward: () => _forwardMessage(msg),
         onReact: (emoji) => _toggleReaction(msg, emoji),
@@ -761,6 +774,7 @@ class _MessageBubble extends StatefulWidget {
   final VoidCallback? onForward;
   final VoidCallback? onSelectTap;
   final VoidCallback? onEnterSelection;
+  final VoidCallback? onViewReadBy;
   final ValueChanged<String>? onSaveEdit;
   final VoidCallback? onCancelEdit;
   final VoidCallback? onOpenMedia;
@@ -770,7 +784,7 @@ class _MessageBubble extends StatefulWidget {
     this.highlightQuery, this.isCurrentMatch = false, this.isEditing = false,
     this.isSelected = false, this.selectionMode = false,
     this.onReact, this.onReply, this.onEdit, this.onDelete, this.onForward,
-    this.onSelectTap, this.onEnterSelection,
+    this.onSelectTap, this.onEnterSelection, this.onViewReadBy,
     this.onSaveEdit, this.onCancelEdit,
     this.onOpenMedia,
   });
@@ -889,6 +903,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         _CtxItem('переслать', SolarIconsOutline.forward, 'forward'),
         _CtxItem('закрепить', SolarIconsOutline.pin, 'pin'),
         _CtxItem('выбрать', SolarIconsOutline.checkCircle, 'select'),
+        if (widget.onViewReadBy != null)
+          _CtxItem('кто прочитал', SolarIconsOutline.eye, 'readby'),
         if (isOwn && hasText) _CtxItem('редактировать', SolarIconsOutline.pen, 'edit'),
         if (isOwn) _CtxItem('удалить', SolarIconsOutline.trashBinTrash, 'delete', danger: true),
       ],
@@ -899,6 +915,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         if (id == 'delete') widget.onDelete?.call();
         if (id == 'forward') widget.onForward?.call();
         if (id == 'select') widget.onEnterSelection?.call();
+        if (id == 'readby') widget.onViewReadBy?.call();
         if (id == 'copy' && widget.msg.text != null) {
           Clipboard.setData(ClipboardData(text: widget.msg.text!));
         }
