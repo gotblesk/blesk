@@ -293,6 +293,37 @@ void consumeReactionCounter(String chatId) {
   }
 }
 
+/// Navigation history for "jump back" pill.
+/// Entries pushed when user jumps to a source message (reply preview
+/// click, global search result, etc.).
+class JumpHistory {
+  static final List<({String chatId, String messageId, String hint})> _stack = [];
+  static final ValueNotifier<int> version = ValueNotifier(0);
+  static bool get hasHistory => _stack.isNotEmpty;
+  static String? get lastHint =>
+      _stack.isEmpty ? null : _stack.last.hint;
+
+  static void push({
+    required String chatId, required String messageId, String hint = '',
+  }) {
+    _stack.add((chatId: chatId, messageId: messageId, hint: hint));
+    version.value++;
+  }
+
+  static ({String chatId, String messageId, String hint})? pop() {
+    if (_stack.isEmpty) return null;
+    final v = _stack.removeLast();
+    version.value++;
+    return v;
+  }
+
+  static void clear() {
+    if (_stack.isEmpty) return;
+    _stack.clear();
+    version.value++;
+  }
+}
+
 // ─── GROUP POSITION ──────────────────────────────────────────
 
 enum _GroupPos { single, first, middle, last }
@@ -607,6 +638,20 @@ class _ChatMessagesState extends State<ChatMessages> {
               onTap: _scrollToBottom,
             ),
           ),
+        // Jump-back pill (shown after navigating to reply source / search result)
+        Positioned(
+          right: 16, bottom: _showScrollBtn ? 60 : 12,
+          child: ValueListenableBuilder<int>(
+            valueListenable: JumpHistory.version,
+            builder: (_, _, _) {
+              if (!JumpHistory.hasHistory) return const SizedBox.shrink();
+              return _JumpBackPill(onTap: () {
+                JumpHistory.pop();
+                setState(() {});
+              });
+            },
+          ),
+        ),
       ])),
     ]);
   }
@@ -933,7 +978,20 @@ class _MessageBubbleState extends State<_MessageBubble> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (msg.forwardFrom != null) ForwardLabel(senderName: msg.forwardFrom!),
-            if (msg.reply != null) ReplyPreview(quote: msg.reply!),
+            if (msg.reply != null) Builder(builder: (ctx) {
+              final chatId = context.findAncestorStateOfType<_ChatMessagesState>()
+                  ?.widget.chatId ?? '';
+              return ReplyPreview(
+                quote: msg.reply!,
+                onTap: () {
+                  JumpHistory.push(
+                    chatId: chatId, messageId: msg.id,
+                    hint: 'к ${msg.reply!.senderName}',
+                  );
+                  // In a full impl, would scroll to original msg + flash it.
+                },
+              );
+            }),
             _buildContent(),
             if (msg.text != null && msg.text!.isNotEmpty &&
                 (isPhoto || isVideo || msg.linkPreview != null))
@@ -1958,6 +2016,62 @@ class _UndoToast extends StatefulWidget {
   const _UndoToast({required this.onUndo, required this.onDismiss});
   @override
   State<_UndoToast> createState() => _UndoToastState();
+}
+
+// ─── JUMP-BACK PILL (B2) ──────────────────────────────────────
+
+class _JumpBackPill extends StatefulWidget {
+  final VoidCallback onTap;
+  const _JumpBackPill({required this.onTap});
+  @override
+  State<_JumpBackPill> createState() => _JumpBackPillState();
+}
+
+class _JumpBackPillState extends State<_JumpBackPill> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: _h
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.white.withValues(alpha: 0.06),
+            border: Border.all(
+              color: _h
+                  ? BColors.accent.withValues(alpha: 0.4)
+                  : Colors.white.withValues(alpha: 0.1),
+              width: 0.8,
+            ),
+            boxShadow: [BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 12, offset: const Offset(0, 4),
+            )],
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(SolarIconsOutline.undoLeft, size: 14,
+                color: _h ? BColors.accent : BColors.textSecondary),
+            const SizedBox(width: 6),
+            Text('вернуться', style: TextStyle(
+              fontFamily: 'Onest', fontSize: 12, fontWeight: FontWeight.w500,
+              color: _h ? BColors.textPrimary : BColors.textSecondary,
+            )),
+          ]),
+        ),
+      ).animate()
+          .fadeIn(duration: 180.ms)
+          .slideX(begin: 0.2, curve: Curves.easeOut),
+    );
+  }
 }
 
 class _UndoToastState extends State<_UndoToast> {
