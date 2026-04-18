@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import 'shared/widgets.dart';
 
@@ -99,7 +100,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           onSubmitted: _valid ? (_) => _submit() : null,
           prefix: Padding(
             padding: EdgeInsets.only(left: rs(context, 14)),
-            child: Icon(Icons.mail_outline, size: rs(context, 20), color: BColors.textMuted),
+            child: Icon(SolarIconsOutline.letter, size: rs(context, 20), color: BColors.textMuted),
           ),
         ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
         SizedBox(height: rs(context, 12)),
@@ -135,7 +136,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(Icons.mail_outline, size: rs(context, 32),
+        Icon(SolarIconsOutline.letter, size: rs(context, 32),
           color: BColors.accent.withValues(alpha: 0.5)),
         SizedBox(height: rs(context, 24)),
         Text('проверь почту', style: TextStyle(

@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import 'theme.dart';
 
@@ -115,7 +116,7 @@ class _CloseBtnState extends State<_CloseBtn> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: SizedBox(width: 28, height: 28,
-          child: Center(child: Icon(Icons.close, size: 18,
+          child: Center(child: Icon(SolarIconsOutline.closeCircle, size: 18,
             color: _h ? BColors.textSecondary : BColors.textMuted))),
       ),
     );

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:blesk/core/sound_engine.dart';
 
 import 'shared/widgets.dart';
@@ -287,11 +288,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       fontSize: rf(context, 17), fontWeight: FontWeight.w400, color: BColors.textSecondary, height: 1.6,
     )).animate(delay: 150.ms).fadeIn(duration: 400.ms),
     SizedBox(height: rs(context, 36)),
-    _featureCard(Icons.shield_outlined, 'сквозное шифрование', 300),
+    _featureCard(SolarIconsOutline.shield, 'сквозное шифрование', 300),
     SizedBox(height: rs(context, 20)),
-    _featureCard(Icons.bolt_outlined, 'мгновенные сообщения', 400),
+    _featureCard(SolarIconsOutline.bolt, 'мгновенные сообщения', 400),
     SizedBox(height: rs(context, 20)),
-    _featureCard(Icons.face_outlined, 'интерфейс с характером', 500),
+    _featureCard(SolarIconsOutline.smileCircle, 'интерфейс с характером', 500),
   ]);
 
   Widget _featureCard(IconData icon, String text, int ms) => BLeskGlass(
@@ -363,10 +364,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       BLeskGlassInput(controller: _passCtrl, hint: 'пароль', obscure: _obscPass,
         onChanged: (v) { _onPasswordChanged(v); setState(() {}); },
         prefix: Padding(padding: EdgeInsets.only(left: rs(context, 14)),
-          child: Icon(Icons.lock_outline, size: rs(context, 20), color: BColors.textMuted)),
+          child: Icon(SolarIconsOutline.lock, size: rs(context, 20), color: BColors.textMuted)),
         suffix: GestureDetector(onTap: () => setState(() => _obscPass = !_obscPass),
           child: Padding(padding: EdgeInsets.only(right: rs(context, 14)),
-            child: Icon(_obscPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            child: Icon(_obscPass ? SolarIconsOutline.eyeClosed : SolarIconsOutline.eye,
               size: rs(context, 20), color: BColors.textMuted))),
       ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
       SizedBox(height: rs(context, 14)),
@@ -385,7 +386,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       })).animate(delay: 300.ms).fadeIn(duration: 300.ms),
       if (_capsLockOn && _passCtrl.text.isNotEmpty)
         Padding(padding: EdgeInsets.only(top: rs(context, 8)), child: Row(children: [
-          Icon(Icons.keyboard_capslock, size: 14, color: const Color(0xB3FFB800)),
+          Icon(SolarIconsOutline.altArrowUp, size: 14, color: const Color(0xB3FFB800)),
           SizedBox(width: rs(context, 6)),
           Text('Caps Lock включён', style: TextStyle(fontFamily: 'Onest', fontSize: rf(context, 12), color: const Color(0xB3FFB800))),
         ])).animate().fadeIn(duration: 200.ms),
@@ -396,7 +397,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           onChanged: (_) => setState(() {}), onSubmitted: _tryNext,
           suffix: GestureDetector(onTap: () => setState(() => _obscConf = !_obscConf),
             child: Padding(padding: EdgeInsets.only(right: rs(context, 14)),
-              child: Icon(_obscConf ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              child: Icon(_obscConf ? SolarIconsOutline.eyeClosed : SolarIconsOutline.eye,
                 size: rs(context, 20), color: BColors.textMuted))),
         ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.05),
         if (_confCtrl.text.isNotEmpty && _passCtrl.text != _confCtrl.text) ...[
@@ -418,7 +419,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     BLeskGlassInput(controller: _mailCtrl, hint: 'email', keyboardType: TextInputType.emailAddress,
       onChanged: _onEmailChanged, onSubmitted: _tryNext,
       prefix: Padding(padding: EdgeInsets.only(left: rs(context, 14)),
-        child: Icon(Icons.mail_outline, size: rs(context, 20), color: BColors.textMuted)),
+        child: Icon(SolarIconsOutline.letter, size: rs(context, 20), color: BColors.textMuted)),
     ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
     _buildHint(_emailHint, _emailHint == 'проверь адрес' ? 'error' : 'warning'),
   ]);

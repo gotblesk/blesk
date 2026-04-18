@@ -16,6 +16,7 @@ dependencies:
   # UI / animations
   flutter_animate: ^4.5.2
   bitsdojo_window: ^0.1.6
+  solar_icons: ^0.0.4
 
   # Audio (disabled — SoundEngine code preserved for future)
   audioplayers: ^6.6.0
