@@ -649,6 +649,8 @@ class _ChatStub {
 }
 
 const _chats = [
+  // C1 Saved Messages — always first, pinned
+  _ChatStub('saved', 'избранное', 'только для тебя', '', '★', 0, ChatActivity.none, pinned: true),
   _ChatStub('c1', 'Катя', 'привет! как дела?', '14:32', 'К', 2, ChatActivity.typing),
   _ChatStub('c2', 'Дизайн-банда', 'скинул макеты в фигму', '13:10', 'Д', 0, ChatActivity.online),
   _ChatStub('c3', 'Максим', 'завтра созвон в 10?', '12:45', 'М', 1, ChatActivity.newMessage),
@@ -1615,15 +1617,25 @@ class _ChatPanelState extends State<_ChatPanel> {
         onCancelReply: () => setState(() => _replyTo = null),
         onCancelEdit: () => setState(() => _editText = null),
         onSend: (text) {
-        final msgs = stubMessages[chatId] ??= [];
-        msgs.add(MessageData(
-          id: '${msgs.length + 1}', text: text,
-          time: 'сейчас', own: true, read: false,
-          reply: _replyTo,
-        ));
-        clearDraft(chatId);
-        setState(() { _replyTo = null; _editText = null; });
-      }),
+          final msgs = stubMessages[chatId] ??= [];
+          msgs.add(MessageData(
+            id: '${msgs.length + 1}', text: text,
+            time: 'сейчас', own: true, read: false,
+            reply: _replyTo,
+          ));
+          clearDraft(chatId);
+          setState(() { _replyTo = null; _editText = null; });
+        },
+        onSendSilent: (text) {
+          final msgs = stubMessages[chatId] ??= [];
+          msgs.add(MessageData(
+            id: '${msgs.length + 1}', text: text,
+            time: 'сейчас', own: true, read: false,
+            reply: _replyTo, silent: true,
+          ));
+          clearDraft(chatId);
+          setState(() { _replyTo = null; _editText = null; });
+        }),
     ]);
   }
 }

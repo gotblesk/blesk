@@ -16,6 +16,7 @@ enum _PopoverKind { mention, slash }
 
 class InputBar extends StatefulWidget {
   final ValueChanged<String>? onSend;
+  final ValueChanged<String>? onSendSilent; // C3 Ctrl+Enter silent send
   final String? replyTo; // name of person being replied to
   final String? replyText; // quoted text
   final String? editText; // text being edited
@@ -26,7 +27,8 @@ class InputBar extends StatefulWidget {
   final ValueChanged<String>? onTextChanged; // persist draft on every change
   final bool showDraftRestored; // show "черновик восстановлен" bar briefly
 
-  const InputBar({super.key, this.onSend, this.replyTo, this.replyText,
+  const InputBar({super.key, this.onSend, this.onSendSilent,
+    this.replyTo, this.replyText,
     this.editText, this.onCancelReply, this.onCancelEdit,
     this.initialText, this.onTextChanged, this.showDraftRestored = false});
 
@@ -79,8 +81,23 @@ class _InputBarState extends State<InputBar> {
     // Intercept keyboard while popover is open (up/down/enter/esc/tab)
     _focus.onKeyEvent = (node, event) {
       if (_handlePopoverKey(event)) return KeyEventResult.handled;
+      // C3 silent send: Ctrl+Enter
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.enter &&
+          HardwareKeyboard.instance.isControlPressed) {
+        _sendSilent();
+        return KeyEventResult.handled;
+      }
       return KeyEventResult.ignored;
     };
+  }
+
+  void _sendSilent() {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    (widget.onSendSilent ?? widget.onSend)?.call(text);
+    _ctrl.clear();
+    widget.onTextChanged?.call('');
   }
 
   // ─── Popover plumbing (B6 @mentions / B7 /slash) ──────────

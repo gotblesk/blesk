@@ -118,6 +118,40 @@ class MessageData {
 // ─── STUB DATA ────────────────────────────────────────────────
 
 final Map<String, List<MessageData>> stubMessages = {
+  // C1 Saved Messages — chat with self
+  'saved': [
+    MessageData(
+      id: '0', type: MessageType.system,
+      time: '', own: false,
+      systemText: 'избранное · только для тебя, с локальным шифрованием',
+    ),
+    MessageData(
+      id: '1', text: 'напомнить: договориться с Катей о созвоне в понедельник',
+      time: 'вчера', own: true, read: true,
+    ),
+    MessageData(
+      id: '2', type: MessageType.link,
+      text: 'интересная статья',
+      linkPreview: const LinkPreviewData(
+        url: 'https://blog.blesk.fun/liquid-glass-design',
+        title: 'Liquid Glass в UI: практика',
+        description: 'как делать слои стекла без перегруза',
+        domain: 'blog.blesk.fun',
+        tint: Color(0xFFc8ff00),
+      ),
+      time: 'вчера', own: true, read: true,
+    ),
+    MessageData(
+      id: '3', text: 'мысль: добавить в конструктор каналов preset "тёмный глянец"',
+      time: 'сегодня', own: true, read: true,
+    ),
+    MessageData(
+      id: '4', type: MessageType.file,
+      fileName: 'roadmap-2026.pdf',
+      fileSize: '1.2 МБ', fileExt: 'pdf',
+      time: 'сегодня', own: true, read: true,
+    ),
+  ],
   'c1': [
     MessageData(
       id: '0', type: MessageType.system,
@@ -569,6 +603,7 @@ class _ChatMessagesState extends State<ChatMessages> {
 
   String _resolveChatName(String chatId) {
     return switch (chatId) {
+      'saved' => 'избранное',
       'c1' => 'Катя',
       'c2' => 'Дизайн-банда',
       'c3' => 'Максим',
