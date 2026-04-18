@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class BColors {
   static const bg = Color(0xFF0A0A0A);
   static const accent = Color(0xFFC8FF00);
+  static const accentBright = Color(0xFFD4FF33);
   static const accentDim = Color(0x33C8FF00);
   static const textPrimary = Color(0xE6FFFFFF);
   static const textSecondary = Color(0x80FFFFFF);
@@ -10,6 +11,12 @@ class BColors {
   static const surfaceLow = Color(0x0AFFFFFF);
   static const borderLow = Color(0x0FFFFFFF);
   static const error = Color(0x99FF4444);
+  // Unified semantic palette additions (D Design QA Medium #6)
+  static const red = Color(0xFFFF5C5C);
+  static const redHover = Color(0xFFFF7070);
+  static const greenOnline = Color(0xFF4ADE80);
+  static const greenCallAccept = Color(0xFF22C55E);
+  static const redCallDecline = Color(0xFFEF4444);
 }
 
 double rs(BuildContext context, double value) {
