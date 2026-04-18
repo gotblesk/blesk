@@ -17,6 +17,7 @@ import 'features/channel_feed.dart';
 import 'features/create_flows.dart';
 import 'features/members_panel.dart';
 import 'features/bookmarks_panel.dart';
+import 'features/drop_overlay.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN SHELL — Living Sidebar + Content Area
@@ -160,6 +161,10 @@ class _MainScreenState extends State<MainScreen> {
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK): const _SearchIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN): const _NewChatIntent(),
         LogicalKeySet(LogicalKeyboardKey.escape): const _EscIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyD):
+            const _ToggleDropIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyG):
+            const _ToggleGhostIntent(),
       },
       child: Actions(
         actions: {
@@ -172,6 +177,15 @@ class _MainScreenState extends State<MainScreen> {
           _NewChatIntent: CallbackAction<_NewChatIntent>(onInvoke: (_) => null),
           _EscIntent: CallbackAction<_EscIntent>(
             onInvoke: (_) { _searchFocus.unfocus(); return null; },
+          ),
+          _ToggleDropIntent: CallbackAction<_ToggleDropIntent>(
+            onInvoke: (_) {
+              dropOverlayActive.value = !dropOverlayActive.value;
+              return null;
+            },
+          ),
+          _ToggleGhostIntent: CallbackAction<_ToggleGhostIntent>(
+            onInvoke: (_) { toggleGhostMode(); return null; },
           ),
         },
         child: Focus(
@@ -221,9 +235,9 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                     Container(width: 1, color: BColors.borderLow),
-                    // Content Area
+                    // Content Area (wrapped in DropOverlay for B4 drag-drop)
                     Expanded(
-                      child: (_inCall && !_callMinimized)
+                      child: DropOverlay(child: (_inCall && !_callMinimized)
                           ? CallView(
                               name: _chats.where((c) => c.id == _callWith).firstOrNull?.name ?? 'User',
                               initial: _chats.where((c) => c.id == _callWith).firstOrNull?.initial ?? '?',
@@ -252,7 +266,7 @@ class _MainScreenState extends State<MainScreen> {
                                   _showHint('кликни на стопку чтобы переключить чат');
                                 }
                               },
-                            ),
+                            )),
                     ),
                   ]),
                   // Hint toast
@@ -326,6 +340,8 @@ class _SectionIntent extends Intent {
 class _SearchIntent extends Intent { const _SearchIntent(); }
 class _NewChatIntent extends Intent { const _NewChatIntent(); }
 class _EscIntent extends Intent { const _EscIntent(); }
+class _ToggleDropIntent extends Intent { const _ToggleDropIntent(); }
+class _ToggleGhostIntent extends Intent { const _ToggleGhostIntent(); }
 
 // ═══════════════════════════════════════════════════════════════
 // LIVING SIDEBAR
@@ -799,7 +815,7 @@ class _ChatItemState extends State<_ChatItem> {
                       width: 10, height: 10,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0xFF00E676),
+                        color: const Color(0xFF4ade80),
                         border: Border.all(color: const Color(0xFF0d0d10), width: 2),
                       ),
                     )),
@@ -967,7 +983,7 @@ class _MiniBtnState extends State<_MiniBtn> {
         child: GestureDetector(
           onTap: widget.onTap ?? () {},
           child: SizedBox(
-            width: 22, height: 22,
+            width: 28, height: 28,
             child: Center(child: Icon(widget.icon, size: 14,
               color: _h ? Colors.white.withValues(alpha: 0.5) : BColors.textMuted)),
           ),
@@ -1063,7 +1079,7 @@ class _ContactItemState extends State<_ContactItem> {
             )),
             Container(width: 8, height: 8, decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: widget.online ? const Color(0xFF00E676) : Colors.white.withValues(alpha: 0.15),
+              color: widget.online ? const Color(0xFF4ade80) : Colors.white.withValues(alpha: 0.15),
             )),
           ]),
         ),
@@ -1535,7 +1551,7 @@ class _ChatPanelState extends State<_ChatPanel> {
           )),
           if (!compact) ...[
             Container(width: 6, height: 6, decoration: const BoxDecoration(
-              shape: BoxShape.circle, color: Color(0xFF00E676))),
+              shape: BoxShape.circle, color: Color(0xFF4ade80))),
             const SizedBox(width: 8),
           ],
           if (!compact) ValueListenableBuilder<int>(
@@ -1907,7 +1923,7 @@ class _PeekOverlayState extends State<_PeekOverlay> {
                         fontSize: rf(context, 13), fontWeight: FontWeight.w500, color: BColors.textPrimary)),
                       const SizedBox(width: 6),
                       Container(width: 5, height: 5, decoration: const BoxDecoration(
-                        shape: BoxShape.circle, color: Color(0xFF00E676))),
+                        shape: BoxShape.circle, color: Color(0xFF4ade80))),
                       const Spacer(),
                       _PeekCloseBtn(onTap: widget.onClose),
                     ]),

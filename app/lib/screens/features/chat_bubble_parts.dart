@@ -379,10 +379,10 @@ class _PinArrowState extends State<_PinArrow> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
-          width: 22, height: 22,
+          width: 28, height: 28,
           margin: const EdgeInsets.symmetric(horizontal: 1),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(6),
             color: _h ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
           ),
           child: Icon(widget.icon, size: 14,

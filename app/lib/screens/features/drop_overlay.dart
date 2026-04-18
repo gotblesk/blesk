@@ -4,33 +4,32 @@ import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
+/// Global toggle used by main_screen keyboard shortcut to demo drop state
+/// without a native drag source. Wire desktop_drop plugin here later.
+final ValueNotifier<bool> dropOverlayActive = ValueNotifier(false);
+
 /// Drag & drop file overlay — shown when files are dragged over the content area.
 /// Usage: wrap content in DropOverlay, it shows/hides automatically.
-class DropOverlay extends StatefulWidget {
+class DropOverlay extends StatelessWidget {
   final Widget child;
   const DropOverlay({super.key, required this.child});
-  @override
-  State<DropOverlay> createState() => _DropOverlayState();
-}
-
-class _DropOverlayState extends State<DropOverlay> {
-  bool _dragging = false;
 
   @override
   Widget build(BuildContext context) {
-    // Note: real drag detection requires platform channel or desktop_drop package.
-    // This is a visual placeholder that can be triggered manually for demo.
     return Stack(children: [
-      widget.child,
-      if (_dragging)
-        Positioned.fill(
-          child: _DropZone(onDismiss: () => setState(() => _dragging = false)),
-        ),
+      child,
+      ValueListenableBuilder<bool>(
+        valueListenable: dropOverlayActive,
+        builder: (_, on, _) => on
+            ? Positioned.fill(
+                child: _DropZone(
+                  onDismiss: () => dropOverlayActive.value = false,
+                ),
+              )
+            : const SizedBox.shrink(),
+      ),
     ]);
   }
-
-  /// Call this externally to simulate drag enter (for demo/testing)
-  void showDrop() => setState(() => _dragging = true);
 }
 
 class _DropZone extends StatelessWidget {
