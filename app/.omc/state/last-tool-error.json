@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:\\\\Users\\\\mxkar\\\\OneDrive\\\\Рабочий стол\\\\blesk\\\\app\\\" && flutter pub get 2>&1 | tail -3 && flutter analyze lib/screens/ lib/main.dart lib/app.dart lib/core/ 2>&1 | grep -cE \\\"error\\\"...",
+  "error": "Exit code 1\nChanged 125 dependencies!\n11 packages have newer versions incompatible with dependency constraints.\nTry `flutter pub outdated` for more information.\n0",
+  "timestamp": "2026-04-16T08:43:21.685Z",
+  "retry_count": 1
+}
