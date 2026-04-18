@@ -1,10 +1,17 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:pasteboard/pasteboard.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 import 'emoji_picker.dart';
+import 'input_popover.dart';
+
+enum _PopoverKind { mention, slash }
 
 // ═══════════════════════════════════════════════════════════════
 // INPUT BAR — glass pill with attachments, emoji, voice/send
@@ -12,14 +19,21 @@ import 'emoji_picker.dart';
 
 class InputBar extends StatefulWidget {
   final ValueChanged<String>? onSend;
+  final ValueChanged<String>? onSendSilent; // C3 Ctrl+Enter silent send
   final String? replyTo; // name of person being replied to
   final String? replyText; // quoted text
   final String? editText; // text being edited
   final VoidCallback? onCancelReply;
   final VoidCallback? onCancelEdit;
+  // Draft support:
+  final String? initialText; // pre-fill input with draft
+  final ValueChanged<String>? onTextChanged; // persist draft on every change
+  final bool showDraftRestored; // show "черновик восстановлен" bar briefly
 
-  const InputBar({super.key, this.onSend, this.replyTo, this.replyText,
-    this.editText, this.onCancelReply, this.onCancelEdit});
+  const InputBar({super.key, this.onSend, this.onSendSilent,
+    this.replyTo, this.replyText,
+    this.editText, this.onCancelReply, this.onCancelEdit,
+    this.initialText, this.onTextChanged, this.showDraftRestored = false});
 
   @override
   State<InputBar> createState() => _InputBarState();
@@ -28,9 +42,22 @@ class InputBar extends StatefulWidget {
 class _InputBarState extends State<InputBar> {
   final _ctrl = TextEditingController();
   final _focus = FocusNode();
+  final _inputKey = GlobalKey();
   bool _hasText = false;
   bool _recording = false;
   int _recordSeconds = 0;
+  bool _draftBannerVisible = false;
+
+  // Popover state (B6 mentions / B7 slash)
+  OverlayEntry? _popoverEntry;
+  _PopoverKind? _popoverKind;
+  String _popoverQuery = '';
+  int _popoverActive = 0;
+  int _popoverItemCount = 0;
+
+  // B5 paste — pasted image attachments awaiting send
+  final List<Uint8List> _pastedImages = [];
+  bool _pasteFlashActive = false;
 
   @override
   void initState() {
@@ -38,17 +65,270 @@ class _InputBarState extends State<InputBar> {
     if (widget.editText != null) {
       _ctrl.text = widget.editText!;
       _hasText = true;
+    } else if (widget.initialText != null && widget.initialText!.isNotEmpty) {
+      _ctrl.text = widget.initialText!;
+      _hasText = true;
+      if (widget.showDraftRestored) {
+        _draftBannerVisible = true;
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _draftBannerVisible = false);
+        });
+      }
     }
     _ctrl.addListener(() {
       final has = _ctrl.text.trim().isNotEmpty;
       if (has != _hasText) setState(() => _hasText = has);
+      widget.onTextChanged?.call(_ctrl.text);
+      // Dismiss draft banner on first keystroke
+      if (_draftBannerVisible && _ctrl.text != widget.initialText) {
+        setState(() => _draftBannerVisible = false);
+      }
+      _evaluatePopover();
     });
+    // Intercept keyboard while popover is open (up/down/enter/esc/tab)
+    _focus.onKeyEvent = (node, event) {
+      if (_handlePopoverKey(event)) return KeyEventResult.handled;
+      // C3 silent send: Ctrl+Enter
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.enter &&
+          HardwareKeyboard.instance.isControlPressed) {
+        _sendSilent();
+        return KeyEventResult.handled;
+      }
+      // B5 image paste: Ctrl+V checks clipboard for image bytes
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.keyV &&
+          HardwareKeyboard.instance.isControlPressed) {
+        _tryPasteImage();
+        // let native text paste proceed too
+      }
+      return KeyEventResult.ignored;
+    };
+  }
+
+  Future<void> _tryPasteImage() async {
+    try {
+      final bytes = await Pasteboard.image;
+      if (bytes != null && bytes.isNotEmpty) {
+        setState(() {
+          _pastedImages.add(bytes);
+          _pasteFlashActive = true;
+        });
+        Future.delayed(const Duration(milliseconds: 350), () {
+          if (mounted) setState(() => _pasteFlashActive = false);
+        });
+      }
+    } catch (_) {
+      // Silently ignore — text paste still works natively
+    }
+  }
+
+  void _removePastedImage(int idx) {
+    setState(() => _pastedImages.removeAt(idx));
+  }
+
+  void _sendSilent() {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    (widget.onSendSilent ?? widget.onSend)?.call(text);
+    _ctrl.clear();
+    widget.onTextChanged?.call('');
+  }
+
+  // ─── Popover plumbing (B6 @mentions / B7 /slash) ──────────
+
+  void _evaluatePopover() {
+    final cursor = _ctrl.selection.baseOffset;
+    if (cursor < 0) {
+      _hidePopover();
+      return;
+    }
+    final mentionQ = detectMentionTrigger(_ctrl.text, cursor);
+    if (mentionQ != null) {
+      _showPopover(_PopoverKind.mention, mentionQ);
+      return;
+    }
+    final slashQ = detectSlashTrigger(_ctrl.text, cursor);
+    if (slashQ != null) {
+      _showPopover(_PopoverKind.slash, slashQ);
+      return;
+    }
+    _hidePopover();
+  }
+
+  void _showPopover(_PopoverKind kind, String query) {
+    final kindChanged = _popoverKind != kind;
+    _popoverKind = kind;
+    _popoverQuery = query;
+    if (kindChanged) _popoverActive = 0;
+    _popoverItemCount = _currentItemsCount();
+    if (_popoverActive >= _popoverItemCount) _popoverActive = 0;
+    _popoverEntry?.remove();
+    _popoverEntry = OverlayEntry(builder: (_) => _buildPopoverOverlay());
+    Overlay.of(context).insert(_popoverEntry!);
+  }
+
+  void _hidePopover() {
+    if (_popoverEntry == null) return;
+    _popoverEntry!.remove();
+    _popoverEntry = null;
+    _popoverKind = null;
+    _popoverQuery = '';
+    _popoverActive = 0;
+  }
+
+  int _currentItemsCount() {
+    if (_popoverKind == _PopoverKind.mention) {
+      final q = _popoverQuery.trim().toLowerCase();
+      return q.isEmpty
+          ? stubMentions.length
+          : stubMentions.where((m) =>
+              m.name.toLowerCase().contains(q) ||
+              m.handle.toLowerCase().contains(q)).length;
+    }
+    if (_popoverKind == _PopoverKind.slash) {
+      final q = _popoverQuery.trim().toLowerCase();
+      return q.isEmpty
+          ? stubCommands.length
+          : stubCommands.where((c) =>
+              c.cmd.toLowerCase().contains(q) ||
+              c.description.toLowerCase().contains(q)).length;
+    }
+    return 0;
+  }
+
+  Widget _buildPopoverOverlay() {
+    // Anchor above input bar
+    final box = _inputKey.currentContext?.findRenderObject() as RenderBox?;
+    Offset origin = Offset.zero;
+    Size size = const Size(320, 0);
+    if (box != null) {
+      origin = box.localToGlobal(Offset.zero);
+      size = box.size;
+    }
+    return Positioned(
+      left: origin.dx,
+      bottom: MediaQuery.of(context).size.height - origin.dy + 8,
+      width: size.width.clamp(280, 360),
+      child: _popoverKind == _PopoverKind.mention
+          ? MentionsPopover(
+              query: _popoverQuery, activeIndex: _popoverActive,
+              onSelect: _insertMention,
+              onHoverIndex: (i) {
+                _popoverActive = i;
+                _popoverEntry?.markNeedsBuild();
+              },
+            )
+          : SlashPopover(
+              query: _popoverQuery, activeIndex: _popoverActive,
+              onSelect: _insertSlash,
+              onHoverIndex: (i) {
+                _popoverActive = i;
+                _popoverEntry?.markNeedsBuild();
+              },
+            ),
+    );
+  }
+
+  void _insertMention(MentionItem item) {
+    final cursor = _ctrl.selection.baseOffset;
+    if (cursor < 0) return;
+    final q = detectMentionTrigger(_ctrl.text, cursor);
+    if (q == null) return;
+    final triggerStart = cursor - q.length - 1; // include `@`
+    final insert = '${item.name} ';
+    final before = _ctrl.text.substring(0, triggerStart + 1); // keep @
+    final after = _ctrl.text.substring(cursor);
+    final newText = '$before$insert$after';
+    _ctrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: before.length + insert.length),
+    );
+    _hidePopover();
+  }
+
+  void _insertSlash(SlashCommand cmd) {
+    final cursor = _ctrl.selection.baseOffset;
+    if (cursor < 0) return;
+    final q = detectSlashTrigger(_ctrl.text, cursor);
+    if (q == null) return;
+    final triggerStart = 0;
+    final after = _ctrl.text.substring(cursor);
+    final insert = cmd.insertsText ?? '${cmd.cmd} ';
+    final newText = '$insert$after';
+    _ctrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+          offset: triggerStart + insert.length),
+    );
+    _hidePopover();
+  }
+
+  /// Handle up/down/enter/esc when popover open. Returns true if consumed.
+  bool _handlePopoverKey(KeyEvent e) {
+    if (_popoverEntry == null || _popoverKind == null) return false;
+    if (e is! KeyDownEvent && e is! KeyRepeatEvent) return false;
+    final k = e.logicalKey;
+    if (k == LogicalKeyboardKey.escape) {
+      _hidePopover();
+      return true;
+    }
+    if (k == LogicalKeyboardKey.arrowDown) {
+      if (_popoverItemCount == 0) return true;
+      _popoverActive = (_popoverActive + 1) % _popoverItemCount;
+      _popoverEntry?.markNeedsBuild();
+      return true;
+    }
+    if (k == LogicalKeyboardKey.arrowUp) {
+      if (_popoverItemCount == 0) return true;
+      _popoverActive = (_popoverActive - 1 + _popoverItemCount)
+          % _popoverItemCount;
+      _popoverEntry?.markNeedsBuild();
+      return true;
+    }
+    if (k == LogicalKeyboardKey.enter || k == LogicalKeyboardKey.tab) {
+      _commitActivePopoverSelection();
+      return true;
+    }
+    return false;
+  }
+
+  void _commitActivePopoverSelection() {
+    if (_popoverKind == _PopoverKind.mention) {
+      final q = _popoverQuery.trim().toLowerCase();
+      final items = q.isEmpty
+          ? stubMentions
+          : stubMentions.where((m) =>
+              m.name.toLowerCase().contains(q) ||
+              m.handle.toLowerCase().contains(q)).toList();
+      if (items.isEmpty) return;
+      _insertMention(items[_popoverActive.clamp(0, items.length - 1)]);
+    } else if (_popoverKind == _PopoverKind.slash) {
+      final q = _popoverQuery.trim().toLowerCase();
+      final items = q.isEmpty
+          ? stubCommands
+          : stubCommands.where((c) =>
+              c.cmd.toLowerCase().contains(q) ||
+              c.description.toLowerCase().contains(q)).toList();
+      if (items.isEmpty) return;
+      _insertSlash(items[_popoverActive.clamp(0, items.length - 1)]);
+    }
+  }
+
+  void _clearDraft() {
+    _ctrl.clear();
+    setState(() {
+      _hasText = false;
+      _draftBannerVisible = false;
+    });
+    widget.onTextChanged?.call('');
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
     _focus.dispose();
+    _popoverEntry?.remove();
     super.dispose();
   }
 
@@ -57,6 +337,10 @@ class _InputBarState extends State<InputBar> {
     if (text.isEmpty) return;
     widget.onSend?.call(text);
     _ctrl.clear();
+    widget.onTextChanged?.call('');
+    if (_draftBannerVisible) {
+      setState(() => _draftBannerVisible = false);
+    }
   }
 
   void _toggleRecord() {
@@ -74,6 +358,14 @@ class _InputBarState extends State<InputBar> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Draft restored banner (appears briefly)
+        if (_draftBannerVisible) _DraftBanner(onDismiss: _clearDraft),
+        // B5 pasted image previews (above input when clipboard image was pasted)
+        if (_pastedImages.isNotEmpty)
+          _PastedImagesBar(
+            images: _pastedImages,
+            onRemove: _removePastedImage,
+          ),
         // Reply/Edit header
         if (_showReply) _ReplyHeader(
           name: widget.replyTo!, text: widget.replyText ?? '',
@@ -83,6 +375,7 @@ class _InputBarState extends State<InputBar> {
 
         // Main input container
         ClipRRect(
+          key: _inputKey,
           borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
@@ -90,9 +383,16 @@ class _InputBarState extends State<InputBar> {
               duration: const Duration(milliseconds: 200),
               constraints: const BoxConstraints(minHeight: 48, maxHeight: 200),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
+                color: _pasteFlashActive
+                    ? BColors.accent.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+                border: Border.all(
+                  color: _pasteFlashActive
+                      ? BColors.accent.withValues(alpha: 0.4)
+                      : Colors.white.withValues(alpha: 0.06),
+                  width: _pasteFlashActive ? 1 : 0.5,
+                ),
               ),
               child: _recording ? _RecordingUI(
                 seconds: _recordSeconds,
@@ -100,7 +400,7 @@ class _InputBarState extends State<InputBar> {
                 onSend: () => setState(() => _recording = false),
               ) : Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                 // Attachments button
-                _InputIconBtn(icon: Icons.attach_file, tooltip: 'прикрепить',
+                _InputIconBtn(icon: SolarIconsOutline.paperclip, tooltip: 'прикрепить',
                   onTap: () => _showAttachMenu(context)),
                 // Text field
                 Expanded(child: TextField(
@@ -122,7 +422,7 @@ class _InputBarState extends State<InputBar> {
                   ),
                 )),
                 // Emoji button
-                _InputIconBtn(icon: Icons.mood_outlined, tooltip: 'эмодзи',
+                _InputIconBtn(icon: SolarIconsOutline.smileCircle, tooltip: 'эмодзи',
                   onTap: () => _showEmojiPicker(context)),
                 // Send / Voice button
                 _SendOrVoiceBtn(
@@ -130,6 +430,7 @@ class _InputBarState extends State<InputBar> {
                   isEdit: _showEdit,
                   onSend: _send,
                   onVoice: _toggleRecord,
+                  onLongPress: () => _showScheduleMenu(context),
                 ),
               ]),
             ),
@@ -156,6 +457,71 @@ class _InputBarState extends State<InputBar> {
       onClose: () => entry.remove(),
     ));
     overlay.insert(entry);
+  }
+
+  void _showScheduleMenu(BuildContext ctx) {
+    // C2 Schedule message popup (demo: shows toast instead of actual scheduling)
+    final overlay = Overlay.of(ctx);
+    late OverlayEntry entry;
+    final box = ctx.findRenderObject() as RenderBox;
+    final pos = box.localToGlobal(Offset.zero);
+    void handle(String label, bool silent) {
+      entry.remove();
+      if (silent) {
+        _sendSilent();
+      } else {
+        _showScheduleToast(label);
+      }
+    }
+
+    entry = OverlayEntry(builder: (_) => Stack(children: [
+      Positioned.fill(child: GestureDetector(onTap: () => entry.remove(),
+        child: Container(color: Colors.transparent))),
+      Positioned(
+        right: 12, bottom: MediaQuery.of(ctx).size.height - pos.dy + 8,
+        child: _SchedulePopover(onSelect: handle),
+      ),
+    ]));
+    overlay.insert(entry);
+  }
+
+  void _showScheduleToast(String label) {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    // For demo we don't actually schedule — show a toast + clear input
+    final overlay = Overlay.of(context);
+    late OverlayEntry toast;
+    toast = OverlayEntry(builder: (_) => Positioned(
+      left: 0, right: 0, bottom: 80,
+      child: Center(child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xF5141418),
+            border: Border(
+              left: BorderSide(color: BColors.accent, width: 3),
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+              right: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(SolarIconsOutline.clockCircle, size: 14,
+                color: BColors.accent.withValues(alpha: 0.85)),
+            const SizedBox(width: 8),
+            Text('запланировано: $label', style: const TextStyle(
+              fontFamily: 'Onest', fontSize: 13, color: BColors.textPrimary,
+            )),
+          ]),
+        ).animate().fadeIn(duration: 180.ms).slideY(begin: 0.4, curve: Curves.easeOut),
+      )),
+    ));
+    overlay.insert(toast);
+    Future.delayed(const Duration(seconds: 3), () { toast.remove(); });
+    _ctrl.clear();
+    widget.onTextChanged?.call('');
   }
 
   void _showAttachMenu(BuildContext ctx) {
@@ -217,8 +583,9 @@ class _SendOrVoiceBtn extends StatefulWidget {
   final bool isEdit;
   final VoidCallback onSend;
   final VoidCallback onVoice;
+  final VoidCallback? onLongPress; // C2 schedule menu
   const _SendOrVoiceBtn({required this.hasText, required this.isEdit,
-    required this.onSend, required this.onVoice});
+    required this.onSend, required this.onVoice, this.onLongPress});
   @override
   State<_SendOrVoiceBtn> createState() => _SendOrVoiceBtnState();
 }
@@ -234,6 +601,7 @@ class _SendOrVoiceBtnState extends State<_SendOrVoiceBtn> {
       onExit: (_) => setState(() => _h = false),
       child: GestureDetector(
         onTap: isSend ? widget.onSend : widget.onVoice,
+        onLongPress: isSend ? widget.onLongPress : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           width: 36, height: 44,
@@ -250,14 +618,119 @@ class _SendOrVoiceBtnState extends State<_SendOrVoiceBtn> {
                         color: BColors.accent,
                       ),
                       child: Center(child: Icon(
-                        widget.isEdit ? Icons.check : Icons.arrow_upward,
+                        widget.isEdit ? SolarIconsBold.checkCircle : SolarIconsBold.plain,
                         size: 16, color: BColors.bg,
                       )),
                     )
-                  : Icon(Icons.mic_none, key: const ValueKey('mic'), size: 20,
+                  : Icon(SolarIconsOutline.microphone, key: const ValueKey('mic'), size: 20,
                       color: _h ? BColors.accent.withValues(alpha: 0.5) : BColors.textMuted),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Schedule Popover (C2) ────────────────────────────────────
+
+class _SchedulePopover extends StatelessWidget {
+  final void Function(String label, bool silent) onSelect;
+  const _SchedulePopover({required this.onSelect});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xF5141418),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: const [BoxShadow(
+          color: Color(0x99000000), blurRadius: 32, offset: Offset(0, -8),
+        )],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 6, 16, 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('когда отправить?', style: TextStyle(
+              fontFamily: 'Onest', fontSize: 10, fontWeight: FontWeight.w600,
+              color: BColors.textMuted, letterSpacing: 1.2,
+            )),
+          ),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.clockCircle, label: 'через 15 минут',
+          onTap: () => onSelect('через 15 минут', false),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.sun, label: 'завтра в 9:00',
+          onTap: () => onSelect('завтра в 9:00', false),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.calendar, label: 'следующий пн в 9:00',
+          onTap: () => onSelect('пн в 9:00', false),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.settings, label: 'настроить время...',
+          onTap: () => onSelect('настроенное время', false),
+        ),
+        Container(height: 1, margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+            color: Colors.white.withValues(alpha: 0.06)),
+        _ScheduleRow(
+          icon: SolarIconsOutline.moon, label: 'без звука (сразу)',
+          onTap: () => onSelect('silent', true),
+        ),
+        _ScheduleRow(
+          icon: SolarIconsOutline.eyeClosed, label: 'когда будет онлайн',
+          onTap: () => onSelect('когда будет онлайн', false),
+        ),
+      ]),
+    ).animate()
+        .scale(begin: const Offset(0.94, 0.94), duration: 150.ms, curve: Curves.easeOutCubic)
+        .fade(duration: 140.ms);
+  }
+}
+
+class _ScheduleRow extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _ScheduleRow({required this.icon, required this.label, required this.onTap});
+  @override
+  State<_ScheduleRow> createState() => _ScheduleRowState();
+}
+
+class _ScheduleRowState extends State<_ScheduleRow> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            color: _h ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+          ),
+          child: Row(children: [
+            Icon(widget.icon, size: 14,
+                color: _h ? BColors.accent : BColors.textSecondary),
+            const SizedBox(width: 10),
+            Text(widget.label, style: TextStyle(
+              fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w400,
+              color: _h ? BColors.textPrimary : BColors.textSecondary,
+            )),
+          ]),
         ),
       ),
     );
@@ -282,10 +755,10 @@ class _AttachPopover extends StatelessWidget {
         boxShadow: const [BoxShadow(color: Color(0x80000000), blurRadius: 32, offset: Offset(0, -8))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        _AttachItem(icon: Icons.photo_outlined, label: 'фото / видео', onTap: () => onSelect('photo')),
-        _AttachItem(icon: Icons.insert_drive_file_outlined, label: 'документ', onTap: () => onSelect('doc')),
-        _AttachItem(icon: Icons.audiotrack_outlined, label: 'аудио', onTap: () => onSelect('audio')),
-        _AttachItem(icon: Icons.poll_outlined, label: 'опрос', onTap: () => onSelect('poll')),
+        _AttachItem(icon: SolarIconsOutline.gallery, label: 'фото / видео', onTap: () => onSelect('photo')),
+        _AttachItem(icon: SolarIconsOutline.documentText, label: 'документ', onTap: () => onSelect('doc')),
+        _AttachItem(icon: SolarIconsOutline.musicNote, label: 'аудио', onTap: () => onSelect('audio')),
+        _AttachItem(icon: SolarIconsOutline.chartSquare, label: 'опрос', onTap: () => onSelect('poll')),
       ]),
     ).animate()
         .scale(begin: const Offset(0.92, 0.92), duration: 150.ms, curve: Curves.easeOutCubic)
@@ -374,7 +847,7 @@ class _RecordingUI extends StatelessWidget {
           ),
         )),
         // Cancel
-        _InputIconBtn(icon: Icons.close, tooltip: 'отмена', onTap: onCancel),
+        _InputIconBtn(icon: SolarIconsOutline.closeCircle, tooltip: 'отмена', onTap: onCancel),
         // Send
         GestureDetector(
           onTap: onSend,
@@ -385,7 +858,7 @@ class _RecordingUI extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               color: BColors.accent,
             ),
-            child: const Center(child: Icon(Icons.arrow_upward, size: 16, color: BColors.bg)),
+            child: const Center(child: Icon(SolarIconsBold.plain, size: 16, color: BColors.bg)),
           ),
         ),
       ]),
@@ -423,7 +896,7 @@ class _ReplyHeader extends StatelessWidget {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(onTap: onCancel,
             child: const SizedBox(width: 28, height: 28,
-              child: Center(child: Icon(Icons.close, size: 14, color: BColors.textMuted)))),
+              child: Center(child: Icon(SolarIconsOutline.closeCircle, size: 14, color: BColors.textMuted)))),
         ),
       ]),
     ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.2);
@@ -431,6 +904,153 @@ class _ReplyHeader extends StatelessWidget {
 }
 
 // ─── Edit Header ──────────────────────────────────────────────
+
+// ─── Pasted Images Preview (B5) ───────────────────────────────
+
+class _PastedImagesBar extends StatelessWidget {
+  final List<Uint8List> images;
+  final ValueChanged<int> onRemove;
+  const _PastedImagesBar({required this.images, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withValues(alpha: 0.03),
+        border: Border.all(color: BColors.accent.withValues(alpha: 0.2), width: 0.5),
+      ),
+      child: Row(children: [
+        SizedBox(
+          height: 64,
+          child: ListView.separated(
+            shrinkWrap: true,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            itemCount: images.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 6),
+            itemBuilder: (_, i) => _PastedThumb(
+              bytes: images[i],
+              onRemove: () => onRemove(i),
+            ),
+          ),
+        ),
+        const Spacer(),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Text(
+            images.length == 1
+                ? '1 изображение'
+                : '${images.length} изображений',
+            style: TextStyle(
+              fontFamily: 'Onest', fontSize: 11, fontWeight: FontWeight.w500,
+              color: BColors.accent.withValues(alpha: 0.85),
+            ),
+          ),
+        ),
+      ]),
+    ).animate().fadeIn(duration: 180.ms).slideY(begin: -0.3, curve: Curves.easeOut);
+  }
+}
+
+class _PastedThumb extends StatefulWidget {
+  final Uint8List bytes;
+  final VoidCallback onRemove;
+  const _PastedThumb({required this.bytes, required this.onRemove});
+  @override
+  State<_PastedThumb> createState() => _PastedThumbState();
+}
+
+class _PastedThumbState extends State<_PastedThumb> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: Stack(children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.memory(
+            widget.bytes,
+            width: 64, height: 64, fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              width: 64, height: 64,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                color: Colors.white.withValues(alpha: 0.05),
+              ),
+              child: const Icon(SolarIconsOutline.gallery, size: 20,
+                  color: BColors.textMuted),
+            ),
+          ),
+        ),
+        if (_h) Positioned(
+          top: 2, right: 2,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: widget.onRemove,
+              child: Container(
+                width: 18, height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.7),
+                ),
+                child: const Icon(SolarIconsOutline.closeCircle, size: 11,
+                    color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _DraftBanner extends StatelessWidget {
+  final VoidCallback onDismiss;
+  const _DraftBanner({required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      height: 26,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: BColors.accent.withValues(alpha: 0.08),
+        border: Border.all(color: BColors.accent.withValues(alpha: 0.2), width: 0.5),
+      ),
+      child: Row(children: [
+        Container(
+          width: 5, height: 5,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: BColors.accent.withValues(alpha: 0.85),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text('черновик · восстановлено', style: TextStyle(
+          fontFamily: 'Onest', fontSize: 11, fontWeight: FontWeight.w500,
+          color: BColors.accent.withValues(alpha: 0.9),
+        )),
+        const Spacer(),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onDismiss,
+            child: Icon(SolarIconsOutline.closeCircle, size: 12,
+                color: BColors.accent.withValues(alpha: 0.8)),
+          ),
+        ),
+      ]),
+    ).animate().fadeIn(duration: 180.ms).slideY(begin: -0.4, curve: Curves.easeOut);
+  }
+}
 
 class _EditHeader extends StatelessWidget {
   final VoidCallback onCancel;
@@ -446,7 +1066,7 @@ class _EditHeader extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.03),
       ),
       child: Row(children: [
-        Icon(Icons.edit, size: 14, color: BColors.accent.withValues(alpha: 0.5)),
+        Icon(SolarIconsOutline.pen, size: 14, color: BColors.accent.withValues(alpha: 0.5)),
         const SizedBox(width: 8),
         Text('редактирование', style: TextStyle(fontFamily: 'Onest', fontSize: 12,
           color: BColors.accent.withValues(alpha: 0.7))),
@@ -455,7 +1075,7 @@ class _EditHeader extends StatelessWidget {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(onTap: onCancel,
             child: const SizedBox(width: 28, height: 28,
-              child: Center(child: Icon(Icons.close, size: 14, color: BColors.textMuted)))),
+              child: Center(child: Icon(SolarIconsOutline.closeCircle, size: 14, color: BColors.textMuted)))),
         ),
       ]),
     ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.2);

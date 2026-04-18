@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
@@ -178,7 +179,7 @@ class _MediaViewerState extends State<MediaViewer>
               Positioned(
                 left: 16, top: 0, bottom: 0,
                 child: Center(child: _NavArrow(
-                  icon: Icons.arrow_back_ios_new_rounded,
+                  icon: SolarIconsOutline.altArrowLeft,
                   onTap: _prev,
                 )),
               ),
@@ -188,7 +189,7 @@ class _MediaViewerState extends State<MediaViewer>
               Positioned(
                 right: 16, top: 0, bottom: 0,
                 child: Center(child: _NavArrow(
-                  icon: Icons.arrow_forward_ios_rounded,
+                  icon: SolarIconsOutline.altArrowRight,
                   onTap: _next,
                 )),
               ),
@@ -364,7 +365,7 @@ class _ImageStub extends StatelessWidget {
             child: CustomPaint(painter: _NoisePainter(item.tint)),
           )),
           Center(child: Icon(
-            Icons.image_outlined,
+            SolarIconsOutline.gallery,
             size: 80, color: Colors.white.withValues(alpha: 0.4),
           )),
         ]),
@@ -454,7 +455,7 @@ class _VideoStubState extends State<_VideoStub>
                 border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
               ),
               child: Icon(
-                _playing ? Icons.pause : Icons.play_arrow_rounded,
+                _playing ? SolarIconsBold.pause : SolarIconsBold.play,
                 size: 44, color: Colors.white,
               ),
             ),
@@ -578,7 +579,7 @@ class _TopBar extends StatelessWidget {
         ),
       ),
       child: Row(children: [
-        _TopBtn(icon: Icons.close, onTap: onClose, tooltip: 'закрыть (esc)'),
+        _TopBtn(icon: SolarIconsOutline.closeCircle, onTap: onClose, tooltip: 'закрыть (esc)'),
         const SizedBox(width: 4),
         Expanded(child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -605,12 +606,12 @@ class _TopBar extends StatelessWidget {
           ],
         )),
         if (onDownload != null)
-          _TopBtn(icon: Icons.file_download_outlined, onTap: onDownload!,
+          _TopBtn(icon: SolarIconsOutline.downloadMinimalistic, onTap: onDownload!,
               tooltip: 'скачать'),
         if (onShare != null)
-          _TopBtn(icon: Icons.share_outlined, onTap: onShare!, tooltip: 'поделиться'),
+          _TopBtn(icon: SolarIconsOutline.shareCircle, onTap: onShare!, tooltip: 'поделиться'),
         if (onDelete != null)
-          _TopBtn(icon: Icons.delete_outline, onTap: onDelete!, tooltip: 'удалить'),
+          _TopBtn(icon: SolarIconsOutline.trashBinTrash, onTap: onDelete!, tooltip: 'удалить'),
       ]),
     );
   }
@@ -807,7 +808,7 @@ class _ThumbState extends State<_Thumb> {
                 ),
               )),
               if (widget.item.isVideo) const Center(child: Icon(
-                Icons.play_arrow_rounded, size: 18, color: Colors.white,
+                SolarIconsBold.play, size: 18, color: Colors.white,
               )),
             ]),
           ),

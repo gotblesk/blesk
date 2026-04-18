@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 import '../shared/slide_over.dart';
@@ -80,25 +81,25 @@ class ProfileView extends StatelessWidget {
         const _Divider(),
         const SizedBox(height: 16),
         // Action buttons (staggered)
-        _ActionButton(icon: Icons.phone_outlined, label: 'позвонить', onTap: () {})
+        _ActionButton(icon: SolarIconsOutline.phone, label: 'позвонить', onTap: () {})
             .animate(delay: 250.ms).fadeIn(duration: 250.ms).slideY(begin: 0.1),
         const SizedBox(height: 8),
-        _ActionButton(icon: Icons.videocam_outlined, label: 'видеозвонок', onTap: () {})
+        _ActionButton(icon: SolarIconsOutline.videocamera, label: 'видеозвонок', onTap: () {})
             .animate(delay: 300.ms).fadeIn(duration: 250.ms).slideY(begin: 0.1),
         const SizedBox(height: 8),
-        _ActionButton(icon: Icons.chat_bubble_outline, label: 'написать', onTap: () {})
+        _ActionButton(icon: SolarIconsOutline.chatRound, label: 'написать', onTap: () {})
             .animate(delay: 350.ms).fadeIn(duration: 250.ms).slideY(begin: 0.1),
         const SizedBox(height: 20),
         const _Divider(),
         const SizedBox(height: 16),
         // Toggle rows (staggered)
-        _ToggleRow(icon: Icons.notifications_off_outlined, label: 'уведомления', value: true, onChanged: (_) {})
+        _ToggleRow(icon: SolarIconsOutline.bell, label: 'уведомления', value: true, onChanged: (_) {})
             .animate(delay: 400.ms).fadeIn(duration: 250.ms).slideX(begin: 0.05),
-        _ToggleRow(icon: Icons.push_pin_outlined, label: 'закрепить чат', value: false, onChanged: (_) {})
+        _ToggleRow(icon: SolarIconsOutline.pin, label: 'закрепить чат', value: false, onChanged: (_) {})
             .animate(delay: 440.ms).fadeIn(duration: 250.ms).slideX(begin: 0.05),
         const SizedBox(height: 8),
         _ActionButton(
-          icon: Icons.block_outlined, label: 'заблокировать',
+          icon: SolarIconsOutline.forbiddenCircle, label: 'заблокировать',
           destructive: true, onTap: () {},
         ).animate(delay: 480.ms).fadeIn(duration: 250.ms),
         const SizedBox(height: 20),
@@ -116,7 +117,7 @@ class ProfileView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 color: Colors.white.withValues(alpha: 0.04),
               ),
-              child: Center(child: Icon(Icons.image_outlined, size: 24, color: BColors.textMuted)),
+              child: Center(child: Icon(SolarIconsOutline.gallery, size: 24, color: BColors.textMuted)),
             )),
           ],
         ]).animate(delay: 520.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
@@ -289,7 +290,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
                   child: IgnorePointer(
                     ignoring: !_dirty,
                     child: _ActionButton(
-                      icon: Icons.check, label: 'сохранить',
+                      icon: SolarIconsBold.checkCircle, label: 'сохранить',
                       accent: true, onTap: _save,
                     ),
                   ),
@@ -532,9 +533,9 @@ class _NickStatus extends StatelessWidget {
           Text('проверяю...', style: TextStyle(fontFamily: 'Onest', fontSize: 12, color: BColors.textMuted)),
         ]));
       case 'ok':
-        icon = Icons.check; text = 'доступно'; color = BColors.accent.withValues(alpha: 0.6);
+        icon = SolarIconsBold.checkCircle; text = 'доступно'; color = BColors.accent.withValues(alpha: 0.6);
       case 'taken':
-        icon = Icons.close; text = 'занято'; color = const Color(0xCCFF5C5C);
+        icon = SolarIconsOutline.closeCircle; text = 'занято'; color = const Color(0xCCFF5C5C);
       case 'short':
         icon = null; text = 'минимум 3 символа'; color = BColors.textMuted;
       default:

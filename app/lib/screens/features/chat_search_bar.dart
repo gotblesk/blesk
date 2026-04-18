@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
@@ -77,7 +78,7 @@ class _ChatSearchBarState extends State<ChatSearchBar> {
         focusNode: FocusNode()..requestFocus(),
         onKeyEvent: _handleKey,
         child: Row(children: [
-          Icon(Icons.search_rounded, size: 15,
+          Icon(SolarIconsOutline.magnifier, size: 15,
               color: BColors.textMuted.withValues(alpha: 0.9)),
           const SizedBox(width: 10),
           Expanded(child: TextField(
@@ -100,20 +101,20 @@ class _ChatSearchBarState extends State<ChatSearchBar> {
           if (_ctrl.text.isNotEmpty) _Counter(count: count, current: current),
           const SizedBox(width: 6),
           _MiniBtn(
-            icon: Icons.keyboard_arrow_up_rounded,
+            icon: SolarIconsOutline.altArrowUp,
             tooltip: 'предыдущее',
             enabled: count > 0,
             onTap: widget.onPrev,
           ),
           _MiniBtn(
-            icon: Icons.keyboard_arrow_down_rounded,
+            icon: SolarIconsOutline.altArrowDown,
             tooltip: 'следующее',
             enabled: count > 0,
             onTap: widget.onNext,
           ),
           const SizedBox(width: 4),
           _MiniBtn(
-            icon: Icons.close, tooltip: 'закрыть (esc)',
+            icon: SolarIconsOutline.closeCircle, tooltip: 'закрыть (esc)',
             enabled: true, onTap: widget.onClose,
           ),
         ]),

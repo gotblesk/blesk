@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
@@ -114,7 +115,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
                   hintText: 'поиск эмодзи...',
                   hintStyle: TextStyle(fontFamily: 'Onest', fontSize: 12, color: BColors.textMuted),
                   contentPadding: const EdgeInsets.symmetric(vertical: 9),
-                  prefixIcon: Icon(Icons.search, size: 14, color: BColors.textMuted),
+                  prefixIcon: Icon(SolarIconsOutline.magnifier, size: 14, color: BColors.textMuted),
                   prefixIconConstraints: const BoxConstraints(minWidth: 24),
                 ),
               ),

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 import 'chat_bubble_parts.dart';
 import 'emoji_picker.dart';
+import 'forward_modal.dart';
+import 'read_receipts_panel.dart';
+import 'members_panel.dart' show stubMembers;
 
 export 'chat_bubble_parts.dart' show
     MessageStatus, MessageType, Reaction, ReplyQuote, LinkPreviewData;
@@ -36,6 +41,7 @@ class MessageData {
   final Duration? voiceDuration;
   final List<double>? waveform;
   final bool voicePlayed;
+  final String? voiceTranscript; // C5 voice-to-text
   // File
   final String? fileName;
   final String? fileSize;
@@ -46,6 +52,9 @@ class MessageData {
   final LinkPreviewData? linkPreview;
   // System
   final String? systemText;
+  // C3 silent send + C4 translation
+  final bool silent;
+  final String? translation;
 
   const MessageData({
     required this.id,
@@ -68,12 +77,15 @@ class MessageData {
     this.voiceDuration,
     this.waveform,
     this.voicePlayed = false,
+    this.voiceTranscript,
     this.fileName,
     this.fileSize,
     this.fileExt,
     this.stickerEmoji,
     this.linkPreview,
     this.systemText,
+    this.silent = false,
+    this.translation,
   }) : status = status ?? (read == true
             ? MessageStatus.read
             : (own ? MessageStatus.delivered : MessageStatus.delivered));
@@ -81,25 +93,65 @@ class MessageData {
   MessageData copyWith({
     MessageStatus? status,
     List<Reaction>? reactions,
+    String? text,
+    bool? edited,
+    String? voiceTranscript,
+    String? translation,
   }) =>
       MessageData(
-        id: id, text: text, time: time, sentAt: sentAt, own: own,
+        id: id, text: text ?? this.text, time: time, sentAt: sentAt, own: own,
         status: status ?? this.status, type: type,
         senderName: senderName, senderInitial: senderInitial,
         reactions: reactions ?? this.reactions,
-        reply: reply, forwardFrom: forwardFrom, edited: edited,
+        reply: reply, forwardFrom: forwardFrom, edited: edited ?? this.edited,
         photoTints: photoTints, videoDuration: videoDuration,
         gifTint: gifTint, voiceDuration: voiceDuration,
         waveform: waveform, voicePlayed: voicePlayed,
+        voiceTranscript: voiceTranscript ?? this.voiceTranscript,
         fileName: fileName, fileSize: fileSize, fileExt: fileExt,
         stickerEmoji: stickerEmoji, linkPreview: linkPreview,
-        systemText: systemText,
+        systemText: systemText, silent: silent,
+        translation: translation ?? this.translation,
       );
 }
 
 // ─── STUB DATA ────────────────────────────────────────────────
 
 final Map<String, List<MessageData>> stubMessages = {
+  // C1 Saved Messages — chat with self
+  'saved': [
+    MessageData(
+      id: '0', type: MessageType.system,
+      time: '', own: false,
+      systemText: 'избранное · только для тебя, с локальным шифрованием',
+    ),
+    MessageData(
+      id: '1', text: 'напомнить: договориться с Катей о созвоне в понедельник',
+      time: 'вчера', own: true, read: true,
+    ),
+    MessageData(
+      id: '2', type: MessageType.link,
+      text: 'интересная статья',
+      linkPreview: const LinkPreviewData(
+        url: 'https://blog.blesk.fun/liquid-glass-design',
+        title: 'Liquid Glass в UI: практика',
+        description: 'как делать слои стекла без перегруза',
+        domain: 'blog.blesk.fun',
+        tint: Color(0xFFc8ff00),
+      ),
+      time: 'вчера', own: true, read: true,
+    ),
+    MessageData(
+      id: '3', text: 'мысль: добавить в конструктор каналов preset "тёмный глянец"',
+      time: 'сегодня', own: true, read: true,
+    ),
+    MessageData(
+      id: '4', type: MessageType.file,
+      fileName: 'roadmap-2026.pdf',
+      fileSize: '1.2 МБ', fileExt: 'pdf',
+      time: 'сегодня', own: true, read: true,
+    ),
+  ],
   'c1': [
     MessageData(
       id: '0', type: MessageType.system,
@@ -225,6 +277,138 @@ final Map<String, List<({String sender, String text})>> stubPinned = {
   ],
 };
 
+// Users currently typing per chat (stub). Empty list = nobody typing.
+final Map<String, List<({String name, String initial})>> stubTyping = {
+  'c1': [(name: 'Катя', initial: 'К')],
+  'c2': [(name: 'Артём', initial: 'А'), (name: 'Лиза', initial: 'Л')],
+};
+
+// Draft text per chatId — persists between chat switches.
+final Map<String, String> stubDrafts = {};
+
+/// Bump this to notify listeners (sidebar) that drafts changed.
+final ValueNotifier<int> draftsVersion = ValueNotifier(0);
+
+void updateDraft(String chatId, String text) {
+  if (text.isEmpty) {
+    if (stubDrafts.remove(chatId) != null) draftsVersion.value++;
+  } else if (stubDrafts[chatId] != text) {
+    stubDrafts[chatId] = text;
+    draftsVersion.value++;
+  }
+}
+
+void clearDraft(String chatId) {
+  if (stubDrafts.remove(chatId) != null) draftsVersion.value++;
+}
+
+/// Chats user has manually marked as unread. Cleared on chat open.
+final Set<String> manuallyUnread = {};
+final ValueNotifier<int> unreadStateVersion = ValueNotifier(0);
+
+void markChatAsUnread(String chatId) {
+  if (manuallyUnread.add(chatId)) unreadStateVersion.value++;
+}
+void markChatAsRead(String chatId) {
+  if (manuallyUnread.remove(chatId)) unreadStateVersion.value++;
+}
+
+/// Unseen mentions of current user per chat (stub).
+final Map<String, int> stubMentionCounts = {
+  'c2': 2, // user was mentioned 2 times in group
+};
+
+/// New reactions on user's own messages since last view (stub).
+final Map<String, int> stubNewReactionCounts = {
+  'c1': 3,
+  'c2': 1,
+};
+
+final ValueNotifier<int> counterStateVersion = ValueNotifier(0);
+
+void consumeMentionCounter(String chatId) {
+  if (stubMentionCounts.containsKey(chatId)) {
+    stubMentionCounts.remove(chatId);
+    counterStateVersion.value++;
+  }
+}
+
+void consumeReactionCounter(String chatId) {
+  if (stubNewReactionCounts.containsKey(chatId)) {
+    stubNewReactionCounts.remove(chatId);
+    counterStateVersion.value++;
+  }
+}
+
+/// Personal bookmarks on messages (C6). Separate from forwards/saved.
+class BookmarkEntry {
+  final String id, chatId, messageId, preview, senderName, chatName, date;
+  const BookmarkEntry({
+    required this.id, required this.chatId, required this.messageId,
+    required this.preview, required this.senderName,
+    required this.chatName, required this.date,
+  });
+}
+
+final List<BookmarkEntry> stubBookmarks = [];
+final ValueNotifier<int> bookmarksVersion = ValueNotifier(0);
+
+void addBookmark(BookmarkEntry entry) {
+  // Replace if exists
+  stubBookmarks.removeWhere((b) => b.id == entry.id);
+  stubBookmarks.add(entry);
+  bookmarksVersion.value++;
+}
+
+void removeBookmark(String id) {
+  final before = stubBookmarks.length;
+  stubBookmarks.removeWhere((b) => b.id == id);
+  if (stubBookmarks.length != before) bookmarksVersion.value++;
+}
+
+bool isBookmarked(String chatId, String messageId) =>
+    stubBookmarks.any((b) => b.chatId == chatId && b.messageId == messageId);
+
+/// C10 — Ghost mode: hides "online" status and read receipts from others
+/// (and reciprocally hides theirs from you).
+final ValueNotifier<bool> ghostModeEnabled = ValueNotifier(false);
+void toggleGhostMode() => ghostModeEnabled.value = !ghostModeEnabled.value;
+
+/// Offline connection state — banner shows when true.
+/// In full impl would be bound to WebSocket state.
+final ValueNotifier<bool> offlineState = ValueNotifier(false);
+
+/// Navigation history for "jump back" pill.
+/// Entries pushed when user jumps to a source message (reply preview
+/// click, global search result, etc.).
+class JumpHistory {
+  static final List<({String chatId, String messageId, String hint})> _stack = [];
+  static final ValueNotifier<int> version = ValueNotifier(0);
+  static bool get hasHistory => _stack.isNotEmpty;
+  static String? get lastHint =>
+      _stack.isEmpty ? null : _stack.last.hint;
+
+  static void push({
+    required String chatId, required String messageId, String hint = '',
+  }) {
+    _stack.add((chatId: chatId, messageId: messageId, hint: hint));
+    version.value++;
+  }
+
+  static ({String chatId, String messageId, String hint})? pop() {
+    if (_stack.isEmpty) return null;
+    final v = _stack.removeLast();
+    version.value++;
+    return v;
+  }
+
+  static void clear() {
+    if (_stack.isEmpty) return;
+    _stack.clear();
+    version.value++;
+  }
+}
+
 // ─── GROUP POSITION ──────────────────────────────────────────
 
 enum _GroupPos { single, first, middle, last }
@@ -254,6 +438,233 @@ class _ChatMessagesState extends State<ChatMessages> {
   final _scroll = ScrollController();
   bool _showScrollBtn = false;
   int _unreadNew = 0;
+  String? _editingMessageId;
+  OverlayEntry? _undoToastEntry;
+  // Selection mode (B3)
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
+  String? _lastSelectedId;
+
+  void _toggleSelection(String msgId, {bool range = false}) {
+    setState(() {
+      _selectionMode = true;
+      if (range && _lastSelectedId != null && _lastSelectedId != msgId) {
+        final msgs = stubMessages[widget.chatId] ?? const [];
+        final a = msgs.indexWhere((m) => m.id == _lastSelectedId);
+        final b = msgs.indexWhere((m) => m.id == msgId);
+        if (a >= 0 && b >= 0) {
+          final lo = a < b ? a : b;
+          final hi = a > b ? a : b;
+          for (var i = lo; i <= hi; i++) {
+            _selectedIds.add(msgs[i].id);
+          }
+        }
+      } else {
+        if (_selectedIds.contains(msgId)) {
+          _selectedIds.remove(msgId);
+          if (_selectedIds.isEmpty) _selectionMode = false;
+        } else {
+          _selectedIds.add(msgId);
+        }
+      }
+      _lastSelectedId = msgId;
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+      _lastSelectedId = null;
+    });
+  }
+
+  void _copySelection() {
+    final msgs = stubMessages[widget.chatId] ?? const [];
+    final lines = msgs
+        .where((m) => _selectedIds.contains(m.id) && m.text != null)
+        .map((m) => '[${m.time}] ${m.senderName ?? (m.own ? 'ты' : 'собеседник')}: ${m.text}')
+        .toList();
+    if (lines.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: lines.join('\n')));
+    }
+    _exitSelection();
+  }
+
+  void _deleteSelection() {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    setState(() {
+      msgs.removeWhere((m) => _selectedIds.contains(m.id));
+      _exitSelection();
+    });
+  }
+
+  void _forwardSelection() {
+    final msgs = stubMessages[widget.chatId] ?? const [];
+    final first = msgs.firstWhere(
+      (m) => _selectedIds.contains(m.id),
+      orElse: () => msgs.first,
+    );
+    // For demo: forward only the first selected. A real impl would
+    // support multi-forward in the modal.
+    _forwardMessage(first);
+    _exitSelection();
+  }
+
+  void _startEdit(String id) => setState(() => _editingMessageId = id);
+  void _cancelEdit() => setState(() => _editingMessageId = null);
+
+  void _saveEdit(String id, String newText) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == id);
+    if (idx < 0) return;
+    setState(() {
+      msgs[idx] = msgs[idx].copyWith(text: newText, edited: true);
+      _editingMessageId = null;
+    });
+  }
+
+  void _translateMessage(MessageData msg) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == msg.id);
+    if (idx < 0 || msg.text == null) return;
+    // Stub: fake translation by reversing emoji-stripped text
+    final fake = 'перевод: ${msg.text}';
+    setState(() {
+      msgs[idx] = msgs[idx].copyWith(translation: fake);
+    });
+  }
+
+  void _untranslateMessage(MessageData msg) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == msg.id);
+    if (idx < 0) return;
+    setState(() {
+      final m = msgs[idx];
+      msgs[idx] = MessageData(
+        id: m.id, text: m.text, time: m.time, own: m.own,
+        status: m.status, type: m.type,
+        senderName: m.senderName, senderInitial: m.senderInitial,
+        reactions: m.reactions, reply: m.reply, forwardFrom: m.forwardFrom,
+        edited: m.edited, photoTints: m.photoTints,
+        videoDuration: m.videoDuration, gifTint: m.gifTint,
+        voiceDuration: m.voiceDuration, waveform: m.waveform,
+        voicePlayed: m.voicePlayed, voiceTranscript: m.voiceTranscript,
+        fileName: m.fileName, fileSize: m.fileSize, fileExt: m.fileExt,
+        stickerEmoji: m.stickerEmoji, linkPreview: m.linkPreview,
+        systemText: m.systemText, silent: m.silent,
+        // translation: null — explicit clear via new instance
+      );
+    });
+  }
+
+  void _transcribeMessage(MessageData msg) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == msg.id);
+    if (idx < 0) return;
+    // Stub transcript
+    const fake = 'привет, как дела? я сегодня работаю над blesk с кислотным зелёным акцентом.';
+    setState(() {
+      msgs[idx] = msgs[idx].copyWith(voiceTranscript: fake);
+    });
+  }
+
+  void _bookmarkMessage(MessageData msg) {
+    addBookmark(BookmarkEntry(
+      id: '${widget.chatId}_${msg.id}',
+      chatId: widget.chatId,
+      messageId: msg.id,
+      preview: msg.text ?? _previewForType(msg),
+      senderName: msg.own ? 'ты' : (msg.senderName ?? _resolveChatName(widget.chatId)),
+      chatName: _resolveChatName(widget.chatId),
+      date: msg.time,
+    ));
+  }
+
+  void _viewReadBy(MessageData msg) {
+    showReadReceiptsPanel(
+      context,
+      chatId: widget.chatId,
+      messagePreview: msg.text ?? _previewForType(msg),
+      messageTime: msg.time,
+    );
+  }
+
+  void _forwardMessage(MessageData msg) {
+    showForwardModal(
+      context,
+      source: msg,
+      sourceChatId: widget.chatId,
+      sourceSenderName: msg.own
+          ? 'ты'
+          : (msg.senderName ?? _resolveChatName(widget.chatId)),
+    );
+  }
+
+  String _resolveChatName(String chatId) {
+    return switch (chatId) {
+      'saved' => 'избранное',
+      'c1' => 'Катя',
+      'c2' => 'Дизайн-банда',
+      'c3' => 'Максим',
+      'c4' => 'blesk team',
+      'c5' => 'Аня',
+      'c6' => 'Лиза',
+      _ => 'собеседник',
+    };
+  }
+
+  void _deleteMessage(MessageData msg) {
+    final modalCtx = context;
+    late OverlayEntry modal;
+    modal = OverlayEntry(builder: (_) => _DeleteMessageModal(
+      msg: msg,
+      canDeleteForAll: msg.own,
+      onConfirm: (forAll) {
+        modal.remove();
+        _performDelete(msg);
+      },
+      onClose: () => modal.remove(),
+    ));
+    Overlay.of(modalCtx).insert(modal);
+  }
+
+  void _performDelete(MessageData msg) {
+    final msgs = stubMessages[widget.chatId];
+    if (msgs == null) return;
+    final idx = msgs.indexWhere((m) => m.id == msg.id);
+    if (idx < 0) return;
+
+    // Soft-remove: keep a copy for undo
+    final removed = msgs.removeAt(idx);
+    setState(() {});
+
+    _undoToastEntry?.remove();
+    final overlay = Overlay.of(context);
+    bool restored = false;
+    late OverlayEntry toast;
+    toast = OverlayEntry(builder: (_) => _UndoToast(
+      onUndo: () {
+        if (restored) return;
+        restored = true;
+        msgs.insert(idx.clamp(0, msgs.length), removed);
+        setState(() {});
+        toast.remove();
+        _undoToastEntry = null;
+      },
+      onDismiss: () {
+        if (_undoToastEntry == toast) _undoToastEntry = null;
+        toast.remove();
+      },
+    ));
+    _undoToastEntry = toast;
+    overlay.insert(toast);
+  }
 
   @override
   void initState() {
@@ -265,6 +676,8 @@ class _ChatMessagesState extends State<ChatMessages> {
   void dispose() {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
+    _undoToastEntry?.remove();
+    _undoToastEntry = null;
     super.dispose();
   }
 
@@ -315,11 +728,20 @@ class _ChatMessagesState extends State<ChatMessages> {
   List<Widget> _buildItems(List<MessageData> messages) {
     final items = <Widget>[];
     String? lastDateLabel;
+    String? lastSmartGroup; // C8 smart date grouping
 
     for (var i = 0; i < messages.length; i++) {
       final msg = messages[i];
       final prev = i > 0 ? messages[i - 1] : null;
       final next = i < messages.length - 1 ? messages[i + 1] : null;
+
+      // C8 — Smart group separator (larger time gaps)
+      final smartGroup = _smartGroupFor(msg.time);
+      if (smartGroup != null && smartGroup != lastSmartGroup &&
+          msg.type != MessageType.system) {
+        items.add(DateSeparator(label: smartGroup, highlighted: true));
+        lastSmartGroup = smartGroup;
+      }
 
       // Date separator (stub: group by .time field when it changes meaningfully)
       final dayLabel = _dayLabelFor(msg.time);
@@ -357,6 +779,20 @@ class _ChatMessagesState extends State<ChatMessages> {
         highlightQuery: widget.highlightQuery,
         isCurrentMatch: widget.currentMatchId != null &&
             widget.currentMatchId == msg.id.hashCode,
+        isEditing: _editingMessageId == msg.id,
+        isSelected: _selectedIds.contains(msg.id),
+        selectionMode: _selectionMode,
+        onSelectTap: () => _toggleSelection(msg.id,
+            range: HardwareKeyboard.instance.isShiftPressed),
+        onEnterSelection: () => _toggleSelection(msg.id),
+        onViewReadBy: (msg.own && stubMembers(widget.chatId).length >= 3)
+            ? () => _viewReadBy(msg) : null,
+        onTranslate: () => _translateMessage(msg),
+        onUntranslate: () => _untranslateMessage(msg),
+        onTranscribe: () => _transcribeMessage(msg),
+        onBookmark: () => _bookmarkMessage(msg),
+        onDelete: () => _deleteMessage(msg),
+        onForward: () => _forwardMessage(msg),
         onReact: (emoji) => _toggleReaction(msg, emoji),
         onReply: widget.onReply == null ? null : () {
           widget.onReply!(ReplyQuote(
@@ -367,13 +803,33 @@ class _ChatMessagesState extends State<ChatMessages> {
             hasPhoto: msg.type == MessageType.photo,
           ));
         },
-        onEdit: (msg.own && msg.text != null && widget.onEditStart != null)
-            ? () => widget.onEditStart!(msg.text!) : null,
+        onReplyFragment: widget.onReply == null ? null : (fragment) {
+          widget.onReply!(ReplyQuote(
+            id: msg.id,
+            senderName: msg.own ? 'ты' : (msg.senderName ?? 'собеседник'),
+            text: fragment,
+            senderColor: msg.own ? BColors.accent : senderColorFor(msg.senderName ?? 'x'),
+            hasPhoto: false,
+          ));
+        },
+        onEdit: (msg.own && msg.text != null && msg.type == MessageType.text)
+            ? () => _startEdit(msg.id) : null,
+        onSaveEdit: (newText) => _saveEdit(msg.id, newText),
+        onCancelEdit: _cancelEdit,
         onOpenMedia: widget.onOpenMedia == null ? null : () => widget.onOpenMedia!(msg),
       ));
     }
 
     return items;
+  }
+
+  /// C8 — Returns a broader "smart" group label for larger time gaps.
+  /// Emitted only once per group (highlighted in accent).
+  String? _smartGroupFor(String time) {
+    // Weekday labels → "на прошлой неделе"
+    const weekdays = {'пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'};
+    if (weekdays.contains(time)) return 'на прошлой неделе';
+    return null;
   }
 
   String? _dayLabelFor(String time) {
@@ -402,10 +858,30 @@ class _ChatMessagesState extends State<ChatMessages> {
   Widget build(BuildContext context) {
     final messages = stubMessages[widget.chatId] ?? [];
     final pinned = stubPinned[widget.chatId] ?? const [];
+    final typing = stubTyping[widget.chatId] ?? const [];
+    final isGroup = messages.any((m) => m.senderName != null);
     final items = _buildItems(messages);
+    // Append typing widget(s) at the end (bottom of chat when reversed).
+    if (typing.isNotEmpty) {
+      if (isGroup) {
+        items.add(TypingStack(users: typing));
+      } else {
+        items.add(TypingBubble(
+          senderName: typing.first.name,
+          senderInitial: typing.first.initial,
+        ));
+      }
+    }
 
     return Column(children: [
-      if (pinned.isNotEmpty)
+      if (_selectionMode) _SelectionToolbar(
+        count: _selectedIds.length,
+        onClose: _exitSelection,
+        onCopy: _copySelection,
+        onForward: _forwardSelection,
+        onDelete: _deleteSelection,
+      )
+      else if (pinned.isNotEmpty)
         PinnedMessagesBar(pinned: pinned, onTap: () {}),
       Expanded(child: Stack(children: [
         ListView.builder(
@@ -433,6 +909,20 @@ class _ChatMessagesState extends State<ChatMessages> {
               onTap: _scrollToBottom,
             ),
           ),
+        // Jump-back pill (shown after navigating to reply source / search result)
+        Positioned(
+          right: 16, bottom: _showScrollBtn ? 60 : 12,
+          child: ValueListenableBuilder<int>(
+            valueListenable: JumpHistory.version,
+            builder: (_, _, _) {
+              if (!JumpHistory.hasHistory) return const SizedBox.shrink();
+              return _JumpBackPill(onTap: () {
+                JumpHistory.pop();
+                setState(() {});
+              });
+            },
+          ),
+        ),
       ])),
     ]);
   }
@@ -445,15 +935,36 @@ class _MessageBubble extends StatefulWidget {
   final _GroupPos pos;
   final String? highlightQuery;
   final bool isCurrentMatch;
+  final bool isEditing;
+  final bool isSelected;
+  final bool selectionMode;
   final ValueChanged<String>? onReact;
   final VoidCallback? onReply;
+  final ValueChanged<String>? onReplyFragment; // C7 quote selection
   final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onForward;
+  final VoidCallback? onSelectTap;
+  final VoidCallback? onEnterSelection;
+  final VoidCallback? onViewReadBy;
+  final VoidCallback? onTranslate;
+  final VoidCallback? onUntranslate;
+  final VoidCallback? onTranscribe;
+  final VoidCallback? onBookmark;
+  final ValueChanged<String>? onSaveEdit;
+  final VoidCallback? onCancelEdit;
   final VoidCallback? onOpenMedia;
 
   const _MessageBubble({
     required this.msg, required this.pos,
-    this.highlightQuery, this.isCurrentMatch = false,
-    this.onReact, this.onReply, this.onEdit, this.onOpenMedia,
+    this.highlightQuery, this.isCurrentMatch = false, this.isEditing = false,
+    this.isSelected = false, this.selectionMode = false,
+    this.onReact, this.onReply, this.onReplyFragment,
+    this.onEdit, this.onDelete, this.onForward,
+    this.onSelectTap, this.onEnterSelection, this.onViewReadBy,
+    this.onTranslate, this.onUntranslate, this.onTranscribe, this.onBookmark,
+    this.onSaveEdit, this.onCancelEdit,
+    this.onOpenMedia,
   });
 
   @override
@@ -565,17 +1076,38 @@ class _MessageBubbleState extends State<_MessageBubble> {
       position: pos,
       own: isOwn,
       items: [
-        _CtxItem('ответить', Icons.reply_outlined, 'reply'),
-        if (hasText) _CtxItem('копировать', Icons.copy_outlined, 'copy'),
-        _CtxItem('переслать', Icons.forward_outlined, 'forward'),
-        _CtxItem('закрепить', Icons.push_pin_outlined, 'pin'),
-        if (isOwn && hasText) _CtxItem('редактировать', Icons.edit_outlined, 'edit'),
-        if (isOwn) _CtxItem('удалить', Icons.delete_outline, 'delete', danger: true),
+        _CtxItem('ответить', SolarIconsOutline.reply, 'reply'),
+        if (hasText) _CtxItem('копировать', SolarIconsOutline.copy, 'copy'),
+        _CtxItem('переслать', SolarIconsOutline.forward, 'forward'),
+        _CtxItem('закрепить', SolarIconsOutline.pin, 'pin'),
+        _CtxItem('выбрать', SolarIconsOutline.checkCircle, 'select'),
+        if (widget.onViewReadBy != null)
+          _CtxItem('кто прочитал', SolarIconsOutline.eye, 'readby'),
+        if (hasText && widget.msg.translation == null)
+          _CtxItem('перевести', SolarIconsOutline.global, 'translate'),
+        if (hasText && widget.msg.translation != null)
+          _CtxItem('убрать перевод', SolarIconsOutline.global, 'untranslate'),
+        if (widget.msg.type == MessageType.voice && widget.msg.voiceTranscript == null)
+          _CtxItem('расшифровать', SolarIconsOutline.documentText, 'transcribe'),
+        _CtxItem('в закладки', SolarIconsOutline.bookmark, 'bookmark'),
+        if (isOwn && hasText) _CtxItem('редактировать', SolarIconsOutline.pen, 'edit'),
+        if (isOwn) _CtxItem('удалить', SolarIconsOutline.trashBinTrash, 'delete', danger: true),
       ],
       onSelect: (id) {
         entry.remove();
         if (id == 'reply') widget.onReply?.call();
         if (id == 'edit') widget.onEdit?.call();
+        if (id == 'delete') widget.onDelete?.call();
+        if (id == 'forward') widget.onForward?.call();
+        if (id == 'select') widget.onEnterSelection?.call();
+        if (id == 'readby') widget.onViewReadBy?.call();
+        if (id == 'translate') widget.onTranslate?.call();
+        if (id == 'untranslate') widget.onUntranslate?.call();
+        if (id == 'transcribe') widget.onTranscribe?.call();
+        if (id == 'bookmark') widget.onBookmark?.call();
+        if (id == 'copy' && widget.msg.text != null) {
+          Clipboard.setData(ClipboardData(text: widget.msg.text!));
+        }
       },
       onClose: () => entry.remove(),
     ));
@@ -700,26 +1232,47 @@ class _MessageBubbleState extends State<_MessageBubble> {
     if (isSticker) {
       return Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
         GestureDetector(
+          onTap: widget.selectionMode ? widget.onSelectTap : null,
           onSecondaryTapDown: (d) => _showContextMenu(d.globalPosition),
-          child: StickerContent(emoji: msg.stickerEmoji ?? '🎉'),
+          child: Container(
+            decoration: widget.isSelected
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: BColors.accent.withValues(alpha: 0.08),
+                    border: Border.all(color: BColors.accent.withValues(alpha: 0.4), width: 2),
+                  )
+                : null,
+            padding: widget.isSelected ? const EdgeInsets.all(4) : EdgeInsets.zero,
+            child: StickerContent(emoji: msg.stickerEmoji ?? '🎉'),
+          ),
         ),
         _buildTimeAndStatus(faded: true),
       ]);
     }
 
     // Normal bubble
+    final editing = widget.isEditing;
+    final selected = widget.isSelected;
     final bgColor = noBubbleBg
         ? Colors.transparent
-        : own
-            ? BColors.accent.withValues(alpha: 0.06)
-            : const Color(0xFF141418);
+        : selected
+            ? BColors.accent.withValues(alpha: 0.12)
+            : editing
+                ? BColors.accent.withValues(alpha: 0.1)
+                : own
+                    ? BColors.accent.withValues(alpha: 0.06)
+                    : const Color(0xFF141418);
     final borderColor = noBubbleBg
         ? Colors.transparent
-        : isError
-            ? const Color(0xFFff5c5c).withValues(alpha: 0.35)
-            : own
-                ? BColors.accent.withValues(alpha: 0.1)
-                : Colors.white.withValues(alpha: 0.05);
+        : selected
+            ? BColors.accent
+            : editing
+                ? BColors.accent.withValues(alpha: 0.4)
+                : isError
+                    ? const Color(0xFFff5c5c).withValues(alpha: 0.35)
+                    : own
+                        ? BColors.accent.withValues(alpha: 0.1)
+                        : Colors.white.withValues(alpha: 0.05);
 
     // Padding strategy — tighter for media-only
     final mediaOnly = (isPhoto || isVideo || isGif) &&
@@ -729,6 +1282,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : const EdgeInsets.fromLTRB(14, 8, 12, 7);
 
     return GestureDetector(
+      onTap: widget.selectionMode ? widget.onSelectTap : null,
       onSecondaryTapDown: (d) => _showContextMenu(d.globalPosition),
       child: Container(
         padding: padding,
@@ -742,7 +1296,20 @@ class _MessageBubbleState extends State<_MessageBubble> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (msg.forwardFrom != null) ForwardLabel(senderName: msg.forwardFrom!),
-            if (msg.reply != null) ReplyPreview(quote: msg.reply!),
+            if (msg.reply != null) Builder(builder: (ctx) {
+              final chatId = context.findAncestorStateOfType<_ChatMessagesState>()
+                  ?.widget.chatId ?? '';
+              return ReplyPreview(
+                quote: msg.reply!,
+                onTap: () {
+                  JumpHistory.push(
+                    chatId: chatId, messageId: msg.id,
+                    hint: 'к ${msg.reply!.senderName}',
+                  );
+                  // In a full impl, would scroll to original msg + flash it.
+                },
+              );
+            }),
             _buildContent(),
             if (msg.text != null && msg.text!.isNotEmpty &&
                 (isPhoto || isVideo || msg.linkPreview != null))
@@ -754,8 +1321,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 )),
               ),
             // Time + status inline for text / bottom-right for media
-            if (msg.type == MessageType.text || msg.text?.isNotEmpty == true ||
-                msg.type == MessageType.file || msg.type == MessageType.voice)
+            if (widget.isEditing)
+              const SizedBox.shrink()
+            else if (msg.type == MessageType.text ||
+                msg.text?.isNotEmpty == true ||
+                msg.type == MessageType.file ||
+                msg.type == MessageType.voice)
               Padding(
                 padding: EdgeInsets.only(top: mediaOnly ? 4 : 2, left: mediaOnly ? 6 : 0),
                 child: _buildTimeAndStatus(),
@@ -773,9 +1344,26 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   Widget _buildContent() {
     final msg = widget.msg;
+    // Inline edit mode replaces text content with an editor
+    if (widget.isEditing &&
+        msg.type == MessageType.text &&
+        widget.onSaveEdit != null) {
+      return _InlineEditor(
+        initial: msg.text ?? '',
+        onSave: widget.onSaveEdit!,
+        onCancel: widget.onCancelEdit ?? () {},
+      );
+    }
     switch (msg.type) {
       case MessageType.text:
-        return _textContent();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _textContent(),
+            if (msg.translation != null) _TranslationBlock(text: msg.translation!),
+          ],
+        );
       case MessageType.photo:
         return GestureDetector(
           onTap: widget.onOpenMedia,
@@ -794,12 +1382,20 @@ class _MessageBubbleState extends State<_MessageBubble> {
           ),
         );
       case MessageType.voice:
-        return VoiceContent(
-          duration: msg.voiceDuration ?? const Duration(seconds: 10),
-          waveform: msg.waveform ?? List.generate(22, (i) =>
-              0.3 + 0.7 * ((i * 37) % 100) / 100),
-          own: msg.own,
-          played: msg.voicePlayed,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            VoiceContent(
+              duration: msg.voiceDuration ?? const Duration(seconds: 10),
+              waveform: msg.waveform ?? List.generate(22, (i) =>
+                  0.3 + 0.7 * ((i * 37) % 100) / 100),
+              own: msg.own,
+              played: msg.voicePlayed,
+            ),
+            if (msg.voiceTranscript != null)
+              _TranscriptBlock(text: msg.voiceTranscript!),
+          ],
         );
       case MessageType.file:
         return FileContent(
@@ -836,13 +1432,67 @@ class _MessageBubbleState extends State<_MessageBubble> {
       color: BColors.textPrimary, height: 1.4,
     );
     final query = widget.highlightQuery;
+    // In selection mode, use plain Text so taps toggle message selection
+    // instead of text selection
+    if (widget.selectionMode) {
+      if (query != null && query.trim().isNotEmpty && (msg.text?.isNotEmpty ?? false)) {
+        return HighlightedText(
+          text: msg.text!, highlight: query, style: style,
+          currentMatchIndex: widget.isCurrentMatch ? 0 : null,
+        );
+      }
+      return Text(msg.text ?? '', style: style);
+    }
+    // Default: SelectableText for C7 quote-selection reply
     if (query != null && query.trim().isNotEmpty && (msg.text?.isNotEmpty ?? false)) {
       return HighlightedText(
         text: msg.text!, highlight: query, style: style,
         currentMatchIndex: widget.isCurrentMatch ? 0 : null,
+        selectable: true,
+        contextMenuBuilder: _buildQuoteSelectionToolbar,
       );
     }
-    return Text(msg.text ?? '', style: style);
+    return SelectableText(
+      msg.text ?? '',
+      style: style,
+      contextMenuBuilder: _buildQuoteSelectionToolbar,
+    );
+  }
+
+  /// C7 — custom selection toolbar with "цитировать" button.
+  Widget _buildQuoteSelectionToolbar(
+    BuildContext context, EditableTextState state,
+  ) {
+    final selection = state.textEditingValue.selection;
+    final fullText = state.textEditingValue.text;
+    if (selection.isCollapsed || !selection.isValid) {
+      // No selection — render default toolbar (copy/select all)
+      return AdaptiveTextSelectionToolbar.editableText(
+        editableTextState: state,
+      );
+    }
+    final selectedText = selection.textInside(fullText);
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: state.contextMenuAnchors,
+      buttonItems: [
+        ContextMenuButtonItem(
+          label: 'цитировать',
+          onPressed: () {
+            ContextMenuController.removeAny();
+            state.hideToolbar();
+            widget.onReplyFragment?.call(selectedText);
+          },
+        ),
+        ContextMenuButtonItem(
+          label: 'копировать',
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: selectedText));
+            ContextMenuController.removeAny();
+            state.hideToolbar();
+          },
+        ),
+      ],
+    );
   }
 
   Widget _buildTimeAndStatus({bool faded = false}) {
@@ -864,10 +1514,38 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ),
       ),
       if (msg.own) ...[
+        if (msg.silent) ...[
+          const SizedBox(width: 4),
+          Icon(SolarIconsOutline.moon, size: 11,
+              color: BColors.textMuted.withValues(alpha: 0.7)),
+        ],
         const SizedBox(width: 4),
-        ReadStatusIcon(msg.status),
+        Tooltip(
+          message: _statusTimelineText(msg),
+          waitDuration: const Duration(milliseconds: 500),
+          textStyle: const TextStyle(fontSize: 11, color: BColors.textPrimary),
+          decoration: BoxDecoration(
+            color: const Color(0xFF141418),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: ReadStatusIcon(msg.status),
+        ),
       ],
     ]);
+  }
+
+  String _statusTimelineText(MessageData msg) {
+    // C9 — Message status timeline tooltip
+    final baseTime = msg.time;
+    return switch (msg.status) {
+      MessageStatus.sending => 'отправляется...',
+      MessageStatus.sent => 'отправлено · $baseTime',
+      MessageStatus.delivered => 'доставлено · $baseTime',
+      MessageStatus.read => 'прочитано · $baseTime',
+      MessageStatus.error => 'не отправлено · попробуй снова',
+    };
   }
 
   Widget _buildHoverActions({required bool visible}) {
@@ -903,17 +1581,17 @@ class _HoverActions extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       _HoverBtn(
-        icon: Icons.mood_outlined, tooltip: 'реакция',
+        icon: SolarIconsOutline.smileCircle, tooltip: 'реакция',
         onTap: (anchor) => onReact(anchor),
       ),
       const SizedBox(width: 2),
       _HoverBtn(
-        icon: Icons.reply_outlined, tooltip: 'ответить',
+        icon: SolarIconsOutline.reply, tooltip: 'ответить',
         onTap: (_) => onReply(),
       ),
       const SizedBox(width: 2),
       _HoverBtn(
-        icon: Icons.more_horiz, tooltip: 'ещё',
+        icon: SolarIconsOutline.menuDots, tooltip: 'ещё',
         onTap: (anchor) => onMore(anchor),
       ),
     ]);
@@ -1086,7 +1764,7 @@ class _QuickMoreState extends State<_QuickMore> {
             shape: BoxShape.circle,
             color: _h ? Colors.white.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.04),
           ),
-          child: Icon(Icons.add, size: 16,
+          child: Icon(SolarIconsOutline.addCircle, size: 16,
               color: _h ? BColors.textPrimary : BColors.textMuted),
         ),
       ),
@@ -1279,3 +1957,793 @@ class _CtxRowState extends State<_CtxRow> {
     );
   }
 }
+
+// ─── INLINE EDITOR (replaces text when editing) ───────────────
+
+class _InlineEditor extends StatefulWidget {
+  final String initial;
+  final ValueChanged<String> onSave;
+  final VoidCallback onCancel;
+  const _InlineEditor({
+    required this.initial, required this.onSave, required this.onCancel,
+  });
+  @override
+  State<_InlineEditor> createState() => _InlineEditorState();
+}
+
+class _InlineEditorState extends State<_InlineEditor> {
+  late final TextEditingController _ctrl;
+  late final FocusNode _focus;
+  late String _initial;
+
+  @override
+  void initState() {
+    super.initState();
+    _initial = widget.initial;
+    _ctrl = TextEditingController(text: _initial);
+    _ctrl.selection = TextSelection.collapsed(offset: _initial.length);
+    _focus = FocusNode();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  bool get _canSave {
+    final t = _ctrl.text.trim();
+    return t.isNotEmpty && t != _initial.trim();
+  }
+
+  void _handleKey(KeyEvent e) {
+    if (e is! KeyDownEvent) return;
+    final k = e.logicalKey;
+    if (k == LogicalKeyboardKey.escape) {
+      widget.onCancel();
+    } else if (k == LogicalKeyboardKey.enter &&
+        !HardwareKeyboard.instance.isShiftPressed) {
+      if (_canSave) widget.onSave(_ctrl.text.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyboardListener(
+      focusNode: FocusNode(skipTraversal: true),
+      onKeyEvent: _handleKey,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 220),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            TextField(
+              controller: _ctrl,
+              focusNode: _focus,
+              maxLines: null,
+              onChanged: (_) => setState(() {}),
+              style: TextStyle(
+                fontFamily: 'Onest', fontSize: rf(context, 14),
+                fontWeight: FontWeight.w400,
+                color: BColors.textPrimary, height: 1.4,
+              ),
+              cursorColor: BColors.accent,
+              decoration: const InputDecoration(
+                border: InputBorder.none, isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              _EditActionBtn(
+                label: 'отмена', onTap: widget.onCancel,
+                accent: false, enabled: true,
+              ),
+              const SizedBox(width: 12),
+              _EditActionBtn(
+                label: 'сохранить', onTap: () {
+                  if (_canSave) widget.onSave(_ctrl.text.trim());
+                },
+                accent: true, enabled: _canSave,
+              ),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditActionBtn extends StatefulWidget {
+  final String label;
+  final bool accent, enabled;
+  final VoidCallback onTap;
+  const _EditActionBtn({
+    required this.label, required this.accent,
+    required this.enabled, required this.onTap,
+  });
+  @override
+  State<_EditActionBtn> createState() => _EditActionBtnState();
+}
+
+class _EditActionBtnState extends State<_EditActionBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    final color = !widget.enabled
+        ? BColors.textMuted
+        : widget.accent
+            ? (_h ? const Color(0xFFd4ff33) : BColors.accent)
+            : (_h ? BColors.textPrimary : BColors.textSecondary);
+    return Opacity(
+      opacity: widget.enabled ? 1.0 : 0.4,
+      child: MouseRegion(
+        cursor: widget.enabled
+            ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+        onEnter: (_) => setState(() => _h = true),
+        onExit: (_) => setState(() => _h = false),
+        child: GestureDetector(
+          onTap: widget.enabled ? widget.onTap : null,
+          child: Text(widget.label, style: TextStyle(
+            fontFamily: 'Onest',
+            fontSize: 12,
+            fontWeight: widget.accent ? FontWeight.w600 : FontWeight.w500,
+            color: color,
+          )),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── DELETE MESSAGE MODAL ─────────────────────────────────────
+
+class _DeleteMessageModal extends StatefulWidget {
+  final MessageData msg;
+  final bool canDeleteForAll;
+  final ValueChanged<bool> onConfirm; // forAll flag
+  final VoidCallback onClose;
+  const _DeleteMessageModal({
+    required this.msg, required this.canDeleteForAll,
+    required this.onConfirm, required this.onClose,
+  });
+  @override
+  State<_DeleteMessageModal> createState() => _DeleteMessageModalState();
+}
+
+class _DeleteMessageModalState extends State<_DeleteMessageModal> {
+  bool _forAll = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _forAll = widget.canDeleteForAll;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: KeyboardListener(
+        focusNode: FocusNode()..requestFocus(),
+        onKeyEvent: (e) {
+          if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.escape) {
+            widget.onClose();
+          }
+        },
+        child: Stack(children: [
+          Positioned.fill(child: GestureDetector(
+            onTap: widget.onClose,
+            behavior: HitTestBehavior.opaque,
+            child: Container(color: Colors.black.withValues(alpha: 0.4)),
+          )),
+          Center(child: Container(
+            width: 400,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xF50e0e12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              boxShadow: const [BoxShadow(
+                color: Color(0xA6000000), blurRadius: 48, offset: Offset(0, 16),
+              )],
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Header
+              Container(
+                height: 48,
+                padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: BColors.borderLow)),
+                ),
+                child: Row(children: [
+                  const Expanded(child: Text(
+                    'удалить сообщение?',
+                    style: TextStyle(
+                      fontFamily: 'Nekst', fontSize: 14, fontWeight: FontWeight.w600,
+                      color: BColors.textPrimary,
+                    ),
+                  )),
+                  _ModalCloseBtn(onTap: widget.onClose),
+                ]),
+              ),
+              // Body
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Preview
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.white.withValues(alpha: 0.03),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+                      ),
+                      child: Opacity(opacity: 0.72, child: Text(
+                        _previewText(widget.msg),
+                        maxLines: 3, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Onest', fontSize: 13,
+                          color: BColors.textPrimary, height: 1.4,
+                        ),
+                      )),
+                    ),
+                    const SizedBox(height: 14),
+                    _DeleteRadio(
+                      selected: !_forAll, title: 'удалить у себя',
+                      subtitle: 'будет скрыто только у тебя',
+                      onTap: () => setState(() => _forAll = false),
+                    ),
+                    const SizedBox(height: 6),
+                    _DeleteRadio(
+                      selected: _forAll,
+                      title: 'удалить для всех',
+                      subtitle: widget.canDeleteForAll
+                          ? 'исчезнет у всех участников'
+                          : 'нельзя — это чужое сообщение',
+                      enabled: widget.canDeleteForAll,
+                      onTap: widget.canDeleteForAll
+                          ? () => setState(() => _forAll = true) : null,
+                    ),
+                    const SizedBox(height: 18),
+                    Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                      _ModalGhostBtn(label: 'отмена', onTap: widget.onClose),
+                      const SizedBox(width: 10),
+                      _ModalDangerBtn(
+                        label: _forAll ? 'удалить для всех' : 'удалить',
+                        onTap: () => widget.onConfirm(_forAll),
+                      ),
+                    ]),
+                  ],
+                ),
+              ),
+            ]),
+          ).animate()
+              .scale(begin: const Offset(0.94, 0.94),
+                  duration: 180.ms, curve: Curves.easeOutCubic)
+              .fade(duration: 150.ms)),
+        ]),
+      ),
+    );
+  }
+
+  String _previewText(MessageData m) {
+    if (m.text != null && m.text!.isNotEmpty) return m.text!;
+    return switch (m.type) {
+      MessageType.photo => '📷 фото',
+      MessageType.video => '🎞 видео',
+      MessageType.voice => '🎤 голосовое сообщение',
+      MessageType.file => '📄 ${m.fileName ?? "файл"}',
+      MessageType.sticker => '${m.stickerEmoji ?? "🎉"} стикер',
+      MessageType.gif => 'GIF',
+      MessageType.link => m.linkPreview?.url ?? 'ссылка',
+      _ => 'сообщение',
+    };
+  }
+}
+
+class _ModalCloseBtn extends StatefulWidget {
+  final VoidCallback onTap;
+  const _ModalCloseBtn({required this.onTap});
+  @override
+  State<_ModalCloseBtn> createState() => _ModalCloseBtnState();
+}
+
+class _ModalCloseBtnState extends State<_ModalCloseBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: 28, height: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            color: _h ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+          ),
+          child: Icon(SolarIconsOutline.closeCircle, size: 16,
+              color: _h ? BColors.textPrimary : BColors.textMuted),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteRadio extends StatelessWidget {
+  final bool selected;
+  final String title, subtitle;
+  final VoidCallback? onTap;
+  final bool enabled;
+  const _DeleteRadio({
+    required this.selected, required this.title, required this.subtitle,
+    this.onTap, this.enabled = true,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(opacity: enabled ? 1.0 : 0.4,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: selected
+                  ? BColors.accent.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              border: Border.all(
+                color: selected
+                    ? BColors.accent.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.05),
+                width: 0.5,
+              ),
+            ),
+            child: Row(children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 16, height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? BColors.accent : Colors.white.withValues(alpha: 0.25),
+                    width: 1.5,
+                  ),
+                ),
+                child: Center(child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: selected ? 8 : 0, height: selected ? 8 : 0,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle, color: BColors.accent,
+                  ),
+                )),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: const TextStyle(
+                    fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w500,
+                    color: BColors.textPrimary,
+                  )),
+                  const SizedBox(height: 1),
+                  Text(subtitle, style: const TextStyle(
+                    fontFamily: 'Onest', fontSize: 11, color: BColors.textMuted,
+                  )),
+                ],
+              )),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModalGhostBtn extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _ModalGhostBtn({required this.label, required this.onTap});
+  @override
+  State<_ModalGhostBtn> createState() => _ModalGhostBtnState();
+}
+
+class _ModalGhostBtnState extends State<_ModalGhostBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          height: 32, padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(7),
+            color: _h ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+          ),
+          alignment: Alignment.center,
+          child: Text(widget.label, style: TextStyle(
+            fontFamily: 'Onest', fontSize: 12, fontWeight: FontWeight.w500,
+            color: _h ? BColors.textPrimary : BColors.textSecondary,
+          )),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModalDangerBtn extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _ModalDangerBtn({required this.label, required this.onTap});
+  @override
+  State<_ModalDangerBtn> createState() => _ModalDangerBtnState();
+}
+
+class _ModalDangerBtnState extends State<_ModalDangerBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: 32, padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(7),
+            color: _h
+                ? const Color(0xFFff7070)
+                : const Color(0xFFff5c5c),
+          ),
+          alignment: Alignment.center,
+          child: Text(widget.label, style: const TextStyle(
+            fontFamily: 'Onest', fontSize: 12, fontWeight: FontWeight.w600,
+            color: Colors.white,
+          )),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── UNDO TOAST ───────────────────────────────────────────────
+
+class _UndoToast extends StatefulWidget {
+  final VoidCallback onUndo;
+  final VoidCallback onDismiss;
+  const _UndoToast({required this.onUndo, required this.onDismiss});
+  @override
+  State<_UndoToast> createState() => _UndoToastState();
+}
+
+// ─── TRANSLATION BLOCK (C4) ───────────────────────────────────
+
+class _TranslationBlock extends StatelessWidget {
+  final String text;
+  const _TranslationBlock({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 1, color: Colors.white.withValues(alpha: 0.06),
+            margin: const EdgeInsets.only(bottom: 6),
+          ),
+          Row(children: [
+            Icon(SolarIconsOutline.global, size: 11,
+                color: BColors.textMuted.withValues(alpha: 0.8)),
+            const SizedBox(width: 4),
+            Text(text, style: const TextStyle(
+              fontFamily: 'Onest', fontSize: 13,
+              color: BColors.textSecondary, fontStyle: FontStyle.italic,
+              height: 1.4,
+            )),
+          ]),
+          const SizedBox(height: 2),
+          Text('перевод (auto)', style: TextStyle(
+            fontFamily: 'Onest', fontSize: 9,
+            color: BColors.textMuted.withValues(alpha: 0.7),
+          )),
+        ],
+      ),
+    ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.2, curve: Curves.easeOut);
+  }
+}
+
+// ─── TRANSCRIPT BLOCK (C5 voice-to-text) ──────────────────────
+
+class _TranscriptBlock extends StatelessWidget {
+  final String text;
+  const _TranscriptBlock({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 1, color: Colors.white.withValues(alpha: 0.06),
+            margin: const EdgeInsets.only(bottom: 6),
+          ),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(SolarIconsOutline.documentText, size: 12,
+                color: BColors.accent.withValues(alpha: 0.7)),
+            const SizedBox(width: 6),
+            Flexible(child: Text(text, style: const TextStyle(
+              fontFamily: 'Onest', fontSize: 13,
+              color: BColors.textPrimary, height: 1.4,
+            ))),
+          ]),
+          const SizedBox(height: 2),
+          Text('расшифровано', style: TextStyle(
+            fontFamily: 'Onest', fontSize: 9,
+            color: BColors.textMuted.withValues(alpha: 0.7),
+          )),
+        ],
+      ),
+    ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.2, curve: Curves.easeOut);
+  }
+}
+
+// ─── SELECTION TOOLBAR (B3) ───────────────────────────────────
+
+class _SelectionToolbar extends StatelessWidget {
+  final int count;
+  final VoidCallback onClose;
+  final VoidCallback onCopy;
+  final VoidCallback onForward;
+  final VoidCallback onDelete;
+  const _SelectionToolbar({
+    required this.count,
+    required this.onClose,
+    required this.onCopy,
+    required this.onForward,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: const BoxDecoration(
+        color: Color(0x0AFFFFFF),
+        border: Border(bottom: BorderSide(color: BColors.borderLow)),
+      ),
+      child: Row(children: [
+        _ToolbarBtn(icon: SolarIconsOutline.closeCircle, onTap: onClose),
+        const SizedBox(width: 10),
+        Text(
+          count == 0 ? 'ничего не выбрано' : 'выбрано: $count',
+          style: TextStyle(
+            fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w500,
+            color: count == 0 ? BColors.textMuted : BColors.textPrimary,
+          ),
+        ),
+        const Spacer(),
+        _ToolbarBtn(
+          icon: SolarIconsOutline.copy,
+          tooltip: 'копировать',
+          enabled: count > 0,
+          onTap: onCopy,
+        ),
+        const SizedBox(width: 2),
+        _ToolbarBtn(
+          icon: SolarIconsOutline.forward,
+          tooltip: 'переслать',
+          enabled: count > 0,
+          onTap: onForward,
+        ),
+        const SizedBox(width: 2),
+        _ToolbarBtn(
+          icon: SolarIconsOutline.trashBinTrash,
+          tooltip: 'удалить',
+          danger: true,
+          enabled: count > 0,
+          onTap: onDelete,
+        ),
+      ]),
+    ).animate().fadeIn(duration: 180.ms).slideY(begin: -0.3, curve: Curves.easeOut);
+  }
+}
+
+class _ToolbarBtn extends StatefulWidget {
+  final IconData icon;
+  final String? tooltip;
+  final bool danger;
+  final bool enabled;
+  final VoidCallback onTap;
+  const _ToolbarBtn({
+    required this.icon, this.tooltip,
+    this.danger = false, this.enabled = true,
+    required this.onTap,
+  });
+  @override
+  State<_ToolbarBtn> createState() => _ToolbarBtnState();
+}
+
+class _ToolbarBtnState extends State<_ToolbarBtn> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    final color = !widget.enabled
+        ? BColors.textMuted.withValues(alpha: 0.4)
+        : widget.danger
+            ? (_h ? const Color(0xFFff7070) : const Color(0xFFff5c5c))
+            : (_h ? BColors.textPrimary : BColors.textSecondary);
+    final child = MouseRegion(
+      cursor: widget.enabled
+          ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.enabled ? widget.onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: 28, height: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            color: _h && widget.enabled
+                ? (widget.danger
+                    ? const Color(0xFFff5c5c).withValues(alpha: 0.1)
+                    : Colors.white.withValues(alpha: 0.06))
+                : Colors.transparent,
+          ),
+          child: Icon(widget.icon, size: 16, color: color),
+        ),
+      ),
+    );
+    if (widget.tooltip == null) return child;
+    return Tooltip(
+      message: widget.tooltip!,
+      textStyle: const TextStyle(fontSize: 10, color: BColors.textPrimary),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1a1a1a), borderRadius: BorderRadius.circular(6),
+      ),
+      child: child,
+    );
+  }
+}
+
+// ─── JUMP-BACK PILL (B2) ──────────────────────────────────────
+
+class _JumpBackPill extends StatefulWidget {
+  final VoidCallback onTap;
+  const _JumpBackPill({required this.onTap});
+  @override
+  State<_JumpBackPill> createState() => _JumpBackPillState();
+}
+
+class _JumpBackPillState extends State<_JumpBackPill> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: _h
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.white.withValues(alpha: 0.06),
+            border: Border.all(
+              color: _h
+                  ? BColors.accent.withValues(alpha: 0.4)
+                  : Colors.white.withValues(alpha: 0.1),
+              width: 0.8,
+            ),
+            boxShadow: [BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 12, offset: const Offset(0, 4),
+            )],
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(SolarIconsOutline.undoLeft, size: 14,
+                color: _h ? BColors.accent : BColors.textSecondary),
+            const SizedBox(width: 6),
+            Text('вернуться', style: TextStyle(
+              fontFamily: 'Onest', fontSize: 12, fontWeight: FontWeight.w500,
+              color: _h ? BColors.textPrimary : BColors.textSecondary,
+            )),
+          ]),
+        ),
+      ).animate()
+          .fadeIn(duration: 180.ms)
+          .slideX(begin: 0.2, curve: Curves.easeOut),
+    );
+  }
+}
+
+class _UndoToastState extends State<_UndoToast> {
+  bool _actioned = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!mounted || _actioned) return;
+      widget.onDismiss();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 0, right: 0, bottom: 24,
+      child: Center(child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xF5141418),
+            border: Border(
+              left: BorderSide(color: BColors.accent, width: 3),
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+              right: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+            ),
+            boxShadow: const [BoxShadow(
+              color: Color(0x99000000), blurRadius: 32, offset: Offset(0, 12),
+            )],
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(SolarIconsOutline.checkCircle, size: 14,
+                color: BColors.accent.withValues(alpha: 0.85)),
+            const SizedBox(width: 10),
+            const Text('сообщение удалено', style: TextStyle(
+              fontFamily: 'Onest', fontSize: 13, color: BColors.textPrimary,
+            )),
+            const SizedBox(width: 16),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  _actioned = true;
+                  widget.onUndo();
+                },
+                child: Text('вернуть', style: TextStyle(
+                  fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w600,
+                  color: BColors.accent,
+                )),
+              ),
+            ),
+          ]),
+        ).animate()
+            .fadeIn(duration: 200.ms)
+            .slideY(begin: 0.5, end: 0, curve: Curves.easeOutCubic, duration: 220.ms),
+      )),
+    );
+  }
+}
+

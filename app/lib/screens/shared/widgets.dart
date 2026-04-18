@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:blesk/core/sound_engine.dart';
 
 import 'theme.dart';
@@ -49,9 +50,9 @@ class _WinBtns extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      _WinBtn(onTap: () => appWindow.minimize(), icon: Icons.remove),
-      _WinBtn(onTap: () => appWindow.maximizeOrRestore(), icon: Icons.crop_square_outlined),
-      _WinBtn(onTap: () => appWindow.close(), icon: Icons.close, isClose: true),
+      _WinBtn(onTap: () => appWindow.minimize(), icon: SolarIconsOutline.minusSquare),
+      _WinBtn(onTap: () => appWindow.maximizeOrRestore(), icon: SolarIconsOutline.maximizeSquare),
+      _WinBtn(onTap: () => appWindow.close(), icon: SolarIconsOutline.closeSquare, isClose: true),
     ]);
   }
 }
@@ -474,7 +475,7 @@ class _HoverBackButtonState extends State<HoverBackButton> {
             color: _h ? const Color(0x0AFFFFFF) : Colors.transparent,
           ),
           child: Center(
-            child: Icon(Icons.arrow_back_ios_new_rounded, size: 16,
+            child: Icon(SolarIconsOutline.altArrowLeft, size: 16,
               color: Color(_h ? 0x59FFFFFF : 0x26FFFFFF)),
           ),
         ),

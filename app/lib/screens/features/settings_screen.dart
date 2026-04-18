@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
@@ -90,17 +91,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 // ─── Section Nav Item ─────────────────────────────────────────
 
 const _sectionMeta = <SettingsSection, (IconData, String)>{
-  SettingsSection.account: (Icons.person_outline, 'аккаунт'),
-  SettingsSection.appearance: (Icons.palette_outlined, 'внешний вид'),
-  SettingsSection.notifications: (Icons.notifications_none_outlined, 'уведомления'),
-  SettingsSection.chats: (Icons.chat_bubble_outline, 'чаты'),
-  SettingsSection.calls: (Icons.phone_outlined, 'звонки'),
-  SettingsSection.privacy: (Icons.lock_outline, 'приватность'),
-  SettingsSection.devices: (Icons.devices_outlined, 'устройства'),
-  SettingsSection.storage: (Icons.storage_outlined, 'хранилище'),
-  SettingsSection.language: (Icons.language_outlined, 'язык'),
-  SettingsSection.help: (Icons.help_outline, 'помощь'),
-  SettingsSection.about: (Icons.info_outline, 'о blesk'),
+  SettingsSection.account: (SolarIconsOutline.user, 'аккаунт'),
+  SettingsSection.appearance: (SolarIconsOutline.paletteRound, 'внешний вид'),
+  SettingsSection.notifications: (SolarIconsOutline.bell, 'уведомления'),
+  SettingsSection.chats: (SolarIconsOutline.chatRound, 'чаты'),
+  SettingsSection.calls: (SolarIconsOutline.phone, 'звонки'),
+  SettingsSection.privacy: (SolarIconsOutline.lock, 'приватность'),
+  SettingsSection.devices: (SolarIconsOutline.devices, 'устройства'),
+  SettingsSection.storage: (SolarIconsOutline.database, 'хранилище'),
+  SettingsSection.language: (SolarIconsOutline.global, 'язык'),
+  SettingsSection.help: (SolarIconsOutline.questionCircle, 'помощь'),
+  SettingsSection.about: (SolarIconsOutline.infoCircle, 'о blesk'),
 };
 
 class _SectionItem extends StatefulWidget {
@@ -161,7 +162,7 @@ class _BackBtnState extends State<_BackBtn> {
       onExit: (_) => setState(() => _h = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: Icon(Icons.arrow_back_ios_new_rounded, size: 14,
+        child: Icon(SolarIconsOutline.altArrowLeft, size: 14,
           color: _h ? BColors.textSecondary : BColors.textMuted),
       ),
     );
@@ -302,7 +303,7 @@ class _DropdownRow extends StatelessWidget {
         const Spacer(),
         Text(value, style: const TextStyle(fontFamily: 'Onest', fontSize: 13, color: BColors.textSecondary)),
         const SizedBox(width: 4),
-        const Icon(Icons.chevron_right, size: 16, color: BColors.textMuted),
+        const Icon(SolarIconsOutline.altArrowRight, size: 16, color: BColors.textMuted),
       ]),
     );
   }
@@ -447,13 +448,13 @@ class _DevicesSection extends StatelessWidget {
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const _SectionTitle('устройства'),
     const _GroupLabel('активные сессии'),
-    _DeviceCard(icon: Icons.desktop_windows, name: 'Windows PC (этот)', location: 'Хабаровск · Windows 11', current: true)
+    _DeviceCard(icon: SolarIconsOutline.monitor, name: 'Windows PC (этот)', location: 'Хабаровск · Windows 11', current: true)
         .animate().fadeIn(duration: 300.ms).slideX(begin: 0.05),
     const SizedBox(height: 8),
-    _DeviceCard(icon: Icons.phone_android, name: 'iPhone 15 Pro', location: 'Москва · iOS 18.1', current: false)
+    _DeviceCard(icon: SolarIconsOutline.smartphone, name: 'iPhone 15 Pro', location: 'Москва · iOS 18.1', current: false)
         .animate(delay: 80.ms).fadeIn(duration: 300.ms).slideX(begin: 0.05),
     const SizedBox(height: 8),
-    _DeviceCard(icon: Icons.laptop_mac, name: 'MacBook Pro', location: 'Москва · macOS 15.1', current: false)
+    _DeviceCard(icon: SolarIconsOutline.laptop, name: 'MacBook Pro', location: 'Москва · macOS 15.1', current: false)
         .animate(delay: 160.ms).fadeIn(duration: 300.ms).slideX(begin: 0.05),
     const SizedBox(height: 20),
     _SettingRow(label: 'завершить все остальные', destructive: true, onTap: () {}),

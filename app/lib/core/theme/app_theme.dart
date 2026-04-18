@@ -83,9 +83,16 @@ abstract final class AppTheme {
         thickness: 1,
       ),
       scrollbarTheme: ScrollbarThemeData(
-        thickness: WidgetStateProperty.all(4),
-        radius: const Radius.circular(2),
-        thumbColor: WidgetStateProperty.all(AppColors.textDisabled),
+        thickness: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.hovered) ? 8 : 4),
+        radius: const Radius.circular(4),
+        thumbColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.dragged) || states.contains(WidgetState.hovered)
+                ? const Color(0x52FFFFFF) // white 32%
+                : const Color(0x29FFFFFF)), // white 16%
+        trackColor: WidgetStateProperty.all(Colors.transparent),
+        crossAxisMargin: 2,
+        mainAxisMargin: 2,
       ),
     );
   }

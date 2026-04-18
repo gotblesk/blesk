@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import 'shared/widgets.dart';
 import 'forgot_password_screen.dart';
@@ -92,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onSubmitted: _valid ? (_) {} : null,
                             prefix: Padding(
                               padding: EdgeInsets.only(left: rs(context, 14)),
-                              child: Icon(Icons.lock_outline,
+                              child: Icon(SolarIconsOutline.lock,
                                 size: rs(context, 20), color: BColors.textMuted),
                             ),
                             suffix: GestureDetector(
@@ -100,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Padding(
                                 padding: EdgeInsets.only(right: rs(context, 14)),
                                 child: Icon(
-                                  _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  _obscure ? SolarIconsOutline.eyeClosed : SolarIconsOutline.eye,
                                   size: rs(context, 20), color: BColors.textMuted,
                                 ),
                               ),
@@ -154,11 +155,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _SocialBtn(icon: Icons.public),
+                              _SocialBtn(icon: SolarIconsOutline.global),
                               SizedBox(width: rs(context, 16)),
-                              _SocialBtn(icon: Icons.apple),
+                              _SocialBtn(icon: Icons.apple), // TODO(solar-migration): brand logo, Solar has no apple/google logos; keep Material
                               SizedBox(width: rs(context, 16)),
-                              _SocialBtn(icon: Icons.send),
+                              _SocialBtn(icon: SolarIconsOutline.plain),
                             ],
                           ).animate(delay: 550.ms).fadeIn(duration: 400.ms),
 

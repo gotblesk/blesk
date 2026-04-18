@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 import 'chat_bubble_parts.dart' show senderColorFor;
@@ -318,7 +319,7 @@ class _GlobalSearchState extends State<GlobalSearch> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.search_off_rounded, size: 38,
+        Icon(SolarIconsBroken.magnifier, size: 38,
             color: BColors.textMuted.withValues(alpha: 0.5)),
         const SizedBox(height: 10),
         Text(_query.trim().isEmpty
@@ -357,7 +358,7 @@ class _SearchInput extends StatelessWidget {
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(children: [
-        Icon(Icons.search_rounded, size: 18,
+        Icon(SolarIconsOutline.magnifier, size: 18,
             color: BColors.textMuted.withValues(alpha: 0.8)),
         const SizedBox(width: 10),
         Expanded(child: TextField(
@@ -493,7 +494,7 @@ class _ResultRowState extends State<_ResultRow> {
             _KindLabel(kind: r.kind, active: active),
             if (active) ...[
               const SizedBox(width: 6),
-              Icon(Icons.keyboard_return_rounded, size: 12,
+              Icon(SolarIconsOutline.backspace, size: 12,
                   color: BColors.accent.withValues(alpha: 0.8)),
             ],
           ]),

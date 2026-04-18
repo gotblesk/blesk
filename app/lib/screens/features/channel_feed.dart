@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../shared/theme.dart';
 
@@ -248,19 +249,19 @@ class _ChannelHeader extends StatelessWidget {
         )),
         _HeaderBtn(
           icon: notificationsOn
-              ? Icons.notifications_active_outlined
-              : Icons.notifications_off_outlined,
+              ? SolarIconsOutline.bellBing
+              : SolarIconsOutline.bellOff,
           tooltip: notificationsOn ? 'уведомления' : 'выключены',
           accent: notificationsOn,
           onTap: onToggleNotifications,
         ),
         const SizedBox(width: 2),
-        _HeaderBtn(icon: Icons.link_rounded, tooltip: 'ссылка', onTap: () {}),
+        _HeaderBtn(icon: SolarIconsOutline.link, tooltip: 'ссылка', onTap: () {}),
         const SizedBox(width: 2),
-        _HeaderBtn(icon: Icons.more_horiz, tooltip: 'меню', onTap: () {}),
+        _HeaderBtn(icon: SolarIconsOutline.menuDots, tooltip: 'меню', onTap: () {}),
         if (showClose) ...[
           const SizedBox(width: 4),
-          _HeaderBtn(icon: Icons.close, tooltip: 'закрыть', onTap: onClose ?? () {}),
+          _HeaderBtn(icon: SolarIconsOutline.closeCircle, tooltip: 'закрыть', onTap: onClose ?? () {}),
         ],
       ]),
     );
@@ -431,7 +432,7 @@ class _MediaStub extends StatelessWidget {
         ),
       ),
       child: Center(child: Icon(
-        Icons.image_outlined, size: 32, color: Colors.white.withValues(alpha: 0.35),
+        SolarIconsOutline.gallery, size: 32, color: Colors.white.withValues(alpha: 0.35),
       )),
     );
   }
@@ -453,12 +454,12 @@ class _PostFooter extends StatelessWidget {
         color: BColors.textMuted.withValues(alpha: 0.9),
       )),
       const SizedBox(width: 10),
-      _FooterStat(icon: Icons.visibility_outlined, count: post.views),
+      _FooterStat(icon: SolarIconsOutline.eye, count: post.views),
       const SizedBox(width: 10),
       _FooterLikeBtn(liked: post.liked, count: post.likes,
           tint: channelTint, onTap: onLike),
       const SizedBox(width: 10),
-      _FooterStat(icon: Icons.chat_bubble_outline_rounded, count: post.comments),
+      _FooterStat(icon: SolarIconsOutline.chatRound, count: post.comments),
       const Spacer(),
       _ShareBtn(),
     ]);
@@ -508,7 +509,7 @@ class _FooterLikeBtnState extends State<_FooterLikeBtn> {
             duration: const Duration(milliseconds: 140),
             scale: widget.liked ? 1.15 : 1.0,
             child: Icon(
-              widget.liked ? Icons.favorite : Icons.favorite_border,
+              widget.liked ? SolarIconsBold.heart : SolarIconsOutline.heart,
               size: 13,
               color: widget.liked
                   ? const Color(0xFFff5c7c)
@@ -543,7 +544,7 @@ class _ShareBtnState extends State<_ShareBtn> {
       onExit: (_) => setState(() => _h = false),
       child: GestureDetector(
         onTap: () {},
-        child: Icon(Icons.share_outlined, size: 13,
+        child: Icon(SolarIconsOutline.shareCircle, size: 13,
             color: _h ? BColors.textSecondary : BColors.textMuted),
       ),
     );
@@ -560,7 +561,7 @@ class _EmptyFeed extends StatelessWidget {
     return Center(child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.rss_feed_rounded, size: 40,
+        Icon(SolarIconsBroken.podcast, size: 40,
             color: BColors.textMuted.withValues(alpha: 0.6)),
         const SizedBox(height: 12),
         Text('в $name пока нет постов', style: const TextStyle(

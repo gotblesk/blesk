@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import 'shared/widgets.dart';
 import 'features/profile_view.dart';
@@ -15,6 +16,8 @@ import 'features/chat_search_bar.dart';
 import 'features/channel_feed.dart';
 import 'features/create_flows.dart';
 import 'features/members_panel.dart';
+import 'features/bookmarks_panel.dart';
+import 'features/drop_overlay.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN SHELL — Living Sidebar + Content Area
@@ -59,6 +62,8 @@ class _MainScreenState extends State<MainScreen> {
         else { _panels = [id]; _focusedPanel = 0; } // single mode by default
       }
     });
+    // Opening a chat clears the manual-unread mark
+    markChatAsRead(id);
   }
 
   bool _hintSplitShown = false;
@@ -156,6 +161,10 @@ class _MainScreenState extends State<MainScreen> {
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK): const _SearchIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN): const _NewChatIntent(),
         LogicalKeySet(LogicalKeyboardKey.escape): const _EscIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyD):
+            const _ToggleDropIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyG):
+            const _ToggleGhostIntent(),
       },
       child: Actions(
         actions: {
@@ -168,6 +177,15 @@ class _MainScreenState extends State<MainScreen> {
           _NewChatIntent: CallbackAction<_NewChatIntent>(onInvoke: (_) => null),
           _EscIntent: CallbackAction<_EscIntent>(
             onInvoke: (_) { _searchFocus.unfocus(); return null; },
+          ),
+          _ToggleDropIntent: CallbackAction<_ToggleDropIntent>(
+            onInvoke: (_) {
+              dropOverlayActive.value = !dropOverlayActive.value;
+              return null;
+            },
+          ),
+          _ToggleGhostIntent: CallbackAction<_ToggleGhostIntent>(
+            onInvoke: (_) { toggleGhostMode(); return null; },
           ),
         },
         child: Focus(
@@ -187,6 +205,11 @@ class _MainScreenState extends State<MainScreen> {
                   ),
               ]),
               Container(height: 1, color: BColors.borderLow),
+              ValueListenableBuilder<bool>(
+                valueListenable: offlineState,
+                builder: (_, isOffline, _) =>
+                    isOffline ? const _OfflineBanner() : const SizedBox.shrink(),
+              ),
               Expanded(
                 child: Stack(children: [
                   Row(children: [
@@ -212,9 +235,9 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                     Container(width: 1, color: BColors.borderLow),
-                    // Content Area
+                    // Content Area (wrapped in DropOverlay for B4 drag-drop)
                     Expanded(
-                      child: (_inCall && !_callMinimized)
+                      child: DropOverlay(child: (_inCall && !_callMinimized)
                           ? CallView(
                               name: _chats.where((c) => c.id == _callWith).firstOrNull?.name ?? 'User',
                               initial: _chats.where((c) => c.id == _callWith).firstOrNull?.initial ?? '?',
@@ -243,7 +266,7 @@ class _MainScreenState extends State<MainScreen> {
                                   _showHint('кликни на стопку чтобы переключить чат');
                                 }
                               },
-                            ),
+                            )),
                     ),
                   ]),
                   // Hint toast
@@ -317,6 +340,8 @@ class _SectionIntent extends Intent {
 class _SearchIntent extends Intent { const _SearchIntent(); }
 class _NewChatIntent extends Intent { const _NewChatIntent(); }
 class _EscIntent extends Intent { const _EscIntent(); }
+class _ToggleDropIntent extends Intent { const _ToggleDropIntent(); }
+class _ToggleGhostIntent extends Intent { const _ToggleGhostIntent(); }
 
 // ═══════════════════════════════════════════════════════════════
 // LIVING SIDEBAR
@@ -427,10 +452,25 @@ class _SidebarHeader extends StatelessWidget {
           fontFamily: 'Onest', fontSize: rf(context, 13),
           fontWeight: FontWeight.w600, color: BColors.textPrimary,
         )),
+        ValueListenableBuilder<bool>(
+          valueListenable: ghostModeEnabled,
+          builder: (_, on, _) => on ? const _GhostBadge() : const SizedBox.shrink(),
+        ),
         const Spacer(),
-        _HeaderBtn(icon: Icons.add, tooltip: 'создать новое', onTap: onCreate),
+        ValueListenableBuilder<int>(
+          valueListenable: bookmarksVersion,
+          builder: (_, _, _) => _HeaderBtn(
+            icon: stubBookmarks.isEmpty
+                ? SolarIconsOutline.bookmark
+                : SolarIconsBold.bookmark,
+            tooltip: 'закладки${stubBookmarks.isEmpty ? "" : " · ${stubBookmarks.length}"}',
+            onTap: () => showBookmarksPanel(context),
+          ),
+        ),
         const SizedBox(width: 2),
-        _HeaderBtn(icon: Icons.settings_outlined, tooltip: 'настройки', onTap: onSettings),
+        _HeaderBtn(icon: SolarIconsOutline.addCircle, tooltip: 'создать новое', onTap: onCreate),
+        const SizedBox(width: 2),
+        _HeaderBtn(icon: SolarIconsOutline.settings, tooltip: 'настройки', onTap: onSettings),
       ]),
     );
   }
@@ -610,7 +650,7 @@ class _BottomSearchState extends State<_BottomSearch> {
             hintText: 'поиск',
             hintStyle: TextStyle(fontFamily: 'Onest', fontSize: rf(context, 13), color: BColors.textMuted),
             contentPadding: const EdgeInsets.symmetric(vertical: 8),
-            prefixIcon: Icon(Icons.search, size: 16, color: BColors.textMuted),
+            prefixIcon: Icon(SolarIconsOutline.magnifier, size: 16, color: BColors.textMuted),
             prefixIconConstraints: const BoxConstraints(minWidth: 28),
             suffixIcon: Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -641,6 +681,8 @@ class _ChatStub {
 }
 
 const _chats = [
+  // C1 Saved Messages — always first, pinned
+  _ChatStub('saved', 'избранное', 'только для тебя', '', '★', 0, ChatActivity.none, pinned: true),
   _ChatStub('c1', 'Катя', 'привет! как дела?', '14:32', 'К', 2, ChatActivity.typing),
   _ChatStub('c2', 'Дизайн-банда', 'скинул макеты в фигму', '13:10', 'Д', 0, ChatActivity.online),
   _ChatStub('c3', 'Максим', 'завтра созвон в 10?', '12:45', 'М', 1, ChatActivity.newMessage),
@@ -694,14 +736,16 @@ class _ChatItemState extends State<_ChatItem> {
     entry = OverlayEntry(builder: (_) => _AnimatedContextMenu(
       position: pos,
       items: [
-        _CMenuItem(widget.chat.pinned ? 'открепить' : 'закрепить', Icons.push_pin_outlined),
-        _CMenuItem('заглушить', Icons.volume_off_outlined),
-        _CMenuItem('прочитать', Icons.done_all),
-        _CMenuItem('архивировать', Icons.archive_outlined),
-        _CMenuItem('удалить', Icons.delete_outline, danger: true),
+        _CMenuItem(widget.chat.pinned ? 'открепить' : 'закрепить', SolarIconsOutline.pin),
+        _CMenuItem('заглушить', SolarIconsOutline.volumeCross),
+        (widget.chat.unread > 0 || manuallyUnread.contains(widget.chat.id))
+            ? _CMenuItem('прочитать', SolarIconsOutline.checkCircle)
+            : _CMenuItem('отметить непрочитанным', SolarIconsOutline.bellBing),
+        _CMenuItem('архивировать', SolarIconsOutline.archive),
+        _CMenuItem('удалить', SolarIconsOutline.trashBinTrash, danger: true),
         null, // divider
-        _CMenuItem('быстрый ответ', Icons.visibility_outlined),
-        _CMenuItem('открыть рядом', Icons.grid_view_outlined),
+        _CMenuItem('быстрый ответ', SolarIconsOutline.eye),
+        _CMenuItem('открыть рядом', SolarIconsOutline.widget),
       ],
       onSelect: (label) {
         entry.remove();
@@ -710,6 +754,10 @@ class _ChatItemState extends State<_ChatItem> {
           widget.onPeek(box.localToGlobal(Offset.zero).dy);
         } else if (label == 'открыть рядом') {
           widget.onSplit();
+        } else if (label == 'отметить непрочитанным') {
+          markChatAsUnread(widget.chat.id);
+        } else if (label == 'прочитать') {
+          markChatAsRead(widget.chat.id);
         }
       },
       onClose: () => entry.remove(),
@@ -767,7 +815,7 @@ class _ChatItemState extends State<_ChatItem> {
                       width: 10, height: 10,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0xFF00E676),
+                        color: const Color(0xFF4ade80),
                         border: Border.all(color: const Color(0xFF0d0d10), width: 2),
                       ),
                     )),
@@ -780,7 +828,7 @@ class _ChatItemState extends State<_ChatItem> {
                     Row(children: [
                       if (c.pinned) Padding(
                         padding: const EdgeInsets.only(right: 4),
-                        child: Icon(Icons.push_pin, size: 11, color: BColors.textMuted),
+                        child: Icon(SolarIconsBold.pin, size: 11, color: BColors.textMuted),
                       ),
                       Expanded(child: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontFamily: 'Onest', fontSize: rf(context, 14),
@@ -791,41 +839,74 @@ class _ChatItemState extends State<_ChatItem> {
                     ]),
                     const SizedBox(height: 3),
                     Row(children: [
-                      Expanded(child: c.activity == ChatActivity.typing
-                        ? _TypingDots()
-                        : Text(c.lastMsg, maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontFamily: 'Onest', fontSize: rf(context, 13),
-                              fontWeight: FontWeight.w400, color: BColors.textSecondary)),
+                      Expanded(child: ValueListenableBuilder<int>(
+                        valueListenable: draftsVersion,
+                        builder: (_, _, _) {
+                          if (c.activity == ChatActivity.typing) return _TypingDots();
+                          final draft = stubDrafts[c.id];
+                          if (draft != null && draft.trim().isNotEmpty) {
+                            return Text.rich(
+                              TextSpan(children: [
+                                TextSpan(text: 'Черновик: ', style: TextStyle(
+                                  fontFamily: 'Onest',
+                                  fontSize: rf(context, 13),
+                                  fontWeight: FontWeight.w500,
+                                  color: BColors.accent.withValues(alpha: 0.85),
+                                )),
+                                TextSpan(text: draft, style: TextStyle(
+                                  fontFamily: 'Onest',
+                                  fontSize: rf(context, 13),
+                                  fontWeight: FontWeight.w400,
+                                  color: BColors.textMuted,
+                                  fontStyle: FontStyle.italic,
+                                )),
+                              ]),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                            );
+                          }
+                          return Text(c.lastMsg,
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontFamily: 'Onest', fontSize: rf(context, 13),
+                                fontWeight: FontWeight.w400, color: BColors.textSecondary));
+                        },
+                      )),
+                      ValueListenableBuilder<int>(
+                        valueListenable: unreadStateVersion,
+                        builder: (_, _, _) {
+                          final manual = manuallyUnread.contains(c.id);
+                          final count = c.unread > 0 ? c.unread : (manual ? 1 : 0);
+                          if (count == 0) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: Container(
+                              constraints: const BoxConstraints(minWidth: 18),
+                              height: 18,
+                              padding: const EdgeInsets.symmetric(horizontal: 5),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(9),
+                                color: BColors.accent,
+                              ),
+                              child: Center(child: Text(
+                                count > 99 ? '99+' : '$count',
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: BColors.bg),
+                              )),
+                            ),
+                          );
+                        },
                       ),
-                      if (c.unread > 0) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          constraints: const BoxConstraints(minWidth: 18),
-                          height: 18,
-                          padding: const EdgeInsets.symmetric(horizontal: 5),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(9),
-                            color: BColors.accent,
-                          ),
-                          child: Center(child: Text(
-                            c.unread > 99 ? '99+' : '${c.unread}',
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: BColors.bg),
-                          )),
-                        ),
-                      ],
                     ]),
                   ],
                 )),
                 // Hover icons
                 if (_h) ...[
                   const SizedBox(width: 4),
-                  _MiniBtn(icon: Icons.visibility_outlined, tooltip: 'быстрый ответ',
+                  _MiniBtn(icon: SolarIconsOutline.eye, tooltip: 'быстрый ответ',
                     onTap: () {
                       final box = context.findRenderObject() as RenderBox;
                       final pos = box.localToGlobal(Offset.zero);
                       widget.onPeek(pos.dy);
                     }),
-                  _MiniBtn(icon: Icons.grid_view_outlined, tooltip: 'открыть рядом',
+                  _MiniBtn(icon: SolarIconsOutline.widget, tooltip: 'открыть рядом',
                     onTap: widget.onSplit),
                 ],
               ]),
@@ -902,7 +983,7 @@ class _MiniBtnState extends State<_MiniBtn> {
         child: GestureDetector(
           onTap: widget.onTap ?? () {},
           child: SizedBox(
-            width: 22, height: 22,
+            width: 28, height: 28,
             child: Center(child: Icon(widget.icon, size: 14,
               color: _h ? Colors.white.withValues(alpha: 0.5) : BColors.textMuted)),
           ),
@@ -998,7 +1079,7 @@ class _ContactItemState extends State<_ContactItem> {
             )),
             Container(width: 8, height: 8, decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: widget.online ? const Color(0xFF00E676) : Colors.white.withValues(alpha: 0.15),
+              color: widget.online ? const Color(0xFF4ade80) : Colors.white.withValues(alpha: 0.15),
             )),
           ]),
         ),
@@ -1012,9 +1093,9 @@ class _ContactItemState extends State<_ContactItem> {
 // ═══════════════════════════════════════════════════════════════
 
 const _channels = [
-  ('ch_news', 'blesk news', '1.2к подписчиков', Icons.campaign_outlined),
-  ('ch_design', 'design daily', '482 подписчика', Icons.palette_outlined),
-  ('ch_music', 'soundtrack', '156 подписчиков', Icons.music_note_outlined),
+  ('ch_news', 'blesk news', '1.2к подписчиков', SolarIconsOutline.podcast),
+  ('ch_design', 'design daily', '482 подписчика', SolarIconsOutline.paletteRound),
+  ('ch_music', 'soundtrack', '156 подписчиков', SolarIconsOutline.musicNote),
 ];
 
 class _ChannelList extends StatelessWidget {
@@ -1470,31 +1551,52 @@ class _ChatPanelState extends State<_ChatPanel> {
           )),
           if (!compact) ...[
             Container(width: 6, height: 6, decoration: const BoxDecoration(
-              shape: BoxShape.circle, color: Color(0xFF00E676))),
+              shape: BoxShape.circle, color: Color(0xFF4ade80))),
             const SizedBox(width: 8),
           ],
+          if (!compact) ValueListenableBuilder<int>(
+            valueListenable: counterStateVersion,
+            builder: (_, _, _) {
+              final mentionCount = stubMentionCounts[chatId] ?? 0;
+              final reactionCount = stubNewReactionCounts[chatId] ?? 0;
+              return Row(mainAxisSize: MainAxisSize.min, children: [
+                if (mentionCount > 0) _HeaderCounterPill(
+                  label: '@$mentionCount',
+                  onTap: () => consumeMentionCounter(chatId),
+                ),
+                if (reactionCount > 0) Padding(
+                  padding: EdgeInsets.only(left: mentionCount > 0 ? 4 : 0),
+                  child: _HeaderCounterPill(
+                    label: '♥$reactionCount',
+                    onTap: () => consumeReactionCounter(chatId),
+                  ),
+                ),
+                if (mentionCount > 0 || reactionCount > 0) const SizedBox(width: 8),
+              ]);
+            },
+          ),
           if (!compact) ...[
             if (stubMembers(chatId).isNotEmpty) ...[
-              _CallHeaderBtn(icon: Icons.people_outline, tooltip: 'участники',
+              _CallHeaderBtn(icon: SolarIconsOutline.usersGroupRounded, tooltip: 'участники',
                 onTap: () => showMembersPanel(context,
                     chatId: chatId, groupName: name)),
               const SizedBox(width: 2),
             ],
-            _CallHeaderBtn(icon: Icons.search_rounded, tooltip: 'поиск в чате (ctrl+f)',
+            _CallHeaderBtn(icon: SolarIconsOutline.magnifier, tooltip: 'поиск в чате (ctrl+f)',
               onTap: _toggleSearch),
             const SizedBox(width: 2),
           ],
           if (onCall != null && !compact) ...[
-            _CallHeaderBtn(icon: Icons.phone_outlined, tooltip: 'позвонить',
+            _CallHeaderBtn(icon: SolarIconsOutline.phone, tooltip: 'позвонить',
               onTap: () => onCall.call(chatId, false)),
             const SizedBox(width: 2),
-            _CallHeaderBtn(icon: Icons.videocam_outlined, tooltip: 'видеозвонок',
+            _CallHeaderBtn(icon: SolarIconsOutline.videocamera, tooltip: 'видеозвонок',
               onTap: () => onCall.call(chatId, true)),
           ],
           if (showFocus && onToggleFocus != null) ...[
             const SizedBox(width: 10),
             _PanelActionBtn(
-              icon: isFocusMode ? Icons.unfold_more : Icons.unfold_less,
+              icon: isFocusMode ? SolarIconsOutline.altArrowDown : SolarIconsOutline.altArrowUp,
               tooltip: isFocusMode ? 'показать все' : 'сфокусировать',
               onTap: onToggleFocus!,
             ),
@@ -1537,20 +1639,35 @@ class _ChatPanelState extends State<_ChatPanel> {
       )),
       // Input bar
       InputBar(
+        key: ValueKey('input_$chatId'),
         replyTo: _replyTo?.senderName,
         replyText: _replyTo?.text,
         editText: _editText,
+        initialText: stubDrafts[chatId],
+        showDraftRestored: stubDrafts[chatId]?.isNotEmpty ?? false,
+        onTextChanged: (text) => updateDraft(chatId, text),
         onCancelReply: () => setState(() => _replyTo = null),
         onCancelEdit: () => setState(() => _editText = null),
         onSend: (text) {
-        final msgs = stubMessages[chatId] ??= [];
-        msgs.add(MessageData(
-          id: '${msgs.length + 1}', text: text,
-          time: 'сейчас', own: true, read: false,
-          reply: _replyTo,
-        ));
-        setState(() { _replyTo = null; _editText = null; });
-      }),
+          final msgs = stubMessages[chatId] ??= [];
+          msgs.add(MessageData(
+            id: '${msgs.length + 1}', text: text,
+            time: 'сейчас', own: true, read: false,
+            reply: _replyTo,
+          ));
+          clearDraft(chatId);
+          setState(() { _replyTo = null; _editText = null; });
+        },
+        onSendSilent: (text) {
+          final msgs = stubMessages[chatId] ??= [];
+          msgs.add(MessageData(
+            id: '${msgs.length + 1}', text: text,
+            time: 'сейчас', own: true, read: false,
+            reply: _replyTo, silent: true,
+          ));
+          clearDraft(chatId);
+          setState(() { _replyTo = null; _editText = null; });
+        }),
     ]);
   }
 }
@@ -1618,7 +1735,7 @@ class _PanelCloseBtnState extends State<_PanelCloseBtn> {
             borderRadius: BorderRadius.circular(6),
             color: _h ? const Color(0x20FF4444) : Colors.transparent,
           ),
-          child: Center(child: Icon(Icons.close, size: 14,
+          child: Center(child: Icon(SolarIconsOutline.closeCircle, size: 14,
             color: _h ? const Color(0xCCFF4444) : BColors.textMuted)),
         ),
       ),
@@ -1637,7 +1754,7 @@ class OfflineBanner extends StatelessWidget {
       height: 32,
       color: const Color(0x33FFB800),
       child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.wifi_off, size: 14, color: const Color(0xCCFFB800)),
+        Icon(SolarIconsOutline.wifiRouterMinimalistic, size: 14, color: const Color(0xCCFFB800)),
         const SizedBox(width: 8),
         Text('нет соединения', style: TextStyle(fontFamily: 'Onest',
           fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xCCFFB800))),
@@ -1806,7 +1923,7 @@ class _PeekOverlayState extends State<_PeekOverlay> {
                         fontSize: rf(context, 13), fontWeight: FontWeight.w500, color: BColors.textPrimary)),
                       const SizedBox(width: 6),
                       Container(width: 5, height: 5, decoration: const BoxDecoration(
-                        shape: BoxShape.circle, color: Color(0xFF00E676))),
+                        shape: BoxShape.circle, color: Color(0xFF4ade80))),
                       const Spacer(),
                       _PeekCloseBtn(onTap: widget.onClose),
                     ]),
@@ -1853,7 +1970,7 @@ class _PeekOverlayState extends State<_PeekOverlay> {
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: _send,
-                        child: Icon(Icons.arrow_upward, size: 16,
+                        child: Icon(SolarIconsBold.plain, size: 16,
                           color: BColors.accent.withValues(alpha: 0.6)),
                       ),
                     ]),
@@ -1878,7 +1995,7 @@ class _PeekOverlayState extends State<_PeekOverlay> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Text('в split ', style: TextStyle(fontFamily: 'Onest',
                               fontSize: 11, color: BColors.textSecondary)),
-                            Icon(Icons.grid_view_outlined, size: 11, color: BColors.textSecondary),
+                            Icon(SolarIconsOutline.widget, size: 11, color: BColors.textSecondary),
                           ]),
                         ),
                       ),
@@ -1913,7 +2030,7 @@ class _PeekCloseBtnState extends State<_PeekCloseBtn> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: SizedBox(width: 24, height: 24,
-          child: Center(child: Icon(Icons.close, size: 16,
+          child: Center(child: Icon(SolarIconsOutline.closeCircle, size: 16,
             color: _h ? Colors.white.withValues(alpha: 0.5) : BColors.textMuted))),
       ),
     );
@@ -2120,6 +2237,139 @@ class _ContextMenuItemState extends State<_ContextMenuItem> {
   }
 }
 
+// ─── Ghost mode badge (C10) ───────────────────────────────────
+
+class _GhostBadge extends StatefulWidget {
+  const _GhostBadge();
+  @override
+  State<_GhostBadge> createState() => _GhostBadgeState();
+}
+
+class _GhostBadgeState extends State<_GhostBadge> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'ты скрыт · другие видят "был(а) недавно"',
+      textStyle: const TextStyle(fontSize: 10, color: BColors.textPrimary),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1a1a1a), borderRadius: BorderRadius.circular(6),
+      ),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _h = true),
+        onExit: (_) => setState(() => _h = false),
+        child: GestureDetector(
+          onTap: toggleGhostMode,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            margin: const EdgeInsets.only(left: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(5),
+              color: _h
+                  ? BColors.accent.withValues(alpha: 0.18)
+                  : BColors.accent.withValues(alpha: 0.1),
+              border: Border.all(
+                color: BColors.accent.withValues(alpha: _h ? 0.4 : 0.25),
+                width: 0.5,
+              ),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(SolarIconsOutline.eyeClosed, size: 11,
+                  color: BColors.accent.withValues(alpha: 0.9)),
+              const SizedBox(width: 3),
+              Text('скрыт', style: TextStyle(
+                fontFamily: 'Onest', fontSize: 9, fontWeight: FontWeight.w600,
+                color: BColors.accent.withValues(alpha: 0.9),
+                letterSpacing: 0.4,
+              )),
+            ]),
+          ),
+        ),
+      ),
+    ).animate()
+        .fadeIn(duration: 180.ms)
+        .scale(begin: const Offset(0.8, 0.8), curve: Curves.easeOutBack);
+  }
+}
+
+// ─── Offline banner (B9) ──────────────────────────────────────
+
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0x1AFF5C5C),
+        border: const Border(bottom: BorderSide(color: Color(0x33FF5C5C))),
+      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Container(
+          width: 7, height: 7,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle, color: Color(0xFFFF5C5C),
+          ),
+        ).animate(onPlay: (c) => c.repeat(reverse: true))
+            .fade(begin: 0.4, end: 1.0, duration: 900.ms, curve: Curves.easeInOut),
+        const SizedBox(width: 8),
+        const Text('нет соединения · переподключение...', style: TextStyle(
+          fontFamily: 'Onest', fontSize: 12, fontWeight: FontWeight.w500,
+          color: Color(0xCCFF8888),
+        )),
+      ]),
+    ).animate().fadeIn(duration: 180.ms).slideY(begin: -1, curve: Curves.easeOut);
+  }
+}
+
+// ─── Header counter pill (@N / ♥N) ───────────────────────────
+
+class _HeaderCounterPill extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _HeaderCounterPill({required this.label, required this.onTap});
+  @override
+  State<_HeaderCounterPill> createState() => _HeaderCounterPillState();
+}
+
+class _HeaderCounterPillState extends State<_HeaderCounterPill> {
+  bool _h = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _h = true),
+      onExit: (_) => setState(() => _h = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: 24,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: BColors.accent.withValues(alpha: _h ? 0.18 : 0.12),
+            border: Border.all(
+              color: BColors.accent.withValues(alpha: _h ? 0.5 : 0.35),
+              width: 0.5,
+            ),
+          ),
+          child: Center(child: Text(widget.label, style: TextStyle(
+            fontFamily: 'Onest', fontSize: 11, fontWeight: FontWeight.w600,
+            color: BColors.accent.withValues(alpha: 0.95),
+          ))),
+        ),
+      ).animate()
+          .scale(begin: const Offset(0.7, 0.7), duration: 240.ms,
+              curve: Curves.easeOutBack)
+          .fadeIn(duration: 180.ms),
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // CREATE MENU POPUP (anchored under + in sidebar header)
 // ═══════════════════════════════════════════════════════════════
@@ -2156,15 +2406,15 @@ class _CreateMenuPopup extends StatelessWidget {
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             _CreateMenuItem(
-              icon: Icons.group_outlined, label: 'новая группа',
+              icon: SolarIconsOutline.usersGroupRounded, label: 'новая группа',
               hint: 'чат с несколькими людьми', onTap: onGroup,
             ),
             _CreateMenuItem(
-              icon: Icons.campaign_outlined, label: 'новый канал',
+              icon: SolarIconsOutline.podcast, label: 'новый канал',
               hint: 'публикации для подписчиков', onTap: onChannel,
             ),
             _CreateMenuItem(
-              icon: Icons.person_add_alt_outlined, label: 'добавить контакт',
+              icon: SolarIconsOutline.userPlus, label: 'добавить контакт',
               hint: 'по нику или ссылке', onTap: onContact,
             ),
           ]),
@@ -2222,14 +2472,19 @@ class _CreateMenuItemState extends State<_CreateMenuItem> {
             Expanded(child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(widget.label, style: const TextStyle(
-                  fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w500,
-                  color: BColors.textPrimary,
-                )),
-                Text(widget.hint, style: const TextStyle(
-                  fontFamily: 'Onest', fontSize: 11, color: BColors.textMuted,
-                )),
+                Text(widget.label,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Onest', fontSize: 13, fontWeight: FontWeight.w500,
+                      color: BColors.textPrimary,
+                    )),
+                Text(widget.hint,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Onest', fontSize: 11, color: BColors.textMuted,
+                    )),
               ],
             )),
           ]),
