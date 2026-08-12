@@ -1,0 +1,3275 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>nchg — биржа ничего</title>
+<meta name="description" content="NCHG — первый ликвидный рынок ничего. Все навыки настоящие. Актив — нет.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;800&family=PT+Mono&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   nchg — дизайн-система «метабол» (§14)
+   ============================================================ */
+:root{
+  --void:#0B0C10;
+  --well:#101218;
+  --glass:rgba(255,255,255,.07);
+  --hair:rgba(255,255,255,.09);
+  --ink:#F2F1EC;
+  --mute:#8E9099;
+  --up:#4ECF87;
+  --down:#E85A4F;
+  --acc:#A9B4FF;
+  --gold:#D9B45B;
+  --mono:'PT Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Golos Text','Golos',system-ui,-apple-system,sans-serif;
+  --rad:22px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--void);
+  color:var(--ink);
+  font-family:var(--disp);
+  font-size:15px;line-height:1.45;
+  min-height:100dvh;
+  overflow-x:hidden;
+}
+/* зерно фона — радиальные точки, как в ame */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1.2px);
+  background-size:22px 22px;
+  opacity:.35;
+}
+.num, .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-weight:800;letter-spacing:-.01em}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+input,select{font:inherit;color:inherit}
+a{color:var(--acc)}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:8px}
+
+/* ---------- стекло / капсулы ---------- */
+.glass{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border:1px solid var(--hair);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+  border-radius:var(--rad);
+}
+.capsule{border-radius:999px}
+.panel{
+  background:var(--well);
+  border:1px solid var(--hair);
+  border-radius:var(--rad);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* ---------- каркас ---------- */
+#app{position:relative;z-index:1;max-width:520px;margin:0 auto;
+  padding:calc(78px + env(safe-area-inset-top)) 12px calc(96px + env(safe-area-inset-bottom));}
+@media(min-width:900px){#app{max-width:860px}}
+.screen{display:none}
+.screen.on{display:block;animation:scrIn .28s ease}
+@keyframes scrIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- шапка ---------- */
+.hdr{
+  position:fixed;top:0;left:0;right:0;z-index:40;
+  display:flex;align-items:center;gap:8px;
+  padding:calc(8px + env(safe-area-inset-top)) 12px 8px;
+  max-width:520px;margin:0 auto;
+}
+@media(min-width:900px){.hdr{max-width:860px}}
+.hdr::before{ /* blur-зона под шапкой */
+  content:"";position:absolute;inset:-1px -100vw -18px;pointer-events:none;
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  background:linear-gradient(to bottom, rgba(11,12,16,.85), rgba(11,12,16,.4) 70%, transparent);
+  -webkit-mask-image:linear-gradient(to bottom,#000 65%,transparent);
+  mask-image:linear-gradient(to bottom,#000 65%,transparent);
+}
+.hdr>*{position:relative}
+.logo{
+  font-weight:800;font-size:17px;letter-spacing:.02em;
+  padding:8px 13px;min-height:44px;display:inline-flex;align-items:center;
+}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:8px 11px;min-height:44px;font-size:12px;
+  white-space:nowrap;flex-shrink:0;
+}
+.chip .num{font-size:12px}
+.chip-live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--up);
+  animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.hdr-spacer{flex:1}
+.hdr .icon-btn{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:var(--mute)}
+
+/* ---------- таб-бар: жидкость (§14.5) ---------- */
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  max-width:520px;margin:0 auto;
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+}
+@media(min-width:900px){.tabbar{max-width:860px}}
+.tabbar::before{ /* blur-зона над таб-баром */
+  content:"";position:absolute;inset:-18px -100vw -1px;pointer-events:none;
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  background:linear-gradient(to top, rgba(11,12,16,.9), rgba(11,12,16,.4) 70%, transparent);
+  -webkit-mask-image:linear-gradient(to top,#000 65%,transparent);
+  mask-image:linear-gradient(to top,#000 65%,transparent);
+}
+.tb-wrap{position:relative}
+.tb-goo{
+  position:absolute;inset:-20px;pointer-events:none;z-index:0;
+  filter:url(#goo) drop-shadow(0 8px 24px rgba(0,0,0,.45));
+}
+.no-goo .tb-goo{filter:drop-shadow(0 8px 24px rgba(0,0,0,.45))}
+.tb-goo .drop{
+  position:absolute;border-radius:999px;
+  background:rgba(255,255,255,.09);
+  transition:left .3s ease,width .3s ease,background .3s ease;
+}
+.tb-goo .drop.active{background:var(--ink)}
+.tb-btns{position:relative;z-index:1;display:flex;gap:8px;justify-content:space-between}
+.tb-btn{
+  flex:1;min-height:48px;padding:12px 4px;text-align:center;
+  font-size:13px;font-weight:600;color:var(--mute);
+  transition:margin .3s ease,color .3s ease;border-radius:999px;
+}
+.tb-btn.active{margin:0 10px;color:var(--void)}
+.reduced .tb-goo .drop{transition:background .3s ease}
+
+/* ---------- жидкие сегменты ---------- */
+.segwrap{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.segwrap::-webkit-scrollbar{display:none}
+.seg{position:relative;display:inline-flex;min-width:min-content}
+.seg-goo{position:absolute;inset:-16px;pointer-events:none;z-index:0;
+  filter:url(#goo)}
+.no-goo .seg-goo{filter:none}
+.seg-goo .drop{position:absolute;border-radius:999px;background:rgba(255,255,255,.07);
+  transition:left .3s ease,width .3s ease,background .3s ease}
+.seg-goo .drop.active{background:rgba(169,180,255,.28)}
+.seg-btns{position:relative;z-index:1;display:flex;gap:8px}
+.seg-btn{
+  min-height:44px;padding:10px 16px;font-size:13px;font-weight:500;color:var(--mute);
+  transition:margin .3s ease,color .3s ease;white-space:nowrap;border-radius:999px;
+}
+.seg-btn.active{margin:0 10px;color:var(--ink)}
+.seg.compact .seg-btn{min-height:44px;padding:10px 12px}
+
+/* ---------- тосты: капли сверху ---------- */
+#toasts{
+  position:fixed;top:calc(10px + env(safe-area-inset-top));left:0;right:0;z-index:100;
+  display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;
+  filter:url(#goo) drop-shadow(0 10px 30px rgba(0,0,0,.5));
+}
+.no-goo #toasts{filter:drop-shadow(0 10px 30px rgba(0,0,0,.5))}
+.toast{
+  background:#1a1d26;border-radius:999px;padding:12px 20px;
+  font-size:13px;max-width:88vw;text-align:center;
+  animation:toastIn .35s cubic-bezier(.2,.9,.3,1.2);
+}
+.toast.out{animation:toastOut .3s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateY(-24px) scale(.7)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-16px) scale(.8)}}
+.reduced .toast{animation:fadeIn .25s ease}
+.reduced .toast.out{animation:fadeOut .25s ease forwards}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeOut{to{opacity:0}}
+
+/* ---------- шторки ---------- */
+.veil{
+  position:fixed;inset:0;z-index:80;background:rgba(5,6,9,.6);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  opacity:0;transition:opacity .25s ease;
+}
+.veil.on{opacity:1}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:81;
+  max-width:520px;margin:0 auto;
+  background:var(--well);border:1px solid var(--hair);border-bottom:0;
+  border-radius:26px 26px 0 0;
+  max-height:88dvh;overflow-y:auto;overscroll-behavior:contain;
+  padding:14px 18px calc(24px + env(safe-area-inset-bottom));
+  transform:translateY(102%);transition:transform .32s cubic-bezier(.2,.9,.25,1);
+  box-shadow:0 -20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.sheet.on{transform:none}
+.reduced .sheet{transition:opacity .25s ease;transform:none;opacity:0;pointer-events:none}
+.reduced .sheet.on{opacity:1;pointer-events:auto}
+.sheet-grip{width:38px;height:4px;border-radius:2px;background:rgba(255,255,255,.18);margin:0 auto 14px}
+.sheet h2{font-size:19px;margin-bottom:10px}
+.sheet-close{position:sticky;top:0;float:right;color:var(--mute);font-size:13px;min-height:44px;min-width:44px}
+
+/* ---------- кнопки ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:48px;padding:12px 22px;border-radius:999px;
+  font-weight:600;font-size:15px;
+  background:var(--glass);border:1px solid var(--hair);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+  transition:transform .15s ease,opacity .2s;
+}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn-primary{background:var(--ink);color:var(--void);border-color:transparent}
+.btn-buy{background:rgba(78,207,135,.16);color:var(--up);border-color:rgba(78,207,135,.35)}
+.btn-sell{background:rgba(232,90,79,.16);color:var(--down);border-color:rgba(232,90,79,.35)}
+.btn-gold{background:rgba(217,180,91,.15);color:var(--gold);border-color:rgba(217,180,91,.35)}
+.btn-sm{min-height:44px;padding:9px 16px;font-size:13px}
+.btn-block{width:100%}
+
+/* ---------- поля ---------- */
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;color:var(--mute);margin-bottom:5px;text-transform:lowercase;letter-spacing:.04em}
+.input{
+  width:100%;min-height:48px;padding:12px 14px;
+  background:rgba(255,255,255,.05);border:1px solid var(--hair);border-radius:16px;
+  color:var(--ink);font-family:var(--mono);font-size:15px;
+}
+.input:focus{outline:none;border-color:var(--acc)}
+select.input{font-family:var(--disp)}
+.check{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--mute);min-height:44px}
+.check input{width:18px;height:18px;accent-color:var(--acc)}
+
+/* ---------- слайдер ---------- */
+.slider-row{position:relative;padding:8px 0 2px}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;
+}
+input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:5px;
+  background:linear-gradient(90deg,var(--acc) var(--fill,0%),rgba(255,255,255,.08) var(--fill,0%))}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:26px;height:26px;border-radius:50%;
+  background:var(--ink);margin-top:-8px;
+  box-shadow:0 2px 10px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.4);
+}
+input[type=range]::-moz-range-track{height:10px;border-radius:5px;background:rgba(255,255,255,.08)}
+input[type=range]::-moz-range-progress{height:10px;border-radius:5px;background:var(--acc)}
+input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--ink);border:0}
+.slider-marks{display:flex;justify-content:space-between;font-size:11px;color:var(--mute);padding:0 4px}
+.slider-marks span{font-family:var(--mono)}
+
+/* ---------- рынок ---------- */
+.newsline{
+  overflow:hidden;white-space:nowrap;position:relative;height:34px;
+  border-radius:999px;margin-bottom:10px;
+  background:rgba(255,255,255,.04);border:1px solid var(--hair);
+  display:flex;align-items:center;
+}
+.newsline .track{display:inline-block;padding-left:100%;animation:ticker 22s linear infinite;font-size:12px;color:var(--mute)}
+.newsline .track b{color:var(--ink);font-weight:600}
+@keyframes ticker{to{transform:translateX(-100%)}}
+.reduced .newsline .track{animation:none;padding-left:12px;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.breaker{
+  border-radius:18px;padding:12px 16px;margin-bottom:10px;
+  background:rgba(232,90,79,.12);border:1px solid rgba(232,90,79,.4);
+  font-size:13px;color:#f0b0a9;
+}
+.breaker .num{color:var(--down)}
+.breaker a{color:#f0b0a9;text-decoration:underline}
+
+.chart-panel{padding:12px;margin-bottom:12px;position:relative}
+.chart-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.chart-head .pair{font-weight:800;font-size:15px}
+.chart-price{font-family:var(--mono);font-size:28px;font-weight:400}
+.chart-price.up{color:var(--up)}.chart-price.down{color:var(--down)}
+.chart-delta{font-family:var(--mono);font-size:13px}
+.chart-delta.up{color:var(--up)}.chart-delta.down{color:var(--down)}
+#chart{width:100%;height:250px;display:block;touch-action:pan-y;border-radius:12px}
+.ohlc-corner{position:absolute;top:52px;left:20px;font-family:var(--mono);font-size:11px;
+  color:var(--mute);background:rgba(11,12,16,.75);padding:5px 9px;border-radius:10px;pointer-events:none;z-index:2}
+.chart-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.ind-toggles{display:flex;gap:6px}
+.ind-btn{min-height:44px;padding:8px 12px;border-radius:999px;font-family:var(--mono);font-size:11px;
+  color:var(--mute);border:1px solid transparent;position:relative}
+.ind-btn.on{color:var(--ink);background:rgba(255,255,255,.07);border-color:var(--hair)}
+.ind-btn[data-ind=ma7].on{color:#e8c76a}
+.ind-btn[data-ind=ma25].on{color:var(--acc)}
+.ind-btn[data-ind=rsi].on{color:#c98ee8}
+
+/* тултипы */
+.tip{position:relative}
+.tip[data-tip]:hover::after,.tip[data-tip]:focus-visible::after,.tip[data-tip].tipped::after{
+  content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:#1a1d26;border:1px solid var(--hair);color:var(--ink);
+  font-size:11px;font-family:var(--disp);font-weight:400;line-height:1.4;
+  padding:8px 12px;border-radius:12px;width:max-content;max-width:230px;white-space:normal;
+  z-index:60;pointer-events:none;text-align:left;
+}
+
+/* стакан */
+.ob-panel{padding:12px;margin-bottom:12px}
+.ob-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
+.ob-head h3{font-size:13px;color:var(--mute);font-weight:600}
+.ob{font-family:var(--mono);font-size:12px}
+.ob-row{
+  position:relative;display:flex;justify-content:space-between;align-items:center;
+  height:23px;padding:0 8px;border-radius:6px;overflow:hidden;cursor:pointer;
+}
+.ob-row .bar{
+  position:absolute;top:3px;bottom:3px;right:0;border-radius:9px 0 0 9px;
+  transition:width .3s ease;pointer-events:none;
+}
+.reduced .ob-row .bar{transition:none}
+.ob-row.ask .bar{background:rgba(232,90,79,.16);border-left:2px solid rgba(232,90,79,.5)}
+.ob-row.bid .bar{background:rgba(78,207,135,.16);border-left:2px solid rgba(78,207,135,.5)}
+.ob-row .p{position:relative;z-index:1}
+.ob-row.ask .p{color:var(--down)}
+.ob-row.bid .p{color:var(--up)}
+.ob-row .q{position:relative;z-index:1;color:var(--mute)}
+.ob-row.mine .p::before{content:"●";font-size:7px;color:var(--acc);margin-right:4px;vertical-align:2px}
+.ob-spread{
+  display:flex;justify-content:center;gap:6px;padding:7px 0;margin:3px 0;
+  font-size:12px;color:var(--mute);font-family:var(--mono);
+  border-top:1px dashed var(--hair);border-bottom:1px dashed var(--hair);
+}
+.ob-empty{padding:20px;text-align:center;color:var(--mute);font-size:13px;font-family:var(--disp)}
+
+/* лента сделок */
+.tape-panel{padding:12px;margin-bottom:12px}
+.tape{font-family:var(--mono);font-size:12px;max-height:220px;overflow-y:auto}
+.tape-row{display:flex;justify-content:space-between;padding:3px 6px;border-radius:6px}
+.tape-row .t{color:var(--mute)}
+.tape-row.up .p{color:var(--up)}
+.tape-row.down .p{color:var(--down)}
+.tape-row .q{color:var(--mute)}
+.empty-note{padding:16px;text-align:center;color:var(--mute);font-size:13px}
+
+/* форма заявки */
+.order-panel{padding:14px;margin-bottom:12px}
+.order-total{display:flex;justify-content:space-between;font-size:12px;color:var(--mute);
+  font-family:var(--mono);padding:6px 4px}
+.order-btns{display:flex;gap:10px;margin-top:8px}
+.order-btns .btn{flex:1}
+.orders-list{margin-top:10px}
+.order-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:14px;
+  background:rgba(255,255,255,.04);margin-bottom:6px;font-size:12px;font-family:var(--mono)}
+.order-row .side-b{color:var(--up)}.order-row .side-s{color:var(--down)}
+.order-row .x{margin-left:auto;color:var(--mute);min-width:44px;min-height:36px}
+
+/* дверь фьючерсов */
+.fut-door{padding:16px;margin-bottom:12px;text-align:center}
+.fut-door p{font-size:13px;color:var(--mute);margin-bottom:10px}
+.fut-door b{color:var(--ink)}
+
+/* фьючерсы */
+.fut-panel{padding:14px;margin-bottom:12px}
+.lev-value{font-family:var(--mono);font-size:28px;text-align:center;margin:4px 0}
+.pos-drop{
+  position:relative;border-radius:24px;padding:14px 16px;margin-top:12px;
+  background:radial-gradient(120% 140% at 30% 20%, rgba(169,180,255,.22), rgba(169,180,255,.08));
+  border:1px solid rgba(169,180,255,.35);
+  animation:posBreath 2.6s ease-in-out infinite;
+}
+@keyframes posBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.012)}}
+.reduced .pos-drop{animation:none}
+.pos-drop.short{background:radial-gradient(120% 140% at 30% 20%, rgba(232,90,79,.2), rgba(232,90,79,.07));border-color:rgba(232,90,79,.35)}
+.pos-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:12px;font-family:var(--mono)}
+.pos-grid .k{color:var(--mute);font-family:var(--disp)}
+.liq-bar{height:8px;border-radius:4px;background:rgba(255,255,255,.08);margin:10px 0 4px;overflow:hidden}
+.liq-bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--up),var(--gold),var(--down));
+  transition:width .4s ease}
+.liq-label{font-size:11px;color:var(--mute)}
+.splash{position:fixed;z-index:95;pointer-events:none;filter:url(#goo)}
+.no-goo .splash{filter:none}
+.splash i{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--acc)}
+
+/* дыра сжигания */
+.burnhole{
+  position:fixed;right:14px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:35;
+  width:26px;height:26px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #23252e 0%, #000 65%);
+  box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 0 18px rgba(0,0,0,.9), inset 0 0 8px #000;
+}
+.burn-fly{position:fixed;z-index:36;width:8px;height:8px;border-radius:50%;background:var(--acc);
+  pointer-events:none;transition:all .7s cubic-bezier(.4,0,.8,.4);opacity:.9}
+
+/* летящая заявка-капля */
+#flyLayer{position:fixed;inset:0;z-index:70;pointer-events:none;filter:url(#goo)}
+.no-goo #flyLayer{filter:none}
+.fly-drop{position:absolute;width:18px;height:18px;border-radius:50%;
+  transition:all .55s cubic-bezier(.3,.1,.3,1)}
+.fly-drop.buy{background:var(--up)}.fly-drop.sell{background:var(--down)}
+
+/* ---------- p2p ---------- */
+.p2p-filters{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.ad-card{padding:14px;margin-bottom:10px}
+.ad-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ad-name{font-weight:600;font-size:15px}
+.ad-side{font-size:11px;padding:3px 10px;border-radius:999px}
+.ad-side.buy{background:rgba(78,207,135,.15);color:var(--up)}
+.ad-side.sell{background:rgba(232,90,79,.15);color:var(--down)}
+.ad-price{font-family:var(--mono);font-size:19px;margin:6px 0 2px}
+.ad-meta{font-size:12px;color:var(--mute)}
+.ad-meta .num{font-size:12px}
+.ad-methods{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.method-chip{font-size:11px;color:var(--mute);background:rgba(217,180,91,.1);
+  border:1px solid rgba(217,180,91,.25);padding:3px 10px;border-radius:999px}
+.ad-foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.rating{font-size:12px;color:var(--gold);font-family:var(--mono)}
+
+/* эскроу-сцена */
+.escrow-stage{position:relative;height:150px;margin:14px 0}
+.escrow-goo{position:absolute;inset:-20px;filter:url(#goo) drop-shadow(0 6px 20px rgba(0,0,0,.4))}
+.no-goo .escrow-goo{filter:none}
+.esc-drop{position:absolute;top:50%;border-radius:50%;width:56px;height:56px;transform:translate(-50%,-50%);
+  transition:left 1s cubic-bezier(.3,.05,.25,1),transform .5s}
+.reduced .esc-drop{transition:left .4s ease}
+.esc-drop.asset{background:var(--acc)}
+.esc-drop.pay{background:var(--gold)}
+.esc-coin{position:absolute;left:50%;top:-30px;width:30px;height:30px;border-radius:50%;
+  background:var(--ink);transform:translateX(-50%);transition:top .8s cubic-bezier(.5,0,.8,.6)}
+.esc-labels{position:absolute;inset:auto 0 -6px 0;display:flex;justify-content:space-between;
+  font-size:11px;color:var(--mute);padding:0 10px}
+.deal-status{text-align:center;font-size:13px;color:var(--mute);margin:8px 0}
+.deal-timer{font-family:var(--mono);text-align:center;font-size:19px;margin:4px 0}
+.deal-note{font-size:11px;color:var(--mute);text-align:center;margin-top:4px}
+.progress-drop{width:44px;height:44px;border-radius:50%;background:var(--acc);margin:10px auto;
+  animation:posBreath 1s ease-in-out infinite}
+
+/* ---------- кошелёк ---------- */
+.wal-card{padding:16px;margin-bottom:12px}
+.wal-big{font-family:var(--mono);font-size:28px;margin:2px 0}
+.wal-sub{font-size:12px;color:var(--mute)}
+.wal-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-top:10px;font-size:13px}
+.wal-grid .k{color:var(--mute);font-size:12px}
+.wal-grid .v{font-family:var(--mono)}
+.v.up{color:var(--up)}.v.down{color:var(--down)}
+.faucet-zone{position:relative}
+.faucet-drip{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--gold);
+  pointer-events:none;transition:all .5s cubic-bezier(.5,0,.8,.5);z-index:5}
+.ach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ach{padding:12px 8px;text-align:center;border-radius:20px;background:rgba(255,255,255,.03);
+  border:1px solid var(--hair)}
+.ach .bead{width:34px;height:34px;border-radius:50%;margin:0 auto 8px;
+  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.15), rgba(255,255,255,.05));
+  border:1px solid var(--hair);transition:all .5s}
+.ach.got .bead{background:radial-gradient(circle at 35% 30%, #cfd6ff, var(--acc) 70%);
+  box-shadow:0 0 16px rgba(169,180,255,.4);border-color:transparent}
+.ach .t{font-size:11px;font-weight:600}
+.ach .d{font-size:10px;color:var(--mute);margin-top:2px}
+.ach:not(.got){opacity:.6}
+.hist-row{display:flex;justify-content:space-between;gap:8px;padding:8px 4px;
+  border-bottom:1px solid rgba(255,255,255,.05);font-size:12px}
+.hist-row .l{color:var(--mute)}
+.hist-row .note{display:block;font-size:10px;color:var(--mute)}
+.hist-row .v{font-family:var(--mono);white-space:nowrap}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;
+  padding:0 6px;border-radius:999px;background:var(--acc);color:var(--void);
+  font-family:var(--mono);font-size:11px;margin-left:6px}
+
+/* ---------- табло ---------- */
+.lb-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;font-size:13px}
+.lb-row .rank{font-family:var(--mono);color:var(--mute);width:26px;text-align:right}
+.lb-row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-row .roi{font-family:var(--mono)}
+.lb-row.you{background:rgba(169,180,255,.12);border:1px solid rgba(169,180,255,.35)}
+.lb-row.you .nm{color:var(--acc);font-weight:600}
+.hall-card{padding:14px;margin-bottom:10px}
+.hall-card .k{font-size:11px;color:var(--mute);text-transform:lowercase;letter-spacing:.05em}
+.hall-card .v{font-family:var(--mono);font-size:19px;margin-top:2px}
+.zero-line{text-align:center;font-size:12px;color:var(--mute);margin:18px 0}
+
+/* ---------- лендинг ---------- */
+#landing{position:relative;z-index:1;max-width:640px;margin:0 auto;padding:24px 20px 60px}
+.hero{min-height:78dvh;display:flex;flex-direction:column;justify-content:center;text-align:center;position:relative}
+.hero-ticker{font-family:var(--mono);font-size:min(24vw,120px);font-weight:400;letter-spacing:.04em;line-height:1}
+.hero-drop-zone{position:relative;height:170px;margin:8px 0 4px}
+.hero-goo{position:absolute;inset:-24px;filter:url(#goo) drop-shadow(0 14px 40px rgba(169,180,255,.25))}
+.no-goo .hero-goo{filter:drop-shadow(0 14px 40px rgba(169,180,255,.25))}
+.hero-drop{
+  position:absolute;left:50%;top:50%;width:150px;height:150px;border-radius:50%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 35% 28%, #d3daff, var(--acc) 62%, #7d89e8);
+  animation:heroBreath 2s ease-in-out infinite;
+}
+.hero-satellite{position:absolute;left:50%;top:50%;width:26px;height:26px;border-radius:50%;
+  background:var(--acc);transform:translate(-50%,-50%)}
+@keyframes heroBreath{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.04)}}
+.reduced .hero-drop{animation:none}
+.hero-price{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;
+  font-family:var(--mono);font-size:28px;color:var(--void);font-weight:400;
+}
+.hero-price small{display:block;font-size:11px;text-align:center;opacity:.7}
+#miniChart{width:min(320px,80vw);height:56px;margin:10px auto 0;display:block;opacity:.9}
+.hero-sub{color:var(--mute);font-size:15px;margin:14px 0 20px}
+.land-sec{margin:64px 0}
+.land-sec h2{font-size:28px;margin-bottom:18px}
+.manifest{font-size:19px;line-height:1.7;font-weight:500}
+.manifest span{display:block}
+.manifest .dim{color:var(--mute)}
+.prec-card{padding:16px;margin-bottom:12px}
+.prec-card h3{font-size:15px;margin-bottom:6px}
+.prec-card p{font-size:13px;color:var(--mute)}
+.prec-card .amt{font-family:var(--mono);color:var(--ink)}
+.prec-note{font-size:13px;color:var(--mute);font-style:italic;margin-top:14px}
+.learn-list{display:grid;gap:8px}
+.learn-item{padding:12px 16px;font-size:14px}
+.learn-note{font-size:12px;color:var(--mute);margin-top:12px}
+.burn-counter{text-align:center;padding:26px 16px}
+.burn-counter .num{font-size:min(9vw,44px)}
+.burn-counter .k{color:var(--mute);font-size:13px}
+.tariff{padding:16px;margin-bottom:12px}
+.tariff h3{font-size:15px}
+.tariff p{font-size:13px;color:var(--mute);margin:4px 0 10px}
+.disclaimer{font-size:11px;color:var(--mute);text-align:center;margin:50px 0 20px;line-height:1.6}
+
+/* экран «Зачем?» */
+#whyScreen{position:fixed;inset:0;z-index:90;background:var(--void);display:none;
+  align-items:center;justify-content:center;flex-direction:column;gap:26px}
+#whyScreen.on{display:flex}
+#whyScreen .q{font-size:44px;font-weight:800}
+
+/* ---------- литпейпер ---------- */
+.litepaper{position:relative;font-size:14px;line-height:1.65}
+.litepaper h3{margin:18px 0 4px;font-size:15px}
+.litepaper .sub{color:var(--mute);font-style:italic;margin-bottom:10px}
+.lp-stamp{
+  position:sticky;top:8px;float:right;transform:rotate(8deg);
+  border:2px solid rgba(232,90,79,.55);color:rgba(232,90,79,.75);
+  font-weight:800;font-size:12px;letter-spacing:.12em;padding:6px 10px;border-radius:6px;
+  text-transform:uppercase;pointer-events:none;
+}
+
+/* ---------- академия ---------- */
+.lesson-row{display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer}
+.lesson-row .n{font-family:var(--mono);color:var(--mute);width:20px}
+.lesson-row .t{flex:1;font-weight:500;font-size:14px}
+.lesson-row .st{font-size:11px;color:var(--mute);font-family:var(--mono)}
+.lesson-row.done .st{color:var(--up)}
+.lesson-body p{margin-bottom:12px;font-size:14px;line-height:1.6}
+.lesson-body .serious{border-left:3px solid var(--gold);padding:10px 14px;background:rgba(217,180,91,.07);
+  border-radius:0 14px 14px 0;font-size:13px}
+.quiz-q{margin:16px 0 8px;font-weight:600;font-size:14px}
+.quiz-opt{display:block;width:100%;text-align:left;padding:11px 14px;margin-bottom:6px;
+  border-radius:14px;background:rgba(255,255,255,.05);border:1px solid var(--hair);font-size:13px;min-height:44px}
+.quiz-opt.sel{border-color:var(--acc);background:rgba(169,180,255,.12)}
+.quiz-opt.ok{border-color:var(--up);background:rgba(78,207,135,.12)}
+.quiz-opt.bad{border-color:var(--down);background:rgba(232,90,79,.12)}
+.quiz-res{text-align:center;font-size:14px;margin:12px 0}
+
+.sec-title{font-size:13px;color:var(--mute);font-weight:600;margin:18px 0 8px;text-transform:lowercase;letter-spacing:.05em}
+.muted{color:var(--mute)}
+.small{font-size:12px}
+.tiny{font-size:11px}
+.mt8{margin-top:8px}.mt16{margin-top:16px}
+.row{display:flex;align-items:center;gap:8px}
+.row .grow{flex:1}
+</style>
+</head>
+<body>
+<!-- goo-фильтр (§14.1, как есть) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="goo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/>
+      <feColorMatrix in="b" mode="matrix"
+        values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -11"/>
+    </filter>
+  </defs>
+</svg>
+<!-- ================= ЛЕНДИНГ (§13) ================= -->
+<div id="landing">
+  <section class="hero">
+    <div class="hero-ticker">NCHG</div>
+    <div class="hero-drop-zone">
+      <div class="hero-goo">
+        <div class="hero-drop" id="heroDrop"></div>
+        <div class="hero-satellite" id="heroSat"></div>
+      </div>
+      <div class="hero-price"><span id="heroPrice" class="num">100.00</span><small>Ф за 1 NCHG</small></div>
+    </div>
+    <canvas id="miniChart" width="320" height="56" aria-label="мини-график курса"></canvas>
+    <p class="hero-sub">Курс формируете вы. Больше некому.</p>
+    <div><button class="btn btn-primary" id="btnEnter">начать с 10 000 Ф</button></div>
+  </section>
+
+  <section class="land-sec">
+    <div class="manifest">
+      <span>Все навыки настоящие. Актив — нет.</span>
+      <span>Стакан настоящий. Наполнение — нет.</span>
+      <span>Соревнование настоящее. Приз — узнаете.</span>
+      <span class="dim">Это тренажёр трейдинга, притворяющийся пустотой. Или наоборот.</span>
+    </div>
+  </section>
+
+  <section class="land-sec">
+    <h2>Люди уже покупали ничего</h2>
+    <div class="prec-card glass">
+      <h3>Cards Against Humanity, 2015</h3>
+      <p>В «чёрную пятницу» компания убрала магазин и продавала ничего по <span class="amt num">$5</span>. <span class="amt num">11 248</span> человек заплатили, итог — <span class="amt num">$71 145</span> за день. Один участник купил ничего на <span class="amt num">$100</span>.</p>
+    </div>
+    <div class="prec-card glass">
+      <h3>Сальваторе Гарау, 2021</h3>
+      <p>Итальянский художник продал на аукционе Art-Rite невидимую скульптуру «Я есть» за <span class="amt num">€15 000</span>. Покупателю выдали сертификат владения. Для установки нужно свободное место <span class="amt num">150×150</span> см.</p>
+    </div>
+    <div class="prec-card glass">
+      <h3>Pet Rock, 1975</h3>
+      <p>Гэри Дал продавал обычные камни как домашних питомцев, по <span class="amt num">~$4</span>. Больше миллиона проданных камней и статус миллионера.</p>
+    </div>
+    <p class="prec-note">Мы просто первые, кто сделал для этого ликвидный рынок.</p>
+  </section>
+
+  <section class="land-sec">
+    <h2>Чему вы научитесь по-настоящему</h2>
+    <div class="learn-list">
+      <div class="learn-item glass">Читать свечи и таймфреймы</div>
+      <div class="learn-item glass">Видеть стакан и спред</div>
+      <div class="learn-item glass">Отличать лимит от маркета</div>
+      <div class="learn-item glass">Риск и стоп-лосс</div>
+      <div class="learn-item glass">P2P и эскроу</div>
+      <div class="learn-item glass">Психологию толпы</div>
+    </div>
+    <p class="learn-note">Навыки переносимы. Убытки — нет.</p>
+  </section>
+
+  <section class="land-sec">
+    <div class="burn-counter panel">
+      <div class="num" id="landBurned">0.00</div>
+      <div class="k">сожжено в ничего, Ф</div>
+    </div>
+  </section>
+
+  <section class="land-sec">
+    <h2>Тарифы</h2>
+    <div class="tariff glass">
+      <h3>обычный — 0 ₽</h3>
+      <p>всё включено, потому что включать нечего</p>
+      <button class="btn btn-sm" id="btnTariffFree">начать</button>
+    </div>
+    <div class="tariff glass">
+      <h3>внести реальные деньги</h3>
+      <p>пополнение счёта настоящими средствами</p>
+      <button class="btn btn-sm" id="btnTariffMoney">внести</button>
+    </div>
+    <div class="tariff glass">
+      <h3>private banking</h3>
+      <p>обслуживание пустоты премиум-класса: то же самое, но вас называют по имени-отчеству</p>
+      <button class="btn btn-sm" id="btnTariffPrivate">оставить заявку</button>
+    </div>
+  </section>
+
+  <section class="land-sec">
+    <button class="btn btn-block glass" id="btnLitepaper">Литпейпер NCHG</button>
+  </section>
+
+  <p class="disclaimer">Не является инвестиционной рекомендацией. Является ничем.<br>
+  Торговля реальными активами сопряжена с реальными рисками — здесь их нет, потому что здесь ничего нет. 18+ на всякий случай.</p>
+</div>
+
+<!-- экран «Зачем?» -->
+<div id="whyScreen">
+  <div class="q">Зачем?</div>
+  <button class="btn" id="btnWhyBack">действительно</button>
+</div>
+
+<!-- ================= ПРИЛОЖЕНИЕ ================= -->
+<header class="hdr" id="appHdr" hidden>
+  <div class="logo glass capsule">nchg</div>
+  <div class="hdr-spacer"></div>
+  <button class="chip glass capsule" id="hdrBal" title="баланс"><span class="num" id="hdrBalV">10 000.00</span>&nbsp;Ф</button>
+  <button class="chip glass capsule chip-live" id="hdrPrice"><span class="num" id="hdrPriceV">100.00</span></button>
+  <button class="icon-btn glass capsule" id="btnAcademyHdr" aria-label="академия">акд<span id="acadBadgeHdr" class="badge" hidden></span></button>
+</header>
+
+<main id="app" hidden>
+  <!-- ======== РЫНОК (§6) ======== -->
+  <section class="screen" id="scr-market">
+    <div class="newsline" id="newsline"><div class="track" id="newsTrack">Наливаем ничего…</div></div>
+    <div class="breaker" id="breaker" hidden>
+      Торги остановлены: происходит слишком много ничего.
+      Осталось <span class="num" id="breakerSec">45</span> с.
+      <a href="#" id="breakerAcad">что такое circuit breaker →</a>
+    </div>
+
+    <div class="chart-panel panel">
+      <div class="chart-head">
+        <span class="pair">NCHG/Ф</span>
+        <span class="chart-price num" id="bigPrice">100.00</span>
+        <span class="chart-delta num" id="bigDelta">+0.00%</span>
+      </div>
+      <div class="ohlc-corner" id="ohlcCorner" hidden></div>
+      <canvas id="chart"></canvas>
+      <div class="chart-tools">
+        <div class="segwrap"><div class="seg compact" id="segTf" data-seg></div></div>
+        <div class="ind-toggles">
+          <button class="ind-btn tip" data-ind="ma7" data-tip="MA(7) — среднее закрытие последних 7 свечей. Сглаживает шум, показывает короткий тренд (урок 5).">MA7</button>
+          <button class="ind-btn tip" data-ind="ma25" data-tip="MA(25) — то же, но за 25 свечей. Пересечение MA7 сверху вниз — сигнал слабости (урок 5).">MA25</button>
+          <button class="ind-btn tip" data-ind="rsi" data-tip="RSI(14) — индекс силы. Выше 70 — перекупленность, ниже 30 — перепроданность. Бывает неправ (урок 6).">RSI</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ob-panel panel">
+      <div class="ob-head">
+        <h3 class="tip" data-tip="Стакан — все живые заявки. Верх (красное) — продавцы, низ (зелёное) — покупатели. Урок 2.">стакан</h3>
+        <div class="segwrap"><div class="seg compact" id="segStep" data-seg></div></div>
+      </div>
+      <div class="ob" id="obAsks"></div>
+      <div class="ob-spread"><span>спред</span><span class="num" id="obSpread">—</span></div>
+      <div class="ob" id="obBids"></div>
+    </div>
+
+    <div class="order-panel panel" id="orderPanel">
+      <div class="segwrap"><div class="seg compact" id="segType" data-seg></div></div>
+      <div class="field mt8" id="fPrice">
+        <label for="inPrice" class="tip" data-tip="Лимитная цена — вы мейкер, комиссия 0%. Заявка ждёт в стакане. Урок 3.">цена, Ф</label>
+        <input class="input" id="inPrice" inputmode="decimal" placeholder="100.00" autocomplete="off">
+      </div>
+      <div class="field" id="fTrigger" hidden>
+        <label for="inTrigger" class="tip" data-tip="Стоп-цена: когда последняя сделка пересечёт её — уйдёт маркет-заявка. Урок 7.">триггер-цена, Ф</label>
+        <input class="input" id="inTrigger" inputmode="decimal" placeholder="95.00" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="inQty">объём, NCHG</label>
+        <input class="input" id="inQty" inputmode="decimal" placeholder="1.0" autocomplete="off">
+      </div>
+      <div class="slider-row">
+        <input type="range" id="qtySlider" min="0" max="100" step="1" value="0" aria-label="доля доступного">
+        <div class="slider-marks"><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+      </div>
+      <div class="order-total">
+        <span>итого ≈ <span class="num" id="totVal">0.00</span> Ф</span>
+        <span class="tip" data-tip="Тейкер (маркет и всё, что исполняется сразу) платит 0.1%. Мейкер — 0%. Комиссия сгорает в пустоту.">комиссия <span class="num" id="totFee">0.00</span> Ф</span>
+      </div>
+      <div class="order-btns">
+        <button class="btn btn-buy" id="btnBuy">купить NCHG</button>
+        <button class="btn btn-sell" id="btnSell">продать NCHG</button>
+      </div>
+      <div class="orders-list" id="ordersList"></div>
+    </div>
+
+    <div class="tape-panel panel">
+      <h3 class="sec-title" style="margin-top:0">лента сделок</h3>
+      <div class="tape" id="tape"></div>
+    </div>
+
+    <div class="fut-door glass" id="futDoor">
+      <p>За этой каплей — <b>казино</b>.<br>Академия рекомендует сначала урок 7.</p>
+      <button class="btn" id="btnFutEnter">войти всё равно</button>
+    </div>
+  </section>
+
+  <!-- ======== ФЬЮЧЕРСЫ ×100 (§9) ======== -->
+  <section class="screen" id="scr-futures">
+    <button class="btn btn-sm" id="btnFutBack">← спот</button>
+    <div class="fut-panel panel mt8">
+      <div class="chart-head">
+        <span class="pair">NCHG-PERP</span>
+        <span class="chart-price num" id="futMark">100.00</span>
+      </div>
+      <p class="tiny muted">mark = спот · изолированная маржа · ставка финансирования — ничего</p>
+      <div class="segwrap mt8"><div class="seg compact" id="segFutSide" data-seg></div></div>
+      <div class="lev-value"><span class="num" id="levV">10</span>×</div>
+      <div class="slider-row">
+        <input type="range" id="levSlider" min="2" max="100" step="1" value="10" aria-label="плечо">
+        <div class="slider-marks"><span>2×</span><span>25×</span><span>50×</span><span>100×</span></div>
+      </div>
+      <div class="field">
+        <label for="futQty">объём, NCHG</label>
+        <input class="input" id="futQty" inputmode="decimal" placeholder="10.0" autocomplete="off">
+      </div>
+      <div class="order-total">
+        <span>маржа ≈ <span class="num" id="futMargin">0.00</span> Ф</span>
+        <span>ликвидация ≈ <span class="num" id="futLiqPreview">—</span></span>
+      </div>
+      <button class="btn btn-block btn-primary" id="btnFutOpen">открыть позицию</button>
+      <div id="futPos"></div>
+    </div>
+    <div class="hall-card panel">
+      <div class="k">сегодня ликвидировано надежд</div>
+      <div class="v num" id="hopesCounter">0</div>
+    </div>
+  </section>
+
+  <!-- ======== P2P (§8) ======== -->
+  <section class="screen" id="scr-p2p">
+    <div class="p2p-filters">
+      <div class="segwrap"><div class="seg compact" id="segP2pSide" data-seg></div></div>
+      <select class="input" id="p2pMethodFilter" style="width:auto;min-height:44px">
+        <option value="">любой способ оплаты</option>
+      </select>
+    </div>
+    <button class="btn btn-block glass" id="btnNewAd">разместить объявление</button>
+    <div id="adsList" class="mt16"></div>
+  </section>
+
+  <!-- ======== КОШЕЛЁК (§10) ======== -->
+  <section class="screen" id="scr-wallet">
+    <div class="wal-card panel">
+      <div class="wal-sub">эквивалент по mark</div>
+      <div class="wal-big"><span id="walEquity">10 000.00</span> Ф</div>
+      <div class="wal-grid">
+        <div><div class="k">Ф доступно</div><div class="v" id="walF">10 000.00</div></div>
+        <div><div class="k">Ф в заявках</div><div class="v" id="walFRes">0.00</div></div>
+        <div><div class="k">NCHG доступно</div><div class="v" id="walN">0.0</div></div>
+        <div><div class="k">NCHG в эскроу</div><div class="v" id="walNEsc">0.0</div></div>
+        <div><div class="k tip" data-tip="Средняя цена всех ваших покупок с учётом объёма. P2P учитывается по рынку.">средний вход</div><div class="v" id="walAvg">—</div></div>
+        <div><div class="k tip" data-tip="uPnL = (mark − средний вход) × объём. Нереализованная прибыль: она ещё может исчезнуть.">uPnL</div><div class="v" id="walUpnl">0.00</div></div>
+        <div><div class="k tip" data-tip="Реализованный результат сезона: зафиксированные прибыли и убытки.">rPnL сезона</div><div class="v" id="walRpnl">0.00</div></div>
+        <div><div class="k tip" data-tip="ROI = (equity − вложено) / вложено. Вложено = 10 000 Ф + все подаяния.">ROI</div><div class="v" id="walRoi">0.00%</div></div>
+      </div>
+    </div>
+
+    <div class="wal-card panel faucet-zone" id="faucetZone">
+      <div class="row">
+        <div class="grow">
+          <b>кран «подаяние»</b>
+          <div class="tiny muted">подаяние выдаётся только по-настоящему нищим</div>
+        </div>
+        <button class="btn btn-gold btn-sm" id="btnFaucet">+500 Ф</button>
+      </div>
+      <div class="tiny muted mt8" id="faucetStatus"></div>
+    </div>
+
+    <button class="btn btn-block glass" id="btnAcademyWal">академия<span id="acadBadgeWal" class="badge" hidden></span></button>
+
+    <h3 class="sec-title">достижения</h3>
+    <div class="ach-grid" id="achGrid"></div>
+
+    <h3 class="sec-title">история операций</h3>
+    <div class="panel" style="padding:8px 12px" id="histList"></div>
+  </section>
+
+  <!-- ======== ТАБЛО (§11) ======== -->
+  <section class="screen" id="scr-board">
+    <h3 class="sec-title" style="margin-top:0">сезон <span class="num" id="seasonName"></span> · ROI</h3>
+    <div class="panel" style="padding:8px" id="lbList"></div>
+    <h3 class="sec-title">вечный зал</h3>
+    <div class="hall-card panel"><div class="k">лучший ROI всех времён</div><div class="v" id="hallBest">—</div></div>
+    <div class="hall-card panel"><div class="k">дно сезона</div><div class="v" id="hallWorst">—</div></div>
+    <div class="hall-card panel"><div class="k">самая красивая ликвидация</div><div class="v" id="hallLiq">—</div></div>
+    <p class="zero-line">В сумме здесь ноль. Как и снаружи — просто здесь честно.</p>
+  </section>
+</main>
+
+<!-- таб-бар -->
+<nav class="tabbar" id="tabbar" hidden>
+  <div class="tb-wrap">
+    <div class="tb-goo" id="tbGoo"></div>
+    <div class="tb-btns">
+      <button class="tb-btn" data-tab="market">рынок</button>
+      <button class="tb-btn" data-tab="p2p">p2p</button>
+      <button class="tb-btn" data-tab="wallet">кошелёк</button>
+      <button class="tb-btn" data-tab="board">табло</button>
+    </div>
+  </div>
+</nav>
+
+<!-- дыра сжигания -->
+<div class="burnhole tip" id="burnHole" data-tip="сюда уходит всё" hidden></div>
+
+<!-- слои -->
+<div id="flyLayer"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<!-- шторки -->
+<div class="veil" id="veil" hidden></div>
+<div class="sheet" id="sheetLite" hidden>
+  <div class="sheet-grip"></div>
+  <button class="sheet-close" data-close>закрыть</button>
+  <div class="litepaper" id="litepaperBody">
+    <div class="lp-stamp">Одобрено пустотой</div>
+    <h2>NCHG. Литпейпер.</h2>
+    <p class="sub">Уайтпейпер было бы преувеличением.</p>
+    <h3>Миссия</h3><p>Каждый актив на свете обещает что-то. Мы первые, кто честно предлагает ничего.</p>
+    <h3>Технология</h3><p>Блокчейн отсутствует. Отсутствие блокчейна невозможно взломать, форкнуть или остановить. Аптайм отсутствия — <span class="num">100%</span> с начала времён.</p>
+    <h3>Эмиссия</h3><p><span class="num">21 000 000</span> NCHG. Премайна нет: нельзя заранее добыть то, чего не существует.</p>
+    <h3>Обеспечение</h3><p>Каждая монета обеспечена ровно ничем — как и большинство остальных, просто мы это указали в документации.</p>
+    <h3>Халвинг</h3><p>Каждые четыре года ничего не происходит.</p>
+    <h3>Дорожная карта</h3><p>Q1 — ничего. Q2 — ничего. Q3 — ничего. Q4 — ничего. Всё выполнено досрочно.</p>
+    <h3>Команда</h3><p>Основатель пожелал остаться никем.</p>
+    <h3>Риски</h3><p>Отсутствуют. Как и всё остальное.</p>
+    <div id="litepaperEnd" style="height:1px"></div>
+  </div>
+</div>
+
+<div class="sheet" id="sheetAcademy" hidden>
+  <div class="sheet-grip"></div>
+  <button class="sheet-close" data-close>закрыть</button>
+  <h2>Академия</h2>
+  <p class="small muted">8 уроков. Квиз на ≥2/3 — <span class="num">+200</span> Ф, один раз за урок.</p>
+  <div id="lessonsList" class="mt16"></div>
+</div>
+
+<div class="sheet" id="sheetLesson" hidden>
+  <div class="sheet-grip"></div>
+  <button class="sheet-close" data-close>закрыть</button>
+  <div id="lessonBody"></div>
+</div>
+
+<div class="sheet" id="sheetAd" hidden>
+  <div class="sheet-grip"></div>
+  <button class="sheet-close" data-close>закрыть</button>
+  <h2>Новое объявление</h2>
+  <div id="adFormBody"></div>
+</div>
+
+<div class="sheet" id="sheetDeal" hidden>
+  <div class="sheet-grip"></div>
+  <button class="sheet-close" data-close>закрыть</button>
+  <div id="dealBody"></div>
+</div>
+<script>
+'use strict';
+/* ============================================================================
+   nchg — движок. Деньги: int-сотые Ф (cents). Объёмы: int-десятые NCHG (tenths).
+   Архитектура §15: core/{bus,clock,market,bots,candles,news,p2p,futures,score}
+   ============================================================================ */
+const PERSIST = true; // false — для запуска как артефакт claude.ai (без storage)
+
+/* ---------------- utils ---------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function rndInt(a, b) { return Math.floor(rnd(a, b + 1)); }
+function gauss() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function logn(median, sigma) { return median * Math.exp(sigma * gauss()); }
+function poisson(lambda) {
+  const L = Math.exp(-lambda);
+  let k = 0, p = 1;
+  do { k++; p *= Math.random(); } while (p > L);
+  return k - 1;
+}
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+// форматирование: PT Mono, пробелы-тысячи
+function fmtF(cents) {
+  const neg = cents < 0; const c = Math.abs(Math.round(cents));
+  const s = Math.floor(c / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return (neg ? '−' : '') + s + '.' + String(c % 100).padStart(2, '0');
+}
+function fmtQ(tenths) {
+  const neg = tenths < 0; const t = Math.abs(Math.round(tenths));
+  return (neg ? '−' : '') + Math.floor(t / 10).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + '.' + (t % 10);
+}
+function fmtPct(x, digits) { return (x >= 0 ? '+' : '−') + Math.abs(x * 100).toFixed(digits == null ? 2 : digits) + '%'; }
+// парсинг ввода: запятая = точка (§16.16)
+function parseF(str) { const v = parseFloat(String(str).replace(',', '.')); return isFinite(v) ? Math.round(v * 100) : NaN; }
+function parseQ(str) { const v = parseFloat(String(str).replace(',', '.')); return isFinite(v) ? Math.round(v * 10) : NaN; }
+function valCents(pc, qt) { return Math.round(pc * qt / 10); } // цена(сотые) × объём(десятые) → Ф-сотые
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ================= core/bus ================= */
+const bus = (() => {
+  const map = new Map();
+  return {
+    on(ev, fn) { if (!map.has(ev)) map.set(ev, new Set()); map.get(ev).add(fn); return () => map.get(ev).delete(fn); },
+    emit(ev, data) { const s = map.get(ev); if (s) for (const fn of Array.from(s)) { try { fn(data); } catch (e) { console.warn('bus handler', ev, e); } } }
+  };
+})();
+
+/* ================= state ================= */
+const SIM_SEC_PER_TICK = 6;   // 1 рыночная минута = 5 реальных секунд, тик 500мс
+const TICKS_PER_SEC = 2;
+function seasonId(d) { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+
+const state = {
+  version: 1,
+  season: seasonId(),
+  burned: 0,            // сожжено комиссий, cents
+  hopes: 0,             // ликвидировано надежд сегодня
+  hopesDay: new Date().toDateString(),
+  player: {
+    invested: 1000000,  // 10 000.00 Ф + подаяния (§11)
+    rPnL: 0,
+    p2pOffset: 0,       // §8.6: P2P переоценка по mark
+    avgPc: 0, posQty: 0,
+    makerFills: 0,
+    liqCount: 0,
+    lastBuyReal: 0,
+    firstLotSim: null,
+  },
+  faucet: { last: 0 },
+  achievements: {},
+  academy: { rewarded: {}, done: {} },
+  history: [],
+  p2pRating: { done: 0, total: 0, thanks: 0, adj: 0, confirmSec: [] },
+  hall: { best: null, worst: null, liq: null },
+};
+
+function pushHistory(kind, text, val, note) {
+  state.history.unshift({ t: Date.now(), kind, text, val: val == null ? null : val, note: note || null });
+  if (state.history.length > 100) state.history.length = 100;
+  bus.emit('history');
+}
+
+/* ---- персист: одна точка чтения/записи (§15) ---- */
+const persist = {
+  key: 'nchg.v1',
+  save() {
+    if (!PERSIST) return;
+    try {
+      const p = market.accounts.you;
+      localStorage.setItem(this.key, JSON.stringify({
+        season: state.season, burned: state.burned, player: state.player,
+        faucet: state.faucet, achievements: state.achievements, academy: state.academy,
+        history: state.history, p2pRating: state.p2pRating, hall: state.hall,
+        acc: { f: p.f, nchg: p.nchg },
+      }));
+    } catch (e) { /* storage недоступен — живём в памяти */ }
+  },
+  load() {
+    if (!PERSIST) return null;
+    try { const raw = localStorage.getItem(this.key); return raw ? JSON.parse(raw) : null; }
+    catch (e) { return null; }
+  },
+  clear() { try { localStorage.removeItem(this.key); } catch (e) {} }
+};
+
+/* ================= core/clock ================= */
+const clock = (() => {
+  let intId = null, hiddenAt = 0;
+  const c = {
+    tickCount: 0,
+    simSec: 0,
+    running: false,
+    doTick() {
+      c.tickCount++; c.simSec += SIM_SEC_PER_TICK;
+      breaker.tick();
+      candles.onTime();
+      bots.tick();
+      market.checkStops();
+      futures.tick();
+      p2p.tick();
+      news.tick();
+      score.tick();
+      bus.emit('tick', { n: c.tickCount, simSec: c.simSec });
+      if (c.tickCount % 20 === 0) persist.save();
+    },
+    step(n) { for (let i = 0; i < (n || 1); i++) c.doTick(); },
+    start() {
+      if (intId) return;
+      c.running = true;
+      intId = setInterval(() => c.doTick(), 500);
+    },
+    stop() { if (intId) { clearInterval(intId); intId = null; } c.running = false; },
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); c.stop(); }
+    else {
+      // catch-up ≤ 5с: рынок не проматывается за часы фона (§15)
+      const missed = Math.floor((Date.now() - hiddenAt) / 500);
+      c.step(Math.min(10, Math.max(0, missed)));
+      c.start();
+      bus.emit('visible');
+    }
+  });
+  return c;
+})();
+
+/* ================= core/market ================= */
+const FEE_TAKER = 0.001; // 0.1%, мейкер 0%
+const market = (() => {
+  let oid = 1;
+  const accounts = {
+    you: { f: 1000000, resF: 0, nchg: 0, resN: 0, escN: 0 },
+  };
+  function botAcc(id) {
+    if (!accounts[id]) accounts[id] = { f: 5000000000, resF: 0, nchg: 5000000, resN: 0, escN: 0 };
+    return accounts[id];
+  }
+  const book = {
+    bid: { levels: new Map(), prices: [] }, // prices убыв.
+    ask: { levels: new Map(), prices: [] }, // prices возр.
+  };
+  const orders = new Map();     // активные заявки книги
+  const stopOrders = [];        // стоп-маркеты (вне книги)
+  const trades = [];            // последние сделки (≤ 200)
+  const m = {
+    accounts, book, orders, stopOrders, trades,
+    lastPrice: 10000, lastDir: 0,
+    dayHigh: 10000, dayLow: 10000, dayKey: new Date().toDateString(),
+
+    bestBid() { return book.bid.prices.length ? book.bid.prices[0] : null; },
+    bestAsk() { return book.ask.prices.length ? book.ask.prices[0] : null; },
+
+    _insertPrice(sideKey, pc) {
+      const arr = book[sideKey].prices;
+      let lo = 0, hi = arr.length;
+      const desc = sideKey === 'bid';
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (desc ? arr[mid] > pc : arr[mid] < pc) lo = mid + 1; else hi = mid;
+      }
+      if (arr[lo] !== pc) arr.splice(lo, 0, pc);
+    },
+    _removePriceIfEmpty(sideKey, pc) {
+      const lv = book[sideKey].levels;
+      const q = lv.get(pc);
+      if (q && q.length === 0) {
+        lv.delete(pc);
+        const arr = book[sideKey].prices;
+        const i = arr.indexOf(pc);
+        if (i >= 0) arr.splice(i, 1);
+      }
+    },
+    _rest(o) {
+      const sideKey = o.side === 'buy' ? 'bid' : 'ask';
+      const lv = book[sideKey].levels;
+      if (!lv.has(o.price)) { lv.set(o.price, []); this._insertPrice(sideKey, o.price); }
+      lv.get(o.price).push(o); // FIFO — price-time priority
+      orders.set(o.id, o);
+    },
+
+    // Заявка. Возвращает {ok, id?, reason?, filled}
+    submit(p) {
+      const owner = p.owner || 'you';
+      if (breaker.halted) return { ok: false, reason: 'halted' };
+      const acc = owner === 'you' ? accounts.you : botAcc(owner);
+      const qty = Math.round(p.qty);
+      if (!(qty > 0)) return { ok: false, reason: 'qty' };
+
+      if (p.type === 'stop') {
+        const trig = Math.round(p.trigger);
+        if (!(trig > 0)) return { ok: false, reason: 'price' };
+        let resF = 0, resN = 0;
+        if (p.side === 'buy') {
+          const est = Math.ceil(trig * 1.05 * qty / 10);
+          resF = est + Math.ceil(est * FEE_TAKER);
+          if (acc.f < resF) return { ok: false, reason: 'funds' };
+          acc.f -= resF; acc.resF += resF;
+        } else {
+          resN = qty;
+          if (acc.nchg < qty) return { ok: false, reason: 'funds' };
+          acc.nchg -= qty; acc.resN += qty;
+        }
+        const so = { id: 'S' + (oid++), owner, side: p.side, type: 'stop', trigger: trig, qty, resF, resN };
+        stopOrders.push(so);
+        bus.emit('orders'); bus.emit('balance');
+        return { ok: true, id: so.id };
+      }
+
+      let o = { id: 'O' + (oid++), owner, side: p.side, type: p.type, price: 0, qty, rem: qty, resF: 0, resN: 0, ts: clock.tickCount };
+      // резервы (§6.5): отрицательные балансы невозможны by design
+      if (p.side === 'buy') {
+        let ref;
+        if (p.type === 'limit') {
+          o.price = Math.round(p.price);
+          if (!(o.price > 0)) return { ok: false, reason: 'price' };
+          ref = o.price;
+        } else {
+          const ba = this.bestAsk();
+          if (ba == null) return { ok: false, reason: 'empty' };
+          ref = Math.ceil(ba * 1.05); // верхняя оценка, излишек вернётся
+        }
+        const val = Math.ceil(ref * qty / 10);
+        o.resF = val + Math.ceil(val * FEE_TAKER);
+        if (acc.f < o.resF) return { ok: false, reason: 'funds' };
+        acc.f -= o.resF; acc.resF += o.resF;
+      } else {
+        if (p.type === 'limit') {
+          o.price = Math.round(p.price);
+          if (!(o.price > 0)) return { ok: false, reason: 'price' };
+        } else if (this.bestBid() == null) return { ok: false, reason: 'empty' };
+        o.resN = qty;
+        if (acc.nchg < qty) return { ok: false, reason: 'funds' };
+        acc.nchg -= qty; acc.resN += qty;
+      }
+
+      const filled = this._match(o);
+
+      if (o.rem > 0) {
+        if (o.type === 'limit') {
+          this._rest(o);
+        } else {
+          // маркет: сторона книги кончилась — остаток отменяется (§6.5)
+          this._refundRemainder(o);
+          bus.emit('market-exhausted', { owner, filledSome: filled > 0 });
+        }
+      } else {
+        this._refundRemainder(o); // излишек верхней оценки/комиссии
+      }
+      bus.emit('orders'); bus.emit('balance'); bus.emit('book');
+      return { ok: true, id: o.id, filled };
+    },
+
+    _refundRemainder(o) {
+      const acc = accounts[o.owner];
+      if (o.side === 'buy') {
+        if (o.resF > 0) { acc.resF -= o.resF; acc.f += o.resF; o.resF = 0; }
+      } else {
+        if (o.resN > 0) { acc.resN -= o.resN; acc.nchg += o.resN; o.resN = 0; }
+      }
+    },
+
+    _match(taker) {
+      const oppKey = taker.side === 'buy' ? 'ask' : 'bid';
+      let filled = 0;
+      while (taker.rem > 0) {
+        const arr = book[oppKey].prices;
+        if (!arr.length) break;
+        const best = arr[0];
+        if (taker.type === 'limit') {
+          if (taker.side === 'buy' && best > taker.price) break;
+          if (taker.side === 'sell' && best < taker.price) break;
+        }
+        const q = book[oppKey].levels.get(best);
+        const maker = q[0];
+        const tq = Math.min(taker.rem, maker.rem);
+        this._execTrade(maker, taker, best, tq);
+        filled += tq;
+        if (maker.rem === 0) {
+          q.shift(); orders.delete(maker.id);
+          this._refundRemainder(maker);
+          this._removePriceIfEmpty(oppKey, best);
+          bus.emit('order-filled', maker);
+        }
+      }
+      return filled;
+    },
+
+    // maker — в книге, taker — входящая. Цена — мейкера. Комиссия — с тейкера, сгорает.
+    _execTrade(maker, taker, pc, qt) {
+      const val = valCents(pc, qt);
+      const fee = Math.round(val * FEE_TAKER);
+      const buyO = taker.side === 'buy' ? taker : maker;
+      const sellO = taker.side === 'buy' ? maker : taker;
+      const buyAcc = accounts[buyO.owner], sellAcc = accounts[sellO.owner];
+      const buyerFee = (buyO === taker) ? fee : 0;
+      const sellerFee = (sellO === taker) ? fee : 0;
+
+      // покупатель: списание из резерва (val + его комиссия), получает NCHG
+      const cost = val + buyerFee;
+      const spend = Math.min(cost, buyO.resF);
+      buyAcc.resF -= spend; buyO.resF -= spend;
+      const short = cost - spend;
+      if (short > 0) buyAcc.f -= short; // страховка от округлений, копейки
+      buyAcc.nchg += qt;
+
+      // продавец: NCHG из резерва, получает val − его комиссия
+      sellAcc.resN -= qt; sellO.resN -= qt;
+      sellAcc.f += val - sellerFee;
+
+      state.burned += buyerFee + sellerFee; // в пустоту (§4)
+      maker.rem -= qt; taker.rem -= qt;
+
+      this.lastDir = pc >= this.lastPrice ? 1 : -1;
+      this.lastPrice = pc;
+      const dk = new Date().toDateString();
+      if (dk !== this.dayKey) { this.dayKey = dk; this.dayHigh = pc; this.dayLow = pc; }
+      if (pc > this.dayHigh) this.dayHigh = pc;
+      if (pc < this.dayLow) this.dayLow = pc;
+
+      const tr = { tick: clock.tickCount, simSec: clock.simSec, t: Date.now(), pc, qt, side: taker.side };
+      trades.push(tr);
+      if (trades.length > 200) trades.splice(0, trades.length - 200);
+
+      candles.addTick(pc, qt);
+      breaker.record(pc);
+      score.onFill(maker, taker, pc, qt, fee);
+      bus.emit('trade', tr);
+      if (buyerFee + sellerFee > 0 && (buyO.owner === 'you' || sellO.owner === 'you')) bus.emit('burn', buyerFee + sellerFee);
+    },
+
+    cancel(id, byOwner) {
+      const o = orders.get(id);
+      if (o) {
+        if (byOwner && o.owner !== byOwner) return false; // чужую отменить нельзя (§16.4)
+        const sideKey = o.side === 'buy' ? 'bid' : 'ask';
+        const q = book[sideKey].levels.get(o.price);
+        if (q) { const i = q.indexOf(o); if (i >= 0) q.splice(i, 1); this._removePriceIfEmpty(sideKey, o.price); }
+        orders.delete(id);
+        this._refundRemainder(o); // возврат ровно зарезервированного
+        bus.emit('orders'); bus.emit('balance'); bus.emit('book');
+        return true;
+      }
+      const si = stopOrders.findIndex(s => s.id === id);
+      if (si >= 0) {
+        const so = stopOrders[si];
+        if (byOwner && so.owner !== byOwner) return false;
+        stopOrders.splice(si, 1);
+        const acc = accounts[so.owner];
+        if (so.resF) { acc.resF -= so.resF; acc.f += so.resF; }
+        if (so.resN) { acc.resN -= so.resN; acc.nchg += so.resN; }
+        bus.emit('orders'); bus.emit('balance');
+        return true;
+      }
+      return false;
+    },
+
+    // стоп-маркет: триггер по последней цене, срабатывает один раз (§16.5)
+    checkStops() {
+      if (breaker.halted) return;
+      for (let i = stopOrders.length - 1; i >= 0; i--) {
+        const so = stopOrders[i];
+        const hit = so.side === 'buy' ? this.lastPrice >= so.trigger : this.lastPrice <= so.trigger;
+        if (!hit) continue;
+        stopOrders.splice(i, 1);
+        const acc = accounts[so.owner];
+        if (so.resF) { acc.resF -= so.resF; acc.f += so.resF; }
+        if (so.resN) { acc.resN -= so.resN; acc.nchg += so.resN; }
+        const r = this.submit({ owner: so.owner, side: so.side, type: 'market', qty: so.qty });
+        bus.emit('stop-fired', { so, result: r });
+      }
+    },
+
+    // агрегированная глубина для стакана
+    depth(sideKey, step, nLevels) {
+      const out = [];
+      const arr = book[sideKey].prices;
+      const lv = book[sideKey].levels;
+      let curBucket = null, sum = 0;
+      for (const pc of arr) {
+        const b = sideKey === 'bid' ? Math.floor(pc / step) * step : Math.ceil(pc / step) * step;
+        if (curBucket === null) { curBucket = b; sum = 0; }
+        if (b !== curBucket) {
+          out.push({ pc: curBucket, qt: sum });
+          if (out.length >= nLevels) return out;
+          curBucket = b; sum = 0;
+        }
+        for (const o of lv.get(pc)) sum += o.rem;
+      }
+      if (curBucket !== null && out.length < nLevels) out.push({ pc: curBucket, qt: sum });
+      return out;
+    },
+    myLevels() {
+      const s = new Set();
+      for (const o of orders.values()) if (o.owner === 'you') s.add(o.side + ':' + o.price);
+      return s;
+    },
+  };
+  return m;
+})();
+
+/* ---- circuit breaker (§6.6) ---- */
+const breaker = (() => {
+  const WINDOW_SIM = 180;   // 3 рыночные минуты
+  const HALT_TICKS = 90;    // 45 реальных секунд
+  let win = [];
+  return {
+    halted: 0,
+    reset() { this.halted = 0; win = []; bus.emit('resume'); },
+    record(pc) {
+      if (this.halted) return;
+      win.push({ s: clock.simSec, pc });
+      while (win.length && win[0].s < clock.simSec - WINDOW_SIM) win.shift();
+      const old = win[0];
+      if (old && Math.abs(pc / old.pc - 1) >= 0.25) {
+        this.halted = HALT_TICKS;
+        win = [];
+        bus.emit('halt', HALT_TICKS);
+      }
+    },
+    tick() {
+      if (this.halted > 0) {
+        this.halted--;
+        if (this.halted === 0) {
+          // база окна — свежий FV: breaker не зацикливается после гэпа (§16.8)
+          win = [{ s: clock.simSec, pc: Math.round(bots.fv * 100) }];
+          bus.emit('resume');
+        } else bus.emit('halt-tick', this.halted);
+      }
+    },
+  };
+})();
+
+/* ================= core/candles ================= */
+const candles = (() => {
+  const TFS = { m1: 60, m5: 300, m15: 900, h1: 3600 }; // сим-секунды
+  const buffers = {}, cur = {};
+  for (const tf in TFS) { buffers[tf] = []; cur[tf] = null; }
+  function push(tf, c) {
+    const b = buffers[tf];
+    b.push(c);
+    if (b.length > 720) b.splice(0, b.length - 720); // кольцевой буфер 720
+  }
+  function roll(tf) {
+    const sec = TFS[tf];
+    const bucket = Math.floor(clock.simSec / sec);
+    let c = cur[tf];
+    if (!c) {
+      cur[tf] = { bucket, t: bucket * sec, o: market.lastPrice, h: market.lastPrice, l: market.lastPrice, c: market.lastPrice, v: 0 };
+      return cur[tf];
+    }
+    if (bucket > c.bucket) {
+      push(tf, c);
+      // пустые интервалы закрываются свечой-точкой close=open (§16.6)
+      for (let b = c.bucket + 1; b < bucket; b++) push(tf, { bucket: b, t: b * sec, o: c.c, h: c.c, l: c.c, c: c.c, v: 0 });
+      cur[tf] = { bucket, t: bucket * sec, o: c.c, h: c.c, l: c.c, c: c.c, v: 0 };
+    }
+    return cur[tf];
+  }
+  return {
+    TFS, buffers, cur,
+    addTick(pc, qt) {
+      for (const tf in TFS) {
+        const c = roll(tf);
+        if (pc > c.h) c.h = pc;
+        if (pc < c.l) c.l = pc;
+        c.c = pc; c.v += qt;
+      }
+      bus.emit('candles');
+    },
+    onTime() { for (const tf in TFS) roll(tf); },
+    // серия для рендера: буфер + текущая (буферы параллельные, пересборки нет — §16.7)
+    series(tf, n) {
+      const b = buffers[tf];
+      const out = b.slice(Math.max(0, b.length - n));
+      if (cur[tf]) out.push(cur[tf]);
+      return out;
+    },
+  };
+})();
+
+/* ================= core/bots (§7) ================= */
+const bots = (() => {
+  const MM_IDS = ['mm1', 'mm2', 'mm3'];
+  const mmState = MM_IDS.map(id => ({ id, nextAt: 0, orders: [] }));
+  let whaleNext = 0;
+  const b = {
+    fv: 100.0, M: 100.0,
+    setFV(v) { this.fv = clamp(v, 1, 100000); this.M = this.fv; },
+    tick() {
+      if (breaker.halted) return; // боты замирают (§6.6)
+      // FV: Орнштейн—Уленбек с дрейфующим центром (§7.1)
+      this.fv += 0.02 * (this.M - this.fv) + this.fv * 0.004 * gauss();
+      this.M += this.M * gauss() * 0.0005;
+      this.fv = clamp(this.fv, 1, 100000);
+      this.M = clamp(this.M, 1, 100000);
+
+      // маркет-мейкеры ×3 (§7.2)
+      for (const mm of mmState) {
+        if (clock.tickCount >= mm.nextAt) {
+          for (const id of mm.orders) market.cancel(id);
+          mm.orders = [];
+          const half = rnd(0.0015, 0.004); // спред 0.3–0.8%
+          for (let i = 0; i < 6; i++) {
+            const off = half + i * rnd(0.0008, 0.0018);
+            const qb = Math.max(1, Math.round(logn(8, 0.7) * 10));
+            const qa = Math.max(1, Math.round(logn(8, 0.7) * 10));
+            const rb = market.submit({ owner: mm.id, side: 'buy', type: 'limit', price: Math.round(this.fv * (1 - off) * 100), qty: qb });
+            const ra = market.submit({ owner: mm.id, side: 'sell', type: 'limit', price: Math.round(this.fv * (1 + off) * 100), qty: qa });
+            if (rb.ok && rb.id) mm.orders.push(rb.id);
+            if (ra.ok && ra.id) mm.orders.push(ra.id);
+          }
+          mm.nextAt = clock.tickCount + rndInt(2, 4); // каждые 1–2 с
+        }
+      }
+
+      // ретейл-шум (§7.3): λ = 0.8/с → 0.4/тик
+      const n = poisson(0.4);
+      for (let i = 0; i < n; i++) {
+        const c1 = candles.cur.m1;
+        const green = c1 ? c1.c >= c1.o : true;
+        const pBuy = green ? 0.55 : 0.45; // моментум-смещение
+        const side = Math.random() < pBuy ? 'buy' : 'sell';
+        const qty = Math.max(1, Math.round(logn(3, 0.8) * 10));
+        market.submit({ owner: 'retail', side, type: 'market', qty });
+      }
+
+      // кит (§7.3): раз в 4–10 минут
+      if (!whaleNext) whaleNext = clock.tickCount + rndInt(480, 1200);
+      if (clock.tickCount >= whaleNext) {
+        const side = Math.random() < 0.5 ? 'buy' : 'sell';
+        const oppKey = side === 'buy' ? 'ask' : 'bid';
+        let depthQ = 0;
+        for (const pc of market.book[oppKey].prices) for (const o of market.book[oppKey].levels.get(pc)) depthQ += o.rem;
+        const qty = Math.max(10, Math.round(depthQ * rnd(0.15, 0.35)));
+        market.submit({ owner: 'whale', side, type: 'market', qty });
+        whaleNext = clock.tickCount + rndInt(480, 1200);
+        bus.emit('whale', side);
+      }
+    },
+  };
+  return b;
+})();
+
+/* ================= core/news (§7.4) ================= */
+const news = (() => {
+  const POOL = [
+    ['Ничего не произошло. Инвесторы воодушевлены', 0.03],
+    ['Учёные подтвердили: там действительно ничего нет', 0.06],
+    ['Кто-то что-то нашёл. Рынок в панике', -0.08],
+    ['Илон Маск ничего не написал об NCHG', 0.05],
+    ['ЦБ ничего не прокомментировал', -0.04],
+    ['Аналитики: ничего не предвещало', -0.02],
+    ['Инсайдеры продолжают скупать ничего', 0.07],
+    ['Хардфорк: теперь ничего два. Держатели растеряны', -0.11],
+    ['Уоррен Баффет: всю жизнь я инвестировал не в то', 0.09],
+    ['Опрос: 9 из 10 не знают, что у них есть NCHG', 0.02],
+    ['Регулятор запретил ничего. Ничего не изменилось', 0.01],
+    ['В пустоте обнаружена ещё одна пустота. Предложение удвоилось', -0.09],
+    ['Крупный фонд перевёл резервы в ничего «для надёжности»', 0.08],
+    ['Ничего подешевело. Покупатели: «наконец-то»', -0.03],
+    ['Найден кошелёк основателя. В нём ничего', 0.04],
+    ['Майнеры отчитались: за квартал добыто 0 NCHG. План выполнен', 0.02],
+    ['Психологи: владение ничем снижает тревожность', 0.05],
+    ['Завтра важные данные. Каких — не уточняется', -0.05],
+    ['Слухи о листинге на настоящей бирже. Биржа: «где?»', 0.10],
+    ['Пятница', 0, 'friday'],
+  ];
+  let bag = [], nextAt = 0;
+  const feed = [];
+  function refill() { bag = POOL.slice(); for (let i = bag.length - 1; i > 0; i--) { const j = rndInt(0, i); [bag[i], bag[j]] = [bag[j], bag[i]]; } }
+  return {
+    feed,
+    fire(item) {
+      const [title, s, tag] = item;
+      bots.setFV(bots.fv * (1 + s));
+      feed.unshift({ title, s, t: Date.now() });
+      if (feed.length > 6) feed.length = 6;
+      bus.emit('news', { title, s, tag });
+    },
+    tick() {
+      if (!nextAt) nextAt = clock.tickCount + rndInt(80, 180); // 40–90 с
+      if (clock.tickCount >= nextAt) {
+        if (!bag.length) refill();
+        this.fire(bag.pop());
+        nextAt = clock.tickCount + rndInt(80, 180);
+      }
+    },
+  };
+})();
+
+/* ================= core/futures (§9) ================= */
+const futures = (() => {
+  const BOT_NAMES = ['ставлю-всё', 'сто-иксов', 'плечо-судьбы', 'верю-в-отскок', 'без-стопов', 'рискну-ещё'];
+  const botPos = [];
+  function liqPrice(entry, side, L) {
+    return Math.round(side === 'long' ? entry * (1 - 1 / L + 0.005) : entry * (1 + 1 / L - 0.005));
+  }
+  const f = {
+    pos: null, // {side, qty, entry, lev, margin, liq, openedTick}
+    liqPrice,
+    upnl() {
+      if (!this.pos) return 0;
+      const p = this.pos, mark = market.lastPrice;
+      const dir = p.side === 'long' ? 1 : -1;
+      return Math.max(-p.margin, Math.round(dir * (mark - p.entry) * p.qty / 10));
+    },
+    open(side, qtyTenths, lev) {
+      if (this.pos) return { ok: false, reason: 'exists' };
+      lev = clamp(Math.round(lev), 2, 100);
+      const qty = Math.round(qtyTenths);
+      if (!(qty > 0)) return { ok: false, reason: 'qty' };
+      const entry = market.lastPrice;
+      const margin = Math.ceil(valCents(entry, qty) / lev);
+      const acc = market.accounts.you;
+      if (acc.f < margin) return { ok: false, reason: 'funds' };
+      acc.f -= margin;
+      this.pos = { side, qty, entry, lev, margin, liq: liqPrice(entry, side, lev), openedTick: clock.tickCount };
+      pushHistory('fut', (side === 'long' ? 'лонг' : 'шорт') + ' ×' + lev + ' · ' + fmtQ(qty) + ' NCHG @ ' + fmtF(entry), -margin, 'изолированная маржа');
+      bus.emit('futures'); bus.emit('balance');
+      return { ok: true };
+    },
+    close() {
+      if (!this.pos) return;
+      const pnl = this.upnl();
+      const p = this.pos;
+      market.accounts.you.f += p.margin + pnl; // pnl ≥ −margin: отрицательный остаток невозможен (§16.9)
+      state.player.rPnL += pnl;
+      pushHistory('fut', 'закрыт ' + (p.side === 'long' ? 'лонг' : 'шорт') + ' ×' + p.lev, p.margin + pnl, 'PnL ' + fmtF(pnl) + ' Ф');
+      this.pos = null;
+      bus.emit('futures'); bus.emit('balance');
+    },
+    _hopeDay() {
+      const dk = new Date().toDateString();
+      if (dk !== state.hopesDay) { state.hopesDay = dk; state.hopes = 0; }
+    },
+    _feedHallLiq(name, loss, lev) {
+      if (!state.hall.liq || loss > state.hall.liq.loss) state.hall.liq = { name, loss, lev };
+    },
+    tick() {
+      const mark = market.lastPrice;
+      this._hopeDay();
+      // игрок
+      if (this.pos) {
+        const p = this.pos;
+        const hit = p.side === 'long' ? mark <= p.liq : mark >= p.liq;
+        if (hit) {
+          state.burned += p.margin; // маржа сгорает в пустоту
+          state.hopes++;
+          state.player.rPnL -= p.margin;
+          state.player.liqCount++;
+          this._feedHallLiq('вы', p.margin, p.lev);
+          pushHistory('fut', 'ликвидация ' + (p.side === 'long' ? 'лонга' : 'шорта') + ' ×' + p.lev, -p.margin, 'маржа сгорела в пустоту');
+          this.pos = null;
+          score.unlock('liq');
+          if (state.player.liqCount >= 10) score.unlock('phoenix');
+          bus.emit('liquidated', p);
+          bus.emit('futures'); bus.emit('balance');
+        }
+      }
+      // боты тоже ликвидируются и пополняют счётчик (§9)
+      if (botPos.length < 6 && Math.random() < 0.02) {
+        const side = Math.random() < 0.5 ? 'long' : 'short';
+        const lev = rndInt(5, 100);
+        const qty = Math.max(10, Math.round(logn(20, 0.8) * 10));
+        botPos.push({ name: BOT_NAMES[rndInt(0, BOT_NAMES.length - 1)] + '-' + rndInt(1, 99), side, qty, entry: mark, lev, liq: liqPrice(mark, side, lev), margin: Math.ceil(valCents(mark, qty) / lev) });
+      }
+      for (let i = botPos.length - 1; i >= 0; i--) {
+        const p = botPos[i];
+        const hit = p.side === 'long' ? mark <= p.liq : mark >= p.liq;
+        if (hit) {
+          botPos.splice(i, 1);
+          state.hopes++;
+          this._feedHallLiq(p.name, p.margin, p.lev);
+          bus.emit('hopes');
+        } else if (Math.random() < 0.004) botPos.splice(i, 1); // кто-то закрылся сам
+      }
+    },
+  };
+  return f;
+})();
+
+/* ================= core/p2p (§8) ================= */
+const p2p = (() => {
+  const METHODS = [
+    'добрым словом',
+    'крепким рукопожатием (онлайн)',
+    'переводом на карту, которую вы не скажете',
+    'СБП — система быстрых пожатий',
+    'наличными при встрече, которая не состоится',
+    'благодарным взглядом',
+    '«спасибо» на счёт',
+    'бартер: ничего на ничего',
+  ];
+  const BOT_MAKERS = [
+    'тихий-мейкер', 'обмен-без-обмана', 'скупщик-пустоты', 'вера-петровна', 'p2p-легенда',
+    'нал-и-точка', 'быстрые-пожатия', 'гарант-ничего', 'полцарства-за-ничего', 'юля-эскроу',
+  ];
+  let aid = 1, did = 1;
+  const ads = [], deals = [];
+  const ratings = {}; // id -> {done, total, thanks}
+  function rating(id) {
+    if (id === 'you') {
+      const r = state.p2pRating;
+      const base = r.total ? Math.round(r.done / r.total * 100) : 100;
+      const cs = r.confirmSec || [];
+      const avg = cs.length ? Math.round(cs.reduce((a, b) => a + b, 0) / cs.length) : null;
+      return { pct: clamp(base + (r.adj || 0), 0, 100), deals: r.done, thanks: r.thanks, avgConfirm: avg };
+    }
+    if (!ratings[id]) ratings[id] = { done: rndInt(12, 480), total: 0, thanks: rndInt(3, 120), pct: rndInt(82, 100), avgConfirm: rndInt(25, 90) };
+    const r = ratings[id];
+    return { pct: r.pct, deals: r.done, thanks: r.thanks, avgConfirm: r.avgConfirm };
+  }
+  function adjRating(id, d) {
+    if (!d) return;
+    if (id === 'you') { state.p2pRating.adj = (state.p2pRating.adj || 0) + d; return; }
+    rating(id); ratings[id].pct = clamp(ratings[id].pct + d, 0, 100);
+  }
+  function adPrice(ad) {
+    return ad.priceMode === 'fix' ? ad.priceFix : Math.round(market.lastPrice * ad.pct / 100);
+  }
+  const P = {
+    METHODS, ads, deals, rating,
+    createAd(p) {
+      const ad = {
+        id: 'A' + (aid++), owner: p.owner || 'you', name: p.name || 'вы',
+        side: p.side, // 'buy' — владелец покупает NCHG; 'sell' — продаёт
+        priceMode: p.priceMode, priceFix: p.priceFix || 0, pct: p.pct || 100,
+        min: p.min, max: p.max, methods: p.methods, minRating: p.minRating || 0,
+      };
+      ads.unshift(ad);
+      bus.emit('p2p');
+      return ad;
+    },
+    removeAd(id) { const i = ads.findIndex(a => a.id === id); if (i >= 0) { ads.splice(i, 1); bus.emit('p2p'); } },
+    // тейкер открывает сделку (§8.2)
+    openDeal(adId, qtyTenths, takerId) {
+      const ad = ads.find(a => a.id === adId);
+      if (!ad) return { ok: false, reason: 'no-ad' };
+      takerId = takerId || 'you';
+      const qty = Math.round(qtyTenths);
+      if (!(qty > 0)) return { ok: false, reason: 'qty' };
+      const price = adPrice(ad);
+      const val = valCents(price, qty);
+      if (val < ad.min || val > ad.max) return { ok: false, reason: 'limits' };
+      // продавец NCHG: у 'sell'-объявления — владелец, у 'buy' — тейкер
+      const sellerId = ad.side === 'sell' ? ad.owner : takerId;
+      const buyerId = ad.side === 'sell' ? takerId : ad.owner;
+      const sAcc = market.accounts[sellerId] || (market.accounts[sellerId] = { f: 0, resF: 0, nchg: 1000000, resN: 0, escN: 0 });
+      if (sAcc.nchg < qty) return { ok: false, reason: 'funds' };
+      sAcc.nchg -= qty; sAcc.escN += qty; // эскроу
+      const deal = {
+        id: 'D' + (did++), adId, adName: ad.name, sellerId, buyerId, qty,
+        price, mark: market.lastPrice, // §8.6: mark на момент сделки
+        status: 'escrow', createdTick: clock.tickCount,
+        deadlineTick: clock.tickCount + 15 * 60 * TICKS_PER_SEC, // 15 минут
+        disputeUsed: false, botActAt: 0, method: ad.methods[0],
+      };
+      if (sellerId === 'you' || buyerId === 'you') {
+        if (state.p2pRating) state.p2pRating.total++;
+      }
+      if (buyerId !== 'you') deal.botActAt = clock.tickCount + rndInt(40, 240); // бот «оплатит» через 20–120 с
+      deals.unshift(deal);
+      bus.emit('p2p'); bus.emit('balance');
+      return { ok: true, deal };
+    },
+    markPaid(dealId) {
+      const d = deals.find(x => x.id === dealId);
+      if (!d || d.status !== 'escrow') return false;
+      d.status = 'paid'; d.paidTick = clock.tickCount;
+      bus.emit('p2p');
+      return true;
+    },
+    confirm(dealId) {
+      const d = deals.find(x => x.id === dealId);
+      if (!d || d.status !== 'paid') return false;
+      this._settle(d, true);
+      return true;
+    },
+    _settle(d, buyerGets) {
+      const sAcc = market.accounts[d.sellerId], bAcc = market.accounts[d.buyerId];
+      sAcc.escN -= d.qty;
+      if (buyerGets) { bAcc.nchg += d.qty; d.status = 'done'; }
+      else { sAcc.nchg += d.qty; d.status = 'returned'; }
+      if (buyerGets) {
+        if (d.sellerId === 'you' || d.buyerId === 'you') state.p2pRating.done++;
+        adjRating(d.sellerId, 0); adjRating(d.buyerId, 0);
+        score.onP2P(d);
+      }
+      bus.emit('p2p'); bus.emit('balance');
+    },
+    cancel(dealId) {
+      const d = deals.find(x => x.id === dealId);
+      if (!d || d.status !== 'escrow') return false;
+      const sAcc = market.accounts[d.sellerId];
+      sAcc.escN -= d.qty; sAcc.nchg += d.qty;
+      d.status = 'cancelled';
+      bus.emit('p2p'); bus.emit('balance');
+      return true;
+    },
+    dispute(dealId) {
+      const d = deals.find(x => x.id === dealId);
+      if (!d || d.status !== 'paid' || d.disputeUsed) return false; // монетка одна на сделку (§16.11)
+      d.disputeUsed = true;
+      d.status = 'dispute';
+      d.verdictAt = clock.tickCount + 20; // администрация изучает материалы 10 секунд
+      bus.emit('p2p');
+      return true;
+    },
+    _coin(d) {
+      const buyerWins = Math.random() < 0.5; // капля-монетка, 50/50
+      d.verdict = buyerWins ? 'оплата ничем подтверждена' : 'оплата ничем не подтверждена';
+      const loser = buyerWins ? d.sellerId : d.buyerId;
+      adjRating(loser, -5);
+      if (loser === 'you') state.p2pRating.total += 0; // % завершённых упадёт через done/total
+      d.loser = loser;
+      this._settle(d, buyerWins);
+      d.status = 'resolved';
+      bus.emit('p2p-verdict', d);
+    },
+    seedBots() {
+      const n = rndInt(6, 10);
+      for (let i = 0; i < n; i++) {
+        const name = BOT_MAKERS[i % BOT_MAKERS.length];
+        const side = Math.random() < 0.5 ? 'buy' : 'sell';
+        const fix = Math.random() < 0.4;
+        this.createAd({
+          owner: 'p2b_' + i, name, side,
+          priceMode: fix ? 'fix' : 'pct',
+          priceFix: Math.round(market.lastPrice * rnd(0.9, 1.1)),
+          pct: rndInt(90, 110),
+          min: 10000, max: 100000000,
+          methods: METHODS.filter(() => Math.random() < 0.4).slice(0, 3).concat(METHODS[rndInt(0, 7)]).slice(0, 3),
+          minRating: 0,
+        });
+      }
+    },
+    // бот открывает сделку на объявлении игрока (для теста и жизни ленты)
+    botTake(adId, qtyTenths) {
+      const ad = ads.find(a => a.id === adId);
+      if (!ad) return null;
+      const botId = 'p2t_' + rndInt(1, 9999);
+      market.accounts[botId] = { f: 100000000, resF: 0, nchg: 1000000, resN: 0, escN: 0 };
+      const price = adPrice(ad);
+      const q = qtyTenths || clamp(Math.round(ad.min / price * 10) + 10, 10, 1000);
+      const r = this.openDeal(adId, q, botId);
+      if (!r.ok) return null;
+      r.deal.botName = BOT_MAKERS[rndInt(0, BOT_MAKERS.length - 1)];
+      return r.deal;
+    },
+    tick() {
+      for (const d of deals) {
+        // таймауты живут на clock (§16.10)
+        if (d.status === 'escrow' && clock.tickCount >= d.deadlineTick) { this.cancel(d.id); bus.emit('p2p-timeout', d); continue; }
+        if (d.status === 'dispute' && clock.tickCount >= d.verdictAt) { this._coin(d); continue; }
+        // бот-контрагент действует
+        if (d.botActAt && clock.tickCount >= d.botActAt) {
+          d.botActAt = 0;
+          if (d.status === 'escrow' && d.buyerId !== 'you') {
+            this.markPaid(d.id);
+            if (Math.random() < 0.05) { this.dispute(d.id); } // 5% — спор, чтобы игрок увидел арбитраж
+          } else if (d.status === 'paid' && d.sellerId !== 'you') {
+            this.confirm(d.id);
+          }
+        }
+        // бот-продавец подтверждает оплату игрока
+        if (d.status === 'paid' && d.sellerId !== 'you' && !d.botActAt) d.botActAt = clock.tickCount + rndInt(20, 80);
+      }
+      // изредка бот приходит в объявление игрока
+      if (Math.random() < 0.004) {
+        const mine = ads.filter(a => a.owner === 'you');
+        if (mine.length) this.botTake(mine[rndInt(0, mine.length - 1)].id);
+      }
+    },
+  };
+  return P;
+})();
+
+/* ================= core/score (§10, §11, достижения) ================= */
+const ACH = [
+  { id: 'first', t: 'Первая кровь', d: 'первая сделка' },
+  { id: 'bottom', t: 'Поймал дно', d: 'купил в 3% от минимума дня' },
+  { id: 'top', t: 'Продал на хаях', d: 'продал в 3% от максимума дня' },
+  { id: 'hamster', t: 'Хомяк', d: 'купил на 100% баланса' },
+  { id: 'diamond', t: 'Алмазные руки', d: 'держал ≥ 24 рыночных часа' },
+  { id: 'paper', t: 'Бумажные руки', d: 'продал через < 60 с' },
+  { id: 'liq', t: 'Ликвидирован', d: 'первая ликвидация' },
+  { id: 'phoenix', t: 'Феникс', d: '10 ликвидаций' },
+  { id: 'maker', t: 'Мейкер', d: '100 исполненных лимиток' },
+  { id: 'patron', t: 'Меценат', d: 'продал в P2P на 10% ниже рынка' },
+  { id: 'void', t: 'Свидетель пустоты', d: 'долистал литпейпер' },
+  { id: 'queue', t: 'Пришёл из очереди', d: 'пасхалка ?from=stoi' },
+];
+const score = (() => {
+  const LEGENDS = [
+    'шортил-с-2024', 'людмила-лонг', 'однажды-в-плюсе', 'терпила-института', 'внук-брокера',
+    'держу-до-нуля', 'алла-скальпер', 'после-работы', 'фибоначчи-лично', 'сосед-сказал',
+    'тихий-кит', 'жду-откуп', 'минус-депозит', 'стоп-лосс-потом', 'купил-на-хаях',
+    'вера-в-рынок', 'наливай-ещё', 'две-сделки', 'портфель-мечты', 'дно-пробито',
+  ];
+  const legends = LEGENDS.map((name, i) => ({
+    name,
+    roi: rnd(-0.6, 1.2) * (i < 10 ? 1 : 0.5),
+    drift: rnd(-0.0004, 0.0006),
+  }));
+  const s = {
+    legends,
+    equity() {
+      const a = market.accounts.you;
+      const mark = market.lastPrice;
+      let e = a.f + a.resF + valCents(mark, a.nchg + a.resN + a.escN);
+      if (futures.pos) e += futures.pos.margin + futures.upnl();
+      return e;
+    },
+    roi() {
+      const inv = Math.max(1, state.player.invested);
+      return (this.equity() - state.player.p2pOffset - inv) / inv;
+    },
+    unlock(id) {
+      if (state.achievements[id]) return false;
+      state.achievements[id] = Date.now();
+      const a = ACH.find(x => x.id === id);
+      bus.emit('achievement', a);
+      persist.save();
+      return true;
+    },
+    // спот-сделка: обе стороны могут быть игроком
+    onFill(maker, taker, pc, qt, fee) {
+      for (const o of [maker, taker]) {
+        if (o.owner !== 'you') continue;
+        const isMaker = o === maker;
+        const pl = state.player;
+        this.unlock('first');
+        if (o.side === 'buy') {
+          const newQty = pl.posQty + qt;
+          pl.avgPc = newQty > 0 ? (pl.avgPc * pl.posQty + pc * qt) / newQty : 0;
+          pl.posQty = newQty;
+          pl.lastBuyReal = Date.now();
+          if (pl.firstLotSim == null) pl.firstLotSim = clock.simSec;
+          if (pc <= market.dayLow * 1.03) this.unlock('bottom');
+        } else {
+          if (pl.posQty > 0) pl.rPnL += Math.round((pc - pl.avgPc) * Math.min(qt, pl.posQty) / 10);
+          pl.posQty = Math.max(0, pl.posQty - qt);
+          if (pl.posQty === 0) { pl.avgPc = 0; pl.firstLotSim = null; }
+          if (pc >= market.dayHigh * 0.97) this.unlock('top');
+          if (pl.lastBuyReal && Date.now() - pl.lastBuyReal < 60000) this.unlock('paper');
+        }
+        if (isMaker) {
+          pl.makerFills++;
+          if (pl.makerFills >= 100) this.unlock('maker');
+        }
+        pushHistory('spot', (o.side === 'buy' ? 'покупка' : 'продажа') + ' ' + fmtQ(qt) + ' NCHG @ ' + fmtF(pc),
+          (o.side === 'buy' ? -1 : 1) * valCents(pc, qt),
+          isMaker ? 'мейкер, комиссия 0%' : 'тейкер, комиссия ' + fmtF(fee) + ' Ф');
+      }
+    },
+    // P2P: для рейтинга учтено по рынку (§8.6)
+    onP2P(d) {
+      const pl = state.player;
+      const markVal = valCents(d.mark, d.qty);
+      if (d.buyerId === 'you') {
+        pl.p2pOffset += markVal;
+        const newQty = pl.posQty + d.qty;
+        pl.avgPc = newQty > 0 ? (pl.avgPc * pl.posQty + d.mark * d.qty) / newQty : 0;
+        pl.posQty = newQty;
+        pushHistory('p2p', 'p2p-покупка ' + fmtQ(d.qty) + ' NCHG @ ' + fmtF(d.price), null, 'для рейтинга учтено по рынку: ' + fmtF(d.mark));
+      }
+      if (d.sellerId === 'you') {
+        pl.p2pOffset -= markVal;
+        if (pl.posQty > 0) pl.rPnL += Math.round((d.mark - pl.avgPc) * Math.min(d.qty, pl.posQty) / 10);
+        pl.posQty = Math.max(0, pl.posQty - d.qty);
+        if (pl.posQty === 0) pl.avgPc = 0;
+        if (d.price <= d.mark * 0.9) this.unlock('patron');
+        pushHistory('p2p', 'p2p-продажа ' + fmtQ(d.qty) + ' NCHG @ ' + fmtF(d.price), null, 'для рейтинга учтено по рынку: ' + fmtF(d.mark));
+      }
+    },
+    faucet() {
+      const a = market.accounts.you;
+      const eq = a.f + a.resF + valCents(market.lastPrice, a.nchg + a.resN + a.escN);
+      if (eq >= 100000) return { ok: false, reason: 'rich' }; // ниже 1 000 Ф
+      const now = Date.now();
+      if (now - state.faucet.last < 600000) return { ok: false, reason: 'cooldown', wait: 600000 - (now - state.faucet.last) };
+      state.faucet.last = now;
+      a.f += 50000;
+      state.player.invested += 50000; // кран входит во «вложено» — рейтинг не накрутить (§4, §17.2)
+      pushHistory('faucet', 'подаяние', 50000, 'учтено во «вложено»');
+      bus.emit('balance');
+      persist.save();
+      return { ok: true };
+    },
+    board() {
+      const rows = legends.map(l => ({ name: l.name, roi: l.roi, you: false }));
+      rows.push({ name: 'вы', roi: this.roi(), you: true });
+      rows.sort((a, b) => b.roi - a.roi);
+      return rows;
+    },
+    tick() {
+      // легенды-боты: правдоподобные кривые ROI
+      for (const l of legends) l.roi = clamp(l.roi + l.drift + gauss() * 0.003, -0.99, 9);
+      // вечный зал
+      const b = this.board();
+      const top = b[0], bot = b[b.length - 1];
+      if (!state.hall.best || top.roi > state.hall.best.roi) state.hall.best = { name: top.name, roi: top.roi };
+      if (!state.hall.worst || bot.roi < state.hall.worst.roi) state.hall.worst = { name: bot.name, roi: bot.roi };
+      // алмазные руки
+      const pl = state.player;
+      if (pl.firstLotSim != null && pl.posQty > 0 && clock.simSec - pl.firstLotSim >= 24 * 3600) this.unlock('diamond');
+      // сезон = календарный месяц (§11)
+      const sid = seasonId();
+      if (sid !== state.season) {
+        state.season = sid;
+        state.player.rPnL = 0;
+        state.player.invested = Math.max(1, this.equity() - state.player.p2pOffset);
+        bus.emit('season');
+      }
+    },
+  };
+  return s;
+})();
+
+/* ================= академия: контент (§12) ================= */
+const LESSONS = [
+  {
+    id: 'candles', t: 'Свечи',
+    p: [
+      'Свеча — это сжатая история цены за отрезок времени: минуту, пять минут, час. У неё четыре числа — OHLC: open (первая цена отрезка), high (максимум), low (минимум) и close (последняя цена). Тело свечи рисуется между open и close, тонкие фитили — до максимума и минимума.',
+      'Если close выше open, свеча зелёная: за этот отрезок покупатели пересилили. Если ниже — красная. Длина тела показывает силу движения, а фитили — куда цену успели сводить и откуда её вернули. Длинный фитиль — это отвергнутая цена: туда сходили, но там не удержались.',
+      'Таймфрейм — размер отрезка. Одна часовая свеча состоит из шестидесяти минутных, и обе картинки правдивы одновременно. Короткие таймфреймы показывают шум и микродвижения, длинные — тренд. Смотреть только на один — как судить о фильме по одному кадру.',
+    ],
+    quiz: [
+      { q: 'Длинный верхний фитиль зелёной свечи означает…', o: ['цену выше уже никто не видел', 'цену сводили выше, но продавцы вернули её вниз', 'объём торгов вырос'], c: 1 },
+      { q: 'Что такое close?', o: ['максимум за отрезок', 'последняя цена отрезка', 'средняя цена'], c: 1 },
+      { q: 'Одна свеча 1ч — это…', o: ['60 минутных свечей, сжатых в одну', 'случайное число', 'средняя из 24 часов'], c: 0 },
+    ],
+  },
+  {
+    id: 'orderbook', t: 'Стакан и спред',
+    p: [
+      'Стакан — это список всех живых лимитных заявок. Сверху — асики (ask): цены, по которым готовы продать. Снизу — биды (bid): цены, по которым готовы купить. Между лучшим бидом и лучшим аском — зазор, который называется спредом.',
+      'Спред — это цена нетерпения. Хотите купить прямо сейчас — платите по аску; хотите продать немедленно — отдаёте по биду. Узкий спред означает ликвидный рынок: продавцы и покупатели стоят плотно и конкурируют. Широкий — рынок тонкий, и вход-выход обойдётся дорого.',
+      'Глубина уровня — сколько объёма стоит на каждой цене. Большая стенка на уровне может затормозить движение: чтобы пройти её, нужно выкупить весь объём. Поэтому трейдеры смотрят не только на цену, но и на то, сколько её.',
+    ],
+    quiz: [
+      { q: 'Узкий спред говорит о…', o: ['высокой ликвидности рынка', 'скором падении', 'том, что торги остановлены'], c: 0 },
+      { q: 'Ask — это…', o: ['цена, по которой готовы купить', 'цена, по которой готовы продать', 'комиссия биржи'], c: 1 },
+      { q: 'Большая стенка объёма на уровне…', o: ['ничего не значит', 'может затормозить движение цены', 'всегда фальшивая'], c: 1 },
+    ],
+  },
+  {
+    id: 'limitmarket', t: 'Лимит и маркет',
+    p: [
+      'Лимитная заявка — «куплю по 99 или дешевле». Она встаёт в стакан и ждёт. Вы — мейкер: делаете рынок, добавляете ликвидность. Маркет-заявка — «куплю сейчас по любой цене». Она немедленно съедает чужие лимитки. Вы — тейкер: забираете ликвидность.',
+      'Биржи любят мейкеров: без них стакан пуст. Поэтому комиссия мейкера обычно ниже — у нас 0% против 0.1% у тейкера. За скорость платят, за терпение — нет.',
+      'У маркета есть скрытая цена — проскальзывание. Крупная маркет-заявка съедает уровень за уровнем, и средняя цена исполнения оказывается хуже, чем верх стакана. Чем тоньше рынок и больше объём, тем дороже спешка.',
+    ],
+    quiz: [
+      { q: 'Кто платит комиссию выше?', o: ['мейкер', 'тейкер', 'оба поровну'], c: 1 },
+      { q: 'Проскальзывание — это…', o: ['исполнение хуже ожидаемой цены из-за глубины стакана', 'ошибка биржи', 'вид комиссии мейкера'], c: 0 },
+      { q: 'Лимитка, которая сразу исполнилась о встречную заявку…', o: ['всё равно мейкерская', 'исполнилась как тейкер', 'отменяется'], c: 1 },
+    ],
+  },
+  {
+    id: 'volume', t: 'Объём и ликвидность',
+    p: [
+      'Цену двигают не мнения, а сделки. Когда маркет-покупка съедает все асики на уровне, лучшей ценой становится следующий, более высокий уровень — цена выросла. Никакой мистики: только заявки и их объёмы.',
+      'Поэтому кит — участник с большим объёмом — делает свечу в одиночку: его маркет-ордер проходит через несколько уровней сразу, оставляя длинное тело и фитиль. После такого выброса рынок часто «переваривает» движение и возвращается.',
+      'Ликвидность — способность рынка принять ваш объём без сдвига цены. На ликвидном рынке можно войти и выйти незаметно. На тонком — ваша собственная заявка становится новостью.',
+    ],
+    quiz: [
+      { q: 'Почему кит делает свечу?', o: ['его ордер проходит сразу несколько уровней стакана', 'биржа рисует её вручную', 'из-за комиссий'], c: 0 },
+      { q: 'Цена растёт, когда…', o: ['покупатели съедают асики и лучшая цена сдвигается вверх', 'все просто верят в рост', 'администрация решила'], c: 0 },
+      { q: 'Ликвидность — это…', o: ['скорость интернета', 'способность рынка принять объём без сдвига цены', 'количество новостей'], c: 1 },
+    ],
+  },
+  {
+    id: 'trend', t: 'Тренд и скользящие',
+    p: [
+      'Скользящая средняя (MA) — среднее закрытие последних N свечей. MA(7) реагирует быстро, MA(25) — медленно. Вместе они показывают, куда наклонён рынок: цена выше обеих — тренд вверх, ниже — вниз.',
+      'Пересечения — классический сигнал: быстрая MA(7) пересекает медленную MA(25) снизу вверх — импульс роста («золотой крест»), сверху вниз — слабость. Сигнал запаздывает: средние считаются по прошлому. Это плата за сглаживание.',
+      '«Тренд — друг» — не поэзия, а статистика: движения чаще продолжаются, чем разворачиваются. Торговать против тренда — значит каждый раз ставить на менее вероятный исход. Иногда это срабатывает. Чаще — нет.',
+    ],
+    quiz: [
+      { q: 'MA(7) против MA(25): какая быстрее реагирует на цену?', o: ['MA(7)', 'MA(25)', 'одинаково'], c: 0 },
+      { q: 'MA(7) пересекла MA(25) сверху вниз. Это…', o: ['сигнал силы', 'сигнал слабости', 'ничего'], c: 1 },
+      { q: 'Главный недостаток скользящих…', o: ['запаздывание', 'сложная формула', 'работают только на акциях'], c: 0 },
+    ],
+  },
+  {
+    id: 'rsi', t: 'RSI',
+    p: [
+      'RSI(14) — индекс относительной силы: отношение средних приростов к средним падениям за 14 свечей, приведённое к шкале 0–100. Выше 70 — рынок «перекуплен»: рост шёл слишком быстро. Ниже 30 — «перепродан».',
+      'Ловушка в том, что в сильном тренде RSI может стоять в зоне перекупленности неделями, пока цена продолжает расти. Перекупленность — не команда «продавай», а замечание «рост был резким». Контекст решает.',
+      'Полезнее крайних зон бывают дивергенции: цена ставит новый максимум, а RSI — нет. Значит, импульс выдыхается. Но и это — вероятность, не гарантия. Индикатор — термометр, а не хрустальный шар.',
+    ],
+    quiz: [
+      { q: 'RSI выше 70 означает…', o: ['немедленно продавать', 'рост был быстрым — рынок перекуплен, но тренд может продолжиться', 'ошибку данных'], c: 1 },
+      { q: 'Дивергенция — это…', o: ['цена ставит максимум, а RSI — нет', 'RSI равен цене', 'два RSI на графике'], c: 0 },
+      { q: 'RSI считается по…', o: ['новостям', 'приростам и падениям последних свечей', 'объёму стакана'], c: 1 },
+    ],
+  },
+  {
+    id: 'risk', t: 'Риск',
+    p: [
+      'Стоп-лосс — заявка, которая закрывает позицию при движении против вас. Это не признание слабости, а страховка: вы заранее решаете, сколько готовы потерять, пока способны думать спокойно. Здесь это стоп-маркет: цена пересекла триггер — ушла маркет-заявка.',
+      'Правило размера позиции: рисковать 1–2% счёта на сделку. Не «вложить 1–2%», а потерять не больше 1–2%, если сработает стоп. Тогда даже серия из десяти ошибок подряд оставляет вас в игре. Просадка 50% требует роста на 100%, чтобы вернуться — арифметика против героизма.',
+      'Плечо умножает и прибыль, и убыток. При плече L достаточно движения примерно на 1/L против вас — и маржа кончилась: это ликвидация. Формула из комнаты ×100: цена ликвидации лонга ≈ вход × (1 − 1/L + 0.005). При ×100 хватает движения меньше процента. Поэтому дверь туда подписана «казино».',
+    ],
+    quiz: [
+      { q: 'Правило 1–2% — это…', o: ['вкладывать 1–2% счёта', 'терять не больше 1–2% счёта на сделке, если сработает стоп', 'брать плечо 1–2×'], c: 1 },
+      { q: 'При плече ×100 ликвидация наступает при движении против вас примерно на…', o: ['1%', '10%', '50%'], c: 0 },
+      { q: 'Стоп-лосс нужен, чтобы…', o: ['заранее ограничить убыток', 'увеличить прибыль', 'обмануть маркет-мейкера'], c: 0 },
+    ],
+  },
+  {
+    id: 'p2p', t: 'P2P и эскроу',
+    p: [
+      'P2P — сделка напрямую между людьми, биржа выступает гарантом. Механика: продавец создаёт объявление, покупатель открывает сделку — и актив продавца автоматически блокируется в эскроу. Продавец уже не может его увести, покупатель ещё не может забрать.',
+      'Дальше покупатель платит вне платформы и жмёт «я оплатил». Продавец проверяет, что деньги пришли, и подтверждает — эскроу отдаёт актив покупателю. Не договорились — открывается спор, и арбитраж смотрит доказательства оплаты. Здесь арбитраж бросает монетку, потому что доказательств оплаты ничем не существует.',
+      'Роли важны: эскроу защищает покупателя от исчезновения продавца, а подтверждение оплаты — продавца от фальшивого «я оплатил». Таймер сделки защищает обоих от вечного ожидания.',
+    ],
+    serious: 'Серьёзная вставка про реальный мир: на настоящих биржах платите только по реквизитам из ордера, ровно ту сумму, что в ордере, и не общайтесь с контрагентом вне платформы. Подтверждайте получение только после реального зачисления денег. Это правило спасает реальные деньги на реальных биржах.',
+    quiz: [
+      { q: 'Эскроу защищает прежде всего…', o: ['покупателя: актив заблокирован до оплаты', 'биржу от налогов', 'продавца от вопросов'], c: 0 },
+      { q: 'Когда продавцу подтверждать получение оплаты?', o: ['сразу после «я оплатил»', 'после реального зачисления денег', 'по настроению'], c: 1 },
+      { q: 'Платить в реальном P2P нужно…', o: ['по реквизитам из ордера, ровно сумму ордера', 'на любой удобный счёт', 'наличными при встрече'], c: 0 },
+    ],
+  },
+];
+</script>
+<script>
+'use strict';
+/* ============================================================================
+   ui/ — goo, router, chart, screens (§14, §15)
+   ============================================================================ */
+const raf = window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : (fn => setTimeout(fn, 16));
+const REDUCED = (() => {
+  try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  catch (e) { return false; }
+})();
+const GOO_OK = typeof SVGFEColorMatrixElement !== 'undefined';
+if (REDUCED) document.documentElement.classList.add('reduced'), document.body.classList.add('reduced');
+if (!GOO_OK) document.body.classList.add('no-goo'); // капсулы остаются капсулами (§14.7)
+
+/* ================= ui/goo: layoutDrops() — один общий раскладчик (§14.2) ================= */
+const goo = (() => {
+  const groups = [];
+  function layoutGroup(g) {
+    const wrapRect = g.wrap.getBoundingClientRect ? g.wrap.getBoundingClientRect() : { left: 0, top: 0 };
+    const btns = Array.from(g.btnWrap.children);
+    while (g.layer.children.length < btns.length) {
+      const d = document.createElement('div'); d.className = 'drop'; g.layer.appendChild(d);
+    }
+    while (g.layer.children.length > btns.length) g.layer.removeChild(g.layer.lastChild);
+    btns.forEach((b, i) => {
+      const r = b.getBoundingClientRect ? b.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
+      const d = g.layer.children[i];
+      // замер, а не формула (§14.2.2); goo-слой сдвинут на -20px, компенсируем
+      const pad = g.layerPad != null ? g.layerPad : 20;
+      d.style.left = (r.left - wrapRect.left + pad) + 'px';
+      d.style.top = (r.top - wrapRect.top + pad) + 'px';
+      // капсула отлипшего элемента ≥ его контента (§14.2.4)
+      d.style.width = Math.max(r.width, b.offsetWidth || 0) + 'px';
+      d.style.height = Math.max(r.height, b.offsetHeight || 0) + 'px';
+      d.classList.toggle('active', b.classList.contains('active'));
+    });
+  }
+  const api = {
+    register(wrap, btnWrap, layer, layerPad) {
+      const g = { wrap, btnWrap, layer, layerPad };
+      groups.push(g);
+      layoutGroup(g);
+      return g;
+    },
+    layoutDrops() {
+      for (let i = groups.length - 1; i >= 0; i--) if (!groups[i].wrap.isConnected) groups.splice(i, 1);
+      for (const g of groups) layoutGroup(g);
+    },
+    // во время перехода — перезамер каждые 80мс до 360мс (§14.5)
+    settle() {
+      api.layoutDrops();
+      let t = 0;
+      const iv = setInterval(() => { api.layoutDrops(); t += 80; if (t >= 360) clearInterval(iv); }, 80);
+    },
+  };
+  window.addEventListener('resize', () => api.layoutDrops());
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => api.layoutDrops()).catch(() => {});
+  return api;
+})();
+
+/* ================= ui/toasts ================= */
+const toastsEl = $('#toasts');
+function toast(text) {
+  if (!toastsEl) return;
+  while (toastsEl.children.length >= 3) toastsEl.removeChild(toastsEl.firstChild); // стек ≤ 3
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = text;
+  toastsEl.appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 320); }, 3200);
+}
+
+/* ================= ui/шторки ================= */
+const veil = $('#veil');
+let openSheetEl = null;
+function openSheet(id) {
+  closeSheet();
+  const el = $('#' + id);
+  if (!el) return;
+  veil.hidden = false; el.hidden = false;
+  raf(() => { veil.classList.add('on'); el.classList.add('on'); });
+  openSheetEl = el;
+}
+function closeSheet() {
+  if (!openSheetEl) return;
+  const el = openSheetEl; openSheetEl = null;
+  veil.classList.remove('on'); el.classList.remove('on');
+  setTimeout(() => { veil.hidden = true; el.hidden = true; }, 330);
+}
+veil && veil.addEventListener('click', closeSheet);
+$$('[data-close]').forEach(b => b.addEventListener('click', closeSheet));
+
+/* ================= ui/сегменты (жидкие, §14.5) ================= */
+function makeSeg(el, items, activeId, onChange) {
+  el.innerHTML = '<div class="seg-goo"></div><div class="seg-btns"></div>';
+  const layer = el.firstChild, btnWrap = el.lastChild;
+  const st = { active: activeId };
+  for (const it of items) {
+    const b = document.createElement('button');
+    b.className = 'seg-btn' + (it.id === activeId ? ' active' : '');
+    b.textContent = it.label;
+    b.dataset.id = it.id;
+    b.addEventListener('click', () => {
+      if (st.active === it.id) return;
+      st.active = it.id;
+      btnWrap.querySelectorAll('.seg-btn').forEach(x => x.classList.toggle('active', x === b));
+      goo.settle();
+      onChange(it.id);
+    });
+    btnWrap.appendChild(b);
+  }
+  goo.register(el, btnWrap, layer);
+  return st;
+}
+
+/* ================= ui/router: вкладки + экраны ================= */
+const router = (() => {
+  const tabs = ['market', 'p2p', 'wallet', 'board'];
+  let current = 'market';
+  const tbWrap = $('#tabbar .tb-wrap');
+  const tbGoo = $('#tbGoo');
+  const tbBtns = $('#tabbar .tb-btns');
+  const r = {
+    current,
+    go(tab) {
+      current = r.current = tab;
+      $$('.screen').forEach(s => s.classList.remove('on'));
+      const scr = $('#scr-' + tab);
+      if (scr) scr.classList.add('on');
+      tbBtns.querySelectorAll('.tb-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      goo.settle();
+      bus.emit('route', tab);
+      renderAll();
+    },
+    showFutures() {
+      $$('.screen').forEach(s => s.classList.remove('on'));
+      $('#scr-futures').classList.add('on');
+      current = r.current = 'futures';
+      bus.emit('route', 'futures');
+      renderFutures();
+    },
+    init() {
+      tbBtns.querySelectorAll('.tb-btn').forEach(b => b.addEventListener('click', () => r.go(b.dataset.tab)));
+      goo.register(tbWrap, tbBtns, tbGoo);
+    },
+  };
+  return r;
+})();
+
+/* ================= ui/chart: canvas-рендер жидких свечей (§14.6.1) ================= */
+const chart = (() => {
+  const cv = $('#chart');
+  const ctx = cv && cv.getContext ? cv.getContext('2d') : null;
+  let tf = 'm1';
+  const ind = { ma7: false, ma25: false, rsi: false };
+  let dpr = 1, W = 0, H = 0;
+  let cross = null; // {x,y}
+  let breathT = 0;
+
+  function resize() {
+    if (!ctx) return;
+    dpr = Math.max(1, window.devicePixelRatio || 1);
+    W = cv.clientWidth || 350; H = cv.clientHeight || 250;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function ma(closes, n, i) {
+    if (i < n - 1) return null;
+    let s = 0; for (let k = i - n + 1; k <= i; k++) s += closes[k];
+    return s / n;
+  }
+  function rsiSeries(closes, n) {
+    const out = new Array(closes.length).fill(null);
+    let g = 0, l = 0;
+    for (let i = 1; i < closes.length; i++) {
+      const d = closes[i] - closes[i - 1];
+      const up = Math.max(0, d), dn = Math.max(0, -d);
+      if (i <= n) { g += up; l += dn; if (i === n) out[i] = 100 - 100 / (1 + (g / n) / Math.max(1e-9, l / n)); }
+      else {
+        g = (g * (n - 1) + up * n) / n; l = (l * (n - 1) + dn * n) / n;
+        out[i] = 100 - 100 / (1 + g / Math.max(1e-9, l));
+      }
+    }
+    return out;
+  }
+  function capsule(x, y1, y2, w, color) {
+    const r = w / 2;
+    const top = Math.min(y1, y2), bot = Math.max(y1, y2);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x - r, top - r, w, bot - top + w, r);
+    else { ctx.arc(x, top, r, Math.PI, 0); ctx.lineTo(x + r, bot); ctx.arc(x, bot, r, 0, Math.PI); ctx.closePath(); }
+    ctx.fill();
+  }
+  function smoothstep(t) { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+
+  function draw() {
+    if (!ctx) return;
+    if (!W) resize();
+    ctx.clearRect(0, 0, W, H);
+    const rsiH = ind.rsi ? 44 : 0;
+    const chH = H - rsiH - 8;
+    // фиксированный слот 9px, свечи прижаты к правому краю: плотный тренд сливается в жидкость
+    const n = clamp(Math.floor((W - 44) / 9), 20, 90);
+    const ser = candles.series(tf, n);
+    if (!ser.length) return;
+    const closes = ser.map(c => c.c);
+    let lo = Infinity, hi = -Infinity;
+    for (const c of ser) { if (c.l < lo) lo = c.l; if (c.h > hi) hi = c.h; }
+    const pad = Math.max(1, (hi - lo) * 0.08); lo -= pad; hi += pad;
+    const spacing = (W - 44) / n;
+    const X = i => (W - 36) - (ser.length - 1 - i) * spacing;
+    const Y = p => 6 + (chH - 12) * (1 - (p - lo) / (hi - lo));
+    const bodyW = clamp(spacing * 0.68, 4, 8);
+
+    // фитили: линия 2px + микрокапля 3px на конце
+    for (let i = 0; i < ser.length; i++) {
+      const c = ser[i]; const x = X(i);
+      const col = c.c >= c.o ? 'rgba(78,207,135,.55)' : 'rgba(232,90,79,.55)';
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, Y(c.h)); ctx.lineTo(x, Y(Math.max(c.o, c.c))); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, Y(Math.min(c.o, c.c))); ctx.lineTo(x, Y(c.l)); ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(x, Y(c.h), 1.5, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, Y(c.l), 1.5, 0, 7); ctx.fill();
+    }
+    // тела-капсулы + шейки-метаболы (§14.6.1)
+    const bodies = ser.map((c, i) => ({
+      x: X(i), top: Y(Math.max(c.o, c.c)), bot: Y(Math.min(c.o, c.c)),
+      up: c.c >= c.o,
+    }));
+    for (let i = 0; i < bodies.length; i++) {
+      const b = bodies[i];
+      capsule(b.x, b.top, b.bot, bodyW, b.up ? '#4ECF87' : '#E85A4F');
+      if (i > 0) {
+        const a = bodies[i - 1];
+        const gapX = (b.x - a.x) - bodyW;
+        const oTop = Math.max(a.top, b.top) - bodyW / 2, oBot = Math.min(a.bot, b.bot) + bodyW / 2;
+        if (oBot - oTop > 2 && gapX < bodyW) {
+          // мостик из двух квадратичных кривых, ширина по smoothstep
+          const r = bodyW / 2;
+          const wNeck = r * smoothstep(1 - gapX / bodyW);
+          if (wNeck > 0.5) {
+            const midY = (Math.max(a.top, b.top) + Math.min(a.bot, b.bot)) / 2;
+            const x1 = a.x + r - 0.5, x2 = b.x - r + 0.5, mx = (x1 + x2) / 2;
+            ctx.fillStyle = a.up && b.up ? '#4ECF87' : (!a.up && !b.up ? '#E85A4F' : 'rgba(150,160,170,.8)');
+            ctx.beginPath();
+            ctx.moveTo(x1, midY - r);
+            ctx.quadraticCurveTo(mx, midY - wNeck, x2, midY - r);
+            ctx.lineTo(x2, midY + r);
+            ctx.quadraticCurveTo(mx, midY + wNeck, x1, midY + r);
+            ctx.closePath(); ctx.fill();
+          }
+        }
+      }
+    }
+    // MA
+    for (const [key, len, col] of [['ma7', 7, '#e8c76a'], ['ma25', 25, '#A9B4FF']]) {
+      if (!ind[key]) continue;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < closes.length; i++) {
+        const v = ma(closes, len, i);
+        if (v == null) continue;
+        const x = X(i), y = Y(v);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    // RSI-панель
+    if (ind.rsi) {
+      const top = chH + 6;
+      ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1;
+      for (const lvl of [30, 70]) {
+        const y = top + rsiH * (1 - lvl / 100);
+        ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(W - 32, y); ctx.stroke();
+      }
+      const rs = rsiSeries(closes, 14);
+      ctx.strokeStyle = '#c98ee8'; ctx.lineWidth = 1.5; ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < rs.length; i++) {
+        if (rs[i] == null) continue;
+        const x = X(i), y = top + rsiH * (1 - rs[i] / 100);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    // последняя цена — дышащая капля (§14.6.2)
+    const lastY = Y(market.lastPrice);
+    const scale = REDUCED ? 1 : 1 + 0.04 * Math.sin(breathT / 318); // период 2с
+    ctx.fillStyle = market.lastDir >= 0 ? '#4ECF87' : '#E85A4F';
+    ctx.beginPath(); ctx.arc(W - 20, clamp(lastY, 6, chH - 6), 6 * scale, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(11,12,16,.9)';
+    ctx.font = '10px "PT Mono",monospace';
+    // кроссхейр
+    if (cross) {
+      ctx.strokeStyle = 'rgba(242,241,236,.35)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(cross.x, 0); ctx.lineTo(cross.x, chH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, cross.y); ctx.lineTo(W, cross.y); ctx.stroke();
+      ctx.setLineDash([]);
+      const i = clamp(ser.length - 1 - Math.round(((W - 36) - cross.x) / spacing), 0, ser.length - 1);
+      const c = ser[i];
+      const price = lo + (1 - (cross.y - 6) / (chH - 12)) * (hi - lo);
+      const oc = $('#ohlcCorner');
+      if (oc) {
+        oc.hidden = false;
+        oc.textContent = 'O ' + fmtF(c.o) + '  H ' + fmtF(c.h) + '  L ' + fmtF(c.l) + '  C ' + fmtF(c.c) + '  · ' + fmtF(price);
+      }
+    }
+  }
+  function loop(t) {
+    breathT = t || 0;
+    if (router.current === 'market' || router.current === 'futures') draw();
+    if (!REDUCED) raf(loop);
+  }
+  if (cv) {
+    let pressed = false;
+    cv.addEventListener('pointerdown', e => {
+      pressed = true;
+      const r = cv.getBoundingClientRect();
+      cross = { x: e.clientX - r.left, y: e.clientY - r.top };
+      draw();
+    });
+    cv.addEventListener('pointermove', e => {
+      if (!pressed) return;
+      const r = cv.getBoundingClientRect();
+      cross = { x: e.clientX - r.left, y: e.clientY - r.top };
+      draw();
+    });
+    const end = () => { pressed = false; setTimeout(() => { cross = null; const oc = $('#ohlcCorner'); if (oc) oc.hidden = true; draw(); }, 1400); };
+    cv.addEventListener('pointerup', end);
+    cv.addEventListener('pointercancel', end);
+  }
+  window.addEventListener('resize', () => { resize(); draw(); });
+  bus.on('candles', () => { if (REDUCED) draw(); });
+  bus.on('tick', () => { if (REDUCED) draw(); });
+  return {
+    get tf() { return tf; },
+    setTf(v) { tf = v; draw(); }, // переключение мгновенно: буферы параллельные (§16.7)
+    ind, draw, resize,
+    start() { resize(); if (!REDUCED) raf(loop); else draw(); },
+  };
+})();
+
+/* мини-график героя (§13) */
+const miniChart = (() => {
+  const cv = $('#miniChart');
+  const ctx = cv && cv.getContext ? cv.getContext('2d') : null;
+  function draw() {
+    if (!ctx) return;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const W = cv.clientWidth || 320, H = cv.clientHeight || 56;
+    if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const ser = candles.series('m1', 60);
+    if (ser.length < 2) return;
+    let lo = Infinity, hi = -Infinity;
+    for (const c of ser) { lo = Math.min(lo, c.c); hi = Math.max(hi, c.c); }
+    const pad = Math.max(1, (hi - lo) * 0.15); lo -= pad; hi += pad;
+    ctx.strokeStyle = '#A9B4FF'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
+    ser.forEach((c, i) => {
+      const x = 4 + (W - 14) * i / (ser.length - 1);
+      const y = 4 + (H - 8) * (1 - (c.c - lo) / (hi - lo));
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+    const last = ser[ser.length - 1];
+    ctx.fillStyle = '#A9B4FF';
+    ctx.beginPath();
+    ctx.arc(W - 10, 4 + (H - 8) * (1 - (last.c - lo) / (hi - lo)), 3.5, 0, 7);
+    ctx.fill();
+  }
+  return { draw };
+})();
+
+/* ================= ui/screens: рынок ================= */
+let obStep = 5; // сотые: 0.05
+function renderBook() {
+  const asksEl = $('#obAsks'), bidsEl = $('#obBids');
+  if (!asksEl) return;
+  const mine = market.myLevels();
+  const asks = market.depth('ask', obStep, 12).reverse();
+  const bids = market.depth('bid', obStep, 12);
+  let maxQ = 1;
+  for (const l of asks.concat(bids)) maxQ = Math.max(maxQ, l.qt);
+  const row = (l, cls) => {
+    const isMine = mine.has((cls === 'bid' ? 'buy' : 'sell') + ':' + l.pc) ||
+      Array.from(mine).some(k => { const [s, p] = k.split(':'); const b = cls === 'bid' ? Math.floor(p / obStep) * obStep : Math.ceil(p / obStep) * obStep; return (cls === 'bid' ? s === 'buy' : s === 'sell') && b === l.pc; });
+    return '<div class="ob-row ' + cls + (isMine ? ' mine' : '') + '" data-pc="' + l.pc + '">' +
+      '<span class="bar" style="width:' + Math.max(4, Math.round(l.qt / maxQ * 100)) + '%"></span>' +
+      '<span class="p">' + fmtF(l.pc) + '</span><span class="q">' + fmtQ(l.qt) + '</span></div>';
+  };
+  asksEl.innerHTML = asks.length ? asks.map(l => row(l, 'ask')).join('') : '<div class="ob-empty">Стакан пуст. Как и всё вокруг.</div>';
+  bidsEl.innerHTML = bids.length ? bids.map(l => row(l, 'bid')).join('') : '<div class="ob-empty">Стакан пуст. Как и всё вокруг.</div>';
+  const bb = market.bestBid(), ba = market.bestAsk();
+  const spEl = $('#obSpread');
+  if (bb != null && ba != null && ba > bb) {
+    const sp = ba - bb;
+    spEl.textContent = fmtF(sp) + ' Ф (' + (sp / bb * 100).toFixed(1).replace('-', '−') + '%)';
+  } else spEl.textContent = '—';
+}
+// тап по уровню подставляет цену (§6.2)
+['obAsks', 'obBids'].forEach(id => {
+  const el = $('#' + id);
+  el && el.addEventListener('click', e => {
+    const row = e.target.closest('.ob-row');
+    if (!row) return;
+    const inp = $('#inPrice');
+    inp.value = (row.dataset.pc / 100).toFixed(2);
+    updateTotals();
+  });
+});
+
+function renderTape() {
+  const el = $('#tape');
+  if (!el) return;
+  const trs = market.trades.slice(-40).reverse();
+  if (!trs.length) { el.innerHTML = '<div class="empty-note">Сделок нет. Ничего не происходит — здесь это норма.</div>'; return; }
+  // DOM ≤ 200 строк: держим ровно 40
+  el.innerHTML = trs.map(t => {
+    const d = new Date(t.t);
+    const hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+    return '<div class="tape-row ' + (t.side === 'buy' ? 'up' : 'down') + '"><span class="t">' + hh + '</span><span class="p">' + fmtF(t.pc) + '</span><span class="q">' + fmtQ(t.qt) + '</span></div>';
+  }).join('');
+}
+
+function renderOrders() {
+  const el = $('#ordersList');
+  if (!el) return;
+  const mine = [];
+  for (const o of market.orders.values()) if (o.owner === 'you') mine.push(o);
+  const stops = market.stopOrders.filter(s => s.owner === 'you');
+  if (!mine.length && !stops.length) {
+    el.innerHTML = '<div class="empty-note">Заявок нет. Рынок ждёт вашего ничего.</div>';
+    return;
+  }
+  el.innerHTML = mine.map(o =>
+    '<div class="order-row"><span class="' + (o.side === 'buy' ? 'side-b' : 'side-s') + '">' + (o.side === 'buy' ? 'лимит·покупка' : 'лимит·продажа') + '</span>' +
+    '<span>' + fmtF(o.price) + '</span><span>' + fmtQ(o.rem) + '/' + fmtQ(o.qty) + '</span>' +
+    '<button class="x" data-cancel="' + o.id + '">отмена</button></div>'
+  ).join('') + stops.map(s =>
+    '<div class="order-row"><span class="' + (s.side === 'buy' ? 'side-b' : 'side-s') + '">стоп·' + (s.side === 'buy' ? 'покупка' : 'продажа') + '</span>' +
+    '<span>триггер ' + fmtF(s.trigger) + '</span><span>' + fmtQ(s.qty) + '</span>' +
+    '<button class="x" data-cancel="' + s.id + '">отмена</button></div>'
+  ).join('');
+}
+document.addEventListener('click', e => {
+  const c = e.target.closest && e.target.closest('[data-cancel]');
+  if (c) market.cancel(c.dataset.cancel, 'you');
+});
+
+/* форма заявки */
+let orderType = 'limit';
+function updateTotals() {
+  const qty = parseQ($('#inQty').value) || 0;
+  let pc = orderType === 'limit' ? parseF($('#inPrice').value) : (orderType === 'stop' ? parseF($('#inTrigger').value) : market.lastPrice);
+  if (!pc || pc < 0) pc = market.lastPrice;
+  const val = valCents(pc, qty);
+  const fee = orderType === 'limit' ? 0 : Math.round(val * FEE_TAKER);
+  $('#totVal').textContent = fmtF(val);
+  $('#totFee').textContent = fmtF(fee);
+}
+function flyDrop(fromEl, toEl, cls) {
+  if (REDUCED || !fromEl || !toEl || !fromEl.getBoundingClientRect) return;
+  const layer = $('#flyLayer');
+  if (!layer || layer.children.length >= 6) return; // бюджет goo-слоя (§14.7)
+  const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
+  if (!a.width && !a.height) return;
+  const d = document.createElement('div');
+  d.className = 'fly-drop ' + cls;
+  d.style.left = (a.left + a.width / 2 - 9) + 'px';
+  d.style.top = (a.top + a.height / 2 - 9) + 'px';
+  layer.appendChild(d);
+  raf(() => {
+    d.style.left = (b.left + b.width / 2 - 9) + 'px';
+    d.style.top = (b.top + b.height / 2 - 9) + 'px';
+    d.style.transform = 'scale(.4)';
+  });
+  setTimeout(() => d.remove(), 620);
+}
+function submitFromForm(side) {
+  const btn = side === 'buy' ? $('#btnBuy') : $('#btnSell');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  setTimeout(() => { btn.disabled = false; }, 300); // двойной сабмит (§16.3)
+  const qty = parseQ($('#inQty').value);
+  if (!qty || qty <= 0) { toast('Укажите объём — хотя бы немного ничего.'); return; }
+  const p = { owner: 'you', side, qty };
+  if (orderType === 'limit') { p.type = 'limit'; p.price = parseF($('#inPrice').value); if (!p.price) { toast('Укажите цену.'); return; } }
+  else if (orderType === 'stop') { p.type = 'stop'; p.trigger = parseF($('#inTrigger').value); if (!p.trigger) { toast('Укажите триггер-цену.'); return; } }
+  else p.type = 'market';
+  const r = market.submit(p);
+  if (!r.ok) {
+    if (r.reason === 'halted') toast('Торги остановлены: происходит слишком много ничего.');
+    else if (r.reason === 'funds') toast('Недостаточно Ф. Подаяние — в кошельке, для по-настоящему нищих.');
+    else if (r.reason === 'empty') toast('в стакане закончилось ничего');
+    else toast('Заявка не принята. Пустота задумалась.');
+    return;
+  }
+  flyDrop(btn, $(side === 'buy' ? '#obBids' : '#obAsks'), side); // капля летит в стакан (§14.6.4)
+  // хомяк: заявка на 100% доступного
+  if (side === 'buy' && orderType !== 'stop') {
+    const a = market.accounts.you;
+    if (a.f <= 100) score.unlock('hamster');
+  }
+  renderOrders(); renderBook();
+}
+$('#btnBuy') && $('#btnBuy').addEventListener('click', () => submitFromForm('buy'));
+$('#btnSell') && $('#btnSell').addEventListener('click', () => submitFromForm('sell'));
+['inPrice', 'inQty', 'inTrigger'].forEach(id => { const el = $('#' + id); el && el.addEventListener('input', updateTotals); });
+$('#qtySlider') && $('#qtySlider').addEventListener('input', e => {
+  const pct = +e.target.value;
+  e.target.style.setProperty('--fill', pct + '%');
+  const a = market.accounts.you;
+  const pc = orderType === 'limit' ? (parseF($('#inPrice').value) || market.lastPrice) : market.lastPrice;
+  // зарубки 25/50/75/100% от доступного: для покупки — от Ф, для продажи — от NCHG
+  const canBuyTenths = Math.floor(a.f / (pc * 1.001) * 10);
+  const q = Math.floor(Math.max(canBuyTenths, a.nchg) * pct / 100);
+  $('#inQty').value = (q / 10).toFixed(1);
+  updateTotals();
+});
+
+/* остановка торгов — баннер */
+bus.on('halt', () => { const b = $('#breaker'); if (b) { b.hidden = false; $('#breakerSec').textContent = '45'; } toast('Торги остановлены: происходит слишком много ничего.'); });
+bus.on('halt-tick', t => { const el = $('#breakerSec'); if (el) el.textContent = Math.ceil(t / 2); });
+bus.on('resume', () => { const b = $('#breaker'); if (b) b.hidden = true; });
+$('#breakerAcad') && $('#breakerAcad').addEventListener('click', e => { e.preventDefault(); openLesson('risk'); });
+
+/* тосты рынка */
+bus.on('market-exhausted', d => { if (d.owner === 'you') toast('в стакане закончилось ничего'); });
+bus.on('stop-fired', d => { if (d.so.owner === 'you') toast('Стоп-маркет сработал: ' + (d.so.side === 'buy' ? 'покупка' : 'продажа') + ' ' + fmtQ(d.so.qty) + ' NCHG.'); });
+bus.on('whale', side => {});
+
+/* дыра сжигания (§14.6.7) */
+bus.on('burn', () => {
+  if (REDUCED) return;
+  const hole = $('#burnHole');
+  if (!hole || hole.hidden || !hole.getBoundingClientRect) return;
+  const hr = hole.getBoundingClientRect();
+  if (!hr.width) return;
+  const d = document.createElement('div');
+  d.className = 'burn-fly';
+  d.style.left = (window.innerWidth / 2) + 'px';
+  d.style.top = (window.innerHeight / 2) + 'px';
+  document.body.appendChild(d);
+  raf(() => {
+    d.style.left = (hr.left + 9) + 'px';
+    d.style.top = (hr.top + 9) + 'px';
+    d.style.opacity = '0';
+    d.style.transform = 'scale(.2)';
+  });
+  setTimeout(() => d.remove(), 750);
+});
+
+/* ================= ui/screens: фьючерсы (§9) ================= */
+let futSide = 'long', futLev = 10;
+function renderFutures() {
+  $('#futMark').textContent = fmtF(market.lastPrice);
+  $('#levV').textContent = futLev;
+  const qty = parseQ($('#futQty').value) || 0;
+  const margin = qty > 0 ? Math.ceil(valCents(market.lastPrice, qty) / futLev) : 0;
+  $('#futMargin').textContent = fmtF(margin);
+  $('#futLiqPreview').textContent = qty > 0 ? fmtF(futures.liqPrice(market.lastPrice, futSide, futLev)) : '—';
+  $('#hopesCounter').textContent = state.hopes;
+  const box = $('#futPos');
+  const p = futures.pos;
+  if (!p) { box.innerHTML = '<div class="empty-note">Позиций нет. Пустота вас бережёт.</div>'; return; }
+  const u = futures.upnl();
+  const dir = p.side === 'long' ? 1 : -1;
+  const distNow = Math.abs(market.lastPrice - p.liq);
+  const distFull = Math.abs(p.entry - p.liq) || 1;
+  const pctLeft = clamp(Math.round(distNow / distFull * 100), 0, 100);
+  box.innerHTML =
+    '<div class="pos-drop' + (p.side === 'short' ? ' short' : '') + '">' +
+    '<div class="pos-grid">' +
+    '<span class="k">позиция</span><span>' + (p.side === 'long' ? 'лонг' : 'шорт') + ' ×' + p.lev + '</span>' +
+    '<span class="k">объём</span><span>' + fmtQ(p.qty) + ' NCHG</span>' +
+    '<span class="k">вход</span><span>' + fmtF(p.entry) + '</span>' +
+    '<span class="k">маржа</span><span>' + fmtF(p.margin) + ' Ф</span>' +
+    '<span class="k">ликвидация</span><span>' + fmtF(p.liq) + '</span>' +
+    '<span class="k">uPnL</span><span class="' + (u >= 0 ? 'side-b' : 'side-s') + '">' + fmtF(u) + ' Ф</span>' +
+    '</div>' +
+    '<div class="liq-bar"><i style="width:' + pctLeft + '%"></i></div>' +
+    '<div class="liq-label">до ликвидации осталось <span class="num">' + pctLeft + '%</span></div>' +
+    '<button class="btn btn-sm btn-block mt8" id="btnFutClose">закрыть позицию</button>' +
+    '</div>';
+  const cb = $('#btnFutClose');
+  cb && cb.addEventListener('click', () => { futures.close(); renderFutures(); });
+}
+$('#btnFutEnter') && $('#btnFutEnter').addEventListener('click', () => router.showFutures());
+$('#btnFutBack') && $('#btnFutBack').addEventListener('click', () => router.go('market'));
+$('#levSlider') && $('#levSlider').addEventListener('input', e => {
+  futLev = +e.target.value;
+  e.target.style.setProperty('--fill', ((futLev - 2) / 98 * 100) + '%');
+  renderFutures();
+});
+$('#futQty') && $('#futQty').addEventListener('input', renderFutures);
+$('#btnFutOpen') && $('#btnFutOpen').addEventListener('click', () => {
+  const btn = $('#btnFutOpen');
+  if (btn.disabled) return;
+  btn.disabled = true; setTimeout(() => { btn.disabled = false; }, 300);
+  const qty = parseQ($('#futQty').value);
+  if (!qty) { toast('Укажите объём.'); return; }
+  const r = futures.open(futSide, qty, futLev);
+  if (!r.ok) {
+    toast(r.reason === 'exists' ? 'Позиция уже открыта: изолированная маржа, одна позиция.' :
+      r.reason === 'funds' ? 'Недостаточно Ф. Подаяние — в кошельке, для по-настоящему нищих.' : 'Не вышло.');
+    return;
+  }
+  renderFutures();
+});
+// ликвидация: капля лопается на брызги (§14.6.6)
+bus.on('liquidated', p => {
+  toast('Ликвидировано. Спасибо за участие.');
+  renderFutures();
+  if (REDUCED) return;
+  const src = $('#futPos');
+  if (!src || !src.getBoundingClientRect) return;
+  const r = src.getBoundingClientRect();
+  if (!r.width) return;
+  const s = document.createElement('div');
+  s.className = 'splash';
+  s.style.left = (r.left + r.width / 2) + 'px'; s.style.top = (r.top + 40) + 'px';
+  const n = rndInt(6, 8);
+  for (let i = 0; i < n; i++) {
+    const b = document.createElement('i');
+    b.style.transition = 'all .6s ease-out';
+    s.appendChild(b);
+  }
+  document.body.appendChild(s);
+  raf(() => {
+    Array.from(s.children).forEach((b, i) => {
+      const ang = i / n * Math.PI * 2;
+      b.style.transform = 'translate(' + Math.round(Math.cos(ang) * rnd(40, 90)) + 'px,' + Math.round(Math.sin(ang) * rnd(30, 70)) + 'px) scale(.2)';
+      b.style.opacity = '0';
+    });
+  });
+  setTimeout(() => s.remove(), 650); // брызги впитываются за 600мс
+});
+bus.on('hopes', () => { const el = $('#hopesCounter'); if (el) el.textContent = state.hopes; });
+
+/* ================= ui/screens: p2p (§8) ================= */
+let p2pFilterSide = 'all', p2pFilterMethod = '';
+let currentDealId = null, currentAdId = null;
+
+function renderAds() {
+  const el = $('#adsList');
+  if (!el) return;
+  let html = '';
+  // мои сделки
+  const myDeals = p2p.deals.filter(d => (d.sellerId === 'you' || d.buyerId === 'you') && ['escrow', 'paid', 'dispute'].includes(d.status));
+  if (myDeals.length) {
+    html += '<h3 class="sec-title" style="margin-top:0">мои сделки</h3>' + myDeals.map(d =>
+      '<div class="ad-card glass"><div class="ad-top"><span class="ad-name">' + esc(d.adName) + '</span>' +
+      '<span class="ad-side ' + (d.buyerId === 'you' ? 'buy' : 'sell') + '">' + (d.buyerId === 'you' ? 'покупаю' : 'продаю') + '</span></div>' +
+      '<div class="ad-price">' + fmtF(d.price) + ' Ф · ' + fmtQ(d.qty) + ' NCHG</div>' +
+      '<div class="ad-meta">статус: ' + ({ escrow: 'эскроу, ждём оплату', paid: 'оплачено, ждём подтверждения', dispute: 'спор — администрация изучает материалы' }[d.status]) + '</div>' +
+      '<div class="ad-foot"><span></span><button class="btn btn-sm btn-gold" data-deal="' + d.id + '">открыть</button></div></div>'
+    ).join('');
+    html += '<h3 class="sec-title">объявления</h3>';
+  }
+  const ads = p2p.ads.filter(a => {
+    if (p2pFilterSide !== 'all' && a.side !== p2pFilterSide) return false;
+    if (p2pFilterMethod && !a.methods.includes(p2pFilterMethod)) return false;
+    return true;
+  });
+  if (!ads.length && !myDeals.length) html += '<div class="empty-note">Объявлений нет. Рынок ждёт вашего ничего.</div>';
+  html += ads.map(a => {
+    const r = p2p.rating(a.owner);
+    const price = a.priceMode === 'fix' ? a.priceFix : Math.round(market.lastPrice * a.pct / 100);
+    return '<div class="ad-card glass">' +
+      '<div class="ad-top"><span class="ad-name">' + esc(a.name) + '</span>' +
+      '<span class="ad-side ' + a.side + '">' + (a.side === 'buy' ? 'покупает NCHG' : 'продаёт NCHG') + '</span></div>' +
+      '<div class="ad-price">' + fmtF(price) + ' Ф' + (a.priceMode === 'pct' ? ' <span class="tiny muted">(' + a.pct + '% от спота)</span>' : '') + '</div>' +
+      '<div class="ad-meta">лимиты: <span class="num">' + fmtF(a.min) + '</span>–<span class="num">' + fmtF(a.max) + '</span> Ф</div>' +
+      '<div class="ad-methods">' + a.methods.map(m => '<span class="method-chip">' + esc(m) + '</span>').join('') + '</div>' +
+      '<div class="ad-foot"><span class="rating">' + r.pct + '% · ' + r.deals + ' сделок' + (r.avgConfirm != null ? ' · ~' + r.avgConfirm + 'с подтв.' : '') + ' · ' + r.thanks + ' «спасибо»</span>' +
+      (a.owner === 'you'
+        ? '<button class="btn btn-sm" data-rmad="' + a.id + '">снять</button>'
+        : '<button class="btn btn-sm ' + (a.side === 'sell' ? 'btn-buy' : 'btn-sell') + '" data-openad="' + a.id + '">' + (a.side === 'sell' ? 'купить' : 'продать') + '</button>') +
+      '</div></div>';
+  }).join('');
+  el.innerHTML = html;
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest && (e.target.closest('[data-openad]') || e.target.closest('[data-rmad]') || e.target.closest('[data-deal]'));
+  if (!t) return;
+  if (t.dataset.rmad) { p2p.removeAd(t.dataset.rmad); return; }
+  if (t.dataset.openad) { openAdSheet(t.dataset.openad); return; }
+  if (t.dataset.deal) { currentDealId = t.dataset.deal; renderDealSheet(); openSheet('sheetDeal'); }
+});
+
+function openAdSheet(adId) {
+  currentAdId = adId;
+  const ad = p2p.ads.find(a => a.id === adId);
+  if (!ad) return;
+  const price = ad.priceMode === 'fix' ? ad.priceFix : Math.round(market.lastPrice * ad.pct / 100);
+  const body = $('#dealBody');
+  body.innerHTML = '<h2>' + (ad.side === 'sell' ? 'Купить у' : 'Продать —') + ' ' + esc(ad.name) + '</h2>' +
+    '<p class="small muted">цена <span class="num">' + fmtF(price) + '</span> Ф · лимиты <span class="num">' + fmtF(ad.min) + '</span>–<span class="num">' + fmtF(ad.max) + '</span> Ф</p>' +
+    '<div class="field mt8"><label>объём, NCHG</label><input class="input" id="dealQty" inputmode="decimal" placeholder="1.0"></div>' +
+    '<div class="order-total"><span>итого ≈ <span class="num" id="dealTotal">0.00</span> Ф</span><span>эскроу 15:00</span></div>' +
+    '<button class="btn btn-block btn-gold" id="btnOpenDeal">открыть сделку</button>';
+  $('#dealQty').addEventListener('input', () => {
+    const q = parseQ($('#dealQty').value) || 0;
+    $('#dealTotal').textContent = fmtF(valCents(price, q));
+  });
+  $('#btnOpenDeal').addEventListener('click', () => {
+    const q = parseQ($('#dealQty').value);
+    if (!q) { toast('Укажите объём.'); return; }
+    const r = p2p.openDeal(adId, q, 'you');
+    if (!r.ok) {
+      toast(r.reason === 'limits' ? 'Сумма вне лимитов объявления.' :
+        r.reason === 'funds' ? 'Недостаточно NCHG для эскроу.' : 'Сделка не открылась.');
+      return;
+    }
+    currentDealId = r.deal.id;
+    renderDealSheet();
+  });
+  openSheet('sheetDeal');
+}
+
+function renderDealSheet() {
+  const d = p2p.deals.find(x => x.id === currentDealId);
+  const body = $('#dealBody');
+  if (!d || !body) return;
+  const isBuyer = d.buyerId === 'you';
+  const secLeft = Math.max(0, Math.ceil((d.deadlineTick - clock.tickCount) / 2));
+  const mm = String(Math.floor(secLeft / 60)).padStart(2, '0') + ':' + String(secLeft % 60).padStart(2, '0');
+  // позиции эскроу-капель (§14.6.5): слипаются в центре, шейка держится весь эскроу
+  const merged = ['escrow', 'paid', 'dispute'].includes(d.status);
+  const assetX = merged ? '46%' : (d.status === 'done' ? '10%' : '90%');
+  const payX = merged ? '54%' : (d.status === 'done' ? '90%' : '10%');
+  let controls = '', status = '', note = '';
+  if (d.status === 'escrow') {
+    status = 'NCHG продавца заблокированы в эскроу';
+    if (isBuyer) {
+      controls = '<button class="btn btn-block btn-gold" id="btnPaid">я оплатил</button>' +
+        '<button class="btn btn-block btn-sm mt8" id="btnDealCancel">отменить</button>';
+      note = 'оплата прошла: платить было нечем и нечего';
+    } else {
+      status += ' · ждём «я оплатил» от покупателя';
+      controls = '<button class="btn btn-block btn-sm" id="btnDealCancel">отменить</button>';
+    }
+  } else if (d.status === 'paid') {
+    status = 'покупатель отметил оплату';
+    if (!isBuyer) {
+      controls = '<button class="btn btn-block btn-gold" id="btnConfirm">оплату получил</button>' +
+        '<button class="btn btn-block btn-sm mt8" id="btnDispute">открыть спор</button>';
+    } else {
+      status += ' · ждём подтверждения продавца';
+      controls = '<button class="btn btn-block btn-sm" id="btnDispute">открыть спор</button>';
+    }
+  } else if (d.status === 'dispute') {
+    status = 'спор: администрация изучает материалы';
+    controls = '<div class="progress-drop"></div>';
+  } else if (d.status === 'done') {
+    status = 'сделка завершена. Эскроу разошёлся к сторонам.';
+  } else if (d.status === 'resolved') {
+    status = 'вердикт: ' + d.verdict;
+    note = 'Решение окончательное, как и всё в пустоте.';
+  } else if (d.status === 'returned') {
+    status = 'вердикт: ' + (d.verdict || 'эскроу возвращён продавцу');
+    note = 'Решение окончательное, как и всё в пустоте.';
+  } else {
+    status = 'сделка отменена, эскроу возвращён.';
+  }
+  body.innerHTML = '<h2>Сделка ' + d.id + '</h2>' +
+    '<div class="deal-status">' + fmtQ(d.qty) + ' NCHG @ ' + fmtF(d.price) + ' Ф · способ: ' + esc(d.method || '') + '</div>' +
+    '<div class="escrow-stage"><div class="escrow-goo">' +
+    '<div class="esc-drop asset" style="left:' + assetX + '"></div>' +
+    '<div class="esc-drop pay" style="left:' + payX + '"></div>' +
+    (d.status === 'dispute' || d.status === 'resolved' || d.status === 'returned' ? '<div class="esc-coin" style="top:' + (d.status === 'dispute' ? '-30px' : '58px') + '"></div>' : '') +
+    '</div><div class="esc-labels"><span>продавец</span><span>покупатель</span></div></div>' +
+    (merged ? '<div class="deal-timer num">' + mm + '</div>' : '') +
+    '<div class="deal-status">' + status + '</div>' +
+    (note ? '<div class="deal-note">' + note + '</div>' : '') +
+    '<div class="mt16">' + controls + '</div>' +
+    '<p class="deal-note mt8">для рейтинга учтено по рынку: <span class="num">' + fmtF(d.mark) + '</span> Ф</p>';
+  const bind = (id, fn) => { const b = $('#' + id); b && b.addEventListener('click', fn); };
+  bind('btnPaid', () => { p2p.markPaid(d.id); renderDealSheet(); });
+  bind('btnConfirm', () => {
+    if (state.p2pRating.confirmSec && d.paidTick) state.p2pRating.confirmSec.push((clock.tickCount - d.paidTick) / 2);
+    p2p.confirm(d.id); renderDealSheet();
+  });
+  bind('btnDispute', () => { p2p.dispute(d.id); renderDealSheet(); });
+  bind('btnDealCancel', () => { p2p.cancel(d.id); renderDealSheet(); });
+  // капля-монетка падает между каплями эскроу (§8.3)
+  if (d.status === 'dispute') {
+    setTimeout(() => { const c = body.querySelector('.esc-coin'); if (c) c.style.top = '58px'; }, 60);
+  }
+}
+bus.on('p2p', () => { renderAds(); if (openSheetEl && openSheetEl.id === 'sheetDeal' && currentDealId) renderDealSheet(); });
+bus.on('p2p-verdict', d => {
+  if (d.sellerId === 'you' || d.buyerId === 'you') {
+    toast('Вердикт: ' + d.verdict + '. Решение окончательное, как и всё в пустоте.');
+    if (currentDealId === d.id && openSheetEl && openSheetEl.id === 'sheetDeal') renderDealSheet();
+  }
+});
+bus.on('p2p-timeout', d => { if (d.sellerId === 'you' || d.buyerId === 'you') toast('Сделка ' + d.id + ': таймаут 15 минут, эскроу возвращён.'); });
+
+/* форма объявления (§8.1) */
+function renderAdForm() {
+  const body = $('#adFormBody');
+  if (!body) return;
+  body.innerHTML =
+    '<div class="segwrap"><div class="seg compact" id="segAdSide" data-seg></div></div>' +
+    '<div class="segwrap mt8"><div class="seg compact" id="segAdPrice" data-seg></div></div>' +
+    '<div class="field mt8" id="adFixWrap"><label>цена, Ф</label><input class="input" id="adPriceFix" inputmode="decimal" value="' + (market.lastPrice / 100).toFixed(2) + '"></div>' +
+    '<div class="field" id="adPctWrap" hidden><label>% от спота (90–110)</label><input class="input" id="adPct" inputmode="decimal" value="100"></div>' +
+    '<div class="row"><div class="field grow"><label>мин, Ф</label><input class="input" id="adMin" inputmode="decimal" value="100"></div>' +
+    '<div class="field grow"><label>макс, Ф</label><input class="input" id="adMax" inputmode="decimal" value="100000"></div></div>' +
+    '<label class="field" style="display:block"><span class="tiny muted">способы «оплаты»</span></label>' +
+    p2p.METHODS.map((m, i) => '<label class="check"><input type="checkbox" data-m="' + i + '"' + (i === 0 ? ' checked' : '') + '> ' + esc(m) + '</label>').join('') +
+    '<label class="check mt8"><input type="checkbox" id="adMinRating"> только контрагенты с рейтингом ≥ 80%</label>' +
+    '<button class="btn btn-block btn-gold mt8" id="btnCreateAd">разместить</button>';
+  let adSide = 'sell', adPriceMode = 'fix';
+  makeSeg($('#segAdSide'), [{ id: 'sell', label: 'продаю NCHG' }, { id: 'buy', label: 'покупаю NCHG' }], 'sell', v => adSide = v);
+  makeSeg($('#segAdPrice'), [{ id: 'fix', label: 'фикс' }, { id: 'pct', label: '% от спота' }], 'fix', v => {
+    adPriceMode = v;
+    $('#adFixWrap').hidden = v !== 'fix';
+    $('#adPctWrap').hidden = v !== 'pct';
+  });
+  $('#btnCreateAd').addEventListener('click', () => {
+    const methods = Array.from(body.querySelectorAll('[data-m]:checked')).map(c => p2p.METHODS[+c.dataset.m]);
+    if (!methods.length) { toast('Выберите хотя бы один способ «оплаты».'); return; }
+    const ad = p2p.createAd({
+      owner: 'you', name: 'вы', side: adSide,
+      priceMode: adPriceMode,
+      priceFix: parseF($('#adPriceFix').value) || market.lastPrice,
+      pct: clamp(Math.round(parseFloat(String($('#adPct').value).replace(',', '.')) || 100), 90, 110),
+      min: parseF($('#adMin').value) || 0,
+      max: parseF($('#adMax').value) || 100000000,
+      methods,
+      minRating: $('#adMinRating').checked ? 80 : 0,
+    });
+    closeSheet(); renderAds();
+    toast('Объявление размещено. Пустота оповещена.');
+    return ad;
+  });
+}
+$('#btnNewAd') && $('#btnNewAd').addEventListener('click', () => { renderAdForm(); openSheet('sheetAd'); });
+
+/* ================= ui/screens: кошелёк (§10) ================= */
+function renderWallet() {
+  const a = market.accounts.you;
+  const mark = market.lastPrice;
+  $('#walEquity').textContent = fmtF(score.equity());
+  $('#walF').textContent = fmtF(a.f);
+  $('#walFRes').textContent = fmtF(a.resF);
+  $('#walN').textContent = fmtQ(a.nchg);
+  $('#walNEsc').textContent = fmtQ(a.escN);
+  const pl = state.player;
+  $('#walAvg').textContent = pl.posQty > 0 ? fmtF(pl.avgPc) : '—';
+  const u = pl.posQty > 0 ? Math.round((mark - pl.avgPc) * pl.posQty / 10) : 0;
+  const uEl = $('#walUpnl'); uEl.textContent = fmtF(u); uEl.className = 'v ' + (u > 0 ? 'up' : u < 0 ? 'down' : '');
+  const rEl = $('#walRpnl'); rEl.textContent = fmtF(pl.rPnL); rEl.className = 'v ' + (pl.rPnL > 0 ? 'up' : pl.rPnL < 0 ? 'down' : '');
+  const roi = score.roi();
+  const roiEl = $('#walRoi'); roiEl.textContent = fmtPct(roi); roiEl.className = 'v ' + (roi > 0 ? 'up' : roi < 0 ? 'down' : '');
+  // кран
+  const eq = a.f + a.resF + valCents(mark, a.nchg + a.resN + a.escN);
+  const cdLeft = Math.max(0, 600000 - (Date.now() - state.faucet.last));
+  const st = $('#faucetStatus');
+  const btn = $('#btnFaucet');
+  if (eq >= 100000) { st.textContent = 'ваш баланс ' + fmtF(eq) + ' Ф — вы недостаточно нищий (нужно < 1 000 Ф)'; btn.disabled = true; }
+  else if (cdLeft > 0) { st.textContent = 'кулдаун: ещё ' + Math.ceil(cdLeft / 60000) + ' мин'; btn.disabled = true; }
+  else { st.textContent = 'доступно: вы по-настоящему нищий'; btn.disabled = false; }
+  // достижения
+  const g = $('#achGrid');
+  if (g && g.dataset.n !== String(Object.keys(state.achievements).length)) {
+    g.dataset.n = Object.keys(state.achievements).length;
+    g.innerHTML = ACH.map(x =>
+      '<div class="ach' + (state.achievements[x.id] ? ' got' : '') + '"><div class="bead"></div><div class="t">' + x.t + '</div><div class="d">' + x.d + '</div></div>'
+    ).join('');
+  }
+  // бейдж академии
+  const left = LESSONS.filter(l => !state.academy.rewarded[l.id]).length;
+  for (const id of ['acadBadgeHdr', 'acadBadgeWal']) {
+    const b = $('#' + id);
+    if (b) { b.hidden = left === 0; b.textContent = left; }
+  }
+}
+function renderHistory() {
+  const el = $('#histList');
+  if (!el) return;
+  if (!state.history.length) { el.innerHTML = '<div class="empty-note">Сделок нет. Ничего не происходит — здесь это норма.</div>'; return; }
+  el.innerHTML = state.history.slice(0, 100).map(h => {
+    const d = new Date(h.t);
+    const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    return '<div class="hist-row"><span><span class="l num">' + time + '</span> ' + esc(h.text) +
+      (h.note ? '<span class="note">' + esc(h.note) + '</span>' : '') + '</span>' +
+      (h.val != null ? '<span class="v ' + (h.val > 0 ? 'up' : h.val < 0 ? 'down' : '') + '">' + fmtF(h.val) + ' Ф</span>' : '') + '</div>';
+  }).join('');
+}
+bus.on('history', renderHistory);
+$('#btnFaucet') && $('#btnFaucet').addEventListener('click', () => {
+  const r = score.faucet();
+  if (!r.ok) {
+    toast(r.reason === 'rich' ? 'подаяние выдаётся только по-настоящему нищим' : 'Кулдаун. Нищета должна быть выдержанной.');
+    return;
+  }
+  toast('Подаяние выдано: +500 Ф. Учтено во «вложено».');
+  // 5 капель из крана (§14.6.8)
+  if (!REDUCED) {
+    const zone = $('#faucetZone');
+    if (zone && zone.getBoundingClientRect) {
+      const zr = zone.getBoundingClientRect();
+      if (zr.width) for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+          const d = document.createElement('div');
+          d.className = 'faucet-drip';
+          d.style.left = (zr.left + zr.width - 60) + 'px';
+          d.style.top = (zr.top + 10) + 'px';
+          document.body.appendChild(d);
+          raf(() => { d.style.top = (zr.top + zr.height - 8) + 'px'; d.style.opacity = '0'; });
+          setTimeout(() => d.remove(), 550);
+        }, i * 120);
+      }
+    }
+  }
+  renderWallet();
+});
+
+/* ================= ui/screens: табло (§11) ================= */
+function renderBoard() {
+  $('#seasonName').textContent = state.season;
+  const rows = score.board();
+  const el = $('#lbList');
+  if (!el) return;
+  const youIdx = rows.findIndex(r => r.you);
+  let html = rows.slice(0, 20).map((r, i) =>
+    '<div class="lb-row' + (r.you ? ' you' : '') + '"><span class="rank">' + (i + 1) + '</span>' +
+    '<span class="nm">' + esc(r.name) + '</span><span class="roi ' + (r.roi >= 0 ? 'side-b' : 'side-s') + '">' + fmtPct(r.roi, 1) + '</span></div>'
+  ).join('');
+  if (youIdx >= 20) {
+    const r = rows[youIdx];
+    html += '<div class="lb-row you"><span class="rank">' + (youIdx + 1) + '</span><span class="nm">вы</span>' +
+      '<span class="roi ' + (r.roi >= 0 ? 'side-b' : 'side-s') + '">' + fmtPct(r.roi, 1) + '</span></div>';
+  }
+  el.innerHTML = html;
+  const h = state.hall;
+  $('#hallBest').textContent = h.best ? h.best.name + ' · ' + fmtPct(h.best.roi, 1) : '—';
+  $('#hallWorst').textContent = h.worst ? h.worst.name + ' · ' + fmtPct(h.worst.roi, 1) : '—';
+  $('#hallLiq').textContent = h.liq ? h.liq.name + ' · −' + fmtF(h.liq.loss) + ' Ф · ×' + h.liq.lev : '—';
+}
+
+/* ================= ui/академия (§12) ================= */
+const academy = {
+  grade(lessonId, answers) {
+    const l = LESSONS.find(x => x.id === lessonId);
+    if (!l) return { correct: 0, passed: false, rewarded: false };
+    let correct = 0;
+    l.quiz.forEach((q, i) => { if (answers[i] === q.c) correct++; });
+    const passed = correct >= 2;
+    let rewarded = false;
+    if (passed) {
+      state.academy.done[lessonId] = true;
+      if (!state.academy.rewarded[lessonId]) {
+        state.academy.rewarded[lessonId] = true;
+        market.accounts.you.f += 20000; // +200 Ф, один раз за урок
+        rewarded = true;
+        pushHistory('academy', 'академия: урок «' + l.t + '»', 20000, 'награда за квиз ' + correct + '/3');
+        bus.emit('balance');
+      }
+      persist.save();
+    }
+    return { correct, passed, rewarded };
+  },
+};
+function renderLessons() {
+  const el = $('#lessonsList');
+  if (!el) return;
+  el.innerHTML = LESSONS.map((l, i) =>
+    '<div class="lesson-row glass' + (state.academy.rewarded[l.id] ? ' done' : '') + '" data-lesson="' + l.id + '">' +
+    '<span class="n num">' + (i + 1) + '</span><span class="t">' + l.t + '</span>' +
+    '<span class="st">' + (state.academy.rewarded[l.id] ? '✓ 200 Ф' : (state.academy.done[l.id] ? 'пройден' : '')) + '</span></div>'
+  ).join('');
+  el.querySelectorAll('[data-lesson]').forEach(r => r.addEventListener('click', () => openLesson(r.dataset.lesson)));
+}
+function openLesson(id) {
+  const l = LESSONS.find(x => x.id === id);
+  if (!l) return;
+  const body = $('#lessonBody');
+  const answers = new Array(l.quiz.length).fill(-1);
+  body.innerHTML = '<h2>' + l.t + '</h2><div class="lesson-body">' +
+    l.p.map(p => '<p>' + p + '</p>').join('') +
+    (l.serious ? '<div class="serious">' + l.serious + '</div>' : '') +
+    '</div><h3 class="sec-title">квиз</h3>' +
+    l.quiz.map((q, qi) =>
+      '<div class="quiz-q">' + (qi + 1) + '. ' + q.q + '</div>' +
+      q.o.map((o, oi) => '<button class="quiz-opt" data-q="' + qi + '" data-o="' + oi + '">' + o + '</button>').join('')
+    ).join('') +
+    '<button class="btn btn-block btn-primary mt16" id="btnQuizSubmit">проверить</button>' +
+    '<div class="quiz-res" id="quizRes"></div>';
+  body.querySelectorAll('.quiz-opt').forEach(b => b.addEventListener('click', () => {
+    const qi = +b.dataset.q;
+    answers[qi] = +b.dataset.o;
+    body.querySelectorAll('.quiz-opt[data-q="' + qi + '"]').forEach(x => x.classList.toggle('sel', x === b));
+  }));
+  $('#btnQuizSubmit').addEventListener('click', () => {
+    if (answers.includes(-1)) { toast('Ответьте на все вопросы. Даже пустота требует полноты.'); return; }
+    const r = academy.grade(id, answers);
+    body.querySelectorAll('.quiz-opt').forEach(b => {
+      const qi = +b.dataset.q, oi = +b.dataset.o;
+      if (oi === l.quiz[qi].c) b.classList.add('ok');
+      else if (answers[qi] === oi) b.classList.add('bad');
+    });
+    $('#quizRes').textContent = r.passed
+      ? ('Верно ' + r.correct + '/3. ' + (r.rewarded ? '+200 Ф зачислены.' : 'Награда уже была выдана — пустота помнит.'))
+      : ('Верно ' + r.correct + '/3. Нужно ≥ 2. Перечитайте — ничего не уйдёт.');
+    renderLessons(); renderWallet();
+  });
+  openSheet('sheetLesson');
+}
+$('#btnAcademyHdr') && $('#btnAcademyHdr').addEventListener('click', () => { renderLessons(); openSheet('sheetAcademy'); });
+$('#btnAcademyWal') && $('#btnAcademyWal').addEventListener('click', () => { renderLessons(); openSheet('sheetAcademy'); });
+
+/* ================= ui/лендинг (§13) ================= */
+$('#btnEnter') && $('#btnEnter').addEventListener('click', enterApp);
+$('#btnTariffFree') && $('#btnTariffFree').addEventListener('click', enterApp);
+$('#btnTariffMoney') && $('#btnTariffMoney').addEventListener('click', () => { $('#whyScreen').classList.add('on'); });
+$('#btnWhyBack') && $('#btnWhyBack').addEventListener('click', () => { $('#whyScreen').classList.remove('on'); });
+$('#btnTariffPrivate') && $('#btnTariffPrivate').addEventListener('click', () => toast('менеджер вам не перезвонит'));
+$('#btnLitepaper') && $('#btnLitepaper').addEventListener('click', () => openSheet('sheetLite'));
+// свидетель пустоты: долистал литпейпер
+const liteSheet = $('#sheetLite');
+liteSheet && liteSheet.addEventListener('scroll', () => {
+  if (liteSheet.scrollTop + liteSheet.clientHeight >= liteSheet.scrollHeight - 20) score.unlock('void');
+});
+function enterApp() {
+  $('#landing').style.display = 'none';
+  $('#appHdr').hidden = false;
+  $('#app').hidden = false;
+  $('#tabbar').hidden = false;
+  $('#burnHole').hidden = false;
+  router.go('market');
+  chart.start();
+  goo.settle();
+}
+// сателлит героя: капля-спутник слипается и отлипает
+(function heroSat() {
+  const sat = $('#heroSat');
+  if (!sat || REDUCED) return;
+  let t = 0;
+  (function anim() {
+    t += 0.016;
+    const r = 78 + 26 * Math.sin(t * 0.7); // периодически заходит в зону слипания
+    sat.style.transform = 'translate(' + (Math.cos(t) * r - 13) + 'px,' + (Math.sin(t) * r * 0.4 - 13) + 'px)';
+    raf(anim);
+  })();
+})();
+
+/* ================= общие рендеры ================= */
+let lastTradeCount = -1;
+function renderHeader() {
+  $('#hdrBalV').textContent = fmtF(market.accounts.you.f);
+  const pv = $('#hdrPriceV'); pv.textContent = fmtF(market.lastPrice);
+  $('#bigPrice').textContent = fmtF(market.lastPrice);
+  $('#bigPrice').className = 'chart-price num ' + (market.lastDir >= 0 ? 'up' : 'down');
+  const ser = candles.series('h1', 2);
+  const dayOpen = ser.length ? ser[0].o : market.lastPrice;
+  const delta = market.lastPrice / dayOpen - 1;
+  const dEl = $('#bigDelta');
+  dEl.textContent = fmtPct(delta);
+  dEl.className = 'chart-delta num ' + (delta >= 0 ? 'up' : 'down');
+}
+function renderLanding() {
+  const hp = $('#heroPrice');
+  if (hp) hp.textContent = fmtF(market.lastPrice);
+  const lb = $('#landBurned');
+  if (lb) lb.textContent = fmtF(state.burned);
+  miniChart.draw();
+}
+function renderAll() {
+  renderHeader();
+  if (router.current === 'market') { renderBook(); renderTape(); renderOrders(); chart.draw(); }
+  if (router.current === 'futures') renderFutures();
+  if (router.current === 'p2p') renderAds();
+  if (router.current === 'wallet') { renderWallet(); renderHistory(); }
+  if (router.current === 'board') renderBoard();
+}
+let PREROLL = false; // без DOM-рендера на прогреве движка
+bus.on('tick', () => {
+  if (PREROLL) return;
+  if ($('#landing').style.display !== 'none') renderLanding();
+  renderHeader();
+  if (router.current === 'market') {
+    renderBook();
+    renderOrders();
+    if (market.trades.length && market.trades[market.trades.length - 1].tick !== lastTradeCount) {
+      lastTradeCount = market.trades[market.trades.length - 1].tick;
+      renderTape();
+    }
+    if (REDUCED) chart.draw();
+  }
+  if (router.current === 'futures') renderFutures();
+  if (router.current === 'wallet') renderWallet();
+  if (router.current === 'board') renderBoard();
+});
+bus.on('achievement', a => { if (a) toast('Достижение: «' + a.t + '» — ' + a.d + '.'); renderWallet(); });
+bus.on('news', n => {
+  const track = $('#newsTrack');
+  if (track) track.innerHTML = news.feed.map(f => '<b>' + esc(f.title) + '</b> <span class="num">' + (f.s === 0 ? '±0%' : fmtPct(f.s, 0)) + '</span>').join(' · ');
+  if (n.tag === 'friday') toast('рынок отреагировал никак');
+  else if (Math.abs(n.s) >= 0.05) toast(n.title + ' (' + fmtPct(n.s, 0) + ')');
+});
+bus.on('visible', () => { goo.settle(); chart.resize(); chart.draw(); });
+
+/* ================= сегменты рынка ================= */
+makeSeg($('#segTf'), [{ id: 'm1', label: '1м' }, { id: 'm5', label: '5м' }, { id: 'm15', label: '15м' }, { id: 'h1', label: '1ч' }], 'm1', v => chart.setTf(v));
+makeSeg($('#segStep'), [{ id: '5', label: '0.05' }, { id: '50', label: '0.5' }, { id: '100', label: '1 Ф' }], '5', v => { obStep = +v; renderBook(); });
+makeSeg($('#segType'), [{ id: 'limit', label: 'лимит' }, { id: 'market', label: 'маркет' }, { id: 'stop', label: 'стоп-маркет' }], 'limit', v => {
+  orderType = v;
+  $('#fPrice').hidden = v !== 'limit';
+  $('#fTrigger').hidden = v !== 'stop';
+  updateTotals();
+});
+makeSeg($('#segFutSide'), [{ id: 'long', label: 'лонг' }, { id: 'short', label: 'шорт' }], 'long', v => { futSide = v; renderFutures(); });
+makeSeg($('#segP2pSide'), [{ id: 'all', label: 'все' }, { id: 'sell', label: 'продают' }, { id: 'buy', label: 'покупают' }], 'all', v => { p2pFilterSide = v; renderAds(); });
+$$('.ind-btn').forEach(b => b.addEventListener('click', () => {
+  b.classList.toggle('on');
+  chart.ind[b.dataset.ind] = b.classList.contains('on');
+  chart.draw();
+}));
+(() => { // фильтр способов оплаты
+  const sel = $('#p2pMethodFilter');
+  if (!sel) return;
+  for (const m of p2p.METHODS) {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = m;
+    sel.appendChild(o);
+  }
+  sel.addEventListener('change', () => { p2pFilterMethod = sel.value; renderAds(); });
+})();
+
+/* ================= boot ================= */
+(function boot() {
+  // восстановление снапшота (одна точка чтения, §15)
+  const saved = persist.load();
+  if (saved && saved.acc) {
+    try {
+      Object.assign(state.player, saved.player || {});
+      state.burned = saved.burned || 0;
+      state.faucet = saved.faucet || state.faucet;
+      state.achievements = saved.achievements || {};
+      state.academy = saved.academy || state.academy;
+      state.history = saved.history || [];
+      state.p2pRating = saved.p2pRating || state.p2pRating;
+      state.hall = saved.hall || state.hall;
+      market.accounts.you.f = saved.acc.f;
+      market.accounts.you.nchg = saved.acc.nchg;
+      if (saved.season && saved.season !== state.season) {
+        // новый сезон: ROI считается заново от текущего equity
+        state.player.rPnL = 0;
+      } else if (saved.season) state.season = saved.season;
+    } catch (e) { /* повреждённый снапшот — начинаем заново */ }
+  }
+  // пасхалка: пришёл из очереди «стой»
+  try { if (new URLSearchParams(location.search).get('from') === 'stoi') score.unlock('queue'); } catch (e) {}
+  router.init();
+  p2p.seedBots();
+  // прогрев рынка: движок стартует до входа (§13), герой и график сразу живые
+  PREROLL = true;
+  clock.step(420);
+  PREROLL = false;
+  clock.start();
+  renderLanding();
+  renderAll();
+  renderHistory();
+  goo.settle();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => goo.layoutDrops()).catch(() => {});
+})();
+
+/* ================= тест-API / контракты сервера (§15, §18) ================= */
+// Адаптер: те же сигнатуры, что будущий REST/WS (§15). В демо — локальный движок.
+const api = {
+  postOrder: p => market.submit({ owner: 'you', ...p }),
+  deleteOrder: id => market.cancel(id, 'you'),
+  getP2pAds: () => p2p.ads,
+  postP2pAd: p => p2p.createAd({ ...p, owner: 'you', name: 'вы' }),
+  postP2pOrder: (adId, qty) => p2p.openDeal(adId, qty, 'you'),
+  p2pPaid: id => p2p.markPaid(id),
+  p2pConfirm: id => p2p.confirm(id),
+  p2pDispute: id => p2p.dispute(id),
+  getLeaderboard: () => score.board(),
+};
+window.NCHG = {
+  state, bus, clock, market, breaker, candles, bots, news, p2p, futures, score, academy, persist, api,
+  LESSONS, ACH, REDUCED,
+  ui: { router, goo, toast, openSheet, closeSheet, renderAll, renderAdForm, openLesson, enterApp, chart },
+  debug: {
+    setFV: v => bots.setFV(v),
+    setMark: pc => { market.lastPrice = Math.round(pc); },
+    clearHalt: () => breaker.reset(),
+    credit: (f, n) => { market.accounts.you.f += (f || 0); market.accounts.you.nchg += (n || 0); bus.emit('balance'); },
+    drain: () => { const a = market.accounts.you; a.f = 0; a.nchg = 0; bus.emit('balance'); },
+    botTake: (adId, q) => p2p.botTake(adId, q),
+  },
+};
+</script>
+</body>
+</html>
