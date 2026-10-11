@@ -1,9 +1,14 @@
 package app.blesk.core.data.demo
 
+import app.blesk.core.data.BotAccounts
+import app.blesk.core.data.BotController
+import app.blesk.core.data.BotResult
+import app.blesk.core.data.BotWithToken
 import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
@@ -13,11 +18,16 @@ import app.blesk.core.data.model.Preview
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.SendStatus
+import app.blesk.shared.protocol.BotCommand
+import app.blesk.shared.protocol.BotInfo
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
@@ -37,7 +47,7 @@ class DemoRepository(
     private val scope: CoroutineScope,
     private val log: EventLog,
     private val clock: () -> Instant = Instant::now,
-) : ChatRepository {
+) : ChatRepository, BotController, BotAccounts {
     private val contactsById: Map<String, Contact> = seed.contacts.associateBy { it.id }
     private val messages = MutableStateFlow(seed.messages.groupBy { it.conversationId })
     private val all = MutableStateFlow(seed.conversations)
@@ -45,6 +55,7 @@ class DemoRepository(
     private val ids = AtomicLong()
     private val echoBotId = seed.echoBotConversationId
     private val botAuthorId = seed.echoBotAuthorId
+    private val bot = seed.bot
 
     override val contacts: Flow<List<Contact>> =
         MutableStateFlow(seed.contacts.filter { it.id in seed.directContactIds })
@@ -121,9 +132,51 @@ class DemoRepository(
         typingState.update { it + message.conversationId }
         delay(TYPING_MILLIS)
         typingState.update { it - message.conversationId }
-        append(message.copy(id = nextId(), authorId = botAuthorId, sentAt = clock(), replyToId = null, status = SendStatus.Read))
+        val start = message.text.trim() == "/start" || message.text.trim() == "/help"
+        val reply = if (start) {
+            message.copy(
+                text = bot.greeting,
+                buttons = persistentListOf(bot.buttons.map { BotButton(it, data = it) }.toImmutableList()),
+            )
+        } else {
+            message
+        }
+        append(reply.copy(id = nextId(), authorId = botAuthorId, sentAt = clock(), replyToId = null, status = SendStatus.Read))
         log.record(EventCode.DemoBotReplied)
     }
+
+    // The demo bot
+
+    private val noticeFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    override val notices: SharedFlow<String> = noticeFlow
+
+    override fun isBot(conversationId: String) = conversationId == echoBotId
+
+    override suspend fun commands(conversationId: String): List<BotCommand> = if (isBot(conversationId)) bot.commands else emptyList()
+
+    override fun press(conversationId: String, messageId: String, data: String) {
+        if (!isBot(conversationId)) return
+        scope.launch {
+            delay(STATUS_STEP_MILLIS)
+            append(
+                Message(
+                    id = nextId(),
+                    conversationId = conversationId,
+                    authorId = botAuthorId,
+                    text = bot.pressed.format(data),
+                    sentAt = clock(),
+                ),
+            )
+        }
+    }
+
+    override suspend fun myBots(): List<BotInfo> = emptyList()
+
+    override suspend fun createBot(username: String, name: String, about: String): Pair<BotResult, BotWithToken?> = BotResult.Failed to null
+
+    override suspend fun renewToken(username: String): BotWithToken? = null
+
+    override suspend fun deleteBot(username: String) = false
 
     override suspend fun search(query: String): List<Message> {
         val needle = query.trim()

@@ -12,6 +12,7 @@ import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.model.RoomChannelKind
+import app.blesk.shared.protocol.BotCommand
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import java.time.Duration
@@ -25,6 +26,7 @@ class DemoSeed(
     val echoBotConversationId: String,
     val echoBotAuthorId: String,
     val directContactIds: Set<String>,
+    val bot: DemoBot = DemoBot(),
 ) {
     companion object {
         const val ANYA = "anya"
@@ -139,7 +141,24 @@ class DemoSeed(
                 echoBotConversationId = BOT,
                 echoBotAuthorId = BOT,
                 directContactIds = setOf(ANYA, MISHA, "lera", "dima", "katya"),
+                bot = DemoBot(
+                    greeting = resources.getString(R.string.demo_bot_greeting),
+                    buttons = resources.getStringArray(R.array.demo_bot_buttons).toList(),
+                    pressed = resources.getString(R.string.demo_bot_pressed),
+                    commands = listOf(
+                        BotCommand("start", resources.getString(R.string.demo_bot_command_start)),
+                        BotCommand("help", resources.getString(R.string.demo_bot_command_help)),
+                    ),
+                ),
             )
         }
     }
 }
+
+/** What the demo echo bot says besides echoing; [pressed] takes the button text. */
+data class DemoBot(
+    val greeting: String = "",
+    val buttons: List<String> = emptyList(),
+    val pressed: String = "%1\$s",
+    val commands: List<BotCommand> = emptyList(),
+)

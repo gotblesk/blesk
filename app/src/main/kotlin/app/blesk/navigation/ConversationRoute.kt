@@ -25,8 +25,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.BleskApplication
 import app.blesk.R
+import app.blesk.core.data.BotController
 import app.blesk.core.data.GroupController
+import app.blesk.core.data.KeyState
+import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.SpaceController
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.SendStatus
@@ -38,6 +42,7 @@ import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.media.MediaController
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.shared.appearance.Appearance
+import app.blesk.shared.protocol.BotCommand
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.toImmutableList
@@ -53,6 +58,7 @@ internal fun ConversationRoute(
     onOpenGroup: (groupId: String) -> Unit,
     onOpenSpace: (handle: String) -> Unit,
     onCall: (video: Boolean) -> Unit,
+    onVerify: () -> Unit,
     onBack: () -> Unit,
 ) {
     val demo = container.chats.collectAsStateWithLifecycle().value ?: return
@@ -70,6 +76,12 @@ internal fun ConversationRoute(
     val override = chatThemes[id]
     val caption = stringResource(R.string.chat_theme_caption)
     LaunchedEffect(id) { demo.markRead(id) }
+    val application = LocalContext.current.applicationContext as? BleskApplication
+    DisposableEffect(id) {
+        container.openConversation = id
+        application?.notifier?.clear(id)
+        onDispose { if (container.openConversation == id) container.openConversation = null }
+    }
     val groupController = demo as? GroupController
     val groupId = id.substringBefore(':')
     val groupState by remember(groupId, groupController) {
@@ -86,9 +98,9 @@ internal fun ConversationRoute(
         channel != null -> channel.adminsOnly && groupState?.isAdmin(groupController?.me.orEmpty()) != true
         else -> null
     }
-    val context = LocalContext.current
     var busy by remember { mutableStateOf(false) }
     val failed = stringResource(app.blesk.feature.chats.R.string.media_failed)
+    val context = LocalContext.current
     val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
@@ -129,6 +141,17 @@ internal fun ConversationRoute(
     }
 
     val direct = conversation?.kind == ConversationKind.Direct
+    val keys = demo as? KeyVerification
+    val keyState by remember(id, keys) { keys?.keyState(id) ?: flowOf(KeyState(false, false)) }
+        .collectAsStateWithLifecycle(initialValue = KeyState(false, false))
+    val bots = demo as? BotController
+    val isBot = bots?.isBot(id) == true
+    val commands by produceState(emptyList<BotCommand>(), id, isBot) {
+        if (isBot) value = bots?.commands(id).orEmpty()
+    }
+    LaunchedEffect(bots) {
+        bots?.notices?.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    }
     val callbacks = remember(id, direct) {
         ConversationCallbacks(
             onSend = { text, replyTo -> demo.send(id, text, replyTo) },
@@ -148,10 +171,19 @@ internal fun ConversationRoute(
             onTyping = { active -> demo.setTyping(id, active) },
             onOpenInfo = when {
                 isSpace -> ({ onOpenSpace(id.removePrefix(SPACE_PREFIX).substringBefore(':')) })
+                direct && keys != null -> onVerify
                 groupController != null && id.length > MAX_USERNAME_LENGTH -> ({ onOpenGroup(groupId) })
                 else -> null
             },
             onCall = if (direct) onCall else null,
+            onButton = { messageId, button ->
+                val link = button.url
+                val data = button.data
+                when {
+                    link != null -> openLink(context, link)
+                    data != null -> bots?.press(id, messageId, data)
+                }
+            },
             onBack = onBack,
         )
     }
@@ -170,11 +202,13 @@ internal fun ConversationRoute(
                 typing = id in typing,
                 authorName = { authorId -> demo.contact(authorId)?.name },
                 callbacks = callbacks,
-                recorders = recorders,
+                recorders = if (isBot) null else recorders,
+                commands = commands.toImmutableList(),
                 media = mediaController,
                 busy = busy,
                 readOnly = readOnly ?: (current.kind == ConversationKind.Channel),
-                reactions = !isSpace,
+                reactions = !isSpace && !isBot,
+                keyChanged = direct && keyState.changed,
                 underlay = {
                     wallpaper?.let { image ->
                         Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

@@ -164,4 +164,7 @@
     <string name="search_empty">Ничего не нашлось</string>
     <string name="chat_call">Позвонить</string>
     <string name="chat_video_call">Видеозвонок</string>
+    <string name="chat_bot_label">бот · без шифрования</string>
+    <string name="chat_verify">Проверка ключей</string>
+    <string name="chat_key_changed">Ключ безопасности собеседника изменился. Нажмите, чтобы проверить.</string>
 </resources>

@@ -5,8 +5,11 @@ import app.blesk.core.network.ServerAddress
 import app.blesk.core.network.Transport
 import app.blesk.shared.protocol.AccountInfo
 import app.blesk.shared.protocol.AttachmentUploaded
+import app.blesk.shared.protocol.BotInfo
+import app.blesk.shared.protocol.BotMessage
 import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.Envelope
+import app.blesk.shared.protocol.EnvelopeType
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.KeyStatus
 import app.blesk.shared.protocol.KeyUpload
@@ -18,6 +21,7 @@ import app.blesk.shared.protocol.ServerFrame
 import app.blesk.shared.protocol.ServerInfo
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
+import app.blesk.shared.protocol.UserToBot
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -46,6 +50,20 @@ class FakeServer {
     private val transports = ConcurrentHashMap<String, FakeTransport>()
     private val blobs = ConcurrentHashMap<String, ByteArray>()
     private val ids = AtomicLong()
+    private val bots = ConcurrentHashMap<String, BotInfo>()
+
+    /** What people sent to bots, in order: (from, update). */
+    val botInbox = java.util.concurrent.CopyOnWriteArrayList<Pair<String, UserToBot>>()
+
+    fun addBot(info: BotInfo) {
+        bots[info.username] = info
+    }
+
+    /** A bot's program sends [message] to [to]. */
+    fun botSays(bot: String, to: String, message: BotMessage) {
+        val body = java.util.Base64.getEncoder().encodeToString(json.encodeToString(BotMessage.serializer(), message).encodeToByteArray())
+        transport(to).deliver(Envelope(ids.incrementAndGet(), bot, EnvelopeType.BOT, body, System.currentTimeMillis()))
+    }
 
     fun transport(username: String): FakeTransport = transports.getOrPut(username) { FakeTransport() }
 
@@ -106,6 +124,13 @@ class FakeServer {
                 transport(path.substringAfterLast('/')).deliver(envelope)
                 ok(json.encodeToString(SendResult.serializer(), SendResult(id, envelope.timestampMillis)))
             }
+            path.startsWith("/v1/bots/") && path.endsWith("/updates") -> {
+                botInbox += me!! to json.decodeFromString(UserToBot.serializer(), text(request))
+                ok("{}")
+            }
+            path.startsWith("/v1/bots/") -> bots[path.substringAfterLast('/')]
+                ?.let { ok(json.encodeToString(BotInfo.serializer(), it)) }
+                ?: error(HttpStatusCode.NotFound, "not_found")
             path == "/v1/attachments" -> {
                 val id = "blob${ids.incrementAndGet()}"
                 blobs[id] = bytes(request)

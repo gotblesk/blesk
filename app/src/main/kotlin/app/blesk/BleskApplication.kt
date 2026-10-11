@@ -1,11 +1,15 @@
 package app.blesk
 
 import android.app.Application
+import app.blesk.background.MessageNotifier
 import app.blesk.calls.CallCoordinator
 import app.blesk.core.data.diagnostics.EventCode
 
 class BleskApplication : Application() {
     lateinit var container: AppContainer
+        private set
+
+    internal lateinit var notifier: MessageNotifier
         private set
 
     override fun onCreate() {
@@ -15,6 +19,7 @@ class BleskApplication : Application() {
         container.eventLog.record(EventCode.AppStarted, BuildConfig.VERSION_CODE.toLong())
         registerActivityLifecycleCallbacks(VisibleActivities { container.visible = it })
         CallCoordinator(this, container).start()
+        notifier = MessageNotifier(this, container).also { it.start() }
     }
 }
 

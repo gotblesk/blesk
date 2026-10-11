@@ -4,6 +4,7 @@ import app.blesk.core.data.db.ContactEntity
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.MessageEntity
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
@@ -19,6 +20,7 @@ import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.Serializable
@@ -58,7 +60,15 @@ internal fun MessageEntity.toModel(me: String) = Message(
     reactions = decodeReactions(reactions).map { Reaction(it.symbol, it.users.size, me in it.users) }.toImmutableList(),
     edited = edited,
     attachment = decodeAttachment(attachment),
+    buttons = decodeButtons(buttons),
 )
+
+private val buttonRows = ListSerializer(ListSerializer(BotButton.serializer()))
+
+internal fun decodeButtons(json: String?): ImmutableList<ImmutableList<BotButton>> =
+    json?.let { runCatching { storageJson.decodeFromString(buttonRows, it) }.getOrNull() }
+        ?.map { it.toImmutableList() }?.toImmutableList()
+        ?: persistentListOf()
 
 /** A room carries its channels from the group state, so the list can show it as a cluster. */
 internal fun ConversationEntity.toModel(state: GroupState? = null) = Conversation(

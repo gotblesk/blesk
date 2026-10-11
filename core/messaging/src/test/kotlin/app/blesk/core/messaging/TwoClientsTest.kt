@@ -12,12 +12,18 @@ import app.blesk.core.data.calls.CallSignal
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
+import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
 import app.blesk.shared.protocol.Body
+import app.blesk.shared.protocol.BotCommand
+import app.blesk.shared.protocol.BotInfo
+import app.blesk.shared.protocol.BotMessage
 import app.blesk.shared.protocol.GroupKind
+import app.blesk.shared.protocol.InlineButton
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -193,6 +199,36 @@ class TwoClientsTest {
         listener.cancel()
         assertEquals("alice", signal.from)
         assertEquals(Body.CallOffer("call-1", video = true, key = "media-key"), signal.body)
+    }
+
+    @Test
+    fun botChat() {
+        val alice = Client("alice", "Алиса")
+        alice.register()
+        alice.repo.start()
+        server.addBot(BotInfo("echo_bot", "Эхо", commands = listOf(BotCommand("start", "начать"))))
+
+        val chat = runBlocking { alice.repo.openDirect("echo_bot") }
+        assertEquals("echo_bot", chat)
+        val conversation = runBlocking { alice.repo.conversation("echo_bot").first() }
+        assertEquals(ConversationKind.Bot, conversation?.kind)
+        assertEquals(Protection.Open, conversation?.protection)
+        assertEquals(listOf("start"), runBlocking { alice.repo.commands("echo_bot") }.map { it.command })
+
+        alice.repo.send("echo_bot", "/start")
+        eventually { server.botInbox.firstOrNull { it.second.text == "/start" } }
+        eventually { alice.messages("echo_bot").firstOrNull { it.status == SendStatus.Sent } }
+
+        server.botSays("echo_bot", "alice", BotMessage("m1", "Выбери", listOf(listOf(InlineButton("Да", data = "yes")))))
+        val withButtons = eventually { alice.messages("echo_bot").firstOrNull { it.text == "Выбери" } }
+        assertEquals("yes", withButtons.buttons.single().single().data)
+
+        alice.repo.press("echo_bot", withButtons.id, "yes")
+        val press = eventually { server.botInbox.firstNotNullOfOrNull { it.second.callback } }
+        assertEquals("m1", press.messageId)
+
+        server.botSays("echo_bot", "alice", BotMessage("m2", "Выбрано", editOf = "m1"))
+        eventually { alice.messages("echo_bot").firstOrNull { it.text == "Выбрано" && it.edited } }
     }
 
     private companion object {

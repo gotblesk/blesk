@@ -21,6 +21,10 @@ private val RetentionPeriod = 30.days.toJavaDuration()
 /** Long enough to cover any client retry of the same message. */
 private val IdempotencyWindow = 7.days.toJavaDuration()
 
+/** Acknowledged bot updates are kept a day so a person's retry is still recognised; unread ones a week. */
+private val ConsumedUpdateRetention = 1.days.toJavaDuration()
+private val PendingUpdateRetention = 7.days.toJavaDuration()
+
 private const val ATTACHMENT_BATCH = 500
 
 fun CoroutineScope.launchMaintenance(services: Services, interval: Duration): Job = launch {
@@ -43,7 +47,14 @@ suspend fun runMaintenance(services: Services) {
     val now = services.now()
     services.auth.deleteExpired(now)
     services.messages.deleteOlderThan(queuedBefore = now - RetentionPeriod, sentBefore = now - IdempotencyWindow)
+    services.bots.deleteOlderThan(
+        consumedBefore = now - ConsumedUpdateRetention,
+        pendingBefore = now - PendingUpdateRetention,
+        messagesBefore = now - RetentionPeriod,
+    )
     services.authRateLimiter.evictIdle()
+    services.botRateLimiter.evictIdle()
+    services.botApiRateLimiter.evictIdle()
     services.postRateLimiter.evictIdle()
     services.callRateLimiter.evictIdle()
     do {

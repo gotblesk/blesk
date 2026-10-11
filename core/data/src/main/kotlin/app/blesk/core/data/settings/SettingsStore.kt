@@ -98,6 +98,17 @@ class SettingsStore(context: Context) {
         }
     }
 
+    val notifications: Flow<NotificationSettings> = store.data.map { it.notifications() }.distinctUntilChanged()
+
+    suspend fun updateNotifications(transform: (NotificationSettings) -> NotificationSettings) {
+        store.edit { prefs ->
+            val next = transform(prefs.notifications())
+            prefs[NOTIFY] = next.enabled
+            prefs[NOTIFY_PREVIEW] = next.preview.name
+            prefs[ALWAYS_ONLINE] = next.alwaysOnline
+        }
+    }
+
     val profile: Flow<Profile> = store.data.map { prefs ->
         Profile(
             name = prefs[PROFILE_NAME].orEmpty(),
@@ -131,6 +142,13 @@ class SettingsStore(context: Context) {
         store.edit { it[DEBUG_UNLOCKED] = unlocked }
     }
 
+    private fun Preferences.notifications() = NotificationSettings(
+        enabled = this[NOTIFY] ?: true,
+        preview = this[NOTIFY_PREVIEW]?.let { name -> NotificationPreview.entries.firstOrNull { it.name == name } }
+            ?: NotificationPreview.NameOnly,
+        alwaysOnline = this[ALWAYS_ONLINE] ?: false,
+    )
+
     private fun Preferences.privacy() = Privacy(
         lockDelay = this[LOCK_DELAY]?.let { name -> LockDelay.entries.firstOrNull { it.name == name } } ?: LockDelay.Immediately,
         biometric = this[BIOMETRIC] ?: false,
@@ -160,6 +178,9 @@ class SettingsStore(context: Context) {
         val SECURE_SCREEN = booleanPreferencesKey("secure_screen")
         val READ_RECEIPTS = booleanPreferencesKey("read_receipts")
         val TYPING_INDICATOR = booleanPreferencesKey("typing_indicator")
+        val NOTIFY = booleanPreferencesKey("notify")
+        val NOTIFY_PREVIEW = stringPreferencesKey("notify_preview")
+        val ALWAYS_ONLINE = booleanPreferencesKey("always_online")
         val PROFILE_NAME = stringPreferencesKey("profile_name")
         val PROFILE_USERNAME = stringPreferencesKey("profile_username")
         val PROFILE_BIO = stringPreferencesKey("profile_bio")

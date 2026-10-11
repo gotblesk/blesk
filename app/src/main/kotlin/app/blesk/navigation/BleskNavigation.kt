@@ -79,6 +79,15 @@ data class SpaceInfoKey(val handle: String) : NavKey
 data object SearchKey : NavKey
 
 @Serializable
+data object BotsKey : NavKey
+
+@Serializable
+data class SafetyKey(val username: String) : NavKey
+
+@Serializable
+data object NotificationsKey : NavKey
+
+@Serializable
 data object ServerKey : NavKey
 
 @Serializable
@@ -109,6 +118,14 @@ fun BleskNavigation(container: AppContainer) {
     val demo = mode is AppMode.Demo
     val context = LocalContext.current
     val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
+
+    val openRequest by container.openRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(openRequest) {
+        val id = openRequest ?: return@LaunchedEffect
+        container.openRequest.value = null
+        while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+        backStack.add(ConversationKey(id))
+    }
 
     LaunchedEffect(backStack.size) {
         container.eventLog.record(EventCode.ScreenOpened, backStack.size.toLong())
@@ -149,6 +166,8 @@ fun BleskNavigation(container: AppContainer) {
                         onOpenAbout = { backStack.add(AboutKey) },
                         onOpenDebug = { backStack.add(DebugKey) },
                         onOpenServer = { backStack.add(ServerKey) },
+                        onOpenBots = { backStack.add(BotsKey) },
+                        onOpenNotifications = { backStack.add(NotificationsKey) },
                     ),
                 )
             }
@@ -187,6 +206,7 @@ fun BleskNavigation(container: AppContainer) {
                     onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
                     onOpenGroup = { backStack.add(GroupInfoKey(it)) },
                     onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
+                    onVerify = { backStack.add(SafetyKey(key.id)) },
                     onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
                     onBack = back,
                 )
@@ -202,6 +222,9 @@ fun BleskNavigation(container: AppContainer) {
                     while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
                 }, onBack = back)
             }
+            entry<BotsKey> { BotsRoute(container, back) }
+            entry<SafetyKey> { key -> SafetyRoute(container, key.username, back) }
+            entry<NotificationsKey> { NotificationsRoute(container, back) }
             entry<SearchKey> { SearchRoute(container, onOpen = { backStack.add(ConversationKey(it)) }, onBack = back) }
             entry<SpaceInfoKey> { key ->
                 SpaceInfoRoute(container, key.handle, onLeft = {

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -35,18 +37,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.model.attachmentLabel
+import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.fire.flashOn
+import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.lerp
 import app.blesk.core.design.metaball.metaballs
@@ -72,6 +78,7 @@ internal class MessageActions(
     val onMenu: (Message) -> Unit,
     val onReact: (Message, String) -> Unit,
     val onApplyTheme: (ThemeSpec) -> Unit,
+    val onButton: (Message, BotButton) -> Unit = { _, _ -> },
 )
 
 /**
@@ -286,6 +293,41 @@ private fun MessageEntry(
                     .offset(y = (-6).dp)
                     .onPlaced { parts.put("reactions:${message.id}", it) },
             )
+        }
+        if (message.buttons.isNotEmpty()) BotButtons(message, actions)
+    }
+}
+
+/** Inline buttons under a bot message: matte, never glinting, since bots are not encrypted. */
+@Composable
+private fun BotButtons(message: Message, actions: MessageActions) {
+    Column(Modifier.padding(top = 6.dp).widthIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        message.buttons.forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { button ->
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = Blesk.dimens.touchTarget)
+                            .clip(CircleShape)
+                            .background(Blesk.colors.surfaceStrong)
+                            .clickable(role = Role.Button) { actions.onButton(message, button) }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(button.text, style = Blesk.type.label, maxLines = 1)
+                        if (button.url != null) {
+                            Icon(
+                                BleskIcons.ChevronRight,
+                                contentDescription = null,
+                                size = 14.dp,
+                                modifier = Modifier.padding(start = 4.dp),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

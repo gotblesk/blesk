@@ -58,9 +58,15 @@ data class Message(
     val reactions: ImmutableList<Reaction> = persistentListOf(),
     val edited: Boolean = false,
     val attachment: Attachment? = null,
+    /** Inline buttons under a bot message, row by row. */
+    val buttons: ImmutableList<ImmutableList<BotButton>> = persistentListOf(),
 ) {
     val isOwn: Boolean get() = authorId == ME
 }
+
+/** A button under a bot message: sends [data] back to the bot, or opens [url]. */
+@Serializable
+data class BotButton(val text: String, val data: String? = null, val url: String? = null)
 
 /** Something carried by a message besides its text. Paths point into the app's private storage. */
 @Serializable

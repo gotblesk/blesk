@@ -11,6 +11,7 @@ import app.blesk.shared.protocol.Envelope
 import app.blesk.shared.protocol.EnvelopeType
 import app.blesk.shared.protocol.PreKeyBundleDto
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -57,6 +58,30 @@ class MessageCryptoTest {
         val reply = bob.crypto.encrypt("alice", content("и тебе"))
         assertEquals(EnvelopeType.WHISPER, reply.type)
         assertEquals(Body.Text("и тебе"), alice.crypto.decrypt(Envelope(2, "bob", reply.type, reply.body, 0)).body)
+    }
+
+    @Test
+    fun `safety numbers agree on both phones and catch a different key`() {
+        val alice = Party("alice")
+        val bob = Party("bob")
+        alice.crypto.startSession(bob.bundle())
+        val first = alice.crypto.encrypt("bob", content("привет"))
+        bob.crypto.decrypt(Envelope(1, "alice", first.type, first.body, 0))
+
+        val fromAlice = alice.crypto.safetyNumber("bob")!!
+        val fromBob = bob.crypto.safetyNumber("alice")!!
+        assertEquals(60, fromAlice.digits.length)
+        assertEquals(fromAlice.digits, fromBob.digits)
+        assertTrue(alice.crypto.matches("bob", fromBob.scannable))
+
+        // Someone in the middle would hand out a different key: the codes no longer match.
+        val mallory = Party("bob")
+        val impostor = Party("alice")
+        impostor.crypto.startSession(mallory.bundle())
+        val forged = impostor.crypto.encrypt("bob", content("x"))
+        mallory.crypto.decrypt(Envelope(1, "alice", forged.type, forged.body, 0))
+        assertFalse(alice.crypto.matches("bob", mallory.crypto.safetyNumber("alice")!!.scannable))
+        assertFalse(alice.crypto.matches("bob", byteArrayOf(1, 2, 3)))
     }
 
     @Test

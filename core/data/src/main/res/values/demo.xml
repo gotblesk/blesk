@@ -60,4 +60,12 @@
     <string name="attachment_voice">Голосовое</string>
     <string name="attachment_circle">Кружок</string>
     <string name="attachment_theme">Тема</string>
+    <string name="demo_bot_greeting">Привет! Я эхо. Повторяю всё, что напишешь. А ещё у меня есть кнопки — нажми любую.</string>
+    <string-array name="demo_bot_buttons">
+        <item>Повтори</item>
+        <item>Что ты умеешь?</item>
+    </string-array>
+    <string name="demo_bot_pressed">Нажата кнопка «%1$s». Так бот узнаёт, что вы выбрали.</string>
+    <string name="demo_bot_command_start">начать сначала</string>
+    <string name="demo_bot_command_help">что умеет бот</string>
 </resources>

@@ -13,10 +13,16 @@ import org.signal.libsignal.protocol.SessionBuilder
 import org.signal.libsignal.protocol.SessionCipher
 import org.signal.libsignal.protocol.SignalProtocolAddress
 import org.signal.libsignal.protocol.ecc.ECPublicKey
+import org.signal.libsignal.protocol.fingerprint.FingerprintParsingException
+import org.signal.libsignal.protocol.fingerprint.FingerprintVersionMismatchException
+import org.signal.libsignal.protocol.fingerprint.NumericFingerprintGenerator
 import org.signal.libsignal.protocol.kem.KEMPublicKey
 import org.signal.libsignal.protocol.message.PreKeySignalMessage
 import org.signal.libsignal.protocol.message.SignalMessage
 import org.signal.libsignal.protocol.state.PreKeyBundle
+
+/** 60 digits to read aloud and a code to scan, for checking each other's keys. */
+class SafetyNumber(val digits: String, val scannable: ByteArray)
 
 /** A Signal-encrypted message ready for the wire. */
 data class Sealed(val type: Int, val body: String)
@@ -69,9 +75,50 @@ class MessageCrypto(private val store: SignalStore, private val localUsername: (
 
     fun remoteIdentity(username: String): IdentityKey? = store.getIdentity(address(username))
 
+    /**
+     * The safety number with [username]: the same 60 digits on both phones when nobody sits in
+     * the middle. Null until there is a session. Computed by libsignal, as in Signal.
+     */
+    fun safetyNumber(username: String): SafetyNumber? {
+        val remote = remoteIdentity(username) ?: return null
+        val fingerprint = NumericFingerprintGenerator(FINGERPRINT_ITERATIONS).createFor(
+            FINGERPRINT_VERSION,
+            localUsername().encodeToByteArray(),
+            store.identityKeyPair.publicKey,
+            username.encodeToByteArray(),
+            remote,
+        )
+        return SafetyNumber(fingerprint.displayableFingerprint.displayText, fingerprint.scannableFingerprint.serialized)
+    }
+
+    /** Whether a code scanned from the other phone matches ours; false for anything malformed. */
+    fun matches(username: String, scanned: ByteArray): Boolean {
+        val remote = remoteIdentity(username) ?: return false
+        val ours = NumericFingerprintGenerator(FINGERPRINT_ITERATIONS).createFor(
+            FINGERPRINT_VERSION,
+            localUsername().encodeToByteArray(),
+            store.identityKeyPair.publicKey,
+            username.encodeToByteArray(),
+            remote,
+        )
+        return try {
+            ours.scannableFingerprint.compareTo(scanned)
+        } catch (_: FingerprintVersionMismatchException) {
+            false
+        } catch (_: FingerprintParsingException) {
+            false
+        }
+    }
+
     private fun address(username: String) = SignalProtocolAddress(username, Api.DEVICE_ID)
 
     private fun local() = address(localUsername())
+
+    private companion object {
+        /** Signal's values: version 2 of the scannable format, 5200 hash iterations. */
+        const val FINGERPRINT_VERSION = 2
+        const val FINGERPRINT_ITERATIONS = 5200
+    }
 }
 
 /**

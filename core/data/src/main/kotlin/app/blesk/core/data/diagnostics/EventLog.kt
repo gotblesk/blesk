@@ -22,6 +22,7 @@ enum class EventCode {
     MessageQueued,
     SendFailed,
     DecryptFailed,
+    KeyChanged,
     ServerSynced,
     KeysRefilled,
     ServerRegistered,

@@ -32,3 +32,13 @@ internal fun openFile(context: Context, file: Attachment.File) {
         return
     }
 }
+
+/** Opens a bot's https link in the browser; anything else is ignored. */
+internal fun openLink(context: Context, url: String) {
+    if (!url.startsWith("https://")) return
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: ActivityNotFoundException) {
+        return
+    }
+}

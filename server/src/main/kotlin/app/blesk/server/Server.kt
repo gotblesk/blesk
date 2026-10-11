@@ -6,6 +6,10 @@ import app.blesk.server.auth.accountLookupRoutes
 import app.blesk.server.auth.bleskBearer
 import app.blesk.server.auth.loginRoutes
 import app.blesk.server.auth.registrationRoutes
+import app.blesk.server.bots.BOT_BEARER
+import app.blesk.server.bots.botApiRoutes
+import app.blesk.server.bots.botBearer
+import app.blesk.server.bots.botRoutes
 import app.blesk.server.calls.callRoutes
 import app.blesk.server.http.ApiException
 import app.blesk.server.http.ErrorCodes
@@ -48,7 +52,10 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
         timeout = 60.seconds
         maxFrameSize = Api.MAX_MESSAGE_BYTES * 2L
     }
-    install(Authentication) { bleskBearer(services) }
+    install(Authentication) {
+        bleskBearer(services)
+        botBearer(services)
+    }
     install(StatusPages) {
         exception<ApiException> { call, failure -> call.respond(failure.status, ErrorBody(failure.code, failure.message.orEmpty())) }
         exception<BadRequestException> { call, _ -> call.respond(HttpStatusCode.BadRequest, ErrorBody(ErrorCodes.BAD_REQUEST)) }
@@ -75,6 +82,10 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
             socketRoutes(services)
             spaceRoutes(services)
             callRoutes(services)
+            botRoutes(services)
+        }
+        authenticate(BOT_BEARER) {
+            botApiRoutes(services)
         }
     }
 

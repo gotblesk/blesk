@@ -1,6 +1,7 @@
 package app.blesk.feature.chats
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -39,11 +40,13 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
@@ -52,6 +55,7 @@ import app.blesk.core.data.model.SendStatus
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
+import app.blesk.core.design.component.Capsule
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
@@ -74,7 +78,9 @@ import app.blesk.feature.chats.media.Recorders
 import app.blesk.feature.chats.media.RecordingBar
 import app.blesk.feature.chats.media.RecordingUi
 import app.blesk.shared.appearance.ThemeSpec
+import app.blesk.shared.protocol.BotCommand
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -99,6 +105,8 @@ class ConversationCallbacks(
     val onOpenInfo: (() -> Unit)? = null,
     /** Calls the person; null where calls make no sense (groups, channels, bots). */
     val onCall: ((video: Boolean) -> Unit)? = null,
+    /** A press on an inline button under a bot message. */
+    val onButton: (messageId: String, button: BotButton) -> Unit = { _, _ -> },
 )
 
 @Composable
@@ -114,8 +122,12 @@ fun ConversationScreen(
     busy: Boolean = false,
     /** Nobody but admins may write here; the composer is replaced with a note. */
     readOnly: Boolean = conversation.kind == ConversationKind.Channel,
-    /** Public spaces have no reactions. */
-    reactions: Boolean = true,
+    /** Public spaces and bots have no reactions. */
+    reactions: Boolean = conversation.kind != ConversationKind.Bot,
+    /** The other person's key changed and has not been checked since. */
+    keyChanged: Boolean = false,
+    /** What a bot offers when you type "/". */
+    commands: ImmutableList<BotCommand> = persistentListOf(),
     underlay: @Composable BoxScope.() -> Unit = {},
 ) {
     val recording = remember { RecordingUi() }
@@ -146,6 +158,7 @@ fun ConversationScreen(
             onMenu = { menuFor = it },
             onReact = { message, symbol -> callbacks.onReact(message.id, symbol) },
             onApplyTheme = callbacks.onApplyTheme,
+            onButton = { message, button -> callbacks.onButton(message.id, button) },
         )
     }
 
@@ -180,6 +193,8 @@ fun ConversationScreen(
                             busy = busy,
                             onPickMedia = callbacks.onPickMedia,
                             onPickFile = callbacks.onPickFile,
+                            attachments = conversation.kind != ConversationKind.Bot,
+                            commands = commands,
                             replyTo = replyToId?.let(byId::get),
                             editing = editingId?.let(byId::get),
                             authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
@@ -215,6 +230,7 @@ fun ConversationScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     item(key = "note") { ProtectionNote(conversation.protection) }
+                    if (keyChanged) item(key = "key") { KeyWarning(callbacks.onOpenInfo) }
                     items(groups, key = { it.first().id }) { group ->
                         val own = group.first().isOwn
                         MessageColumn(
@@ -242,6 +258,7 @@ fun ConversationScreen(
                         input.setTextAndPlaceCursorAtEnd(message.text)
                     },
                     onDelete = { callbacks.onDelete(message.id) },
+                    editable = conversation.kind != ConversationKind.Bot,
                     onReact = if (reactions) ({ symbol -> callbacks.onReact(message.id, symbol) }) else null,
                 )
             }
@@ -298,6 +315,7 @@ private fun ChatHeader(
                         text = when {
                             typing -> stringResource(R.string.chats_typing)
                             protected -> stringResource(R.string.chat_protected)
+                            conversation.kind == ConversationKind.Bot -> stringResource(R.string.chat_bot_label)
                             else -> stringResource(app.blesk.core.design.R.string.design_not_encrypted)
                         },
                         style = Blesk.type.caption,
@@ -313,10 +331,32 @@ private fun ChatHeader(
                 IconButton(BleskIcons.Phone, stringResource(R.string.chat_call), { onCall(false) })
                 IconButton(BleskIcons.Video, stringResource(R.string.chat_video_call), { onCall(true) })
             }
-            if (onOpenInfo != null) IconButton(BleskIcons.People, stringResource(R.string.group_info), onOpenInfo)
+            if (onOpenInfo != null) {
+                if (conversation.kind == ConversationKind.Direct) {
+                    IconButton(BleskIcons.Shield, stringResource(R.string.chat_verify), onOpenInfo)
+                } else {
+                    IconButton(BleskIcons.People, stringResource(R.string.group_info), onOpenInfo)
+                }
+            }
             IconButton(BleskIcons.Appearance, stringResource(R.string.chat_theme), onOpenTheme)
         },
     )
+}
+
+@Composable
+private fun KeyWarning(onCheck: (() -> Unit)?) {
+    Capsule(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onCheck,
+        onClickLabel = stringResource(R.string.chat_verify),
+    ) {
+        Text(
+            text = stringResource(R.string.chat_key_changed),
+            style = Blesk.type.label,
+            color = Blesk.colors.danger,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
+    }
 }
 
 @Composable
@@ -365,6 +405,8 @@ private fun Composer(
     busy: Boolean,
     onPickMedia: () -> Unit,
     onPickFile: () -> Unit,
+    attachments: Boolean,
+    commands: ImmutableList<BotCommand>,
     replyTo: Message?,
     editing: Message?,
     authorName: (Message) -> String,
@@ -424,6 +466,24 @@ private fun Composer(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
                 )
             }
+            val typed = state.text.toString()
+            val suggestions = if (typed.startsWith("/") && ' ' !in typed) {
+                commands.filter { it.command.startsWith(typed.removePrefix("/")) }.take(MAX_SUGGESTIONS)
+            } else {
+                emptyList()
+            }
+            suggestions.forEach { command ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button) { state.setTextAndPlaceCursorAtEnd("/${command.command} ") }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("/${command.command}", style = Blesk.type.bodyStrong)
+                    Text(command.description, style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)
+                }
+            }
             if (recording.active && recorders != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RecordingBar(recording, recorders, Modifier.weight(1f))
@@ -432,7 +492,7 @@ private fun Composer(
                 return@BottomLens
             }
             Row(verticalAlignment = Alignment.Bottom) {
-                IconButton(BleskIcons.Paperclip, stringResource(R.string.media_attach), { attachMenu = !attachMenu })
+                if (attachments) IconButton(BleskIcons.Paperclip, stringResource(R.string.media_attach), { attachMenu = !attachMenu })
                 Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 4.dp), contentAlignment = Alignment.CenterStart) {
                     if (state.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
                     BasicTextField(
@@ -495,3 +555,5 @@ private fun TypingSignal(state: TextFieldState, onTyping: (Boolean) -> Unit) {
 
 private const val TYPING_REPEAT_MILLIS = 4_000L
 private const val TYPING_PAUSE_MILLIS = 5_000L
+
+private const val MAX_SUGGESTIONS = 5

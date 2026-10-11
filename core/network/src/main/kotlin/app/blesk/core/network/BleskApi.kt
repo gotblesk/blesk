@@ -3,11 +3,15 @@ package app.blesk.core.network
 import app.blesk.shared.protocol.AccountInfo
 import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.AttachmentUploaded
+import app.blesk.shared.protocol.BotCreated
+import app.blesk.shared.protocol.BotInfo
+import app.blesk.shared.protocol.Bots
 import app.blesk.shared.protocol.CallToken
 import app.blesk.shared.protocol.CallTokenRequest
 import app.blesk.shared.protocol.Calls
 import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.ChallengeRequest
+import app.blesk.shared.protocol.CreateBot
 import app.blesk.shared.protocol.CreateSpace
 import app.blesk.shared.protocol.CreateSpaceChannel
 import app.blesk.shared.protocol.EditPost
@@ -28,6 +32,7 @@ import app.blesk.shared.protocol.Spaces
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
 import app.blesk.shared.protocol.UpdateSpace
+import app.blesk.shared.protocol.UserToBot
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
@@ -104,6 +109,19 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
     }
 
     suspend fun info(): ServerInfo = call { client.get(url(Api.INFO)) }
+
+    suspend fun createBot(request: CreateBot): BotCreated = call { client.post(url(Bots.PATH)) { auth(); jsonBody(request) } }
+
+    suspend fun myBots(): List<BotInfo> = call { client.get(url("${Bots.PATH}/mine")) { auth() } }
+
+    suspend fun renewBotToken(username: String): BotCreated = call { client.post(url("${Bots.userPath(username)}/token")) { auth() } }
+
+    suspend fun deleteBot(username: String) = expect { client.delete(url(Bots.userPath(username))) { auth() } }
+
+    suspend fun bot(username: String): BotInfo? = optional { client.get(url(Bots.userPath(username))) { auth() } }
+
+    suspend fun sendToBot(username: String, update: UserToBot) =
+        expect { client.post(url("${Bots.userPath(username)}/updates")) { auth(); jsonBody(update) } }
 
     suspend fun callToken(room: String): CallToken = call { client.post(url(Calls.TOKEN)) { auth(); jsonBody(CallTokenRequest(room)) } }
 

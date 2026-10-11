@@ -59,6 +59,26 @@ class MessageRepository(private val database: Database) {
         Stored.Queued(Envelope(serverId, sender, type, Base64.getEncoder().encodeToString(body), now.toEpochMilli()))
     }
 
+    /** A bot message for [recipientId]; bots need no client ids because the server names their messages. */
+    suspend fun storeFromBot(botId: Long, bot: String, recipientId: Long, type: Int, body: ByteArray, now: Instant): Envelope =
+        database.transaction { connection ->
+            val serverId = checkNotNull(
+                connection.queryOne(
+                    """
+                    INSERT INTO queued_messages (id, recipient_id, sender_bot_id, type, body, created_at)
+                    VALUES (nextval('message_ids'), ?, ?, ?, ?, ?)
+                    RETURNING id
+                    """.trimIndent(),
+                    recipientId,
+                    botId,
+                    type,
+                    body,
+                    now,
+                ) { it.getLong("id") },
+            )
+            Envelope(serverId, bot, type, Base64.getEncoder().encodeToString(body), now.toEpochMilli())
+        }
+
     suspend fun nextServerId(): Long = database.transaction { connection ->
         checkNotNull(connection.queryOne("SELECT nextval('message_ids') AS id") { it.getLong("id") })
     }
@@ -67,8 +87,10 @@ class MessageRepository(private val database: Database) {
     suspend fun queued(recipientId: Long, afterId: Long, limit: Int): List<Envelope> = database.transaction { connection ->
         connection.query(
             """
-            SELECT q.id, a.username, q.type, q.body, q.created_at
-            FROM queued_messages q JOIN accounts a ON a.id = q.sender_id
+            SELECT q.id, COALESCE(a.username, b.username) AS username, q.type, q.body, q.created_at
+            FROM queued_messages q
+            LEFT JOIN accounts a ON a.id = q.sender_id
+            LEFT JOIN bots b ON b.id = q.sender_bot_id
             WHERE q.recipient_id = ? AND q.id > ?
             ORDER BY q.id
             LIMIT ?

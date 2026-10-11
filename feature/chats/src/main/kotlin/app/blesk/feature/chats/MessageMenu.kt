@@ -52,6 +52,7 @@ internal fun MessageMenu(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onReact: ((String) -> Unit)?,
+    editable: Boolean = true,
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -121,7 +122,7 @@ internal fun MessageMenu(
                         }
                     },
                 )
-                if (message.isOwn) {
+                if (message.isOwn && editable) {
                     ListRow(
                         title = stringResource(R.string.chat_edit),
                         icon = BleskIcons.Edit,

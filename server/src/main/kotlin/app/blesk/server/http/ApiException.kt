@@ -37,6 +37,14 @@ object ErrorCodes {
     const val UNKNOWN_ATTACHMENT = "unknown_attachment"
     const val INVALID_ROOM = "invalid_room"
     const val CALLS_UNAVAILABLE = "calls_unavailable"
+    const val USERNAME_RESERVED = "username_reserved"
+    const val INVALID_NAME = "invalid_name"
+    const val TOO_MANY_BOTS = "too_many_bots"
+    const val INVALID_TEXT = "invalid_text"
+    const val INVALID_BUTTONS = "invalid_buttons"
+    const val INVALID_COMMANDS = "invalid_commands"
+    const val INVALID_WEBHOOK = "invalid_webhook"
+    const val CHAT_NOT_STARTED = "chat_not_started"
 }
 
 fun badRequest(code: String = ErrorCodes.BAD_REQUEST, message: String = "", cause: Throwable? = null) =
@@ -55,3 +63,5 @@ inline fun <T : Any> T?.orFail(failure: () -> ApiException): T = this ?: throw f
 fun forbidden(code: String = ErrorCodes.FORBIDDEN) = ApiException(HttpStatusCode.Forbidden, code)
 
 fun conflict(code: String) = ApiException(HttpStatusCode.Conflict, code)
+
+fun rateLimited() = ApiException(HttpStatusCode.TooManyRequests, ErrorCodes.RATE_LIMITED)

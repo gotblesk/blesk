@@ -85,6 +85,9 @@ interface ContactDao {
     @Query("SELECT * FROM contacts WHERE username = :username")
     suspend fun get(username: String): ContactEntity?
 
+    @Query("SELECT * FROM contacts WHERE username = :username")
+    fun observe(username: String): Flow<ContactEntity?>
+
     @Upsert
     suspend fun upsert(contact: ContactEntity)
 }

@@ -18,6 +18,10 @@ data class Config(
     val liveKit: LiveKitConfig?,
     /** Per account, for call tokens. */
     val callRateLimit: RateLimitConfig,
+    /** Per account, for creating bots and writing to them. */
+    val botRateLimit: RateLimitConfig,
+    /** Per bot, for the Bot API. */
+    val botApiRateLimit: RateLimitConfig,
 ) {
     companion object {
         fun fromEnvironment(env: Map<String, String> = System.getenv()): Config {
@@ -51,6 +55,8 @@ data class Config(
                 maintenanceInterval = DEFAULT_MAINTENANCE_INTERVAL,
                 liveKit = liveKit(::value),
                 callRateLimit = perMinute(value("BLESK_CALL_RATE_PER_MINUTE"), DEFAULT_CALL_PER_MINUTE),
+                botRateLimit = perMinute(value("BLESK_BOT_RATE_PER_MINUTE"), DEFAULT_BOT_PER_MINUTE),
+                botApiRateLimit = perMinute(value("BLESK_BOT_API_RATE_PER_MINUTE"), DEFAULT_BOT_API_PER_MINUTE),
             )
         }
 
@@ -73,6 +79,8 @@ data class Config(
         private const val DEFAULT_PER_MINUTE = 30
         private const val DEFAULT_POST_PER_MINUTE = 30
         private const val DEFAULT_CALL_PER_MINUTE = 30
+        private const val DEFAULT_BOT_PER_MINUTE = 60
+        private const val DEFAULT_BOT_API_PER_MINUTE = 300
         private val DEFAULT_MAINTENANCE_INTERVAL = 15.minutes
     }
 }

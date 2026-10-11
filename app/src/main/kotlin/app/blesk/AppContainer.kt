@@ -78,6 +78,13 @@ class AppContainer(context: Context) {
     /** The world the screens show: the demo, or the server once connected. Null while opening. */
     val chats: StateFlow<ChatRepository?> = chatsState.asStateFlow()
 
+    /** The chat on screen right now, so its messages do not also ring as notifications. */
+    @Volatile
+    var openConversation: String? = null
+
+    /** A chat to open, asked for by a notification. */
+    val openRequest = MutableStateFlow<String?>(null)
+
     /** Whether one of the app's screens is in front of the user. */
     @Volatile
     var visible = false

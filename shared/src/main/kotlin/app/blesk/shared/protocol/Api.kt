@@ -111,6 +111,9 @@ object EnvelopeType {
 
     /** A group message encrypted with the sender's SenderKey. */
     const val SENDERKEY = 7
+
+    /** From a bot: NOT encrypted, the body is a [BotMessage] in JSON. */
+    const val BOT = 100
 }
 
 @Serializable

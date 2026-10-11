@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 class MigrationTest {
 
     @Test
-    fun `version 1 database opens as version 2 with its data`() {
+    fun `version 1 database opens as the current version with its data`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val file = context.getDatabasePath("migration.db").apply { parentFile?.mkdirs(); delete() }
         SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
@@ -26,7 +26,7 @@ class MigrationTest {
             db.version = 1
         }
         val room = Room.databaseBuilder(context, BleskDatabase::class.java, file.path)
-            .addMigrations(BleskDatabase.MIGRATION_1_2)
+            .addMigrations(BleskDatabase.MIGRATION_1_2, BleskDatabase.MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
         runBlocking {

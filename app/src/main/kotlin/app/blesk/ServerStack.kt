@@ -49,7 +49,7 @@ internal class ServerStack(
             profile = { profile.value },
             labels = context.resources::attachmentLabel,
             log = container.eventLog,
-        )
+        ).also { repository -> store.onIdentityChanged = repository::onKeyChanged }
 
     companion object {
         fun from(context: Context, container: AppContainer, mode: AppMode.Server) =

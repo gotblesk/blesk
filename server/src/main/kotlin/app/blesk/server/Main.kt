@@ -3,6 +3,7 @@ package app.blesk.server
 import app.blesk.server.attachments.AttachmentStorage
 import app.blesk.server.attachments.FileSystemStorage
 import app.blesk.server.attachments.MinioStorage
+import app.blesk.server.bots.WebhookPolicy
 import app.blesk.server.calls.CallTokens
 import app.blesk.server.db.Database
 import app.blesk.server.http.RateLimiter
@@ -25,6 +26,9 @@ fun main() {
         trustProxy = config.trustProxy,
         callRateLimiter = RateLimiter(config.callRateLimit),
         callTokens = config.liveKit?.let(::CallTokens),
+        botRateLimiter = RateLimiter(config.botRateLimit),
+        botApiRateLimiter = RateLimiter(config.botApiRateLimit),
+        webhookPolicy = WebhookPolicy(allowPrivateAddresses = false),
     )
     log.info("Calls {}", if (config.liveKit != null) "enabled" else "disabled")
     log.info("Listening on port {}", config.port)

@@ -12,6 +12,7 @@ import app.blesk.server.http.orFail
 import app.blesk.server.http.receiveJson
 import app.blesk.shared.protocol.AccountInfo
 import app.blesk.shared.protocol.Api
+import app.blesk.shared.protocol.Bots
 import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.ChallengeRequest
 import app.blesk.shared.protocol.RegisterRequest
@@ -34,6 +35,8 @@ fun Route.registrationRoutes(services: Services) {
     post(Api.ACCOUNTS) {
         val request = call.receiveJson<RegisterRequest>()
         ensure(Usernames.isValid(request.username)) { badRequest(ErrorCodes.INVALID_USERNAME) }
+        // Names ending like a bot's belong to bots, so a person can never pass for a program or the other way round.
+        ensure(!request.username.endsWith(Bots.SUFFIX)) { badRequest(ErrorCodes.USERNAME_RESERVED) }
         val keyBytes = request.identityKey.decodeBase64(ErrorCodes.INVALID_KEY)
         val identityKey = Signatures.identityKey(keyBytes).orFail { badRequest(ErrorCodes.INVALID_KEY) }
         val signature = request.signature.decodeBase64(ErrorCodes.INVALID_SIGNATURE)

@@ -39,6 +39,8 @@ data class MessageEntity(
     val edited: Boolean = false,
     /** JSON of the attachment as stored locally. */
     val attachment: String? = null,
+    /** JSON rows of inline buttons under a bot message. */
+    val buttons: String? = null,
 )
 
 @Entity(tableName = "contacts")
@@ -48,6 +50,8 @@ data class ContactEntity(
     val bio: String = "",
     val identityKey: String? = null,
     val verified: Boolean = false,
+    /** Their key changed since you last looked; the chat warns until you check it. */
+    val keyChanged: Boolean = false,
 )
 
 /** Encrypted-later work: content waiting to be encrypted and sent. Survives restarts. */

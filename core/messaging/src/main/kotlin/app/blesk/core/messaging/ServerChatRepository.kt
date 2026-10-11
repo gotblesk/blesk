@@ -3,8 +3,12 @@ package app.blesk.core.messaging
 import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
+import app.blesk.core.data.BotAccounts
+import app.blesk.core.data.BotController
 import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.GroupController
+import app.blesk.core.data.IncomingMessages
+import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.SpaceController
 import app.blesk.core.data.SpaceResult
 import app.blesk.core.data.calls.CallSignal
@@ -23,6 +27,7 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.settings.IncomingNote
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
 import app.blesk.core.network.ApiException
@@ -92,8 +97,19 @@ class ServerChatRepository(
     private val labels: (Attachment?) -> String,
     private val log: EventLog,
     private val clock: () -> Long = System::currentTimeMillis,
-) : ChatRepository, GroupController, SpaceController, CallSignaling {
+) : ChatRepository,
+    GroupController,
+    SpaceController,
+    CallSignaling,
+    BotController,
+    IncomingMessages,
+    KeyVerification by KeyChecks(db, crypto, scope, log),
+    BotAccounts by BotOwner(api) {
+    private val incomingFlow = MutableSharedFlow<IncomingNote>(extraBufferCapacity = SIGNAL_BUFFER)
+    override val incoming: SharedFlow<IncomingNote> = incomingFlow.asSharedFlow()
     private val spaces = SpaceEngine(db, api, media, me, labels)
+    private val bots =
+        BotEngine(db, api, me, clock) { bot, title, text -> incomingFlow.tryEmit(IncomingNote(bot, title, null, text)) }
     private val groups = GroupEngine(
         db = db,
         crypto = groupCrypto,
@@ -176,6 +192,7 @@ class ServerChatRepository(
 
     override suspend fun openDirect(username: String): String? {
         if (username == me) return null
+        if (bots.isBot(username)) return bots.open(username)
         val existing = db.contacts().get(username)
         if (existing == null) {
             val account = runCatching { api.account(username) }.getOrNull() ?: return null
@@ -186,6 +203,10 @@ class ServerChatRepository(
     }
 
     override fun send(conversationId: String, text: String, replyToId: String?) {
+        if (bots.isBot(conversationId)) {
+            scope.launch { bots.send(conversationId, text.trim(), replyToId) }
+            return
+        }
         val body = text.trim()
         if (body.isEmpty()) return
         if (spaces.handleOf(conversationId) != null) {
@@ -206,6 +227,8 @@ class ServerChatRepository(
     }
 
     override fun sendAttachment(conversationId: String, attachment: Attachment, caption: String, replyToId: String?) {
+        // Bots take text only; files to a program in the clear are not worth the risk.
+        if (bots.isBot(conversationId)) return
         if (spaces.handleOf(conversationId) != null) {
             scope.launch {
                 runCatching { spaces.send(conversationId, caption, replyToId, attachment) }.onFailure { log.record(EventCode.SendFailed) }
@@ -285,7 +308,8 @@ class ServerChatRepository(
             val ids = db.messages().unreadIncoming(conversationId, me)
             if (ids.isEmpty()) return@launch
             db.messages().markIncomingRead(ids)
-            if (privacy().readReceipts && groups.groupOf(conversationId) == null) {
+            val direct = groups.groupOf(conversationId) == null && !isSpace(conversationId) && !bots.isBot(conversationId)
+            if (privacy().readReceipts && direct) {
                 enqueue(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Receipt(ReceiptKind.Read, ids)))
             }
         }
@@ -404,6 +428,20 @@ class ServerChatRepository(
         api.removeSpaceChannel(handle, channel)
         api.space(handle)?.let { spaces.remember(it) }
     }.isSuccess
+
+    // Bots
+
+    override val notices: SharedFlow<String> get() = bots.notices
+
+    override fun isBot(conversationId: String) = bots.isBot(conversationId)
+
+    override suspend fun commands(conversationId: String) = bots.commands(conversationId)
+
+    override fun press(conversationId: String, messageId: String, data: String) {
+        scope.launch {
+            if (!bots.press(conversationId, bots.botMessageId(conversationId, messageId), data)) log.record(EventCode.SendFailed)
+        }
+    }
 
     // Calls
 
@@ -553,6 +591,11 @@ class ServerChatRepository(
     }
 
     private suspend fun receive(envelope: Envelope) {
+        if (envelope.type == EnvelopeType.BOT) {
+            if (!bots.receive(envelope)) log.record(EventCode.DecryptFailed)
+            socket.ack(envelope.serverId)
+            return
+        }
         val content = try {
             if (envelope.type == EnvelopeType.SENDERKEY) {
                 groups.open(envelope.sender, envelope.body)
@@ -652,7 +695,11 @@ class ServerChatRepository(
         )
         if (inserted == -1L) return
         db.conversations().incrementUnread(conversation)
-        setPreview(conversation, author, body.text.ifEmpty { labels(placeholder) }, content.sentAtMillis)
+        val preview = body.text.ifEmpty { labels(placeholder) }
+        setPreview(conversation, author, preview, content.sentAtMillis)
+        val row = db.conversations().get(conversation)
+        val title = row?.parentId?.let { db.conversations().get(it)?.title } ?: row?.title
+        incomingFlow.tryEmit(IncomingNote(conversation, title ?: sender, author?.let { contactCache.value[it]?.name ?: it }, preview))
         body.attachment?.let { pointer ->
             scope.launch {
                 val local = runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }.getOrNull()

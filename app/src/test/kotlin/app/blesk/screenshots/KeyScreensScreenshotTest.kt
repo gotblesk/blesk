@@ -1,11 +1,17 @@
 package app.blesk.screenshots
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import app.blesk.core.calls.CallMember
 import app.blesk.core.calls.MediaState
+import app.blesk.core.data.BotResult
+import app.blesk.core.data.KeyState
+import app.blesk.core.data.SafetyCode
 import app.blesk.core.data.SpaceResult
 import app.blesk.core.data.calls.CallPhase
 import app.blesk.core.data.calls.CallSession
@@ -14,7 +20,9 @@ import app.blesk.core.data.diagnostics.CrashReport
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.LogEntry
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.RoomChannelKind
+import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.Profile
 import app.blesk.core.design.component.DemoTag
@@ -42,6 +50,7 @@ import app.blesk.feature.chats.groups.SpaceInfoScreen
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.profile.ProfileActions
 import app.blesk.feature.profile.ProfileScreen
+import app.blesk.feature.profile.QrCode
 import app.blesk.feature.security.PinAttempt
 import app.blesk.feature.security.PinEntry
 import app.blesk.feature.security.PrivacyActions
@@ -50,11 +59,17 @@ import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
 import app.blesk.feature.settings.AppearanceFileActions
 import app.blesk.feature.settings.AppearanceScreen
+import app.blesk.feature.settings.BotActions
+import app.blesk.feature.settings.BotsScreen
 import app.blesk.feature.settings.LicensesScreen
+import app.blesk.feature.settings.NotificationsScreen
+import app.blesk.feature.settings.SafetyScreen
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
+import app.blesk.shared.protocol.BotCommand
+import app.blesk.shared.protocol.BotInfo
 import app.blesk.shared.protocol.GroupChannel
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
@@ -380,6 +395,59 @@ class KeyScreensScreenshotTest(private val name: String) {
             actions = CallActions({}, {}, {}, {}, {}, {}, {}, toggleShare = {}),
             clock = { 65_000L },
         )
+    }
+
+    @Test
+    fun botChat() = capture("22_bot") {
+        val bot = seed.conversations.first { it.id == DemoSeed.BOT }
+        val base = seed.messages.first { it.conversationId == DemoSeed.BOT }
+        val messages = listOf(
+            base.copy(id = "b1", authorId = "me", text = "/start"),
+            base.copy(
+                id = "b2",
+                authorId = DemoSeed.BOT,
+                text = "Привет! Я эхо. Повторяю всё, что напишешь. А ещё у меня есть кнопки — нажми любую.",
+                buttons = persistentListOf(
+                    persistentListOf(BotButton("Повтори", data = "a"), BotButton("Что ты умеешь?", data = "b")),
+                    persistentListOf(BotButton("Сайт", url = "https://example.org")),
+                ),
+            ),
+        )
+        ConversationScreen(
+            conversation = bot,
+            messages = messages.toImmutableList(),
+            typing = false,
+            authorName = { "Эхо" },
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            commands = persistentListOf(BotCommand("start", "начать сначала")),
+        )
+    }
+
+    @Test
+    fun bots() = capture("23_bots") {
+        BotsScreen(
+            bots = persistentListOf(BotInfo("weather_bot", "Погода", "Прогноз по запросу")),
+            actions = BotActions({ _, _, _ -> BotResult.Ok to null }, { null }, {}),
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun safety() = capture("24_safety") {
+        SafetyScreen(
+            name = "Аня",
+            code = SafetyCode("051234120938476501928374650192837465019283746501928374651234", "code"),
+            state = KeyState(verified = false, changed = true),
+            onScanned = { true },
+            onSetVerified = {},
+            onBack = {},
+            qr = { content -> QrCode(content, Color.Black, Modifier.fillMaxSize()) },
+        )
+    }
+
+    @Test
+    fun notifications() = capture("25_notifications") {
+        NotificationsScreen(settings = NotificationSettings(), serverConnected = true, onChange = {}, onBack = {})
     }
 
     companion object {

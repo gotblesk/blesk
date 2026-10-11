@@ -1,6 +1,7 @@
 package app.blesk.server
 
 import app.blesk.server.attachments.FileSystemStorage
+import app.blesk.server.bots.WebhookPolicy
 import app.blesk.server.calls.CallTokens
 import app.blesk.server.db.Database
 import app.blesk.server.http.RateLimiter
@@ -44,7 +45,9 @@ import java.nio.file.Files
 import java.util.Base64
 import javax.sql.DataSource
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /** One real Postgres for the whole test run; every test uses fresh random usernames instead of a clean database. */
@@ -127,6 +130,7 @@ fun serverTest(
     postRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     callRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     liveKit: LiveKitConfig? = null,
+    botRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     block: suspend ApplicationTestBuilder.(Harness) -> Unit,
 ) = testApplication {
     val services = Services(
@@ -137,6 +141,11 @@ fun serverTest(
         trustProxy = false,
         callRateLimiter = RateLimiter(callRateLimit),
         callTokens = liveKit?.let(::CallTokens),
+        botRateLimiter = RateLimiter(botRateLimit),
+        botApiRateLimiter = RateLimiter(botRateLimit),
+        // Webhook tests call a local HTTP server; production never allows private addresses.
+        webhookPolicy = WebhookPolicy(allowPrivateAddresses = true),
+        webhookRetryDelays = listOf(ZERO, 100.milliseconds),
     )
     application { bleskModule(services, maintenanceInterval = 1.hours) }
     val client = createClient {
