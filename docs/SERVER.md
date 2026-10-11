@@ -2,6 +2,8 @@
 
 Сервер пересылает зашифрованные сообщения и хранит зашифрованные файлы. Прочитать их он не может: ключи есть только у телефонов.
 
+Исключение — публичные каналы и открытые комнаты. Они не шифруются: их посты сервер хранит открытым текстом, чтобы их мог читать кто угодно.
+
 ## 1. Купить сервер
 
 Подойдёт любой VPS с такими параметрами:
@@ -89,9 +91,31 @@ docker compose start server
 | GET | `/v1/attachments/{id}` | токен |
 | WebSocket | `/v1/ws` (токен в `Authorization` или `?token=`) | токен |
 
-Ошибки приходят как `{"code": "...", "message": ""}`. Коды: `bad_request`, `invalid_username`, `invalid_key`, `invalid_signature`, `username_taken`, `unauthorized`, `auth_failed`, `not_found`, `no_keys`, `too_many_keys`, `too_large`, `rate_limited`, `internal`.
+**Каналы и комнаты** (`/v1/spaces`, контракт — `Spaces.kt`, без E2EE). Для всех запросов нужен токен.
 
-Вложения и недоставленные сообщения удаляются через 30 дней. Токены действуют 30 дней. В журнале сервера пишутся только метод, шаблон пути, код ответа и время ответа.
+| Метод | Путь | Кто может |
+|---|---|---|
+| POST | `/v1/spaces` | любой; создатель становится владельцем |
+| GET | `/v1/spaces?query=`, `/v1/spaces/mine` | любой |
+| GET | `/v1/spaces/{handle}` | любой |
+| PATCH | `/v1/spaces/{handle}` | владелец, админ |
+| DELETE | `/v1/spaces/{handle}` | владелец |
+| POST | `/v1/spaces/{handle}/join`, `/leave` | любой, кроме забаненных; владелец не может выйти |
+| GET | `/v1/spaces/{handle}/members?offset=&limit=` | участники |
+| POST | `/v1/spaces/{handle}/roles` | владелец; админ — только по отношению к участникам |
+| POST, DELETE | `/v1/spaces/{handle}/ban/{username}` | владелец, админ; только тех, кто ниже по роли |
+| POST | `/v1/spaces/{handle}/channels` | владелец, админ; только в комнатах, не больше 20 |
+| DELETE | `/v1/spaces/{handle}/channels/{id}` | владелец, админ; последний удалить нельзя |
+| POST | `/v1/spaces/{handle}/posts` | в канале — владелец и админы, в комнате — любой участник |
+| GET | `/v1/spaces/{handle}/posts?channel=&before=&limit=` | любой, новые сначала |
+| PATCH | `/v1/spaces/{handle}/posts/{id}` | автор |
+| DELETE | `/v1/spaces/{handle}/posts/{id}` | автор, владелец, админ |
+
+Новые, изменённые и удалённые посты приходят по WebSocket всем участникам в кадрах `post` и `post_changed`. В очередь эти кадры не попадают: после переподключения клиент сам загружает историю. Повтор поста с тем же `clientId` не создаёт новый пост. Посты ограничены 30 в минуту на аккаунт.
+
+Ошибки приходят как `{"code": "...", "message": ""}`. Коды: `bad_request`, `invalid_username`, `invalid_key`, `invalid_signature`, `username_taken`, `unauthorized`, `auth_failed`, `not_found`, `no_keys`, `too_many_keys`, `too_large`, `rate_limited`, `internal`, а для каналов и комнат ещё `invalid_handle`, `handle_taken`, `forbidden`, `not_member`, `banned`, `owner_cannot_leave`, `invalid_role`, `not_a_room`, `too_many_channels`, `last_channel`, `unknown_attachment`.
+
+Вложения и недоставленные сообщения удаляются через 30 дней. Вложение публичного поста хранится, пока существует сам пост. Токены действуют 30 дней. В журнале сервера пишутся только метод, шаблон пути, код ответа и время ответа.
 
 **Переменные окружения сервера:**
 
@@ -104,6 +128,7 @@ docker compose start server
 | `BLESK_FS_DIR` | папка для вложений при `fs` |
 | `BLESK_TRUST_PROXY` | `true` за Caddy: адрес клиента берётся из `X-Forwarded-For` |
 | `BLESK_AUTH_RATE_BURST`, `BLESK_AUTH_RATE_PER_MINUTE` | лимит на регистрацию и вход с одного IP (20 и 30) |
+| `BLESK_POST_RATE_PER_MINUTE` | лимит постов в каналах и комнатах на аккаунт (30) |
 
 **Переменные `deploy.sh`:** `BLESK_BRANCH` (по умолчанию `master`), `BLESK_DOMAIN`, `BLESK_PUBLIC_IP`, `BLESK_DIR` (по умолчанию `/opt/blesk`). Пример: `curl ... | sudo BLESK_DOMAIN=chat.example.ru bash`.
 

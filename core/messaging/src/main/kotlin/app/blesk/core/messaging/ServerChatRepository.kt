@@ -1,8 +1,12 @@
 package app.blesk.core.messaging
 
+import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.data.ChatRepository
+import app.blesk.core.data.GroupController
+import app.blesk.core.data.SpaceController
+import app.blesk.core.data.SpaceResult
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ContactEntity
 import app.blesk.core.data.db.ConversationEntity
@@ -24,10 +28,23 @@ import app.blesk.core.network.BleskApi
 import app.blesk.core.network.Transport
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.Content
+import app.blesk.shared.protocol.CreateSpace
 import app.blesk.shared.protocol.Envelope
+import app.blesk.shared.protocol.EnvelopeType
+import app.blesk.shared.protocol.GroupChannelKind
+import app.blesk.shared.protocol.GroupKind
+import app.blesk.shared.protocol.GroupRole
+import app.blesk.shared.protocol.GroupState
+import app.blesk.shared.protocol.InviteLink
 import app.blesk.shared.protocol.OutgoingMessage
 import app.blesk.shared.protocol.ReceiptKind
+import app.blesk.shared.protocol.RoleChange
 import app.blesk.shared.protocol.ServerFrame
+import app.blesk.shared.protocol.SpaceInfo
+import app.blesk.shared.protocol.SpaceKind
+import app.blesk.shared.protocol.SpaceRole
+import app.blesk.shared.protocol.Spaces
+import app.blesk.shared.protocol.UpdateSpace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,6 +54,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -57,17 +75,30 @@ class ServerChatRepository(
     private val api: BleskApi,
     private val socket: Transport,
     private val crypto: MessageCrypto,
+    groupCrypto: GroupCrypto,
     private val keys: KeyManager,
     private val accounts: AccountManager,
     private val media: MediaVault,
-    private val me: String,
+    override val me: String,
     private val scope: CoroutineScope,
     private val privacy: () -> Privacy,
     private val profile: () -> Pair<String, String>,
     private val labels: (Attachment?) -> String,
     private val log: EventLog,
     private val clock: () -> Long = System::currentTimeMillis,
-) : ChatRepository {
+) : ChatRepository, GroupController, SpaceController {
+    private val spaces = SpaceEngine(db, api, media, me, labels)
+    private val groups = GroupEngine(
+        db = db,
+        crypto = groupCrypto,
+        me = me,
+        outbox = object : GroupOutbox {
+            override suspend fun direct(recipient: String, content: Content) = enqueue(recipient, content)
+            override suspend fun sealed(recipient: String, content: Content, type: Int, body: String) =
+                enqueueSealed(recipient, content, type, body)
+        },
+        clock = clock,
+    )
     private val typingState = MutableStateFlow<Set<String>>(emptySet())
     private val typingJobs = HashMap<String, Job>()
     private val flushLock = Mutex()
@@ -77,18 +108,53 @@ class ServerChatRepository(
 
     override val typing: StateFlow<Set<String>> = typingState.asStateFlow()
 
-    override val conversations: Flow<List<Conversation>> = db.conversations().observeAll().map { list ->
-        list.filter { it.previewText != null }.map { it.toModel() }
-    }
+    override val conversations: Flow<List<Conversation>> =
+        combine(db.conversations().observeAll(), db.groups().observeAll(), spaces.spaces) { list, groupRows, spaceInfo ->
+            val states = groupRows.associate { it.id to storageJson.decodeFromString(GroupState.serializer(), it.state) }
+            list.filter { it.previewText != null && it.parentId == null }.map { row ->
+                val space = spaces.handleOf(row.id)?.let(spaceInfo::get)
+                if (space != null) row.toModel(space) else row.toModel(states[row.id])
+            }
+        }
 
     override val contacts: Flow<List<Contact>> = db.contacts().observeAll().map { list -> list.map { it.toModel() } }
 
-    override fun conversation(id: String): Flow<Conversation?> = db.conversations().observe(id).map { it?.toModel() }
+    override fun conversation(id: String): Flow<Conversation?> =
+        combine(
+            db.conversations().observe(id),
+            group(id.substringBefore(GroupEngine.CHANNEL_SEPARATOR)),
+            spaces.spaces,
+        ) { row, state, spaceInfo ->
+            val space = spaces.handleOf(id)?.let(spaceInfo::get)?.takeIf { row?.parentId == null }
+            when {
+                row == null -> null
+                space != null -> row.toModel(space)
+                else -> row.toModel(state?.takeIf { row.parentId == null })
+            }
+        }
 
     override fun messages(conversationId: String): Flow<List<Message>> =
         db.messages().observe(conversationId).map { list -> list.map { it.toModel(me) } }
 
     override fun contact(id: String): Contact? = contactCache.value[id]
+
+    /**
+     * SQLite folds case for latin letters only, so the query is also tried lowercased and
+     * capitalised; that covers how people actually type in Cyrillic.
+     */
+    override suspend fun search(query: String): List<Message> {
+        val needle = query.trim()
+        if (needle.isEmpty()) return emptyList()
+        val variants = setOf(needle, needle.lowercase(), needle.lowercase().replaceFirstChar { it.uppercase() })
+        return variants
+            .flatMap { db.messages().search(escapeLike(it)) }
+            .distinctBy { it.id }
+            .sortedByDescending { it.sentAt }
+            .take(SEARCH_LIMIT)
+            .map { it.toModel(me) }
+    }
+
+    private fun escapeLike(text: String) = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     fun start() {
         scope.launch {
@@ -115,18 +181,30 @@ class ServerChatRepository(
     override fun send(conversationId: String, text: String, replyToId: String?) {
         val body = text.trim()
         if (body.isEmpty()) return
+        if (spaces.handleOf(conversationId) != null) {
+            scope.launch {
+                runCatching { spaces.send(conversationId, body, replyToId, null) }.onFailure { log.record(EventCode.SendFailed) }
+            }
+            return
+        }
         val content = Content(UUID.randomUUID().toString(), clock(), Body.Text(body, replyToId))
         scope.launch {
             db.messages().insert(
                 MessageEntity(content.id, conversationId, me, body, content.sentAtMillis, SendStatus.Sending.name, replyToId),
             )
             setPreview(conversationId, null, body, content.sentAtMillis)
-            enqueue(conversationId, content)
+            dispatch(conversationId, content)
             log.record(EventCode.MessageQueued)
         }
     }
 
     override fun sendAttachment(conversationId: String, attachment: Attachment, caption: String, replyToId: String?) {
+        if (spaces.handleOf(conversationId) != null) {
+            scope.launch {
+                runCatching { spaces.send(conversationId, caption, replyToId, attachment) }.onFailure { log.record(EventCode.SendFailed) }
+            }
+            return
+        }
         val id = UUID.randomUUID().toString()
         val sentAt = clock()
         scope.launch {
@@ -149,37 +227,48 @@ class ServerChatRepository(
                 log.record(EventCode.SendFailed)
                 return@launch
             }
-            enqueue(conversationId, Content(id, sentAt, Body.Text(caption.trim(), replyToId, pointer)))
+            dispatch(conversationId, Content(id, sentAt, Body.Text(caption.trim(), replyToId, pointer)))
         }
     }
 
     override fun toggleReaction(conversationId: String, messageId: String, symbol: String) {
+        if (spaces.handleOf(conversationId) != null) return
         scope.launch {
             val message = db.messages().get(messageId) ?: return@launch
             val entries = decodeReactions(message.reactions)
             val mine = entries.any { it.symbol == symbol && me in it.users }
             db.messages().upsert(message.copy(reactions = encodeReactions(applyReaction(entries, me, symbol, remove = mine))))
-            enqueue(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Reaction(messageId, symbol, remove = mine)))
+            dispatch(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Reaction(messageId, symbol, remove = mine)))
         }
     }
 
     override fun edit(conversationId: String, messageId: String, text: String) {
         val body = text.trim()
         if (body.isEmpty()) return
+        if (spaces.handleOf(conversationId) != null) {
+            scope.launch { runCatching { spaces.edit(messageId, body) } }
+            return
+        }
         scope.launch {
             val message = db.messages().get(messageId)?.takeIf { it.authorId == me } ?: return@launch
             db.messages().upsert(message.copy(text = body, edited = true))
             refreshPreview(conversationId)
-            enqueue(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Edit(messageId, body)))
+            dispatch(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Edit(messageId, body)))
         }
     }
 
     override fun delete(conversationId: String, messageId: String) {
+        if (spaces.handleOf(conversationId) != null) {
+            scope.launch { runCatching { spaces.delete(messageId) } }
+            return
+        }
         scope.launch {
-            db.messages().get(messageId)?.takeIf { it.authorId == me } ?: return@launch
+            val message = db.messages().get(messageId) ?: return@launch
+            val moderator = groups.groupOf(conversationId)?.isAdmin(me) == true
+            if (message.authorId != me && !moderator) return@launch
             db.messages().delete(messageId)
             refreshPreview(conversationId)
-            enqueue(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Delete(messageId)))
+            dispatch(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Delete(messageId)))
         }
     }
 
@@ -189,7 +278,7 @@ class ServerChatRepository(
             val ids = db.messages().unreadIncoming(conversationId, me)
             if (ids.isEmpty()) return@launch
             db.messages().markIncomingRead(ids)
-            if (privacy().readReceipts) {
+            if (privacy().readReceipts && groups.groupOf(conversationId) == null) {
                 enqueue(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Receipt(ReceiptKind.Read, ids)))
             }
         }
@@ -198,7 +287,7 @@ class ServerChatRepository(
     override fun setTyping(conversationId: String, active: Boolean) {
         if (!privacy().typingIndicator) return
         scope.launch {
-            if (!crypto.hasSessionSafe(conversationId)) return@launch
+            if (groups.groupOf(conversationId) != null || !crypto.hasSessionSafe(conversationId)) return@launch
             runCatching {
                 val content = Content(UUID.randomUUID().toString(), clock(), Body.Typing(active))
                 val sealed = withContext(Dispatchers.IO) { crypto.encrypt(conversationId, content) }
@@ -207,7 +296,128 @@ class ServerChatRepository(
         }
     }
 
+    // Groups and rooms
+
+    override fun group(id: String): Flow<GroupState?> = db.groups().observeAll().map { rows ->
+        rows.firstOrNull { it.id == id }?.let { storageJson.decodeFromString(GroupState.serializer(), it.state) }
+    }
+
+    override suspend fun createGroup(kind: GroupKind, title: String, members: List<String>): String {
+        val id = groups.create(kind, title, members)
+        flush()
+        return id
+    }
+
+    override suspend fun rename(groupId: String, title: String) = groups.rename(groupId, title).also { flush() }
+
+    override suspend fun addMembers(groupId: String, usernames: List<String>) = groups.addMembers(groupId, usernames).also { flush() }
+
+    override suspend fun removeMember(groupId: String, username: String) = groups.remove(groupId, username).also { flush() }
+
+    override suspend fun setRole(groupId: String, username: String, role: GroupRole) =
+        groups.setRole(groupId, username, role).also { flush() }
+
+    override suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) =
+        groups.addChannel(groupId, title, kind, adminsOnly).also { flush() }
+
+    override suspend fun removeChannel(groupId: String, channelId: String) = groups.removeChannel(groupId, channelId).also { flush() }
+
+    override suspend fun setInvite(groupId: String, enabled: Boolean): String? {
+        val code = groups.setInvite(groupId, enabled)
+        flush()
+        return code?.let { InviteLink.format(groupId, me, it) }
+    }
+
+    override suspend fun leave(groupId: String) {
+        groups.leave(groupId)
+        flush()
+    }
+
+    override suspend fun join(link: String): Boolean {
+        val invite = InviteLink.parse(link) ?: return false
+        if (openDirect(invite.admin) == null) return false
+        enqueue(invite.admin, Content(UUID.randomUUID().toString(), clock(), Body.JoinRequest(invite.groupId, invite.code)))
+        return true
+    }
+
+    // Public spaces
+
+    override fun space(conversationId: String): Flow<SpaceInfo?> =
+        spaces.spaces.map { all -> spaces.handleOf(conversationId)?.let(all::get) }
+
+    override fun isSpace(conversationId: String) = spaces.handleOf(conversationId) != null
+
+    override suspend fun searchSpaces(query: String): List<SpaceInfo> =
+        runCatching { api.searchSpaces(query.trim().removePrefix("@")) }.getOrDefault(emptyList())
+
+    override suspend fun joinSpace(handle: String): String? = runCatching {
+        val info = api.joinSpace(handle)
+        spaces.remember(info)
+        runCatching { spaces.sync() }
+        SpaceEngine.PREFIX + info.handle
+    }.getOrNull()
+
+    override suspend fun createSpace(kind: SpaceKind, handle: String, title: String, about: String): Pair<SpaceResult, String?> {
+        if (!Spaces.isValidHandle(handle)) return SpaceResult.HandleInvalid to null
+        return try {
+            val info = api.createSpace(CreateSpace(handle, kind, title.trim().take(Spaces.MAX_TITLE), about.trim().take(Spaces.MAX_ABOUT)))
+            spaces.remember(info)
+            SpaceResult.Ok to SpaceEngine.PREFIX + info.handle
+        } catch (e: ApiException) {
+            (if (e.code == "handle_taken") SpaceResult.HandleTaken else SpaceResult.Failed) to null
+        } catch (_: IOException) {
+            SpaceResult.Failed to null
+        }
+    }
+
+    override suspend fun updateSpace(handle: String, title: String, about: String) =
+        runCatching { spaces.remember(api.updateSpace(handle, UpdateSpace(title, about))) }.isSuccess
+
+    override suspend fun leaveSpace(handle: String) {
+        runCatching { api.leaveSpace(handle) }
+        spaces.forget(handle)
+    }
+
+    override suspend fun deleteSpace(handle: String) = runCatching {
+        api.deleteSpace(handle)
+        spaces.forget(handle)
+    }.isSuccess
+
+    override suspend fun spaceMembers(handle: String) = runCatching { api.spaceMembers(handle) }.getOrDefault(emptyList())
+
+    override suspend fun setSpaceRole(handle: String, username: String, role: SpaceRole) =
+        runCatching { api.setSpaceRole(handle, RoleChange(username, role)) }.isSuccess
+
+    override suspend fun ban(handle: String, username: String) = runCatching { api.ban(handle, username) }.isSuccess
+
+    override suspend fun addSpaceChannel(handle: String, title: String) =
+        runCatching { spaces.remember(api.addSpaceChannel(handle, title)) }.isSuccess
+
+    override suspend fun removeSpaceChannel(handle: String, channel: String) = runCatching {
+        api.removeSpaceChannel(handle, channel)
+        api.space(handle)?.let { spaces.remember(it) }
+    }.isSuccess
+
     // Outgoing
+
+    /** Group conversations go through the sender key; everything else is one-to-one. */
+    private suspend fun dispatch(conversationId: String, content: Content) {
+        if (groups.groupOf(conversationId) != null) {
+            if (!groups.send(conversationId, content) && content.body is Body.Text) {
+                advanceStatus(listOf(content.id), SendStatus.Failed, force = true)
+            } else if (content.body is Body.Text) {
+                advanceStatus(listOf(content.id), SendStatus.Sent)
+            }
+            flush()
+        } else {
+            enqueue(conversationId, content)
+        }
+    }
+
+    private suspend fun enqueueSealed(recipient: String, content: Content, type: Int, body: String) {
+        val json = storageJson.encodeToString(Content.serializer(), content)
+        db.outbox().insert(OutboxEntity(recipient = recipient, content = json, createdAt = clock(), sealedType = type, sealedBody = body))
+    }
 
     private suspend fun enqueue(recipient: String, content: Content) {
         val json = storageJson.encodeToString(Content.serializer(), content)
@@ -230,6 +440,13 @@ class ServerChatRepository(
     private suspend fun deliver(item: OutboxEntity): Boolean {
         val content = storageJson.decodeFromString(Content.serializer(), item.content)
         return try {
+            val sealedType = item.sealedType
+            val sealedBody = item.sealedBody
+            if (sealedType != null && sealedBody != null) {
+                api.send(item.recipient, OutgoingMessage("${content.id}:${item.recipient}", sealedType, sealedBody))
+                db.outbox().delete(item.id)
+                return true
+            }
             if (!crypto.hasSessionSafe(item.recipient)) {
                 val bundle = api.bundle(item.recipient)
                 if (bundle == null) {
@@ -297,13 +514,22 @@ class ServerChatRepository(
         when (frame) {
             is ServerFrame.Deliver -> receive(frame.envelope)
             is ServerFrame.KeysLow -> refillKeys(frame.preKeys, frame.kyberPreKeys)
-            ServerFrame.Synced -> log.record(EventCode.ServerSynced)
+            ServerFrame.Synced -> {
+                log.record(EventCode.ServerSynced)
+                scope.launch { runCatching { spaces.sync() } }
+            }
+            is ServerFrame.SpacePost -> spaces.store(frame.post)
+            is ServerFrame.SpacePostChanged -> frame.post?.let { spaces.store(it) } ?: spaces.removed(frame.space, frame.id)
         }
     }
 
     private suspend fun receive(envelope: Envelope) {
         val content = try {
-            withContext(Dispatchers.IO) { crypto.decrypt(envelope) }
+            if (envelope.type == EnvelopeType.SENDERKEY) {
+                groups.open(envelope.sender, envelope.body)
+            } else {
+                withContext(Dispatchers.IO) { crypto.decrypt(envelope) }
+            }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -311,7 +537,11 @@ class ServerChatRepository(
             socket.ack(envelope.serverId)
             return
         }
-        apply(envelope.sender, content)
+        when {
+            content == null -> log.record(EventCode.DecryptFailed)
+            content.group != null -> applyGroup(envelope.sender, content)
+            else -> apply(envelope.sender, content)
+        }
         socket.ack(envelope.serverId)
     }
 
@@ -335,6 +565,10 @@ class ServerChatRepository(
                 db.messages().delete(it.id)
                 refreshPreview(sender)
             }
+            is Body.GroupUpdate -> groups.onUpdate(sender, body.state)
+            is Body.SenderKey -> groups.onSenderKey(sender, body)
+            is Body.JoinRequest -> groups.onJoinRequest(sender, body)
+            is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
             is Body.Profile -> {
                 val known = db.contacts().get(sender)
                 val updated = (known ?: ContactEntity(sender, sender)).copy(name = body.name.take(MAX_NAME), bio = body.bio.take(MAX_BIO))
@@ -344,15 +578,40 @@ class ServerChatRepository(
         }
     }
 
-    private suspend fun receiveText(sender: String, content: Content, body: Body.Text) {
-        if (db.contacts().get(sender) == null) db.contacts().upsert(ContactEntity(sender, sender))
-        ensureConversation(sender)
-        showTyping(sender, false)
+    /** A message inside a group or room, already checked to come from a member. */
+    private suspend fun applyGroup(sender: String, content: Content) {
+        val conversation = content.group ?: return
+        val state = groups.groupOf(conversation) ?: return
+        when (val body = content.body) {
+            is Body.Text -> {
+                if (!groups.canPost(state, conversation, sender)) return
+                if (db.contacts().get(sender) == null) db.contacts().upsert(ContactEntity(sender, sender))
+                storeIncoming(sender, conversation, content, body, author = contact(sender)?.name?.substringBefore(' ') ?: sender)
+            }
+            is Body.Reaction -> db.messages().get(body.target)?.takeIf { it.conversationId == conversation }?.let { message ->
+                val entries = applyReaction(decodeReactions(message.reactions), sender, body.symbol, body.remove)
+                db.messages().upsert(message.copy(reactions = encodeReactions(entries)))
+            }
+            is Body.Edit -> db.messages().get(body.target)?.takeIf { it.authorId == sender && it.conversationId == conversation }?.let {
+                db.messages().upsert(it.copy(text = body.text, edited = true))
+                refreshPreview(conversation)
+            }
+            is Body.Delete -> db.messages().get(body.target)?.takeIf {
+                it.conversationId == conversation && (it.authorId == sender || state.isAdmin(sender))
+            }?.let {
+                db.messages().delete(it.id)
+                refreshPreview(conversation)
+            }
+            else -> Unit
+        }
+    }
+
+    private suspend fun storeIncoming(sender: String, conversation: String, content: Content, body: Body.Text, author: String?) {
         val placeholder = body.attachment?.let(Attachments::placeholder)
         val inserted = db.messages().insert(
             MessageEntity(
                 id = content.id,
-                conversationId = sender,
+                conversationId = conversation,
                 authorId = sender,
                 text = body.text,
                 sentAt = content.sentAtMillis,
@@ -362,17 +621,24 @@ class ServerChatRepository(
             ),
         )
         if (inserted == -1L) return
-        db.conversations().incrementUnread(sender)
-        setPreview(sender, null, body.text.ifEmpty { labels(placeholder) }, content.sentAtMillis)
-        enqueue(sender, Content(UUID.randomUUID().toString(), clock(), Body.Receipt(ReceiptKind.Delivered, listOf(content.id))))
+        db.conversations().incrementUnread(conversation)
+        setPreview(conversation, author, body.text.ifEmpty { labels(placeholder) }, content.sentAtMillis)
         body.attachment?.let { pointer ->
             scope.launch {
-                val local = runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }
-                    .getOrNull()
+                val local = runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }.getOrNull()
                 val stored = db.messages().get(content.id)
                 if (local != null && stored != null) db.messages().upsert(stored.copy(attachment = encodeAttachment(local)))
             }
         }
+    }
+
+    private suspend fun receiveText(sender: String, content: Content, body: Body.Text) {
+        if (db.contacts().get(sender) == null) db.contacts().upsert(ContactEntity(sender, sender))
+        ensureConversation(sender)
+        showTyping(sender, false)
+        val known = db.messages().get(content.id) != null
+        storeIncoming(sender, sender, content, body, author = null)
+        if (!known) enqueue(sender, Content(UUID.randomUUID().toString(), clock(), Body.Receipt(ReceiptKind.Delivered, listOf(content.id))))
     }
 
     private fun showTyping(sender: String, active: Boolean) {
@@ -399,7 +665,7 @@ class ServerChatRepository(
     // Local bookkeeping
 
     private suspend fun ensureConversation(username: String) {
-        if (db.conversations().get(username) != null) return
+        if (db.conversations().get(username) != null || groups.groupOf(username) != null) return
         val name = db.contacts().get(username)?.name?.ifBlank { null } ?: username
         db.conversations().upsert(
             ConversationEntity(
@@ -414,8 +680,10 @@ class ServerChatRepository(
     }
 
     private suspend fun setPreview(conversationId: String, author: String?, text: String, at: Long) {
-        ensureConversation(conversationId)
+        val row = db.conversations().get(conversationId)
+        if (row == null) ensureConversation(conversationId)
         db.conversations().setPreview(conversationId, author, text, at)
+        row?.parentId?.let { db.conversations().setPreview(it, author, text, at) }
     }
 
     private suspend fun refreshPreview(conversationId: String) {
@@ -441,6 +709,7 @@ class ServerChatRepository(
         val CLIENT_ERRORS = 400..499
         const val RETRY_MILLIS = 15_000L
         const val TYPING_TIMEOUT_MILLIS = 6_000L
+        const val SEARCH_LIMIT = 100
         const val MAX_NAME = 64
         const val MAX_BIO = 140
     }

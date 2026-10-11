@@ -18,6 +18,12 @@ interface ConversationDao {
     @Query("SELECT * FROM conversations WHERE id = :id")
     suspend fun get(id: String): ConversationEntity?
 
+    @Query("SELECT * FROM conversations WHERE parentId = :parentId")
+    suspend fun children(parentId: String): List<ConversationEntity>
+
+    @Query("DELETE FROM conversations WHERE id = :id OR parentId = :id")
+    suspend fun deleteWithChildren(id: String)
+
     @Upsert
     suspend fun upsert(conversation: ConversationEntity)
 
@@ -50,6 +56,16 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("DELETE FROM messages WHERE conversationId = :conversationId")
+    suspend fun deleteConversation(conversationId: String)
+
+    /**
+     * Plain substring search; the database is encrypted, so this never leaves the phone.
+     * [query] must have `\`, `%` and `_` escaped with a backslash.
+     */
+    @Query("SELECT * FROM messages WHERE text LIKE '%' || :query || '%' ESCAPE '\\' ORDER BY sentAt DESC LIMIT 100")
+    suspend fun search(query: String): List<MessageEntity>
 
     @Query("UPDATE messages SET status = :status WHERE id IN (:ids) AND authorId = :author")
     suspend fun setStatus(ids: List<String>, author: String, status: String)
@@ -108,4 +124,19 @@ interface SignalStateDao {
 
     @Query("DELETE FROM signal_state WHERE kind = :kind AND name LIKE :prefix || '%'")
     fun deleteByPrefix(kind: String, prefix: String)
+}
+
+@Dao
+interface GroupDao {
+    @Query("SELECT * FROM groups WHERE id = :id")
+    suspend fun get(id: String): GroupEntity?
+
+    @Query("SELECT * FROM groups")
+    fun observeAll(): Flow<List<GroupEntity>>
+
+    @Upsert
+    suspend fun upsert(group: GroupEntity)
+
+    @Query("DELETE FROM groups WHERE id = :id")
+    suspend fun delete(id: String)
 }

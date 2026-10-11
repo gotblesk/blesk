@@ -66,6 +66,18 @@ data class MediaKey(val conversationId: String, val messageId: String) : NavKey
 data object ProfileKey : NavKey
 
 @Serializable
+data object NewGroupKey : NavKey
+
+@Serializable
+data class GroupInfoKey(val groupId: String) : NavKey
+
+@Serializable
+data class SpaceInfoKey(val handle: String) : NavKey
+
+@Serializable
+data object SearchKey : NavKey
+
+@Serializable
 data object ServerKey : NavKey
 
 @Serializable
@@ -114,6 +126,8 @@ fun BleskNavigation(container: AppContainer) {
                     debugUnlocked = debugUnlocked,
                     onSelectTab = { tab = it },
                     onOpenConversation = { backStack.add(ConversationKey(it)) },
+                    onNewGroup = { backStack.add(NewGroupKey) },
+                    onSearch = { backStack.add(SearchKey) },
                     onOpenChannel = { room, channel ->
                         val target = if (channel.kind == RoomChannelKind.Voice) {
                             VoiceChannelKey(room.id, channel.id)
@@ -160,7 +174,32 @@ fun BleskNavigation(container: AppContainer) {
             entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
             entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
             entry<ConversationKey> { key ->
-                ConversationRoute(container, key.id, appearance, onOpenMedia = { backStack.add(MediaKey(key.id, it)) }, onBack = back)
+                ConversationRoute(
+                    container = container,
+                    id = key.id,
+                    appearance = appearance,
+                    onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
+                    onOpenGroup = { backStack.add(GroupInfoKey(it)) },
+                    onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
+                    onBack = back,
+                )
+            }
+            entry<NewGroupKey> {
+                NewGroupRoute(container, onCreated = { id ->
+                    back()
+                    backStack.add(ConversationKey(id))
+                }, onBack = back)
+            }
+            entry<GroupInfoKey> { key ->
+                GroupInfoRoute(container, key.groupId, onLeft = {
+                    while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                }, onBack = back)
+            }
+            entry<SearchKey> { SearchRoute(container, onOpen = { backStack.add(ConversationKey(it)) }, onBack = back) }
+            entry<SpaceInfoKey> { key ->
+                SpaceInfoRoute(container, key.handle, onLeft = {
+                    while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                }, onBack = back)
             }
             entry<MediaKey> { key ->
                 val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry

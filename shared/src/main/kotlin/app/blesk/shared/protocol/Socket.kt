@@ -16,6 +16,16 @@ sealed interface ServerFrame {
     @SerialName("synced")
     data object Synced : ServerFrame
 
+    /** A new post in a public space you are a member of. */
+    @Serializable
+    @SerialName("post")
+    data class SpacePost(val post: Post) : ServerFrame
+
+    /** A post was edited or removed (by its author or a moderator); [post] is null when removed. */
+    @Serializable
+    @SerialName("post_changed")
+    data class SpacePostChanged(val space: String, val id: Long, val post: Post? = null) : ServerFrame
+
     /** One-time keys are running low and should be topped up. */
     @Serializable
     @SerialName("keys_low")

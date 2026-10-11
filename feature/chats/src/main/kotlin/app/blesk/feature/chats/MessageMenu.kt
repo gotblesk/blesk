@@ -51,7 +51,7 @@ internal fun MessageMenu(
     onReply: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onReact: (String) -> Unit,
+    onReact: ((String) -> Unit)?,
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -80,25 +80,27 @@ internal fun MessageMenu(
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
-                    .background(Blesk.colors.surface)
-                    .padding(6.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                QuickReactions.forEach { symbol ->
-                    val label = stringResource(R.string.chat_react, symbol)
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .clickable(role = Role.Button) { act { onReact(symbol) } }
-                            .semantics { contentDescription = label },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(symbol, style = Blesk.type.headline)
+            if (onReact != null) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
+                        .background(Blesk.colors.surface)
+                        .padding(6.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    QuickReactions.forEach { symbol ->
+                        val label = stringResource(R.string.chat_react, symbol)
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .clickable(role = Role.Button) { act { onReact(symbol) } }
+                                .semantics { contentDescription = label },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(symbol, style = Blesk.type.headline)
+                        }
                     }
                 }
             }

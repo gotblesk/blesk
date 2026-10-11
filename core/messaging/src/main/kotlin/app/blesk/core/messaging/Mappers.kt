@@ -12,7 +12,14 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Preview
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.Reaction
+import app.blesk.core.data.model.RoomChannel
+import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.model.SendStatus
+import app.blesk.shared.protocol.GroupChannelKind
+import app.blesk.shared.protocol.GroupState
+import app.blesk.shared.protocol.SpaceInfo
+import app.blesk.shared.protocol.SpaceKind
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -53,7 +60,8 @@ internal fun MessageEntity.toModel(me: String) = Message(
     attachment = decodeAttachment(attachment),
 )
 
-internal fun ConversationEntity.toModel() = Conversation(
+/** A room carries its channels from the group state, so the list can show it as a cluster. */
+internal fun ConversationEntity.toModel(state: GroupState? = null) = Conversation(
     id = id,
     kind = runCatching { ConversationKind.valueOf(kind) }.getOrDefault(ConversationKind.Direct),
     title = title,
@@ -62,6 +70,25 @@ internal fun ConversationEntity.toModel() = Conversation(
     updatedAt = Instant.ofEpochMilli(updatedAt),
     unread = unread,
     pinned = pinned,
+    memberCount = state?.members?.size ?: 0,
+    channels = state?.channels?.map { channel ->
+        RoomChannel(
+            id = if (channel.kind == GroupChannelKind.Text) "${id}${GroupEngine.CHANNEL_SEPARATOR}${channel.id}" else channel.id,
+            title = channel.title,
+            kind = if (channel.kind == GroupChannelKind.Voice) RoomChannelKind.Voice else RoomChannelKind.Text,
+        )
+    }.orEmpty().toImmutableList(),
+    parentId = parentId,
 )
 
 internal fun ContactEntity.toModel() = Contact(id = username, name = name.ifBlank { username }, username = username)
+
+/** A public space as a conversation: its channels (for a room) come from the server's description. */
+internal fun ConversationEntity.toModel(space: SpaceInfo) = toModel().copy(
+    memberCount = space.members,
+    channels = if (space.kind == SpaceKind.Room) {
+        space.channels.map { RoomChannel(SpaceEngine.conversation(space.handle, it.id), it.title, RoomChannelKind.Text) }.toImmutableList()
+    } else {
+        persistentListOf()
+    },
+)

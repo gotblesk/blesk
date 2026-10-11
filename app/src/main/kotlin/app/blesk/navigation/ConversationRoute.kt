@@ -26,6 +26,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.R
+import app.blesk.core.data.GroupController
+import app.blesk.core.data.SpaceController
+import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.design.theme.Blesk
@@ -35,7 +38,10 @@ import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.media.MediaController
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.shared.appearance.Appearance
+import app.blesk.shared.protocol.SpaceKind
+import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 @Composable
@@ -44,6 +50,8 @@ internal fun ConversationRoute(
     id: String,
     appearance: Appearance,
     onOpenMedia: (messageId: String) -> Unit,
+    onOpenGroup: (groupId: String) -> Unit,
+    onOpenSpace: (handle: String) -> Unit,
     onBack: () -> Unit,
 ) {
     val demo = container.chats.collectAsStateWithLifecycle().value ?: return
@@ -61,6 +69,22 @@ internal fun ConversationRoute(
     val override = chatThemes[id]
     val caption = stringResource(R.string.chat_theme_caption)
     LaunchedEffect(id) { demo.markRead(id) }
+    val groupController = demo as? GroupController
+    val groupId = id.substringBefore(':')
+    val groupState by remember(groupId, groupController) {
+        groupController?.group(groupId) ?: flowOf(null)
+    }.collectAsStateWithLifecycle(initialValue = null)
+    val channel = groupState?.channels?.firstOrNull { it.id == id.substringAfter(':', "") }
+    val spaceController = demo as? SpaceController
+    val isSpace = spaceController?.isSpace(id) == true
+    val space by remember(id, spaceController) {
+        spaceController?.space(id) ?: flowOf(null)
+    }.collectAsStateWithLifecycle(initialValue = null)
+    val readOnly = when {
+        isSpace -> space?.kind == SpaceKind.Channel && space?.role != SpaceRole.Owner && space?.role != SpaceRole.Admin
+        channel != null -> channel.adminsOnly && groupState?.isAdmin(groupController?.me.orEmpty()) != true
+        else -> null
+    }
     val context = LocalContext.current
     var busy by remember { mutableStateOf(false) }
     val failed = stringResource(app.blesk.feature.chats.R.string.media_failed)
@@ -120,6 +144,11 @@ internal fun ConversationRoute(
                 pickFile.launch(arrayOf("*/*"))
             },
             onTyping = { active -> demo.setTyping(id, active) },
+            onOpenInfo = when {
+                isSpace -> ({ onOpenSpace(id.removePrefix(SPACE_PREFIX).substringBefore(':')) })
+                groupController != null && id.length > MAX_USERNAME_LENGTH -> ({ onOpenGroup(groupId) })
+                else -> null
+            },
             onBack = onBack,
         )
     }
@@ -141,6 +170,8 @@ internal fun ConversationRoute(
                 recorders = recorders,
                 media = mediaController,
                 busy = busy,
+                readOnly = readOnly ?: (current.kind == ConversationKind.Channel),
+                reactions = !isSpace,
                 underlay = {
                     wallpaper?.let { image ->
                         Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -163,6 +194,11 @@ internal fun ConversationRoute(
         }
     }
 }
+
+private const val SPACE_PREFIX = "space:"
+
+/** Group ids are UUIDs; usernames are at most 32 characters. */
+private const val MAX_USERNAME_LENGTH = 32
 
 /** Keeps text readable over any photo without hiding it. */
 private const val WALLPAPER_SCRIM = 0.45f

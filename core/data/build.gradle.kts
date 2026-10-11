@@ -4,6 +4,10 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     api(project(":shared"))
     api(libs.kotlinx.coroutines.android)
@@ -17,4 +21,6 @@ dependencies {
     implementation(libs.sqlcipher.android)
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
+    testImplementation(libs.room.testing)
+    testImplementation(libs.androidx.test.junit)
 }

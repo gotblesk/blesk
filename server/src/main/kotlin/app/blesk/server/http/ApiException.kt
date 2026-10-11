@@ -24,6 +24,17 @@ object ErrorCodes {
     const val TOO_LARGE = "too_large"
     const val RATE_LIMITED = "rate_limited"
     const val INTERNAL = "internal"
+    const val INVALID_HANDLE = "invalid_handle"
+    const val HANDLE_TAKEN = "handle_taken"
+    const val FORBIDDEN = "forbidden"
+    const val NOT_MEMBER = "not_member"
+    const val BANNED = "banned"
+    const val OWNER_CANNOT_LEAVE = "owner_cannot_leave"
+    const val INVALID_ROLE = "invalid_role"
+    const val NOT_A_ROOM = "not_a_room"
+    const val TOO_MANY_CHANNELS = "too_many_channels"
+    const val LAST_CHANNEL = "last_channel"
+    const val UNKNOWN_ATTACHMENT = "unknown_attachment"
 }
 
 fun badRequest(code: String = ErrorCodes.BAD_REQUEST, message: String = "", cause: Throwable? = null) =
@@ -38,3 +49,7 @@ inline fun ensure(condition: Boolean, failure: () -> ApiException) {
 }
 
 inline fun <T : Any> T?.orFail(failure: () -> ApiException): T = this ?: throw failure()
+
+fun forbidden(code: String = ErrorCodes.FORBIDDEN) = ApiException(HttpStatusCode.Forbidden, code)
+
+fun conflict(code: String) = ApiException(HttpStatusCode.Conflict, code)

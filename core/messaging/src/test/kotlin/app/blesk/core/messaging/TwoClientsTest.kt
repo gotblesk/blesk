@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.crypto.signal.SignalStore
@@ -14,6 +15,7 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
+import app.blesk.shared.protocol.GroupKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -51,6 +53,7 @@ class TwoClientsTest {
             api = api,
             socket = server.transport(name),
             crypto = MessageCrypto(store) { name },
+            groupCrypto = GroupCrypto(store) { name },
             keys = keys,
             accounts = accounts,
             media = MediaVault(context),
@@ -118,6 +121,42 @@ class TwoClientsTest {
         }
         assertEquals("заметки", File(delivered.path).readText())
         assertTrue(server.transport("bob").acked.isNotEmpty())
+    }
+
+    @Test
+    fun groupsAndRooms() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        val carol = Client("carol", "Кэрол")
+        listOf(alice, bob, carol).forEach {
+            it.register()
+            it.repo.start()
+        }
+        runBlocking {
+            alice.repo.openDirect("bob")
+            alice.repo.openDirect("carol")
+        }
+        val group = runBlocking { alice.repo.createGroup(GroupKind.Group, "Выходные", listOf("bob", "carol")) }
+        eventually { runBlocking { bob.repo.group(group).first() } }
+        eventually { runBlocking { carol.repo.group(group).first() } }
+
+        alice.repo.send(group, "всем привет")
+        assertEquals("всем привет", eventually { bob.messages(group).firstOrNull() }.text)
+        assertEquals("всем привет", eventually { carol.messages(group).firstOrNull() }.text)
+
+        bob.repo.send(group, "привет от Боба")
+        eventually { alice.messages(group).firstOrNull { it.text == "привет от Боба" } }
+        eventually { carol.messages(group).firstOrNull { it.text == "привет от Боба" } }
+
+        runBlocking { assertTrue(alice.repo.removeMember(group, "carol")) }
+        eventually { runBlocking { carol.repo.group(group).first() }.let { if (it == null) Unit else null } }
+        alice.repo.send(group, "без Кэрол")
+        eventually { bob.messages(group).firstOrNull { it.text == "без Кэрол" } }
+
+        val room = runBlocking { alice.repo.createGroup(GroupKind.Room, "Студия", listOf("bob")) }
+        val channel = eventually { runBlocking { bob.repo.conversation(room).first() }?.channels?.firstOrNull() }
+        alice.repo.send(channel.id, "в общий канал")
+        assertEquals("в общий канал", eventually { bob.messages(channel.id).firstOrNull() }.text)
     }
 
     private companion object {

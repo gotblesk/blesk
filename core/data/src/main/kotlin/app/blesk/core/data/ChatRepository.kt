@@ -45,6 +45,9 @@ interface ChatRepository {
 
     fun markRead(conversationId: String)
 
+    /** Messages containing [query], newest first. Runs on the phone only. */
+    suspend fun search(query: String): List<Message>
+
     /** Tells the other side you are typing; a no-op where it makes no sense. */
     fun setTyping(conversationId: String, active: Boolean) = Unit
 }

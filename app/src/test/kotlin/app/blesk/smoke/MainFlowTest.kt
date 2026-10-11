@@ -34,6 +34,13 @@ class MainFlowTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Назад").performClick()
 
+        compose.onNodeWithContentDescription("Поиск").performClick()
+        compose.onNodeWithContentDescription("Слово из переписки").performTextInput("проверка")
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onNodeWithText("Вы: проверка", substring = true).assertExists()
+        compose.onNodeWithContentDescription("Назад").performClick()
+
         compose.onNodeWithText("Контакты").performClick()
         compose.onNodeWithText("Лера").performClick()
         compose.onNodeWithText("защищено").assertIsDisplayed()

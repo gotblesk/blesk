@@ -95,6 +95,8 @@ class ConversationCallbacks(
     val onBack: () -> Unit,
     /** Whether you are composing; the screen calls it with a pause after the last keystroke. */
     val onTyping: (Boolean) -> Unit = {},
+    /** Opens members, roles and settings of a group or room; null for direct chats. */
+    val onOpenInfo: (() -> Unit)? = null,
 )
 
 @Composable
@@ -108,6 +110,10 @@ fun ConversationScreen(
     recorders: Recorders? = null,
     media: MediaController = MediaController.Inert,
     busy: Boolean = false,
+    /** Nobody but admins may write here; the composer is replaced with a note. */
+    readOnly: Boolean = conversation.kind == ConversationKind.Channel,
+    /** Public spaces have no reactions. */
+    reactions: Boolean = true,
     underlay: @Composable BoxScope.() -> Unit = {},
 ) {
     val recording = remember { RecordingUi() }
@@ -145,12 +151,16 @@ fun ConversationScreen(
         Box(modifier.fillMaxSize()) {
             LensScaffold(
                 underlay = underlay,
-                top = { ChatHeader(conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme) },
+                top = { ChatHeader(conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo) },
                 bottom = {
-                    if (conversation.kind == ConversationKind.Channel) {
+                    if (readOnly) {
                         BottomLens {
                             Text(
-                                text = stringResource(R.string.chat_channel_readonly),
+                                text = if (conversation.kind == ConversationKind.Channel) {
+                                    stringResource(R.string.chat_channel_readonly)
+                                } else {
+                                    stringResource(R.string.group_readonly)
+                                },
                                 style = Blesk.type.label,
                                 color = Blesk.colors.textSecondary,
                                 textAlign = TextAlign.Center,
@@ -228,7 +238,7 @@ fun ConversationScreen(
                         input.setTextAndPlaceCursorAtEnd(message.text)
                     },
                     onDelete = { callbacks.onDelete(message.id) },
-                    onReact = { symbol -> callbacks.onReact(message.id, symbol) },
+                    onReact = if (reactions) ({ symbol -> callbacks.onReact(message.id, symbol) }) else null,
                 )
             }
         }
@@ -262,7 +272,13 @@ private fun groupMessages(messages: List<Message>): List<ImmutableList<Message>>
 private const val GROUP_GAP_SECONDS = 10 * 60
 
 @Composable
-private fun ChatHeader(conversation: Conversation, typing: Boolean, onBack: () -> Unit, onOpenTheme: () -> Unit) {
+private fun ChatHeader(
+    conversation: Conversation,
+    typing: Boolean,
+    onBack: () -> Unit,
+    onOpenTheme: () -> Unit,
+    onOpenInfo: (() -> Unit)?,
+) {
     val protected = conversation.protection == Protection.EndToEnd
     TopLens(
         title = null,
@@ -287,7 +303,10 @@ private fun ChatHeader(conversation: Conversation, typing: Boolean, onBack: () -
                 }
             }
         },
-        actions = { IconButton(BleskIcons.Appearance, stringResource(R.string.chat_theme), onOpenTheme) },
+        actions = {
+            if (onOpenInfo != null) IconButton(BleskIcons.People, stringResource(R.string.group_info), onOpenInfo)
+            IconButton(BleskIcons.Appearance, stringResource(R.string.chat_theme), onOpenTheme)
+        },
     )
 }
 

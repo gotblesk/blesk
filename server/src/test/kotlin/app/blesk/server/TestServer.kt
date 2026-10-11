@@ -123,12 +123,14 @@ class Harness(val client: HttpClient, val services: Services) {
 
 fun serverTest(
     rateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
+    postRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     block: suspend ApplicationTestBuilder.(Harness) -> Unit,
 ) = testApplication {
     val services = Services(
         database = Database(TestDatabase.dataSource),
         storage = FileSystemStorage(Files.createTempDirectory("blesk-attachments")),
         authRateLimiter = RateLimiter(rateLimit),
+        postRateLimiter = RateLimiter(postRateLimit),
         trustProxy = false,
     )
     application { bleskModule(services, maintenanceInterval = 1.hours) }

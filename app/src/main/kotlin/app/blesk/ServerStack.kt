@@ -2,6 +2,7 @@ package app.blesk
 
 import android.content.Context
 import app.blesk.core.crypto.DatabaseKey
+import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.crypto.signal.SignalStore
@@ -38,6 +39,7 @@ internal class ServerStack(
             api = api,
             socket = Socket(api, container.scope),
             crypto = MessageCrypto(store) { username },
+            groupCrypto = GroupCrypto(store) { username },
             keys = keys,
             accounts = accounts,
             media = container.media,

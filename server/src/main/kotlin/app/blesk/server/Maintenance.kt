@@ -44,6 +44,7 @@ suspend fun runMaintenance(services: Services) {
     services.auth.deleteExpired(now)
     services.messages.deleteOlderThan(queuedBefore = now - RetentionPeriod, sentBefore = now - IdempotencyWindow)
     services.authRateLimiter.evictIdle()
+    services.postRateLimiter.evictIdle()
     do {
         val expired = services.attachments.expired(now - RetentionPeriod, ATTACHMENT_BATCH)
         expired.forEach { id ->

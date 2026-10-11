@@ -103,6 +103,9 @@ data class PreKeyBundleDto(
 object EnvelopeType {
     const val PREKEY = 3
     const val WHISPER = 2
+
+    /** A group message encrypted with the sender's SenderKey. */
+    const val SENDERKEY = 7
 }
 
 @Serializable

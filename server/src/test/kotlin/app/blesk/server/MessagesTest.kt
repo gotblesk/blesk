@@ -123,6 +123,19 @@ class MessagesTest {
     }
 
     @Test
+    fun `sender key messages pass through like any other type`() = serverTest { harness ->
+        val alice = harness.register()
+        val bob = harness.register()
+        val message = message().copy(type = EnvelopeType.SENDERKEY)
+        assertEquals(HttpStatusCode.OK, harness.client.send(alice, bob.username, message).status)
+        harness.client.webSocket(Api.SOCKET, request = { bearerAuth(bob.token) }) {
+            val delivered = nextFrame() as ServerFrame.Deliver
+            assertEquals(EnvelopeType.SENDERKEY, delivered.envelope.type)
+            assertEquals(message.body, delivered.envelope.body)
+        }
+    }
+
+    @Test
     fun `sending to an unknown user or an oversized body fails`() = serverTest { harness ->
         val alice = harness.register()
         val bob = harness.register()

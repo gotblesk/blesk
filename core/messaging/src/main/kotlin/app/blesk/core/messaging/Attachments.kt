@@ -55,6 +55,14 @@ internal object Attachments {
         is Attachment.Theme -> error("Themes travel inline")
     }
 
+    /** For public spaces: uploaded as is, with an empty key, because those are not encrypted anyway. */
+    suspend fun uploadPlain(api: BleskApi, attachment: Attachment): AttachmentPointer? {
+        if (attachment is Attachment.Theme) return upload(api, attachment)
+        val source = File(pathOf(attachment) ?: return null)
+        val id = api.uploadAttachment(source).id
+        return pointerFor(attachment, id, key = "")
+    }
+
     /** What the chat shows before the file has arrived: everything but the bytes. */
     fun placeholder(pointer: AttachmentPointer): Attachment? = when (pointer.kind) {
         KIND_THEME -> pointer.name?.let(ThemeFile::decode)?.let { Attachment.Theme(it.theme) }
@@ -69,13 +77,17 @@ internal object Attachments {
     /** Downloads, verifies and decrypts; returns the attachment pointing at the local copy. */
     suspend fun download(api: BleskApi, media: MediaVault, pointer: AttachmentPointer): Attachment? {
         if (pointer.kind == KIND_THEME) return placeholder(pointer)
-        val key = unb64(pointer.key)
-        if (key.size != AttachmentCipher.KEY_BYTES) return null
+        val key = if (pointer.key.isEmpty()) null else unb64(pointer.key)
+        if (key != null && key.size != AttachmentCipher.KEY_BYTES) return null
         val encrypted = File.createTempFile("download", ".bin")
         try {
             encrypted.outputStream().use { api.downloadAttachment(pointer.id, it) }
             val target = media.newFile(extension(pointer))
-            target.outputStream().use { AttachmentCipher.decrypt(key, encrypted, it) }
+            if (key == null) {
+                encrypted.copyTo(target, overwrite = true)
+            } else {
+                target.outputStream().use { AttachmentCipher.decrypt(key, encrypted, it) }
+            }
             val poster = pointer.thumbnail?.let { data -> media.newFile("jpg").also { it.writeBytes(unb64(data)) }.path }.orEmpty()
             return when (pointer.kind) {
                 KIND_PHOTO -> Attachment.Photo(target.path, pointer.width, pointer.height)

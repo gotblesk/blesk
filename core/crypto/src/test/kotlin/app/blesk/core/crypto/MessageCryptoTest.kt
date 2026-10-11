@@ -1,5 +1,6 @@
 package app.blesk.core.crypto
 
+import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.crypto.signal.SignalStore
@@ -67,6 +68,25 @@ class MessageCryptoTest {
         val b = alice.crypto.encrypt("bob", content("a"))
         assertNotEquals(a.body, b.body)
         assertEquals(Base64.getDecoder().decode(a.body).size, Base64.getDecoder().decode(b.body).size)
+    }
+
+    @Test
+    fun `sender keys let a group read a message encrypted once`() {
+        val alice = Party("alice")
+        val bob = Party("bob")
+        val carol = Party("carol")
+        val aliceGroup = GroupCrypto(alice.store) { "alice" }
+        val distribution = aliceGroup.distribution("g1", 0)
+        GroupCrypto(bob.store) { "bob" }.accept("alice", distribution)
+        GroupCrypto(carol.store) { "carol" }.accept("alice", distribution)
+
+        val sealed = aliceGroup.encrypt("g1", 0, content("всем"))
+        assertEquals(Body.Text("всем"), GroupCrypto(bob.store) { "bob" }.decrypt("alice", sealed).body)
+        assertEquals(Body.Text("всем"), GroupCrypto(carol.store) { "carol" }.decrypt("alice", sealed).body)
+
+        aliceGroup.distribution("g1", 1)
+        val nextEpoch = aliceGroup.encrypt("g1", 1, content("без вас"))
+        assertThrows(Exception::class.java) { GroupCrypto(bob.store) { "bob" }.decrypt("alice", nextEpoch) }
     }
 
     @Test

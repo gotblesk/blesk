@@ -1,8 +1,10 @@
 package app.blesk.screenshots
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.test.core.app.ApplicationProvider
+import app.blesk.core.data.SpaceResult
 import app.blesk.core.data.demo.DemoSeed
 import app.blesk.core.data.diagnostics.CrashReport
 import app.blesk.core.data.diagnostics.EventCode
@@ -23,7 +25,14 @@ import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ContactList
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
+import app.blesk.feature.chats.SearchHit
+import app.blesk.feature.chats.SearchScreen
 import app.blesk.feature.chats.VoiceChannelScreen
+import app.blesk.feature.chats.groups.GroupActions
+import app.blesk.feature.chats.groups.GroupInfoScreen
+import app.blesk.feature.chats.groups.NewGroupScreen
+import app.blesk.feature.chats.groups.SpaceActions
+import app.blesk.feature.chats.groups.SpaceInfoScreen
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.profile.ProfileActions
 import app.blesk.feature.profile.ProfileScreen
@@ -40,6 +49,17 @@ import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
+import app.blesk.shared.protocol.GroupChannel
+import app.blesk.shared.protocol.GroupChannelKind
+import app.blesk.shared.protocol.GroupKind
+import app.blesk.shared.protocol.GroupMember
+import app.blesk.shared.protocol.GroupRole
+import app.blesk.shared.protocol.GroupState
+import app.blesk.shared.protocol.SpaceChannel
+import app.blesk.shared.protocol.SpaceInfo
+import app.blesk.shared.protocol.SpaceKind
+import app.blesk.shared.protocol.SpaceMember
+import app.blesk.shared.protocol.SpaceRole
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -252,6 +272,74 @@ class KeyScreensScreenshotTest(private val name: String) {
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
             callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+        )
+    }
+
+    @Test
+    fun newSpace() = capture("16_new") {
+        NewGroupScreen(contacts = seed.contacts.toImmutableList(), onCreate = { SpaceResult.Ok }, onBack = {})
+    }
+
+    @Test
+    fun groupInfo() = capture("17_group") {
+        val state = GroupState(
+            id = "g",
+            kind = GroupKind.Room,
+            title = "Студия",
+            version = 1,
+            epoch = 0,
+            members = listOf(
+                GroupMember("eva", GroupRole.Owner),
+                GroupMember("lera", GroupRole.Admin),
+                GroupMember("anya", GroupRole.Member),
+            ),
+            channels = listOf(
+                GroupChannel("general", "общий", GroupChannelKind.Text),
+                GroupChannel("news", "новости", GroupChannelKind.Text, adminsOnly = true),
+                GroupChannel("voice", "созвон", GroupChannelKind.Voice),
+            ),
+        )
+        GroupInfoScreen(
+            state = state,
+            me = "eva",
+            contacts = persistentListOf(),
+            nameOf = { mapOf("eva" to "Ева", "lera" to "Лера", "anya" to "Аня")[it] ?: it },
+            actions = GroupActions({}, {}, {}, { _, _ -> }, { _, _, _ -> }, {}, {}, {}),
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun spaceInfo() = capture("18_space") {
+        SpaceInfoScreen(
+            space = SpaceInfo(
+                handle = "light_notes",
+                kind = SpaceKind.Room,
+                title = "Заметки о свете",
+                about = "Открытая комната про свет, цвет и интерфейсы",
+                members = 128,
+                channels = listOf(SpaceChannel("general", "общий"), SpaceChannel("refs", "референсы")),
+                role = SpaceRole.Owner,
+            ),
+            me = "eva",
+            members = persistentListOf(SpaceMember("eva", SpaceRole.Owner), SpaceMember("lera", SpaceRole.Member)),
+            nameOf = { mapOf("eva" to "Ева", "lera" to "Лера")[it] ?: it },
+            actions = SpaceActions({ _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun search() = capture("19_search") {
+        val query = rememberTextFieldState("свет")
+        SearchScreen(
+            query = query,
+            hits = persistentListOf(
+                SearchHit("a", "1", "Аня", "Аня", "Смотри, какой свет сегодня на закате"),
+                SearchHit("b", "2", "Студия · общий", "Вы", "Свет в макете стоит сделать мягче, а тени длиннее"),
+            ),
+            onOpen = {},
+            onBack = {},
         )
     }
 

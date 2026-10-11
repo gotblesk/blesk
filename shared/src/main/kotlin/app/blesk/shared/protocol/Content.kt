@@ -12,6 +12,8 @@ data class Content(
     val id: String,
     val sentAtMillis: Long,
     val body: Body,
+    /** For group and room messages: the conversation inside the group (the group id, or `group:channel`). */
+    val group: String? = null,
 )
 
 @Serializable
@@ -39,6 +41,26 @@ sealed interface Body {
     @Serializable
     @SerialName("delete")
     data class Delete(val target: String) : Body
+
+    /** The new state of a group, sent one-to-one to every member by an admin. */
+    @Serializable
+    @SerialName("group_update")
+    data class GroupUpdate(val state: GroupState) : Body
+
+    /** The sender's SenderKey for a group epoch, sent one-to-one so only members can read the group. */
+    @Serializable
+    @SerialName("sender_key")
+    data class SenderKey(val groupId: String, val epoch: Int, val distribution: String) : Body
+
+    /** Asks an admin to be let in with an invite code. */
+    @Serializable
+    @SerialName("join_request")
+    data class JoinRequest(val groupId: String, val code: String) : Body
+
+    /** The sender leaves the group. */
+    @Serializable
+    @SerialName("group_leave")
+    data class GroupLeave(val groupId: String) : Body
 
     /** Your name and bio, shared only with people you write to. */
     @Serializable
@@ -74,3 +96,86 @@ data class AttachmentPointer(
     /** Base64 of a small JPEG preview, encrypted along with the message. */
     val thumbnail: String? = null,
 )
+
+/**
+ * A closed group or room as its members see it. It lives only on members' phones and travels
+ * only inside Signal messages; the server never learns who is in a group or what it is called.
+ */
+@Serializable
+data class GroupState(
+    val id: String,
+    val kind: GroupKind,
+    val title: String,
+    /** Grows with every change; older states are ignored. */
+    val version: Int,
+    /** Grows when someone leaves or is removed, so everyone moves to fresh sender keys. */
+    val epoch: Int,
+    val members: List<GroupMember>,
+    val channels: List<GroupChannel> = emptyList(),
+    /** Current invite code; null when invites are off. Only members ever see it. */
+    val invite: String? = null,
+) {
+    fun roleOf(username: String): GroupRole? = members.firstOrNull { it.username == username }?.role
+
+    fun isAdmin(username: String) = roleOf(username).let { it == GroupRole.Owner || it == GroupRole.Admin }
+}
+
+@Serializable
+enum class GroupKind {
+    @SerialName("group")
+    Group,
+
+    @SerialName("room")
+    Room,
+}
+
+@Serializable
+enum class GroupRole {
+    @SerialName("owner")
+    Owner,
+
+    @SerialName("admin")
+    Admin,
+
+    @SerialName("member")
+    Member,
+}
+
+@Serializable
+data class GroupMember(val username: String, val role: GroupRole)
+
+@Serializable
+enum class GroupChannelKind {
+    @SerialName("text")
+    Text,
+
+    @SerialName("voice")
+    Voice,
+}
+
+@Serializable
+data class GroupChannel(
+    val id: String,
+    val title: String,
+    val kind: GroupChannelKind = GroupChannelKind.Text,
+    /** Only admins may write here (announcements). */
+    val adminsOnly: Boolean = false,
+)
+
+/** `blesk://join?g=<group>&a=<admin>&c=<code>` — handed to people you want to invite. */
+object InviteLink {
+    private const val PREFIX = "blesk://join?"
+
+    fun format(groupId: String, admin: String, code: String) = "${PREFIX}g=$groupId&a=$admin&c=$code"
+
+    data class Parsed(val groupId: String, val admin: String, val code: String)
+
+    fun parse(link: String): Parsed? {
+        if (!link.trim().startsWith(PREFIX)) return null
+        val params = link.trim().removePrefix(PREFIX).split('&').associate { it.substringBefore('=') to it.substringAfter('=', "") }
+        val group = params["g"]?.takeIf { it.matches(Regex("^[A-Za-z0-9-]{8,64}$")) } ?: return null
+        val admin = params["a"]?.takeIf(Usernames::isValid) ?: return null
+        val code = params["c"]?.takeIf { it.matches(Regex("^[A-Za-z0-9_-]{8,64}$")) } ?: return null
+        return Parsed(group, admin, code)
+    }
+}

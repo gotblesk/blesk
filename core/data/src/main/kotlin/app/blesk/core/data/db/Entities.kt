@@ -17,6 +17,8 @@ data class ConversationEntity(
     val pinned: Boolean = false,
     val previewAuthor: String? = null,
     val previewText: String? = null,
+    /** For a room channel: the room's conversation id. */
+    val parentId: String? = null,
 )
 
 @Entity(
@@ -58,6 +60,20 @@ data class OutboxEntity(
     val ephemeral: Boolean = false,
     val attempts: Int = 0,
     val createdAt: Long,
+    /** Group messages are encrypted once with the sender key and fanned out as is. */
+    val sealedType: Int? = null,
+    val sealedBody: String? = null,
+)
+
+/** A closed group or room: its state as members agreed on it, and who already has our sender key. */
+@Entity(tableName = "groups")
+data class GroupEntity(
+    @PrimaryKey val id: String,
+    /** JSON of the shared GroupState. */
+    val state: String,
+    /** JSON list of members who received our sender key for [keyEpoch]. */
+    val keyHolders: String = "[]",
+    val keyEpoch: Int = -1,
 )
 
 /** Key-value storage for libsignal state: one table, namespaced keys, opaque records. */

@@ -20,6 +20,7 @@ fun main() {
         database = Database(dataSource),
         storage = retrying("storage") { storage(config.storage) },
         authRateLimiter = RateLimiter(config.authRateLimit),
+        postRateLimiter = RateLimiter(config.postRateLimit),
         trustProxy = config.trustProxy,
     )
     log.info("Listening on port {}", config.port)

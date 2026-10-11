@@ -5,16 +5,26 @@ import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.AttachmentUploaded
 import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.ChallengeRequest
+import app.blesk.shared.protocol.CreateSpace
+import app.blesk.shared.protocol.CreateSpaceChannel
+import app.blesk.shared.protocol.EditPost
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.KeyStatus
 import app.blesk.shared.protocol.KeyUpload
+import app.blesk.shared.protocol.NewPost
 import app.blesk.shared.protocol.OutgoingMessage
+import app.blesk.shared.protocol.Post
 import app.blesk.shared.protocol.PreKeyBundleDto
 import app.blesk.shared.protocol.RegisterRequest
+import app.blesk.shared.protocol.RoleChange
 import app.blesk.shared.protocol.SendResult
 import app.blesk.shared.protocol.ServerInfo
+import app.blesk.shared.protocol.SpaceInfo
+import app.blesk.shared.protocol.SpaceMember
+import app.blesk.shared.protocol.Spaces
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
+import app.blesk.shared.protocol.UpdateSpace
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
@@ -24,7 +34,10 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.prepareGet
 import io.ktor.client.request.put
@@ -59,6 +72,7 @@ class ApiException(val status: Int, val code: String) : Exception("HTTP $status 
  * the certificate chain is not checked against certificate authorities (it is self-signed),
  * but OkHttp's pinner rejects any key other than the one from the QR code.
  */
+@Suppress("TooManyFunctions") // one method per endpoint
 class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
     internal val json = Json {
         ignoreUnknownKeys = true
@@ -131,6 +145,61 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
         }
     }
 
+    // Public spaces: plain HTTP JSON, not end-to-end encrypted.
+
+    suspend fun createSpace(request: CreateSpace): SpaceInfo = call { client.post(url(Spaces.PATH)) { auth(); jsonBody(request) } }
+
+    suspend fun space(handle: String): SpaceInfo? = optional { client.get(url("${Spaces.PATH}/$handle")) { auth() } }
+
+    suspend fun updateSpace(handle: String, update: UpdateSpace): SpaceInfo =
+        call { client.patch(url("${Spaces.PATH}/$handle")) { auth(); jsonBody(update) } }
+
+    suspend fun deleteSpace(handle: String) = expect { client.delete(url("${Spaces.PATH}/$handle")) { auth() } }
+
+    suspend fun searchSpaces(query: String): List<SpaceInfo> =
+        call { client.get(url(Spaces.PATH)) { auth(); parameter("query", query) } }
+
+    suspend fun mySpaces(): List<SpaceInfo> = call { client.get(url("${Spaces.PATH}/mine")) { auth() } }
+
+    suspend fun joinSpace(handle: String): SpaceInfo = call { client.post(url("${Spaces.PATH}/$handle/join")) { auth() } }
+
+    suspend fun leaveSpace(handle: String) = expect { client.post(url("${Spaces.PATH}/$handle/leave")) { auth() } }
+
+    suspend fun spaceMembers(handle: String): List<SpaceMember> =
+        call { client.get(url("${Spaces.PATH}/$handle/members")) { auth(); parameter("limit", MEMBER_PAGE) } }
+
+    suspend fun setSpaceRole(handle: String, change: RoleChange) =
+        expect { client.post(url("${Spaces.PATH}/$handle/roles")) { auth(); jsonBody(change) } }
+
+    suspend fun ban(handle: String, username: String) = expect { client.post(url("${Spaces.PATH}/$handle/ban/$username")) { auth() } }
+
+    suspend fun addSpaceChannel(handle: String, title: String): SpaceInfo =
+        call { client.post(url("${Spaces.PATH}/$handle/channels")) { auth(); jsonBody(CreateSpaceChannel(title)) } }
+
+    suspend fun removeSpaceChannel(handle: String, channel: String) =
+        expect { client.delete(url("${Spaces.PATH}/$handle/channels/$channel")) { auth() } }
+
+    suspend fun post(handle: String, post: NewPost): Post = call {
+        client.post(url("${Spaces.PATH}/$handle/posts")) {
+            auth()
+            jsonBody(post)
+        }
+    }
+
+    suspend fun posts(handle: String, channel: String, before: Long? = null): List<Post> = call {
+        client.get(url("${Spaces.PATH}/$handle/posts")) {
+            auth()
+            parameter("channel", channel)
+            parameter("limit", POST_PAGE)
+            before?.let { parameter("before", it) }
+        }
+    }
+
+    suspend fun editPost(handle: String, id: Long, text: String): Post =
+        call { client.patch(url("${Spaces.PATH}/$handle/posts/$id")) { auth(); jsonBody(EditPost(text)) } }
+
+    suspend fun deletePost(handle: String, id: Long) = expect { client.delete(url("${Spaces.PATH}/$handle/posts/$id")) { auth() } }
+
     fun socketUrl(): String = url(Api.SOCKET).replaceFirst("https://", "wss://")
 
     internal fun url(path: String) = address.url + path
@@ -150,6 +219,11 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
         return response.body()
     }
 
+    private suspend inline fun expect(block: () -> HttpResponse) {
+        val response = block()
+        if (!response.status.isSuccess()) throw response.error()
+    }
+
     private suspend inline fun <reified T> optional(block: () -> HttpResponse): T? {
         val response = block()
         if (response.status == HttpStatusCode.NotFound) return null
@@ -166,6 +240,8 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
 
     private companion object {
         const val TIMEOUT_MILLIS = 15_000L
+        const val POST_PAGE = 50
+        const val MEMBER_PAGE = 200
         const val SOCKET_TIMEOUT_MILLIS = 60_000L
     }
 }

@@ -125,6 +125,15 @@ class DemoRepository(
         log.record(EventCode.DemoBotReplied)
     }
 
+    override suspend fun search(query: String): List<Message> {
+        val needle = query.trim()
+        if (needle.isEmpty()) return emptyList()
+        return messages.value.values.flatten()
+            .filter { it.text.contains(needle, ignoreCase = true) }
+            .sortedByDescending { it.sentAt }
+            .take(SEARCH_LIMIT)
+    }
+
     override fun toggleReaction(conversationId: String, messageId: String, symbol: String) {
         update(conversationId, messageId) { message ->
             val existing = message.reactions.firstOrNull { it.symbol == symbol }
@@ -189,6 +198,7 @@ class DemoRepository(
     companion object {
         private const val STATUS_STEP_MILLIS = 450L
         private const val TYPING_MILLIS = 1400L
+        private const val SEARCH_LIMIT = 100
 
         val conversationOrder: Comparator<Conversation> =
             compareByDescending<Conversation> { it.pinned }.thenByDescending { it.updatedAt }

@@ -13,6 +13,7 @@ import app.blesk.server.http.rateLimited
 import app.blesk.server.keys.keyRoutes
 import app.blesk.server.messages.messageRoutes
 import app.blesk.server.socket.socketRoutes
+import app.blesk.server.spaces.spaceRoutes
 import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.ServerInfo
@@ -71,6 +72,7 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
             messageRoutes(services)
             attachmentRoutes(services)
             socketRoutes(services)
+            spaceRoutes(services)
         }
     }
 

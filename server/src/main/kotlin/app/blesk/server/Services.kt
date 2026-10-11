@@ -9,6 +9,8 @@ import app.blesk.server.http.RateLimiter
 import app.blesk.server.keys.KeyRepository
 import app.blesk.server.messages.MessageRepository
 import app.blesk.server.socket.SocketHub
+import app.blesk.server.spaces.PostRepository
+import app.blesk.server.spaces.SpaceRepository
 import java.time.Clock
 import java.time.Instant
 
@@ -17,6 +19,7 @@ class Services(
     database: Database,
     val storage: AttachmentStorage,
     val authRateLimiter: RateLimiter,
+    val postRateLimiter: RateLimiter,
     val trustProxy: Boolean,
     private val clock: Clock = Clock.systemUTC(),
 ) {
@@ -25,6 +28,8 @@ class Services(
     val keys = KeyRepository(database)
     val messages = MessageRepository(database)
     val attachments = AttachmentRepository(database)
+    val spaces = SpaceRepository(database)
+    val posts = PostRepository(database)
     val hub = SocketHub()
 
     fun now(): Instant = clock.instant()
