@@ -5,13 +5,17 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.blesk.shared.appearance.Appearance
+import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -47,6 +51,34 @@ class SettingsStore(context: Context) {
         }
     }
 
+    /** Per-chat theme overrides, keyed by conversation id. */
+    val chatThemes: Flow<Map<String, ThemeSpec>> = store.data
+        .map { prefs -> prefs[CHAT_THEMES]?.let(::decodeChatThemes).orEmpty() }
+        .distinctUntilChanged()
+
+    /** Bumped whenever the chat wallpaper file changes, so screens reload it. */
+    val wallpaperVersion: Flow<Long> = store.data.map { it[WALLPAPER_VERSION] ?: 0L }.distinctUntilChanged()
+
+    suspend fun setChatTheme(conversationId: String, theme: ThemeSpec?) {
+        store.edit { prefs ->
+            val current = prefs[CHAT_THEMES]?.let(::decodeChatThemes).orEmpty()
+            val next = if (theme == null) current - conversationId else current + (conversationId to theme.normalized())
+            prefs[CHAT_THEMES] = json.encodeToString(chatThemesSerializer, next)
+        }
+    }
+
+    suspend fun bumpWallpaper() {
+        store.edit { it[WALLPAPER_VERSION] = (it[WALLPAPER_VERSION] ?: 0L) + 1 }
+    }
+
+    private fun decodeChatThemes(raw: String): Map<String, ThemeSpec>? = try {
+        json.decodeFromString(chatThemesSerializer, raw)
+    } catch (_: SerializationException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
     suspend fun setDebugUnlocked(unlocked: Boolean) {
         store.edit { it[DEBUG_UNLOCKED] = unlocked }
     }
@@ -63,5 +95,8 @@ class SettingsStore(context: Context) {
         val APPEARANCE = stringPreferencesKey("appearance")
         val SERVER = stringPreferencesKey("server")
         val DEBUG_UNLOCKED = booleanPreferencesKey("debug_unlocked")
+        val CHAT_THEMES = stringPreferencesKey("chat_themes")
+        val WALLPAPER_VERSION = longPreferencesKey("wallpaper_version")
+        val chatThemesSerializer = MapSerializer(String.serializer(), ThemeSpec.serializer())
     }
 }

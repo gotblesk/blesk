@@ -10,5 +10,6 @@ dependencies {
     api(libs.kotlinx.collections.immutable)
     api(project(":shared"))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.backdrop)
     implementation(libs.androidx.lifecycle.runtime.compose)
 }

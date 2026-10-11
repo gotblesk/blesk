@@ -2,12 +2,18 @@ package app.blesk.core.data.demo
 
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.EventLog
+import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
+import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.ME
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Preview
+import app.blesk.core.data.model.Protection
+import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.SendStatus
+import app.blesk.shared.appearance.ThemeSpec
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -30,26 +36,45 @@ class DemoRepository(
     private val log: EventLog,
     private val clock: () -> Instant = Instant::now,
 ) {
-    private val contacts: Map<String, Contact> = seed.contacts.associateBy { it.id }
+    private val contactsById: Map<String, Contact> = seed.contacts.associateBy { it.id }
     private val messages = MutableStateFlow(seed.messages.groupBy { it.conversationId })
-    private val conversationsState = MutableStateFlow(seed.conversations)
+    private val all = MutableStateFlow(seed.conversations)
+    private val typingState = MutableStateFlow<Set<String>>(emptySet())
     private val ids = AtomicLong()
     private val echoBotId = seed.echoBotConversationId
     private val botAuthorId = seed.echoBotAuthorId
 
-    val conversations: StateFlow<List<Conversation>> = conversationsState.asStateFlow()
+    /** People you can write to directly. */
+    val contacts: List<Contact> = seed.contacts.filter { it.id in seed.directContactIds }
 
-    fun conversation(id: String): Flow<Conversation?> = conversationsState.map { list -> list.firstOrNull { it.id == id } }
+    /** Conversations shown in the list; room channels live inside their rooms, empty direct chats stay hidden. */
+    val conversations: Flow<List<Conversation>> = all.map { list ->
+        list.filter { it.parentId == null && (it.kind != ConversationKind.Direct || it.preview != null) }
+    }
+
+    /** Conversations where someone is typing right now. */
+    val typing: StateFlow<Set<String>> = typingState.asStateFlow()
+
+    fun conversation(id: String): Flow<Conversation?> = all.map { list -> list.firstOrNull { it.id == id } }
 
     fun messages(conversationId: String): Flow<List<Message>> = messages.map { it[conversationId].orEmpty() }
 
-    fun contact(id: String): Contact? = contacts[id]
+    fun contact(id: String): Contact? = contactsById[id]
+
+    /** The direct chat with [contactId], started empty if there was none. */
+    fun directChatWith(contactId: String): String {
+        val contact = contactsById.getValue(contactId)
+        if (all.value.none { it.id == contactId }) {
+            all.update { it + Conversation(contactId, ConversationKind.Direct, contact.name, Protection.EndToEnd, null, clock()) }
+        }
+        return contactId
+    }
 
     fun send(conversationId: String, text: String, replyToId: String? = null) {
         val body = text.trim()
         if (body.isEmpty()) return
         val message = Message(
-            id = "local-${ids.incrementAndGet()}",
+            id = nextId(),
             conversationId = conversationId,
             authorId = ME,
             text = body,
@@ -62,43 +87,104 @@ class DemoRepository(
         scope.launch {
             for (status in listOf(SendStatus.Sent, SendStatus.Delivered, SendStatus.Read)) {
                 delay(STATUS_STEP_MILLIS)
-                setStatus(message, status)
+                update(message.conversationId, message.id) { it.copy(status = status) }
             }
-            if (conversationId == echoBotId) {
+            if (conversationId == echoBotId) echo(message)
+        }
+    }
+
+    /** Shares a theme into the chat as a message anyone there can apply. */
+    fun sendTheme(conversationId: String, theme: ThemeSpec, caption: String) {
+        val message = Message(
+            id = nextId(),
+            conversationId = conversationId,
+            authorId = ME,
+            text = caption,
+            sentAt = clock(),
+            status = SendStatus.Sending,
+            attachment = Attachment.Theme(theme.normalized()),
+        )
+        append(message)
+        scope.launch {
+            for (status in listOf(SendStatus.Sent, SendStatus.Delivered, SendStatus.Read)) {
                 delay(STATUS_STEP_MILLIS)
-                append(message.copy(id = "local-${ids.incrementAndGet()}", authorId = botAuthorId, sentAt = clock(), replyToId = null))
-                log.record(EventCode.DemoBotReplied)
+                update(message.conversationId, message.id) { it.copy(status = status) }
             }
         }
+    }
+
+    private suspend fun echo(message: Message) {
+        typingState.update { it + message.conversationId }
+        delay(TYPING_MILLIS)
+        typingState.update { it - message.conversationId }
+        append(message.copy(id = nextId(), authorId = botAuthorId, sentAt = clock(), replyToId = null, status = SendStatus.Read))
+        log.record(EventCode.DemoBotReplied)
+    }
+
+    fun toggleReaction(conversationId: String, messageId: String, symbol: String) {
+        update(conversationId, messageId) { message ->
+            val existing = message.reactions.firstOrNull { it.symbol == symbol }
+            val reactions = when {
+                existing == null -> message.reactions + Reaction(symbol, 1, mine = true)
+                existing.mine && existing.count == 1 -> message.reactions - existing
+                existing.mine -> message.reactions.map { if (it == existing) it.copy(count = it.count - 1, mine = false) else it }
+                else -> message.reactions.map { if (it == existing) it.copy(count = it.count + 1, mine = true) else it }
+            }
+            message.copy(reactions = reactions.toImmutableList())
+        }
+    }
+
+    fun edit(conversationId: String, messageId: String, text: String) {
+        val body = text.trim()
+        if (body.isEmpty()) return
+        update(conversationId, messageId) { if (it.isOwn) it.copy(text = body, edited = true) else it }
+        refreshPreview(conversationId)
+    }
+
+    /** Deletes for everyone. Only your own messages can be deleted. */
+    fun delete(conversationId: String, messageId: String) {
+        messages.update { map ->
+            val list = map[conversationId].orEmpty().filterNot { it.id == messageId && it.isOwn }
+            map + (conversationId to list)
+        }
+        refreshPreview(conversationId)
     }
 
     fun markRead(conversationId: String) {
-        conversationsState.update { list -> list.map { if (it.id == conversationId) it.copy(unread = 0) else it } }
+        all.update { list -> list.map { if (it.id == conversationId) it.copy(unread = 0) else it } }
     }
 
-    private fun append(message: Message) {
-        messages.update { all -> all + (message.conversationId to (all[message.conversationId].orEmpty() + message)) }
-        val author = if (message.isOwn) null else contacts[message.authorId]?.name
-        conversationsState.update { list ->
-            list.map {
-                if (it.id == message.conversationId) {
-                    it.copy(preview = Preview(author, message.text), updatedAt = message.sentAt)
-                } else {
-                    it
-                }
-            }.sortedWith(conversationOrder)
+    private fun nextId() = "local-${ids.incrementAndGet()}"
+
+    private fun update(conversationId: String, messageId: String, transform: (Message) -> Message) {
+        messages.update { map ->
+            val list = map[conversationId].orEmpty().map { if (it.id == messageId) transform(it) else it }
+            map + (conversationId to list)
         }
     }
 
-    private fun setStatus(message: Message, status: SendStatus) {
-        messages.update { all ->
-            val list = all[message.conversationId].orEmpty().map { if (it.id == message.id) it.copy(status = status) else it }
-            all + (message.conversationId to list)
+    private fun append(message: Message) {
+        messages.update { map -> map + (message.conversationId to (map[message.conversationId].orEmpty() + message)) }
+        refreshPreview(message.conversationId)
+    }
+
+    private fun refreshPreview(conversationId: String) {
+        val conversation = all.value.firstOrNull { it.id == conversationId } ?: return
+        val last = messages.value[conversationId]?.lastOrNull()
+        val targetId = conversation.parentId ?: conversationId
+        val showAuthor = conversation.parentId != null || conversation.memberCount > 2
+        all.update { list ->
+            list.map {
+                if (it.id != targetId || last == null) return@map it
+                val author = if (last.isOwn || !showAuthor) null else contactsById[last.authorId]?.name?.substringBefore(' ')
+                it.copy(preview = Preview(author, last.text), updatedAt = maxOf(it.updatedAt, last.sentAt))
+            }.sortedWith(conversationOrder)
         }
     }
 
     companion object {
         private const val STATUS_STEP_MILLIS = 450L
+        private const val TYPING_MILLIS = 1400L
 
         val conversationOrder: Comparator<Conversation> =
             compareByDescending<Conversation> { it.pinned }.thenByDescending { it.updatedAt }

@@ -7,4 +7,5 @@ dependencies {
     implementation(project(":core:design"))
     implementation(project(":core:data"))
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.activity.compose)
 }

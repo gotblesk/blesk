@@ -36,4 +36,34 @@
     <string name="chat_channel_readonly">Публикации в канале пишут только авторы</string>
     <string name="chat_encrypted_note">Сообщения защищены сквозным шифрованием. Прочитать их можете только вы и собеседники.</string>
     <string name="chat_open_note">Этот чат не зашифрован сквозным шифрованием.</string>
+    <string name="chats_typing">печатает…</string>
+    <string name="chats_room_expanded">каналы показаны</string>
+    <string name="chats_room_collapsed">каналы свёрнуты</string>
+    <string name="chats_speaking">говорит</string>
+    <string name="contacts_title">Контакты</string>
+    <string name="chat_protected">защищено</string>
+    <string name="chat_reply">Ответить</string>
+    <string name="chat_copy">Копировать</string>
+    <string name="chat_edit">Изменить</string>
+    <string name="chat_delete">Удалить у всех</string>
+    <string name="chat_close">Закрыть</string>
+    <string name="chat_replying_to">Ответ: %1$s</string>
+    <string name="chat_editing">Изменение сообщения</string>
+    <string name="chat_cancel">Отменить</string>
+    <string name="chat_edited">изменено</string>
+    <string name="chat_reaction">реакция %1$s: %2$d</string>
+    <string name="chat_react">Поставить %1$s</string>
+    <string name="chat_you">Вы</string>
+    <string name="chat_empty">Здесь пока пусто. Напишите первым.</string>
+    <string name="voice_join">Подключиться</string>
+    <string name="voice_hint">Голосовые каналы заработают вместе со звонками.</string>
+    <plurals name="voice_count">
+        <item quantity="one">%1$d участник в канале</item>
+        <item quantity="few">%1$d участника в канале</item>
+        <item quantity="many">%1$d участников в канале</item>
+        <item quantity="other">%1$d участника в канале</item>
+    </plurals>
+    <string name="chat_theme">Оформление чата</string>
+    <string name="theme_card_title">Тема</string>
+    <string name="theme_card_apply">Применить</string>
 </resources>

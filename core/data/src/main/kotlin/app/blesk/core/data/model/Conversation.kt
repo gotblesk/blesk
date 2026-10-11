@@ -1,5 +1,6 @@
 package app.blesk.core.data.model
 
+import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -26,6 +27,8 @@ data class Conversation(
     val pinned: Boolean = false,
     val memberCount: Int = 0,
     val channels: ImmutableList<RoomChannel> = persistentListOf(),
+    /** For a room channel: the room it belongs to. Channels are not listed on their own. */
+    val parentId: String? = null,
 )
 
 enum class RoomChannelKind { Text, Voice }
@@ -49,8 +52,20 @@ data class Message(
     val sentAt: Instant,
     val status: SendStatus = SendStatus.Read,
     val replyToId: String? = null,
+    val reactions: ImmutableList<Reaction> = persistentListOf(),
+    val edited: Boolean = false,
+    val attachment: Attachment? = null,
 ) {
     val isOwn: Boolean get() = authorId == ME
 }
+
+/** Something carried by a message besides its text. */
+sealed interface Attachment {
+    /** A theme someone shared; anyone in the chat can apply it. */
+    data class Theme(val spec: ThemeSpec) : Attachment
+}
+
+/** A reaction and who left it. [mine] is whether the phone owner is among them. */
+data class Reaction(val symbol: String, val count: Int, val mine: Boolean)
 
 const val ME = "me"

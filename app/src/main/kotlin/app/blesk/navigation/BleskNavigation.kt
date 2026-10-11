@@ -5,8 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
@@ -16,34 +18,38 @@ import androidx.navigation3.ui.NavDisplay
 import app.blesk.AppContainer
 import app.blesk.BuildConfig
 import app.blesk.core.data.diagnostics.EventCode
+import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
-import app.blesk.feature.chats.ChatListScreen
-import app.blesk.feature.chats.ConversationScreen
+import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.settings.AboutScreen
-import app.blesk.feature.settings.AppearanceScreen
-import app.blesk.feature.settings.SettingsScreen
 import app.blesk.shared.appearance.Appearance
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
-import java.time.Instant
 
-@Serializable data object ChatsKey : NavKey
+@Serializable
+data object HomeKey : NavKey
 
-@Serializable data class ConversationKey(val id: String) : NavKey
+@Serializable
+data class ConversationKey(val id: String) : NavKey
 
-@Serializable data object SettingsKey : NavKey
+@Serializable
+data class VoiceChannelKey(val roomId: String, val channelId: String) : NavKey
 
-@Serializable data object AppearanceKey : NavKey
+@Serializable
+data object AppearanceKey : NavKey
 
-@Serializable data object AboutKey : NavKey
+@Serializable
+data object AboutKey : NavKey
 
-@Serializable data object DebugKey : NavKey
+@Serializable
+data object DebugKey : NavKey
 
 @Composable
 fun BleskNavigation(container: AppContainer) {
-    val backStack = rememberNavBackStack(ChatsKey)
+    val backStack = rememberNavBackStack(HomeKey)
     val scope = rememberCoroutineScope()
     val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = AppMode.Demo)
     val debugUnlocked by container.settings.debugUnlocked.collectAsStateWithLifecycle(initialValue = false)
@@ -59,49 +65,39 @@ fun BleskNavigation(container: AppContainer) {
         backStack = backStack,
         onBack = back,
         entryProvider = entryProvider {
-            entry<ChatsKey> {
-                val conversations by container.demo.conversations.collectAsStateWithLifecycle()
-                ChatListScreen(
-                    conversations = conversations.toImmutableList(),
-                    demo = demo,
-                    now = remember(conversations) { Instant.now() },
-                    onOpenConversation = { backStack.add(ConversationKey(it)) },
-                    onOpenSettings = { backStack.add(SettingsKey) },
-                )
-            }
-            entry<ConversationKey> { key ->
-                val conversation by container.demo.conversation(key.id).collectAsStateWithLifecycle(initialValue = null)
-                val messages by container.demo.messages(key.id).collectAsStateWithLifecycle(initialValue = emptyList())
-                LaunchedEffect(key.id) { container.demo.markRead(key.id) }
-                conversation?.let {
-                    ConversationScreen(
-                        conversation = it,
-                        messages = messages.toImmutableList(),
-                        authorName = { id -> container.demo.contact(id)?.name },
-                        onSend = { text -> container.demo.send(key.id, text) },
-                        onBack = back,
-                    )
-                }
-            }
-            entry<SettingsKey> {
-                SettingsScreen(
+            entry<HomeKey> {
+                var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
+                Home(
+                    container = container,
+                    tab = tab,
                     demo = demo,
                     debugUnlocked = debugUnlocked,
-                    onBack = back,
+                    onSelectTab = { tab = it },
+                    onOpenConversation = { backStack.add(ConversationKey(it)) },
+                    onOpenChannel = { room, channel ->
+                        val target = if (channel.kind == RoomChannelKind.Voice) {
+                            VoiceChannelKey(room.id, channel.id)
+                        } else {
+                            ConversationKey(channel.id)
+                        }
+                        backStack.add(target)
+                    },
                     onOpenAppearance = { backStack.add(AppearanceKey) },
                     onOpenAbout = { backStack.add(AboutKey) },
                     onOpenDebug = { backStack.add(DebugKey) },
                 )
             }
+            entry<ConversationKey> { key ->
+                ConversationRoute(container, key.id, appearance, back)
+            }
+            entry<VoiceChannelKey> { key ->
+                val channel by container.demo.conversation(key.roomId)
+                    .map { room -> room?.channels?.firstOrNull { it.id == key.channelId } }
+                    .collectAsStateWithLifecycle(initialValue = null)
+                channel?.let { VoiceChannelScreen(channel = it, onBack = back) }
+            }
             entry<AppearanceKey> {
-                AppearanceScreen(
-                    current = appearance.theme,
-                    onSelectTheme = { spec ->
-                        scope.launch { container.settings.updateAppearance { it.copy(theme = spec) } }
-                        container.eventLog.record(EventCode.ThemeChanged, spec.preset.ordinal.toLong())
-                    },
-                    onBack = back,
-                )
+                AppearanceRoute(container, appearance, back)
             }
             entry<AboutKey> {
                 AboutScreen(

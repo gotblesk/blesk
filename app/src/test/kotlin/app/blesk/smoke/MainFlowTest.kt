@@ -34,7 +34,12 @@ class MainFlowTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Назад").performClick()
 
-        compose.onNodeWithContentDescription("Настройки").performClick()
+        compose.onNodeWithText("Контакты").performClick()
+        compose.onNodeWithText("Лера").performClick()
+        compose.onNodeWithText("защищено").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Назад").performClick()
+
+        compose.onNodeWithText("Настройки").performClick()
         compose.onNodeWithText("Оформление").performClick()
         compose.onNodeWithText("Лаймовая").performClick()
         compose.onNodeWithContentDescription("Назад").performClick()

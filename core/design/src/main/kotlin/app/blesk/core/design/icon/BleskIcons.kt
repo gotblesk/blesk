@@ -55,6 +55,13 @@ object BleskIcons {
     )
     val Send by icon("M5 12h13M13 6.5l5.5 5.5-5.5 5.5")
     val Mic by icon("M12 14.5a3 3 0 0 0 3-3v-4a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3zM6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3")
+    val Edit by icon("M5 19l1-4L15.5 5.5a2.1 2.1 0 0 1 3 3L9 18l-4 1zM13.5 7.5l3 3")
+    val Trash by icon("M5 7h14M10 7V5h4v2M7 7l1 12.5h8L17 7M10.5 11v5M13.5 11v5")
+    val Image by icon(
+        "M5.5 5h13a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM4.5 16l4.5-4.5 4 4 2.5-2.5 4 4M15 9.5h.01",
+    )
+    val Download by icon("M12 4.5v10.5M7.5 10.5l4.5 4.5 4.5-4.5M5 19.5h14")
+    val Upload by icon("M12 15V4.5M7.5 9l4.5-4.5L16.5 9M5 19.5h14")
     val Person by icon("M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM5.5 19.5c.8-3.3 3.3-5.5 6.5-5.5s5.7 2.2 6.5 5.5")
 
     private fun icon(pathData: String) = lazy {

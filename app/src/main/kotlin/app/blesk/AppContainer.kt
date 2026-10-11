@@ -6,6 +6,7 @@ import app.blesk.core.data.demo.DemoSeed
 import app.blesk.core.data.diagnostics.CrashStore
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.settings.SettingsStore
+import app.blesk.core.data.settings.Wallpaper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,6 +19,7 @@ class AppContainer(context: Context) {
     val eventLog = EventLog()
     val crashStore = CrashStore(File(context.noBackupFilesDir, "diagnostics"))
     val settings = SettingsStore(context)
+    val wallpaper = Wallpaper(context)
     val demo: DemoRepository by lazy {
         DemoRepository(DemoSeed.from(context.resources, Instant.now()), scope, eventLog)
     }

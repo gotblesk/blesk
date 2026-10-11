@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">blesk</string>
+    <string name="tab_chats">Чаты</string>
+    <string name="tab_contacts">Контакты</string>
+    <string name="tab_settings">Настройки</string>
+    <string name="chat_theme_title">Оформление чата</string>
+    <string name="chat_theme_app">Как во всём приложении</string>
+    <string name="chat_theme_send">Отправить тему в чат</string>
+    <string name="chat_theme_caption">Моя тема blesk</string>
+    <string name="theme_opened">Тема открыта</string>
+    <string name="theme_saved">Тема сохранена</string>
 </resources>

@@ -1,29 +1,41 @@
 package app.blesk.feature.settings
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ListRow
-import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 
+/** The settings tab, placed under the home lenses. */
 @Composable
-fun SettingsScreen(
+fun SettingsList(
     demo: Boolean,
     debugUnlocked: Boolean,
-    onBack: () -> Unit,
+    contentPadding: PaddingValues,
     onOpenAppearance: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenDebug: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
-    ScrollScreen(title = stringResource(R.string.settings_title), onBack = onBack, modifier = modifier) {
-        SectionHeader(stringResource(R.string.settings_section_app))
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(contentPadding)
+            .padding(bottom = 24.dp),
+    ) {
+        SectionHeader(stringResource(R.string.settings_section_app), Modifier.padding(top = 0.dp))
         Card(cardPadding) {
             ListRow(
                 title = stringResource(R.string.settings_appearance),

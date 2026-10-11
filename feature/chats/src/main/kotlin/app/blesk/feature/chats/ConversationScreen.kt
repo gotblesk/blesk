@@ -1,38 +1,43 @@
 package app.blesk.feature.chats
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -42,72 +47,212 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.design.component.Avatar
-import app.blesk.core.design.component.Capsule
+import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.glass.BottomLens
+import app.blesk.core.design.glass.LensScaffold
+import app.blesk.core.design.glass.TopLens
+import app.blesk.core.design.haptics.rememberHaptics
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.metaball.Blob
+import app.blesk.core.design.metaball.metaballs
+import app.blesk.core.design.motion.rememberLoopPhase
 import app.blesk.core.design.theme.Blesk
+import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.collections.immutable.ImmutableList
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import kotlinx.collections.immutable.toImmutableList
+import kotlin.math.PI
+import kotlin.math.sin
+
+/** What the conversation screen can ask the data layer to do. */
+class ConversationCallbacks(
+    val onSend: (text: String, replyToId: String?) -> Unit,
+    val onEdit: (messageId: String, text: String) -> Unit,
+    val onDelete: (messageId: String) -> Unit,
+    val onReact: (messageId: String, symbol: String) -> Unit,
+    val onApplyTheme: (ThemeSpec) -> Unit,
+    val onOpenChatTheme: () -> Unit,
+    val onBack: () -> Unit,
+)
 
 @Composable
 fun ConversationScreen(
     conversation: Conversation,
     messages: ImmutableList<Message>,
+    typing: Boolean,
     authorName: (String) -> String?,
-    onSend: (String) -> Unit,
-    onBack: () -> Unit,
+    callbacks: ConversationCallbacks,
     modifier: Modifier = Modifier,
+    underlay: @Composable BoxScope.() -> Unit = {},
 ) {
+    val haptics = rememberHaptics()
     val listState = rememberLazyListState()
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size)
-    }
+    val initialIds = remember(conversation.id) { messages.map { it.id }.toSet() }
+    var replyToId by rememberSaveable(conversation.id) { mutableStateOf<String?>(null) }
+    var editingId by rememberSaveable(conversation.id) { mutableStateOf<String?>(null) }
+    var menuFor by remember { mutableStateOf<Message?>(null) }
+    val input = rememberTextFieldState()
+    val byId = remember(messages) { messages.associateBy { it.id } }
+    val groups = remember(messages) { groupMessages(messages) }
     val showAuthors = conversation.kind == ConversationKind.Group || conversation.kind == ConversationKind.Room
-    Column(
-        modifier
-            .fillMaxSize()
-            .background(Blesk.colors.background)
-            .windowInsetsPadding(WindowInsets.statusBars),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            IconButton(BleskIcons.Back, stringResource(app.blesk.core.design.R.string.design_back), onBack)
-            Avatar(conversation.title, size = 36.dp)
-            Text(conversation.title, style = Blesk.type.headline, maxLines = 1, modifier = Modifier.weight(1f))
-        }
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = Blesk.dimens.gutter, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            item(key = "note") { ProtectionNote(conversation.protection) }
-            items(messages, key = { it.id }) { message ->
-                MessageBubble(
-                    message = message,
-                    author = if (showAuthors && !message.isOwn) authorName(message.authorId) else null,
-                )
+    val you = stringResource(R.string.chat_you)
+
+    LaunchedEffect(messages.size, typing) {
+        val last = groups.size + if (typing) 1 else 0
+        if (last > 0) listState.animateScrollToItem(last)
+    }
+    val lastOwnStatus = messages.lastOrNull { it.isOwn }?.status
+    LaunchedEffect(lastOwnStatus) {
+        if (lastOwnStatus == SendStatus.Delivered) haptics.event()
+    }
+
+    val actions = remember(conversation.id) {
+        MessageActions(
+            onReply = { replyToId = it.id; editingId = null },
+            onMenu = { menuFor = it },
+            onReact = { message, symbol -> callbacks.onReact(message.id, symbol) },
+            onApplyTheme = callbacks.onApplyTheme,
+        )
+    }
+
+    Box(modifier.fillMaxSize()) {
+        LensScaffold(
+            underlay = underlay,
+            top = { ChatHeader(conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme) },
+            bottom = {
+                if (conversation.kind == ConversationKind.Channel) {
+                    BottomLens {
+                        Text(
+                            text = stringResource(R.string.chat_channel_readonly),
+                            style = Blesk.type.label,
+                            color = Blesk.colors.textSecondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        )
+                    }
+                } else {
+                    Composer(
+                        state = input,
+                        replyTo = replyToId?.let(byId::get),
+                        editing = editingId?.let(byId::get),
+                        authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
+                        onCancel = {
+                            if (editingId != null) input.clearText()
+                            replyToId = null
+                            editingId = null
+                        },
+                        onSend = { text ->
+                            val editing = editingId
+                            if (editing != null) {
+                                callbacks.onEdit(editing, text)
+                            } else {
+                                callbacks.onSend(text, replyToId)
+                                haptics.merge()
+                            }
+                            replyToId = null
+                            editingId = null
+                        },
+                    )
+                }
+            },
+        ) { padding ->
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = Blesk.dimens.gutter,
+                    end = Blesk.dimens.gutter,
+                    top = padding.calculateTopPadding() + 8.dp,
+                    bottom = padding.calculateBottomPadding() + 12.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item(key = "note") { ProtectionNote(conversation.protection) }
+                items(groups, key = { it.first().id }) { group ->
+                    val own = group.first().isOwn
+                    MessageColumn(
+                        messages = group,
+                        author = if (showAuthors && !own) authorName(group.first().authorId) else null,
+                        fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds || own }.toSet() },
+                        quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
+                        actions = actions,
+                    )
+                }
+                if (typing) item(key = "typing") { TypingDots() }
             }
         }
-        if (conversation.kind == ConversationKind.Channel) {
-            Text(
-                text = stringResource(R.string.chat_channel_readonly),
-                style = Blesk.type.label,
-                color = Blesk.colors.textTertiary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(Blesk.dimens.gutter),
+        menuFor?.let { message ->
+            MessageMenu(
+                message = message,
+                onDismiss = { menuFor = null },
+                onReply = { replyToId = message.id; editingId = null },
+                onEdit = {
+                    editingId = message.id
+                    replyToId = null
+                    input.setTextAndPlaceCursorAtEnd(message.text)
+                },
+                onDelete = { callbacks.onDelete(message.id) },
+                onReact = { symbol -> callbacks.onReact(message.id, symbol) },
             )
-        } else {
-            Composer(onSend = onSend)
         }
     }
+}
+
+private fun quoteOf(message: Message, you: String, authorName: (String) -> String?): String {
+    val who = if (message.isOwn) you else authorName(message.authorId)?.substringBefore(' ').orEmpty()
+    return "$who: ${message.text}"
+}
+
+/** Runs of one author's messages, broken after a quiet gap. */
+private fun groupMessages(messages: List<Message>): List<ImmutableList<Message>> {
+    val groups = ArrayList<ImmutableList<Message>>()
+    var current = ArrayList<Message>()
+    messages.forEach { message ->
+        val previous = current.lastOrNull()
+        val sameRun = previous != null &&
+            previous.authorId == message.authorId &&
+            message.sentAt.epochSecond - previous.sentAt.epochSecond < GROUP_GAP_SECONDS
+        if (!sameRun && current.isNotEmpty()) {
+            groups += current.toImmutableList()
+            current = ArrayList()
+        }
+        current += message
+    }
+    if (current.isNotEmpty()) groups += current.toImmutableList()
+    return groups
+}
+
+private const val GROUP_GAP_SECONDS = 10 * 60
+
+@Composable
+private fun ChatHeader(conversation: Conversation, typing: Boolean, onBack: () -> Unit, onOpenTheme: () -> Unit) {
+    val protected = conversation.protection == Protection.EndToEnd
+    TopLens(
+        title = null,
+        onBack = onBack,
+        leading = {
+            Avatar(conversation.title, size = 40.dp)
+            Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(conversation.title, style = Blesk.type.bodyStrong, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (!typing && protected) Icon(BleskIcons.Shield, null, tint = Blesk.colors.textSecondary, size = 14.dp)
+                    Text(
+                        text = when {
+                            typing -> stringResource(R.string.chats_typing)
+                            protected -> stringResource(R.string.chat_protected)
+                            else -> stringResource(app.blesk.core.design.R.string.design_not_encrypted)
+                        },
+                        style = Blesk.type.caption,
+                        color = if (typing) Blesk.colors.accent else Blesk.colors.textSecondary,
+                        maxLines = 1,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+            }
+        },
+        actions = { IconButton(BleskIcons.Appearance, stringResource(R.string.chat_theme), onOpenTheme) },
+    )
 }
 
 @Composable
@@ -116,87 +261,93 @@ private fun ProtectionNote(protection: Protection) {
         text = stringResource(if (protection == Protection.EndToEnd) R.string.chat_encrypted_note else R.string.chat_open_note),
         style = Blesk.type.caption,
         color = Blesk.colors.textTertiary,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
         textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
     )
 }
 
-private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
-
+/** Three dots bobbing in a capsule; the incoming message later grows out of the same spot. */
 @Composable
-private fun MessageBubble(message: Message, author: String?) {
-    val own = message.isOwn
-    val status = if (own) stringResource(statusLabel(message.status)) else null
-    val time = timeFormat.format(message.sentAt.atZone(ZoneId.systemDefault()))
-    Box(Modifier.fillMaxWidth(), contentAlignment = if (own) Alignment.CenterEnd else Alignment.CenterStart) {
-        Capsule(
-            modifier = Modifier
-                .widthIn(max = 300.dp)
-                .semantics(mergeDescendants = true) {
-                    contentDescription = listOfNotNull(author, message.text, time, status).joinToString(", ")
-                },
-            shape = RoundedCornerShape(20.dp),
-            color = if (own) Blesk.colors.surfaceStrong else Blesk.colors.surface,
-        ) {
-            Column(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
-                if (author != null) Text(author, style = Blesk.type.label, color = Blesk.colors.textSecondary)
-                Text(message.text)
-                Row(
-                    modifier = Modifier.align(Alignment.End).padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(time, style = Blesk.type.caption, color = Blesk.colors.textTertiary)
-                    if (status != null) Text(status, style = Blesk.type.caption, color = Blesk.colors.textTertiary)
-                }
+private fun TypingDots() {
+    val phase by rememberLoopPhase(1100)
+    val reduced = Blesk.motion.reduced
+    val label = stringResource(R.string.chats_typing)
+    val dot = Blesk.colors.textTertiary
+    Box(
+        Modifier
+            .size(width = 64.dp, height = 36.dp)
+            .semantics { contentDescription = label }
+            .metaballs(Blesk.colors.surface, smoothness = 10.dp) {
+                listOf(Blob(Rect(0f, 0f, size.width, size.height), size.height / 2f))
             }
-        }
-    }
-}
-
-private fun statusLabel(status: SendStatus) = when (status) {
-    SendStatus.Sending -> R.string.chat_status_sending
-    SendStatus.Sent -> R.string.chat_status_sent
-    SendStatus.Delivered -> R.string.chat_status_delivered
-    SendStatus.Read -> R.string.chat_status_read
-}
-
-@Composable
-private fun Composer(onSend: (String) -> Unit) {
-    val state = rememberTextFieldState()
-    val hint = stringResource(R.string.chat_input_hint)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-            .padding(horizontal = Blesk.dimens.gutter - 4.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
-            .background(Blesk.colors.surface)
-            .padding(start = 18.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.weight(1f).heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
-            if (state.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
-            BasicTextField(
-                state = state,
-                textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
-                cursorBrush = SolidColor(Blesk.colors.accent),
-                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp)
-                    .semantics { contentDescription = hint },
-            )
-        }
-        IconButton(
-            icon = BleskIcons.Send,
-            contentDescription = stringResource(R.string.chat_send),
-            onClick = {
-                val text = state.text.toString()
-                if (text.isNotBlank()) {
-                    onSend(text)
-                    state.clearText()
+            .drawBehind {
+                repeat(3) { i ->
+                    val wave = if (reduced) 0f else sin((phase - i * 0.18f) * 2f * PI).toFloat()
+                    drawCircle(
+                        color = dot,
+                        radius = 3.5.dp.toPx(),
+                        center = Offset(size.width * (0.3f + 0.2f * i), size.height / 2f - wave * 3.dp.toPx()),
+                    )
                 }
             },
-        )
+    )
+}
+
+@Composable
+private fun Composer(
+    state: TextFieldState,
+    replyTo: Message?,
+    editing: Message?,
+    authorName: (Message) -> String,
+    onCancel: () -> Unit,
+    onSend: (String) -> Unit,
+) {
+    val hint = stringResource(R.string.chat_input_hint)
+    BottomLens {
+        AnimatedVisibility(visible = replyTo != null || editing != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 14.dp, top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = when {
+                        editing != null -> stringResource(R.string.chat_editing)
+                        replyTo != null -> stringResource(R.string.chat_replying_to, "${authorName(replyTo)}: ${replyTo.text}")
+                        else -> ""
+                    },
+                    style = Blesk.type.label,
+                    color = Blesk.colors.textSecondary,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(BleskIcons.Close, stringResource(R.string.chat_cancel), onCancel)
+            }
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 14.dp), contentAlignment = Alignment.CenterStart) {
+                if (state.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
+                BasicTextField(
+                    state = state,
+                    textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
+                    cursorBrush = SolidColor(Blesk.colors.accent),
+                    lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp)
+                        .semantics { contentDescription = hint },
+                )
+            }
+            IconButton(
+                icon = if (editing != null) BleskIcons.Check else BleskIcons.Send,
+                contentDescription = stringResource(R.string.chat_send),
+                onClick = {
+                    val text = state.text.toString()
+                    if (text.isNotBlank()) {
+                        onSend(text)
+                        state.clearText()
+                    }
+                },
+            )
+        }
     }
 }
