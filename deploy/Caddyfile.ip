@@ -8,5 +8,11 @@
 
 https://{$BLESK_PUBLIC_IP} {
 	tls /certs/blesk.crt /certs/blesk.key
-	reverse_proxy server:8080
+	# LiveKit signalling (WebSocket); the prefix is stripped because LiveKit serves from the root.
+	handle_path /livekit/* {
+		reverse_proxy livekit:7880
+	}
+	handle {
+		reverse_proxy server:8080
+	}
 }

@@ -1,6 +1,7 @@
 package app.blesk.server
 
 import app.blesk.server.attachments.FileSystemStorage
+import app.blesk.server.calls.CallTokens
 import app.blesk.server.db.Database
 import app.blesk.server.http.RateLimiter
 import app.blesk.shared.protocol.Api
@@ -124,6 +125,8 @@ class Harness(val client: HttpClient, val services: Services) {
 fun serverTest(
     rateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     postRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
+    callRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
+    liveKit: LiveKitConfig? = null,
     block: suspend ApplicationTestBuilder.(Harness) -> Unit,
 ) = testApplication {
     val services = Services(
@@ -132,6 +135,8 @@ fun serverTest(
         authRateLimiter = RateLimiter(rateLimit),
         postRateLimiter = RateLimiter(postRateLimit),
         trustProxy = false,
+        callRateLimiter = RateLimiter(callRateLimit),
+        callTokens = liveKit?.let(::CallTokens),
     )
     application { bleskModule(services, maintenanceInterval = 1.hours) }
     val client = createClient {

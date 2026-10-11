@@ -52,6 +52,7 @@ internal fun ConversationRoute(
     onOpenMedia: (messageId: String) -> Unit,
     onOpenGroup: (groupId: String) -> Unit,
     onOpenSpace: (handle: String) -> Unit,
+    onCall: (video: Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     val demo = container.chats.collectAsStateWithLifecycle().value ?: return
@@ -127,7 +128,8 @@ internal fun ConversationRoute(
         )
     }
 
-    val callbacks = remember(id) {
+    val direct = conversation?.kind == ConversationKind.Direct
+    val callbacks = remember(id, direct) {
         ConversationCallbacks(
             onSend = { text, replyTo -> demo.send(id, text, replyTo) },
             onEdit = { messageId, text -> demo.edit(id, messageId, text) },
@@ -149,6 +151,7 @@ internal fun ConversationRoute(
                 groupController != null && id.length > MAX_USERNAME_LENGTH -> ({ onOpenGroup(groupId) })
                 else -> null
             },
+            onCall = if (direct) onCall else null,
             onBack = onBack,
         )
     }

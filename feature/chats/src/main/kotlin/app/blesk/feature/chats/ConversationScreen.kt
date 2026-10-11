@@ -97,6 +97,8 @@ class ConversationCallbacks(
     val onTyping: (Boolean) -> Unit = {},
     /** Opens members, roles and settings of a group or room; null for direct chats. */
     val onOpenInfo: (() -> Unit)? = null,
+    /** Calls the person; null where calls make no sense (groups, channels, bots). */
+    val onCall: ((video: Boolean) -> Unit)? = null,
 )
 
 @Composable
@@ -151,7 +153,9 @@ fun ConversationScreen(
         Box(modifier.fillMaxSize()) {
             LensScaffold(
                 underlay = underlay,
-                top = { ChatHeader(conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo) },
+                top = {
+                    ChatHeader(conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo, callbacks.onCall)
+                },
                 bottom = {
                     if (readOnly) {
                         BottomLens {
@@ -278,6 +282,7 @@ private fun ChatHeader(
     onBack: () -> Unit,
     onOpenTheme: () -> Unit,
     onOpenInfo: (() -> Unit)?,
+    onCall: ((Boolean) -> Unit)?,
 ) {
     val protected = conversation.protection == Protection.EndToEnd
     TopLens(
@@ -304,6 +309,10 @@ private fun ChatHeader(
             }
         },
         actions = {
+            if (onCall != null) {
+                IconButton(BleskIcons.Phone, stringResource(R.string.chat_call), { onCall(false) })
+                IconButton(BleskIcons.Video, stringResource(R.string.chat_video_call), { onCall(true) })
+            }
             if (onOpenInfo != null) IconButton(BleskIcons.People, stringResource(R.string.group_info), onOpenInfo)
             IconButton(BleskIcons.Appearance, stringResource(R.string.chat_theme), onOpenTheme)
         },

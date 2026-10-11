@@ -162,4 +162,6 @@
     <string name="search_field">Слово из переписки</string>
     <string name="search_hint">Ищем только на этом телефоне</string>
     <string name="search_empty">Ничего не нашлось</string>
+    <string name="chat_call">Позвонить</string>
+    <string name="chat_video_call">Видеозвонок</string>
 </resources>

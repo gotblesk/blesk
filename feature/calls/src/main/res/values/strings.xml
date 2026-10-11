@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="call_calling">Звоним…</string>
+    <string name="call_incoming">Входящий звонок</string>
+    <string name="call_incoming_video">Входящий видеозвонок</string>
+    <string name="call_connecting">Соединяем…</string>
+    <string name="call_reconnecting">Связь прервалась, восстанавливаем…</string>
+    <string name="call_waiting">Ждём собеседника…</string>
+    <string name="call_alone">В канале пока никого</string>
+    <string name="call_ended">Звонок завершён</string>
+    <string name="call_declined">Звонок отклонён</string>
+    <string name="call_busy">Собеседник занят</string>
+    <string name="call_missed">Пропущенный звонок</string>
+    <string name="call_no_answer">Не отвечает</string>
+    <string name="call_failed">Не удалось соединиться</string>
+    <string name="call_unavailable">Звонки на этом сервере не настроены</string>
+    <string name="call_encrypted">Защищено сквозным шифрованием</string>
+    <string name="call_demo">Демо: звонок никуда не уходит, видна только ваша камера</string>
+    <string name="call_accept">Ответить</string>
+    <string name="call_decline">Отклонить</string>
+    <string name="call_hang_up">Завершить</string>
+    <string name="call_mic_off">Выключить микрофон</string>
+    <string name="call_mic_on">Включить микрофон</string>
+    <string name="call_camera_off">Выключить камеру</string>
+    <string name="call_camera_on">Включить камеру</string>
+    <string name="call_flip">Сменить камеру</string>
+    <string name="call_speaker_on">Громкая связь</string>
+    <string name="call_speaker_off">Выключить громкую связь</string>
+    <string name="call_share_on">Показать экран</string>
+    <string name="call_share_off">Перестать показывать экран</string>
+    <string name="call_you">Вы</string>
+    <string name="call_muted">%1$s, микрофон выключен</string>
+    <string name="call_speaking">%1$s говорит</string>
+</resources>

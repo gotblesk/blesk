@@ -125,6 +125,14 @@ EOF
         set_env_value BLESK_CADDYFILE Caddyfile.ip
         make_certificate "$PUBLIC_IP"
     fi
+    configure_calls
+}
+
+# LiveKit keys are made once and kept, like the other passwords; the address follows the host.
+configure_calls() {
+    [[ -n "$(env_value LIVEKIT_API_KEY)" ]] || set_env_value LIVEKIT_API_KEY "API$(openssl rand -hex 8)"
+    [[ -n "$(env_value LIVEKIT_API_SECRET)" ]] || set_env_value LIVEKIT_API_SECRET "$(openssl rand -hex 32)"
+    set_env_value LIVEKIT_PUBLIC_URL "wss://${DOMAIN:-$PUBLIC_IP}/livekit"
 }
 
 # Self-signed ECDSA P-256 certificate for the bare IP. Kept across runs, so the pin in the
@@ -150,6 +158,9 @@ open_firewall() {
         ufw allow 80/tcp >/dev/null
         ufw allow 443/tcp >/dev/null
         ufw allow 443/udp >/dev/null
+        # Call media: TCP fallback and the UDP range from deploy/livekit.yaml.
+        ufw allow 7881/tcp >/dev/null
+        ufw allow 50000:50100/udp >/dev/null
     fi
 }
 

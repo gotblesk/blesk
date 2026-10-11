@@ -10,4 +10,8 @@
     <string name="chat_theme_caption">Моя тема blesk</string>
     <string name="theme_opened">Тема открыта</string>
     <string name="theme_saved">Тема сохранена</string>
+    <string name="calls_channel_incoming">Входящие звонки</string>
+    <string name="calls_channel_ongoing">Идущий звонок</string>
+    <string name="calls_need_microphone">Для звонка нужен доступ к микрофону</string>
+    <string name="calls_busy">Сначала завершите текущий звонок</string>
 </resources>

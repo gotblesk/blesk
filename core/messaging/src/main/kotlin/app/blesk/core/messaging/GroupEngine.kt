@@ -7,6 +7,7 @@ import app.blesk.core.data.db.GroupEntity
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Protection
 import app.blesk.shared.protocol.Body
+import app.blesk.shared.protocol.Calls
 import app.blesk.shared.protocol.Content
 import app.blesk.shared.protocol.EnvelopeType
 import app.blesk.shared.protocol.GroupChannel
@@ -66,6 +67,7 @@ internal class GroupEngine(
             members = listOf(GroupMember(me, GroupRole.Owner)) +
                 members.distinct().filter { it != me }.map { GroupMember(it, GroupRole.Member) },
             channels = channels,
+            voiceKey = if (kind == GroupKind.Room) newVoiceKey() else null,
         )
         apply(state)
         broadcast(state, state.members.map { it.username })
@@ -85,10 +87,14 @@ internal class GroupEngine(
         val before = state(groupId) ?: return false
         if (before.roleOf(username) == GroupRole.Owner) return false
         val changed = change(groupId) { state ->
-            state.copy(members = state.members.filter { it.username != username }, epoch = state.epoch + 1)
+            state.copy(
+                members = state.members.filter { it.username != username },
+                epoch = state.epoch + 1,
+                voiceKey = state.voiceKey?.let { newVoiceKey() },
+            )
         }
         // The removed person learns they are out, but gets nothing newer than that.
-        if (changed) state(groupId)?.let { outbox.direct(username, update(it)) }
+        if (changed) state(groupId)?.let { outbox.direct(username, update(it.copy(invite = null, voiceKey = null))) }
         return changed
     }
 
@@ -184,8 +190,25 @@ internal class GroupEngine(
     suspend fun onLeave(sender: String, groupId: String) {
         val state = state(groupId) ?: return
         if (state.roleOf(sender) == null) return
-        apply(state.copy(members = state.members.filter { it.username != sender }, epoch = state.epoch + 1))
+        val left = state.copy(members = state.members.filter { it.username != sender }, epoch = state.epoch + 1)
+        apply(left)
+        // One admin, the first in the list, replaces the voice key so the one who left cannot listen in.
+        if (left.voiceKey != null && left.members.firstOrNull { left.isAdmin(it.username) }?.username == me) {
+            change(groupId) { it.copy(voiceKey = newVoiceKey()) }
+        }
     }
+
+    /** The media key for the room's voice channels; an admin creates one for rooms made before calls existed. */
+    suspend fun voiceKey(groupId: String): String? {
+        val state = state(groupId) ?: return null
+        if (state.kind != GroupKind.Room) return null
+        state.voiceKey?.let { return it }
+        if (!change(groupId) { it.copy(voiceKey = newVoiceKey()) }) return null
+        return state(groupId)?.voiceKey
+    }
+
+    private fun newVoiceKey(): String =
+        Base64.getEncoder().encodeToString(ByteArray(Calls.KEY_BYTES).also(random::nextBytes))
 
     // Internals
 

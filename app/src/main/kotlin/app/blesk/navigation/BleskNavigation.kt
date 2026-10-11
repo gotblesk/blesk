@@ -18,6 +18,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import app.blesk.AppContainer
 import app.blesk.BuildConfig
+import app.blesk.calls.CallActivity
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
@@ -106,6 +107,7 @@ fun BleskNavigation(container: AppContainer) {
     val debugUnlocked by container.settings.debugUnlocked.collectAsStateWithLifecycle(initialValue = false)
     val appearance by container.settings.appearance.collectAsStateWithLifecycle(initialValue = Appearance())
     val demo = mode is AppMode.Demo
+    val context = LocalContext.current
     val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
 
     LaunchedEffect(backStack.size) {
@@ -129,12 +131,16 @@ fun BleskNavigation(container: AppContainer) {
                     onNewGroup = { backStack.add(NewGroupKey) },
                     onSearch = { backStack.add(SearchKey) },
                     onOpenChannel = { room, channel ->
-                        val target = if (channel.kind == RoomChannelKind.Voice) {
-                            VoiceChannelKey(room.id, channel.id)
-                        } else {
-                            ConversationKey(channel.id)
+                        when {
+                            channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
+                            // The demo has nobody to talk to, so its voice channels stay a picture.
+                            demo -> backStack.add(VoiceChannelKey(room.id, channel.id))
+                            else -> {
+                                val title = "${room.title} · ${channel.title}"
+                                val channelId = channel.id.substringAfter(':')
+                                context.startActivity(CallActivity.voice(context, room.id, channelId, channel.id, title))
+                            }
                         }
-                        backStack.add(target)
                     },
                     settings = SettingsActions(
                         onOpenProfile = { backStack.add(ProfileKey) },
@@ -181,6 +187,7 @@ fun BleskNavigation(container: AppContainer) {
                     onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
                     onOpenGroup = { backStack.add(GroupInfoKey(it)) },
                     onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
+                    onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
                     onBack = back,
                 )
             }

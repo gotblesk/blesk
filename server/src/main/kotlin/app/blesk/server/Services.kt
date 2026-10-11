@@ -4,6 +4,7 @@ import app.blesk.server.attachments.AttachmentRepository
 import app.blesk.server.attachments.AttachmentStorage
 import app.blesk.server.auth.AccountRepository
 import app.blesk.server.auth.AuthRepository
+import app.blesk.server.calls.CallTokens
 import app.blesk.server.db.Database
 import app.blesk.server.http.RateLimiter
 import app.blesk.server.keys.KeyRepository
@@ -21,6 +22,9 @@ class Services(
     val authRateLimiter: RateLimiter,
     val postRateLimiter: RateLimiter,
     val trustProxy: Boolean,
+    val callRateLimiter: RateLimiter,
+    /** Null when no LiveKit server is configured. */
+    val callTokens: CallTokens?,
     private val clock: Clock = Clock.systemUTC(),
 ) {
     val accounts = AccountRepository(database)

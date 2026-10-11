@@ -62,10 +62,40 @@ sealed interface Body {
     @SerialName("group_leave")
     data class GroupLeave(val groupId: String) : Body
 
+    /** Rings the other person. [key] is the Base64 media key of the call. */
+    @Serializable
+    @SerialName("call_offer")
+    data class CallOffer(val callId: String, val video: Boolean, val key: String) : Body
+
+    /** The callee picked up. */
+    @Serializable
+    @SerialName("call_answer")
+    data class CallAnswer(val callId: String) : Body
+
+    /** Either side hangs up, declines or is busy; also cancels ringing. */
+    @Serializable
+    @SerialName("call_end")
+    data class CallEnd(val callId: String, val reason: CallEndReason = CallEndReason.HangUp) : Body
+
     /** Your name and bio, shared only with people you write to. */
     @Serializable
     @SerialName("profile")
     data class Profile(val name: String, val bio: String) : Body
+}
+
+@Serializable
+enum class CallEndReason {
+    @SerialName("hangup")
+    HangUp,
+
+    @SerialName("declined")
+    Declined,
+
+    @SerialName("busy")
+    Busy,
+
+    @SerialName("missed")
+    Missed,
 }
 
 @Serializable
@@ -114,6 +144,8 @@ data class GroupState(
     val channels: List<GroupChannel> = emptyList(),
     /** Current invite code; null when invites are off. Only members ever see it. */
     val invite: String? = null,
+    /** Base64 media key for voice channels; replaced with every new epoch. */
+    val voiceKey: String? = null,
 ) {
     fun roleOf(username: String): GroupRole? = members.firstOrNull { it.username == username }?.role
 

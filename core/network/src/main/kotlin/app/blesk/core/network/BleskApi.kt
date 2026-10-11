@@ -3,6 +3,9 @@ package app.blesk.core.network
 import app.blesk.shared.protocol.AccountInfo
 import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.AttachmentUploaded
+import app.blesk.shared.protocol.CallToken
+import app.blesk.shared.protocol.CallTokenRequest
+import app.blesk.shared.protocol.Calls
 import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.ChallengeRequest
 import app.blesk.shared.protocol.CreateSpace
@@ -54,6 +57,7 @@ import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.copyTo
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
 import java.io.File
 import java.io.OutputStream
 import java.security.MessageDigest
@@ -83,18 +87,11 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
 
     val client: HttpClient = (engine?.let { HttpClient(it) { configure() } } ?: HttpClient(OkHttp) {
         configure()
-        engine {
-            config {
-                address.pin?.let { pin ->
-                    val trust = PinTrustManager(pin)
-                    val ssl = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), SecureRandom()) }
-                    sslSocketFactory(ssl.socketFactory, trust)
-                    // The key pin already proves who is on the other end; a bare IP has no name to check.
-                    hostnameVerifier { hostname, _ -> hostname == address.host }
-                }
-            }
-        }
+        engine { config { pinTo(address) } }
     })
+
+    /** An OkHttp client with the same trust rules, for libraries that bring their own networking (calls). */
+    fun okHttpClient(): OkHttpClient = OkHttpClient.Builder().apply { pinTo(address) }.build()
 
     private fun io.ktor.client.HttpClientConfig<*>.configure() {
         expectSuccess = false
@@ -107,6 +104,8 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
     }
 
     suspend fun info(): ServerInfo = call { client.get(url(Api.INFO)) }
+
+    suspend fun callToken(room: String): CallToken = call { client.post(url(Calls.TOKEN)) { auth(); jsonBody(CallTokenRequest(room)) } }
 
     suspend fun register(request: RegisterRequest): AccountInfo = call {
         client.post(url(Api.ACCOUNTS)) { jsonBody(request) }
@@ -244,6 +243,16 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
         const val MEMBER_PAGE = 200
         const val SOCKET_TIMEOUT_MILLIS = 60_000L
     }
+}
+
+/** With a pin from the QR code, only that key is trusted; otherwise the system's CAs are. */
+private fun OkHttpClient.Builder.pinTo(address: ServerAddress) {
+    val pin = address.pin ?: return
+    val trust = PinTrustManager(pin)
+    val ssl = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), SecureRandom()) }
+    sslSocketFactory(ssl.socketFactory, trust)
+    // The key pin already proves who is on the other end; a bare IP has no name to check.
+    hostnameVerifier { hostname, _ -> hostname == address.host }
 }
 
 /**

@@ -50,6 +50,9 @@ services:
       BLESK_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       BLESK_MINIO_BUCKET: blesk-attachments
       BLESK_TRUST_PROXY: "true"
+      LIVEKIT_PUBLIC_URL: ${LIVEKIT_PUBLIC_URL:-}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
     volumes:
       - server-tmp:/var/lib/blesk
     expose:
@@ -60,6 +63,7 @@ services:
     restart: unless-stopped
     depends_on:
       - server
+      - livekit
     ports:
       - "80:80"
       - "443:443"
@@ -73,14 +77,20 @@ services:
       - caddy-data:/data
       - caddy-config:/config
 
-  # Calls arrive in stage 6: LiveKit runs next to the server and Caddy proxies its signalling.
-  # livekit:
-  #   image: livekit/livekit-server:<version>
-  #   restart: unless-stopped
-  #   command: ["--config", "/etc/livekit.yaml"]
-  #   network_mode: host
-  #   volumes:
-  #     - ./livekit.yaml:/etc/livekit.yaml:ro
+  # Signalling goes through Caddy under /livekit; media flows directly on 7881/tcp and 50000-50100/udp.
+  livekit:
+    image: livekit/livekit-server:v1.13.7
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?run scripts/deploy.sh to create .env}: ${LIVEKIT_API_SECRET:?run scripts/deploy.sh to create .env}"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    expose:
+      - "7880"
+    ports:
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
 
 volumes:
   postgres-data:

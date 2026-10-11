@@ -4,7 +4,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.test.core.app.ApplicationProvider
+import app.blesk.core.calls.CallMember
+import app.blesk.core.calls.MediaState
 import app.blesk.core.data.SpaceResult
+import app.blesk.core.data.calls.CallPhase
+import app.blesk.core.data.calls.CallSession
 import app.blesk.core.data.demo.DemoSeed
 import app.blesk.core.data.diagnostics.CrashReport
 import app.blesk.core.data.diagnostics.EventCode
@@ -21,6 +25,8 @@ import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.motion.BleskMotion
 import app.blesk.core.design.theme.BleskTheme
+import app.blesk.feature.calls.CallActions
+import app.blesk.feature.calls.CallScreen
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ContactList
 import app.blesk.feature.chats.ConversationCallbacks
@@ -340,6 +346,39 @@ class KeyScreensScreenshotTest(private val name: String) {
             ),
             onOpen = {},
             onBack = {},
+        )
+    }
+
+    private val callActions = CallActions({}, {}, {}, {}, {}, {}, {}, {})
+
+    @Test
+    fun incomingCall() = capture("20_call_incoming") {
+        CallScreen(
+            session = CallSession("c", "anya", "Аня Соколова", incoming = true, video = true, phase = CallPhase.Ringing),
+            media = MediaState(),
+            room = null,
+            nameOf = { it },
+            actions = callActions,
+        )
+    }
+
+    @Test
+    fun voiceChannel() = capture("21_call_voice") {
+        val members = listOf(
+            CallMember("eva", local = true, speaking = false, micOn = true, camera = null, screen = null),
+            CallMember("lera", local = false, speaking = true, micOn = true, camera = null, screen = null),
+            CallMember("anya", local = false, speaking = false, micOn = false, camera = null, screen = null),
+        )
+        CallScreen(
+            session = CallSession(
+                "v", "g:voice", "Студия · созвон", incoming = false, video = false, phase = CallPhase.Active,
+                voiceChannel = true, startedAtMillis = 0,
+            ),
+            media = MediaState(connected = true, members = members, othersJoined = true),
+            room = null,
+            nameOf = { mapOf("lera" to "Лера", "anya" to "Аня")[it] ?: it },
+            actions = CallActions({}, {}, {}, {}, {}, {}, {}, toggleShare = {}),
+            clock = { 65_000L },
         )
     }
 

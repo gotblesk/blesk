@@ -2,8 +2,11 @@ package app.blesk
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
+import app.blesk.core.calls.CallManager
+import app.blesk.core.calls.CallMedia
 import app.blesk.core.crypto.PinVault
 import app.blesk.core.data.ChatRepository
+import app.blesk.core.data.calls.CallSignaling
 import app.blesk.core.data.demo.DemoRepository
 import app.blesk.core.data.demo.DemoSeed
 import app.blesk.core.data.diagnostics.CrashStore
@@ -24,7 +27,9 @@ import app.blesk.core.network.ServerAddress
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +39,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 import java.io.File
 import java.time.Instant
 
@@ -72,13 +78,26 @@ class AppContainer(context: Context) {
     /** The world the screens show: the demo, or the server once connected. Null while opening. */
     val chats: StateFlow<ChatRepository?> = chatsState.asStateFlow()
 
+    /** Whether one of the app's screens is in front of the user. */
+    @Volatile
+    var visible = false
+
+    private val callsState = MutableStateFlow<CallManager?>(null)
+    private var callsScope: CoroutineScope? = null
+
+    /** Calls for the current world; in the demo they connect to nobody. */
+    val calls: StateFlow<CallManager?> = callsState.asStateFlow()
+
     init {
         scope.launch {
             when (val mode = settings.mode.first()) {
-                AppMode.Demo -> chatsState.value = demo
-                is AppMode.Server -> chatsState.value = withContext(Dispatchers.IO) {
-                    ServerStack.from(appContext, this@AppContainer, mode).repository(mode.username, privacy, profile)
-                }.also { it.start() }
+                AppMode.Demo -> show(demo, http = null)
+                is AppMode.Server -> {
+                    val stack = ServerStack.from(appContext, this@AppContainer, mode)
+                    val repository = withContext(Dispatchers.IO) { stack.repository(mode.username, privacy, profile) }
+                    repository.start()
+                    show(repository, http = stack.api::okHttpClient)
+                }
             }
         }
     }
@@ -91,7 +110,24 @@ class AppContainer(context: Context) {
         val mode = AppMode.Server(address.url, address.pin, username)
         settings.setServer(mode)
         eventLog.record(EventCode.ServerRegistered)
-        chatsState.value = withContext(Dispatchers.IO) { stack.repository(username, privacy, profile) }.also { it.start() }
+        val repository = withContext(Dispatchers.IO) { stack.repository(username, privacy, profile) }
+        repository.start()
+        show(repository, http = stack.api::okHttpClient)
         return result
+    }
+
+    private fun show(repository: ChatRepository, http: (() -> OkHttpClient)?) {
+        callsScope?.cancel()
+        callsState.value?.media?.disconnect()
+        val callScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
+        callsScope = callScope
+        callsState.value = CallManager(
+            scope = callScope,
+            media = CallMedia(appContext, callScope),
+            signaling = repository as? CallSignaling,
+            http = { http?.invoke() },
+            nameOf = { username -> repository.contact(username)?.name ?: username },
+        )
+        chatsState.value = repository
     }
 }

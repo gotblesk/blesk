@@ -3,6 +3,7 @@ package app.blesk.server
 import app.blesk.server.attachments.AttachmentStorage
 import app.blesk.server.attachments.FileSystemStorage
 import app.blesk.server.attachments.MinioStorage
+import app.blesk.server.calls.CallTokens
 import app.blesk.server.db.Database
 import app.blesk.server.http.RateLimiter
 import io.ktor.server.engine.embeddedServer
@@ -22,7 +23,10 @@ fun main() {
         authRateLimiter = RateLimiter(config.authRateLimit),
         postRateLimiter = RateLimiter(config.postRateLimit),
         trustProxy = config.trustProxy,
+        callRateLimiter = RateLimiter(config.callRateLimit),
+        callTokens = config.liveKit?.let(::CallTokens),
     )
+    log.info("Calls {}", if (config.liveKit != null) "enabled" else "disabled")
     log.info("Listening on port {}", config.port)
     embeddedServer(Netty, port = config.port) { bleskModule(services, config.maintenanceInterval) }.start(wait = true)
 }

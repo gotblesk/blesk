@@ -42,7 +42,12 @@ object Usernames {
 }
 
 @Serializable
-data class ServerInfo(val name: String = "blesk", val version: Int = Api.VERSION)
+data class ServerInfo(
+    val name: String = "blesk",
+    val version: Int = Api.VERSION,
+    /** Whether a LiveKit server is set up next to this one. */
+    val calls: Boolean = false,
+)
 
 @Serializable
 data class RegisterRequest(

@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.flyway.postgresql)
     implementation(libs.hikari)
     implementation(libs.libsignal.client)
+    implementation(libs.java.jwt)
     runtimeOnly(libs.logback)
 
     testImplementation(libs.ktor.server.test.host)

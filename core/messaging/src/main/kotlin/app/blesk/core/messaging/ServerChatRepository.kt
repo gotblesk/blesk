@@ -7,6 +7,8 @@ import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.GroupController
 import app.blesk.core.data.SpaceController
 import app.blesk.core.data.SpaceResult
+import app.blesk.core.data.calls.CallSignal
+import app.blesk.core.data.calls.CallSignaling
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ContactEntity
 import app.blesk.core.data.db.ConversationEntity
@@ -27,6 +29,7 @@ import app.blesk.core.network.ApiException
 import app.blesk.core.network.BleskApi
 import app.blesk.core.network.Transport
 import app.blesk.shared.protocol.Body
+import app.blesk.shared.protocol.CallToken
 import app.blesk.shared.protocol.Content
 import app.blesk.shared.protocol.CreateSpace
 import app.blesk.shared.protocol.Envelope
@@ -50,9 +53,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
@@ -86,7 +92,7 @@ class ServerChatRepository(
     private val labels: (Attachment?) -> String,
     private val log: EventLog,
     private val clock: () -> Long = System::currentTimeMillis,
-) : ChatRepository, GroupController, SpaceController {
+) : ChatRepository, GroupController, SpaceController, CallSignaling {
     private val spaces = SpaceEngine(db, api, media, me, labels)
     private val groups = GroupEngine(
         db = db,
@@ -99,6 +105,7 @@ class ServerChatRepository(
         },
         clock = clock,
     )
+    private val signals = MutableSharedFlow<CallSignal>(extraBufferCapacity = SIGNAL_BUFFER)
     private val typingState = MutableStateFlow<Set<String>>(emptySet())
     private val typingJobs = HashMap<String, Job>()
     private val flushLock = Mutex()
@@ -398,6 +405,28 @@ class ServerChatRepository(
         api.space(handle)?.let { spaces.remember(it) }
     }.isSuccess
 
+    // Calls
+
+    override val callSignals: SharedFlow<CallSignal> = signals.asSharedFlow()
+
+    /** Call messages skip the outbox: a ring that arrives minutes late is worse than none. */
+    override suspend fun sendCallSignal(to: String, body: Body) {
+        val content = Content(UUID.randomUUID().toString(), clock(), body)
+        runCatching {
+            if (!crypto.hasSessionSafe(to)) {
+                val bundle = api.bundle(to) ?: return
+                withContext(Dispatchers.IO) { crypto.startSession(bundle) }
+                shareProfile(to)
+            }
+            val sealed = withContext(Dispatchers.IO) { crypto.encrypt(to, content) }
+            api.send(to, OutgoingMessage(content.id, sealed.type, sealed.body))
+        }.onFailure { log.record(EventCode.SendFailed) }
+    }
+
+    override suspend fun callToken(room: String): CallToken? = runCatching { api.callToken(room) }.getOrNull()
+
+    override suspend fun voiceKey(groupId: String): String? = groups.voiceKey(groupId).also { flush() }
+
     // Outgoing
 
     /** Group conversations go through the sender key; everything else is one-to-one. */
@@ -569,6 +598,7 @@ class ServerChatRepository(
             is Body.SenderKey -> groups.onSenderKey(sender, body)
             is Body.JoinRequest -> groups.onJoinRequest(sender, body)
             is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
+            is Body.CallOffer, is Body.CallAnswer, is Body.CallEnd -> signals.emit(CallSignal(sender, content.sentAtMillis, body))
             is Body.Profile -> {
                 val known = db.contacts().get(sender)
                 val updated = (known ?: ContactEntity(sender, sender)).copy(name = body.name.take(MAX_NAME), bio = body.bio.take(MAX_BIO))
@@ -710,6 +740,7 @@ class ServerChatRepository(
         const val RETRY_MILLIS = 15_000L
         const val TYPING_TIMEOUT_MILLIS = 6_000L
         const val SEARCH_LIMIT = 100
+        const val SIGNAL_BUFFER = 16
         const val MAX_NAME = 64
         const val MAX_BIO = 140
     }

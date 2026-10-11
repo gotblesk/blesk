@@ -14,6 +14,10 @@ data class Config(
     /** Per account, for posts in public spaces. */
     val postRateLimit: RateLimitConfig,
     val maintenanceInterval: Duration,
+    /** Null when no LiveKit server is set up; calls are then switched off. */
+    val liveKit: LiveKitConfig?,
+    /** Per account, for call tokens. */
+    val callRateLimit: RateLimitConfig,
 ) {
     companion object {
         fun fromEnvironment(env: Map<String, String> = System.getenv()): Config {
@@ -43,15 +47,32 @@ data class Config(
                     capacity = value("BLESK_AUTH_RATE_BURST")?.toInt() ?: DEFAULT_BURST,
                     refillPerMinute = value("BLESK_AUTH_RATE_PER_MINUTE")?.toInt() ?: DEFAULT_PER_MINUTE,
                 ),
-                postRateLimit = (value("BLESK_POST_RATE_PER_MINUTE")?.toInt() ?: DEFAULT_POST_PER_MINUTE).let { RateLimitConfig(it, it) },
+                postRateLimit = perMinute(value("BLESK_POST_RATE_PER_MINUTE"), DEFAULT_POST_PER_MINUTE),
                 maintenanceInterval = DEFAULT_MAINTENANCE_INTERVAL,
+                liveKit = liveKit(::value),
+                callRateLimit = perMinute(value("BLESK_CALL_RATE_PER_MINUTE"), DEFAULT_CALL_PER_MINUTE),
             )
+        }
+
+        private fun perMinute(setting: String?, default: Int): RateLimitConfig =
+            (setting?.toInt() ?: default).let { RateLimitConfig(capacity = it, refillPerMinute = it) }
+
+        private fun liveKit(value: (String) -> String?): LiveKitConfig? {
+            val names = listOf("LIVEKIT_PUBLIC_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET")
+            val values = names.map(value)
+            if (values.all { it == null }) return null
+            // Half a configuration is a deployment mistake, not a reason to quietly disable calls.
+            require(values.none { it == null }) { "set all of ${names.joinToString()} or none" }
+            val (url, key, secret) = values.filterNotNull()
+            require(url.startsWith("wss://") || url.startsWith("ws://")) { "LIVEKIT_PUBLIC_URL must be a ws:// or wss:// address" }
+            return LiveKitConfig(publicUrl = url, apiKey = key, apiSecret = secret)
         }
 
         private const val DEFAULT_PORT = 8080
         private const val DEFAULT_BURST = 20
         private const val DEFAULT_PER_MINUTE = 30
         private const val DEFAULT_POST_PER_MINUTE = 30
+        private const val DEFAULT_CALL_PER_MINUTE = 30
         private val DEFAULT_MAINTENANCE_INTERVAL = 15.minutes
     }
 }
@@ -66,6 +87,10 @@ sealed interface StorageConfig {
     }
 
     data class FileSystem(val directory: Path) : StorageConfig
+}
+
+data class LiveKitConfig(val publicUrl: String, val apiKey: String, val apiSecret: String) {
+    override fun toString() = "LiveKitConfig(publicUrl=$publicUrl, apiKey=$apiKey)"
 }
 
 data class RateLimitConfig(val capacity: Int, val refillPerMinute: Int)

@@ -6,6 +6,7 @@ import app.blesk.server.auth.accountLookupRoutes
 import app.blesk.server.auth.bleskBearer
 import app.blesk.server.auth.loginRoutes
 import app.blesk.server.auth.registrationRoutes
+import app.blesk.server.calls.callRoutes
 import app.blesk.server.http.ApiException
 import app.blesk.server.http.ErrorCodes
 import app.blesk.server.http.RequestLogging
@@ -61,7 +62,7 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
     }
 
     routing {
-        get(Api.INFO) { call.respond(ServerInfo()) }
+        get(Api.INFO) { call.respond(ServerInfo(calls = services.callTokens != null)) }
         rateLimited(services.authRateLimiter, services.trustProxy) {
             registrationRoutes(services)
             loginRoutes(services)
@@ -73,6 +74,7 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
             attachmentRoutes(services)
             socketRoutes(services)
             spaceRoutes(services)
+            callRoutes(services)
         }
     }
 

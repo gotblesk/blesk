@@ -11,7 +11,7 @@ android {
         applicationId = "app.blesk"
         // CI passes the run number so every build installs over the previous one.
         versionCode = providers.gradleProperty("blesk.versionCode").orNull?.toInt() ?: 1
-        versionName = "0.6.0" + (providers.gradleProperty("blesk.versionSuffix").orNull ?: "")
+        versionName = "0.7.0" + (providers.gradleProperty("blesk.versionSuffix").orNull ?: "")
     }
 
     signingConfigs {
@@ -70,6 +70,10 @@ dependencies {
     implementation(project(":core:crypto"))
     implementation(project(":core:media"))
     implementation(project(":core:messaging"))
+    implementation(project(":core:calls"))
+    implementation(project(":feature:calls"))
+    implementation(libs.androidx.core.telecom)
+    implementation(libs.camerax.compose)
     implementation(libs.coil.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

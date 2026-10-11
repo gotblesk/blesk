@@ -49,7 +49,18 @@ QR-код можно показать ещё раз в любой момент: 
 
 Ещё можно обновить сервер из GitHub: **Actions → Deploy server → Run workflow**. Перед этим нужно один раз добавить в настройки репозитория секреты `VPS_HOST`, `VPS_USER` и `VPS_SSH_KEY`.
 
-## 5. Резервные копии
+## 5. Звонки
+
+Звонки работают через LiveKit — он ставится вместе с сервером, ничего делать не нужно. Разговор шифруется на телефонах, LiveKit только передаёт его и прослушать не может.
+
+Если у хостера есть свой файрвол в панели управления, откройте в нём:
+
+- **7881** TCP;
+- **50000–50100** UDP.
+
+Без этих портов звонки не соединятся, а переписка будет работать как обычно.
+
+## 6. Резервные копии
 
 Все данные лежат в двух томах Docker:
 
@@ -72,7 +83,9 @@ docker compose start server
 
 ## Техническое приложение
 
-**Состав** (`deploy/docker-compose.yml`): PostgreSQL, MinIO, сервер blesk (Kotlin, Ktor), Caddy. Наружу открыты только порты **80** и **443** (TCP, а для HTTP/3 ещё 443/UDP). Порт 80 нужен для выпуска сертификата и перенаправления на HTTPS.
+**Состав** (`deploy/docker-compose.yml`): PostgreSQL, MinIO, сервер blesk (Kotlin, Ktor), LiveKit, Caddy. Наружу открыты порты **80** и **443** (TCP, а для HTTP/3 ещё 443/UDP) и порты медиа LiveKit: **7881/TCP** и **50000–50100/UDP**. Порт 80 нужен для выпуска сертификата и перенаправления на HTTPS. `deploy.sh` открывает все эти порты в ufw, если он включён.
+
+**Звонки.** Сигнализация LiveKit идёт через Caddy: `wss://<хост>/livekit` проксируется на `livekit:7880` без префикса. Ключ и секрет LiveKit `deploy.sh` создаёт один раз и хранит в `deploy/.env` (`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`), в контейнер они попадают через `LIVEKIT_KEYS`; в `deploy/livekit.yaml` секретов нет. Сервер blesk выдаёт токен LiveKit (JWT HS256, 6 часов, одна комната, identity — имя пользователя). Медиа шифруется на клиентах ключом из Signal-сообщения или состояния группы. Журнал LiveKit — только предупреждения, чтобы в нём не было имён и комнат.
 
 **TLS.** С доменом Caddy сам получает и продлевает сертификат Let's Encrypt. Без домена `deploy.sh` создаёт самоподписанный сертификат: ECDSA P-256, 10 лет, SAN — IP сервера. Он лежит в `deploy/certs`. В QR-код попадает `blesk://server?url=https://<ip>&pin=sha256/<base64>`, где pin — SHA-256 от SubjectPublicKeyInfo в формате OkHttp `CertificatePinner`. С доменом в QR-коде только `blesk://server?url=https://<домен>`.
 
@@ -90,6 +103,7 @@ docker compose start server
 | POST | `/v1/attachments` (тело `application/octet-stream`) | токен |
 | GET | `/v1/attachments/{id}` | токен |
 | WebSocket | `/v1/ws` (токен в `Authorization` или `?token=`) | токен |
+| POST | `/v1/calls/token` (тело `{"room": "..."}`, ответ `{"url", "token"}`) | токен, 30 в минуту на аккаунт |
 
 **Каналы и комнаты** (`/v1/spaces`, контракт — `Spaces.kt`, без E2EE). Для всех запросов нужен токен.
 
@@ -113,7 +127,7 @@ docker compose start server
 
 Новые, изменённые и удалённые посты приходят по WebSocket всем участникам в кадрах `post` и `post_changed`. В очередь эти кадры не попадают: после переподключения клиент сам загружает историю. Повтор поста с тем же `clientId` не создаёт новый пост. Посты ограничены 30 в минуту на аккаунт.
 
-Ошибки приходят как `{"code": "...", "message": ""}`. Коды: `bad_request`, `invalid_username`, `invalid_key`, `invalid_signature`, `username_taken`, `unauthorized`, `auth_failed`, `not_found`, `no_keys`, `too_many_keys`, `too_large`, `rate_limited`, `internal`, а для каналов и комнат ещё `invalid_handle`, `handle_taken`, `forbidden`, `not_member`, `banned`, `owner_cannot_leave`, `invalid_role`, `not_a_room`, `too_many_channels`, `last_channel`, `unknown_attachment`.
+Ошибки приходят как `{"code": "...", "message": ""}`. Коды: `bad_request`, `invalid_username`, `invalid_key`, `invalid_signature`, `username_taken`, `unauthorized`, `auth_failed`, `not_found`, `no_keys`, `too_many_keys`, `too_large`, `rate_limited`, `internal`, а для каналов и комнат ещё `invalid_handle`, `handle_taken`, `forbidden`, `not_member`, `banned`, `owner_cannot_leave`, `invalid_role`, `not_a_room`, `too_many_channels`, `last_channel`, `unknown_attachment`, а для звонков `invalid_room` и `calls_unavailable` (503, LiveKit не настроен; тогда и `/v1/info` отвечает `"calls": false`).
 
 Вложения и недоставленные сообщения удаляются через 30 дней. Вложение публичного поста хранится, пока существует сам пост. Токены действуют 30 дней. В журнале сервера пишутся только метод, шаблон пути, код ответа и время ответа.
 
@@ -129,6 +143,8 @@ docker compose start server
 | `BLESK_TRUST_PROXY` | `true` за Caddy: адрес клиента берётся из `X-Forwarded-For` |
 | `BLESK_AUTH_RATE_BURST`, `BLESK_AUTH_RATE_PER_MINUTE` | лимит на регистрацию и вход с одного IP (20 и 30) |
 | `BLESK_POST_RATE_PER_MINUTE` | лимит постов в каналах и комнатах на аккаунт (30) |
+| `LIVEKIT_PUBLIC_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | LiveKit: адрес для телефонов (`wss://<хост>/livekit`), ключ и секрет. Нужны все три или ни одной; без них звонки выключены |
+| `BLESK_CALL_RATE_PER_MINUTE` | лимит токенов звонков на аккаунт (30) |
 
 **Переменные `deploy.sh`:** `BLESK_BRANCH` (по умолчанию `master`), `BLESK_DOMAIN`, `BLESK_PUBLIC_IP`, `BLESK_DIR` (по умолчанию `/opt/blesk`). Пример: `curl ... | sudo BLESK_DOMAIN=chat.example.ru bash`.
 

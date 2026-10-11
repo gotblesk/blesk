@@ -35,6 +35,8 @@ object ErrorCodes {
     const val TOO_MANY_CHANNELS = "too_many_channels"
     const val LAST_CHANNEL = "last_channel"
     const val UNKNOWN_ATTACHMENT = "unknown_attachment"
+    const val INVALID_ROOM = "invalid_room"
+    const val CALLS_UNAVAILABLE = "calls_unavailable"
 }
 
 fun badRequest(code: String = ErrorCodes.BAD_REQUEST, message: String = "", cause: Throwable? = null) =

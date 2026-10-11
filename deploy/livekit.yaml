@@ -1,0 +1,12 @@
+# LiveKit for blesk calls. The API key and secret are not here: scripts/deploy.sh keeps them in
+# .env and docker-compose.yml hands them over as LIVEKIT_KEYS.
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  # Behind Docker the container only sees its private address; ask STUN for the public one.
+  use_external_ip: true
+logging:
+  # Info level would log every participant identity and room name.
+  level: warn

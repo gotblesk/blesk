@@ -8,6 +8,7 @@ import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.crypto.signal.SignalStore
+import app.blesk.core.data.calls.CallSignal
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.Attachment
@@ -15,16 +16,21 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
+import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.GroupKind
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onSubscription
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -153,10 +159,40 @@ class TwoClientsTest {
         alice.repo.send(group, "без Кэрол")
         eventually { bob.messages(group).firstOrNull { it.text == "без Кэрол" } }
 
-        val room = runBlocking { alice.repo.createGroup(GroupKind.Room, "Студия", listOf("bob")) }
+        val room = runBlocking { alice.repo.createGroup(GroupKind.Room, "Студия", listOf("bob", "carol")) }
         val channel = eventually { runBlocking { bob.repo.conversation(room).first() }?.channels?.firstOrNull() }
         alice.repo.send(channel.id, "в общий канал")
         assertEquals("в общий канал", eventually { bob.messages(channel.id).firstOrNull() }.text)
+
+        // Voice channels share one media key, replaced when someone is removed.
+        val voiceKey = runBlocking { alice.repo.voiceKey(room) }
+        assertNotNull(voiceKey)
+        assertEquals(voiceKey, eventually { runBlocking { bob.repo.voiceKey(room) } })
+        eventually { runBlocking { carol.repo.voiceKey(room) } }
+        runBlocking { assertTrue(alice.repo.removeMember(room, "carol")) }
+        val rotated = eventually { runBlocking { bob.repo.voiceKey(room) }?.takeIf { it != voiceKey } }
+        assertEquals(runBlocking { alice.repo.voiceKey(room) }, rotated)
+    }
+
+    @Test
+    fun callSignalsArriveEncrypted() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        listOf(alice, bob).forEach {
+            it.register()
+            it.repo.start()
+        }
+        val received = CompletableDeferred<CallSignal>()
+        val subscribed = CompletableDeferred<Unit>()
+        val listener = CoroutineScope(Dispatchers.Default).launch {
+            received.complete(bob.repo.callSignals.onSubscription { subscribed.complete(Unit) }.first())
+        }
+        runBlocking { subscribed.await() }
+        runBlocking { alice.repo.sendCallSignal("bob", Body.CallOffer("call-1", video = true, key = "media-key")) }
+        val signal = runBlocking { withTimeout(TIMEOUT) { received.await() } }
+        listener.cancel()
+        assertEquals("alice", signal.from)
+        assertEquals(Body.CallOffer("call-1", video = true, key = "media-key"), signal.body)
     }
 
     private companion object {
