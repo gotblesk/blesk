@@ -32,6 +32,7 @@ import app.blesk.core.data.GroupController
 import app.blesk.core.data.KeyState
 import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.SpaceController
+import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Privacy
@@ -59,6 +60,7 @@ internal fun ConversationRoute(
     onOpenSpace: (handle: String) -> Unit,
     onCall: (video: Boolean) -> Unit,
     onVerify: () -> Unit,
+    onForward: (messageId: String) -> Unit,
     onBack: () -> Unit,
 ) {
     val demo = container.chats.collectAsStateWithLifecycle().value ?: return
@@ -171,11 +173,14 @@ internal fun ConversationRoute(
             onTyping = { active -> demo.setTyping(id, active) },
             onOpenInfo = when {
                 isSpace -> ({ onOpenSpace(id.removePrefix(SPACE_PREFIX).substringBefore(':')) })
-                direct && keys != null -> onVerify
+                direct -> onVerify
                 groupController != null && id.length > MAX_USERNAME_LENGTH -> ({ onOpenGroup(groupId) })
                 else -> null
             },
             onCall = if (direct) onCall else null,
+            onDraft = { text -> demo.saveDraft(id, text) },
+            onForward = onForward,
+            onPin = { messageId -> demo.pinMessage(id, messageId) },
             onButton = { messageId, button ->
                 val link = button.url
                 val data = button.data
@@ -209,6 +214,10 @@ internal fun ConversationRoute(
                 readOnly = readOnly ?: (current.kind == ConversationKind.Channel),
                 reactions = !isSpace && !isBot,
                 keyChanged = direct && keyState.changed,
+                members = groupState?.members.orEmpty()
+                    .filter { it.username != groupController?.me }
+                    .map { member -> demo.contact(member.username) ?: Contact(member.username, member.username, member.username) }
+                    .toImmutableList(),
                 underlay = {
                     wallpaper?.let { image ->
                         Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

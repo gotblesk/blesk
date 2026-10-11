@@ -215,6 +215,40 @@ class DemoRepository(
         refreshPreview(conversationId)
     }
 
+    override fun saveDraft(conversationId: String, text: String) = change(conversationId) { it.copy(draft = text) }
+
+    override fun setChatPinned(conversationId: String, pinned: Boolean) {
+        change(conversationId) { it.copy(pinned = pinned) }
+        all.update { it.sortedWith(conversationOrder) }
+    }
+
+    override fun pinMessage(conversationId: String, messageId: String?) = change(conversationId) { it.copy(pinnedMessageId = messageId) }
+
+    override fun setTimer(conversationId: String, seconds: Int) = change(conversationId) { it.copy(timerSeconds = seconds) }
+
+    override fun forward(conversationId: String, messageId: String, to: List<String>) {
+        val original = messages.value[conversationId]?.firstOrNull { it.id == messageId } ?: return
+        to.forEach { target ->
+            append(
+                original.copy(
+                    id = nextId(),
+                    conversationId = target,
+                    authorId = ME,
+                    sentAt = clock(),
+                    status = SendStatus.Read,
+                    replyToId = null,
+                    reactions = persistentListOf(),
+                    forwardedFrom = FORWARDED,
+                    buttons = persistentListOf(),
+                ),
+            )
+        }
+    }
+
+    private fun change(conversationId: String, transform: (Conversation) -> Conversation) {
+        all.update { list -> list.map { if (it.id == conversationId) transform(it) else it } }
+    }
+
     override fun markRead(conversationId: String) {
         all.update { list -> list.map { if (it.id == conversationId) it.copy(unread = 0) else it } }
     }
@@ -229,8 +263,19 @@ class DemoRepository(
     }
 
     private fun append(message: Message) {
-        messages.update { map -> map + (message.conversationId to (map[message.conversationId].orEmpty() + message)) }
-        refreshPreview(message.conversationId)
+        val timer = all.value.firstOrNull { it.id == message.conversationId }?.timerSeconds ?: 0
+        val stored = if (timer > 0) message.copy(expiresAt = message.sentAt.plusSeconds(timer.toLong())) else message
+        messages.update { map -> map + (stored.conversationId to (map[stored.conversationId].orEmpty() + stored)) }
+        refreshPreview(stored.conversationId)
+        if (timer > 0) {
+            scope.launch {
+                delay(timer * MILLIS_PER_SECOND)
+                messages.update { map ->
+                    map + (stored.conversationId to map[stored.conversationId].orEmpty().filterNot { it.id == stored.id })
+                }
+                refreshPreview(stored.conversationId)
+            }
+        }
     }
 
     private fun refreshPreview(conversationId: String) {
@@ -252,6 +297,8 @@ class DemoRepository(
         private const val STATUS_STEP_MILLIS = 450L
         private const val TYPING_MILLIS = 1400L
         private const val SEARCH_LIMIT = 100
+        private const val MILLIS_PER_SECOND = 1000L
+        private const val FORWARDED = "forwarded"
 
         val conversationOrder: Comparator<Conversation> =
             compareByDescending<Conversation> { it.pinned }.thenByDescending { it.updatedAt }

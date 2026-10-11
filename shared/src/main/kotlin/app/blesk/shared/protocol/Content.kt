@@ -14,13 +14,26 @@ data class Content(
     val body: Body,
     /** For group and room messages: the conversation inside the group (the group id, or `group:channel`). */
     val group: String? = null,
+    /** The message disappears this many seconds after [sentAtMillis] on every phone; 0 keeps it. */
+    val expiresInSeconds: Int = 0,
 )
 
 @Serializable
 sealed interface Body {
     @Serializable
     @SerialName("text")
-    data class Text(val text: String, val replyTo: String? = null, val attachment: AttachmentPointer? = null) : Body
+    data class Text(
+        val text: String,
+        val replyTo: String? = null,
+        val attachment: AttachmentPointer? = null,
+        /** Passed on from another chat; who wrote it first is not revealed. */
+        val forwarded: Boolean = false,
+    ) : Body
+
+    /** The chat's disappearing-message timer was changed by the sender. */
+    @Serializable
+    @SerialName("timer")
+    data class Timer(val seconds: Int) : Body
 
     @Serializable
     @SerialName("receipt")

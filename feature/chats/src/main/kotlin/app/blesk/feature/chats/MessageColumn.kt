@@ -41,6 +41,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
@@ -266,6 +271,16 @@ private fun MessageEntry(
                 return@Box
             }
             Column {
+                if (message.forwardedFrom != null) {
+                    Row(
+                        modifier = Modifier.padding(bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Icon(BleskIcons.Forward, contentDescription = null, size = 14.dp, tint = Blesk.colors.textTertiary)
+                        Text(stringResource(R.string.chat_forwarded), style = Blesk.type.caption, color = Blesk.colors.textTertiary)
+                    }
+                }
                 when (attachment) {
                     is Attachment.Theme -> ThemeCard(attachment.spec, actions.onApplyTheme)
                     null -> Unit
@@ -273,7 +288,7 @@ private fun MessageEntry(
                 }
                 if (message.text.isNotEmpty()) {
                     val inset = if (attachment?.isVisual() == true) Modifier.padding(horizontal = 10.dp, vertical = 6.dp) else Modifier
-                    Text(message.text, modifier = inset)
+                    Text(withMentions(message.text), modifier = inset)
                 }
                 Stamp(
                     time, status, edited,
@@ -380,4 +395,17 @@ internal fun statusLabel(status: SendStatus) = when (status) {
     SendStatus.Sent -> R.string.chat_status_sent
     SendStatus.Delivered -> R.string.chat_status_delivered
     SendStatus.Read -> R.string.chat_status_read
+}
+
+private val mention = Regex("(?<![\\w@])@[a-z0-9_]{3,32}")
+
+/** @usernames stand out, so people notice they are mentioned. */
+private fun withMentions(text: String): AnnotatedString = buildAnnotatedString {
+    var from = 0
+    mention.findAll(text).forEach { match ->
+        append(text.substring(from, match.range.first))
+        withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(match.value) }
+        from = match.range.last + 1
+    }
+    append(text.substring(from))
 }

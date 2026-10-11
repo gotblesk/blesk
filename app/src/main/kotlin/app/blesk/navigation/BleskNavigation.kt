@@ -85,6 +85,12 @@ data object BotsKey : NavKey
 data class SafetyKey(val username: String) : NavKey
 
 @Serializable
+data class ChatInfoKey(val id: String) : NavKey
+
+@Serializable
+data class ForwardKey(val from: String, val messageId: String) : NavKey
+
+@Serializable
 data object NotificationsKey : NavKey
 
 @Serializable
@@ -206,7 +212,8 @@ fun BleskNavigation(container: AppContainer) {
                     onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
                     onOpenGroup = { backStack.add(GroupInfoKey(it)) },
                     onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
-                    onVerify = { backStack.add(SafetyKey(key.id)) },
+                    onVerify = { backStack.add(ChatInfoKey(key.id)) },
+                    onForward = { messageId -> backStack.add(ForwardKey(key.id, messageId)) },
                     onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
                     onBack = back,
                 )
@@ -224,6 +231,8 @@ fun BleskNavigation(container: AppContainer) {
             }
             entry<BotsKey> { BotsRoute(container, back) }
             entry<SafetyKey> { key -> SafetyRoute(container, key.username, back) }
+            entry<ChatInfoKey> { key -> ChatInfoRoute(container, key.id, onVerify = { backStack.add(SafetyKey(key.id)) }, onBack = back) }
+            entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageId, onDone = back, onBack = back) }
             entry<NotificationsKey> { NotificationsRoute(container, back) }
             entry<SearchKey> { SearchRoute(container, onOpen = { backStack.add(ConversationKey(it)) }, onBack = back) }
             entry<SpaceInfoKey> { key ->

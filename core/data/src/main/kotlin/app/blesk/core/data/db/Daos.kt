@@ -27,6 +27,18 @@ interface ConversationDao {
     @Upsert
     suspend fun upsert(conversation: ConversationEntity)
 
+    @Query("UPDATE conversations SET draft = :draft WHERE id = :id")
+    suspend fun setDraft(id: String, draft: String)
+
+    @Query("UPDATE conversations SET pinned = :pinned WHERE id = :id")
+    suspend fun setPinned(id: String, pinned: Boolean)
+
+    @Query("UPDATE conversations SET pinnedMessageId = :messageId WHERE id = :id")
+    suspend fun pinMessage(id: String, messageId: String?)
+
+    @Query("UPDATE conversations SET timerSeconds = :seconds WHERE id = :id")
+    suspend fun setTimer(id: String, seconds: Int)
+
     @Query("UPDATE conversations SET unread = 0 WHERE id = :id")
     suspend fun markRead(id: String)
 
@@ -56,6 +68,19 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE id = :id")
     suspend fun delete(id: String)
+
+    /** Disappearing messages whose time is up; returns their conversations to refresh previews. */
+    @Query("SELECT DISTINCT conversationId FROM messages WHERE expiresAt IS NOT NULL AND expiresAt <= :now")
+    suspend fun expiredConversations(now: Long): List<String>
+
+    @Query("SELECT * FROM messages WHERE expiresAt IS NOT NULL AND expiresAt <= :now")
+    suspend fun expiredMessages(now: Long): List<MessageEntity>
+
+    @Query("DELETE FROM messages WHERE expiresAt IS NOT NULL AND expiresAt <= :now")
+    suspend fun deleteExpired(now: Long)
+
+    @Query("SELECT MIN(expiresAt) FROM messages WHERE expiresAt IS NOT NULL")
+    suspend fun nextExpiry(): Long?
 
     @Query("DELETE FROM messages WHERE conversationId = :conversationId")
     suspend fun deleteConversation(conversationId: String)

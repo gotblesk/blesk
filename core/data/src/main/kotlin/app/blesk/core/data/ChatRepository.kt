@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /** Everything the screens need from a world of chats, whether it is the demo or a real server. */
-interface ChatRepository {
+interface ChatRepository : ChatTools {
     /** Conversations shown in the list; room channels live inside their rooms. */
     val conversations: Flow<List<Conversation>>
 
@@ -50,4 +50,22 @@ interface ChatRepository {
 
     /** Tells the other side you are typing; a no-op where it makes no sense. */
     fun setTyping(conversationId: String, active: Boolean) = Unit
+}
+
+/** Things you do to a chat besides writing in it. */
+interface ChatTools {
+    /** Keeps what you typed but did not send. */
+    fun saveDraft(conversationId: String, text: String) = Unit
+
+    /** Pinned chats stay on top of the list. */
+    fun setChatPinned(conversationId: String, pinned: Boolean) = Unit
+
+    /** One pinned message per chat, shown above the messages; null unpins. Kept on this phone. */
+    fun pinMessage(conversationId: String, messageId: String?) = Unit
+
+    /** Disappearing messages for everyone in the chat; 0 turns them off. */
+    fun setTimer(conversationId: String, seconds: Int) = Unit
+
+    /** Sends a copy of a message to other chats, marked as forwarded. */
+    fun forward(conversationId: String, messageId: String, to: List<String>) = Unit
 }

@@ -27,6 +27,19 @@ class MediaVault(private val context: Context) {
 
     fun owns(path: String): Boolean = File(path).canonicalPath.startsWith(root.canonicalPath)
 
+    /** Deletes the files of an attachment that lives here; used when a message disappears. */
+    fun forget(attachment: Attachment?) {
+        val paths = when (attachment) {
+            is Attachment.Photo -> listOf(attachment.path)
+            is Attachment.Video -> listOf(attachment.path, attachment.thumbnail)
+            is Attachment.File -> listOf(attachment.path)
+            is Attachment.Voice -> listOf(attachment.path)
+            is Attachment.Circle -> listOf(attachment.path, attachment.poster)
+            is Attachment.Theme, null -> emptyList()
+        }
+        paths.filter { it.isNotEmpty() && owns(it) }.forEach { File(it).delete() }
+    }
+
     suspend fun importPhoto(uri: Uri): Attachment.Photo? = withContext(Dispatchers.IO) {
         try {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

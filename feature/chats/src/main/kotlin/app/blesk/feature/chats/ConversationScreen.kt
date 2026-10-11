@@ -1,6 +1,7 @@
 package app.blesk.feature.chats
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
@@ -25,15 +27,18 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -47,6 +52,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.BotButton
+import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
@@ -105,6 +111,12 @@ class ConversationCallbacks(
     val onOpenInfo: (() -> Unit)? = null,
     /** Calls the person; null where calls make no sense (groups, channels, bots). */
     val onCall: ((video: Boolean) -> Unit)? = null,
+    /** Keeps the unsent text; called a moment after typing stops and when leaving. */
+    val onDraft: (String) -> Unit = {},
+    /** Opens the chat picker to forward a message; null where forwarding is not offered. */
+    val onForward: ((messageId: String) -> Unit)? = null,
+    /** Pins a message above the chat, or unpins with null. */
+    val onPin: ((messageId: String?) -> Unit)? = null,
     /** A press on an inline button under a bot message. */
     val onButton: (messageId: String, button: BotButton) -> Unit = { _, _ -> },
 )
@@ -128,6 +140,8 @@ fun ConversationScreen(
     keyChanged: Boolean = false,
     /** What a bot offers when you type "/". */
     commands: ImmutableList<BotCommand> = persistentListOf(),
+    /** People who can be mentioned with "@" in a group or room. */
+    members: ImmutableList<Contact> = persistentListOf(),
     underlay: @Composable BoxScope.() -> Unit = {},
 ) {
     val recording = remember { RecordingUi() }
@@ -137,7 +151,8 @@ fun ConversationScreen(
     var replyToId by rememberSaveable(conversation.id) { mutableStateOf<String?>(null) }
     var editingId by rememberSaveable(conversation.id) { mutableStateOf<String?>(null) }
     var menuFor by remember { mutableStateOf<Message?>(null) }
-    val input = rememberTextFieldState()
+    val input = rememberTextFieldState(conversation.draft)
+    DraftKeeper(input, callbacks.onDraft)
     val byId = remember(messages) { messages.associateBy { it.id } }
     val groups = remember(messages) { groupMessages(messages) }
     val showAuthors = conversation.kind == ConversationKind.Group || conversation.kind == ConversationKind.Room
@@ -195,6 +210,7 @@ fun ConversationScreen(
                             onPickFile = callbacks.onPickFile,
                             attachments = conversation.kind != ConversationKind.Bot,
                             commands = commands,
+                            members = members,
                             replyTo = replyToId?.let(byId::get),
                             editing = editingId?.let(byId::get),
                             authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
@@ -230,6 +246,9 @@ fun ConversationScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     item(key = "note") { ProtectionNote(conversation.protection) }
+                    conversation.pinnedMessageId?.let(byId::get)?.let { pinned ->
+                        item(key = "pinned") { PinnedBanner(pinned, onUnpin = callbacks.onPin?.let { unpin -> { unpin(null) } }) }
+                    }
                     if (keyChanged) item(key = "key") { KeyWarning(callbacks.onOpenInfo) }
                     items(groups, key = { it.first().id }) { group ->
                         val own = group.first().isOwn
@@ -259,6 +278,9 @@ fun ConversationScreen(
                     },
                     onDelete = { callbacks.onDelete(message.id) },
                     editable = conversation.kind != ConversationKind.Bot,
+                    onForward = callbacks.onForward?.let { forward -> { forward(message.id) } },
+                    onPin = callbacks.onPin?.let { pin -> { pin(if (conversation.pinnedMessageId == message.id) null else message.id) } },
+                    pinned = conversation.pinnedMessageId == message.id,
                     onReact = if (reactions) ({ symbol -> callbacks.onReact(message.id, symbol) }) else null,
                 )
             }
@@ -310,10 +332,15 @@ private fun ChatHeader(
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
                 Text(conversation.title, style = Blesk.type.bodyStrong, maxLines = 1)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (!typing && protected) Icon(BleskIcons.Shield, null, tint = Blesk.colors.textSecondary, size = 14.dp)
+                    if (!typing && conversation.timerSeconds > 0) {
+                        Icon(BleskIcons.Timer, null, tint = Blesk.colors.textSecondary, size = 14.dp)
+                    } else if (!typing && protected) {
+                        Icon(BleskIcons.Shield, null, tint = Blesk.colors.textSecondary, size = 14.dp)
+                    }
                     Text(
                         text = when {
                             typing -> stringResource(R.string.chats_typing)
+                            conversation.timerSeconds > 0 -> stringResource(R.string.chat_timer, timerLabel(conversation.timerSeconds))
                             protected -> stringResource(R.string.chat_protected)
                             conversation.kind == ConversationKind.Bot -> stringResource(R.string.chat_bot_label)
                             else -> stringResource(app.blesk.core.design.R.string.design_not_encrypted)
@@ -333,7 +360,7 @@ private fun ChatHeader(
             }
             if (onOpenInfo != null) {
                 if (conversation.kind == ConversationKind.Direct) {
-                    IconButton(BleskIcons.Shield, stringResource(R.string.chat_verify), onOpenInfo)
+                    IconButton(BleskIcons.Info, stringResource(R.string.info_title), onOpenInfo)
                 } else {
                     IconButton(BleskIcons.People, stringResource(R.string.group_info), onOpenInfo)
                 }
@@ -407,6 +434,7 @@ private fun Composer(
     onPickFile: () -> Unit,
     attachments: Boolean,
     commands: ImmutableList<BotCommand>,
+    members: ImmutableList<Contact>,
     replyTo: Message?,
     editing: Message?,
     authorName: (Message) -> String,
@@ -484,6 +512,28 @@ private fun Composer(
                     Text(command.description, style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)
                 }
             }
+            val word = typed.substringAfterLast(' ').substringAfterLast('\n')
+            if (word.startsWith("@") && members.isNotEmpty()) {
+                val needle = word.removePrefix("@").lowercase()
+                members.filter { it.username.startsWith(needle) || it.name.lowercase().startsWith(needle) }
+                    .take(MAX_SUGGESTIONS)
+                    .forEach { person ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(role = Role.Button) {
+                                    state.setTextAndPlaceCursorAtEnd(typed.dropLast(word.length) + "@${person.username} ")
+                                }
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Avatar(person.name, size = 28.dp)
+                            Text(person.name, style = Blesk.type.bodyStrong, maxLines = 1)
+                            Text("@${person.username}", style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)
+                        }
+                    }
+            }
             if (recording.active && recorders != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RecordingBar(recording, recorders, Modifier.weight(1f))
@@ -530,6 +580,43 @@ private fun Composer(
 }
 
 /** Sends "typing" at most every few seconds while text changes, and "stopped" after a pause. */
+/** Saves what is typed a moment after typing stops, and once more when the chat closes. */
+@Composable
+private fun DraftKeeper(state: TextFieldState, onDraft: (String) -> Unit) {
+    val save by rememberUpdatedState(onDraft)
+    LaunchedEffect(state) {
+        snapshotFlow { state.text.toString() }
+            .drop(1)
+            .collectLatest { text ->
+                delay(DRAFT_PAUSE_MILLIS)
+                save(text)
+            }
+    }
+    DisposableEffect(state) { onDispose { save(state.text.toString()) } }
+}
+
+@Composable
+private fun PinnedBanner(message: Message, onUnpin: (() -> Unit)?) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
+            .background(Blesk.colors.surface)
+            .padding(start = 14.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(BleskIcons.Pin, contentDescription = stringResource(R.string.chat_pinned), size = 18.dp, tint = Blesk.colors.textSecondary)
+        Text(
+            text = message.text.ifEmpty { stringResource(R.string.chat_pinned) },
+            style = Blesk.type.label,
+            maxLines = 2,
+            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+        )
+        if (onUnpin != null) IconButton(BleskIcons.Close, stringResource(R.string.chat_unpin), onUnpin)
+    }
+}
+
 @Composable
 private fun TypingSignal(state: TextFieldState, onTyping: (Boolean) -> Unit) {
     LaunchedEffect(state) {
@@ -557,3 +644,4 @@ private const val TYPING_REPEAT_MILLIS = 4_000L
 private const val TYPING_PAUSE_MILLIS = 5_000L
 
 private const val MAX_SUGGESTIONS = 5
+private const val DRAFT_PAUSE_MILLIS = 800L

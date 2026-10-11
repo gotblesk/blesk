@@ -93,6 +93,9 @@ object BleskIcons {
     )
     val Speaker by icon("M4.5 10v4a1 1 0 0 0 1 1H8l4.5 4V5L8 9H5.5a1 1 0 0 0-1 1zM16 9.2a3.8 3.8 0 0 1 0 5.6M18.6 6.6a7.5 7.5 0 0 1 0 10.8")
     val Screen by icon("M4.5 4.5h15a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1zM9 20h6M12 16.5V20")
+    val Pin by icon("M8.5 4.5h7M10 4.5v5.2L7 13.5h10l-3-3.8V4.5M12 13.5v6")
+    val Timer by icon("M12 20a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM12 9.5V13l2.2 1.6M10 3.5h4")
+    val Forward by icon("M19 12l-6-6v3.5C8 9.5 5 12.5 5 18c1.6-3 4.3-4.5 8-4.5V17l6-5z")
     val Flip by icon("M5 10a7 7 0 0 1 12.6-3.6M19 14a7 7 0 0 1-12.6 3.6M17.8 3.5v3h-3M6.2 20.5v-3h3")
 
     private fun icon(pathData: String) = lazy {

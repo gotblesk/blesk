@@ -38,6 +38,7 @@ import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.R
+import app.blesk.feature.chats.TimerSection
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupRole
@@ -69,6 +70,8 @@ fun GroupInfoScreen(
     actions: GroupActions,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    timerSeconds: Int = 0,
+    onTimer: ((Int) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val admin = state.isAdmin(me)
@@ -128,6 +131,8 @@ fun GroupInfoScreen(
         if (state.kind == GroupKind.Room) {
             ChannelsSection(state, admin, actions, ::run)
         }
+
+        onTimer?.let { TimerSection(timerSeconds, it) }
 
         Card(pad.padding(top = Blesk.dimens.sectionGap)) {
             ListRow(

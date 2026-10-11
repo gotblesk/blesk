@@ -19,6 +19,9 @@ data class ConversationEntity(
     val previewText: String? = null,
     /** For a room channel: the room's conversation id. */
     val parentId: String? = null,
+    val draft: String = "",
+    val timerSeconds: Int = 0,
+    val pinnedMessageId: String? = null,
 )
 
 @Entity(
@@ -41,6 +44,9 @@ data class MessageEntity(
     val attachment: String? = null,
     /** JSON rows of inline buttons under a bot message. */
     val buttons: String? = null,
+    /** Epoch millis when it disappears; null keeps it. */
+    val expiresAt: Long? = null,
+    val forwardedFrom: String? = null,
 )
 
 @Entity(tableName = "contacts")

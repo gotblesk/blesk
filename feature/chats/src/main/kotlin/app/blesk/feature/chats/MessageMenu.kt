@@ -53,6 +53,9 @@ internal fun MessageMenu(
     onDelete: () -> Unit,
     onReact: ((String) -> Unit)?,
     editable: Boolean = true,
+    onForward: (() -> Unit)? = null,
+    onPin: (() -> Unit)? = null,
+    pinned: Boolean = false,
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -122,6 +125,22 @@ internal fun MessageMenu(
                         }
                     },
                 )
+                onForward?.let { forward ->
+                    ListRow(
+                        title = stringResource(R.string.chat_forward),
+                        icon = BleskIcons.Forward,
+                        showChevron = false,
+                        onClick = { act(forward) },
+                    )
+                }
+                onPin?.let { pin ->
+                    ListRow(
+                        title = stringResource(if (pinned) R.string.chat_unpin else R.string.chat_pin),
+                        icon = BleskIcons.Pin,
+                        showChevron = false,
+                        onClick = { act(pin) },
+                    )
+                }
                 if (message.isOwn && editable) {
                     ListRow(
                         title = stringResource(R.string.chat_edit),

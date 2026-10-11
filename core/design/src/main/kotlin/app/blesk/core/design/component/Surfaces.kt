@@ -2,6 +2,7 @@ package app.blesk.core.design.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -26,13 +27,27 @@ fun Capsule(
     color: Color = Blesk.colors.surface,
     onClick: (() -> Unit)? = null,
     onClickLabel: String? = null,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
         modifier = modifier
             .clip(shape)
             .background(color)
-            .let { if (onClick != null) it.clickable(onClickLabel = onClickLabel, role = Role.Button, onClick = onClick) else it }
+            .let {
+                when {
+                    onClick != null && onLongClick != null -> it.combinedClickable(
+                        onClickLabel = onClickLabel,
+                        role = Role.Button,
+                        onLongClickLabel = onLongClickLabel,
+                        onLongClick = onLongClick,
+                        onClick = onClick,
+                    )
+                    onClick != null -> it.clickable(onClickLabel = onClickLabel, role = Role.Button, onClick = onClick)
+                    else -> it
+                }
+            }
             .glint(shape, enabled = protected),
         content = content,
     )

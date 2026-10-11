@@ -167,4 +167,27 @@
     <string name="chat_bot_label">бот · без шифрования</string>
     <string name="chat_verify">Проверка ключей</string>
     <string name="chat_key_changed">Ключ безопасности собеседника изменился. Нажмите, чтобы проверить.</string>
+    <string name="chats_pin">Закрепить чат</string>
+    <string name="chats_unpin">Открепить чат</string>
+    <string name="chats_pinned">закреплён</string>
+    <string name="chats_draft">Черновик: %1$s</string>
+    <string name="chat_forward">Переслать</string>
+    <string name="chat_forwarded">Переслано</string>
+    <string name="chat_pin">Закрепить</string>
+    <string name="chat_unpin">Открепить</string>
+    <string name="chat_pinned">Закреплённое сообщение</string>
+    <string name="info_title">Сведения</string>
+    <string name="info_key_verified">Ключ проверен</string>
+    <string name="info_key_not_verified">Сравните цифры с собеседником</string>
+    <string name="info_timer">Исчезающие сообщения</string>
+    <string name="info_timer_off">Выкл</string>
+    <string name="info_timer_hour">1 час</string>
+    <string name="info_timer_day">1 день</string>
+    <string name="info_timer_week">1 неделя</string>
+    <string name="info_timer_custom">свой срок</string>
+    <string name="info_timer_hint">Новые сообщения исчезнут у всех через выбранное время после отправки. Старые останутся. Собеседник всё равно может сделать снимок экрана.</string>
+    <string name="chat_timer">исчезают: %1$s</string>
+    <string name="forward_title">Переслать в…</string>
+    <string name="forward_send">Переслать (%1$d)</string>
+    <string name="forward_done">Переслано</string>
 </resources>

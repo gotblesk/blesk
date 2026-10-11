@@ -96,6 +96,7 @@ internal fun Home(
                     contentPadding = padding,
                     onOpenConversation = onOpenConversation,
                     onOpenChannel = onOpenChannel,
+                    onTogglePin = { chats.setChatPinned(it.id, !it.pinned) },
                 )
             }
             HomeTab.Contacts -> {

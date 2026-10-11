@@ -99,8 +99,11 @@ internal fun GroupInfoRoute(container: AppContainer, groupId: String, onLeft: ()
     val groups = chats as? GroupController ?: return
     val state by remember(groupId) { groups.group(groupId) }.collectAsStateWithLifecycle(initialValue = null)
     val contacts by chats.contacts.collectAsStateWithLifecycle(initialValue = emptyList())
+    val conversation by remember(groupId) { chats.conversation(groupId) }.collectAsStateWithLifecycle(initialValue = null)
     val current = state ?: return
     GroupInfoScreen(
+        timerSeconds = conversation?.timerSeconds ?: 0,
+        onTimer = { chats.setTimer(groupId, it) },
         state = current,
         me = groups.me,
         contacts = contacts.toImmutableList(),

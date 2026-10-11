@@ -61,6 +61,8 @@ internal fun MessageEntity.toModel(me: String) = Message(
     edited = edited,
     attachment = decodeAttachment(attachment),
     buttons = decodeButtons(buttons),
+    expiresAt = expiresAt?.let(Instant::ofEpochMilli),
+    forwardedFrom = forwardedFrom,
 )
 
 private val buttonRows = ListSerializer(ListSerializer(BotButton.serializer()))
@@ -89,6 +91,9 @@ internal fun ConversationEntity.toModel(state: GroupState? = null) = Conversatio
         )
     }.orEmpty().toImmutableList(),
     parentId = parentId,
+    draft = draft,
+    timerSeconds = timerSeconds,
+    pinnedMessageId = pinnedMessageId,
 )
 
 internal fun ContactEntity.toModel() = Contact(id = username, name = name.ifBlank { username }, username = username)

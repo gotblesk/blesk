@@ -31,6 +31,11 @@ data class Conversation(
     val channels: ImmutableList<RoomChannel> = persistentListOf(),
     /** For a room channel: the room it belongs to. Channels are not listed on their own. */
     val parentId: String? = null,
+    /** What you started typing and left; shown in the list until sent. */
+    val draft: String = "",
+    /** Messages vanish this many seconds after they are sent; 0 keeps them. */
+    val timerSeconds: Int = 0,
+    val pinnedMessageId: String? = null,
 )
 
 enum class RoomChannelKind { Text, Voice }
@@ -58,6 +63,10 @@ data class Message(
     val reactions: ImmutableList<Reaction> = persistentListOf(),
     val edited: Boolean = false,
     val attachment: Attachment? = null,
+    /** When it disappears; null keeps it. */
+    val expiresAt: Instant? = null,
+    /** Who it was forwarded from, if it was. */
+    val forwardedFrom: String? = null,
     /** Inline buttons under a bot message, row by row. */
     val buttons: ImmutableList<ImmutableList<BotButton>> = persistentListOf(),
 ) {

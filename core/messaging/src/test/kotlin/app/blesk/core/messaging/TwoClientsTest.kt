@@ -202,6 +202,35 @@ class TwoClientsTest {
     }
 
     @Test
+    fun timerForwardAndDraft() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        val carol = Client("carol", "Кэрол")
+        listOf(alice, bob, carol).forEach {
+            it.register()
+            it.repo.start()
+        }
+        runBlocking { alice.repo.openDirect("bob") }
+        alice.repo.send("bob", "привет")
+        eventually { bob.messages("alice").firstOrNull() }
+
+        alice.repo.setTimer("bob", 3_600)
+        eventually { runBlocking { bob.repo.conversation("alice").first() }?.takeIf { it.timerSeconds == 3_600 } }
+        alice.repo.send("bob", "исчезнет")
+        val vanishing = eventually { bob.messages("alice").firstOrNull { it.text == "исчезнет" } }
+        assertNotNull(vanishing.expiresAt)
+        assertNotNull(eventually { alice.messages("bob").firstOrNull { it.text == "исчезнет" } }.expiresAt)
+
+        runBlocking { bob.repo.openDirect("carol") }
+        bob.repo.forward("alice", vanishing.id, listOf("carol"))
+        val forwarded = eventually { carol.messages("bob").firstOrNull { it.text == "исчезнет" } }
+        assertNotNull(forwarded.forwardedFrom)
+
+        alice.repo.saveDraft("bob", "недописанное")
+        eventually { runBlocking { alice.repo.conversation("bob").first() }?.takeIf { it.draft == "недописанное" } }
+    }
+
+    @Test
     fun botChat() {
         val alice = Client("alice", "Алиса")
         alice.register()

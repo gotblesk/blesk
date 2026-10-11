@@ -29,9 +29,12 @@ import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Capsule
+import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.NotEncryptedTag
 import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.haptics.rememberHaptics
+import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -53,6 +56,8 @@ fun ChatList(
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
     openRooms: ImmutableSet<String> = persistentSetOf(),
+    /** Long press pins or unpins a chat; null where pinning is not offered. */
+    onTogglePin: ((Conversation) -> Unit)? = null,
 ) {
     LazyColumn(
         state = state,
@@ -79,6 +84,7 @@ fun ChatList(
                     typing = conversation.id in typing,
                     now = now,
                     onClick = { onOpenConversation(conversation.id) },
+                    onLongClick = onTogglePin?.let { toggle -> { toggle(conversation) } },
                     modifier = rowModifier,
                 )
             }
@@ -93,8 +99,10 @@ private fun ConversationRow(
     now: Instant,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val protected = conversation.protection == Protection.EndToEnd
+    val haptics = rememberHaptics()
     val encryptedLabel = stringResource(R.string.chats_encrypted)
     Capsule(
         modifier = modifier
@@ -104,6 +112,13 @@ private fun ConversationRow(
             },
         protected = protected,
         onClick = onClick,
+        onLongClick = onLongClick?.let { action ->
+            {
+                haptics.merge()
+                action()
+            }
+        },
+        onLongClickLabel = stringResource(if (conversation.pinned) R.string.chats_unpin else R.string.chats_pin),
     ) {
         ConversationSummary(conversation, typing, now, Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
     }
@@ -128,6 +143,14 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
                     )
                     KindTag(conversation)
                 }
+                if (conversation.pinned) {
+                    Icon(
+                        BleskIcons.Pin,
+                        contentDescription = stringResource(R.string.chats_pinned),
+                        size = 14.dp,
+                        tint = Blesk.colors.textTertiary,
+                    )
+                }
                 Text(formatTime(conversation.updatedAt, now), style = Blesk.type.caption, color = Blesk.colors.textTertiary)
             }
             Row(
@@ -135,10 +158,15 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                val draft = conversation.draft.isNotBlank() && !typing
                 Text(
-                    text = if (typing) stringResource(R.string.chats_typing) else previewText(conversation),
+                    text = when {
+                        typing -> stringResource(R.string.chats_typing)
+                        draft -> stringResource(R.string.chats_draft, conversation.draft.lines().first())
+                        else -> previewText(conversation)
+                    },
                     style = Blesk.type.label,
-                    color = if (typing) Blesk.colors.accent else Blesk.colors.textSecondary,
+                    color = if (typing || draft) Blesk.colors.accent else Blesk.colors.textSecondary,
                     maxLines = 1,
                     modifier = Modifier.weight(1f),
                 )

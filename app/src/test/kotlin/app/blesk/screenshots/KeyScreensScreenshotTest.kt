@@ -35,10 +35,12 @@ import app.blesk.core.design.motion.BleskMotion
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
+import app.blesk.feature.chats.ChatInfoScreen
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ContactList
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
+import app.blesk.feature.chats.ForwardScreen
 import app.blesk.feature.chats.SearchHit
 import app.blesk.feature.chats.SearchScreen
 import app.blesk.feature.chats.VoiceChannelScreen
@@ -448,6 +450,25 @@ class KeyScreensScreenshotTest(private val name: String) {
     @Test
     fun notifications() = capture("25_notifications") {
         NotificationsScreen(settings = NotificationSettings(), serverConnected = true, onChange = {}, onBack = {})
+    }
+
+    @Test
+    fun chatInfo() = capture("26_chat_info") {
+        val anya = seed.conversations.first { it.id == DemoSeed.ANYA }.copy(timerSeconds = 86_400, pinned = true)
+        ChatInfoScreen(
+            conversation = anya,
+            username = "anya",
+            verified = true,
+            onVerify = {},
+            onTimer = {},
+            onPin = {},
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun forward() = capture("27_forward") {
+        ForwardScreen(conversations = seed.conversations.take(5).toImmutableList(), onSend = {}, onBack = {})
     }
 
     companion object {

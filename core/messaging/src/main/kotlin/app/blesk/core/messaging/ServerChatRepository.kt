@@ -34,6 +34,7 @@ import app.blesk.core.network.ApiException
 import app.blesk.core.network.BleskApi
 import app.blesk.core.network.Transport
 import app.blesk.shared.protocol.Body
+import app.blesk.shared.protocol.Bots
 import app.blesk.shared.protocol.CallToken
 import app.blesk.shared.protocol.Content
 import app.blesk.shared.protocol.CreateSpace
@@ -186,6 +187,7 @@ class ServerChatRepository(
         }
         scope.launch { socket.frames.collect { frame -> handle(frame) } }
         scope.launch { socket.connected.filter { it }.collect { flush() } }
+        scope.launch { sweep() }
     }
 
     fun stop() = socket.stop()
@@ -215,15 +217,7 @@ class ServerChatRepository(
             }
             return
         }
-        val content = Content(UUID.randomUUID().toString(), clock(), Body.Text(body, replyToId))
-        scope.launch {
-            db.messages().insert(
-                MessageEntity(content.id, conversationId, me, body, content.sentAtMillis, SendStatus.Sending.name, replyToId),
-            )
-            setPreview(conversationId, null, body, content.sentAtMillis)
-            dispatch(conversationId, content)
-            log.record(EventCode.MessageQueued)
-        }
+        scope.launch { post(conversationId, body, replyToId, attachment = null, forwarded = false) }
     }
 
     override fun sendAttachment(conversationId: String, attachment: Attachment, caption: String, replyToId: String?) {
@@ -235,31 +229,91 @@ class ServerChatRepository(
             }
             return
         }
+        scope.launch { post(conversationId, caption.trim(), replyToId, attachment, forwarded = false) }
+    }
+
+    override fun forward(conversationId: String, messageId: String, to: List<String>) {
+        scope.launch {
+            val original = db.messages().get(messageId)?.takeIf { it.conversationId == conversationId } ?: return@launch
+            val attachment = decodeAttachment(original.attachment)
+            to.distinct().forEach { target ->
+                when {
+                    bots.isBot(target) -> if (original.text.isNotBlank()) bots.send(target, original.text, null)
+                    spaces.handleOf(target) != null -> runCatching { spaces.send(target, original.text, null, attachment) }
+                    else -> post(target, original.text, null, attachment, forwarded = true)
+                }
+            }
+        }
+    }
+
+    /** Stores, then encrypts and sends one of your messages; with the chat's timer if it has one. */
+    private suspend fun post(conversationId: String, text: String, replyToId: String?, attachment: Attachment?, forwarded: Boolean) {
+        if (text.isEmpty() && attachment == null) return
         val id = UUID.randomUUID().toString()
         val sentAt = clock()
-        scope.launch {
-            db.messages().insert(
-                MessageEntity(
-                    id, conversationId, me, caption.trim(), sentAt, SendStatus.Sending.name, replyToId,
-                    attachment = encodeAttachment(attachment),
-                ),
-            )
-            setPreview(conversationId, null, caption.trim().ifEmpty { labels(attachment) }, sentAt)
-            val pointer = try {
+        // Room channels follow the room's timer.
+        val row = db.conversations().get(conversationId)
+        val timer = row?.parentId?.let { db.conversations().get(it)?.timerSeconds } ?: row?.timerSeconds ?: 0
+        db.messages().insert(
+            MessageEntity(
+                id, conversationId, me, text, sentAt, SendStatus.Sending.name, replyToId,
+                attachment = encodeAttachment(attachment),
+                expiresAt = expiry(sentAt, timer),
+                forwardedFrom = if (forwarded) FORWARDED else null,
+            ),
+        )
+        setPreview(conversationId, null, text.ifEmpty { labels(attachment) }, sentAt)
+        val pointer = if (attachment == null) {
+            null
+        } else {
+            try {
                 withContext(Dispatchers.IO) { Attachments.upload(api, attachment) }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                null
-            }
-            if (pointer == null) {
                 advanceStatus(listOf(id), SendStatus.Failed, force = true)
                 log.record(EventCode.SendFailed)
-                return@launch
+                return
             }
-            dispatch(conversationId, Content(id, sentAt, Body.Text(caption.trim(), replyToId, pointer)))
+        }
+        dispatch(conversationId, Content(id, sentAt, Body.Text(text, replyToId, pointer, forwarded), expiresInSeconds = timer))
+        log.record(EventCode.MessageQueued)
+    }
+
+    override fun saveDraft(conversationId: String, text: String) {
+        scope.launch { db.conversations().setDraft(conversationId, text.take(Bots.MAX_TEXT)) }
+    }
+
+    override fun setChatPinned(conversationId: String, pinned: Boolean) {
+        scope.launch { db.conversations().setPinned(conversationId, pinned) }
+    }
+
+    override fun pinMessage(conversationId: String, messageId: String?) {
+        scope.launch { db.conversations().pinMessage(conversationId, messageId) }
+    }
+
+    override fun setTimer(conversationId: String, seconds: Int) {
+        if (bots.isBot(conversationId) || spaces.handleOf(conversationId) != null) return
+        scope.launch {
+            db.conversations().setTimer(conversationId, seconds)
+            dispatch(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Timer(seconds)))
         }
     }
+
+    /** Deletes disappearing messages when their time comes, files included. */
+    private suspend fun sweep() {
+        while (true) {
+            val now = clock()
+            db.messages().expiredMessages(now).forEach { media.forget(decodeAttachment(it.attachment)) }
+            val touched = db.messages().expiredConversations(now)
+            db.messages().deleteExpired(now)
+            touched.forEach { refreshPreview(it) }
+            val next = db.messages().nextExpiry()
+            delay(((next ?: Long.MAX_VALUE) - clock()).coerceIn(SWEEP_MIN_MILLIS, SWEEP_MAX_MILLIS))
+        }
+    }
+
+    private fun expiry(sentAt: Long, seconds: Int): Long? = if (seconds > 0) sentAt + seconds * MILLIS_PER_SECOND else null
 
     override fun toggleReaction(conversationId: String, messageId: String, symbol: String) {
         if (spaces.handleOf(conversationId) != null) return
@@ -641,7 +695,7 @@ class ServerChatRepository(
             is Body.SenderKey -> groups.onSenderKey(sender, body)
             is Body.JoinRequest -> groups.onJoinRequest(sender, body)
             is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
-            is Body.CallOffer, is Body.CallAnswer, is Body.CallEnd -> signals.emit(CallSignal(sender, content.sentAtMillis, body))
+            is Body.CallOffer, is Body.CallAnswer, is Body.CallEnd, is Body.Timer -> applyControl(sender, content, body)
             is Body.Profile -> {
                 val known = db.contacts().get(sender)
                 val updated = (known ?: ContactEntity(sender, sender)).copy(name = body.name.take(MAX_NAME), bio = body.bio.take(MAX_BIO))
@@ -652,6 +706,15 @@ class ServerChatRepository(
     }
 
     /** A message inside a group or room, already checked to come from a member. */
+    /** Calls and the disappearing-message timer: they change state, not the message list. */
+    private suspend fun applyControl(sender: String, content: Content, body: Body) {
+        if (body is Body.Timer) {
+            if (db.conversations().get(sender) != null) db.conversations().setTimer(sender, body.seconds.coerceIn(0, MAX_TIMER_SECONDS))
+        } else {
+            signals.emit(CallSignal(sender, content.sentAtMillis, body))
+        }
+    }
+
     private suspend fun applyGroup(sender: String, content: Content) {
         val conversation = content.group ?: return
         val state = groups.groupOf(conversation) ?: return
@@ -675,6 +738,9 @@ class ServerChatRepository(
                 db.messages().delete(it.id)
                 refreshPreview(conversation)
             }
+            is Body.Timer -> if (groups.canPost(state, conversation, sender)) {
+                db.conversations().setTimer(conversation, body.seconds.coerceIn(0, MAX_TIMER_SECONDS))
+            }
             else -> Unit
         }
     }
@@ -691,6 +757,8 @@ class ServerChatRepository(
                 status = SendStatus.Delivered.name,
                 replyToId = body.replyTo,
                 attachment = encodeAttachment(placeholder),
+                expiresAt = expiry(content.sentAtMillis, content.expiresInSeconds.coerceIn(0, MAX_TIMER_SECONDS)),
+                forwardedFrom = if (body.forwarded) FORWARDED else null,
             ),
         )
         if (inserted == -1L) return
@@ -788,6 +856,13 @@ class ServerChatRepository(
         const val TYPING_TIMEOUT_MILLIS = 6_000L
         const val SEARCH_LIMIT = 100
         const val SIGNAL_BUFFER = 16
+        const val FORWARDED = "forwarded"
+        const val MILLIS_PER_SECOND = 1000L
+        const val SWEEP_MIN_MILLIS = 1_000L
+        const val SWEEP_MAX_MILLIS = 60_000L
+
+        /** Longest timer accepted from others: a year. */
+        const val MAX_TIMER_SECONDS = 365 * 24 * 3600
         const val MAX_NAME = 64
         const val MAX_BIO = 140
     }
