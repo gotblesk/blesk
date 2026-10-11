@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -75,6 +76,9 @@ import app.blesk.feature.chats.media.RecordingUi
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -89,6 +93,8 @@ class ConversationCallbacks(
     val onPickMedia: () -> Unit,
     val onPickFile: () -> Unit,
     val onBack: () -> Unit,
+    /** Whether you are composing; the screen calls it with a pause after the last keystroke. */
+    val onTyping: (Boolean) -> Unit = {},
 )
 
 @Composable
@@ -152,6 +158,7 @@ fun ConversationScreen(
                             )
                         }
                     } else {
+                        TypingSignal(input, callbacks.onTyping)
                         Composer(
                             state = input,
                             recording = recording,
@@ -433,3 +440,30 @@ private fun Composer(
         }
     }
 }
+
+/** Sends "typing" at most every few seconds while text changes, and "stopped" after a pause. */
+@Composable
+private fun TypingSignal(state: TextFieldState, onTyping: (Boolean) -> Unit) {
+    LaunchedEffect(state) {
+        var lastSent = 0L
+        var active = false
+        snapshotFlow { state.text.toString() }
+            .drop(1)
+            .collectLatest { text ->
+                val now = System.currentTimeMillis()
+                if (text.isNotBlank() && (!active || now - lastSent > TYPING_REPEAT_MILLIS)) {
+                    onTyping(true)
+                    active = true
+                    lastSent = now
+                }
+                delay(TYPING_PAUSE_MILLIS)
+                if (active) {
+                    onTyping(false)
+                    active = false
+                }
+            }
+    }
+}
+
+private const val TYPING_REPEAT_MILLIS = 4_000L
+private const val TYPING_PAUSE_MILLIS = 5_000L

@@ -5,6 +5,8 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import java.time.Instant
 
 /** How a conversation is protected. Drives the glint: only [EndToEnd] shines. */
@@ -42,7 +44,8 @@ data class RoomChannel(
     val speaking: ImmutableSet<String> = persistentSetOf(),
 )
 
-enum class SendStatus { Sending, Sent, Delivered, Read }
+/** Ordered: a status never moves back. [Failed] means it could not be sent at all. */
+enum class SendStatus { Failed, Sending, Sent, Delivered, Read }
 
 data class Message(
     val id: String,
@@ -60,20 +63,33 @@ data class Message(
 }
 
 /** Something carried by a message besides its text. Paths point into the app's private storage. */
+@Serializable
 sealed interface Attachment {
     /** A theme someone shared; anyone in the chat can apply it. */
+    @Serializable
+    @SerialName("theme")
     data class Theme(val spec: ThemeSpec) : Attachment
 
+    @Serializable
+    @SerialName("photo")
     data class Photo(val path: String, val width: Int, val height: Int) : Attachment
 
+    @Serializable
+    @SerialName("video")
     data class Video(val path: String, val thumbnail: String, val width: Int, val height: Int, val durationMillis: Long) : Attachment
 
+    @Serializable
+    @SerialName("file")
     data class File(val path: String, val name: String, val sizeBytes: Long, val mime: String) : Attachment
 
     /** A voice note; [waveform] is the bar heights encoded by the media module. */
+    @Serializable
+    @SerialName("voice")
     data class Voice(val path: String, val durationMillis: Long, val waveform: String) : Attachment
 
     /** A round video message recorded with the front camera. */
+    @Serializable
+    @SerialName("circle")
     data class Circle(val path: String, val poster: String, val durationMillis: Long) : Attachment
 }
 

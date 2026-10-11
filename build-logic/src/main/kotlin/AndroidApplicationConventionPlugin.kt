@@ -10,12 +10,15 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
         extensions.configure<ApplicationExtension> {
             configureKotlinAndroid(this)
             defaultConfig.targetSdk = libs.version("targetSdk").toInt()
+            // libsignal-android uses java.time and friends beyond what minSdk 26 ships.
+            compileOptions.isCoreLibraryDesugaringEnabled = true
             testOptions.unitTests.isIncludeAndroidResources = true
             testOptions.unitTests.isReturnDefaultValues = true
         }
         configureDetekt()
         dependencies {
             add("testImplementation", libs.findLibrary("junit").get())
+            add("coreLibraryDesugaring", libs.findLibrary("desugar-jdk-libs").get())
         }
     }
 }

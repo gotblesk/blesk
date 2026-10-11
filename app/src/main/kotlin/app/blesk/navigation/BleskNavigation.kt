@@ -21,14 +21,19 @@ import app.blesk.BuildConfig
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
+import app.blesk.core.messaging.RegisterResult
+import app.blesk.core.network.ServerAddress
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.chats.media.MediaViewer
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
+import app.blesk.feature.settings.ConnectOutcome
 import app.blesk.feature.settings.License
 import app.blesk.feature.settings.LicenseTextScreen
 import app.blesk.feature.settings.LicensesScreen
+import app.blesk.feature.settings.ServerScreen
+import app.blesk.feature.settings.ServerState
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.shared.appearance.Appearance
 import kotlinx.collections.immutable.toImmutableList
@@ -59,6 +64,9 @@ data class MediaKey(val conversationId: String, val messageId: String) : NavKey
 
 @Serializable
 data object ProfileKey : NavKey
+
+@Serializable
+data object ServerKey : NavKey
 
 @Serializable
 data object PrivacyKey : NavKey
@@ -102,6 +110,7 @@ fun BleskNavigation(container: AppContainer) {
                     container = container,
                     tab = tab,
                     demo = demo,
+                    serverHost = (mode as? AppMode.Server)?.url?.removePrefix("https://"),
                     debugUnlocked = debugUnlocked,
                     onSelectTab = { tab = it },
                     onOpenConversation = { backStack.add(ConversationKey(it)) },
@@ -119,10 +128,19 @@ fun BleskNavigation(container: AppContainer) {
                         onOpenPrivacy = { backStack.add(PrivacyKey) },
                         onOpenAbout = { backStack.add(AboutKey) },
                         onOpenDebug = { backStack.add(DebugKey) },
+                        onOpenServer = { backStack.add(ServerKey) },
                     ),
                 )
             }
             entry<ProfileKey> { ProfileRoute(container, back) }
+            entry<ServerKey> {
+                val server = mode as? AppMode.Server
+                ServerScreen(
+                    connected = server?.let { ServerState(it.url, it.username, it.pin != null) },
+                    onConnect = { raw, username -> connect(container, raw, username) },
+                    onBack = back,
+                )
+            }
             entry<PrivacyKey> {
                 PrivacyRoute(
                     container = container,
@@ -145,12 +163,14 @@ fun BleskNavigation(container: AppContainer) {
                 ConversationRoute(container, key.id, appearance, onOpenMedia = { backStack.add(MediaKey(key.id, it)) }, onBack = back)
             }
             entry<MediaKey> { key ->
-                val messages by container.demo.messages(key.conversationId).collectAsStateWithLifecycle(initialValue = null)
+                val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry
+                val messages by chats.messages(key.conversationId).collectAsStateWithLifecycle(initialValue = null)
                 val attachment = messages?.firstOrNull { it.id == key.messageId }?.attachment
                 if (attachment != null) MediaViewer(attachment, onBack = back)
             }
             entry<VoiceChannelKey> { key ->
-                val channel by container.demo.conversation(key.roomId)
+                val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry
+                val channel by chats.conversation(key.roomId)
                     .map { room -> room?.channels?.firstOrNull { it.id == key.channelId } }
                     .collectAsStateWithLifecycle(initialValue = null)
                 channel?.let { VoiceChannelScreen(channel = it, onBack = back) }
@@ -189,4 +209,14 @@ fun BleskNavigation(container: AppContainer) {
             }
         },
     )
+}
+
+private suspend fun connect(container: AppContainer, raw: String, username: String): ConnectOutcome {
+    val address = ServerAddress.parse(raw) ?: return ConnectOutcome.BadAddress
+    return when (container.connect(address, username)) {
+        RegisterResult.Ok -> ConnectOutcome.Ok
+        RegisterResult.NameTaken -> ConnectOutcome.NameTaken
+        RegisterResult.NameInvalid -> ConnectOutcome.NameInvalid
+        RegisterResult.Unreachable -> ConnectOutcome.Unreachable
+    }
 }

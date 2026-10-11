@@ -1,0 +1,12 @@
+# Without a domain: the self-signed certificate made by scripts/deploy.sh. The app trusts it by
+# its public key hash, which it gets from the QR code.
+{
+	auto_https disable_certs
+	# Clients connecting to a bare IP send no SNI; without this Caddy would not know which certificate to use.
+	default_sni {$BLESK_PUBLIC_IP}
+}
+
+https://{$BLESK_PUBLIC_IP} {
+	tls /certs/blesk.crt /certs/blesk.key
+	reverse_proxy server:8080
+}

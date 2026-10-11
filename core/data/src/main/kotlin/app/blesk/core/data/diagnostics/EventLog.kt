@@ -19,6 +19,13 @@ enum class EventCode {
     CrashCleared,
     DemoMessageSent,
     DemoBotReplied,
+    MessageQueued,
+    SendFailed,
+    DecryptFailed,
+    ServerSynced,
+    KeysRefilled,
+    ServerRegistered,
+    BackgroundFailure,
 }
 
 /** [value] is an index or a counter, never content. */

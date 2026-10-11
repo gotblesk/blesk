@@ -22,10 +22,13 @@ rootProject.name = "blesk"
 
 include(":app")
 include(":shared")
+include(":server")
 include(":core:design")
 include(":core:data")
 include(":core:crypto")
 include(":core:media")
+include(":core:network")
+include(":core:messaging")
 include(":feature:chats")
 include(":feature:settings")
 include(":feature:debug")

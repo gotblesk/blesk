@@ -1,5 +1,6 @@
 package app.blesk.core.data.demo
 
+import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.Attachment
@@ -12,7 +13,6 @@ import app.blesk.core.data.model.Preview
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.SendStatus
-import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -37,7 +37,7 @@ class DemoRepository(
     private val scope: CoroutineScope,
     private val log: EventLog,
     private val clock: () -> Instant = Instant::now,
-) {
+) : ChatRepository {
     private val contactsById: Map<String, Contact> = seed.contacts.associateBy { it.id }
     private val messages = MutableStateFlow(seed.messages.groupBy { it.conversationId })
     private val all = MutableStateFlow(seed.conversations)
@@ -46,25 +46,24 @@ class DemoRepository(
     private val echoBotId = seed.echoBotConversationId
     private val botAuthorId = seed.echoBotAuthorId
 
-    /** People you can write to directly. */
-    val contacts: List<Contact> = seed.contacts.filter { it.id in seed.directContactIds }
+    override val contacts: Flow<List<Contact>> =
+        MutableStateFlow(seed.contacts.filter { it.id in seed.directContactIds })
 
-    /** Conversations shown in the list; room channels live inside their rooms, empty direct chats stay hidden. */
-    val conversations: Flow<List<Conversation>> = all.map { list ->
+    /** Empty direct chats stay hidden until something is written. */
+    override val conversations: Flow<List<Conversation>> = all.map { list ->
         list.filter { it.parentId == null && (it.kind != ConversationKind.Direct || it.preview != null) }
     }
 
-    /** Conversations where someone is typing right now. */
-    val typing: StateFlow<Set<String>> = typingState.asStateFlow()
+    override val typing: StateFlow<Set<String>> = typingState.asStateFlow()
 
-    fun conversation(id: String): Flow<Conversation?> = all.map { list -> list.firstOrNull { it.id == id } }
+    override fun conversation(id: String): Flow<Conversation?> = all.map { list -> list.firstOrNull { it.id == id } }
 
-    fun messages(conversationId: String): Flow<List<Message>> = messages.map { it[conversationId].orEmpty() }
+    override fun messages(conversationId: String): Flow<List<Message>> = messages.map { it[conversationId].orEmpty() }
 
-    fun contact(id: String): Contact? = contactsById[id]
+    override fun contact(id: String): Contact? = contactsById[id]
 
-    /** The direct chat with [contactId], started empty if there was none. */
-    fun directChatWith(contactId: String): String {
+    override suspend fun openDirect(username: String): String? {
+        val contactId = contactsById.values.firstOrNull { it.username == username || it.id == username }?.id ?: return null
         val contact = contactsById.getValue(contactId)
         if (all.value.none { it.id == contactId }) {
             all.update { it + Conversation(contactId, ConversationKind.Direct, contact.name, Protection.EndToEnd, null, clock()) }
@@ -72,7 +71,7 @@ class DemoRepository(
         return contactId
     }
 
-    fun send(conversationId: String, text: String, replyToId: String? = null) {
+    override fun send(conversationId: String, text: String, replyToId: String?) {
         val body = text.trim()
         if (body.isEmpty()) return
         val message = Message(
@@ -95,13 +94,8 @@ class DemoRepository(
         }
     }
 
-    /** Shares a theme into the chat as a message anyone there can apply. */
-    fun sendTheme(conversationId: String, theme: ThemeSpec, caption: String) {
-        sendAttachment(conversationId, Attachment.Theme(theme.normalized()), caption)
-    }
-
-    /** Sends a photo, video, file, voice note or circle; the echo bot sends it back. */
-    fun sendAttachment(conversationId: String, attachment: Attachment, caption: String = "", replyToId: String? = null) {
+    /** The echo bot sends attachments back too. */
+    override fun sendAttachment(conversationId: String, attachment: Attachment, caption: String, replyToId: String?) {
         val message = Message(
             id = nextId(),
             conversationId = conversationId,
@@ -131,7 +125,7 @@ class DemoRepository(
         log.record(EventCode.DemoBotReplied)
     }
 
-    fun toggleReaction(conversationId: String, messageId: String, symbol: String) {
+    override fun toggleReaction(conversationId: String, messageId: String, symbol: String) {
         update(conversationId, messageId) { message ->
             val existing = message.reactions.firstOrNull { it.symbol == symbol }
             val reactions = when {
@@ -144,15 +138,14 @@ class DemoRepository(
         }
     }
 
-    fun edit(conversationId: String, messageId: String, text: String) {
+    override fun edit(conversationId: String, messageId: String, text: String) {
         val body = text.trim()
         if (body.isEmpty()) return
         update(conversationId, messageId) { if (it.isOwn) it.copy(text = body, edited = true) else it }
         refreshPreview(conversationId)
     }
 
-    /** Deletes for everyone. Only your own messages can be deleted. */
-    fun delete(conversationId: String, messageId: String) {
+    override fun delete(conversationId: String, messageId: String) {
         messages.update { map ->
             val list = map[conversationId].orEmpty().filterNot { it.id == messageId && it.isOwn }
             map + (conversationId to list)
@@ -160,7 +153,7 @@ class DemoRepository(
         refreshPreview(conversationId)
     }
 
-    fun markRead(conversationId: String) {
+    override fun markRead(conversationId: String) {
         all.update { list -> list.map { if (it.id == conversationId) it.copy(unread = 0) else it } }
     }
 

@@ -11,7 +11,7 @@ android {
         applicationId = "app.blesk"
         // CI passes the run number so every build installs over the previous one.
         versionCode = providers.gradleProperty("blesk.versionCode").orNull?.toInt() ?: 1
-        versionName = "0.4.0" + (providers.gradleProperty("blesk.versionSuffix").orNull ?: "")
+        versionName = "0.5.0" + (providers.gradleProperty("blesk.versionSuffix").orNull ?: "")
     }
 
     signingConfigs {
@@ -26,6 +26,27 @@ android {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    defaultConfig {
+        ndk {
+            // Phones and the x86_64 emulator; 32-bit x86 devices do not exist in practice.
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
+    }
+
+    // Needed to strip debug symbols from native libraries; without it libsignal alone is hundreds of megabytes.
+    ndkVersion = "30.0.16248370"
+
+    packaging {
+        jniLibs {
+            // libsignal-android also ships a testing build of its native library.
+            excludes += listOf("**/libsignal_jni_testing.so")
+        }
+        resources {
+            // libsignal-client also ships desktop natives for JVM use; they have no place in an APK.
+            excludes += listOf("libsignal_jni*.so", "libsignal_jni*.dylib", "signal_jni*.dll")
+        }
     }
 
     buildTypes {
@@ -48,6 +69,7 @@ dependencies {
     implementation(project(":feature:profile"))
     implementation(project(":core:crypto"))
     implementation(project(":core:media"))
+    implementation(project(":core:messaging"))
     implementation(libs.coil.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

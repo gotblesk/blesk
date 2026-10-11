@@ -29,6 +29,7 @@
     </plurals>
     <string name="chat_input_hint">Сообщение</string>
     <string name="chat_send">Отправить</string>
+    <string name="chat_status_failed">не отправлено</string>
     <string name="chat_status_sending">отправляется</string>
     <string name="chat_status_sent">отправлено</string>
     <string name="chat_status_delivered">доставлено</string>
@@ -90,4 +91,9 @@
     <string name="media_size_b">%1$s Б</string>
     <string name="media_size_kb">%1$s КБ</string>
     <string name="media_size_mb">%1$s МБ</string>
+    <string name="contacts_find">Найти по имени пользователя</string>
+    <string name="contacts_find_action">Найти</string>
+    <string name="contacts_not_found">Такого имени нет на сервере</string>
+    <string name="chats_empty_title">Пока тихо</string>
+    <string name="chats_empty_text">Найдите человека по имени пользователя во вкладке «Контакты» и напишите первым. Все личные чаты шифруются сквозным шифрованием.</string>
 </resources>

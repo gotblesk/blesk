@@ -1,0 +1,4 @@
+# With a domain Caddy obtains and renews a Let's Encrypt certificate by itself.
+{$BLESK_DOMAIN} {
+	reverse_proxy server:8080
+}

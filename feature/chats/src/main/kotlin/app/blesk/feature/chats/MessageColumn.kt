@@ -333,6 +333,7 @@ private fun Reactions(reactions: ImmutableList<Reaction>, onToggle: (String) -> 
 private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
 
 internal fun statusLabel(status: SendStatus) = when (status) {
+    SendStatus.Failed -> R.string.chat_status_failed
     SendStatus.Sending -> R.string.chat_status_sending
     SendStatus.Sent -> R.string.chat_status_sent
     SendStatus.Delivered -> R.string.chat_status_delivered

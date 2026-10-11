@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -20,11 +21,13 @@ import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ContactList
+import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.launch
 import java.time.Instant
 
 enum class HomeTab { Chats, Contacts, Settings }
@@ -35,6 +38,7 @@ internal fun Home(
     container: AppContainer,
     tab: HomeTab,
     demo: Boolean,
+    serverHost: String?,
     debugUnlocked: Boolean,
     onSelectTab: (HomeTab) -> Unit,
     onOpenConversation: (String) -> Unit,
@@ -46,6 +50,8 @@ internal fun Home(
         LensTab(stringResource(R.string.tab_contacts), BleskIcons.People),
         LensTab(stringResource(R.string.tab_settings), BleskIcons.Settings),
     )
+    val chats = container.chats.collectAsStateWithLifecycle().value ?: return
+    val scope = rememberCoroutineScope()
     LensScaffold(
         top = {
             TopLens(
@@ -57,8 +63,12 @@ internal fun Home(
     ) { padding ->
         when (tab) {
             HomeTab.Chats -> {
-                val conversations by container.demo.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
-                val typing by container.demo.typing.collectAsStateWithLifecycle()
+                val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
+                val typing by chats.typing.collectAsStateWithLifecycle()
+                if (conversations.isEmpty() && !demo) {
+                    EmptyChats(padding)
+                    return@LensScaffold
+                }
                 ChatList(
                     conversations = conversations.toImmutableList(),
                     typing = typing.toImmutableSet(),
@@ -68,16 +78,22 @@ internal fun Home(
                     onOpenChannel = onOpenChannel,
                 )
             }
-            HomeTab.Contacts -> ContactList(
-                contacts = container.demo.contacts.toImmutableList(),
-                contentPadding = padding,
-                onOpenContact = { contact -> onOpenConversation(container.demo.directChatWith(contact.id)) },
-            )
+            HomeTab.Contacts -> {
+                val contacts by chats.contacts.collectAsStateWithLifecycle(initialValue = emptyList())
+                ContactList(
+                    contacts = contacts.toImmutableList(),
+                    contentPadding = padding,
+                    onOpenContact = { contact ->
+                        scope.launch { chats.openDirect(contact.username)?.let(onOpenConversation) }
+                    },
+                    onFind = if (demo) null else { username -> chats.openDirect(username)?.also(onOpenConversation) != null },
+                )
+            }
             HomeTab.Settings -> {
                 val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
                 val current = profile ?: return@LensScaffold
                 SettingsList(
-                    demo = demo,
+                    serverHost = serverHost,
                     debugUnlocked = debugUnlocked,
                     profile = current,
                     photo = rememberProfilePhoto(container, current.photoVersion),

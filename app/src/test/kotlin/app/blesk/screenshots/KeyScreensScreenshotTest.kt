@@ -140,12 +140,12 @@ class KeyScreensScreenshotTest(private val name: String) {
     fun settings() = capture("04_settings") {
         HomeFrame("Настройки", 2) { padding ->
             SettingsList(
-                demo = true,
+                serverHost = null,
                 debugUnlocked = true,
                 profile = profile,
                 photo = null,
                 contentPadding = padding,
-                actions = SettingsActions({}, {}, {}, {}, {}),
+                actions = SettingsActions({}, {}, {}, {}, {}, {}),
             )
         }
     }

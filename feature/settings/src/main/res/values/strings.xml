@@ -61,4 +61,24 @@
     <string name="settings_profile">Профиль</string>
     <string name="settings_profile_setup">Добавьте имя и фото</string>
     <string name="settings_privacy_hint">Код-пароль, скриншоты, прочтение</string>
+    <string name="server_title">Сервер</string>
+    <string name="server_demo_text">Сейчас blesk работает в демо-режиме: всё на телефоне, без сети. Подключите свой сервер, и переписка пойдёт по-настоящему, со сквозным шифрованием.</string>
+    <string name="server_address">Адрес сервера</string>
+    <string name="server_address_hint">Например, chat.example.ru. Проще — отсканировать QR-код, который показал сервер при установке.</string>
+    <string name="server_scan">Сканировать QR</string>
+    <string name="server_scan_stop">Закрыть камеру</string>
+    <string name="server_scan_permission">Чтобы отсканировать код, разрешите доступ к камере</string>
+    <string name="server_username">Имя пользователя</string>
+    <string name="server_username_hint">По нему вас найдут. Латиница, цифры и _ — от 3 до 32 символов.</string>
+    <string name="server_create">Создать аккаунт</string>
+    <string name="server_creating">Создаём ключи и аккаунт…</string>
+    <string name="server_error_taken">Это имя уже занято</string>
+    <string name="server_error_invalid">Такое имя не подходит</string>
+    <string name="server_error_unreachable">Сервер не отвечает. Проверьте адрес и интернет.</string>
+    <string name="server_error_address">Не похоже на адрес сервера</string>
+    <string name="server_connected">Подключено</string>
+    <string name="server_connected_as">Вы — @%1$s</string>
+    <string name="server_pinned">Сертификат сервера закреплён по QR-коду</string>
+    <string name="server_change_hint">Чтобы перейти на другой сервер, удалите всё в разделе «Конфиденциальность».</string>
+    <string name="settings_server_connected">Подключено: %1$s</string>
 </resources>

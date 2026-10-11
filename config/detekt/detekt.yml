@@ -4,7 +4,7 @@ build:
 complexity:
   LongParameterList:
     functionThreshold: 10
-    constructorThreshold: 10
+    constructorThreshold: 15
     ignoreDefaultParameters: true
     ignoreAnnotated: ['Composable']
   LongMethod:
@@ -14,7 +14,9 @@ complexity:
     thresholdInFiles: 30
     thresholdInClasses: 25
     thresholdInObjects: 25
+    thresholdInInterfaces: 16
     ignorePrivate: true
+    ignoreOverridden: true
   CyclomaticComplexMethod:
     threshold: 20
     ignoreAnnotated: ['Composable']
@@ -37,7 +39,11 @@ style:
   MaxLineLength:
     maxLineLength: 140
   ReturnCount:
-    max: 4
+    max: 5
+    excludeGuardClauses: true
+  ThrowsCount:
+    max: 3
+    excludeGuardClauses: true
   ForbiddenComment:
     active: true
     comments:

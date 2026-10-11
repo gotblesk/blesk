@@ -1,0 +1,13 @@
+**/build
+**/.gradle
+**/.kotlin
+.git
+.idea
+local.properties
+legacy
+website
+signing
+app/src/test
+**/screenshots
+deploy/.env
+deploy/certs

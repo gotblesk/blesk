@@ -3,7 +3,7 @@
 # never fails the caller: a session must start even when the network is down.
 
 CMDLINE_TOOLS_ZIP="commandlinetools-linux-15859902_latest.zip"
-SDK_PACKAGES=("platform-tools" "platforms;android-37.0" "build-tools;37.0.0")
+SDK_PACKAGES=("platform-tools" "platforms;android-37.0" "build-tools;37.0.0" "ndk;30.0.16248370")
 
 main() {
   local sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"

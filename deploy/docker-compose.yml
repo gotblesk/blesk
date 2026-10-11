@@ -1,0 +1,90 @@
+# Started by scripts/deploy.sh, which also writes .env next to this file.
+name: blesk
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: blesk
+      POSTGRES_USER: blesk
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run scripts/deploy.sh to create .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blesk -d blesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    image: ${MINIO_IMAGE:-cgr.dev/chainguard/minio:latest}
+    restart: unless-stopped
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?run scripts/deploy.sh to create .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?run scripts/deploy.sh to create .env}
+      MINIO_BROWSER: "off"
+    volumes:
+      - minio-data:/data
+
+  server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: blesk-server:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      BLESK_PORT: "8080"
+      BLESK_DB_URL: jdbc:postgresql://postgres:5432/blesk
+      BLESK_DB_USER: blesk
+      BLESK_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      BLESK_STORAGE: minio
+      BLESK_MINIO_ENDPOINT: http://minio:9000
+      BLESK_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      BLESK_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      BLESK_MINIO_BUCKET: blesk-attachments
+      BLESK_TRUST_PROXY: "true"
+    volumes:
+      - server-tmp:/var/lib/blesk
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      BLESK_DOMAIN: ${BLESK_DOMAIN:-}
+      BLESK_PUBLIC_IP: ${BLESK_PUBLIC_IP:-}
+    volumes:
+      - ./${BLESK_CADDYFILE:-Caddyfile.domain}:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Calls arrive in stage 6: LiveKit runs next to the server and Caddy proxies its signalling.
+  # livekit:
+  #   image: livekit/livekit-server:<version>
+  #   restart: unless-stopped
+  #   command: ["--config", "/etc/livekit.yaml"]
+  #   network_mode: host
+  #   volumes:
+  #     - ./livekit.yaml:/etc/livekit.yaml:ro
+
+volumes:
+  postgres-data:
+  minio-data:
+  server-tmp:
+  caddy-data:
+  caddy-config:

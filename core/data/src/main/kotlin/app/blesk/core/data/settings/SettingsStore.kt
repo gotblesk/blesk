@@ -23,7 +23,9 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 /** Which world the app talks to. Demo until a server is set. */
 sealed interface AppMode {
     data object Demo : AppMode
-    data class Server(val address: String) : AppMode
+
+    /** [pin] is the server key hash when it has no domain certificate. */
+    data class Server(val url: String, val pin: String?, val username: String) : AppMode
 }
 
 /**
@@ -39,7 +41,11 @@ class SettingsStore(context: Context) {
         .distinctUntilChanged()
 
     val mode: Flow<AppMode> = store.data
-        .map { prefs -> prefs[SERVER]?.takeIf { it.isNotBlank() }?.let { AppMode.Server(it) } ?: AppMode.Demo }
+        .map { prefs ->
+            val url = prefs[SERVER]?.takeIf { it.isNotBlank() }
+            val username = prefs[SERVER_USERNAME]?.takeIf { it.isNotBlank() }
+            if (url != null && username != null) AppMode.Server(url, prefs[SERVER_PIN], username) else AppMode.Demo
+        }
         .distinctUntilChanged()
 
     val debugUnlocked: Flow<Boolean> = store.data.map { it[DEBUG_UNLOCKED] ?: false }.distinctUntilChanged()
@@ -113,6 +119,14 @@ class SettingsStore(context: Context) {
         store.edit { it[PROFILE_PHOTO] = (it[PROFILE_PHOTO] ?: 0L) + 1 }
     }
 
+    suspend fun setServer(mode: AppMode.Server) {
+        store.edit {
+            it[SERVER] = mode.url
+            it[SERVER_USERNAME] = mode.username
+            if (mode.pin != null) it[SERVER_PIN] = mode.pin else it.remove(SERVER_PIN)
+        }
+    }
+
     suspend fun setDebugUnlocked(unlocked: Boolean) {
         store.edit { it[DEBUG_UNLOCKED] = unlocked }
     }
@@ -136,6 +150,8 @@ class SettingsStore(context: Context) {
     private companion object {
         val APPEARANCE = stringPreferencesKey("appearance")
         val SERVER = stringPreferencesKey("server")
+        val SERVER_PIN = stringPreferencesKey("server_pin")
+        val SERVER_USERNAME = stringPreferencesKey("server_username")
         val DEBUG_UNLOCKED = booleanPreferencesKey("debug_unlocked")
         val CHAT_THEMES = stringPreferencesKey("chat_themes")
         val WALLPAPER_VERSION = longPreferencesKey("wallpaper_version")

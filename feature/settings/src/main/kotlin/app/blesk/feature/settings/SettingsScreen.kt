@@ -32,12 +32,13 @@ class SettingsActions(
     val onOpenPrivacy: () -> Unit,
     val onOpenAbout: () -> Unit,
     val onOpenDebug: () -> Unit,
+    val onOpenServer: () -> Unit,
 )
 
 /** The settings tab, placed under the home lenses. */
 @Composable
 fun SettingsList(
-    demo: Boolean,
+    serverHost: String?,
     debugUnlocked: Boolean,
     profile: Profile,
     photo: ImageBitmap?,
@@ -105,9 +106,13 @@ fun SettingsList(
         Card(cardPadding) {
             ListRow(
                 title = stringResource(R.string.settings_server),
-                subtitle = if (demo) stringResource(R.string.settings_server_demo) else null,
+                subtitle = if (serverHost != null) {
+                    stringResource(R.string.settings_server_connected, serverHost)
+                } else {
+                    stringResource(R.string.settings_server_demo)
+                },
                 icon = BleskIcons.Server,
-                soon = true,
+                onClick = actions.onOpenServer,
             )
         }
         Card(cardPadding.padding(top = Blesk.dimens.sectionGap)) {

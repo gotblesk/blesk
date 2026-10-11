@@ -46,7 +46,7 @@ internal fun ConversationRoute(
     onOpenMedia: (messageId: String) -> Unit,
     onBack: () -> Unit,
 ) {
-    val demo = container.demo
+    val demo = container.chats.collectAsStateWithLifecycle().value ?: return
     val scope = rememberCoroutineScope()
     val conversation by demo.conversation(id).collectAsStateWithLifecycle(initialValue = null)
     val messages by demo.messages(id).collectAsStateWithLifecycle(initialValue = emptyList())
@@ -119,6 +119,7 @@ internal fun ConversationRoute(
                 container.lock.expectReturn()
                 pickFile.launch(arrayOf("*/*"))
             },
+            onTyping = { active -> demo.setTyping(id, active) },
             onBack = onBack,
         )
     }
