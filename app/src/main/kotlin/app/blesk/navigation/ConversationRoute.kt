@@ -149,7 +149,7 @@ internal fun ConversationRoute(
     val bots = demo as? BotController
     val isBot = bots?.isBot(id) == true
     val commands by produceState(emptyList<BotCommand>(), id, isBot) {
-        if (isBot) value = bots?.commands(id).orEmpty()
+        if (isBot && bots != null) value = bots.commands(id)
     }
     LaunchedEffect(bots) {
         bots?.notices?.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
