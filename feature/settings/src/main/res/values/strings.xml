@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Настройки</string>
+    <string name="settings_appearance">Оформление</string>
+    <string name="settings_appearance_hint">Тема, стекло и блеск</string>
+    <string name="settings_notifications">Уведомления</string>
+    <string name="settings_privacy">Конфиденциальность</string>
+    <string name="settings_storage">Данные и память</string>
+    <string name="settings_server">Сервер</string>
+    <string name="settings_server_demo">Сейчас демо-режим, всё работает без сети</string>
+    <string name="settings_about">О приложении</string>
+    <string name="settings_debug">Отладка</string>
+    <string name="settings_section_app">Приложение</string>
+    <string name="settings_section_connection">Связь</string>
+
+    <string name="appearance_theme">Тема</string>
+    <string name="appearance_theme_light">Светлая</string>
+    <string name="appearance_theme_dark">Тёмная</string>
+    <string name="appearance_theme_lilac">Лиловая</string>
+    <string name="appearance_theme_lime">Лаймовая</string>
+    <string name="appearance_theme_custom">Своя</string>
+    <string name="appearance_more">Тонкая настройка</string>
+    <string name="appearance_more_hint">Цвет фона и света, стекло, блеск, размер текста</string>
+    <string name="appearance_selected">выбрана</string>
+
+    <string name="about_title">О приложении</string>
+    <string name="about_tagline">Конфиденциальный мессенджер. Личные чаты, группы и закрытые комнаты шифруются всегда.</string>
+    <string name="about_version">Версия</string>
+    <string name="about_licenses">Лицензии</string>
+    <string name="about_license_app">blesk распространяется по лицензии AGPL-3.0</string>
+    <string name="about_debug_steps">Ещё %1$d — и откроется отладка</string>
+    <string name="about_debug_on">Отладка включена</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="design_soon">скоро</string>
+    <string name="design_demo">Демо</string>
+    <string name="design_back">Назад</string>
+    <string name="design_not_encrypted">без шифрования</string>
+    <string name="design_encrypted">защищено</string>
+    <string name="design_on">включено</string>
+    <string name="design_off">выключено</string>
+</resources>

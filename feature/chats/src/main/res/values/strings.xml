@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chats_title">Чаты</string>
+    <string name="chats_settings">Настройки</string>
+    <string name="chats_you">Вы</string>
+    <string name="chats_bot">бот</string>
+    <string name="chats_channel">канал</string>
+    <string name="chats_encrypted">защищено сквозным шифрованием</string>
+    <string name="chats_in_voice">в голосовом: %1$d</string>
+    <string name="chats_text_channel">текстовый канал %1$s</string>
+    <string name="chats_voice_channel">голосовой канал %1$s</string>
+    <plurals name="chats_members">
+        <item quantity="one">%1$d участник</item>
+        <item quantity="few">%1$d участника</item>
+        <item quantity="many">%1$d участников</item>
+        <item quantity="other">%1$d участника</item>
+    </plurals>
+    <plurals name="chats_subscribers">
+        <item quantity="one">%1$d подписчик</item>
+        <item quantity="few">%1$d подписчика</item>
+        <item quantity="many">%1$d подписчиков</item>
+        <item quantity="other">%1$d подписчика</item>
+    </plurals>
+    <plurals name="chats_unread">
+        <item quantity="one">%1$d непрочитанное</item>
+        <item quantity="few">%1$d непрочитанных</item>
+        <item quantity="many">%1$d непрочитанных</item>
+        <item quantity="other">%1$d непрочитанного</item>
+    </plurals>
+    <string name="chat_input_hint">Сообщение</string>
+    <string name="chat_send">Отправить</string>
+    <string name="chat_status_sending">отправляется</string>
+    <string name="chat_status_sent">отправлено</string>
+    <string name="chat_status_delivered">доставлено</string>
+    <string name="chat_status_read">прочитано</string>
+    <string name="chat_channel_readonly">Публикации в канале пишут только авторы</string>
+    <string name="chat_encrypted_note">Сообщения защищены сквозным шифрованием. Прочитать их можете только вы и собеседники.</string>
+    <string name="chat_open_note">Этот чат не зашифрован сквозным шифрованием.</string>
+</resources>

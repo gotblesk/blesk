@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="debug_title">Отладка</string>
+    <string name="debug_privacy">В журнале нет текста сообщений, ключей и контактов. Он хранится только в памяти телефона.</string>
+    <string name="debug_crash">Последний сбой</string>
+    <string name="debug_no_crash">Сбоев не было</string>
+    <string name="debug_copy">Скопировать</string>
+    <string name="debug_copied">Скопировано</string>
+    <string name="debug_clear">Очистить</string>
+    <string name="debug_journal">Журнал событий</string>
+    <string name="debug_journal_empty">Пока пусто</string>
+    <string name="debug_crash_at">Сбой %1$s</string>
+</resources>

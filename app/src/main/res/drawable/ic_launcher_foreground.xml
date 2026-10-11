@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A capsule catching the light on its edge: the white glint that marks protection. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#2B2E33"
+        android:pathData="M54,30h0a16,16 0,0 1,16 16v16a16,16 0,0 1,-16 16h0a16,16 0,0 1,-16 -16v-16a16,16 0,0 1,16 -16z" />
+    <path
+        android:strokeWidth="2.6"
+        android:pathData="M54,30h0a16,16 0,0 1,16 16v16a16,16 0,0 1,-16 16h0a16,16 0,0 1,-16 -16v-16a16,16 0,0 1,16 -16z">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="38"
+                android:startY="30"
+                android:endX="70"
+                android:endY="78">
+                <item android:offset="0" android:color="#FFFFFFFF" />
+                <item android:offset="0.35" android:color="#33FFFFFF" />
+                <item android:offset="0.7" android:color="#00FFFFFF" />
+                <item android:offset="1" android:color="#40FFFFFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

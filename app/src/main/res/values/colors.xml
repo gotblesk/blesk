@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the dark theme background, the default, so the first frame does not flash. -->
+    <color name="window_background">#1D1F22</color>
+    <color name="launcher_background">#1D1F22</color>
+</resources>

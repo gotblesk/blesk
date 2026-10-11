@@ -1,21 +1,27 @@
-node_modules/
-dist/
-.env
-*.log
+# Gradle and IDE
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Build output
-client/release/
-
-# Dev database
-server/prisma/dev.db
-server/prisma/dev.db-journal
-CLAUDE.md
-.claude/
-.superpowers/
-
-# Scripts with credentials / VPS connection details
-restart_server.py
-test_smtp.py
+# Secrets and local tooling
+.env
+*.log
 deploy.py
+.claude/settings.local.json
+
+# Legacy web client
+node_modules/
+dist/
+legacy/client/release/
+legacy/server/prisma/dev.db
+legacy/server/prisma/dev.db-journal

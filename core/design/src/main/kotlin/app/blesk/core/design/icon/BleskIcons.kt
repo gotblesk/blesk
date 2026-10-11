@@ -1,0 +1,74 @@
+package app.blesk.core.design.icon
+
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.unit.dp
+
+/**
+ * The blesk icon set: 24dp grid, one 1.75 stroke, round caps and joins, no fills.
+ * Drawn here as path data so every icon shares exactly the same line.
+ */
+object BleskIcons {
+    const val STROKE = 1.75f
+
+    val Back by icon("M15 5l-7 7 7 7")
+    val ChevronRight by icon("M9.5 5.5l6.5 6.5-6.5 6.5")
+    val Close by icon("M6.5 6.5l11 11M17.5 6.5l-11 11")
+    val Check by icon("M5 12.5l4.5 4.5L19 7.5")
+    val Plus by icon("M12 5v14M5 12h14")
+    val Search by icon("M17.5 11a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0zM16 16l4 4")
+    val Chats by icon(
+        "M4 11.5C4 7.4 7.6 4.5 12 4.5s8 2.9 8 7-3.6 7-8 7c-1 0-1.9-.1-2.8-.4L5 19.5l1-3.4C4.7 14.9 4 13.3 4 11.5z",
+    )
+    val Settings by icon(
+        "M4 7h9M17.5 7H20M4 17h2.5M11 17h9M15 9.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM9 19.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
+    )
+    val Appearance by icon("M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0zM12 4v16M12 8h5.5M12 12h8M12 16h5.5")
+    val Server by icon(
+        "M5 4.5h14a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z" +
+            "M5 13.5h14a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zM7.5 7.5h.01M7.5 16.5h.01",
+    )
+    val Info by icon("M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0zM12 11v5M12 8h.01")
+    val Debug by icon(
+        "M4.5 5h15a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7.5 10l2.5 2-2.5 2M12.5 14.5h4",
+    )
+    val Copy by icon(
+        "M9.5 8.5h8.5a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H9.5a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z" +
+            "M15.5 8.5V5.5a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1V15a1 1 0 0 0 1 1h2.5",
+    )
+    val Lock by icon(
+        "M7.5 10.5V8a4.5 4.5 0 0 1 9 0v2.5M6.5 10.5h11a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1zM12 14v2.5",
+    )
+    val Shield by icon("M12 3.5l7 2.8v5.2c0 4.2-2.9 7.3-7 9-4.1-1.7-7-4.8-7-9V6.3l7-2.8zM9 12l2.2 2.2L15.5 10")
+    val People by icon(
+        "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3.5 19c.6-3 2.7-5 5.5-5s4.9 2 5.5 5M16 11a2.5 2.5 0 1 0 0-5M17.5 14.2c1.6.6 2.7 2.3 3 4.8",
+    )
+    val Channel by icon("M4.5 10v4a1 1 0 0 0 1 1H8l7 4V5L8 9H5.5a1 1 0 0 0-1 1zM18.5 9.5c.9.7 1.5 1.6 1.5 2.5s-.6 1.8-1.5 2.5")
+    val Hash by icon("M10 4.5l-2 15M16 4.5l-2 15M5.5 9h14M4.5 15h14")
+    val Voice by icon("M12 5v14M8 8.5v7M16 8.5v7M4 11v2M20 11v2")
+    val Bot by icon(
+        "M6.5 8.5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM12 8.5V5.5M12 4.5h.01M9.5 13h.01M14.5 13h.01",
+    )
+    val Send by icon("M5 12h13M13 6.5l5.5 5.5-5.5 5.5")
+    val Mic by icon("M12 14.5a3 3 0 0 0 3-3v-4a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3zM6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3")
+    val Person by icon("M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM5.5 19.5c.8-3.3 3.3-5.5 6.5-5.5s5.7 2.2 6.5 5.5")
+
+    private fun icon(pathData: String) = lazy {
+        ImageVector.Builder(
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).addPath(
+            pathData = PathParser().parsePathString(pathData).toNodes(),
+            stroke = SolidColor(Color.Black),
+            strokeLineWidth = STROKE,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round,
+        ).build()
+    }
+}
