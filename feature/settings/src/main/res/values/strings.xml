@@ -128,4 +128,12 @@
     <string name="safety_mark">Отметить как проверенный</string>
     <string name="safety_unmark">Снять отметку</string>
     <string name="safety_qr">Код для сканирования: покажите его собеседнику</string>
+    <string name="settings_storage_hint">Сколько места занимает blesk</string>
+    <string name="storage_title">Данные и память</string>
+    <string name="storage_media">Фото, видео, файлы и голосовые</string>
+    <string name="storage_database">Переписка (зашифрованная база)</string>
+    <string name="storage_cache">Временные файлы</string>
+    <string name="storage_counting">Считаем…</string>
+    <string name="storage_clear_cache">Очистить временные файлы</string>
+    <string name="storage_hint">Временные файлы — это заготовки при сжатии видео и записи. Их можно удалять без последствий. Переписка и вложения хранятся только на этом телефоне.</string>
 </resources>

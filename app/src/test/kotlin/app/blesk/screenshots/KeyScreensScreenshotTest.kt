@@ -114,9 +114,9 @@ class KeyScreensScreenshotTest(private val name: String) {
         LensTab("Настройки", BleskIcons.Settings),
     )
 
-    private fun capture(screen: String, content: @Composable () -> Unit) {
+    private fun capture(screen: String, textScale: Float = 1f, content: @Composable () -> Unit) {
         captureRoboImage("build/screenshots/${screen}_$name.png") {
-            BleskTheme(appearance = Appearance(theme = theme), motion = BleskMotion(reduced = true)) {
+            BleskTheme(appearance = Appearance(theme = theme, textScale = textScale), motion = BleskMotion(reduced = true)) {
                 content()
             }
         }
@@ -137,6 +137,21 @@ class KeyScreensScreenshotTest(private val name: String) {
             ChatList(
                 conversations = seed.conversations.filter { it.parentId == null }.toImmutableList(),
                 typing = persistentSetOf(DemoSeed.MISHA),
+                now = now,
+                contentPadding = padding,
+                onOpenConversation = {},
+                onOpenChannel = { _, _ -> },
+            )
+        }
+    }
+
+    /** The largest text the app allows: nothing may be cut off. */
+    @Test
+    fun largeText() = capture("28_large_text", textScale = Appearance.MAX_TEXT_SCALE) {
+        HomeFrame("Чаты", 0) { padding ->
+            ChatList(
+                conversations = seed.conversations.filter { it.parentId == null }.toImmutableList(),
+                typing = persistentSetOf(),
                 now = now,
                 contentPadding = padding,
                 onOpenConversation = {},

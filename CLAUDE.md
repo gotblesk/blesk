@@ -32,6 +32,12 @@
 
 - `:shared` — модели протокола и формат темы (kotlinx.serialization), общие с сервером.
 - `:core:design` — «Три блеска»: OKLCH-палитры и контраст (`color`), темы (`theme`), свет и искра (`spark`), иконки (`icon`), компоненты (`component`).
-- `:core:data` — настройки, демо-мир, журнал отладки и отчёт о сбое.
-- `:feature:*` — экраны. `:app` — навигация (Navigation 3) и сборка зависимостей (`AppContainer`).
-- Модули `:core:crypto`, `:core:network`, `:core:media` и сервер появляются на своих этапах.
+- `:core:data` — Room + SQLCipher (`db`), модели, интерфейсы мира чатов (`ChatRepository`, `GroupController`, `SpaceController`, `BotController`, `KeyVerification`, `calls`), настройки, демо-мир, журнал отладки.
+- `:core:crypto` — libsignal (`signal`: PQXDH, Double Ratchet, Sender Keys, номера безопасности), шифрование вложений, PIN, ключ базы.
+- `:core:network` — REST и WebSocket сервера, пиннинг ключа (`BleskApi`, `Socket`).
+- `:core:media` — фото, видео, голосовые, кружки, закрытая папка медиа.
+- `:core:messaging` — серверный режим: `ServerChatRepository` и движки групп, пространств, ботов, ключей.
+- `:core:calls` — звонки на LiveKit со сквозным шифрованием кадров (`CallMedia`, `CallManager`).
+- `:feature:*` — экраны (chats, calls, settings, security, profile, debug).
+- `:app` — навигация (Navigation 3), `AppContainer`, звонки (`calls`: активность, сервис, уведомления, core-telecom), фон (`background`: уведомления, «всегда на связи»).
+- `:server` — Ktor + PostgreSQL + Flyway, MinIO, LiveKit-токены, Bot API; `deploy/` и `scripts/deploy.sh` — установка на VPS.

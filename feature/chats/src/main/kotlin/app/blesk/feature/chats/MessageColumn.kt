@@ -376,7 +376,7 @@ private fun Reactions(reactions: ImmutableList<Reaction>, onToggle: (String) -> 
                     .border(1.dp, Blesk.colors.light.copy(alpha = 0.5f * ring), CircleShape)
                     .clickable { onToggle(reaction.symbol) }
                     .semantics(mergeDescendants = true) { contentDescription = label }
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

@@ -550,9 +550,15 @@ private fun Composer(
                         textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
                         cursorBrush = SolidColor(Blesk.colors.accent),
                         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
+                        // The padding is inside the field, so the whole 48dp row takes the tap.
+                        decorator = { inner ->
+                            Box(
+                                modifier = Modifier.heightIn(min = 48.dp).padding(vertical = 12.dp),
+                                contentAlignment = Alignment.CenterStart,
+                            ) { inner() }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 12.dp)
                             .semantics { contentDescription = hint },
                     )
                 }

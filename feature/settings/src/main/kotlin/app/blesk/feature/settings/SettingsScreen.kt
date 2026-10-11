@@ -36,6 +36,7 @@ class SettingsActions(
     /** Your bots; only with a real server. */
     val onOpenBots: () -> Unit = {},
     val onOpenNotifications: () -> Unit = {},
+    val onOpenStorage: () -> Unit = {},
 )
 
 /** The settings tab, placed under the home lenses. */
@@ -108,7 +109,12 @@ fun SettingsList(
                 icon = BleskIcons.Chats,
                 onClick = actions.onOpenNotifications,
             )
-            ListRow(title = stringResource(R.string.settings_storage), icon = BleskIcons.Copy, soon = true)
+            ListRow(
+                title = stringResource(R.string.settings_storage),
+                subtitle = stringResource(R.string.settings_storage_hint),
+                icon = BleskIcons.Document,
+                onClick = actions.onOpenStorage,
+            )
         }
         SectionHeader(stringResource(R.string.settings_section_connection))
         Card(cardPadding) {

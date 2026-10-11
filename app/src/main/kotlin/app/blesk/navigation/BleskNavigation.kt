@@ -94,6 +94,9 @@ data class ForwardKey(val from: String, val messageId: String) : NavKey
 data object NotificationsKey : NavKey
 
 @Serializable
+data object StorageKey : NavKey
+
+@Serializable
 data object ServerKey : NavKey
 
 @Serializable
@@ -174,6 +177,7 @@ fun BleskNavigation(container: AppContainer) {
                         onOpenServer = { backStack.add(ServerKey) },
                         onOpenBots = { backStack.add(BotsKey) },
                         onOpenNotifications = { backStack.add(NotificationsKey) },
+                        onOpenStorage = { backStack.add(StorageKey) },
                     ),
                 )
             }
@@ -234,6 +238,7 @@ fun BleskNavigation(container: AppContainer) {
             entry<ChatInfoKey> { key -> ChatInfoRoute(container, key.id, onVerify = { backStack.add(SafetyKey(key.id)) }, onBack = back) }
             entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageId, onDone = back, onBack = back) }
             entry<NotificationsKey> { NotificationsRoute(container, back) }
+            entry<StorageKey> { StorageRoute(back) }
             entry<SearchKey> { SearchRoute(container, onOpen = { backStack.add(ConversationKey(it)) }, onBack = back) }
             entry<SpaceInfoKey> { key ->
                 SpaceInfoRoute(container, key.handle, onLeft = {

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
@@ -116,6 +117,7 @@ fun Segmented(options: ImmutableList<String>, selected: Int, onSelect: (Int) -> 
             Box(
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = Blesk.dimens.touchTarget)
                     .clip(CircleShape)
                     .background(if (active) Blesk.colors.surface else Color.Transparent)
                     .selectable(selected = active, role = Role.RadioButton) { onSelect(index) }
