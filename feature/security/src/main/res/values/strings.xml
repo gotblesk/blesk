@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lock_title">Введите код</string>
+    <string name="lock_wrong">Неверный код</string>
+    <string name="lock_wait">Попробуйте через %1$s</string>
+    <string name="lock_biometric">Войти по отпечатку или лицу</string>
+    <string name="lock_biometric_prompt">Разблокировать blesk</string>
+    <string name="lock_biometric_cancel">Код</string>
+    <string name="lock_delete">Стереть цифру</string>
+    <string name="lock_entered">Введено цифр: %1$d из %2$d</string>
+    <string name="lock_seconds">%1$d с</string>
+    <string name="lock_minutes">%1$d мин</string>
+
+    <string name="pin_new_title">Придумайте код</string>
+    <string name="pin_repeat_title">Повторите код</string>
+    <string name="pin_mismatch">Коды не совпали, попробуйте ещё раз</string>
+    <string name="pin_current_title">Текущий код</string>
+    <string name="pin_digits_4">4 цифры</string>
+    <string name="pin_digits_6">6 цифр</string>
+
+    <string name="privacy_title">Конфиденциальность</string>
+    <string name="privacy_lock">Блокировка</string>
+    <string name="privacy_pin">Код-пароль</string>
+    <string name="privacy_pin_hint">Код нужен, чтобы открыть blesk</string>
+    <string name="privacy_change_pin">Сменить код</string>
+    <string name="privacy_biometric">Отпечаток или лицо</string>
+    <string name="privacy_delay">Блокировать</string>
+    <string name="privacy_delay_now">сразу</string>
+    <string name="privacy_delay_minute">1 мин</string>
+    <string name="privacy_delay_quarter">15 мин</string>
+    <string name="privacy_delay_hour">1 ч</string>
+    <string name="privacy_screen">Экран</string>
+    <string name="privacy_secure">Запрет скриншотов</string>
+    <string name="privacy_secure_hint">Скриншоты и запись экрана покажут чёрный экран, а в списке приложений не будет видно содержимого</string>
+    <string name="privacy_messages">Сообщения</string>
+    <string name="privacy_receipts">Отчёты о прочтении</string>
+    <string name="privacy_receipts_hint">Если выключить, вы тоже не будете видеть, что ваши сообщения прочитаны</string>
+    <string name="privacy_typing">Показывать, что я печатаю</string>
+    <string name="privacy_wipe">Удалить всё</string>
+    <string name="privacy_wipe_hint">Стереть переписку, ключи и настройки с этого телефона</string>
+
+    <string name="wipe_title">Удалить всё</string>
+    <string name="wipe_text">С этого телефона исчезнут все чаты, ключи шифрования, профиль и настройки. Восстановить их не получится. blesk откроется как после установки.</string>
+    <string name="wipe_slide">Сдвиньте, чтобы удалить</string>
+    <string name="wipe_action">Удалить всё с телефона</string>
+</resources>

@@ -8,6 +8,8 @@ import app.blesk.core.data.diagnostics.CrashReport
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.LogEntry
 import app.blesk.core.data.model.RoomChannelKind
+import app.blesk.core.data.settings.Privacy
+import app.blesk.core.data.settings.Profile
 import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
@@ -22,9 +24,18 @@ import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.debug.DebugScreen
+import app.blesk.feature.profile.ProfileActions
+import app.blesk.feature.profile.ProfileScreen
+import app.blesk.feature.security.PinAttempt
+import app.blesk.feature.security.PinEntry
+import app.blesk.feature.security.PrivacyActions
+import app.blesk.feature.security.PrivacyScreen
+import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
 import app.blesk.feature.settings.AppearanceFileActions
 import app.blesk.feature.settings.AppearanceScreen
+import app.blesk.feature.settings.LicensesScreen
+import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
@@ -130,10 +141,10 @@ class KeyScreensScreenshotTest(private val name: String) {
             SettingsList(
                 demo = true,
                 debugUnlocked = true,
+                profile = profile,
+                photo = null,
                 contentPadding = padding,
-                onOpenAppearance = {},
-                onOpenAbout = {},
-                onOpenDebug = {},
+                actions = SettingsActions({}, {}, {}, {}, {}),
             )
         }
     }
@@ -162,7 +173,7 @@ class KeyScreensScreenshotTest(private val name: String) {
 
     @Test
     fun about() = capture("07_about") {
-        AboutScreen(versionName = "0.2.0", debugUnlocked = false, onUnlockDebug = {}, onBack = {})
+        AboutScreen(versionName = "0.3.0", debugUnlocked = false, onUnlockDebug = {}, onOpenLicenses = {}, onBack = {})
     }
 
     @Test
@@ -179,6 +190,38 @@ class KeyScreensScreenshotTest(private val name: String) {
             onClearJournal = {},
             onBack = {},
         )
+    }
+
+    private val profile = Profile(name = "Ева", username = "eva", bio = "Рисую интерфейсы", photoVersion = 0)
+
+    @Test
+    fun profile() = capture("10_profile") {
+        ProfileScreen(profile = profile, photo = null, actions = ProfileActions({ _, _, _ -> }, {}, {}, {}))
+    }
+
+    @Test
+    fun privacy() = capture("11_privacy") {
+        PrivacyScreen(
+            privacy = Privacy(secureScreen = true),
+            pinSet = true,
+            biometricAvailable = true,
+            actions = PrivacyActions({}, {}, {}, {}, {}, {}),
+        )
+    }
+
+    @Test
+    fun lock() = capture("12_lock") {
+        PinEntry(title = "Введите код", length = 4, check = { PinAttempt.Ok }, onBiometric = {})
+    }
+
+    @Test
+    fun wipe() = capture("13_wipe") {
+        WipeScreen(onWipe = {}, onBack = {})
+    }
+
+    @Test
+    fun licenses() = capture("14_licenses") {
+        LicensesScreen(onOpenLicense = {}, onBack = {})
     }
 
     companion object {

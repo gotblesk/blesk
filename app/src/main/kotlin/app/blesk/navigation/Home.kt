@@ -20,6 +20,7 @@ import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ContactList
+import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -38,9 +39,7 @@ internal fun Home(
     onSelectTab: (HomeTab) -> Unit,
     onOpenConversation: (String) -> Unit,
     onOpenChannel: (Conversation, RoomChannel) -> Unit,
-    onOpenAppearance: () -> Unit,
-    onOpenAbout: () -> Unit,
-    onOpenDebug: () -> Unit,
+    settings: SettingsActions,
 ) {
     val tabs = persistentListOf(
         LensTab(stringResource(R.string.tab_chats), BleskIcons.Chats),
@@ -74,14 +73,18 @@ internal fun Home(
                 contentPadding = padding,
                 onOpenContact = { contact -> onOpenConversation(container.demo.directChatWith(contact.id)) },
             )
-            HomeTab.Settings -> SettingsList(
-                demo = demo,
-                debugUnlocked = debugUnlocked,
-                contentPadding = padding,
-                onOpenAppearance = onOpenAppearance,
-                onOpenAbout = onOpenAbout,
-                onOpenDebug = onOpenDebug,
-            )
+            HomeTab.Settings -> {
+                val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
+                val current = profile ?: return@LensScaffold
+                SettingsList(
+                    demo = demo,
+                    debugUnlocked = debugUnlocked,
+                    profile = current,
+                    photo = rememberProfilePhoto(container, current.photoVersion),
+                    contentPadding = padding,
+                    actions = settings,
+                )
+            }
         }
     }
 }

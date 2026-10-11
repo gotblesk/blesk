@@ -10,12 +10,13 @@ import java.io.File
 import java.io.IOException
 
 /**
- * The chat wallpaper: the user's own photo, re-encoded and scaled down into private storage so
- * the original file and its metadata (location, camera) never stay with the app.
+ * A picture the user chose (chat wallpaper, profile photo), re-encoded and scaled down into
+ * private storage so the original file and its metadata (location, camera) never stay with
+ * the app.
  */
-class Wallpaper(context: Context) {
+class PrivateImage(context: Context, fileName: String, private val maxSide: Int) {
     private val resolver = context.contentResolver
-    private val file = File(context.filesDir, "wallpaper.jpg")
+    private val file = File(context.filesDir, fileName)
 
     val exists: Boolean get() = file.exists()
 
@@ -47,12 +48,11 @@ class Wallpaper(context: Context) {
 
     private fun sampleSize(width: Int, height: Int): Int {
         var sample = 1
-        while (width / (sample * 2) >= MAX_SIDE || height / (sample * 2) >= MAX_SIDE) sample *= 2
+        while (width / (sample * 2) >= maxSide || height / (sample * 2) >= maxSide) sample *= 2
         return sample
     }
 
     private companion object {
-        const val MAX_SIDE = 1600
         const val QUALITY = 88
     }
 }

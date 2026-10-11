@@ -55,4 +55,10 @@
     <string name="about_license_app">blesk распространяется по лицензии AGPL-3.0</string>
     <string name="about_debug_steps">Ещё %1$d — и откроется отладка</string>
     <string name="about_debug_on">Отладка включена</string>
+    <string name="licenses_title">Лицензии</string>
+    <string name="licenses_intro">blesk — свободная программа по лицензии AGPL-3.0. Исходный код открыт. Ниже — всё, на чём он построен.</string>
+    <string name="license_open">Текст лицензии</string>
+    <string name="settings_profile">Профиль</string>
+    <string name="settings_profile_setup">Добавьте имя и фото</string>
+    <string name="settings_privacy_hint">Код-пароль, скриншоты, прочтение</string>
 </resources>

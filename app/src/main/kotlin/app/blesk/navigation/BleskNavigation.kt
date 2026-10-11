@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -22,7 +23,12 @@ import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.debug.DebugScreen
+import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
+import app.blesk.feature.settings.License
+import app.blesk.feature.settings.LicenseTextScreen
+import app.blesk.feature.settings.LicensesScreen
+import app.blesk.feature.settings.SettingsActions
 import app.blesk.shared.appearance.Appearance
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.map
@@ -46,6 +52,27 @@ data object AboutKey : NavKey
 
 @Serializable
 data object DebugKey : NavKey
+
+@Serializable
+data object ProfileKey : NavKey
+
+@Serializable
+data object PrivacyKey : NavKey
+
+@Serializable
+data class PinChangeKey(val requireCurrent: Boolean) : NavKey
+
+@Serializable
+data object PinDisableKey : NavKey
+
+@Serializable
+data object WipeKey : NavKey
+
+@Serializable
+data object LicensesKey : NavKey
+
+@Serializable
+data class LicenseKey(val license: License) : NavKey
 
 @Composable
 fun BleskNavigation(container: AppContainer) {
@@ -82,11 +109,34 @@ fun BleskNavigation(container: AppContainer) {
                         }
                         backStack.add(target)
                     },
-                    onOpenAppearance = { backStack.add(AppearanceKey) },
-                    onOpenAbout = { backStack.add(AboutKey) },
-                    onOpenDebug = { backStack.add(DebugKey) },
+                    settings = SettingsActions(
+                        onOpenProfile = { backStack.add(ProfileKey) },
+                        onOpenAppearance = { backStack.add(AppearanceKey) },
+                        onOpenPrivacy = { backStack.add(PrivacyKey) },
+                        onOpenAbout = { backStack.add(AboutKey) },
+                        onOpenDebug = { backStack.add(DebugKey) },
+                    ),
                 )
             }
+            entry<ProfileKey> { ProfileRoute(container, back) }
+            entry<PrivacyKey> {
+                PrivacyRoute(
+                    container = container,
+                    onSetPin = { backStack.add(PinChangeKey(requireCurrent = false)) },
+                    onChangePin = { backStack.add(PinChangeKey(requireCurrent = true)) },
+                    onDisablePin = { backStack.add(PinDisableKey) },
+                    onWipe = { backStack.add(WipeKey) },
+                    onBack = back,
+                )
+            }
+            entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
+            entry<PinDisableKey> { PinDisableRoute(container, back) }
+            entry<WipeKey> {
+                val context = LocalContext.current
+                WipeScreen(onWipe = { wipeEverything(context, container) }, onBack = back)
+            }
+            entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
+            entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
             entry<ConversationKey> { key ->
                 ConversationRoute(container, key.id, appearance, back)
             }
@@ -103,6 +153,7 @@ fun BleskNavigation(container: AppContainer) {
                 AboutScreen(
                     versionName = BuildConfig.VERSION_NAME,
                     debugUnlocked = debugUnlocked,
+                    onOpenLicenses = { backStack.add(LicensesKey) },
                     onUnlockDebug = {
                         scope.launch { container.settings.setDebugUnlocked(true) }
                         container.eventLog.record(EventCode.DebugUnlocked)

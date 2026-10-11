@@ -29,6 +29,7 @@ fun AboutScreen(
     versionName: String,
     debugUnlocked: Boolean,
     onUnlockDebug: () -> Unit,
+    onOpenLicenses: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -54,7 +55,7 @@ fun AboutScreen(
             ListRow(
                 title = stringResource(R.string.about_licenses),
                 subtitle = stringResource(R.string.about_license_app),
-                soon = true,
+                onClick = onOpenLicenses,
             )
         }
         val hint = when {

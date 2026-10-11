@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_title">Профиль</string>
+    <string name="profile_empty_name">Без имени</string>
+    <string name="profile_setup">Заполните профиль</string>
+    <string name="profile_name">Имя</string>
+    <string name="profile_username">Имя пользователя</string>
+    <string name="profile_username_hint">Латиница, цифры и _ — от 3 символов. Номер телефона не нужен.</string>
+    <string name="profile_bio">О себе</string>
+    <string name="profile_photo">Выбрать фото</string>
+    <string name="profile_photo_remove">Убрать фото</string>
+    <string name="profile_save">Сохранить</string>
+    <string name="profile_saved">Сохранено</string>
+    <string name="profile_qr">QR-код профиля</string>
+    <string name="profile_qr_hint">Покажите его, чтобы вас нашли. В коде только имя пользователя.</string>
+    <string name="profile_qr_description">QR-код профиля @%1$s</string>
+    <string name="profile_qr_needs_username">Сначала задайте имя пользователя</string>
+</resources>

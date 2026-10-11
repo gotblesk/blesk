@@ -11,7 +11,7 @@ android {
         applicationId = "app.blesk"
         // CI passes the run number so every build installs over the previous one.
         versionCode = providers.gradleProperty("blesk.versionCode").orNull?.toInt() ?: 1
-        versionName = "0.2.0" + (providers.gradleProperty("blesk.versionSuffix").orNull ?: "")
+        versionName = "0.3.0" + (providers.gradleProperty("blesk.versionSuffix").orNull ?: "")
     }
 
     signingConfigs {
@@ -44,6 +44,9 @@ dependencies {
     implementation(project(":feature:chats"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:debug"))
+    implementation(project(":feature:security"))
+    implementation(project(":feature:profile"))
+    implementation(project(":core:crypto"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

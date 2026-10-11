@@ -19,6 +19,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.settings.Privacy
 import app.blesk.R
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskTheme
@@ -35,6 +37,7 @@ internal fun ConversationRoute(container: AppContainer, id: String, appearance: 
     val conversation by demo.conversation(id).collectAsStateWithLifecycle(initialValue = null)
     val messages by demo.messages(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by demo.typing.collectAsStateWithLifecycle()
+    val privacy by container.settings.privacy.collectAsStateWithLifecycle(initialValue = Privacy())
     val chatThemes by container.settings.chatThemes.collectAsStateWithLifecycle(initialValue = emptyMap())
     val wallpaperVersion by container.settings.wallpaperVersion.collectAsStateWithLifecycle(initialValue = 0L)
     val wallpaper by produceState<ImageBitmap?>(null, wallpaperVersion) {
@@ -62,7 +65,12 @@ internal fun ConversationRoute(container: AppContainer, id: String, appearance: 
         Box(Modifier.fillMaxSize()) {
             ConversationScreen(
                 conversation = current,
-                messages = messages.toImmutableList(),
+                // Read receipts work both ways: switched off, you do not see others read yours either.
+                messages = if (privacy.readReceipts) {
+                    messages.toImmutableList()
+                } else {
+                    messages.map { if (it.status == SendStatus.Read) it.copy(status = SendStatus.Delivered) else it }.toImmutableList()
+                },
                 typing = id in typing,
                 authorName = { authorId -> demo.contact(authorId)?.name },
                 callbacks = callbacks,

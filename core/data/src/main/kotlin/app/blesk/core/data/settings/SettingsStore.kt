@@ -79,9 +79,51 @@ class SettingsStore(context: Context) {
         null
     }
 
+    val privacy: Flow<Privacy> = store.data.map { it.privacy() }.distinctUntilChanged()
+
+    suspend fun updatePrivacy(transform: (Privacy) -> Privacy) {
+        store.edit { prefs ->
+            val next = transform(prefs.privacy())
+            prefs[LOCK_DELAY] = next.lockDelay.name
+            prefs[BIOMETRIC] = next.biometric
+            prefs[SECURE_SCREEN] = next.secureScreen
+            prefs[READ_RECEIPTS] = next.readReceipts
+            prefs[TYPING_INDICATOR] = next.typingIndicator
+        }
+    }
+
+    val profile: Flow<Profile> = store.data.map { prefs ->
+        Profile(
+            name = prefs[PROFILE_NAME].orEmpty(),
+            username = prefs[PROFILE_USERNAME].orEmpty(),
+            bio = prefs[PROFILE_BIO].orEmpty(),
+            photoVersion = prefs[PROFILE_PHOTO] ?: 0L,
+        )
+    }.distinctUntilChanged()
+
+    suspend fun updateProfile(name: String, username: String, bio: String) {
+        store.edit {
+            it[PROFILE_NAME] = name.trim().take(Profile.MAX_NAME)
+            it[PROFILE_USERNAME] = Profile.normalizeUsername(username)
+            it[PROFILE_BIO] = bio.trim().take(Profile.MAX_BIO)
+        }
+    }
+
+    suspend fun bumpProfilePhoto() {
+        store.edit { it[PROFILE_PHOTO] = (it[PROFILE_PHOTO] ?: 0L) + 1 }
+    }
+
     suspend fun setDebugUnlocked(unlocked: Boolean) {
         store.edit { it[DEBUG_UNLOCKED] = unlocked }
     }
+
+    private fun Preferences.privacy() = Privacy(
+        lockDelay = this[LOCK_DELAY]?.let { name -> LockDelay.entries.firstOrNull { it.name == name } } ?: LockDelay.Immediately,
+        biometric = this[BIOMETRIC] ?: false,
+        secureScreen = this[SECURE_SCREEN] ?: false,
+        readReceipts = this[READ_RECEIPTS] ?: true,
+        typingIndicator = this[TYPING_INDICATOR] ?: true,
+    )
 
     private fun decodeAppearance(raw: String): Appearance? = try {
         json.decodeFromString(Appearance.serializer(), raw).normalized()
@@ -97,6 +139,15 @@ class SettingsStore(context: Context) {
         val DEBUG_UNLOCKED = booleanPreferencesKey("debug_unlocked")
         val CHAT_THEMES = stringPreferencesKey("chat_themes")
         val WALLPAPER_VERSION = longPreferencesKey("wallpaper_version")
+        val LOCK_DELAY = stringPreferencesKey("lock_delay")
+        val BIOMETRIC = booleanPreferencesKey("biometric")
+        val SECURE_SCREEN = booleanPreferencesKey("secure_screen")
+        val READ_RECEIPTS = booleanPreferencesKey("read_receipts")
+        val TYPING_INDICATOR = booleanPreferencesKey("typing_indicator")
+        val PROFILE_NAME = stringPreferencesKey("profile_name")
+        val PROFILE_USERNAME = stringPreferencesKey("profile_username")
+        val PROFILE_BIO = stringPreferencesKey("profile_bio")
+        val PROFILE_PHOTO = longPreferencesKey("profile_photo")
         val chatThemesSerializer = MapSerializer(String.serializer(), ThemeSpec.serializer())
     }
 }

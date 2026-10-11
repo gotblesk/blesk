@@ -83,14 +83,23 @@ internal fun AppearanceRoute(container: AppContainer, appearance: Appearance, on
         onChange = ::change,
         files = AppearanceFileActions(
             hasWallpaper = hasWallpaper,
-            onPickWallpaper = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onPickWallpaper = {
+                container.lock.expectReturn()
+                pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
             onRemoveWallpaper = {
                 container.wallpaper.clear()
                 hasWallpaper = false
                 scope.launch { container.settings.bumpWallpaper() }
             },
-            onSaveTheme = { saveTheme.launch("blesk.${ThemeFile.EXTENSION}") },
-            onOpenTheme = { openTheme.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) },
+            onSaveTheme = {
+                container.lock.expectReturn()
+                saveTheme.launch("blesk.${ThemeFile.EXTENSION}")
+            },
+            onOpenTheme = {
+                container.lock.expectReturn()
+                openTheme.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
+            },
         ),
         onBack = onBack,
     )
