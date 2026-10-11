@@ -18,6 +18,7 @@ import app.blesk.server.spaces.PostRepository
 import app.blesk.server.spaces.SpaceRepository
 import java.time.Clock
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import kotlin.time.Duration
 
 /** Everything the routes need, wired once at startup. */
@@ -50,5 +51,6 @@ class Services(
     val botSignals = BotSignals()
     val webhooks = BotWebhooks(webhookPolicy, webhookRetryDelays)
 
-    fun now(): Instant = clock.instant()
+    /** Whole milliseconds: what goes into the database reads back exactly the same (Postgres keeps microseconds and rounds). */
+    fun now(): Instant = clock.instant().truncatedTo(ChronoUnit.MILLIS)
 }
