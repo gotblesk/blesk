@@ -7,6 +7,7 @@ import app.blesk.core.data.demo.DemoSeed
 import app.blesk.core.data.diagnostics.CrashReport
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.LogEntry
+import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.Profile
@@ -124,7 +125,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             messages = seed.messages.filter { it.conversationId == conversation.id }.toImmutableList(),
             typing = true,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
         )
     }
 
@@ -222,6 +223,36 @@ class KeyScreensScreenshotTest(private val name: String) {
     @Test
     fun licenses() = capture("14_licenses") {
         LicensesScreen(onOpenLicense = {}, onBack = {})
+    }
+
+    @Test
+    fun media() = capture("15_media") {
+        val dir = ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir
+        val picture = java.io.File(dir, "shot.jpg").also { file ->
+            val bitmap = android.graphics.Bitmap.createBitmap(400, 300, android.graphics.Bitmap.Config.ARGB_8888)
+            android.graphics.Canvas(bitmap).drawColor(android.graphics.Color.rgb(120, 130, 140))
+            file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it) }
+        }
+        val base = seed.messages.first { it.conversationId == DemoSeed.ANYA }
+        val wave = app.blesk.core.media.Waveform.encode(List(48) { i -> ((kotlin.math.sin(i / 3.0) + 1) / 2).toFloat() })
+        val messages = listOf(
+            base.copy(id = "m1", authorId = DemoSeed.ANYA, text = "", attachment = Attachment.Voice("v", 14_000, wave)),
+            base.copy(
+                id = "m2",
+                authorId = DemoSeed.ANYA,
+                text = "Вот макеты",
+                attachment = Attachment.File("f", "макеты.pdf", 2_400_000, "application/pdf"),
+            ),
+            base.copy(id = "m3", authorId = "me", text = "Смотри, какой свет", attachment = Attachment.Photo(picture.path, 400, 300)),
+            base.copy(id = "m4", authorId = "me", text = "", attachment = Attachment.Circle("c", picture.path, 9_000)),
+        )
+        ConversationScreen(
+            conversation = seed.conversations.first { it.id == DemoSeed.ANYA },
+            messages = messages.toImmutableList(),
+            typing = false,
+            authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+        )
     }
 
     companion object {

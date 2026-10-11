@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only received media may be shared with other apps, and only on explicit open. -->
+<paths>
+    <files-path name="media" path="media/" />
+</paths>

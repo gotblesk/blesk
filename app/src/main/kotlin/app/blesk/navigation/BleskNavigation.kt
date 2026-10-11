@@ -22,6 +22,7 @@ import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
 import app.blesk.feature.chats.VoiceChannelScreen
+import app.blesk.feature.chats.media.MediaViewer
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
@@ -52,6 +53,9 @@ data object AboutKey : NavKey
 
 @Serializable
 data object DebugKey : NavKey
+
+@Serializable
+data class MediaKey(val conversationId: String, val messageId: String) : NavKey
 
 @Serializable
 data object ProfileKey : NavKey
@@ -138,7 +142,12 @@ fun BleskNavigation(container: AppContainer) {
             entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
             entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
             entry<ConversationKey> { key ->
-                ConversationRoute(container, key.id, appearance, back)
+                ConversationRoute(container, key.id, appearance, onOpenMedia = { backStack.add(MediaKey(key.id, it)) }, onBack = back)
+            }
+            entry<MediaKey> { key ->
+                val messages by container.demo.messages(key.conversationId).collectAsStateWithLifecycle(initialValue = null)
+                val attachment = messages?.firstOrNull { it.id == key.messageId }?.attachment
+                if (attachment != null) MediaViewer(attachment, onBack = back)
             }
             entry<VoiceChannelKey> { key ->
                 val channel by container.demo.conversation(key.roomId)

@@ -70,6 +70,12 @@ object BleskIcons {
     val Qr by icon(
         "M4.5 4.5h5v5h-5zM14.5 4.5h5v5h-5zM4.5 14.5h5v5h-5zM14.5 14.5h2v2h-2zM17.5 17.5h2v2h-2zM14.5 19.5h.01M19.5 14.5h.01",
     )
+    val Paperclip by icon("M16.5 8.5l-6.8 6.8a2 2 0 0 1-2.8-2.8l7.3-7.3a3.5 3.5 0 0 1 5 5l-7.6 7.6a5 5 0 0 1-7.1-7.1L11 4.2")
+    val Play by icon("M8 5.5v13l10.5-6.5L8 5.5z")
+    val Pause by icon("M8.5 5.5v13M15.5 5.5v13")
+    val Document by icon("M7 3.5h6.5l4.5 4.5v12.5H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1zM13.5 3.5V8H18M9 12.5h6M9 16h6")
+    val Camera by icon("M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z")
+    val Stop by icon("M7.5 7.5h9v9h-9z")
     val Person by icon("M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM5.5 19.5c.8-3.3 3.3-5.5 6.5-5.5s5.7 2.2 6.5 5.5")
 
     private fun icon(pathData: String) = lazy {

@@ -53,4 +53,11 @@
     <string-array name="demo_chat_bot">
         <item>bot|Я бот-эхо. Напиши что-нибудь, и я повторю.</item>
     </string-array>
+
+    <string name="attachment_photo">Фото</string>
+    <string name="attachment_video">Видео</string>
+    <string name="attachment_file">Файл: %1$s</string>
+    <string name="attachment_voice">Голосовое</string>
+    <string name="attachment_circle">Кружок</string>
+    <string name="attachment_theme">Тема</string>
 </resources>

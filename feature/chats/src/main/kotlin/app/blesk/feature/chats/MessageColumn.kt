@@ -3,6 +3,7 @@ package app.blesk.feature.chats
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -25,10 +26,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -41,12 +44,15 @@ import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.lerp
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import app.blesk.feature.chats.media.MediaContent
+import app.blesk.feature.chats.media.isVisual
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
@@ -160,6 +166,10 @@ private class PartRegistry {
             }
             rect("reactions:$id")?.let { result += Blob(it, it.height / 2f) }
         }
+        coordinates.keys.filter { it.startsWith("circle:") }.forEach { key ->
+            rect(key)?.let { result += Blob(it, minOf(it.width, it.height) / 2f) }
+            rect("reactions:${key.removePrefix("circle:")}")?.let { result += Blob(it, it.height / 2f) }
+        }
         return result
     }
 }
@@ -216,11 +226,14 @@ private fun MessageEntry(
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
+        val attachment = message.attachment
+        val circle = attachment is Attachment.Circle
+        val label = LocalContext.current.resources.attachmentLabel(attachment)
         Box(
             modifier = Modifier
                 .widthIn(max = 300.dp)
-                .onPlaced { parts.put("bubble:${message.id}", it) }
-                .flashOn(message.status.takeIf { own }, BubbleShape)
+                .onPlaced { parts.put(if (circle) "circle:${message.id}" else "bubble:${message.id}", it) }
+                .flashOn(message.status.takeIf { own }, if (circle) CircleShape else BubbleShape)
                 .combinedClickable(
                     onClickLabel = null,
                     onLongClickLabel = menuLabel,
@@ -228,25 +241,40 @@ private fun MessageEntry(
                     onClick = {},
                 )
                 .semantics(mergeDescendants = true) {
-                    contentDescription = listOfNotNull(message.text, edited, time, status).joinToString(", ")
+                    contentDescription = listOfNotNull(label.ifEmpty { null }, message.text.ifEmpty { null }, edited, time, status)
+                        .joinToString(", ")
                     customActions = listOf(
                         CustomAccessibilityAction(replyLabel) { actions.onReply(message); true },
                     )
                 }
                 .graphicsLayer { alpha = contentAlpha() }
-                .padding(horizontal = 14.dp, vertical = 9.dp),
+                .padding(
+                    horizontal = if (circle || attachment?.isVisual() == true) 4.dp else 14.dp,
+                    vertical = if (circle || attachment?.isVisual() == true) 4.dp else 9.dp,
+                ),
         ) {
+            if (attachment is Attachment.Circle) {
+                MediaContent(message, attachment)
+                Stamp(time, status, edited, Modifier.align(Alignment.BottomEnd).padding(6.dp), onMedia = true)
+                return@Box
+            }
             Column {
-                (message.attachment as? Attachment.Theme)?.let { ThemeCard(it.spec, actions.onApplyTheme) }
-                Text(message.text)
-                Row(
-                    modifier = Modifier.align(Alignment.End).padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    if (edited != null) Text(edited, style = Blesk.type.caption, color = Blesk.colors.textTertiary)
-                    Text(time, style = Blesk.type.caption, color = Blesk.colors.textTertiary)
-                    if (status != null) Text(status, style = Blesk.type.caption, color = Blesk.colors.textTertiary)
+                when (attachment) {
+                    is Attachment.Theme -> ThemeCard(attachment.spec, actions.onApplyTheme)
+                    null -> Unit
+                    else -> MediaContent(message, attachment)
                 }
+                if (message.text.isNotEmpty()) {
+                    val inset = if (attachment?.isVisual() == true) Modifier.padding(horizontal = 10.dp, vertical = 6.dp) else Modifier
+                    Text(message.text, modifier = inset)
+                }
+                Stamp(
+                    time, status, edited,
+                    Modifier
+                        .align(Alignment.End)
+                        .padding(top = 2.dp)
+                        .padding(horizontal = if (attachment?.isVisual() == true) 8.dp else 0.dp),
+                )
             }
         }
         if (message.reactions.isNotEmpty()) {
@@ -259,6 +287,24 @@ private fun MessageEntry(
                     .onPlaced { parts.put("reactions:${message.id}", it) },
             )
         }
+    }
+}
+
+/** Time, edit mark and delivery status. Over media it sits on a dark pill. */
+@Composable
+private fun Stamp(time: String, status: String?, edited: String?, modifier: Modifier = Modifier, onMedia: Boolean = false) {
+    val color = if (onMedia) Color.White else Blesk.colors.textTertiary
+    Row(
+        modifier = if (onMedia) {
+            modifier.background(Color.Black.copy(alpha = 0.45f), CircleShape).padding(horizontal = 8.dp, vertical = 2.dp)
+        } else {
+            modifier
+        },
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (edited != null) Text(edited, style = Blesk.type.caption, color = color)
+        Text(time, style = Blesk.type.caption, color = color)
+        if (status != null) Text(status, style = Blesk.type.caption, color = color)
     }
 }
 

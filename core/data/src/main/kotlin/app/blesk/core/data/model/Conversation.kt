@@ -59,10 +59,22 @@ data class Message(
     val isOwn: Boolean get() = authorId == ME
 }
 
-/** Something carried by a message besides its text. */
+/** Something carried by a message besides its text. Paths point into the app's private storage. */
 sealed interface Attachment {
     /** A theme someone shared; anyone in the chat can apply it. */
     data class Theme(val spec: ThemeSpec) : Attachment
+
+    data class Photo(val path: String, val width: Int, val height: Int) : Attachment
+
+    data class Video(val path: String, val thumbnail: String, val width: Int, val height: Int, val durationMillis: Long) : Attachment
+
+    data class File(val path: String, val name: String, val sizeBytes: Long, val mime: String) : Attachment
+
+    /** A voice note; [waveform] is the bar heights encoded by the media module. */
+    data class Voice(val path: String, val durationMillis: Long, val waveform: String) : Attachment
+
+    /** A round video message recorded with the front camera. */
+    data class Circle(val path: String, val poster: String, val durationMillis: Long) : Attachment
 }
 
 /** A reaction and who left it. [mine] is whether the phone owner is among them. */

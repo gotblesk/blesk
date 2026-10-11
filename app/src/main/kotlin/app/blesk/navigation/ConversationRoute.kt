@@ -1,10 +1,15 @@
 package app.blesk.navigation
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
@@ -26,12 +32,20 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
+import app.blesk.feature.chats.media.MediaController
+import app.blesk.feature.chats.media.Recorders
 import app.blesk.shared.appearance.Appearance
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun ConversationRoute(container: AppContainer, id: String, appearance: Appearance, onBack: () -> Unit) {
+internal fun ConversationRoute(
+    container: AppContainer,
+    id: String,
+    appearance: Appearance,
+    onOpenMedia: (messageId: String) -> Unit,
+    onBack: () -> Unit,
+) {
     val demo = container.demo
     val scope = rememberCoroutineScope()
     val conversation by demo.conversation(id).collectAsStateWithLifecycle(initialValue = null)
@@ -47,6 +61,47 @@ internal fun ConversationRoute(container: AppContainer, id: String, appearance: 
     val override = chatThemes[id]
     val caption = stringResource(R.string.chat_theme_caption)
     LaunchedEffect(id) { demo.markRead(id) }
+    val context = LocalContext.current
+    var busy by remember { mutableStateOf(false) }
+    val failed = stringResource(app.blesk.feature.chats.R.string.media_failed)
+    val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            busy = true
+            val attachment = importVisual(container, context.contentResolver.getType(uri), uri)
+            busy = false
+            if (attachment != null) demo.sendAttachment(id, attachment) else Toast.makeText(context, failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            busy = true
+            val attachment = container.media.importFile(uri)
+            busy = false
+            if (attachment != null) demo.sendAttachment(id, attachment) else Toast.makeText(context, failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+    val playback = container.audioPlayer.playback.collectAsStateWithLifecycle()
+    DisposableEffect(Unit) { onDispose { container.audioPlayer.stop() } }
+    val mediaController = remember(id) {
+        MediaController(
+            playback = playback,
+            onToggleVoice = container.audioPlayer::toggle,
+            onSeekVoice = container.audioPlayer::seek,
+            onCycleSpeed = container.audioPlayer::cycleSpeed,
+            onOpenMedia = { onOpenMedia(it.id) },
+            onOpenFile = { file -> openFile(context, file) },
+        )
+    }
+    val recorders = remember(id) {
+        Recorders(
+            voice = container.voiceRecorder,
+            circle = container.circleRecorder,
+            onVoice = { demo.sendAttachment(id, it) },
+            onCircle = { demo.sendAttachment(id, it) },
+        )
+    }
 
     val callbacks = remember(id) {
         ConversationCallbacks(
@@ -56,6 +111,14 @@ internal fun ConversationRoute(container: AppContainer, id: String, appearance: 
             onReact = { messageId, symbol -> demo.toggleReaction(id, messageId, symbol) },
             onApplyTheme = { spec -> scope.launch { container.settings.updateAppearance { it.copy(theme = spec) } } },
             onOpenChatTheme = { themeSheet = true },
+            onPickMedia = {
+                container.lock.expectReturn()
+                pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+            },
+            onPickFile = {
+                container.lock.expectReturn()
+                pickFile.launch(arrayOf("*/*"))
+            },
             onBack = onBack,
         )
     }
@@ -74,6 +137,9 @@ internal fun ConversationRoute(container: AppContainer, id: String, appearance: 
                 typing = id in typing,
                 authorName = { authorId -> demo.contact(authorId)?.name },
                 callbacks = callbacks,
+                recorders = recorders,
+                media = mediaController,
+                busy = busy,
                 underlay = {
                     wallpaper?.let { image ->
                         Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

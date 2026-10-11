@@ -32,6 +32,8 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class DemoRepository(
     seed: DemoSeed,
+    /** Short preview of a message that has only an attachment, e.g. "Голосовое". */
+    private val attachmentLabels: (Attachment?) -> String,
     private val scope: CoroutineScope,
     private val log: EventLog,
     private val clock: () -> Instant = Instant::now,
@@ -95,21 +97,29 @@ class DemoRepository(
 
     /** Shares a theme into the chat as a message anyone there can apply. */
     fun sendTheme(conversationId: String, theme: ThemeSpec, caption: String) {
+        sendAttachment(conversationId, Attachment.Theme(theme.normalized()), caption)
+    }
+
+    /** Sends a photo, video, file, voice note or circle; the echo bot sends it back. */
+    fun sendAttachment(conversationId: String, attachment: Attachment, caption: String = "", replyToId: String? = null) {
         val message = Message(
             id = nextId(),
             conversationId = conversationId,
             authorId = ME,
-            text = caption,
+            text = caption.trim(),
             sentAt = clock(),
             status = SendStatus.Sending,
-            attachment = Attachment.Theme(theme.normalized()),
+            replyToId = replyToId,
+            attachment = attachment,
         )
         append(message)
+        log.record(EventCode.DemoMessageSent)
         scope.launch {
             for (status in listOf(SendStatus.Sent, SendStatus.Delivered, SendStatus.Read)) {
                 delay(STATUS_STEP_MILLIS)
                 update(message.conversationId, message.id) { it.copy(status = status) }
             }
+            if (conversationId == echoBotId) echo(message)
         }
     }
 
@@ -177,7 +187,8 @@ class DemoRepository(
             list.map {
                 if (it.id != targetId || last == null) return@map it
                 val author = if (last.isOwn || !showAuthor) null else contactsById[last.authorId]?.name?.substringBefore(' ')
-                it.copy(preview = Preview(author, last.text), updatedAt = maxOf(it.updatedAt, last.sentAt))
+                val text = last.text.ifEmpty { attachmentLabels(last.attachment) }
+                it.copy(preview = Preview(author, text), updatedAt = maxOf(it.updatedAt, last.sentAt))
             }.sortedWith(conversationOrder)
         }
     }

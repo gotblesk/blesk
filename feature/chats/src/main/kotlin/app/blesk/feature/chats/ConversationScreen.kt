@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +23,7 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +49,8 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.design.component.Avatar
+import app.blesk.core.design.component.Button
+import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
@@ -59,6 +63,15 @@ import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.motion.rememberLoopPhase
 import app.blesk.core.design.theme.Blesk
+import app.blesk.feature.chats.media.CircleOverlay
+import app.blesk.feature.chats.media.LocalMediaController
+import app.blesk.feature.chats.media.LockDrop
+import app.blesk.feature.chats.media.MediaController
+import app.blesk.feature.chats.media.RecordButton
+import app.blesk.feature.chats.media.RecordMode
+import app.blesk.feature.chats.media.Recorders
+import app.blesk.feature.chats.media.RecordingBar
+import app.blesk.feature.chats.media.RecordingUi
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -73,6 +86,8 @@ class ConversationCallbacks(
     val onReact: (messageId: String, symbol: String) -> Unit,
     val onApplyTheme: (ThemeSpec) -> Unit,
     val onOpenChatTheme: () -> Unit,
+    val onPickMedia: () -> Unit,
+    val onPickFile: () -> Unit,
     val onBack: () -> Unit,
 )
 
@@ -84,8 +99,12 @@ fun ConversationScreen(
     authorName: (String) -> String?,
     callbacks: ConversationCallbacks,
     modifier: Modifier = Modifier,
+    recorders: Recorders? = null,
+    media: MediaController = MediaController.Inert,
+    busy: Boolean = false,
     underlay: @Composable BoxScope.() -> Unit = {},
 ) {
+    val recording = remember { RecordingUi() }
     val haptics = rememberHaptics()
     val listState = rememberLazyListState()
     val initialIds = remember(conversation.id) { messages.map { it.id }.toSet() }
@@ -116,85 +135,95 @@ fun ConversationScreen(
         )
     }
 
-    Box(modifier.fillMaxSize()) {
-        LensScaffold(
-            underlay = underlay,
-            top = { ChatHeader(conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme) },
-            bottom = {
-                if (conversation.kind == ConversationKind.Channel) {
-                    BottomLens {
-                        Text(
-                            text = stringResource(R.string.chat_channel_readonly),
-                            style = Blesk.type.label,
-                            color = Blesk.colors.textSecondary,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+    CompositionLocalProvider(LocalMediaController provides media) {
+        Box(modifier.fillMaxSize()) {
+            LensScaffold(
+                underlay = underlay,
+                top = { ChatHeader(conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme) },
+                bottom = {
+                    if (conversation.kind == ConversationKind.Channel) {
+                        BottomLens {
+                            Text(
+                                text = stringResource(R.string.chat_channel_readonly),
+                                style = Blesk.type.label,
+                                color = Blesk.colors.textSecondary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            )
+                        }
+                    } else {
+                        Composer(
+                            state = input,
+                            recording = recording,
+                            recorders = recorders,
+                            busy = busy,
+                            onPickMedia = callbacks.onPickMedia,
+                            onPickFile = callbacks.onPickFile,
+                            replyTo = replyToId?.let(byId::get),
+                            editing = editingId?.let(byId::get),
+                            authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
+                            onCancel = {
+                                if (editingId != null) input.clearText()
+                                replyToId = null
+                                editingId = null
+                            },
+                            onSend = { text ->
+                                val editing = editingId
+                                if (editing != null) {
+                                    callbacks.onEdit(editing, text)
+                                } else {
+                                    callbacks.onSend(text, replyToId)
+                                    haptics.merge()
+                                }
+                                replyToId = null
+                                editingId = null
+                            },
                         )
                     }
-                } else {
-                    Composer(
-                        state = input,
-                        replyTo = replyToId?.let(byId::get),
-                        editing = editingId?.let(byId::get),
-                        authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
-                        onCancel = {
-                            if (editingId != null) input.clearText()
-                            replyToId = null
-                            editingId = null
-                        },
-                        onSend = { text ->
-                            val editing = editingId
-                            if (editing != null) {
-                                callbacks.onEdit(editing, text)
-                            } else {
-                                callbacks.onSend(text, replyToId)
-                                haptics.merge()
-                            }
-                            replyToId = null
-                            editingId = null
-                        },
-                    )
-                }
-            },
-        ) { padding ->
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = Blesk.dimens.gutter,
-                    end = Blesk.dimens.gutter,
-                    top = padding.calculateTopPadding() + 8.dp,
-                    bottom = padding.calculateBottomPadding() + 12.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                item(key = "note") { ProtectionNote(conversation.protection) }
-                items(groups, key = { it.first().id }) { group ->
-                    val own = group.first().isOwn
-                    MessageColumn(
-                        messages = group,
-                        author = if (showAuthors && !own) authorName(group.first().authorId) else null,
-                        fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds || own }.toSet() },
-                        quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
-                        actions = actions,
-                    )
-                }
-                if (typing) item(key = "typing") { TypingDots() }
-            }
-        }
-        menuFor?.let { message ->
-            MessageMenu(
-                message = message,
-                onDismiss = { menuFor = null },
-                onReply = { replyToId = message.id; editingId = null },
-                onEdit = {
-                    editingId = message.id
-                    replyToId = null
-                    input.setTextAndPlaceCursorAtEnd(message.text)
                 },
-                onDelete = { callbacks.onDelete(message.id) },
-                onReact = { symbol -> callbacks.onReact(message.id, symbol) },
-            )
+            ) { padding ->
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = Blesk.dimens.gutter,
+                        end = Blesk.dimens.gutter,
+                        top = padding.calculateTopPadding() + 8.dp,
+                        bottom = padding.calculateBottomPadding() + 12.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    item(key = "note") { ProtectionNote(conversation.protection) }
+                    items(groups, key = { it.first().id }) { group ->
+                        val own = group.first().isOwn
+                        MessageColumn(
+                            messages = group,
+                            author = if (showAuthors && !own) authorName(group.first().authorId) else null,
+                            fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds || own }.toSet() },
+                            quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
+                            actions = actions,
+                        )
+                    }
+                    if (typing) item(key = "typing") { TypingDots() }
+                }
+            }
+            if (recording.active && recording.mode == RecordMode.Circle && recorders != null) {
+                CircleOverlay(recording, recorders)
+            }
+            menuFor?.let { message ->
+                MessageMenu(
+                    message = message,
+                    onDismiss = { menuFor = null },
+                    onReply = { replyToId = message.id; editingId = null },
+                    onEdit = {
+                        editingId = message.id
+                        replyToId = null
+                        input.setTextAndPlaceCursorAtEnd(message.text)
+                    },
+                    onDelete = { callbacks.onDelete(message.id) },
+                    onReact = { symbol -> callbacks.onReact(message.id, symbol) },
+                )
+            }
         }
     }
 }
@@ -296,6 +325,11 @@ private fun TypingDots() {
 @Composable
 private fun Composer(
     state: TextFieldState,
+    recording: RecordingUi,
+    recorders: Recorders?,
+    busy: Boolean,
+    onPickMedia: () -> Unit,
+    onPickFile: () -> Unit,
     replyTo: Message?,
     editing: Message?,
     authorName: (Message) -> String,
@@ -303,51 +337,99 @@ private fun Composer(
     onSend: (String) -> Unit,
 ) {
     val hint = stringResource(R.string.chat_input_hint)
-    BottomLens {
-        AnimatedVisibility(visible = replyTo != null || editing != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 14.dp, top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+    var attachMenu by remember { mutableStateOf(false) }
+    Box {
+        BottomLens {
+            AnimatedVisibility(visible = replyTo != null || editing != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 14.dp, top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = when {
+                            editing != null -> stringResource(R.string.chat_editing)
+                            replyTo != null -> stringResource(R.string.chat_replying_to, "${authorName(replyTo)}: ${replyTo.text}")
+                            else -> ""
+                        },
+                        style = Blesk.type.label,
+                        color = Blesk.colors.textSecondary,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(BleskIcons.Close, stringResource(R.string.chat_cancel), onCancel)
+                }
+            }
+            AnimatedVisibility(visible = attachMenu && !recording.active) {
+                Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        text = stringResource(R.string.media_photo_video),
+                        icon = BleskIcons.Image,
+                        kind = ButtonKind.Secondary,
+                        onClick = {
+                            attachMenu = false
+                            onPickMedia()
+                        },
+                    )
+                    Button(
+                        text = stringResource(R.string.media_file),
+                        icon = BleskIcons.Document,
+                        kind = ButtonKind.Secondary,
+                        onClick = {
+                            attachMenu = false
+                            onPickFile()
+                        },
+                    )
+                }
+            }
+            if (busy) {
                 Text(
-                    text = when {
-                        editing != null -> stringResource(R.string.chat_editing)
-                        replyTo != null -> stringResource(R.string.chat_replying_to, "${authorName(replyTo)}: ${replyTo.text}")
-                        else -> ""
-                    },
+                    text = stringResource(R.string.media_preparing),
                     style = Blesk.type.label,
                     color = Blesk.colors.textSecondary,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
                 )
-                IconButton(BleskIcons.Close, stringResource(R.string.chat_cancel), onCancel)
+            }
+            if (recording.active && recorders != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RecordingBar(recording, recorders, Modifier.weight(1f))
+                    if (!recording.locked) RecordButton(recording, recorders)
+                }
+                return@BottomLens
+            }
+            Row(verticalAlignment = Alignment.Bottom) {
+                IconButton(BleskIcons.Paperclip, stringResource(R.string.media_attach), { attachMenu = !attachMenu })
+                Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 4.dp), contentAlignment = Alignment.CenterStart) {
+                    if (state.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
+                    BasicTextField(
+                        state = state,
+                        textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
+                        cursorBrush = SolidColor(Blesk.colors.accent),
+                        lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                            .semantics { contentDescription = hint },
+                    )
+                }
+                if (state.text.isBlank() && editing == null && recorders != null) {
+                    RecordButton(recording, recorders)
+                } else {
+                    IconButton(
+                        icon = if (editing != null) BleskIcons.Check else BleskIcons.Send,
+                        contentDescription = stringResource(R.string.chat_send),
+                        onClick = {
+                            val text = state.text.toString()
+                            if (text.isNotBlank()) {
+                                onSend(text)
+                                state.clearText()
+                            }
+                        },
+                    )
+                }
             }
         }
-        Row(verticalAlignment = Alignment.Bottom) {
-            Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 14.dp), contentAlignment = Alignment.CenterStart) {
-                if (state.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
-                BasicTextField(
-                    state = state,
-                    textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
-                    cursorBrush = SolidColor(Blesk.colors.accent),
-                    lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp)
-                        .semantics { contentDescription = hint },
-                )
-            }
-            IconButton(
-                icon = if (editing != null) BleskIcons.Check else BleskIcons.Send,
-                contentDescription = stringResource(R.string.chat_send),
-                onClick = {
-                    val text = state.text.toString()
-                    if (text.isNotBlank()) {
-                        onSend(text)
-                        state.clearText()
-                    }
-                },
-            )
+        if (recording.active && !recording.locked) {
+            LockDrop(recording, Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = (-150).dp))
         }
     }
 }
