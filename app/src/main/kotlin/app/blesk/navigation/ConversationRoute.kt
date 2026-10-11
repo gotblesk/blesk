@@ -19,9 +19,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.R
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Privacy
-import app.blesk.R
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.feature.chats.ConversationCallbacks
