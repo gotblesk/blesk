@@ -28,6 +28,7 @@ import app.blesk.AppContainer
 import app.blesk.BleskApplication
 import app.blesk.R
 import app.blesk.core.data.BotController
+import app.blesk.core.data.Connection
 import app.blesk.core.data.GroupController
 import app.blesk.core.data.KeyState
 import app.blesk.core.data.KeyVerification
@@ -84,7 +85,7 @@ internal fun ConversationRoute(
         value = demo.conversation(id).first()?.unread ?: 0
         demo.markRead(id)
     }
-    val online by remember(demo) { demo.online }.collectAsStateWithLifecycle(initialValue = true)
+    val connection by remember(demo) { demo.connection }.collectAsStateWithLifecycle(initialValue = Connection.Online)
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
     val recentEmoji by container.settings.recentEmoji.collectAsStateWithLifecycle(initialValue = emptyList())
     val application = LocalContext.current.applicationContext as? BleskApplication
@@ -199,6 +200,7 @@ internal fun ConversationRoute(
                 }
             },
             onRetry = { messageId -> demo.retry(id, messageId) },
+            onReconnect = demo::reconnect,
             onEmojiPicked = { emoji -> scope.launch { container.settings.pickEmoji(emoji) } },
             onBack = onBack,
         )
@@ -230,7 +232,7 @@ internal fun ConversationRoute(
                 keyChanged = direct && keyState.changed,
                 me = groupController?.me,
                 unreadAtOpen = unread,
-                online = online,
+                connection = connection,
                 sendByEnter = sendByEnter,
                 recentEmoji = recentEmoji.toImmutableList(),
                 members = groupState?.members.orEmpty()

@@ -77,6 +77,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.Connection
 import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
@@ -151,6 +152,8 @@ class ConversationCallbacks(
     val onPin: ((messageId: String?) -> Unit)? = null,
     /** A press on an inline button under a bot message. */
     val onButton: (messageId: String, button: BotButton) -> Unit = { _, _ -> },
+    /** Tries the server again right away. */
+    val onReconnect: () -> Unit = {},
     /** Sends a failed message once more. */
     val onRetry: (messageId: String) -> Unit = {},
     /** Remembers an emoji picked from the panel for its «recent» row. */
@@ -174,8 +177,8 @@ fun ConversationScreen(
     reactions: Boolean = conversation.kind != ConversationKind.Bot,
     /** The other person's key changed and has not been checked since. */
     keyChanged: Boolean = false,
-    /** False while messages cannot leave the phone; they wait in the queue meanwhile. */
-    online: Boolean = true,
+    /** The link to the server; while messages cannot leave they wait in the queue. */
+    connection: Connection = Connection.Online,
     /** Enter sends the message; Shift+Enter breaks the line. */
     sendByEnter: Boolean = false,
     recentEmoji: ImmutableList<String> = persistentListOf(),
@@ -308,9 +311,13 @@ fun ConversationScreen(
                             },
                         )
                     } else {
-                        ChatHeader(
-                            conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo, callbacks.onCall, demo,
-                        )
+                        Column {
+                            ChatHeader(
+                                conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo,
+                                callbacks.onCall, demo,
+                            )
+                            ConnectionStatus(connection, callbacks.onReconnect)
+                        }
                     }
                 },
                 bottom = {
@@ -340,7 +347,7 @@ fun ConversationScreen(
                             attachments = conversation.kind != ConversationKind.Bot,
                             commands = commands,
                             members = members,
-                            online = online,
+                            online = connection.canSend,
                             sendByEnter = sendByEnter,
                             recentEmoji = recentEmoji,
                             onEmojiPicked = callbacks.onEmojiPicked,

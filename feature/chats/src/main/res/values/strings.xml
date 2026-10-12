@@ -275,8 +275,12 @@
         <item quantity="other">Уйдёт %1$d сообщениями по порядку</item>
     </plurals>
     <string name="chat_retry">Отправить ещё раз</string>
-    <string name="chat_offline">Нет связи с сервером. Сообщения подождут и уйдут сами.</string>
-    <string name="chats_waiting">Ожидание сети…</string>
+    <string name="chat_offline">Сообщения уйдут, когда появится связь</string>
+    <string name="connection_no_network">Нет сети</string>
+    <string name="connection_connecting">Подключение…</string>
+    <string name="connection_updating">Обновление…</string>
+    <string name="connection_unreachable">Сервер не отвечает</string>
+    <string name="connection_retry">Повторить</string>
     <string name="archive_empty_title">Архив пуст</string>
     <string name="archive_empty_text">Смахни чат влево, и он уйдёт сюда.</string>
 </resources>

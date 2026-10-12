@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -26,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.R
 import app.blesk.core.data.ChatRepository
+import app.blesk.core.data.Connection
 import app.blesk.core.data.GroupController
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
@@ -45,6 +47,7 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.ChatMenuActions
+import app.blesk.feature.chats.ConnectionStatus
 import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
@@ -76,7 +79,7 @@ internal fun Home(
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
     val photo = rememberProfilePhoto(container, profile?.photoVersion ?: 0L)
-    val online by remember(chats) { chats.online }.collectAsStateWithLifecycle(initialValue = true)
+    val connection by remember(chats) { chats.connection }.collectAsStateWithLifecycle(initialValue = Connection.Online)
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
     val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
     val scope = rememberCoroutineScope()
@@ -119,24 +122,23 @@ internal fun Home(
                 )
                 return@LensScaffold
             }
-            TopLens(
-                title = if (tab == HomeTab.Chats && !online) {
-                    stringResource(app.blesk.feature.chats.R.string.chats_waiting)
-                } else {
-                    tabs[tab.ordinal].label
-                },
-                collapsed = collapsed,
-                actions = {
-                    when (tab) {
-                        HomeTab.Chats ->
-                            IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), {
-                                searching = true
-                                searchOpen = true
-                            })
-                        HomeTab.Rooms, HomeTab.You -> Unit
-                    }
-                },
-            )
+            Column {
+                TopLens(
+                    title = tabs[tab.ordinal].label,
+                    collapsed = collapsed,
+                    actions = {
+                        when (tab) {
+                            HomeTab.Chats ->
+                                IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), {
+                                    searching = true
+                                    searchOpen = true
+                                })
+                            HomeTab.Rooms, HomeTab.You -> Unit
+                        }
+                    },
+                )
+                ConnectionStatus(connection, chats::reconnect)
+            }
         },
         bottom = {
             val action = when (tab) {

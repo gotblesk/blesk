@@ -2,6 +2,7 @@ package app.blesk
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
+import app.blesk.background.networkAvailable
 import app.blesk.core.calls.CallManager
 import app.blesk.core.calls.CallMedia
 import app.blesk.core.crypto.PinVault
@@ -61,6 +62,7 @@ class AppContainer(context: Context) {
     val voiceRecorder = VoiceRecorder(context, media)
     val circleRecorder = CircleRecorder(context, media)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
+    val network: StateFlow<Boolean> by lazy { networkAvailable(context.applicationContext, scope) }
 
     @androidx.annotation.OptIn(UnstableApi::class)
     val videoCompressor = VideoCompressor(context)

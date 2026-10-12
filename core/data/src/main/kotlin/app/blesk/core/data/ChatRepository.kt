@@ -9,6 +9,25 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 
+/** The state of the link to the server, as the status capsule shows it. */
+enum class Connection {
+    Online,
+
+    /** The phone has no network at all. */
+    NoNetwork,
+    Connecting,
+
+    /** Connected and taking in what arrived while away. */
+    Updating,
+
+    /** The network is there, but the server does not answer. */
+    Unreachable,
+    ;
+
+    /** Messages written now leave right away. */
+    val canSend: Boolean get() = this == Online || this == Updating
+}
+
 /** Everything the screens need from a world of chats, whether it is the demo or a real server. */
 interface ChatRepository : ChatTools {
     /** Conversations shown in the list; room channels live inside their rooms. */
@@ -49,8 +68,11 @@ interface ChatRepository : ChatTools {
     /** Messages containing [query], newest first. Runs on the phone only. */
     suspend fun search(query: String): List<Message>
 
-    /** Whether messages can leave the phone right now; the demo is always online. */
-    val online: Flow<Boolean> get() = flowOf(true)
+    /** How the link to the server is doing; the demo is always online. */
+    val connection: Flow<Connection> get() = flowOf(Connection.Online)
+
+    /** Tries to reach the server right away instead of waiting for the next attempt. */
+    fun reconnect() = Unit
 
     /** Sends a message that failed to go out once more, as a new message at the end of the chat. */
     fun retry(conversationId: String, messageId: String) = Unit

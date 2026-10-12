@@ -51,6 +51,7 @@ internal class ServerStack(
             labels = context.resources::attachmentLabel,
             log = container.eventLog,
             savedTitle = context.getString(R.string.demo_saved_title),
+            network = container.network,
         ).also { repository -> store.onIdentityChanged = repository::onKeyChanged }
 
     companion object {

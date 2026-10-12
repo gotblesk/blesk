@@ -6,6 +6,7 @@ import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.data.BotAccounts
 import app.blesk.core.data.BotController
 import app.blesk.core.data.ChatRepository
+import app.blesk.core.data.Connection
 import app.blesk.core.data.GroupController
 import app.blesk.core.data.IncomingMessages
 import app.blesk.core.data.KeyVerification
@@ -33,6 +34,7 @@ import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
 import app.blesk.core.network.ApiException
 import app.blesk.core.network.BleskApi
+import app.blesk.core.network.Link
 import app.blesk.core.network.Transport
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.Bots
@@ -68,7 +70,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -101,6 +106,8 @@ class ServerChatRepository(
     private val clock: () -> Long = System::currentTimeMillis,
     /** The title of «Избранное», your notes to yourself; it lives under your own username. */
     private val savedTitle: String = "",
+    /** Whether the phone has any network; the connection status tells it apart from a silent server. */
+    private val network: Flow<Boolean> = flowOf(true),
 ) : ChatRepository,
     GroupController,
     SpaceController,
@@ -182,6 +189,9 @@ class ServerChatRepository(
         }
         scope.launch { socket.frames.collect { frame -> handle(frame) } }
         scope.launch { socket.connected.filter { it }.collect { flush() } }
+        scope.launch { socket.connected.filter { !it }.collect { synced.value = false } }
+        // Without this the next attempt could be a minute away after the network comes back.
+        scope.launch { network.drop(1).filter { it }.collect { socket.retryNow() } }
         scope.launch { sweep() }
         scope.launch { ensureSaved() }
     }
@@ -229,7 +239,19 @@ class ServerChatRepository(
         scope.launch { post(conversationId, caption.trim(), replyToId, attachment, forwarded = false) }
     }
 
-    override val online: Flow<Boolean> get() = socket.connected
+    private val synced = MutableStateFlow(false)
+
+    override val connection: Flow<Connection> = combine(network, socket.link, synced) { hasNetwork, link, caughtUp ->
+        when {
+            !hasNetwork -> Connection.NoNetwork
+            link == Link.Failing -> Connection.Unreachable
+            link == Link.Connecting -> Connection.Connecting
+            !caughtUp -> Connection.Updating
+            else -> Connection.Online
+        }
+    }.distinctUntilChanged()
+
+    override fun reconnect() = socket.retryNow()
 
     override fun retry(conversationId: String, messageId: String) {
         scope.launch {
@@ -685,6 +707,7 @@ class ServerChatRepository(
             is ServerFrame.Deliver -> receive(frame.envelope)
             is ServerFrame.KeysLow -> refillKeys(frame.preKeys, frame.kyberPreKeys)
             ServerFrame.Synced -> {
+                synced.value = true
                 log.record(EventCode.ServerSynced)
                 scope.launch { runCatching { spaces.sync() } }
             }

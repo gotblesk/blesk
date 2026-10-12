@@ -1,6 +1,7 @@
 package app.blesk.core.messaging
 
 import app.blesk.core.network.BleskApi
+import app.blesk.core.network.Link
 import app.blesk.core.network.ServerAddress
 import app.blesk.core.network.Transport
 import app.blesk.shared.protocol.AccountInfo
@@ -173,6 +174,7 @@ class FakeTransport : Transport {
     private val flow = MutableSharedFlow<ServerFrame>(replay = 64, extraBufferCapacity = 64)
     override val frames: SharedFlow<ServerFrame> = flow
     override val connected: StateFlow<Boolean> = MutableStateFlow(true)
+    override val link: StateFlow<Link> = MutableStateFlow(Link.Online)
     val acked = mutableListOf<Long>()
 
     fun deliver(envelope: Envelope) {

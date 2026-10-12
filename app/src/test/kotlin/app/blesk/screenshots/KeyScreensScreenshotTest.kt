@@ -1,5 +1,6 @@
 package app.blesk.screenshots
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -11,6 +12,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.blesk.core.calls.CallMember
 import app.blesk.core.calls.MediaState
 import app.blesk.core.data.BotResult
+import app.blesk.core.data.Connection
 import app.blesk.core.data.KeyState
 import app.blesk.core.data.SafetyCode
 import app.blesk.core.data.SpaceResult
@@ -42,6 +44,7 @@ import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
 import app.blesk.feature.chats.ChatInfoScreen
 import app.blesk.feature.chats.ChatList
+import app.blesk.feature.chats.ConnectionStatus
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.ForwardScreen
@@ -129,12 +132,21 @@ class KeyScreensScreenshotTest(private val name: String) {
     }
 
     @Composable
-    private fun HomeFrame(title: String, tab: Int, collapsed: Boolean = false, content: @Composable (PaddingValues) -> Unit) {
+    private fun HomeFrame(
+        title: String,
+        tab: Int,
+        collapsed: Boolean = false,
+        connection: Connection = Connection.Online,
+        content: @Composable (PaddingValues) -> Unit,
+    ) {
         LensScaffold(
             top = {
-                TopLens(title = title, collapsed = collapsed, actions = {
-                    if (tab == 0) IconButton(BleskIcons.Search, "Поиск", {})
-                })
+                Column {
+                    TopLens(title = title, collapsed = collapsed, actions = {
+                        if (tab == 0) IconButton(BleskIcons.Search, "Поиск", {})
+                    })
+                    ConnectionStatus(connection, onRetry = {}, showAfterMillis = 0)
+                }
             },
             bottom = {
                 val action = when (tab) {
@@ -156,6 +168,20 @@ class KeyScreensScreenshotTest(private val name: String) {
                     .mapIndexed { i, c -> if (i < 2) c.copy(pinned = true) else c }
                     .toImmutableList(),
                 typing = persistentSetOf(DemoSeed.MISHA),
+                now = now,
+                contentPadding = padding,
+                onOpenConversation = {},
+                onOpenChannel = { _, _ -> },
+            )
+        }
+    }
+
+    @Test
+    fun serverSilent() = capture("01_chats_unreachable") {
+        HomeFrame("Чаты", 0, collapsed = false, connection = Connection.Unreachable) { padding ->
+            ChatList(
+                conversations = seed.conversations.filter { it.parentId == null && it.kind != ConversationKind.Room }.toImmutableList(),
+                typing = persistentSetOf(),
                 now = now,
                 contentPadding = padding,
                 onOpenConversation = {},
