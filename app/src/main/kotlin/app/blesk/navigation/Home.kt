@@ -303,6 +303,9 @@ internal fun Home(
                     contentPadding = padding,
                     actions = contactActions,
                     state = contactsList,
+                    lastWritten = remember(conversations) {
+                        conversations.filter { it.kind == ConversationKind.Direct }.associate { it.id to it.updatedAt }
+                    },
                 )
                 HomeTab.Rooms -> {
                     // Archived rooms live in the archive with the chats; pinned ones lead, in the order given.

@@ -13,7 +13,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -265,8 +264,8 @@ private fun ArchiveRow(count: Int, onOpen: () -> Unit, modifier: Modifier) {
 }
 
 /**
- * A row that follows the finger sideways: far enough to the left archives it (or does
- * [leftLabel]), to the right toggles read. TalkBack gets the same as named actions.
+ * A chat row that follows the finger sideways: far enough to the left archives it (or does
+ * [leftLabel]), to the right toggles read.
  */
 @Composable
 private fun SwipeRow(
@@ -278,76 +277,18 @@ private fun SwipeRow(
     leftLabel: String? = null,
     content: @Composable () -> Unit,
 ) {
-    if (onArchive == null && onRead == null) {
-        Box(modifier) { content() }
-        return
-    }
-    val offset = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-    val haptics = rememberHaptics()
-    val threshold = with(LocalDensity.current) { SwipeThreshold.toPx() }
     val unread = conversation != null && (conversation.unread > 0 || conversation.markedUnread)
     val archiveLabel = leftLabel ?: stringResource(
         if (conversation?.archived == true) R.string.chats_from_archive else R.string.chats_to_archive,
     )
     val readLabel = stringResource(if (unread) R.string.chats_mark_read else R.string.chats_mark_unread)
-    Box(
-        modifier
-            .fillMaxWidth()
-            .semantics {
-                customActions = listOfNotNull(
-                    onArchive?.let { CustomAccessibilityAction(archiveLabel) { it(); true } },
-                    onRead?.let { CustomAccessibilityAction(readLabel) { it(); true } },
-                )
-            },
-    ) {
-        val progress = (abs(offset.value) / threshold).coerceIn(0f, 1f)
-        if (offset.value != 0f) {
-            Row(
-                Modifier
-                    .matchParentSize()
-                    .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
-                    .background(Blesk.colors.surface.copy(alpha = progress)),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = if (offset.value > 0) Arrangement.Start else Arrangement.End,
-            ) {
-                Icon(
-                    icon = if (offset.value > 0) BleskIcons.Check else leftIcon,
-                    contentDescription = null,
-                    tint = Blesk.colors.textSecondary.copy(alpha = progress),
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                )
-            }
-        }
-        Box(
-            Modifier
-                .graphicsLayer { translationX = offset.value }
-                .pointerInput(onArchive, onRead) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            val value = offset.value
-                            when {
-                                value <= -threshold && onArchive != null -> onArchive()
-                                value >= threshold && onRead != null -> onRead()
-                            }
-                            if (abs(value) >= threshold) haptics.tick()
-                            scope.launch { offset.animateTo(0f) }
-                        },
-                        onDragCancel = { scope.launch { offset.animateTo(0f) } },
-                    ) { change, delta ->
-                        val next = offset.value + delta
-                        val allowed = (next < 0 && onArchive != null) || (next > 0 && onRead != null)
-                        if (allowed || next == 0f) {
-                            change.consume()
-                            scope.launch { offset.snapTo(next.coerceIn(-threshold * 1.4f, threshold * 1.4f)) }
-                        }
-                    }
-                },
-        ) { content() }
-    }
+    SideSwipe(
+        left = onArchive?.let { SwipeAction(leftIcon, archiveLabel, it) },
+        right = onRead?.let { SwipeAction(BleskIcons.Check, readLabel, it) },
+        modifier = modifier,
+        content = content,
+    )
 }
-
-private val SwipeThreshold = 96.dp
 private val PullThreshold = 88.dp
 
 /** Resistance of the list when it is pulled past its top, so the pull feels heavier than a scroll. */

@@ -230,6 +230,9 @@ fun BleskNavigation(container: AppContainer) {
                                 contactActions = ContactActions(
                                     onOpen = { contact -> openDirect(contact.username) { backStack.add(ChatInfoKey(it)) } },
                                     onWrite = { contact -> openDirect(contact.username) { backStack.add(ConversationKey(it)) } },
+                                    onCall = { contact ->
+                                        openDirect(contact.username) { id -> context.startActivity(CallActivity.call(context, id, false)) }
+                                    },
                                     onInvite = (mode as? AppMode.Server)?.let { server -> { invite(context, server.username) } },
                                 ),
                                 onOpenChannel = { room, channel ->

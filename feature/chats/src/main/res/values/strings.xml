@@ -105,6 +105,10 @@
     <string name="media_size_mb">%1$s МБ</string>
     <string name="contacts_title">Контакты</string>
     <string name="contacts_add">Добавить</string>
+    <string name="contacts_by_name">По имени</string>
+    <string name="contacts_recent">Недавние</string>
+    <string name="contacts_profile">Профиль</string>
+    <string name="contacts_menu">Действия с контактом</string>
     <string name="contacts_invite">Пригласить друзей</string>
     <string name="contacts_write">Написать</string>
     <string name="contacts_open_profile">открыть профиль</string>

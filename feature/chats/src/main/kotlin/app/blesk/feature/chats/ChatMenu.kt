@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
@@ -49,6 +50,54 @@ fun ChatMenu(conversation: Conversation, now: Long, actions: ChatMenuActions, on
         action()
         onDismiss()
     }
+    MenuSheet(title = conversation.title, onDismiss = onDismiss) {
+        Card {
+            if (muting) {
+                MuteChoices(now) { until -> act { actions.onMute(until) } }
+                return@Card
+            }
+            ListRow(
+                title = stringResource(if (conversation.pinned) R.string.chats_unpin else R.string.chats_pin),
+                icon = BleskIcons.Pin,
+                showChevron = false,
+                onClick = {
+                    if (!conversation.pinned) haptics.stick()
+                    act { actions.onPin(!conversation.pinned) }
+                },
+            )
+            ListRow(
+                title = stringResource(if (conversation.archived) R.string.chats_from_archive else R.string.chats_to_archive),
+                icon = BleskIcons.Archive,
+                showChevron = false,
+                onClick = { act { actions.onArchive(!conversation.archived) } },
+            )
+            // Notes to yourself never ring, so there is nothing to silence.
+            if (conversation.kind != ConversationKind.Saved) {
+                if (conversation.muted(now)) {
+                    ListRow(
+                        title = stringResource(R.string.chats_unmute),
+                        icon = BleskIcons.Bell,
+                        showChevron = false,
+                        onClick = { act { actions.onMute(0) } },
+                    )
+                } else {
+                    ListRow(title = stringResource(R.string.chats_mute), icon = BleskIcons.BellOff, onClick = { muting = true })
+                }
+            }
+            val unread = conversation.unread > 0 || conversation.markedUnread
+            ListRow(
+                title = stringResource(if (unread) R.string.chats_mark_read else R.string.chats_mark_unread),
+                icon = BleskIcons.Check,
+                showChevron = false,
+                onClick = { act { actions.onMarkUnread(!unread) } },
+            )
+        }
+    }
+}
+
+/** A matte sheet at the bottom over a dimmed screen, titled with what it acts on; a tap outside or a swipe down closes it. */
+@Composable
+internal fun MenuSheet(title: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     BackHandler(onBack = onDismiss)
     Box(
         Modifier
@@ -65,52 +114,12 @@ fun ChatMenu(conversation: Conversation, now: Long, actions: ChatMenuActions, on
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
         ) {
             Text(
-                text = conversation.title,
+                text = title,
                 style = Blesk.type.headline,
                 maxLines = 1,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
             )
-            Card {
-                if (muting) {
-                    MuteChoices(now) { until -> act { actions.onMute(until) } }
-                    return@Card
-                }
-                ListRow(
-                    title = stringResource(if (conversation.pinned) R.string.chats_unpin else R.string.chats_pin),
-                    icon = BleskIcons.Pin,
-                    showChevron = false,
-                    onClick = {
-                        if (!conversation.pinned) haptics.stick()
-                        act { actions.onPin(!conversation.pinned) }
-                    },
-                )
-                ListRow(
-                    title = stringResource(if (conversation.archived) R.string.chats_from_archive else R.string.chats_to_archive),
-                    icon = BleskIcons.Archive,
-                    showChevron = false,
-                    onClick = { act { actions.onArchive(!conversation.archived) } },
-                )
-                // Notes to yourself never ring, so there is nothing to silence.
-                if (conversation.kind != ConversationKind.Saved) {
-                    if (conversation.muted(now)) {
-                        ListRow(
-                            title = stringResource(R.string.chats_unmute),
-                            icon = BleskIcons.Bell,
-                            showChevron = false,
-                            onClick = { act { actions.onMute(0) } },
-                        )
-                    } else {
-                        ListRow(title = stringResource(R.string.chats_mute), icon = BleskIcons.BellOff, onClick = { muting = true })
-                    }
-                }
-                val unread = conversation.unread > 0 || conversation.markedUnread
-                ListRow(
-                    title = stringResource(if (unread) R.string.chats_mark_read else R.string.chats_mark_unread),
-                    icon = BleskIcons.Check,
-                    showChevron = false,
-                    onClick = { act { actions.onMarkUnread(!unread) } },
-                )
-            }
+            content()
         }
     }
 }

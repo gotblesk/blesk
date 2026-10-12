@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -23,30 +24,39 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Contact
 import app.blesk.core.design.component.Avatar
+import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
+import app.blesk.core.design.component.ListRow
+import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.StateMessage
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import java.time.Instant
 
 class ContactActions(
     val onOpen: (Contact) -> Unit,
     val onWrite: (Contact) -> Unit,
+    /** Calls the person; null where calls are not offered. */
+    val onCall: ((Contact) -> Unit)? = null,
     /** Shares an invitation; null in demo mode, where there is nobody to invite. */
     val onInvite: (() -> Unit)?,
 )
@@ -63,12 +73,17 @@ fun ContactsTab(
     actions: ContactActions,
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
+    /** When you last wrote to each person, by contact id; it orders «Недавние». */
+    lastWritten: Map<String, Instant> = emptyMap(),
 ) {
-    val shown = remember(contacts, query) {
+    var recentFirst by rememberSaveable { mutableStateOf(false) }
+    var menuFor by remember { mutableStateOf<Contact?>(null) }
+    val shown = remember(contacts, query, recentFirst, lastWritten) {
         val needle = query.trim().removePrefix("@")
+        val byName = compareBy(String.CASE_INSENSITIVE_ORDER) { contact: Contact -> contact.name }
         contacts
             .filter { needle.isEmpty() || it.name.contains(needle, ignoreCase = true) || it.username.contains(needle, ignoreCase = true) }
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+            .sortedWith(if (recentFirst) compareByDescending<Contact> { lastWritten[it.id] }.then(byName) else byName)
     }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -83,12 +98,50 @@ fun ContactsTab(
         if (actions.onInvite != null && query.isBlank()) {
             item(key = "invite") { InviteRow(actions.onInvite) }
         }
+        if (query.isBlank() && contacts.size > 1) {
+            item(key = "sort") {
+                Segmented(
+                    options = persistentListOf(stringResource(R.string.contacts_by_name), stringResource(R.string.contacts_recent)),
+                    selected = if (recentFirst) 1 else 0,
+                    onSelect = { recentFirst = it == 1 },
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+        }
         if (shown.isEmpty()) {
             item(key = "empty") {
                 StateMessage(stringResource(if (query.isBlank()) R.string.contacts_empty else R.string.contacts_nothing_found))
             }
         }
-        items(shown, key = { it.id }) { contact -> ContactRow(contact, actions) }
+        items(shown, key = { it.id }) { contact -> ContactRow(contact, actions) { menuFor = contact } }
+    }
+    menuFor?.let { contact -> ContactMenu(contact, actions) { menuFor = null } }
+}
+
+@Composable
+private fun ContactMenu(contact: Contact, actions: ContactActions, onDismiss: () -> Unit) {
+    fun act(action: (Contact) -> Unit) {
+        onDismiss()
+        action(contact)
+    }
+    MenuSheet(title = contact.name, onDismiss = onDismiss) {
+        Card {
+            ListRow(
+                title = stringResource(R.string.contacts_write),
+                icon = BleskIcons.Chats,
+                showChevron = false,
+                onClick = { act(actions.onWrite) },
+            )
+            actions.onCall?.let { call ->
+                ListRow(stringResource(R.string.person_call), icon = BleskIcons.Phone, showChevron = false, onClick = { act(call) })
+            }
+            ListRow(
+                title = stringResource(R.string.contacts_profile),
+                icon = BleskIcons.Person,
+                showChevron = false,
+                onClick = { act(actions.onOpen) },
+            )
+        }
     }
 }
 
@@ -112,35 +165,45 @@ private fun InviteRow(onInvite: () -> Unit) {
 
 /** A person on the background; a capsule rises under the finger while it is pressed. */
 @Composable
-private fun ContactRow(contact: Contact, actions: ContactActions) {
+private fun ContactRow(contact: Contact, actions: ContactActions, onMenu: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val press by animateFloatAsState(if (pressed) 1f else 0f, label = "press")
     val capsule = Blesk.colors.surface
     val writeLabel = stringResource(R.string.contacts_write)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
-            .drawBehind { if (press > 0f) drawRect(capsule.copy(alpha = capsule.alpha * press)) }
-            .clickable(
-                interactionSource = interaction,
-                indication = LocalIndication.current,
-                role = Role.Button,
-                onClickLabel = stringResource(R.string.contacts_open_profile),
-            ) { actions.onOpen(contact) }
-            .semantics(mergeDescendants = true) {
-                customActions = listOf(CustomAccessibilityAction(writeLabel) { actions.onWrite(contact); true })
-            }
-            .padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    val callLabel = stringResource(R.string.person_call)
+    val haptics = rememberHaptics()
+    SideSwipe(
+        left = actions.onCall?.let { call -> SwipeAction(BleskIcons.Phone, callLabel) { call(contact) } },
+        right = SwipeAction(BleskIcons.Chats, writeLabel) { actions.onWrite(contact) },
     ) {
-        Avatar(contact.name, key = contact.username)
-        Column(Modifier.weight(1f)) {
-            Text(contact.name, style = Blesk.type.bodyStrong, maxLines = 1)
-            Text("@${contact.username}", style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
+                .drawBehind { if (press > 0f) drawRect(capsule.copy(alpha = capsule.alpha * press)) }
+                .combinedClickable(
+                    interactionSource = interaction,
+                    indication = LocalIndication.current,
+                    role = Role.Button,
+                    onClickLabel = stringResource(R.string.contacts_open_profile),
+                    onLongClickLabel = stringResource(R.string.contacts_menu),
+                    onLongClick = {
+                        haptics.menu()
+                        onMenu()
+                    },
+                ) { actions.onOpen(contact) }
+                .semantics(mergeDescendants = true) {}
+                .padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Avatar(contact.name, key = contact.username)
+            Column(Modifier.weight(1f)) {
+                Text(contact.name, style = Blesk.type.bodyStrong, maxLines = 1)
+                Text("@${contact.username}", style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)
+            }
+            IconButton(BleskIcons.Chats, writeLabel, { actions.onWrite(contact) })
         }
-        IconButton(BleskIcons.Chats, writeLabel, { actions.onWrite(contact) })
     }
 }
