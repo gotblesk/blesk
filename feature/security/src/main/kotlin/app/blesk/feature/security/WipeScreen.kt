@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /** What is being erased: only this phone, or the account as well. */
-enum class WipeKind { Phone, DeleteAccount }
+enum class WipeKind { Phone, DeleteAccount, ForgotCode }
 
 @Composable
 fun WipeScreen(onWipe: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier, kind: WipeKind = WipeKind.Phone) {
@@ -50,6 +50,7 @@ fun WipeScreen(onWipe: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modi
     LaunchedEffect(Unit) { haptics.warn() }
     val (title, text, action) = when (kind) {
         WipeKind.Phone -> Triple(R.string.wipe_title, R.string.wipe_text, R.string.wipe_action)
+        WipeKind.ForgotCode -> Triple(R.string.lock_forgot_title, R.string.lock_forgot_text, R.string.wipe_action)
         WipeKind.DeleteAccount -> Triple(R.string.delete_account_title, R.string.delete_account_text, R.string.delete_account_action)
     }
     ScrollScreen(title = stringResource(title), onBack = onBack, modifier = modifier) {

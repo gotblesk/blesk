@@ -73,6 +73,12 @@ fun PrivacyScreen(
             )
             if (pinSet) {
                 ListRow(title = stringResource(R.string.privacy_change_pin), onClick = actions.onChangePin)
+                ToggleRow(
+                    title = stringResource(R.string.privacy_wipe_after_ten),
+                    subtitle = stringResource(R.string.privacy_wipe_after_ten_hint),
+                    checked = privacy.wipeAfterTen,
+                    onCheckedChange = { actions.onChange(privacy.copy(wipeAfterTen = it)) },
+                )
                 if (biometricAvailable) {
                     ToggleRow(
                         title = stringResource(R.string.privacy_biometric),

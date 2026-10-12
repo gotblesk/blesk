@@ -439,7 +439,7 @@ class KeyScreensScreenshotTest(private val name: String) {
 
     @Test
     fun lock() = capture("12_lock") {
-        PinEntry(title = "Введите код", length = 4, check = { PinAttempt.Ok }, onBiometric = {})
+        PinEntry(title = "Введи код", length = 4, check = { PinAttempt.Ok }, onBiometric = {})
     }
 
     @Test

@@ -42,6 +42,7 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair
 import org.signal.libsignal.protocol.kem.KEMKeyPair
 import org.signal.libsignal.protocol.kem.KEMKeyType
 import java.nio.file.Files
+import java.nio.file.Path
 import java.util.Base64
 import javax.sql.DataSource
 import kotlin.random.Random
@@ -132,10 +133,29 @@ fun serverTest(
     liveKit: LiveKitConfig? = null,
     botRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     block: suspend ApplicationTestBuilder.(Harness) -> Unit,
+) {
+    // Every test uploads a few megabytes; left behind, they fill the disk across runs.
+    val attachments = Files.createTempDirectory("blesk-attachments")
+    try {
+        serverTest(attachments, rateLimit, postRateLimit, callRateLimit, liveKit, botRateLimit, block)
+    } finally {
+        attachments.toFile().deleteRecursively()
+    }
+}
+
+@Suppress("LongParameterList")
+private fun serverTest(
+    attachments: Path,
+    rateLimit: RateLimitConfig,
+    postRateLimit: RateLimitConfig,
+    callRateLimit: RateLimitConfig,
+    liveKit: LiveKitConfig?,
+    botRateLimit: RateLimitConfig,
+    block: suspend ApplicationTestBuilder.(Harness) -> Unit,
 ) = testApplication {
     val services = Services(
         database = Database(TestDatabase.dataSource),
-        storage = FileSystemStorage(Files.createTempDirectory("blesk-attachments")),
+        storage = FileSystemStorage(attachments),
         authRateLimiter = RateLimiter(rateLimit),
         postRateLimiter = RateLimiter(postRateLimit),
         trustProxy = false,

@@ -1,6 +1,5 @@
 package app.blesk.feature.security
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -29,24 +28,27 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 
-/** Filled drops for entered digits, hollow for the rest. Shakes on a wrong code. */
+/**
+ * One capsule per digit, filling as they are typed. A wrong code does not shake them: they
+ * dim for a moment ([dim] from 0 to 1) and empty out.
+ */
 @Composable
-internal fun PinDots(length: Int, entered: Int, shake: Animatable<Float, *>, modifier: Modifier = Modifier) {
+internal fun PinDots(length: Int, entered: Int, dim: () -> Float, modifier: Modifier = Modifier) {
     val description = stringResource(R.string.lock_entered, entered, length)
     Row(
         modifier = modifier
-            .graphicsLayer { translationX = shake.value }
+            .graphicsLayer { alpha = 1f - DIM_DEPTH * dim() }
             .semantics { contentDescription = description },
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         repeat(length) { index ->
-            val filled by animateFloatAsState(if (index < entered) 1f else 0f, spring(dampingRatio = 0.6f), label = "dot")
+            val filled by animateFloatAsState(if (index < entered) 1f else 0f, spring(dampingRatio = 0.7f), label = "slot")
             Box(
                 Modifier
-                    .size(14.dp)
+                    .size(width = 26.dp, height = 14.dp)
                     .graphicsLayer {
-                        scaleX = 0.8f + 0.2f * filled
-                        scaleY = 0.8f + 0.2f * filled
+                        scaleX = 0.85f + 0.15f * filled
+                        scaleY = 0.85f + 0.15f * filled
                     }
                     .border(1.5.dp, Blesk.colors.textSecondary, CircleShape)
                     .background(Blesk.colors.textPrimary.copy(alpha = filled), CircleShape),
@@ -54,6 +56,8 @@ internal fun PinDots(length: Int, entered: Int, shake: Animatable<Float, *>, mod
         }
     }
 }
+
+private const val DIM_DEPTH = 0.65f
 
 /** Twelve round matte keys: digits, an optional biometric key and delete. */
 @Composable

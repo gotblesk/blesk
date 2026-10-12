@@ -2,6 +2,16 @@
 <resources>
     <string name="lock_title">Введи код</string>
     <string name="lock_wrong">Неверный код</string>
+    <string name="lock_password">Пароль</string>
+    <string name="lock_open">Открыть</string>
+    <string name="lock_forgot">Забыл код</string>
+    <string name="lock_forgot_title">Забыл код</string>
+    <string name="lock_forgot_text">Код нигде не хранится, поэтому восстановить его нельзя. Можно стереть всё с этого телефона и начать заново: чаты, ключи и настройки исчезнут.</string>
+    <string name="pin_password">Пароль</string>
+    <string name="pin_password_hint">Не короче %1$d символов</string>
+    <string name="pin_password_short">Слишком короткий пароль</string>
+    <string name="privacy_wipe_after_ten">Стереть после 10 попыток</string>
+    <string name="privacy_wipe_after_ten_hint">Если десять раз подряд ввести неверный код, всё на этом телефоне сотрётся</string>
     <string name="lock_wait">Попробуй через %1$s</string>
     <string name="lock_biometric">Войти по отпечатку или лицу</string>
     <string name="lock_biometric_prompt">Разблокировать blesk</string>
@@ -47,7 +57,7 @@
     <string name="privacy_delay">Блокировать</string>
     <string name="privacy_delay_now">сразу</string>
     <string name="privacy_delay_minute">1 мин</string>
-    <string name="privacy_delay_quarter">15 мин</string>
+    <string name="privacy_delay_quarter">5 мин</string>
     <string name="privacy_delay_hour">1 ч</string>
     <string name="privacy_screen">Экран</string>
     <string name="privacy_secure">Запрет скриншотов</string>

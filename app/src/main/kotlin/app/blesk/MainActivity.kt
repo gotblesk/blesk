@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
                     Box(Modifier.fillMaxSize()) {
                         IncognitoKeyboard(privacy.incognitoKeyboard) { BleskNavigation(container) }
                         NoticeHost(container.notices, Modifier.align(Alignment.BottomCenter))
-                        if (container.lock.locked) LockRoute(container, biometric = privacy.biometric)
+                        if (container.lock.locked) LockRoute(container, biometric = privacy.biometric, wipeAfterTen = privacy.wipeAfterTen)
                     }
                 }
             }
@@ -92,6 +92,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private var lockDelay = LockDelay.Immediately.millis
+
+    override fun onResume() {
+        super.onResume()
+        // With the app lock on, the app switcher shows a blank card instead of the last screen.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(!(application as BleskApplication).container.pinVault.isSet)
+        }
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

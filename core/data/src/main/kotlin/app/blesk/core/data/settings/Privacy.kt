@@ -4,7 +4,7 @@ package app.blesk.core.data.settings
 enum class LockDelay(val millis: Long) {
     Immediately(0),
     OneMinute(60_000),
-    FifteenMinutes(15 * 60_000),
+    FiveMinutes(5 * 60_000),
     OneHour(60 * 60_000),
 }
 
@@ -27,6 +27,8 @@ data class Privacy(
     val groups: Audience = Audience.Everyone,
     /** Who sees when you are online. */
     val online: Audience = Audience.Contacts,
+    /** Ten wrong codes in a row erase everything on this phone. */
+    val wipeAfterTen: Boolean = false,
     /** Keyboards are asked not to learn from what you type here. */
     val incognitoKeyboard: Boolean = true,
     /** Disappearing messages for chats you start; 0 keeps messages. One of [TIMER_STEPS]. */

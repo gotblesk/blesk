@@ -3,6 +3,7 @@ package app.blesk.navigation
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -25,15 +26,13 @@ import app.blesk.feature.security.PinEntry
 import app.blesk.feature.security.PinSetup
 import app.blesk.feature.security.PrivacyActions
 import app.blesk.feature.security.PrivacyScreen
+import app.blesk.feature.security.WipeKind
+import app.blesk.feature.security.WipeScreen
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import app.blesk.feature.security.R as SecurityR
 
-internal fun PinVault.attempt(pin: String): PinAttempt = when (val result = check(pin)) {
-    PinVault.Result.Ok -> PinAttempt.Ok
-    is PinVault.Result.Wrong -> PinAttempt.Wrong(result.waitMillis)
-    is PinVault.Result.Throttled -> PinAttempt.Wrong(result.waitMillis)
-}
+internal suspend fun PinVault.attempt(pin: String): PinAttempt = check(pin).toAttempt()
 
 @Composable
 internal fun PrivacyRoute(
@@ -80,10 +79,16 @@ internal fun PinChangeRoute(container: AppContainer, requireCurrent: Boolean, on
             check = { pin -> container.pinVault.attempt(pin).also { if (it == PinAttempt.Ok) verified = true } },
         )
     } else {
-        PinSetup(onDone = { pin ->
-            container.pinVault.set(pin)
-            onDone()
-        })
+        val scope = rememberCoroutineScope()
+        PinSetup(
+            minPassword = PinVault.MIN_PASSWORD,
+            onDone = { pin ->
+                scope.launch {
+                    container.pinVault.set(pin)
+                    onDone()
+                }
+            },
+        )
     }
 }
 
@@ -106,13 +111,17 @@ internal fun PinDisableRoute(container: AppContainer, onDone: () -> Unit) {
     )
 }
 
-/** The lock shown over everything until the right code or a strong biometric. */
+/**
+ * The lock shown over everything until the right code or a strong biometric. «Забыл код» leads
+ * to wiping the phone, the only way past a code that is stored nowhere.
+ */
 @Composable
-internal fun LockRoute(container: AppContainer, biometric: Boolean) {
+internal fun LockRoute(container: AppContainer, biometric: Boolean, wipeAfterTen: Boolean) {
     val activity = LocalActivity.current
     val context = LocalContext.current
     val title = stringResource(SecurityR.string.lock_biometric_prompt)
     val cancel = stringResource(SecurityR.string.lock_biometric_cancel)
+    var forgot by remember { mutableStateOf(false) }
     val canUseBiometric = biometric && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Biometrics.available(context)
     val promptBiometric: () -> Unit = {
         if (canUseBiometric && activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -123,12 +132,32 @@ internal fun LockRoute(container: AppContainer, biometric: Boolean) {
         promptBiometric()
         onDispose { }
     }
+    if (forgot) {
+        BackHandler { forgot = false }
+        WipeScreen(kind = WipeKind.ForgotCode, onWipe = { wipeEverything(context, container) }, onBack = { forgot = false })
+        return
+    }
     PinEntry(
         title = stringResource(SecurityR.string.lock_title),
         length = container.pinVault.length,
-        check = { pin -> container.pinVault.attempt(pin).also { if (it == PinAttempt.Ok) container.lock.unlock() } },
+        lock = true,
+        check = { pin ->
+            val result = container.pinVault.check(pin)
+            if (wipeAfterTen && result is PinVault.Result.Wrong && result.failures >= WIPE_AT) wipeEverything(context, container)
+            result.toAttempt()
+        },
+        onOpened = container.lock::unlock,
         onBiometric = if (canUseBiometric) promptBiometric else null,
+        onForgot = { forgot = true },
     )
+}
+
+private const val WIPE_AT = 10
+
+private fun PinVault.Result.toAttempt(): PinAttempt = when (this) {
+    PinVault.Result.Ok -> PinAttempt.Ok
+    is PinVault.Result.Wrong -> PinAttempt.Wrong(waitMillis)
+    is PinVault.Result.Throttled -> PinAttempt.Wrong(waitMillis)
 }
 
 /** Erases everything the app has on this phone and closes it, as if just installed. */

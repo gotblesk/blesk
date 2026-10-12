@@ -58,7 +58,9 @@ internal class MessageNotifier(private val context: Context, private val contain
         if (conversation?.muted(System.currentTimeMillis()) == true) return
         val generic = context.getString(R.string.notify_new_message)
         val text = Markup.parse(note.text).masked(context.getString(R.string.notify_spoiler))
-        val (title, line) = when (settings.preview) {
+        // With the app lock on, nothing about who wrote or what shows outside the app.
+        val preview = if (container.pinVault.isSet) NotificationPreview.Nothing else settings.preview
+        val (title, line) = when (preview) {
             NotificationPreview.NameAndText -> note.title to (note.author?.let { "$it: $text" } ?: text)
             NotificationPreview.NameOnly -> note.title to generic
             NotificationPreview.Nothing -> context.getString(R.string.app_name) to generic

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicSecureTextField
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
@@ -56,6 +57,38 @@ fun TextInput(
         }
         if (hint != null) {
             Text(hint, style = Blesk.type.caption, color = Blesk.colors.textTertiary, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
+        }
+    }
+}
+
+/** A labelled matte field for a password: typed characters show as dots, the last one briefly. */
+@Composable
+fun SecretInput(
+    label: String,
+    state: TextFieldState,
+    modifier: Modifier = Modifier,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    onDone: () -> Unit = {},
+) {
+    Column(modifier.padding(vertical = 6.dp)) {
+        Text(label, style = Blesk.type.label, color = Blesk.colors.textSecondary, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 52.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Blesk.colors.surfaceStrong)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            BasicSecureTextField(
+                state = state,
+                textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
+                cursorBrush = SolidColor(Blesk.colors.accent),
+                keyboardOptions = keyboardOptions,
+                onKeyboardAction = { onDone() },
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
+            )
         }
     }
 }

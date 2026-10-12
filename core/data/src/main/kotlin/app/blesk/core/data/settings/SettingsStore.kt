@@ -107,6 +107,7 @@ class SettingsStore(context: Context) {
             prefs[WHO_ADDS] = next.groups.name
             prefs[WHO_SEES_ONLINE] = next.online.name
             prefs[INCOGNITO_KEYBOARD] = next.incognitoKeyboard
+            prefs[WIPE_AFTER_TEN] = next.wipeAfterTen
             prefs[DEFAULT_TIMER] = next.defaultTimerSeconds
         }
     }
@@ -240,7 +241,8 @@ class SettingsStore(context: Context) {
     )
 
     private fun Preferences.privacy() = Privacy(
-        lockDelay = this[LOCK_DELAY]?.let { name -> LockDelay.entries.firstOrNull { it.name == name } } ?: LockDelay.Immediately,
+        // Fifteen minutes was a choice before; the nearest one now is five.
+        lockDelay = this[LOCK_DELAY]?.let(::lockDelayOf) ?: LockDelay.Immediately,
         biometric = this[BIOMETRIC] ?: false,
         secureScreen = this[SECURE_SCREEN] ?: false,
         readReceipts = this[READ_RECEIPTS] ?: true,
@@ -251,8 +253,12 @@ class SettingsStore(context: Context) {
         groups = audience(WHO_ADDS, Audience.Everyone),
         online = audience(WHO_SEES_ONLINE, Audience.Contacts),
         incognitoKeyboard = this[INCOGNITO_KEYBOARD] ?: true,
+        wipeAfterTen = this[WIPE_AFTER_TEN] ?: false,
         defaultTimerSeconds = this[DEFAULT_TIMER]?.takeIf { it in Privacy.TIMER_STEPS } ?: 0,
     )
+
+    private fun lockDelayOf(name: String): LockDelay? =
+        LockDelay.entries.firstOrNull { it.name == name } ?: LockDelay.FiveMinutes.takeIf { name == "FifteenMinutes" }
 
     private fun Preferences.audience(key: Preferences.Key<String>, fallback: Audience) =
         this[key]?.let { name -> Audience.entries.firstOrNull { it.name == name } } ?: fallback
@@ -283,6 +289,7 @@ class SettingsStore(context: Context) {
         val WHO_ADDS = stringPreferencesKey("who_adds")
         val WHO_SEES_ONLINE = stringPreferencesKey("who_sees_online")
         val INCOGNITO_KEYBOARD = booleanPreferencesKey("incognito_keyboard")
+        val WIPE_AFTER_TEN = booleanPreferencesKey("wipe_after_ten")
         val DEFAULT_TIMER = intPreferencesKey("default_timer")
         val TYPING_INDICATOR = booleanPreferencesKey("typing_indicator")
         val NOTIFY = booleanPreferencesKey("notify")

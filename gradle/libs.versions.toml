@@ -32,6 +32,7 @@ core-telecom = "1.0.1"
 coil = "3.6.3"
 exifinterface = "1.4.2"
 libsignal = "0.105.0"
+bouncycastle = "1.80"
 ktor = "3.6.0"
 room = "2.8.5"
 sqlite = "2.7.1"
@@ -88,6 +89,7 @@ coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" 
 coil-video = { module = "io.coil-kt.coil3:coil-video", version.ref = "coil" }
 androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
 libsignal-android = { module = "org.signal:libsignal-android", version.ref = "libsignal" }
+bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 libsignal-client = { module = "org.signal:libsignal-client", version.ref = "libsignal" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
