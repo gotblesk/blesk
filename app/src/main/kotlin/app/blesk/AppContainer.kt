@@ -91,6 +91,9 @@ class AppContainer(context: Context) {
     /** A chat to open, asked for by a notification. */
     val openRequest = MutableStateFlow<String?>(null)
 
+    /** A message for another chat while the app is in front: shown as a capsule instead of a system notification. */
+    val inAppNote = MutableStateFlow<InAppNote?>(null)
+
     /** Whether one of the app's screens is in front of the user. */
     @Volatile
     var visible = false
@@ -146,3 +149,6 @@ class AppContainer(context: Context) {
         chatsState.value = repository
     }
 }
+
+/** What the in-app capsule shows; the text is already masked to what the notification settings allow. */
+data class InAppNote(val conversationId: String, val title: String, val line: String)

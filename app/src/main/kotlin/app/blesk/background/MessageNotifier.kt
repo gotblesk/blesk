@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.blesk.AppContainer
+import app.blesk.InAppNote
 import app.blesk.MainActivity
 import app.blesk.R
 import app.blesk.core.data.IncomingMessages
@@ -61,6 +62,11 @@ internal class MessageNotifier(private val context: Context, private val contain
             NotificationPreview.NameAndText -> note.title to (note.author?.let { "$it: $text" } ?: text)
             NotificationPreview.NameOnly -> note.title to generic
             NotificationPreview.Nothing -> context.getString(R.string.app_name) to generic
+        }
+        // In front, the message comes as a capsule out of the top lens rather than over the app from the system.
+        if (container.visible) {
+            container.inAppNote.value = InAppNote(note.conversationId, title, line)
+            return
         }
         val history = lines.getOrPut(note.conversationId) { ArrayDeque() }
         history.addLast(line)

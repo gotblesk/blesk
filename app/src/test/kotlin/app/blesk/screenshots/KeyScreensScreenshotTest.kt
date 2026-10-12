@@ -1,5 +1,6 @@
 package app.blesk.screenshots
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import app.blesk.InAppNote
 import app.blesk.core.calls.CallMember
 import app.blesk.core.calls.MediaState
 import app.blesk.core.data.BotResult
@@ -84,6 +86,7 @@ import app.blesk.feature.settings.SafetyScreen
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.feature.settings.YouList
+import app.blesk.navigation.InAppNotice
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
 import app.blesk.shared.protocol.BotCommand
@@ -311,6 +314,23 @@ class KeyScreensScreenshotTest(private val name: String) {
                 onInvite = {},
                 friend = Newcomer("Аня Соколова", "anya", null),
             )
+        }
+    }
+
+    @Test
+    fun inAppNotice() = capture("01e_in_app_notice") {
+        Box {
+            HomeFrame("Чаты", 0) { padding ->
+                ChatList(
+                    conversations = seed.conversations.toImmutableList(),
+                    typing = persistentSetOf(),
+                    now = now,
+                    contentPadding = padding,
+                    onOpenConversation = {},
+                    onOpenChannel = { _, _ -> },
+                )
+            }
+            InAppNotice(InAppNote(DemoSeed.ANYA, "Аня Соколова", "Ты где? Мы уже у моста"), onOpen = {}, onDismiss = {})
         }
     }
 

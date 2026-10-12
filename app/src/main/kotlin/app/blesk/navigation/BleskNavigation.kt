@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -197,234 +198,250 @@ fun BleskNavigation(container: AppContainer) {
     val motion = Blesk.motion
     SharedTransitionLayout {
         CompositionLocalProvider(LocalSharedScope provides this) {
-            val screenDecorator = remember {
-                NavEntryDecorator<Any>(decorate = { entry -> Screen { entry.Content() } })
-            }
-            NavDisplay(
-                sharedTransitionScope = this@SharedTransitionLayout,
-                transitionSpec = { screenEnter(motion) },
-                popTransitionSpec = { screenExit(motion) },
-                predictivePopTransitionSpec = { edge -> screenExit(motion, towardsLeft = edge == NavigationEvent.EDGE_LEFT) },
-                entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), screenDecorator),
-                backStack = backStack,
-                onBack = back,
-                entryProvider = entryProvider {
-                    entry<HomeKey> {
-                        var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
-                        Home(
-                            container = container,
-                            tab = tab,
-                            demo = demo,
-                            serverHost = (mode as? AppMode.Server)?.url?.removePrefix("https://"),
-                            debugUnlocked = debugUnlocked,
-                            onSelectTab = { tab = it },
-                            onOpenConversation = { backStack.add(ConversationKey(it)) },
-                            onOpenMessage = { chat, message -> backStack.add(ConversationKey(chat, message)) },
-                            onNewChat = { backStack.add(NewChatKey) },
-                            onAddRoom = { backStack.add(RoomsAddKey) },
-                            onOpenArchive = { backStack.add(ArchiveKey) },
-                            onAddContact = { backStack.add(NewChatKey) },
-                            contactActions = ContactActions(
-                                onOpen = { contact -> openDirect(contact.username) { backStack.add(ChatInfoKey(it)) } },
-                                onWrite = { contact -> openDirect(contact.username) { backStack.add(ConversationKey(it)) } },
-                                onInvite = (mode as? AppMode.Server)?.let { server -> { invite(context, server.username) } },
-                            ),
-                            onOpenChannel = { room, channel ->
-                                when {
-                                    channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
-                                    // The demo has nobody to talk to, so its voice channels stay a picture.
-                                    demo -> backStack.add(VoiceChannelKey(room.id, channel.id))
-                                    else -> {
-                                        val title = "${room.title} · ${channel.title}"
-                                        val channelId = channel.id.substringAfter(':')
-                                        context.startActivity(CallActivity.voice(context, room.id, channelId, channel.id, title))
-                                    }
-                                }
-                            },
-                            settings = SettingsActions(
-                                onOpenProfile = { backStack.add(ProfileKey) },
-                                onOpenAppearance = { backStack.add(AppearanceKey) },
-                                onOpenPrivacy = { backStack.add(PrivacyKey) },
-                                onOpenAbout = { backStack.add(AboutKey) },
-                                onOpenDebug = { backStack.add(DebugKey) },
-                                onOpenServer = { backStack.add(ServerKey) },
-                                onOpenBots = { backStack.add(BotsKey) },
-                                onOpenNotifications = { backStack.add(NotificationsKey) },
-                                onOpenStorage = { backStack.add(StorageKey) },
-                                onShowQr = { backStack.add(MyQrKey) },
-                                onShare = { scope.launch { shareProfile(context, container.settings.profile.first().username) } },
-                                onOpenSaved = {
-                                    scope.launch {
-                                        val chats = container.chats.value ?: return@launch
-                                        chats.conversations.first().firstOrNull { it.kind == ConversationKind.Saved }
-                                            ?.let { backStack.add(ConversationKey(it.id)) }
-                                    }
-                                },
-                            ),
-                        )
-                    }
-                    entry<ProfileKey> { ProfileRoute(container, back) }
-                    entry<MyQrKey> {
-                        val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
-                        MyQrScreen(profile?.username.orEmpty(), onBack = back)
-                    }
-                    entry<ServerKey> {
-                        Box(Modifier.sharedBounds(screenKey("server"))) {
-                            val server = mode as? AppMode.Server
-                            ServerScreen(
-                                connected = server?.let { ServerState(it.url, it.username, it.pin != null) },
-                                onConnect = { raw, username -> connect(container, raw, username) },
-                                onBack = back,
-                            )
-                        }
-                    }
-                    entry<PrivacyKey> {
-                        Box(Modifier.sharedBounds(screenKey("privacy"))) {
-                            PrivacyRoute(
+            // The in-app notice floats over every screen, under the status bar.
+            Box(Modifier.fillMaxSize()) {
+                val screenDecorator = remember {
+                    NavEntryDecorator<Any>(decorate = { entry -> Screen { entry.Content() } })
+                }
+                NavDisplay(
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    transitionSpec = { screenEnter(motion) },
+                    popTransitionSpec = { screenExit(motion) },
+                    predictivePopTransitionSpec = { edge -> screenExit(motion, towardsLeft = edge == NavigationEvent.EDGE_LEFT) },
+                    entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), screenDecorator),
+                    backStack = backStack,
+                    onBack = back,
+                    entryProvider = entryProvider {
+                        entry<HomeKey> {
+                            var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
+                            Home(
                                 container = container,
-                                onSetPin = { backStack.add(PinChangeKey(requireCurrent = false)) },
-                                onChangePin = { backStack.add(PinChangeKey(requireCurrent = true)) },
-                                onDisablePin = { backStack.add(PinDisableKey) },
-                                onWipe = { backStack.add(WipeKey) },
-                                onBack = back,
-                            )
-                        }
-                    }
-                    entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
-                    entry<PinDisableKey> { PinDisableRoute(container, back) }
-                    entry<WipeKey> {
-                        val context = LocalContext.current
-                        WipeScreen(onWipe = { wipeEverything(context, container) }, onBack = back)
-                    }
-                    entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
-                    entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
-                    entry<ConversationKey> { key ->
-                        ConversationRoute(
-                            container = container,
-                            id = key.id,
-                            focusMessageId = key.focusMessageId,
-                            appearance = appearance,
-                            onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
-                            onOpenGroup = { backStack.add(GroupInfoKey(it)) },
-                            onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
-                            onVerify = { backStack.add(ChatInfoKey(key.id)) },
-                            onForward = { messageIds -> backStack.add(ForwardKey(key.id, messageIds)) },
-                            onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
-                            onBack = back,
-                            onOpenPerson = { backStack.add(ChatInfoKey(it)) },
-                        )
-                    }
-                    entry<NewChatKey> {
-                        NewChatRoute(
-                            container = container,
-                            onOpenConversation = { id ->
-                                back()
-                                backStack.add(ConversationKey(id))
-                            },
-                            onScan = { backStack.add(ScanKey) },
-                            onNewGroup = { kind -> backStack.add(NewGroupKey(kind)) },
-                            onBack = back,
-                        )
-                    }
-                    entry<ArchiveKey> {
-                        ArchiveRoute(container, onOpenConversation = { backStack.add(ConversationKey(it)) }, onBack = back)
-                    }
-                    entry<RoomsAddKey> { RoomsAddRoute(container, onCreate = { backStack.add(NewGroupKey(NewKind.Room)) }, onBack = back) }
-                    entry<ScanKey> {
-                        ScanRoute(container, onOpenConversation = { id ->
-                            while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-                            backStack.add(ConversationKey(id))
-                        }, onBack = back)
-                    }
-                    entry<NewGroupKey> { key ->
-                        NewGroupRoute(container, key.kind, onCreated = { id ->
-                            while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-                            backStack.add(ConversationKey(id))
-                        }, onBack = back)
-                    }
-                    entry<GroupInfoKey> { key ->
-                        GroupInfoRoute(container, key.groupId, onLeft = {
-                            while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-                        }, onBack = back)
-                    }
-                    entry<BotsKey> {
-                        Box(Modifier.sharedBounds(screenKey("bots"))) { BotsRoute(container, back) }
-                    }
-                    entry<SafetyKey> { key -> SafetyRoute(container, key.username, back) }
-                    entry<ChatInfoKey> { key ->
-                        ChatInfoRoute(
-                            container = container,
-                            id = key.id,
-                            onVerify = { backStack.add(SafetyKey(key.id)) },
-                            onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
-                            onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
-                            onChatDeleted = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
-                            onBack = back,
-                        )
-                    }
-                    entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageIds, onDone = back, onBack = back) }
-                    entry<NotificationsKey> {
-                        Box(Modifier.sharedBounds(screenKey("notifications"))) { NotificationsRoute(container, back) }
-                    }
-                    entry<StorageKey> {
-                        Box(Modifier.sharedBounds(screenKey("storage"))) { StorageRoute(back) }
-                    }
-                    entry<SpaceInfoKey> { key ->
-                        SpaceInfoRoute(container, key.handle, onLeft = {
-                            while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-                        }, onBack = back)
-                    }
-                    entry<MediaKey> { key ->
-                        val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry
-                        val messages by chats.messages(key.conversationId).collectAsStateWithLifecycle(initialValue = null)
-                        val attachment = messages?.firstOrNull { it.id == key.messageId }?.attachment
-                        if (attachment != null) MediaViewer(attachment, onBack = back)
-                    }
-                    entry<VoiceChannelKey> { key ->
-                        val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry
-                        val channel by chats.conversation(key.roomId)
-                            .map { room -> room?.channels?.firstOrNull { it.id == key.channelId } }
-                            .collectAsStateWithLifecycle(initialValue = null)
-                        channel?.let { VoiceChannelScreen(channel = it, onBack = back) }
-                    }
-                    entry<AppearanceKey> {
-                        Box(Modifier.sharedBounds(screenKey("appearance"))) {
-                            AppearanceRoute(container, appearance, back)
-                        }
-                    }
-                    entry<AboutKey> {
-                        Box(Modifier.sharedBounds(screenKey("about"))) {
-                            AboutScreen(
-                                versionName = BuildConfig.VERSION_NAME,
+                                tab = tab,
+                                demo = demo,
+                                serverHost = (mode as? AppMode.Server)?.url?.removePrefix("https://"),
                                 debugUnlocked = debugUnlocked,
-                                onOpenLicenses = { backStack.add(LicensesKey) },
-                                onUnlockDebug = {
-                                    scope.launch { container.settings.setDebugUnlocked(true) }
-                                    container.eventLog.record(EventCode.DebugUnlocked)
+                                onSelectTab = { tab = it },
+                                onOpenConversation = { backStack.add(ConversationKey(it)) },
+                                onOpenMessage = { chat, message -> backStack.add(ConversationKey(chat, message)) },
+                                onNewChat = { backStack.add(NewChatKey) },
+                                onAddRoom = { backStack.add(RoomsAddKey) },
+                                onOpenArchive = { backStack.add(ArchiveKey) },
+                                onAddContact = { backStack.add(NewChatKey) },
+                                contactActions = ContactActions(
+                                    onOpen = { contact -> openDirect(contact.username) { backStack.add(ChatInfoKey(it)) } },
+                                    onWrite = { contact -> openDirect(contact.username) { backStack.add(ConversationKey(it)) } },
+                                    onInvite = (mode as? AppMode.Server)?.let { server -> { invite(context, server.username) } },
+                                ),
+                                onOpenChannel = { room, channel ->
+                                    when {
+                                        channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
+                                        // The demo has nobody to talk to, so its voice channels stay a picture.
+                                        demo -> backStack.add(VoiceChannelKey(room.id, channel.id))
+                                        else -> {
+                                            val title = "${room.title} · ${channel.title}"
+                                            val channelId = channel.id.substringAfter(':')
+                                            context.startActivity(CallActivity.voice(context, room.id, channelId, channel.id, title))
+                                        }
+                                    }
                                 },
+                                settings = SettingsActions(
+                                    onOpenProfile = { backStack.add(ProfileKey) },
+                                    onOpenAppearance = { backStack.add(AppearanceKey) },
+                                    onOpenPrivacy = { backStack.add(PrivacyKey) },
+                                    onOpenAbout = { backStack.add(AboutKey) },
+                                    onOpenDebug = { backStack.add(DebugKey) },
+                                    onOpenServer = { backStack.add(ServerKey) },
+                                    onOpenBots = { backStack.add(BotsKey) },
+                                    onOpenNotifications = { backStack.add(NotificationsKey) },
+                                    onOpenStorage = { backStack.add(StorageKey) },
+                                    onShowQr = { backStack.add(MyQrKey) },
+                                    onShare = { scope.launch { shareProfile(context, container.settings.profile.first().username) } },
+                                    onOpenSaved = {
+                                        scope.launch {
+                                            val chats = container.chats.value ?: return@launch
+                                            chats.conversations.first().firstOrNull { it.kind == ConversationKind.Saved }
+                                                ?.let { backStack.add(ConversationKey(it.id)) }
+                                        }
+                                    },
+                                ),
+                            )
+                        }
+                        entry<ProfileKey> { ProfileRoute(container, back) }
+                        entry<MyQrKey> {
+                            val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
+                            MyQrScreen(profile?.username.orEmpty(), onBack = back)
+                        }
+                        entry<ServerKey> {
+                            Box(Modifier.sharedBounds(screenKey("server"))) {
+                                val server = mode as? AppMode.Server
+                                ServerScreen(
+                                    connected = server?.let { ServerState(it.url, it.username, it.pin != null) },
+                                    onConnect = { raw, username -> connect(container, raw, username) },
+                                    onBack = back,
+                                )
+                            }
+                        }
+                        entry<PrivacyKey> {
+                            Box(Modifier.sharedBounds(screenKey("privacy"))) {
+                                PrivacyRoute(
+                                    container = container,
+                                    onSetPin = { backStack.add(PinChangeKey(requireCurrent = false)) },
+                                    onChangePin = { backStack.add(PinChangeKey(requireCurrent = true)) },
+                                    onDisablePin = { backStack.add(PinDisableKey) },
+                                    onWipe = { backStack.add(WipeKey) },
+                                    onBack = back,
+                                )
+                            }
+                        }
+                        entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
+                        entry<PinDisableKey> { PinDisableRoute(container, back) }
+                        entry<WipeKey> {
+                            val context = LocalContext.current
+                            WipeScreen(onWipe = { wipeEverything(context, container) }, onBack = back)
+                        }
+                        entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
+                        entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
+                        entry<ConversationKey> { key ->
+                            ConversationRoute(
+                                container = container,
+                                id = key.id,
+                                focusMessageId = key.focusMessageId,
+                                appearance = appearance,
+                                onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
+                                onOpenGroup = { backStack.add(GroupInfoKey(it)) },
+                                onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
+                                onVerify = { backStack.add(ChatInfoKey(key.id)) },
+                                onForward = { messageIds -> backStack.add(ForwardKey(key.id, messageIds)) },
+                                onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
+                                onBack = back,
+                                onOpenPerson = { backStack.add(ChatInfoKey(it)) },
+                            )
+                        }
+                        entry<NewChatKey> {
+                            NewChatRoute(
+                                container = container,
+                                onOpenConversation = { id ->
+                                    back()
+                                    backStack.add(ConversationKey(id))
+                                },
+                                onScan = { backStack.add(ScanKey) },
+                                onNewGroup = { kind -> backStack.add(NewGroupKey(kind)) },
                                 onBack = back,
                             )
                         }
-                    }
-                    entry<DebugKey> {
-                        val entries by container.eventLog.entries.collectAsStateWithLifecycle()
-                        var crashVersion by remember { mutableIntStateOf(0) }
-                        val crash = remember(crashVersion) { container.crashStore.read() }
-                        DebugScreen(
-                            entries = entries.toImmutableList(),
-                            crash = crash,
-                            appInfo = "blesk ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}), Android ${Build.VERSION.SDK_INT}",
-                            onClearCrash = {
-                                container.crashStore.clear()
-                                container.eventLog.record(EventCode.CrashCleared)
-                                crashVersion++
-                            },
-                            onClearJournal = container.eventLog::clear,
-                            onBack = back,
-                        )
-                    }
-                },
-            )
+                        entry<ArchiveKey> {
+                            ArchiveRoute(container, onOpenConversation = { backStack.add(ConversationKey(it)) }, onBack = back)
+                        }
+                        entry<RoomsAddKey> {
+                            RoomsAddRoute(container, onCreate = { backStack.add(NewGroupKey(NewKind.Room)) }, onBack = back)
+                        }
+                        entry<ScanKey> {
+                            ScanRoute(container, onOpenConversation = { id ->
+                                while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                                backStack.add(ConversationKey(id))
+                            }, onBack = back)
+                        }
+                        entry<NewGroupKey> { key ->
+                            NewGroupRoute(container, key.kind, onCreated = { id ->
+                                while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                                backStack.add(ConversationKey(id))
+                            }, onBack = back)
+                        }
+                        entry<GroupInfoKey> { key ->
+                            GroupInfoRoute(container, key.groupId, onLeft = {
+                                while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                            }, onBack = back)
+                        }
+                        entry<BotsKey> {
+                            Box(Modifier.sharedBounds(screenKey("bots"))) { BotsRoute(container, back) }
+                        }
+                        entry<SafetyKey> { key -> SafetyRoute(container, key.username, back) }
+                        entry<ChatInfoKey> { key ->
+                            ChatInfoRoute(
+                                container = container,
+                                id = key.id,
+                                onVerify = { backStack.add(SafetyKey(key.id)) },
+                                onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
+                                onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
+                                onChatDeleted = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                                onBack = back,
+                            )
+                        }
+                        entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageIds, onDone = back, onBack = back) }
+                        entry<NotificationsKey> {
+                            Box(Modifier.sharedBounds(screenKey("notifications"))) { NotificationsRoute(container, back) }
+                        }
+                        entry<StorageKey> {
+                            Box(Modifier.sharedBounds(screenKey("storage"))) { StorageRoute(back) }
+                        }
+                        entry<SpaceInfoKey> { key ->
+                            SpaceInfoRoute(container, key.handle, onLeft = {
+                                while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                            }, onBack = back)
+                        }
+                        entry<MediaKey> { key ->
+                            val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry
+                            val messages by chats.messages(key.conversationId).collectAsStateWithLifecycle(initialValue = null)
+                            val attachment = messages?.firstOrNull { it.id == key.messageId }?.attachment
+                            if (attachment != null) MediaViewer(attachment, onBack = back)
+                        }
+                        entry<VoiceChannelKey> { key ->
+                            val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry
+                            val channel by chats.conversation(key.roomId)
+                                .map { room -> room?.channels?.firstOrNull { it.id == key.channelId } }
+                                .collectAsStateWithLifecycle(initialValue = null)
+                            channel?.let { VoiceChannelScreen(channel = it, onBack = back) }
+                        }
+                        entry<AppearanceKey> {
+                            Box(Modifier.sharedBounds(screenKey("appearance"))) {
+                                AppearanceRoute(container, appearance, back)
+                            }
+                        }
+                        entry<AboutKey> {
+                            Box(Modifier.sharedBounds(screenKey("about"))) {
+                                AboutScreen(
+                                    versionName = BuildConfig.VERSION_NAME,
+                                    debugUnlocked = debugUnlocked,
+                                    onOpenLicenses = { backStack.add(LicensesKey) },
+                                    onUnlockDebug = {
+                                        scope.launch { container.settings.setDebugUnlocked(true) }
+                                        container.eventLog.record(EventCode.DebugUnlocked)
+                                    },
+                                    onBack = back,
+                                )
+                            }
+                        }
+                        entry<DebugKey> {
+                            val entries by container.eventLog.entries.collectAsStateWithLifecycle()
+                            var crashVersion by remember { mutableIntStateOf(0) }
+                            val crash = remember(crashVersion) { container.crashStore.read() }
+                            DebugScreen(
+                                entries = entries.toImmutableList(),
+                                crash = crash,
+                                appInfo = "blesk ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}), " +
+                                    "Android ${Build.VERSION.SDK_INT}",
+                                onClearCrash = {
+                                    container.crashStore.clear()
+                                    container.eventLog.record(EventCode.CrashCleared)
+                                    crashVersion++
+                                },
+                                onClearJournal = container.eventLog::clear,
+                                onBack = back,
+                            )
+                        }
+                    },
+                )
+                val note by container.inAppNote.collectAsStateWithLifecycle()
+                InAppNotice(
+                    note = note,
+                    onOpen = { id ->
+                        container.inAppNote.value = null
+                        backStack.add(ConversationKey(id))
+                    },
+                    onDismiss = { container.inAppNote.value = null },
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
         }
     }
 }
