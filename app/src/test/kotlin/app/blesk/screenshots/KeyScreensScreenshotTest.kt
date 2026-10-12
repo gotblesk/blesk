@@ -95,6 +95,8 @@ import app.blesk.feature.settings.ConnectOutcome
 import app.blesk.feature.settings.LicensesScreen
 import app.blesk.feature.settings.MetaballSandbox
 import app.blesk.feature.settings.NotificationsScreen
+import app.blesk.feature.settings.OfflineItem
+import app.blesk.feature.settings.OfflineScreen
 import app.blesk.feature.settings.PrivacyPolicyScreen
 import app.blesk.feature.settings.ProxyCheck
 import app.blesk.feature.settings.ProxyControls
@@ -575,6 +577,20 @@ class KeyScreensScreenshotTest(private val name: String) {
                 onStop = {},
             )
         }
+    }
+
+    @Test
+    fun offline() = capture("31_offline") {
+        OfflineScreen(
+            items = persistentListOf(
+                OfflineItem("anya", "m1", "Видео", "Аня Соколова", 48_000_000),
+                OfflineItem("anya", "m2", "макеты.pdf", "Аня Соколова", 2_400_000),
+                OfflineItem("work", "m3", "Звезда по имени Солнце", "Работа", 8_600_000, progress = 0.4f),
+            ),
+            onOpen = {},
+            onRemove = {},
+            onBack = {},
+        )
     }
 
     @Test

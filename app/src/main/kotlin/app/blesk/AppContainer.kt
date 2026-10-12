@@ -16,6 +16,7 @@ import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.AutoDownload
+import app.blesk.core.data.settings.KeptOffline
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.PrivateImage
 import app.blesk.core.data.settings.ProxySetting
@@ -83,6 +84,7 @@ class AppContainer(context: Context) {
     val circleRecorder = CircleRecorder(context, media)
     val stickers by lazy { StickerStore(context) }
     val stickerMaker = StickerMaker(context)
+    val keptOffline = KeptOffline(context)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
     val notices = Notices(scope)
     val network: StateFlow<Boolean> by lazy { networkAvailable(context.applicationContext, scope) }
@@ -170,7 +172,9 @@ class AppContainer(context: Context) {
 
     /** «Хранить медиа»: files older than [days] leave the phone; the messages stay. */
     suspend fun clearOldMedia(repository: ChatRepository, days: Int) {
-        if (days > 0) repository.clearMedia(null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(days.toLong()))
+        if (days <= 0) return
+        val keep = keptOffline.keys.first().map { it.messageId }.toSet()
+        repository.clearMedia(null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(days.toLong()), keep)
     }
 
     /** Creates an account on [address] and switches the app to it. */

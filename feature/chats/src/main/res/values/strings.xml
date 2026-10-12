@@ -369,6 +369,9 @@
     <string name="sticker_remove">Удалить</string>
     <string name="sticker_save">Сохранить</string>
     <string name="sticker_make">Сделать стикер</string>
+    <string name="offline_keep">Сохранить для просмотра без интернета</string>
+    <string name="offline_unkeep">Не хранить без интернета</string>
+    <string name="offline_kept">Файл скачается целиком и не удалится при очистке</string>
     <string name="sticker_added">Стикер добавлен в набор «%1$s»</string>
     <string name="emoji_recent">Недавние</string>
     <string name="emoji_emotions">Смайлы</string>

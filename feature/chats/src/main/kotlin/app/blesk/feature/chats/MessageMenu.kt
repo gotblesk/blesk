@@ -70,6 +70,9 @@ internal fun MessageMenu(
     onSelect: (() -> Unit)? = null,
     onRetry: (() -> Unit)? = null,
     onMakeSticker: (() -> Unit)? = null,
+    /** Keeps the file for watching without the internet, or stops keeping it; null where there is no file to keep. */
+    onKeepOffline: ((keep: Boolean) -> Unit)? = null,
+    keptOffline: Boolean = false,
 ) {
     val copy = rememberCopy()
     val closeLabel = stringResource(R.string.chat_close)
@@ -169,6 +172,14 @@ internal fun MessageMenu(
                         icon = BleskIcons.Pin,
                         showChevron = false,
                         onClick = { act(pin) },
+                    )
+                }
+                onKeepOffline?.let { keep ->
+                    ListRow(
+                        title = stringResource(if (keptOffline) R.string.offline_unkeep else R.string.offline_keep),
+                        icon = BleskIcons.Download,
+                        showChevron = false,
+                        onClick = { act { keep(!keptOffline) } },
                     )
                 }
                 onMakeSticker?.let { make ->

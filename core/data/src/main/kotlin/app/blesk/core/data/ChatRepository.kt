@@ -172,8 +172,11 @@ interface ChatTools {
     /** Attachments whose files are on this phone. */
     suspend fun storedMedia(): List<StoredMedia> = emptyList()
 
-    /** Deletes the files of attachments sent before [beforeMillis], in one chat or in all; the messages stay. */
-    suspend fun clearMedia(conversationId: String?, beforeMillis: Long) = Unit
+    /**
+     * Deletes the files of attachments sent before [beforeMillis], in one chat or in all; the
+     * messages stay, and so do the files of the messages in [keep].
+     */
+    suspend fun clearMedia(conversationId: String?, beforeMillis: Long, keep: Set<String> = emptySet()) = Unit
 }
 
 /** A file on its way: [done] of [total] bytes; [total] is -1 while unknown. */

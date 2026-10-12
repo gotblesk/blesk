@@ -46,6 +46,7 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.GestureHint
+import app.blesk.core.data.settings.OfflineKey
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.design.component.ChatBackdrop
 import app.blesk.core.design.component.rememberNotify
@@ -61,7 +62,9 @@ import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.protocol.BotCommand
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceRole
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -238,6 +241,10 @@ internal fun ConversationRoute(
     val bots = demo as? BotController
     val isBot = bots?.isBot(id) == true
     val stickerLibrary by container.stickers.library.collectAsStateWithLifecycle()
+    val keptNotice = stringResource(app.blesk.feature.chats.R.string.offline_kept)
+    val kept by remember(id) {
+        container.keptOffline.keys.map { keys -> keys.filter { it.conversationId == id }.map { it.messageId }.toImmutableSet() }
+    }.collectAsStateWithLifecycle(initialValue = persistentSetOf())
     val stickers = StickerShelf(
         library = stickerLibrary,
         onSend = { sticker ->
@@ -299,6 +306,16 @@ internal fun ConversationRoute(
             onForward = onForward,
             onPin = { messageId, pinned -> demo.pinMessage(id, messageId, pinned) },
             onMakeSticker = { path -> onMakeSticker(Uri.fromFile(File(path)).toString()) },
+            onKeepOffline = { messageId, keep ->
+                scope.launch {
+                    container.keptOffline.set(OfflineKey(id, messageId), keep)
+                    if (keep) {
+                        // A file still on the server comes down now, whatever «Автозагрузка» says.
+                        if (shown.firstOrNull { it.id == messageId }?.pending == true) demo.retryDownload(id, messageId)
+                        notify(keptNotice)
+                    }
+                }
+            },
             onButton = { messageId, button ->
                 val link = button.url
                 val data = button.data
@@ -352,6 +369,7 @@ internal fun ConversationRoute(
                 onHintDone = { hint -> scope.launch { container.settings.markHint(hint) } },
                 recentEmoji = recentEmoji.toImmutableList(),
                 stickers = stickers.takeIf { !isBot },
+                keptOffline = kept,
                 members = groupState?.members.orEmpty()
                     .filter { it.username != groupController?.me }
                     .map { member -> demo.contact(member.username) ?: Contact(member.username, member.username, member.username) }

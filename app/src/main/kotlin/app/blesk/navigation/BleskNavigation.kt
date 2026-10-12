@@ -488,7 +488,16 @@ fun BleskNavigation(container: AppContainer) {
                             Box(Modifier.sharedBounds(screenKey("notifications"))) { NotificationsRoute(container, back) }
                         }
                         entry<StorageKey> {
-                            Box(Modifier.sharedBounds(screenKey("storage"))) { StorageRoute(container, back) }
+                            Box(Modifier.sharedBounds(screenKey("storage"))) {
+                                StorageRoute(container, onOpenOffline = { backStack.add(KeptOfflineKey) }, onBack = back)
+                            }
+                        }
+                        entry<KeptOfflineKey> {
+                            OfflineRoute(
+                                container,
+                                onOpen = { chat, message -> backStack.add(ConversationKey(chat, message)) },
+                                onBack = back,
+                            )
                         }
                         entry<SpaceInfoKey> { key ->
                             SpaceInfoRoute(container, key.handle, onLeft = {

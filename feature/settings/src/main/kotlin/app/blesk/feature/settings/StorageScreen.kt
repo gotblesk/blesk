@@ -10,6 +10,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.settings.AutoDownload
@@ -23,6 +24,7 @@ import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
+import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -50,6 +52,7 @@ class StorageActions(
     val onClearCache: () -> Unit,
     val onBack: () -> Unit,
     val onAutoDownload: (AutoDownload) -> Unit = {},
+    val onOpenOffline: () -> Unit = {},
 )
 
 @Composable
@@ -59,6 +62,8 @@ fun StorageScreen(
     actions: StorageActions,
     modifier: Modifier = Modifier,
     autoDownload: AutoDownload = AutoDownload(),
+    /** How many files are kept for watching without the internet. */
+    offlineCount: Int = 0,
 ) {
     val context = LocalContext.current
     fun size(bytes: Long?): String =
@@ -72,6 +77,14 @@ fun StorageScreen(
             ListRow(title = stringResource(R.string.storage_files), subtitle = size(use?.files), showChevron = false)
             ListRow(title = stringResource(R.string.storage_database), subtitle = size(use?.database), showChevron = false)
             ListRow(title = stringResource(R.string.storage_cache), subtitle = size(use?.cache), showChevron = false)
+        }
+        Card(pad.padding(top = 12.dp)) {
+            ListRow(
+                title = stringResource(R.string.offline_title),
+                subtitle = pluralStringResource(R.plurals.offline_count, offlineCount, offlineCount),
+                icon = BleskIcons.Download,
+                onClick = actions.onOpenOffline,
+            )
         }
         Button(
             text = stringResource(R.string.storage_clear_cache),

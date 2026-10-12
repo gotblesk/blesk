@@ -237,4 +237,15 @@
     <string name="storage_auto_videos">Видео</string>
     <string name="storage_auto_files">Файлы</string>
     <string name="storage_auto_hint">Голосовые и кружки приходят всегда. Остальное без автозагрузки скачивается по нажатию — на нём виден размер.</string>
+    <string name="offline_title">Сохранённое офлайн</string>
+    <string name="offline_empty">Пока ничего. В меню видео, музыки или файла выбери «Сохранить для просмотра без интернета».</string>
+    <string name="offline_downloading">скачивается, %1$d %%</string>
+    <string name="offline_remove">Не хранить «%1$s» без интернета</string>
+    <string name="offline_hint">Эти файлы скачаны целиком и открываются без интернета. «Хранить медиа» их не удаляет; убери из списка — и они станут обычными.</string>
+    <plurals name="offline_count">
+        <item quantity="one">%d файл</item>
+        <item quantity="few">%d файла</item>
+        <item quantity="many">%d файлов</item>
+        <item quantity="other">%d файла</item>
+    </plurals>
 </resources>

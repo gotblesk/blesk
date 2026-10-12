@@ -111,7 +111,9 @@ import app.blesk.feature.chats.media.pause
 import app.blesk.shared.appearance.ThemeSpec
 import app.blesk.shared.protocol.BotCommand
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -163,6 +165,8 @@ class ConversationCallbacks(
     val onEmojiPicked: (String) -> Unit = {},
     /** A photo of the chat into the sticker maker, by its path. */
     val onMakeSticker: ((path: String) -> Unit)? = null,
+    /** «Сохранить для просмотра без интернета» for a video, a song, a voice note or a file. */
+    val onKeepOffline: ((messageId: String, keep: Boolean) -> Unit)? = null,
 )
 
 @Composable
@@ -189,6 +193,8 @@ fun ConversationScreen(
     recentEmoji: ImmutableList<String> = persistentListOf(),
     /** Null where stickers cannot be sent: bots, read-only chats. */
     stickers: StickerShelf? = null,
+    /** Messages whose files are kept for watching without the internet. */
+    keptOffline: ImmutableSet<String> = persistentSetOf(),
     /** What a bot offers when you type "/". */
     commands: ImmutableList<BotCommand> = persistentListOf(),
     /** Marks the chat as part of the demo world. */
@@ -654,6 +660,10 @@ fun ConversationScreen(
                     onPin = callbacks.onPin?.let { pin -> { pin(message.id, message.id !in conversation.pinnedMessageIds) } },
                     pinned = message.id in conversation.pinnedMessageIds,
                     onReact = if (reactions) ({ symbol -> actions.onReact(message, symbol) }) else null,
+                    onKeepOffline = callbacks.onKeepOffline?.takeIf { message.attachment?.keepsOffline() == true }?.let { keep ->
+                        { kept -> keep(message.id, kept) }
+                    },
+                    keptOffline = message.id in keptOffline,
                     onMakeSticker = (message.attachment as? Attachment.Photo)?.path?.takeIf { it.isNotEmpty() }?.let { path ->
                         callbacks.onMakeSticker?.let { make -> { make(path) } }
                     },
@@ -882,3 +892,7 @@ private fun PinnedCapsule(pinned: ImmutableList<Message>, onShow: (Message) -> U
 
 private val MENU_BLUR = 10.dp
 private val ColumnAvatar = 28.dp
+
+/** What «Сохранить для просмотра без интернета» is for: video, audio and files. */
+private fun Attachment.keepsOffline(): Boolean =
+    this is Attachment.Video || this is Attachment.Music || this is Attachment.Voice || this is Attachment.File

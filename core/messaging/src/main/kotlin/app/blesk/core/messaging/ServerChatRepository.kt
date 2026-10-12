@@ -458,9 +458,9 @@ class ServerChatRepository(
         decodeAttachment(row.attachment)?.takeIf { it.files.isNotEmpty() }?.let { StoredMedia(row.conversationId, row.sentAt, it) }
     }
 
-    override suspend fun clearMedia(conversationId: String?, beforeMillis: Long) {
+    override suspend fun clearMedia(conversationId: String?, beforeMillis: Long, keep: Set<String>) {
         db.messages().withFiles()
-            .filter { (conversationId == null || it.conversationId == conversationId) && it.sentAt < beforeMillis }
+            .filter { (conversationId == null || it.conversationId == conversationId) && it.sentAt < beforeMillis && it.id !in keep }
             .forEach { row ->
                 val attachment = decodeAttachment(row.attachment) ?: return@forEach
                 val cleared = attachment.withoutFiles() ?: return@forEach
