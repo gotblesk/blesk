@@ -8,12 +8,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
-import app.blesk.core.design.motion.BleskMotion
-import app.blesk.core.design.motion.rememberSystemMotion
 import app.blesk.core.design.spark.LightSource
 import app.blesk.core.design.spark.LocalLightSource
 import app.blesk.core.design.spark.SparkIndication
 import app.blesk.core.design.spark.rememberLightSource
+import app.blesk.core.motion.BleskMotion
+import app.blesk.core.motion.rememberSystemMotion
 import app.blesk.shared.appearance.Appearance
 
 private val LocalColors = staticCompositionLocalOf { BleskPalette.from(Appearance().theme) }
@@ -53,7 +53,7 @@ fun BleskTheme(
     val colors = remember(normalized.theme) { BleskPalette.from(normalized.theme) }
     val type = remember(normalized.textScale) { BleskType.create(normalized.textScale) }
     val dimens = remember(normalized.density) { BleskDimens.forDensity(normalized.density) }
-    val lightSource = rememberLightSource(enabled = normalized.tiltResponse && !motion.reduced)
+    val lightSource = rememberLightSource(enabled = normalized.tiltResponse && !motion.still)
     val indication = remember(colors.light, normalized.glintStrength, motion.reduced) {
         SparkIndication(colors.light, normalized.glintStrength, animate = !motion.reduced)
     }

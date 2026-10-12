@@ -46,11 +46,11 @@ import app.blesk.core.design.R
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
-import app.blesk.core.design.haptics.rememberHaptics
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -170,7 +170,7 @@ fun LensTabBar(
                             indication = null,
                         ) {
                             if (!active) {
-                                haptics.detach()
+                                haptics.tick()
                                 onSelect(index)
                             }
                         },

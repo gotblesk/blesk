@@ -97,12 +97,12 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.glass.BottomLens
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.TopLens
-import app.blesk.core.design.haptics.rememberHaptics
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.motion.rememberLoopPhase
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.CircleOverlay
 import app.blesk.feature.chats.media.LocalMediaController
 import app.blesk.feature.chats.media.LockDrop
@@ -245,15 +245,22 @@ fun ConversationScreen(
     }
     LaunchedEffect(atBottom) { if (atBottom) seen = messages.size }
     val lastOwnStatus = messages.lastOrNull { it.isOwn }?.status
+    // Sending retries quietly; only the final failure is felt, once.
     LaunchedEffect(lastOwnStatus) {
-        if (lastOwnStatus == SendStatus.Delivered) haptics.event()
+        if (lastOwnStatus == SendStatus.Failed) haptics.refuse()
     }
 
     val actions = remember(conversation.id) {
         MessageActions(
             onReply = { replyToId = it.id; editingId = null },
-            onMenu = { menuFor = it },
-            onReact = { message, symbol -> callbacks.onReact(message.id, symbol) },
+            onMenu = {
+                haptics.menu()
+                menuFor = it
+            },
+            onReact = { message, symbol ->
+                haptics.stick()
+                callbacks.onReact(message.id, symbol)
+            },
             onApplyTheme = callbacks.onApplyTheme,
             onButton = { message, button -> callbacks.onButton(message.id, button) },
             onTap = { message ->
@@ -349,7 +356,7 @@ fun ConversationScreen(
                                     callbacks.onEdit(editing, text)
                                 } else {
                                     callbacks.onSend(text, replyToId)
-                                    haptics.merge()
+                                    haptics.detach()
                                 }
                                 replyToId = null
                                 editingId = null
@@ -441,7 +448,7 @@ fun ConversationScreen(
                     onRetry = if (message.isOwn && message.status == SendStatus.Failed) ({ callbacks.onRetry(message.id) }) else null,
                     onPin = callbacks.onPin?.let { pin -> { pin(if (conversation.pinnedMessageId == message.id) null else message.id) } },
                     pinned = conversation.pinnedMessageId == message.id,
-                    onReact = if (reactions) ({ symbol -> callbacks.onReact(message.id, symbol) }) else null,
+                    onReact = if (reactions) ({ symbol -> actions.onReact(message, symbol) }) else null,
                 )
             }
         }

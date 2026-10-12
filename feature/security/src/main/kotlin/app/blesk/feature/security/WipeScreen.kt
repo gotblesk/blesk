@@ -34,9 +34,9 @@ import androidx.compose.ui.unit.dp
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.Text
-import app.blesk.core.design.haptics.rememberHaptics
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -103,7 +103,7 @@ fun SlideToConfirm(label: String, actionLabel: String, onConfirm: () -> Unit, mo
                                 if (offset.value >= travel * CONFIRM_AT && !done) {
                                     done = true
                                     offset.animateTo(travel)
-                                    haptics.event()
+                                    haptics.heavy()
                                     onConfirm()
                                 } else {
                                     offset.animateTo(0f, spring(dampingRatio = 0.75f))

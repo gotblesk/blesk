@@ -20,6 +20,7 @@ import app.blesk.core.data.GroupController
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannel
+import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
@@ -66,6 +67,7 @@ internal fun Home(
     val photo = rememberProfilePhoto(container, profile?.photoVersion ?: 0L)
     val online by remember(chats) { chats.online }.collectAsStateWithLifecycle(initialValue = true)
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
+    val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
     val scope = rememberCoroutineScope()
     val tabs = persistentListOf(
         LensTab(stringResource(R.string.tab_chats), BleskIcons.Chats),
@@ -167,6 +169,8 @@ internal fun Home(
                     scroll = youScroll,
                     sendByEnter = sendByEnter,
                     onSendByEnter = { enabled -> scope.launch { container.settings.setSendByEnter(enabled) } },
+                    vibration = vibration,
+                    onVibration = { level -> scope.launch { container.settings.setVibration(level) } },
                 )
             }
         }

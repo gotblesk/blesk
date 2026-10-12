@@ -16,6 +16,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -28,7 +29,9 @@ import app.blesk.background.KeepAliveService
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.LockDelay
 import app.blesk.core.data.settings.Privacy
+import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.theme.BleskTheme
+import app.blesk.core.motion.LocalHapticLevel
 import app.blesk.navigation.BleskNavigation
 import app.blesk.navigation.LockRoute
 import app.blesk.shared.appearance.Appearance
@@ -66,10 +69,13 @@ class MainActivity : ComponentActivity() {
             }
             SystemBars(isDark = appearance.theme.isDark)
             AskForNotifications(container)
-            BleskTheme(appearance = appearance) {
-                Box(Modifier.fillMaxSize()) {
-                    BleskNavigation(container)
-                    if (container.lock.locked) LockRoute(container, biometric = privacy.biometric)
+            val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
+            CompositionLocalProvider(LocalHapticLevel provides vibration.toHapticLevel()) {
+                BleskTheme(appearance = appearance) {
+                    Box(Modifier.fillMaxSize()) {
+                        BleskNavigation(container)
+                        if (container.lock.locked) LockRoute(container, biometric = privacy.biometric)
+                    }
                 }
             }
         }

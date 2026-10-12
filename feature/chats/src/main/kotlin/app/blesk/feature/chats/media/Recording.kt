@@ -55,7 +55,6 @@ import app.blesk.core.data.model.Attachment
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
-import app.blesk.core.design.haptics.rememberHaptics
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
@@ -63,6 +62,7 @@ import app.blesk.core.design.motion.rememberLoopPhase
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.media.CircleRecorder
 import app.blesk.core.media.VoiceRecorder
+import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -150,7 +150,7 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
         if (ok) {
             ui.active = true
             ui.startedAt = System.currentTimeMillis()
-            haptics.merge()
+            haptics.tick()
         }
         return ok
     }
@@ -179,7 +179,7 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
                     }
                     if (quick != null) {
                         ui.mode = if (ui.mode == RecordMode.Voice) RecordMode.Circle else RecordMode.Voice
-                        haptics.detach()
+                        haptics.tick()
                         return@awaitEachGesture
                     }
                     if (!start()) return@awaitEachGesture
@@ -203,7 +203,7 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
                         Gesture.Lock -> {
                             ui.locked = true
                             ui.dragY = 0f
-                            haptics.detach()
+                            haptics.stick()
                         }
                         Gesture.Cancel -> {
                             cancel(ui, recorders, scope)

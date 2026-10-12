@@ -18,6 +18,7 @@ import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,10 +37,13 @@ import app.blesk.core.calls.CallMedia
 import app.blesk.core.calls.MediaState
 import app.blesk.core.data.calls.CallPhase
 import app.blesk.core.data.settings.Privacy
+import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.theme.BleskTheme
+import app.blesk.core.motion.LocalHapticLevel
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
 import app.blesk.shared.appearance.Appearance
+import app.blesk.toHapticLevel
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
@@ -85,8 +89,11 @@ class CallActivity : ComponentActivity() {
                 if (privacy.secureScreen) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
             val manager by container.calls.collectAsStateWithLifecycle()
-            BleskTheme(appearance = appearance) {
-                manager?.let { Call(it) }
+            val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
+            CompositionLocalProvider(LocalHapticLevel provides vibration.toHapticLevel()) {
+                BleskTheme(appearance = appearance) {
+                    manager?.let { Call(it) }
+                }
             }
         }
     }

@@ -8,3 +8,12 @@ plugins {
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.roborazzi) apply false
 }
+
+// LiveKit's audio routing fork is published only on JitPack; the same sources are built here.
+subprojects {
+    configurations.configureEach {
+        resolutionStrategy.dependencySubstitution {
+            substitute(module("com.github.davidliu:audioswitch")).using(project(":third-party:audioswitch"))
+        }
+    }
+}

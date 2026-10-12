@@ -30,8 +30,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.blesk.core.design.component.Text
-import app.blesk.core.design.haptics.rememberHaptics
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -75,9 +75,9 @@ fun PinEntry(
 
     fun submit(code: String) {
         when (val result = check(code)) {
-            PinAttempt.Ok -> haptics.event()
+            PinAttempt.Ok -> Unit
             is PinAttempt.Wrong -> {
-                haptics.detach()
+                haptics.refuse()
                 error = wrong
                 waitUntil = System.currentTimeMillis() + result.waitMillis
                 scope.launch {

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import app.blesk.core.design.R
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 
 @Composable
 fun SectionHeader(text: String, modifier: Modifier = Modifier) {
@@ -113,11 +114,15 @@ fun ToggleRow(
     subtitle: String? = null,
     icon: ImageVector? = null,
 ) {
+    val haptics = rememberHaptics()
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = Blesk.dimens.touchTarget + 8.dp)
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .toggleable(value = checked, role = Role.Switch) { on ->
+                haptics.toggle(on)
+                onCheckedChange(on)
+            }
             .padding(horizontal = Blesk.dimens.gutter, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),

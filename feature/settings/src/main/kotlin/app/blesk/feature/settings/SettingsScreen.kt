@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.settings.Profile
+import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Capsule
 import app.blesk.core.design.component.Card
@@ -24,10 +25,12 @@ import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.SectionHeader
+import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import kotlinx.collections.immutable.persistentListOf
 
 class SettingsActions(
     val onOpenProfile: () -> Unit,
@@ -56,6 +59,8 @@ fun SettingsList(
     scroll: ScrollState = rememberScrollState(),
     sendByEnter: Boolean = false,
     onSendByEnter: (Boolean) -> Unit = {},
+    vibration: VibrationLevel = VibrationLevel.Normal,
+    onVibration: (VibrationLevel) -> Unit = {},
 ) {
     val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
     Column(
@@ -146,6 +151,21 @@ fun SettingsList(
                 checked = sendByEnter,
                 onCheckedChange = onSendByEnter,
                 icon = BleskIcons.Send,
+            )
+            Text(
+                text = stringResource(R.string.settings_vibration),
+                style = Blesk.type.bodyStrong,
+                modifier = Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = 10.dp),
+            )
+            Segmented(
+                options = persistentListOf(
+                    stringResource(R.string.settings_vibration_off),
+                    stringResource(R.string.settings_vibration_quiet),
+                    stringResource(R.string.settings_vibration_normal),
+                ),
+                selected = vibration.ordinal,
+                onSelect = { onVibration(VibrationLevel.entries[it]) },
+                modifier = Modifier.padding(bottom = 8.dp),
             )
         }
         SectionHeader(stringResource(R.string.settings_section_connection))

@@ -20,6 +20,9 @@ import kotlinx.serialization.json.Json
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
+/** «Вибрация»: off, a lighter version of every pattern, or the full one. */
+enum class VibrationLevel { Off, Quiet, Normal }
+
 /** Which world the app talks to. Demo until a server is set. */
 sealed interface AppMode {
     data object Demo : AppMode
@@ -116,6 +119,14 @@ class SettingsStore(context: Context) {
         store.edit { it[SEND_BY_ENTER] = enabled }
     }
 
+    val vibration: Flow<VibrationLevel> = store.data
+        .map { prefs -> VibrationLevel.entries.firstOrNull { it.name == prefs[VIBRATION] } ?: VibrationLevel.Normal }
+        .distinctUntilChanged()
+
+    suspend fun setVibration(level: VibrationLevel) {
+        store.edit { it[VIBRATION] = level.name }
+    }
+
     /** Recently picked emoji, newest first. */
     val recentEmoji: Flow<List<String>> = store.data
         .map { prefs -> prefs[RECENT_EMOJI]?.split(EMOJI_SEPARATOR)?.filter { it.isNotEmpty() }.orEmpty() }
@@ -206,6 +217,7 @@ class SettingsStore(context: Context) {
         val PROFILE_BIO = stringPreferencesKey("profile_bio")
         val PROFILE_PHOTO = longPreferencesKey("profile_photo")
         val SEND_BY_ENTER = booleanPreferencesKey("send_by_enter")
+        val VIBRATION = stringPreferencesKey("vibration")
         val RECENT_EMOJI = stringPreferencesKey("recent_emoji")
         const val EMOJI_SEPARATOR = " "
         const val MAX_RECENT_EMOJI = 32

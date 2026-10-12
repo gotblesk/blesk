@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -102,9 +103,10 @@ fun Slider(
     }
 }
 
-/** Two-way choice shown as a pair of matte pills. */
+/** A choice of a few options shown as matte pills. */
 @Composable
 fun Segmented(options: ImmutableList<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val haptics = rememberHaptics()
     Row(
         modifier
             .padding(horizontal = Blesk.dimens.gutter, vertical = 6.dp)
@@ -120,7 +122,10 @@ fun Segmented(options: ImmutableList<String>, selected: Int, onSelect: (Int) -> 
                     .heightIn(min = Blesk.dimens.touchTarget)
                     .clip(CircleShape)
                     .background(if (active) Blesk.colors.surface else Color.Transparent)
-                    .selectable(selected = active, role = Role.RadioButton) { onSelect(index) }
+                    .selectable(selected = active, role = Role.RadioButton) {
+                        if (!active) haptics.tick()
+                        onSelect(index)
+                    }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {

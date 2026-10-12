@@ -59,11 +59,11 @@ import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.NotEncryptedTag
 import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
-import app.blesk.core.design.haptics.rememberHaptics
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -242,7 +242,7 @@ private fun SwipeRow(
                                 value <= -threshold && onArchive != null -> onArchive()
                                 value >= threshold && onRead != null -> onRead()
                             }
-                            if (abs(value) >= threshold) haptics.detach()
+                            if (abs(value) >= threshold) haptics.tick()
                             scope.launch { offset.animateTo(0f) }
                         },
                         onDragCancel = { scope.launch { offset.animateTo(0f) } },
@@ -336,7 +336,7 @@ private fun ConversationRow(
                 onLongClickLabel = stringResource(R.string.chats_menu),
                 onLongClick = onLongClick?.let { action ->
                     {
-                        haptics.merge()
+                        haptics.menu()
                         action()
                     }
                 },

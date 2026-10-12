@@ -26,16 +26,23 @@ enum class License(val title: String, @param:RawRes val text: Int) {
     Apache2("Apache License 2.0", R.raw.license_apache2),
     Ofl("SIL Open Font License 1.1", R.raw.license_ofl),
     Unicode("Unicode License v3", R.raw.license_unicode),
+    SqlCipher("SQLCipher License (BSD)", R.raw.license_sqlcipher),
 }
 
 /** Everything shipped inside the APK. Keep in sync with the dependencies. */
 val ShippedComponents = listOf(
     LicensedComponent("blesk", "blesk", License.Agpl3),
     LicensedComponent("Onest", "The Onest Project Authors", License.Ofl),
+    LicensedComponent("libsignal", "Signal Messenger", License.Agpl3),
+    LicensedComponent("SQLCipher", "Zetetic", License.SqlCipher),
+    LicensedComponent("Ktor", "JetBrains", License.Apache2),
+    LicensedComponent("Coil", "Coil Contributors", License.Apache2),
     LicensedComponent("Jetpack Compose, AndroidX", "The Android Open Source Project", License.Apache2),
     LicensedComponent("Kotlin, kotlinx.coroutines, kotlinx.serialization", "JetBrains", License.Apache2),
     LicensedComponent("Backdrop", "Kyant", License.Apache2),
     LicensedComponent("ZXing", "ZXing authors", License.Apache2),
+    LicensedComponent("LiveKit Android", "LiveKit", License.Apache2),
+    LicensedComponent("AudioSwitch", "Twilio, David Liu", License.Apache2),
     LicensedComponent("Emoji2 Emoji Picker (data)", "The Android Open Source Project", License.Apache2),
     LicensedComponent("Unicode CLDR (emoji names)", "Unicode, Inc.", License.Unicode),
 )

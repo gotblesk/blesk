@@ -42,12 +42,12 @@ import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.Text
-import app.blesk.core.design.haptics.rememberHaptics
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.lerp
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import java.time.Instant
 
 private val ChannelGap = 10.dp
@@ -99,7 +99,7 @@ internal fun RoomCluster(
                     .clip(shape)
                     .clickable(role = Role.Button) {
                         expanded = !expanded
-                        if (expanded) haptics.detach() else haptics.merge()
+                        if (expanded) haptics.detach() else haptics.stick()
                     }
                     .semantics { stateDescription = stateLabel },
             ) {

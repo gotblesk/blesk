@@ -128,6 +128,10 @@
     <string name="safety_qr">Код для сканирования: покажи его собеседнику</string>
     <string name="settings_storage_hint">Сколько места занимает blesk</string>
     <string name="settings_send_by_enter">Отправка по Enter</string>
+    <string name="settings_vibration">Вибрация</string>
+    <string name="settings_vibration_off">Выкл</string>
+    <string name="settings_vibration_quiet">Тихая</string>
+    <string name="settings_vibration_normal">Обычная</string>
     <string name="settings_send_by_enter_hint">Новая строка — Shift+Enter</string>
     <string name="storage_title">Данные и память</string>
     <string name="storage_media">Фото, видео, файлы и голосовые</string>

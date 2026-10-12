@@ -15,10 +15,6 @@ dependencyResolutionManagement {
         maven("https://build-artifacts.signal.org/libraries/maven/") {
             content { includeGroup("org.signal") }
         }
-        // LiveKit's audio routing library is published only there.
-        maven("https://jitpack.io") {
-            content { includeGroup("com.github.davidliu") }
-        }
     }
 }
 
@@ -28,6 +24,8 @@ include(":app")
 include(":shared")
 include(":server")
 include(":core:design")
+include(":core:motion")
+include(":third-party:audioswitch")
 include(":core:data")
 include(":core:crypto")
 include(":core:media")

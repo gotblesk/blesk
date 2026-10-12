@@ -34,8 +34,8 @@ import app.blesk.core.design.glass.LensTab
 import app.blesk.core.design.glass.LensTabBar
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
-import app.blesk.core.design.motion.BleskMotion
 import app.blesk.core.design.theme.BleskTheme
+import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
 import app.blesk.feature.chats.ChatInfoScreen

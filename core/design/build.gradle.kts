@@ -9,6 +9,7 @@ dependencies {
     api(libs.compose.ui)
     api(libs.kotlinx.collections.immutable)
     api(project(":shared"))
+    api(project(":core:motion"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.backdrop)
     implementation(libs.androidx.lifecycle.runtime.compose)
