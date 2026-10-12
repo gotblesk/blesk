@@ -53,7 +53,13 @@ class ProfileActions(
 )
 
 @Composable
-fun ProfileScreen(profile: Profile, photo: ImageBitmap?, actions: ProfileActions, modifier: Modifier = Modifier) {
+fun ProfileScreen(
+    profile: Profile,
+    photo: ImageBitmap?,
+    actions: ProfileActions,
+    modifier: Modifier = Modifier,
+    linkKey: String? = null,
+) {
     val name = rememberTextFieldState(profile.name)
     val username = rememberTextFieldState(profile.username)
     val bio = rememberTextFieldState(profile.bio)
@@ -109,7 +115,7 @@ fun ProfileScreen(profile: Profile, photo: ImageBitmap?, actions: ProfileActions
                         .padding(24.dp)
                         .semantics { contentDescription = description },
                 ) {
-                    QrCode(profileLink(profile.username), QrInk, Modifier.fillMaxWidth().aspectRatio(1f))
+                    QrCode(profileLink(profile.username, linkKey), QrInk, Modifier.fillMaxWidth().aspectRatio(1f))
                 }
                 Text(
                     text = "@${profile.username}",

@@ -19,7 +19,19 @@
     <string name="pin_digits_6">6 цифр</string>
 
     <string name="privacy_title">Приватность и безопасность</string>
-    <string name="privacy_lock">Блокировка</string>
+    <string name="privacy_lock">Замок приложения</string>
+    <string name="privacy_who">Кто может</string>
+    <string name="privacy_find">Найти меня по имени пользователя</string>
+    <string name="privacy_find_hint">«По ссылке» — найти можно только по твоей ссылке или QR-коду</string>
+    <string name="privacy_who_writes">Писать мне</string>
+    <string name="privacy_who_calls">Звонить мне</string>
+    <string name="privacy_who_adds">Добавлять меня в группы и комнаты</string>
+    <string name="privacy_who_sees_online">Видеть, что я в сети</string>
+    <string name="privacy_everyone">Все</string>
+    <string name="privacy_contacts">Контакты</string>
+    <string name="privacy_nobody">Никто</string>
+    <string name="privacy_by_link">По ссылке</string>
+    <string name="privacy_blocked">Заблокированные</string>
     <string name="privacy_pin">Код-пароль</string>
     <string name="privacy_pin_hint">Код нужен, чтобы открыть blesk</string>
     <string name="privacy_change_pin">Сменить код</string>

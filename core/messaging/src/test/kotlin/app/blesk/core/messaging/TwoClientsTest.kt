@@ -16,6 +16,7 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.settings.Audience
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
 import app.blesk.shared.protocol.Body
@@ -55,6 +56,7 @@ class TwoClientsTest {
     private val server = FakeServer()
 
     private inner class Client(val name: String, displayName: String) {
+        var privacy = Privacy()
         val db: BleskDatabase = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java).allowMainThreadQueries().build()
         val store = SignalStore(db.signal())
         val keys = KeyManager(store)
@@ -71,7 +73,7 @@ class TwoClientsTest {
             media = MediaVault(context),
             me = name,
             scope = scope,
-            privacy = { Privacy() },
+            privacy = { privacy },
             profile = { displayName to "" },
             labels = { it?.javaClass?.simpleName.orEmpty() },
             log = EventLog(),
@@ -95,6 +97,34 @@ class TwoClientsTest {
     }
 
     private fun Client.messages(conversation: String): List<Message> = runBlocking { repo.messages(conversation).first() }
+
+    @Test
+    fun strangersAndBlockedPeopleDoNotGetThrough() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        alice.register()
+        bob.register()
+        alice.repo.start()
+        bob.repo.start()
+        bob.privacy = Privacy(write = Audience.Contacts)
+
+        runBlocking { alice.repo.openDirect("bob") }
+        alice.repo.send("bob", "первое")
+        eventually { server.transport("bob").acked.takeIf { it.isNotEmpty() } }
+        assertTrue(bob.messages("alice").isEmpty())
+
+        // Once Bob opens the chat himself, Alice is a contact and gets through.
+        runBlocking { bob.repo.openDirect("alice") }
+        alice.repo.send("bob", "второе")
+        eventually { bob.messages("alice").firstOrNull()?.takeIf { it.text == "второе" } }
+
+        bob.repo.setBlocked("alice", true)
+        eventually { runBlocking { bob.repo.blocked.first() }.takeIf { list -> list.any { it.username == "alice" } } }
+        val before = server.transport("bob").acked.size
+        alice.repo.send("bob", "третье")
+        eventually { server.transport("bob").acked.takeIf { it.size > before } }
+        assertTrue(bob.messages("alice").none { it.text == "третье" })
+    }
 
     @Test
     fun conversationEndToEnd() {

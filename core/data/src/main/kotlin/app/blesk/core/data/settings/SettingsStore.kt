@@ -100,6 +100,11 @@ class SettingsStore(context: Context) {
             prefs[SECURE_SCREEN] = next.secureScreen
             prefs[READ_RECEIPTS] = next.readReceipts
             prefs[TYPING_INDICATOR] = next.typingIndicator
+            prefs[FINDABLE] = next.findable
+            prefs[WHO_WRITES] = next.write.name
+            prefs[WHO_CALLS] = next.calls.name
+            prefs[WHO_ADDS] = next.groups.name
+            prefs[WHO_SEES_ONLINE] = next.online.name
         }
     }
 
@@ -237,7 +242,15 @@ class SettingsStore(context: Context) {
         secureScreen = this[SECURE_SCREEN] ?: false,
         readReceipts = this[READ_RECEIPTS] ?: true,
         typingIndicator = this[TYPING_INDICATOR] ?: true,
+        findable = this[FINDABLE] ?: true,
+        write = audience(WHO_WRITES, Audience.Everyone),
+        calls = audience(WHO_CALLS, Audience.Everyone),
+        groups = audience(WHO_ADDS, Audience.Everyone),
+        online = audience(WHO_SEES_ONLINE, Audience.Contacts),
     )
+
+    private fun Preferences.audience(key: Preferences.Key<String>, fallback: Audience) =
+        this[key]?.let { name -> Audience.entries.firstOrNull { it.name == name } } ?: fallback
 
     private fun decodeAppearance(raw: String): Appearance? = try {
         json.decodeFromString(Appearance.serializer(), raw).normalized()
@@ -259,6 +272,11 @@ class SettingsStore(context: Context) {
         val BIOMETRIC = booleanPreferencesKey("biometric")
         val SECURE_SCREEN = booleanPreferencesKey("secure_screen")
         val READ_RECEIPTS = booleanPreferencesKey("read_receipts")
+        val FINDABLE = booleanPreferencesKey("findable")
+        val WHO_WRITES = stringPreferencesKey("who_writes")
+        val WHO_CALLS = stringPreferencesKey("who_calls")
+        val WHO_ADDS = stringPreferencesKey("who_adds")
+        val WHO_SEES_ONLINE = stringPreferencesKey("who_sees_online")
         val TYPING_INDICATOR = booleanPreferencesKey("typing_indicator")
         val NOTIFY = booleanPreferencesKey("notify")
         val NOTIFY_PREVIEW = stringPreferencesKey("notify_preview")

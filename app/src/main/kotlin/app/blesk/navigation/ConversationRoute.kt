@@ -84,6 +84,7 @@ internal fun ConversationRoute(
     val hintsSeen by container.settings.hintsSeen
         .map { seen -> GestureHint.entries.filter { it.name in seen }.toSet() }
         .collectAsStateWithLifecycle(initialValue = GestureHint.entries.toSet())
+    val blockedPeople by remember(demo) { demo.blocked }.collectAsStateWithLifecycle(initialValue = emptyList())
     val doubleTapReaction by container.settings.doubleTapReaction.collectAsStateWithLifecycle(initialValue = GLINT_REACTION)
     val wallpaper by produceState<ImageBitmap?>(null, wallpaperVersion) {
         value = container.wallpaper.load()?.asImageBitmap()
@@ -244,6 +245,7 @@ internal fun ConversationRoute(
             },
             onRetry = { messageId -> demo.retry(id, messageId) },
             onReconnect = demo::reconnect,
+            onUnblock = if (direct) ({ demo.setBlocked(demo.contact(id)?.username ?: id, false) }) else null,
             onEmojiPicked = { emoji -> scope.launch { container.settings.pickEmoji(emoji) } },
             onBack = onBack,
         )
@@ -279,6 +281,7 @@ internal fun ConversationRoute(
                 connection = connection,
                 sendByEnter = sendByEnter,
                 doubleTapReaction = doubleTapReaction,
+                blocked = direct && blockedPeople.any { it.id == id || it.username == id },
                 hintsSeen = hintsSeen,
                 onHintDone = { hint -> scope.launch { container.settings.markHint(hint) } },
                 recentEmoji = recentEmoji.toImmutableList(),

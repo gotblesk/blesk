@@ -15,6 +15,7 @@ import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.Bots
 import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.ChallengeRequest
+import app.blesk.shared.protocol.Discovery
 import app.blesk.shared.protocol.RegisterRequest
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
@@ -24,6 +25,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
@@ -83,6 +85,14 @@ fun Route.accountLookupRoutes(services: Services) {
         val username = call.parameters["username"].orEmpty()
         ensure(Usernames.isValid(username)) { notFound() }
         val account = services.accounts.find(username).orFail { notFound() }
+        // A hidden account answers exactly like a missing one, so a search learns nothing.
+        ensure(account.visibleTo(call.account.id, call.request.queryParameters[Api.LINK])) { notFound() }
         call.respond(AccountInfo(account.username, account.identityKey.encodeBase64()))
+    }
+
+    put(Api.DISCOVERY) {
+        val request = call.receiveJson<Discovery>()
+        services.accounts.setDiscoverable(call.account.id, request.discoverable)
+        call.respond(request)
     }
 }

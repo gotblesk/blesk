@@ -49,6 +49,8 @@ internal fun ChatInfoRoute(
     val messages by remember(id) { chats.messages(id) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val context = LocalContext.current
     val deleted = stringResource(app.blesk.feature.chats.R.string.person_chat_deleted)
+    val username = chats.contact(id)?.username ?: id
+    val blocked by remember(chats) { chats.blocked }.collectAsStateWithLifecycle(initialValue = emptyList())
     PersonProfileScreen(
         conversation = current,
         username = chats.contact(id)?.username ?: id,
@@ -71,6 +73,8 @@ internal fun ChatInfoRoute(
             onOpenFile = { file -> openFile(context, file) },
             onOpenLink = { link -> openLink(context, link) },
             onPlayVoice = { path -> container.audioPlayer.toggle(path) },
+            onBlock = if (current.kind == ConversationKind.Direct) ({ block -> chats.setBlocked(username, block) }) else null,
+            blocked = blocked.any { it.username == username },
         ),
         onBack = onBack,
     )

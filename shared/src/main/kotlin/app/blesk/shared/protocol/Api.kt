@@ -20,6 +20,21 @@ object Api {
     const val ATTACHMENTS = "/v1/attachments"
     const val SOCKET = "/v1/ws"
     const val INFO = "/v1/info"
+    const val DISCOVERY = "/v1/discovery"
+
+    /** Query parameter of a lookup made from someone's link or QR code; see [linkKey]. */
+    const val LINK = "link"
+
+    /**
+     * The key in a profile link or QR code that finds an account hidden from search: a short
+     * digest of its public identity key. Whoever already talks to the account has that key too.
+     */
+    fun linkKey(identityKey: ByteArray): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(identityKey)
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest.copyOf(LINK_KEY_BYTES))
+    }
+
+    private const val LINK_KEY_BYTES = 12
 
     /** Signed by the identity key when registering, so nobody can claim a name with someone else's key. */
     fun registrationProof(username: String) = "blesk-register:$username".encodeToByteArray()
@@ -33,6 +48,10 @@ object Api {
     /** Max size of one encrypted message body. */
     const val MAX_MESSAGE_BYTES = 256 * 1024
 }
+
+/** Whether the account may be found by its username; hidden accounts open only from a link or QR code. */
+@Serializable
+data class Discovery(val discoverable: Boolean)
 
 /** Lowercase latin letters, digits and underscores, 3 to 32 characters. */
 object Usernames {

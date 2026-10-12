@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import app.blesk.shared.protocol.ProfileLink
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.common.BitMatrix
@@ -14,7 +15,8 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 
 /** Link that a profile QR code carries. Only the username, nothing else about the person. */
-fun profileLink(username: String) = "blesk://u/$username"
+/** Your profile link; [key] lets it find you even when you hide from search. */
+fun profileLink(username: String, key: String? = null) = ProfileLink.format(username, key)
 
 /**
  * Draws [content] as a QR code. Modules are square and the caller keeps them dark on light:

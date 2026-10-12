@@ -70,6 +70,8 @@ import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.GestureHint
 import app.blesk.core.design.component.Avatar
+import app.blesk.core.design.component.Button
+import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Capsule
 import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.component.GroupAvatar
@@ -135,6 +137,8 @@ class ConversationCallbacks(
     val onButton: (messageId: String, button: BotButton) -> Unit = { _, _ -> },
     /** Tries the server again right away. */
     val onReconnect: () -> Unit = {},
+    /** Unblocks the other person of a direct chat. */
+    val onUnblock: (() -> Unit)? = null,
     /** Opens the profile of an @username mentioned in a message; null where nobody can be opened. */
     val onOpenPerson: ((username: String) -> Unit)? = null,
     /** Opens the camera for one photo; null where it is not offered. */
@@ -175,6 +179,8 @@ fun ConversationScreen(
     demo: Boolean = false,
     /** People who can be mentioned with "@" in a group or room. */
     members: ImmutableList<Contact> = persistentListOf(),
+    /** You blocked the other person: instead of the composer there is «Разблокировать». */
+    blocked: Boolean = false,
     /** Gesture hints already learned; by default none are offered. */
     hintsSeen: Set<GestureHint> = GestureHint.entries.toSet(),
     onHintDone: (GestureHint) -> Unit = {},
@@ -367,7 +373,17 @@ fun ConversationScreen(
                     }
                 },
                 bottom = {
-                    if (readOnly) {
+                    val unblock = callbacks.onUnblock
+                    if (blocked && unblock != null) {
+                        BottomLens {
+                            Button(
+                                text = stringResource(R.string.person_unblock),
+                                kind = ButtonKind.Secondary,
+                                onClick = unblock,
+                                modifier = Modifier.fillMaxWidth().padding(6.dp),
+                            )
+                        }
+                    } else if (readOnly) {
                         BottomLens {
                             Text(
                                 text = if (conversation.kind == ConversationKind.Channel) {

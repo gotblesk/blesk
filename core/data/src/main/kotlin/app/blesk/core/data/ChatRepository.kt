@@ -29,14 +29,14 @@ enum class Connection {
 }
 
 /** Everything the screens need from a world of chats, whether it is the demo or a real server. */
-interface ChatRepository : ChatTools {
+interface ChatRepository : ChatTools, PeopleControls {
     /** Conversations shown in the list; room channels live inside their rooms. */
     val conversations: Flow<List<Conversation>>
 
     /** Conversations where someone is typing right now. */
     val typing: StateFlow<Set<String>>
 
-    /** People you can write to directly. */
+    /** People you can write to directly: those you opened a chat with or wrote to, and did not block. */
     val contacts: Flow<List<Contact>>
 
     fun conversation(id: String): Flow<Conversation?>
@@ -47,7 +47,8 @@ interface ChatRepository : ChatTools {
     fun contact(id: String): Contact?
 
     /** The direct chat with [username], creating it if needed; null if there is no such person. */
-    suspend fun openDirect(username: String): String?
+    /** Opens (or creates) the chat with [username]; [link] is the key from their link or QR code, for hidden accounts. */
+    suspend fun openDirect(username: String, link: String? = null): String?
 
     fun send(conversationId: String, text: String, replyToId: String? = null)
 
@@ -83,6 +84,21 @@ interface ChatRepository : ChatTools {
 
 /** How many chats can be pinned at once; the list stays a list, not a second list on top. */
 const val MAX_PINNED = 10
+
+/** Who can reach you: being found by name, and blocking. */
+interface PeopleControls {
+    /** People you blocked. */
+    val blocked: Flow<List<Contact>> get() = flowOf(emptyList())
+
+    /** Blocks or unblocks [username]. A blocked person's messages and calls are dropped on this phone without a trace. */
+    fun setBlocked(username: String, blocked: Boolean) = Unit
+
+    /** The key your own profile link carries, so it finds you even when you hide from search; null in the demo. */
+    suspend fun linkKey(): String? = null
+
+    /** Whether people may find you by typing your username. */
+    suspend fun setDiscoverable(discoverable: Boolean) = Unit
+}
 
 /** Things you do to a chat besides writing in it. */
 interface ChatTools {

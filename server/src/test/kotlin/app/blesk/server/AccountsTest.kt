@@ -2,12 +2,17 @@ package app.blesk.server
 
 import app.blesk.shared.protocol.AccountInfo
 import app.blesk.shared.protocol.Api
+import app.blesk.shared.protocol.Discovery
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.ServerInfo
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.signal.libsignal.protocol.IdentityKeyPair
@@ -63,5 +68,28 @@ class AccountsTest {
 
         val missing = harness.client.get("${Api.ACCOUNTS}/${randomUsername()}") { bearerAuth(alice.token) }
         assertEquals(HttpStatusCode.NotFound, missing.status)
+    }
+
+    @Test
+    fun `a hidden account is found only through its link key`() = serverTest { harness ->
+        val alice = harness.register()
+        val bob = harness.register()
+        val hide = harness.client.put(Api.DISCOVERY) {
+            bearerAuth(bob.token)
+            contentType(ContentType.Application.Json)
+            setBody(Discovery(discoverable = false))
+        }
+        assertEquals(HttpStatusCode.OK, hide.status)
+
+        val byName = harness.client.get("${Api.ACCOUNTS}/${bob.username}") { bearerAuth(alice.token) }
+        assertEquals(HttpStatusCode.NotFound, byName.status)
+        assertEquals(HttpStatusCode.NotFound, harness.client.get("${Api.KEYS}/${bob.username}") { bearerAuth(alice.token) }.status)
+
+        val link = Api.linkKey(bob.identity.publicKey.serialize())
+        val byLink = harness.client.get("${Api.ACCOUNTS}/${bob.username}?${Api.LINK}=$link") { bearerAuth(alice.token) }
+        assertEquals(HttpStatusCode.OK, byLink.status)
+
+        val wrong = harness.client.get("${Api.ACCOUNTS}/${bob.username}?${Api.LINK}=nope") { bearerAuth(alice.token) }
+        assertEquals(HttpStatusCode.NotFound, wrong.status)
     }
 }

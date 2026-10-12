@@ -31,6 +31,7 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.model.splitLongText
+import app.blesk.core.data.settings.Audience
 import app.blesk.core.data.settings.IncomingNote
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
@@ -38,6 +39,7 @@ import app.blesk.core.network.ApiException
 import app.blesk.core.network.BleskApi
 import app.blesk.core.network.Link
 import app.blesk.core.network.Transport
+import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.Bots
 import app.blesk.shared.protocol.CallToken
@@ -83,6 +85,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.util.Base64
 import java.util.UUID
 
 /**
@@ -158,7 +161,31 @@ class ServerChatRepository(
             }
         }
 
-    override val contacts: Flow<List<Contact>> = db.contacts().observeAll().map { list -> list.map { it.toModel() } }
+    override val contacts: Flow<List<Contact>> =
+        db.contacts().observeAll().map { list -> list.filter { it.added && !it.blocked }.map { it.toModel() } }
+
+    override val blocked: Flow<List<Contact>> = db.contacts().observeAll().map { list -> list.filter { it.blocked }.map { it.toModel() } }
+
+    override fun setBlocked(username: String, blocked: Boolean) {
+        scope.launch {
+            if (db.contacts().get(username) == null) db.contacts().upsert(ContactEntity(username, username, added = false))
+            db.contacts().setBlocked(username, blocked)
+        }
+    }
+
+    /**
+     * Whether [sender] may reach you for something open to [audience]. Decided here, on your
+     * phone: the server relays everything and knows neither your contacts nor whom you block.
+     */
+    private suspend fun allowed(sender: String, audience: Audience): Boolean {
+        val contact = db.contacts().get(sender)
+        if (contact?.blocked == true) return false
+        return when (audience) {
+            Audience.Everyone -> true
+            Audience.Contacts -> contact?.added == true
+            Audience.Nobody -> false
+        }
+    }
 
     override fun conversation(id: String): Flow<Conversation?> =
         combine(
@@ -196,6 +223,8 @@ class ServerChatRepository(
         }
         scope.launch { socket.frames.collect { frame -> handle(frame) } }
         scope.launch { socket.connected.filter { it }.collect { flush() } }
+        // The server only keeps whether you can be found by name; it is told again on every connection.
+        scope.launch { socket.connected.filter { it }.collect { setDiscoverable(privacy().findable) } }
         scope.launch { socket.connected.filter { !it }.collect { synced.value = false } }
         // Without this the next attempt could be a minute away after the network comes back.
         scope.launch { network.drop(1).filter { it }.collect { socket.retryNow() } }
@@ -205,17 +234,28 @@ class ServerChatRepository(
 
     fun stop() = socket.stop()
 
-    override suspend fun openDirect(username: String): String? {
+    override suspend fun openDirect(username: String, link: String?): String? {
         if (username == me) return null
         if (bots.isBot(username)) return bots.open(username)
         val existing = db.contacts().get(username)
+        existing?.let { db.contacts().markAdded(username) }
         if (existing == null) {
-            val account = runCatching { api.account(username) }.getOrNull() ?: return null
+            val account = runCatching { api.account(username, link) }.getOrNull() ?: return null
             db.contacts().upsert(ContactEntity(username = account.username, name = account.username, identityKey = account.identityKey))
         }
         ensureConversation(username)
         return username
     }
+
+    override suspend fun linkKey(): String = Api.linkKey(Base64.getDecoder().decode(keys.identityPublicKey()))
+
+    override suspend fun setDiscoverable(discoverable: Boolean) {
+        runCatching { api.setDiscoverable(discoverable) }.onFailure { log.record(EventCode.SendFailed) }
+    }
+
+    /** The link key of someone you already talk to, from the identity key you hold, so their keys stay reachable if they hide. */
+    private suspend fun linkOf(username: String): String? =
+        db.contacts().get(username)?.identityKey?.let { key -> runCatching { Api.linkKey(Base64.getDecoder().decode(key)) }.getOrNull() }
 
     override fun send(conversationId: String, text: String, replyToId: String?) {
         val parts = splitLongText(text)
@@ -606,7 +646,7 @@ class ServerChatRepository(
         val content = Content(UUID.randomUUID().toString(), clock(), body)
         runCatching {
             if (!crypto.hasSessionSafe(to)) {
-                val bundle = api.bundle(to) ?: return
+                val bundle = api.bundle(to, linkOf(to)) ?: return
                 withContext(Dispatchers.IO) { crypto.startSession(bundle) }
                 shareProfile(to)
             }
@@ -633,6 +673,8 @@ class ServerChatRepository(
             }
             flush()
         } else {
+            // Writing to someone makes them a contact, even if they wrote first.
+            if (content.body is Body.Text) db.contacts().markAdded(conversationId)
             enqueue(conversationId, content)
         }
     }
@@ -671,7 +713,7 @@ class ServerChatRepository(
                 return true
             }
             if (!crypto.hasSessionSafe(item.recipient)) {
-                val bundle = api.bundle(item.recipient)
+                val bundle = api.bundle(item.recipient, linkOf(item.recipient))
                 if (bundle == null) {
                     dropFailed(item, content)
                     return true
@@ -775,6 +817,7 @@ class ServerChatRepository(
     }
 
     private suspend fun apply(sender: String, content: Content) {
+        if (!admits(sender, content.body)) return
         when (val body = content.body) {
             is Body.Text -> receiveText(sender, content, body)
             is Body.Receipt -> advanceStatus(
@@ -799,12 +842,27 @@ class ServerChatRepository(
             is Body.JoinRequest -> groups.onJoinRequest(sender, body)
             is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
             is Body.CallOffer, is Body.CallAnswer, is Body.CallEnd, is Body.Timer -> applyControl(sender, content, body)
-            is Body.Profile -> {
-                val known = db.contacts().get(sender)
-                val updated = (known ?: ContactEntity(sender, sender)).copy(name = body.name.take(MAX_NAME), bio = body.bio.take(MAX_BIO))
-                db.contacts().upsert(updated)
-                db.conversations().get(sender)?.let { db.conversations().upsert(it.copy(title = body.name.ifBlank { sender })) }
-            }
+            is Body.Profile -> receiveProfile(sender, body)
+        }
+    }
+
+    private suspend fun receiveProfile(sender: String, body: Body.Profile) {
+        val known = db.contacts().get(sender)
+        val base = known ?: ContactEntity(sender, sender, added = false)
+        val updated = base.copy(name = body.name.take(MAX_NAME), bio = body.bio.take(MAX_BIO))
+        db.contacts().upsert(updated)
+        db.conversations().get(sender)?.let { db.conversations().upsert(it.copy(title = body.name.ifBlank { sender })) }
+    }
+
+    /** Privacy and blocking on what arrives directly; refused things vanish as if never sent. */
+    private suspend fun admits(sender: String, body: Body): Boolean {
+        val privacy = privacy()
+        return when (body) {
+            is Body.CallOffer -> allowed(sender, privacy.calls)
+            // Joining a new group needs permission; updates of a group you are in only need you not to block the admin.
+            is Body.GroupUpdate -> allowed(sender, if (groups.state(body.state.id) == null) privacy.groups else Audience.Everyone)
+            is Body.Text, is Body.Reaction, is Body.Edit, is Body.Delete, is Body.Typing, is Body.Timer -> allowed(sender, privacy.write)
+            else -> allowed(sender, Audience.Everyone)
         }
     }
 
@@ -882,7 +940,7 @@ class ServerChatRepository(
     }
 
     private suspend fun receiveText(sender: String, content: Content, body: Body.Text) {
-        if (db.contacts().get(sender) == null) db.contacts().upsert(ContactEntity(sender, sender))
+        if (db.contacts().get(sender) == null) db.contacts().upsert(ContactEntity(sender, sender, added = false))
         ensureConversation(sender)
         showTyping(sender, false)
         val known = db.messages().get(content.id) != null

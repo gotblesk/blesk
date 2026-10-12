@@ -39,9 +39,11 @@ internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit) {
             if (container.profilePhoto.import(uri)) container.settings.bumpProfilePhoto()
         }
     }
+    val linkKey by produceState<String?>(null) { value = container.chats.value?.linkKey() }
     ProfileScreen(
         profile = current,
         photo = photo,
+        linkKey = linkKey,
         actions = ProfileActions(
             onSave = { name, username, bio -> scope.launch { container.settings.updateProfile(name, username, bio) } },
             onPickPhoto = {

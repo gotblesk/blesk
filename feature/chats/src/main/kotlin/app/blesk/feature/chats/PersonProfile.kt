@@ -85,6 +85,9 @@ class PersonActions(
     val onOpenFile: (Attachment.File) -> Unit,
     val onOpenLink: (String) -> Unit,
     val onPlayVoice: (path: String) -> Unit,
+    /** Blocks or unblocks; null where there is nobody to block, as with bots. */
+    val onBlock: ((Boolean) -> Unit)? = null,
+    val blocked: Boolean = false,
 )
 
 /**
@@ -160,14 +163,25 @@ fun PersonProfileScreen(
             actions.onVerify?.let { verify -> KeysRow(verified, verify) }
             SharedContent(messages, actions)
             TimerSection(conversation.timerSeconds, actions.onTimer)
-            actions.onDeleteChat?.let { delete ->
+            if (actions.onDeleteChat != null || actions.onBlock != null) {
                 Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = Blesk.dimens.sectionGap)) {
-                    ListRow(
-                        title = stringResource(R.string.person_delete_chat),
-                        icon = BleskIcons.Trash,
-                        showChevron = false,
-                        onClick = delete,
-                    )
+                    actions.onBlock?.let { block ->
+                        ListRow(
+                            title = stringResource(if (actions.blocked) R.string.person_unblock else R.string.person_block),
+                            subtitle = stringResource(if (actions.blocked) R.string.person_unblock_hint else R.string.person_block_hint),
+                            icon = BleskIcons.Shield,
+                            showChevron = false,
+                            onClick = { block(!actions.blocked) },
+                        )
+                    }
+                    actions.onDeleteChat?.let { delete ->
+                        ListRow(
+                            title = stringResource(R.string.person_delete_chat),
+                            icon = BleskIcons.Trash,
+                            showChevron = false,
+                            onClick = delete,
+                        )
+                    }
                 }
             }
         }

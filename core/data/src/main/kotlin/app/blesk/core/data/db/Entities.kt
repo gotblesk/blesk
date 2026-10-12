@@ -72,6 +72,10 @@ data class ContactEntity(
     val verified: Boolean = false,
     /** Their key changed since you last looked; the chat warns until you check it. */
     val keyChanged: Boolean = false,
+    /** A contact: you opened the chat or wrote to them. Someone who only wrote to you is not one yet. */
+    val added: Boolean = true,
+    /** Nothing from them reaches you, and they cannot tell. */
+    val blocked: Boolean = false,
 )
 
 /** Encrypted-later work: content waiting to be encrypted and sent. Survives restarts. */

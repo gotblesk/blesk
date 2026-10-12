@@ -146,6 +146,12 @@ interface ContactDao {
 
     @Upsert
     suspend fun upsert(contact: ContactEntity)
+
+    @Query("UPDATE contacts SET added = 1 WHERE username = :username")
+    suspend fun markAdded(username: String)
+
+    @Query("UPDATE contacts SET blocked = :blocked WHERE username = :username")
+    suspend fun setBlocked(username: String, blocked: Boolean)
 }
 
 @Dao

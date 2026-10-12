@@ -224,3 +224,24 @@ object InviteLink {
         return Parsed(group, admin, code)
     }
 }
+
+/**
+ * A profile link or QR code: `blesk://u/name`, with the link key (see [Api.linkKey]) when the
+ * account hides from search, so the link still finds it.
+ */
+object ProfileLink {
+    private const val PREFIX = "blesk://u/"
+
+    fun format(username: String, key: String?) = PREFIX + username + (key?.let { "?k=$it" } ?: "")
+
+    data class Parsed(val username: String, val key: String?)
+
+    fun parse(link: String): Parsed? {
+        val text = link.trim()
+        if (!text.startsWith(PREFIX)) return null
+        val rest = text.removePrefix(PREFIX)
+        val username = rest.substringBefore('?').takeIf(Usernames::isValid) ?: return null
+        val key = rest.substringAfter("?k=", "").takeIf { it.matches(Regex("^[A-Za-z0-9_-]{8,64}$")) }
+        return Parsed(username, key)
+    }
+}

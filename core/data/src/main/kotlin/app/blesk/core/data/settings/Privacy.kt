@@ -8,12 +8,25 @@ enum class LockDelay(val millis: Long) {
     OneHour(60 * 60_000),
 }
 
+/** Who may do something with you: anyone, only your contacts, or nobody. */
+enum class Audience { Everyone, Contacts, Nobody }
+
 data class Privacy(
     val lockDelay: LockDelay = LockDelay.Immediately,
     val biometric: Boolean = false,
     val secureScreen: Boolean = false,
     val readReceipts: Boolean = true,
     val typingIndicator: Boolean = true,
+    /** Whether typing your username finds you; with it off, only your link or QR code does. */
+    val findable: Boolean = true,
+    /** Who may write to you; from anyone else messages are dropped on this phone. Never [Audience.Nobody]. */
+    val write: Audience = Audience.Everyone,
+    /** Who may ring you; anyone else's call never rings. */
+    val calls: Audience = Audience.Everyone,
+    /** Who may add you to groups and rooms. */
+    val groups: Audience = Audience.Everyone,
+    /** Who sees when you are online. */
+    val online: Audience = Audience.Contacts,
 )
 
 data class Profile(

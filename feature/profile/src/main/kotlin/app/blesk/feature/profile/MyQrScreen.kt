@@ -21,7 +21,7 @@ import app.blesk.core.design.theme.Blesk
 
 /** Your code for someone to scan: it opens a chat with you. */
 @Composable
-fun MyQrScreen(username: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun MyQrScreen(username: String, onBack: () -> Unit, modifier: Modifier = Modifier, linkKey: String? = null) {
     ScrollScreen(title = stringResource(R.string.my_qr_title), onBack = onBack, modifier = modifier) {
         if (username.isBlank()) {
             Text(
@@ -42,7 +42,7 @@ fun MyQrScreen(username: String, onBack: () -> Unit, modifier: Modifier = Modifi
                 .padding(20.dp)
                 .semantics { contentDescription = label },
         ) {
-            QrCode(profileLink(username), Color.Black, Modifier.fillMaxWidth().aspectRatio(1f))
+            QrCode(profileLink(username, linkKey), Color.Black, Modifier.fillMaxWidth().aspectRatio(1f))
         }
         Text(
             text = "@$username",

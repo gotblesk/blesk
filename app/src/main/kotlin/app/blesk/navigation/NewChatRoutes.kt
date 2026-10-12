@@ -28,6 +28,7 @@ import app.blesk.feature.chats.groups.NewKind
 import app.blesk.feature.profile.profileLink
 import app.blesk.feature.settings.QrScanner
 import app.blesk.shared.protocol.InviteLink
+import app.blesk.shared.protocol.ProfileLink
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 
@@ -53,7 +54,7 @@ internal fun NewChatRoute(
             onScan = onScan,
             onNewGroup = if (chats is GroupController) ({ onNewGroup(NewKind.Group) }) else null,
             onNewChannel = if (chats is SpaceController) ({ onNewGroup(NewKind.Channel) }) else null,
-            onInvite = server?.let { { invite(context, it.username) } },
+            onInvite = server?.let { { scope.launch { invite(context, it.username, chats.linkKey()) } } },
             onOpenContact = { contact -> scope.launch { chats.openDirect(contact.username)?.let(onOpenConversation) } },
             onFind = if (server == null) null else { text -> find(chats, text, onOpenConversation) { notify(joinSent) } },
             spaces = (chats as? SpaceController)?.let { controller ->
@@ -77,7 +78,7 @@ internal fun RoomsAddRoute(container: AppContainer, onCreate: () -> Unit, onBack
     )
 }
 
-/** Reads a profile code (`blesk://u/name`) or a group invite and acts on it. */
+/** Reads a profile code (`blesk://u/name`, see [ProfileLink]) or a group invite and acts on it. */
 @Composable
 internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> Unit, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
@@ -90,10 +91,13 @@ internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> 
             onCode = { code ->
                 scope.launch {
                     val handled = when {
-                        code.startsWith(PROFILE_PREFIX) -> chats.openDirect(code.removePrefix(PROFILE_PREFIX))?.let {
-                            onOpenConversation(it)
-                            true
-                        } ?: false
+                        ProfileLink.parse(code) != null -> {
+                            val link = ProfileLink.parse(code)
+                            link?.let { chats.openDirect(it.username, it.key) }?.let {
+                                onOpenConversation(it)
+                                true
+                            } ?: false
+                        }
                         InviteLink.parse(code) != null -> find(chats, code, onOpenConversation) { notify(joinSent) }
                         else -> false
                     }
@@ -105,8 +109,6 @@ internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> 
     }
 }
 
-private const val PROFILE_PREFIX = "blesk://u/"
-
 /** A username opens a chat; an invite link asks the group's admin to let you in. */
 internal suspend fun find(chats: ChatRepository, text: String, open: (String) -> Unit, onJoinSent: () -> Unit): Boolean {
     if (InviteLink.parse(text) != null) {
@@ -114,11 +116,12 @@ internal suspend fun find(chats: ChatRepository, text: String, open: (String) ->
         if (sent) onJoinSent()
         return sent
     }
+    ProfileLink.parse(text)?.let { link -> return chats.openDirect(link.username, link.key)?.also(open) != null }
     return chats.openDirect(text.removePrefix("@").lowercase())?.also(open) != null
 }
 
-internal fun invite(context: Context, username: String) {
-    val text = context.getString(R.string.new_chat_invite_text, profileLink(username))
+internal fun invite(context: Context, username: String, key: String?) {
+    val text = context.getString(R.string.new_chat_invite_text, profileLink(username, key))
     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
     context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }

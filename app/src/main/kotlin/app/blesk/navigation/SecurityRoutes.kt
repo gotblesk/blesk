@@ -19,11 +19,13 @@ import app.blesk.AppContainer
 import app.blesk.core.crypto.Biometrics
 import app.blesk.core.crypto.PinVault
 import app.blesk.core.data.settings.Privacy
+import app.blesk.feature.chats.BlockedScreen
 import app.blesk.feature.security.PinAttempt
 import app.blesk.feature.security.PinEntry
 import app.blesk.feature.security.PinSetup
 import app.blesk.feature.security.PrivacyActions
 import app.blesk.feature.security.PrivacyScreen
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import app.blesk.feature.security.R as SecurityR
 
@@ -41,6 +43,7 @@ internal fun PrivacyRoute(
     onDisablePin: () -> Unit,
     onWipe: () -> Unit,
     onBack: () -> Unit,
+    onOpenBlocked: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -50,12 +53,18 @@ internal fun PrivacyRoute(
         pinSet = container.pinVault.isSet,
         biometricAvailable = remember { Biometrics.available(context) },
         actions = PrivacyActions(
-            onChange = { next -> scope.launch { container.settings.updatePrivacy { next } } },
+            onChange = { next ->
+                scope.launch {
+                    container.settings.updatePrivacy { next }
+                    if (next.findable != privacy.findable) container.chats.value?.setDiscoverable(next.findable)
+                }
+            },
             onEnablePin = onSetPin,
             onDisablePin = onDisablePin,
             onChangePin = onChangePin,
             onWipe = onWipe,
             onBack = onBack,
+            onOpenBlocked = onOpenBlocked,
         ),
     )
 }
@@ -126,4 +135,11 @@ internal fun LockRoute(container: AppContainer, biometric: Boolean) {
 internal fun wipeEverything(context: Context, container: AppContainer) {
     container.pinVault.clear()
     context.getSystemService(ActivityManager::class.java).clearApplicationUserData()
+}
+
+@Composable
+internal fun BlockedRoute(container: AppContainer, onBack: () -> Unit) {
+    val chats = container.chats.collectAsStateWithLifecycle().value ?: return
+    val blocked by remember(chats) { chats.blocked }.collectAsStateWithLifecycle(initialValue = emptyList())
+    BlockedScreen(people = blocked.toImmutableList(), onUnblock = { chats.setBlocked(it.username, false) }, onBack = onBack)
 }

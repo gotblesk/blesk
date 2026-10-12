@@ -23,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -167,6 +168,9 @@ data object WipeKey : NavKey
 data object LicensesKey : NavKey
 
 @Serializable
+data object BlockedKey : NavKey
+
+@Serializable
 data class LicenseKey(val license: License) : NavKey
 
 @Composable
@@ -233,7 +237,9 @@ fun BleskNavigation(container: AppContainer) {
                                     onCall = { contact ->
                                         openDirect(contact.username) { id -> context.startActivity(CallActivity.call(context, id, false)) }
                                     },
-                                    onInvite = (mode as? AppMode.Server)?.let { server -> { invite(context, server.username) } },
+                                    onInvite = (mode as? AppMode.Server)?.let { server ->
+                                        { scope.launch { invite(context, server.username, container.chats.value?.linkKey()) } }
+                                    },
                                 ),
                                 onOpenChannel = { room, channel ->
                                     when {
@@ -258,7 +264,12 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenNotifications = { backStack.add(NotificationsKey) },
                                     onOpenStorage = { backStack.add(StorageKey) },
                                     onShowQr = { backStack.add(MyQrKey) },
-                                    onShare = { scope.launch { shareProfile(context, container.settings.profile.first().username) } },
+                                    onShare = {
+                                        scope.launch {
+                                            val key = container.chats.value?.linkKey()
+                                            shareProfile(context, container.settings.profile.first().username, key)
+                                        }
+                                    },
                                     onOpenSaved = {
                                         scope.launch {
                                             val chats = container.chats.value ?: return@launch
@@ -272,7 +283,8 @@ fun BleskNavigation(container: AppContainer) {
                         entry<ProfileKey> { ProfileRoute(container, back) }
                         entry<MyQrKey> {
                             val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
-                            MyQrScreen(profile?.username.orEmpty(), onBack = back)
+                            val linkKey by produceState<String?>(null) { value = container.chats.value?.linkKey() }
+                            MyQrScreen(profile?.username.orEmpty(), onBack = back, linkKey = linkKey)
                         }
                         entry<ServerKey> {
                             Box(Modifier.sharedBounds(screenKey("server"))) {
@@ -293,10 +305,12 @@ fun BleskNavigation(container: AppContainer) {
                                     onDisablePin = { backStack.add(PinDisableKey) },
                                     onWipe = { backStack.add(WipeKey) },
                                     onBack = back,
+                                    onOpenBlocked = { backStack.add(BlockedKey) },
                                 )
                             }
                         }
                         entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
+                        entry<BlockedKey> { BlockedRoute(container, back) }
                         entry<PinDisableKey> { PinDisableRoute(container, back) }
                         entry<WipeKey> {
                             val context = LocalContext.current
@@ -511,8 +525,8 @@ private const val EXIT_SCALE = 0.9f
 private const val UNDER_DIM = 0.25f
 
 /** Sends a link to your profile through any app the person chooses. */
-private fun shareProfile(context: Context, username: String) {
+private fun shareProfile(context: Context, username: String, key: String?) {
     if (username.isBlank()) return
-    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, profileLink(username))
+    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, profileLink(username, key))
     context.startActivity(Intent.createChooser(send, context.getString(app.blesk.feature.profile.R.string.my_share_title)))
 }

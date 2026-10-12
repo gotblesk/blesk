@@ -58,8 +58,18 @@ class DemoRepository(
     private val botAuthorId = seed.echoBotAuthorId
     private val bot = seed.bot
 
+    private val blockedIds = MutableStateFlow<Set<String>>(emptySet())
+    private val people = seed.contacts
+
     override val contacts: Flow<List<Contact>> =
-        MutableStateFlow(seed.contacts.filter { it.id in seed.directContactIds })
+        blockedIds.map { blocked -> seed.contacts.filter { it.id in seed.directContactIds && it.id !in blocked } }
+
+    override val blocked: Flow<List<Contact>> = blockedIds.map { blocked -> people.filter { it.id in blocked } }
+
+    override fun setBlocked(username: String, blocked: Boolean) {
+        val id = people.firstOrNull { it.username == username }?.id ?: username
+        blockedIds.update { if (blocked) it + id else it - id }
+    }
 
     /** Empty direct chats stay hidden until something is written. */
     override val conversations: Flow<List<Conversation>> = all.map { list ->
@@ -74,7 +84,7 @@ class DemoRepository(
 
     override fun contact(id: String): Contact? = contactsById[id]
 
-    override suspend fun openDirect(username: String): String? {
+    override suspend fun openDirect(username: String, link: String?): String? {
         val contactId = contactsById.values.firstOrNull { it.username == username || it.id == username }?.id ?: return null
         val contact = contactsById.getValue(contactId)
         if (all.value.none { it.id == contactId }) {

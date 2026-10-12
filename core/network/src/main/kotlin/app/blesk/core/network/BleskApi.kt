@@ -14,6 +14,7 @@ import app.blesk.shared.protocol.ChallengeRequest
 import app.blesk.shared.protocol.CreateBot
 import app.blesk.shared.protocol.CreateSpace
 import app.blesk.shared.protocol.CreateSpaceChannel
+import app.blesk.shared.protocol.Discovery
 import app.blesk.shared.protocol.EditPost
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.KeyStatus
@@ -129,7 +130,17 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
         client.post(url(Api.ACCOUNTS)) { jsonBody(request) }
     }
 
-    suspend fun account(username: String): AccountInfo? = optional { client.get(url("${Api.ACCOUNTS}/$username")) { auth() } }
+    suspend fun account(username: String, link: String? = null): AccountInfo? = optional {
+        client.get(url("${Api.ACCOUNTS}/$username")) {
+            auth()
+            link?.let { parameter(Api.LINK, it) }
+        }
+    }
+
+    suspend fun setDiscoverable(discoverable: Boolean) {
+        val response = client.put(url(Api.DISCOVERY)) { auth(); jsonBody(Discovery(discoverable)) }
+        if (!response.status.isSuccess()) throw response.error()
+    }
 
     suspend fun challenge(username: String): Challenge = call { client.post(url(Api.CHALLENGE)) { jsonBody(ChallengeRequest(username)) } }
 
@@ -142,7 +153,12 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
 
     suspend fun keyStatus(): KeyStatus = call { client.get(url(Api.KEY_STATUS)) { auth() } }
 
-    suspend fun bundle(username: String): PreKeyBundleDto? = optional { client.get(url("${Api.KEYS}/$username")) { auth() } }
+    suspend fun bundle(username: String, link: String? = null): PreKeyBundleDto? = optional {
+        client.get(url("${Api.KEYS}/$username")) {
+            auth()
+            link?.let { parameter(Api.LINK, it) }
+        }
+    }
 
     suspend fun send(username: String, message: OutgoingMessage): SendResult = call {
         client.post(url("${Api.MESSAGES}/$username")) { auth(); jsonBody(message) }

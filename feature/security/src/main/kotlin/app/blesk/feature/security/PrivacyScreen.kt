@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.settings.Audience
 import app.blesk.core.data.settings.LockDelay
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.design.component.Card
@@ -16,7 +17,9 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 class PrivacyActions(
     val onChange: (Privacy) -> Unit,
@@ -25,6 +28,8 @@ class PrivacyActions(
     val onChangePin: () -> Unit,
     val onWipe: () -> Unit,
     val onBack: () -> Unit,
+    /** People you blocked; null in the demo. */
+    val onOpenBlocked: (() -> Unit)? = null,
 )
 
 @Composable
@@ -37,6 +42,26 @@ fun PrivacyScreen(
 ) {
     val pad = Modifier.padding(horizontal = Blesk.dimens.gutter)
     ScrollScreen(title = stringResource(R.string.privacy_title), onBack = actions.onBack, modifier = modifier) {
+        SectionHeader(stringResource(R.string.privacy_who))
+        Card(pad) {
+            Choice(
+                title = stringResource(R.string.privacy_find),
+                hint = stringResource(R.string.privacy_find_hint),
+                options = persistentListOf(stringResource(R.string.privacy_everyone), stringResource(R.string.privacy_by_link)),
+                selected = if (privacy.findable) 0 else 1,
+                onSelect = { actions.onChange(privacy.copy(findable = it == 0)) },
+            )
+            AudienceChoice(stringResource(R.string.privacy_who_writes), privacy.write, withNobody = false) {
+                actions.onChange(privacy.copy(write = it))
+            }
+            AudienceChoice(stringResource(R.string.privacy_who_calls), privacy.calls) { actions.onChange(privacy.copy(calls = it)) }
+            AudienceChoice(stringResource(R.string.privacy_who_adds), privacy.groups) { actions.onChange(privacy.copy(groups = it)) }
+            AudienceChoice(stringResource(R.string.privacy_who_sees_online), privacy.online) { actions.onChange(privacy.copy(online = it)) }
+            actions.onOpenBlocked?.let { open ->
+                ListRow(title = stringResource(R.string.privacy_blocked), icon = BleskIcons.Shield, onClick = open)
+            }
+        }
+
         SectionHeader(stringResource(R.string.privacy_lock))
         Card(pad) {
             ToggleRow(
@@ -109,4 +134,41 @@ fun PrivacyScreen(
             )
         }
     }
+}
+
+@Composable
+private fun AudienceChoice(title: String, value: Audience, withNobody: Boolean = true, onSelect: (Audience) -> Unit) {
+    val choices = if (withNobody) Audience.entries else listOf(Audience.Everyone, Audience.Contacts)
+    Choice(
+        title = title,
+        options = choices.map { audience ->
+            stringResource(
+                when (audience) {
+                    Audience.Everyone -> R.string.privacy_everyone
+                    Audience.Contacts -> R.string.privacy_contacts
+                    Audience.Nobody -> R.string.privacy_nobody
+                },
+            )
+        }.toImmutableList(),
+        selected = choices.indexOf(value).coerceAtLeast(0),
+        onSelect = { onSelect(choices[it]) },
+    )
+}
+
+@Composable
+private fun Choice(title: String, options: ImmutableList<String>, selected: Int, onSelect: (Int) -> Unit, hint: String? = null) {
+    Text(
+        text = title,
+        style = Blesk.type.bodyStrong,
+        modifier = Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = 12.dp),
+    )
+    hint?.let {
+        Text(
+            text = it,
+            style = Blesk.type.label,
+            color = Blesk.colors.textSecondary,
+            modifier = Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = 2.dp),
+        )
+    }
+    Segmented(options = options, selected = selected, onSelect = onSelect, modifier = Modifier.padding(bottom = 4.dp))
 }
