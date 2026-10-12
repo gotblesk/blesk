@@ -415,6 +415,20 @@ class KeyScreensScreenshotTest(private val name: String) {
     }
 
     @Test
+    fun longMessage() = capture("02c_long_message") {
+        val base = seed.messages.first { it.conversationId == DemoSeed.ANYA }
+        val essay = (1..40).joinToString("\n") { "Строка $it длинного письма о том, как мы ехали за город" }
+        ConversationScreen(
+            conversation = seed.conversations.first { it.id == DemoSeed.ANYA },
+            messages = persistentListOf(base.copy(id = "long", authorId = DemoSeed.ANYA, text = essay)),
+            typing = false,
+            authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            focusMessageId = "long",
+        )
+    }
+
+    @Test
     fun media() = capture("15_media") {
         val dir = ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir
         val picture = java.io.File(dir, "shot.jpg").also { file ->

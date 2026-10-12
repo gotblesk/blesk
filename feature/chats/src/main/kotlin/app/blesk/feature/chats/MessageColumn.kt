@@ -3,6 +3,7 @@ package app.blesk.feature.chats
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -380,6 +381,9 @@ private fun MessageEntry(
         val spoilerMask = stringResource(R.string.chat_spoiler)
         val revealLabel = stringResource(R.string.chat_spoiler_reveal)
         var revealed by remember(message.id) { mutableStateOf(false) }
+        var expanded by remember(message.id) { mutableStateOf(false) }
+        var cut by remember(message.id) { mutableStateOf(false) }
+        val readMore = stringResource(R.string.chat_read_more)
         val hidden = !revealed && markup.spans.any { it.style == Markup.Style.Spoiler }
         val melting = message.expiresAt?.let { rememberRemaining(message.sentAt, it) }
         Box(
@@ -406,11 +410,14 @@ private fun MessageEntry(
                     val body = if (hidden) markup.masked(spoilerMask) else markup.text
                     contentDescription = listOfNotNull(label.ifEmpty { null }, body.ifEmpty { null }, edited, time, status)
                         .joinToString(", ")
-                    customActions = listOf(
+                    customActions = listOfNotNull(
                         CustomAccessibilityAction(replyLabel) { actions.onReply(message); true },
+                        CustomAccessibilityAction(readMore) { expanded = true; true }.takeIf { cut && !expanded },
                     )
                 }
                 .graphicsLayer { alpha = contentAlpha() }
+                // Opening a long message grows the bubble downwards in place, without a jump.
+                .animateContentSize(Blesk.motion.settle())
                 .padding(
                     horizontal = if (circle || attachment?.isVisual() == true) 4.dp else 14.dp,
                     vertical = if (circle || attachment?.isVisual() == true) 4.dp else 9.dp,
@@ -445,7 +452,27 @@ private fun MessageEntry(
                 }
                 if (message.text.isNotEmpty()) {
                     val inset = if (attachment?.isVisual() == true) Modifier.padding(horizontal = 10.dp, vertical = 6.dp) else Modifier
-                    TextWithStamp(inset, text = { onLayout -> FormattedText(markup, revealed, Modifier, onLayout) }, stamp = stamp)
+                    TextWithStamp(
+                        modifier = inset,
+                        text = { onLayout ->
+                            FormattedText(markup, revealed, Modifier, if (expanded) Int.MAX_VALUE else COLLAPSED_LINES) { layout ->
+                                if (!expanded) cut = layout.hasVisualOverflow
+                                onLayout(layout)
+                            }
+                        },
+                        stamp = stamp,
+                    )
+                    if (cut && !expanded) {
+                        Text(
+                            text = readMore,
+                            style = Blesk.type.bodyStrong,
+                            color = Blesk.colors.textSecondary,
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .clearAndSetSemantics { }
+                                .clickable { expanded = true },
+                        )
+                    }
                 } else {
                     Box(Modifier.align(Alignment.End).padding(top = 2.dp)) { stamp() }
                 }
@@ -635,7 +662,13 @@ private const val MIN_MELT_STEP_MILLIS = 1_000L
 
 /** Formatted message text; spoilers stay covered until the bubble is tapped. */
 @Composable
-private fun FormattedText(markup: Markup, revealed: Boolean, modifier: Modifier, onTextLayout: ((TextLayoutResult) -> Unit)? = null) {
+private fun FormattedText(
+    markup: Markup,
+    revealed: Boolean,
+    modifier: Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    onTextLayout: ((TextLayoutResult) -> Unit)? = null,
+) {
     val colors = Blesk.colors
     val text = remember(markup, revealed, colors) {
         buildAnnotatedString {
@@ -658,7 +691,7 @@ private fun FormattedText(markup: Markup, revealed: Boolean, modifier: Modifier,
             }
         }
     }
-    Text(text, modifier = modifier, onTextLayout = onTextLayout)
+    Text(text, modifier = modifier, maxLines = maxLines, onTextLayout = onTextLayout)
 }
 
 /**
@@ -694,6 +727,9 @@ private fun TextWithStamp(
 }
 
 private val StampGap = 8.dp
+
+/** Longer messages fold, so one essay does not push the whole conversation off the screen. */
+private const val COLLAPSED_LINES = 25
 
 private val mention = Regex("(?<![\\w@])@[a-z0-9_]{3,32}")
 
