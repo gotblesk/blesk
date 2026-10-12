@@ -58,7 +58,8 @@ import app.blesk.feature.chats.ChatMenuActions
 import app.blesk.feature.chats.ConnectionStatus
 import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.ContactsTab
-import app.blesk.feature.chats.EmptyChats
+import app.blesk.feature.chats.Newcomer
+import app.blesk.feature.chats.NewcomerChats
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.feature.settings.YouList
@@ -225,8 +226,21 @@ internal fun Home(
                     val hidden = container.notices.hidden
                     val list = conversations.filter { it.kind != ConversationKind.Room && !it.archived && it.id !in hidden }
                     val archived = conversations.count { it.archived }
-                    if (list.isEmpty() && archived == 0 && !demo) {
-                        EmptyChats(padding)
+                    val friends = list.filter { it.kind != ConversationKind.Saved }
+                    // Once the newcomer screen has shown, it stays until the first friend has flown in and stuck.
+                    val welcoming = rememberSaveable { mutableStateOf(false) }
+                    val alone = friends.isEmpty() && archived == 0 && !demo
+                    if (alone && !welcoming.value) welcoming.value = true
+                    val me = profile
+                    if (welcoming.value && me != null) {
+                        NewcomerChats(
+                            me = Newcomer(me.name.ifBlank { me.username }, me.username, photo),
+                            contentPadding = padding,
+                            onFind = onNewChat,
+                            onInvite = contactActions.onInvite,
+                            friend = friends.firstOrNull()?.let { Newcomer(it.title, it.id, null) },
+                            onSettled = { welcoming.value = false },
+                        )
                         return@AnimatedContent
                     }
                     ChatList(

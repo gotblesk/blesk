@@ -52,6 +52,8 @@ import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.ForwardScreen
 import app.blesk.feature.chats.NewChatActions
 import app.blesk.feature.chats.NewChatScreen
+import app.blesk.feature.chats.Newcomer
+import app.blesk.feature.chats.NewcomerChats
 import app.blesk.feature.chats.PersonActions
 import app.blesk.feature.chats.PersonProfileScreen
 import app.blesk.feature.chats.SearchHit
@@ -287,6 +289,26 @@ class KeyScreensScreenshotTest(private val name: String) {
                 debugUnlocked = true,
                 contentPadding = padding,
                 actions = SettingsActions({}, {}, {}, {}, {}, {}),
+            )
+        }
+    }
+
+    @Test
+    fun newcomer() = capture("01c_newcomer") {
+        HomeFrame("Чаты", 0) { padding ->
+            NewcomerChats(me = Newcomer("Ева", "eva", null), contentPadding = padding, onFind = {}, onInvite = {})
+        }
+    }
+
+    @Test
+    fun firstFriend() = capture("01d_first_friend") {
+        HomeFrame("Чаты", 0) { padding ->
+            NewcomerChats(
+                me = Newcomer("Ева", "eva", null),
+                contentPadding = padding,
+                onFind = {},
+                onInvite = {},
+                friend = Newcomer("Аня Соколова", "anya", null),
             )
         }
     }

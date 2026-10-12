@@ -68,5 +68,5 @@ fun Modifier.flashOn(key: Any?, shape: Shape): Modifier = composed {
     }
 }
 
-private const val FLASH_MILLIS = 650
+private const val FLASH_MILLIS = 400
 private const val STATIC_FLASH_MILLIS = 300L

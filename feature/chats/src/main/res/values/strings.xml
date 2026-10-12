@@ -101,6 +101,9 @@
     <string name="contacts_find">Найти людей и каналы</string>
     <string name="contacts_find_action">Найти</string>
     <string name="contacts_not_found">Ничего не нашлось на сервере</string>
+    <string name="newcomer_text">Здесь пока только ты. Позови друга или найди человека по имени пользователя. Личные чаты шифруются сквозным шифрованием.</string>
+    <string name="newcomer_invite">Позвать друга</string>
+    <string name="newcomer_find">Найти по @username</string>
     <string name="chats_empty_title">Пока тихо</string>
     <string name="chats_empty_text">Нажми «+» вверху, найди человека по имени пользователя и напиши первым. Все личные чаты шифруются сквозным шифрованием.</string>
     <string name="group_new">Новая группа или комната</string>
