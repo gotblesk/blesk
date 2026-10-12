@@ -1,8 +1,14 @@
 package app.blesk.feature.chats
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,7 +18,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -21,8 +29,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -65,6 +76,7 @@ import app.blesk.core.design.color.ContrastLevel
 import app.blesk.core.design.color.ensureContrast
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.glint
 import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
@@ -75,7 +87,9 @@ import app.blesk.feature.chats.media.MediaContent
 import app.blesk.feature.chats.media.isVisual
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
@@ -143,6 +157,8 @@ internal fun MessageColumn(
             LaunchedEffect(message.id) {
                 if (grow.value < 1f) grow.animateTo(1f, spring(dampingRatio = 0.85f, stiffness = 260f))
             }
+            // A message that would not go comes away from the column, leaving a gap.
+            if (own && message.status == SendStatus.Failed) Spacer(Modifier.height(FailedGap))
             MessageEntry(
                 message = message,
                 own = own,
@@ -276,11 +292,16 @@ private fun MessageEntry(
         val revealLabel = stringResource(R.string.chat_spoiler_reveal)
         var revealed by remember(message.id) { mutableStateOf(false) }
         val hidden = !revealed && markup.spans.any { it.style == Markup.Style.Spoiler }
+        val melting = message.expiresAt?.let { rememberRemaining(message.sentAt, it) }
         Box(
             modifier = Modifier
                 .widthIn(max = 300.dp)
                 .onPlaced { parts.put(if (circle) "circle:${message.id}" else "bubble:${message.id}", it) }
                 .let { if (selected) it.border(2.dp, Blesk.colors.accent, if (circle) CircleShape else BubbleShape) else it }
+                .let { modifier ->
+                    val shape = if (circle) CircleShape else BubbleShape
+                    melting?.let { left -> modifier.glint(shape, intensity = { left.value }) } ?: modifier
+                }
                 .combinedClickable(
                     onClickLabel = if (hidden && !selecting) revealLabel else null,
                     onLongClickLabel = menuLabel,
@@ -443,19 +464,41 @@ private fun StatusMark(status: SendStatus, quiet: Color, onMedia: Boolean) {
 private fun Reactions(reactions: ImmutableList<Reaction>, onToggle: (String) -> Unit, modifier: Modifier = Modifier) {
     Row(modifier.padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         reactions.forEach { reaction ->
-            val label = stringResource(R.string.chat_reaction, reaction.symbol, reaction.count)
-            val ring by animateFloatAsState(if (reaction.mine) 1f else 0f, label = "mine")
-            Row(
-                modifier = Modifier
-                    .border(1.dp, Blesk.colors.light.copy(alpha = 0.5f * ring), CircleShape)
-                    .clickable { onToggle(reaction.symbol) }
-                    .semantics(mergeDescendants = true) { contentDescription = label }
-                    .padding(horizontal = 8.dp, vertical = 5.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(reaction.symbol, style = Blesk.type.label)
-                if (reaction.count > 1) Text(reaction.count.toString(), style = Blesk.type.caption, color = Blesk.colors.textSecondary)
+            key(reaction.symbol) {
+                val label = stringResource(R.string.chat_reaction, reaction.symbol, reaction.count)
+                val ring by animateFloatAsState(if (reaction.mine) 1f else 0f, label = "mine")
+                // A new reaction sticks on with a small ripple of the surface, then rests.
+                val stick = remember { Animatable(STICK_FROM) }
+                val motion = Blesk.motion
+                LaunchedEffect(Unit) { stick.animateTo(1f, motion.stretch()) }
+                Row(
+                    modifier = Modifier
+                        .graphicsLayer {
+                            scaleX = stick.value
+                            scaleY = 2f - stick.value
+                        }
+                        .border(1.dp, Blesk.colors.light.copy(alpha = 0.5f * ring), CircleShape)
+                        .clickable { onToggle(reaction.symbol) }
+                        .semantics(mergeDescendants = true) { contentDescription = label }
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(reaction.symbol, style = Blesk.type.label)
+                    if (reaction.count > 1) {
+                        AnimatedContent(
+                            targetState = reaction.count,
+                            transitionSpec = {
+                                val up = targetState > initialState
+                                (slideInVertically(motion.settle()) { if (up) it else -it } + fadeIn(motion.press()))
+                                    .togetherWith(slideOutVertically(motion.settle()) { if (up) -it else it } + fadeOut(motion.press()))
+                            },
+                            label = "count",
+                        ) { count ->
+                            Text(count.toString(), style = Blesk.type.caption, color = Blesk.colors.textSecondary)
+                        }
+                    }
+                }
             }
         }
     }
@@ -470,6 +513,27 @@ internal fun statusLabel(status: SendStatus) = when (status) {
     SendStatus.Delivered -> R.string.chat_status_delivered
     SendStatus.Read -> R.string.chat_status_read
 }
+
+/**
+ * How much of a disappearing message's life is left, from 1 down to 0. The glint on its edge
+ * fades with it instead of a countdown in numbers.
+ */
+@Composable
+private fun rememberRemaining(sentAt: Instant, expiresAt: Instant): State<Float> {
+    val total = (expiresAt.toEpochMilli() - sentAt.toEpochMilli()).coerceAtLeast(1)
+    fun left() = ((expiresAt.toEpochMilli() - System.currentTimeMillis()).toFloat() / total).coerceIn(0f, 1f)
+    return produceState(left(), sentAt, expiresAt) {
+        // About two hundred steps over the whole life, never more often than once a second.
+        val step = (total / MELT_STEPS).coerceAtLeast(MIN_MELT_STEP_MILLIS)
+        while (value > 0f) {
+            delay(step)
+            value = left()
+        }
+    }
+}
+
+private const val MELT_STEPS = 200
+private const val MIN_MELT_STEP_MILLIS = 1_000L
 
 /** Formatted message text; spoilers stay covered until the bubble is tapped. */
 @Composable
@@ -514,3 +578,5 @@ private fun withMentions(text: String): AnnotatedString = buildAnnotatedString {
 
 private const val RISE_IN_DOTS = 3f
 private const val SNAP_AT = 0.4f
+private const val STICK_FROM = 0.8f
+private val FailedGap = 14.dp

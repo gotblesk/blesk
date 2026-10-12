@@ -20,19 +20,21 @@ import kotlin.math.hypot
  * White glint, the mark of protection: a thin highlight running along the edge of an
  * end-to-end encrypted capsule, brightest on the side facing the light. Only E2EE chats and
  * closed rooms carry it; everything else stays matte. [color] and [onDark] override the current
- * theme, for previews of other themes.
+ * theme, for previews of other themes. [intensity] dims it at draw time, without recomposing,
+ * for a glint that fades out.
  */
 fun Modifier.glint(
     shape: Shape,
     enabled: Boolean = true,
     color: Color = Color.Unspecified,
     onDark: Boolean? = null,
+    intensity: () -> Float = { 1f },
 ): Modifier = if (!enabled) this else composed {
     val light = if (color.isSpecified) color else Blesk.colors.light
     val strength = Blesk.appearance.glintStrength
     val source = Blesk.light.direction
     val isDark = onDark ?: Blesk.colors.isDark
-    glintDraw(shape, light, strength * if (isDark) 1f else LIGHT_THEME_BOOST, source)
+    glintDraw(shape, light, strength * if (isDark) 1f else LIGHT_THEME_BOOST, source, intensity)
 }
 
 private const val LIGHT_THEME_BOOST = 1.15f
@@ -42,6 +44,7 @@ private fun Modifier.glintDraw(
     light: Color,
     strength: Float,
     source: State<Offset>,
+    intensity: () -> Float,
 ): Modifier {
     if (strength <= 0f) return this
     return drawWithCache {
@@ -54,6 +57,8 @@ private fun Modifier.glintDraw(
         )
         onDrawWithContent {
             drawContent()
+            val strength = strength * intensity().coerceIn(0f, 1f)
+            if (strength <= 0f) return@onDrawWithContent
             val dir = source.value
             val length = hypot(dir.x, dir.y).coerceAtLeast(0.001f)
             val ux = dir.x / length

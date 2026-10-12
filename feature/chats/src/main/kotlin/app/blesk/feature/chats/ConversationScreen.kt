@@ -415,7 +415,18 @@ fun ConversationScreen(
                                 is FeedEntry.Run -> entry.messages
                             }
                             val own = group.first().isOwn
+                            // A deleted message fades out and its neighbours close the gap without a jump.
+                            val itemMotion = if (Blesk.motion.reduced) {
+                                Modifier
+                            } else {
+                                Modifier.animateItem(
+                                    fadeInSpec = null,
+                                    placementSpec = Blesk.motion.settle(),
+                                    fadeOutSpec = Blesk.motion.transition(),
+                                )
+                            }
                             MessageColumn(
+                                modifier = itemMotion,
                                 messages = group,
                                 author = if (showAuthors && !own) authorName(group.first().authorId) else null,
                                 fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds }.toSet() },
