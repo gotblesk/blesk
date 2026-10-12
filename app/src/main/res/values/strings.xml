@@ -31,4 +31,5 @@
         <item quantity="many">Передаётся %1$d файлов</item>
         <item quantity="other">Передаётся %1$d файла</item>
     </plurals>
+    <string name="player_voice">Голосовое сообщение</string>
 </resources>

@@ -48,6 +48,7 @@ import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.icon.LivingIcon
 import app.blesk.core.design.theme.BleskTheme
+import app.blesk.core.media.Playback
 import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
@@ -74,6 +75,7 @@ import app.blesk.feature.chats.groups.GroupInfoScreen
 import app.blesk.feature.chats.groups.NewGroupScreen
 import app.blesk.feature.chats.groups.SpaceActions
 import app.blesk.feature.chats.groups.SpaceInfoScreen
+import app.blesk.feature.chats.media.MiniPlayer
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.profile.ProfileActions
 import app.blesk.feature.profile.ProfileScreen
@@ -545,6 +547,34 @@ class KeyScreensScreenshotTest(private val name: String) {
             callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
             transfers = mapOf("album/0" to Transfer(13_000_000, 48_000_000), "album/4" to Transfer(0, -1, failed = true)),
         )
+    }
+
+    @Test
+    fun music() = capture("02f_music") {
+        val base = seed.messages.first { it.conversationId == DemoSeed.ANYA }
+        val song = Attachment.Music("song.mp3", "song.mp3", "Звезда по имени Солнце", "Кино", 225_000, 8_600_000, "audio/mpeg")
+        Column {
+            ConversationScreen(
+                conversation = seed.conversations.first { it.id == DemoSeed.ANYA },
+                messages = persistentListOf(base.copy(id = "song", authorId = DemoSeed.ANYA, text = "", attachment = song)),
+                typing = false,
+                authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
+                callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+                modifier = Modifier.weight(1f),
+            )
+            MiniPlayer(
+                playback = Playback(
+                    path = "song.mp3",
+                    playing = true,
+                    title = song.title,
+                    artist = song.artist,
+                    positionMillis = 61_000,
+                    durationMillis = 225_000,
+                ),
+                onToggle = {},
+                onStop = {},
+            )
+        }
     }
 
     @Test

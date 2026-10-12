@@ -194,6 +194,9 @@ data class AttachmentPointer(
     val thumbnail: String? = null,
     /** 1: AES-CBC with HMAC over the whole file; 2: Tink streaming AEAD in 1 MB segments, playable while it downloads. */
     val scheme: Int = 1,
+    /** For music: what the file says it is. */
+    val title: String? = null,
+    val artist: String? = null,
 )
 
 /**

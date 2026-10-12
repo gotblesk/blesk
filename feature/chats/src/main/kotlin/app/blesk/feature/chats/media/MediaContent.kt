@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -63,7 +64,8 @@ import java.util.Locale
 @Immutable
 class MediaController(
     val playback: State<Playback>,
-    val onToggleVoice: (String) -> Unit,
+    /** Plays or pauses a voice note or song; voice notes after it in the chat follow. */
+    val onPlay: (Message) -> Unit,
     val onSeekVoice: (path: String, fraction: Float, durationMillis: Long) -> Unit,
     val onCycleSpeed: () -> Unit,
     /** Opens the viewer on a message's photo or video; [index] is the place within an album. */
@@ -146,7 +148,8 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
                 if (transfer?.failed == true) controller.onRetryTransfer(message) else controller.onCancelTransfer(message)
             }
         }
-        is Attachment.Voice -> VoiceNote(attachment, controller)
+        is Attachment.Voice -> VoiceNote(attachment, controller) { controller.onPlay(message) }
+        is Attachment.Music -> MusicRow(attachment, controller) { controller.onPlay(message) }
         is Attachment.Circle -> CircleNote(attachment)
         is Attachment.Theme -> Unit
         is Attachment.Album -> AlbumMosaic(attachment, message) { index -> controller.onOpenMedia(message, index) }
@@ -273,7 +276,7 @@ private fun FileRow(file: Attachment.File, transfer: Transfer?, onOpen: () -> Un
 }
 
 @Composable
-private fun VoiceNote(voice: Attachment.Voice, controller: MediaController) {
+private fun VoiceNote(voice: Attachment.Voice, controller: MediaController, onToggle: () -> Unit) {
     val playback = controller.playback.value
     val active = playback.path == voice.path
     val playing = active && playback.playing
@@ -295,7 +298,7 @@ private fun VoiceNote(voice: Attachment.Voice, controller: MediaController) {
                 .clickable(
                     role = Role.Button,
                     onClickLabel = stringResource(if (playing) R.string.media_pause else R.string.media_play),
-                ) { controller.onToggleVoice(voice.path) },
+                ) { onToggle() },
             contentAlignment = Alignment.Center,
         ) {
             Icon(if (playing) BleskIcons.Pause else BleskIcons.Play, contentDescription = null, tint = Blesk.colors.onAccent, size = 20.dp)
@@ -417,4 +420,56 @@ private fun Attachment.downloadSize(): Long = when (this) {
     is Attachment.Video -> sizeBytes
     is Attachment.File -> sizeBytes
     else -> 0
+}
+
+/** A song in the chat: play and pause, what it is and who sings it, its length and size; a tap on the line seeks. */
+@Composable
+private fun MusicRow(music: Attachment.Music, controller: MediaController, onToggle: () -> Unit) {
+    val playback = controller.playback.value
+    val active = music.path.isNotEmpty() && playback.path == music.path
+    val playing = active && playback.playing
+    val progress = if (active) (playback.positionMillis.toFloat() / music.durationMillis.coerceAtLeast(1)).coerceIn(0f, 1f) else 0f
+    val label = stringResource(if (playing) R.string.media_pause else R.string.media_play)
+    Row(
+        modifier = Modifier.widthIn(max = 260.dp).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(Blesk.colors.background)
+                .clickable(enabled = music.path.isNotEmpty(), role = Role.Button, onClickLabel = label, onClick = onToggle),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(if (playing) BleskIcons.Pause else BleskIcons.Music, contentDescription = null)
+        }
+        Column(Modifier.weight(1f, fill = false)) {
+            Text(music.title, style = Blesk.type.bodyStrong, maxLines = 1)
+            if (music.artist.isNotEmpty()) Text(music.artist, style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)
+            if (active) {
+                val track = Blesk.colors.hairline
+                val fill = Blesk.colors.light
+                Box(
+                    Modifier
+                        .padding(vertical = 6.dp)
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(track)
+                        .pointerInput(music.path) {
+                            detectTapGestures { controller.onSeekVoice(music.path, it.x / size.width, music.durationMillis) }
+                        },
+                ) {
+                    Box(Modifier.fillMaxWidth(progress).height(4.dp).background(fill))
+                }
+            }
+            Text(
+                text = "${formatDuration(if (active) playback.positionMillis else music.durationMillis)} · ${formatSize(music.sizeBytes)}",
+                style = Blesk.type.caption,
+                color = Blesk.colors.textSecondary,
+            )
+        }
+    }
 }

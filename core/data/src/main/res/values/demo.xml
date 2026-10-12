@@ -82,4 +82,5 @@
     <string name="demo_bot_command_start">начать сначала</string>
     <string name="demo_bot_command_help">что умеет бот</string>
     <string name="attachment_album">Альбом · %1$d</string>
+    <string name="attachment_music">Музыка: %1$s</string>
 </resources>

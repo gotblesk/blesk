@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -194,11 +195,12 @@ internal fun ConversationRoute(
         }
     }
     val playback = container.audioPlayer.playback.collectAsStateWithLifecycle()
-    DisposableEffect(Unit) { onDispose { container.audioPlayer.stop() } }
+    val shown by rememberUpdatedState(loaded.orEmpty())
+    val voiceTitle = stringResource(app.blesk.R.string.player_voice)
     val mediaController = remember(id) {
         MediaController(
             playback = playback,
-            onToggleVoice = container.audioPlayer::toggle,
+            onPlay = { message -> playFrom(container.audioPlayer, message, shown, voiceTitle) },
             onSeekVoice = container.audioPlayer::seek,
             onCycleSpeed = container.audioPlayer::cycleSpeed,
             onOpenMedia = { message, index -> onOpenMedia(message.id, index) },
@@ -226,6 +228,15 @@ internal fun ConversationRoute(
     val commands by produceState(emptyList<BotCommand>(), id, isBot) {
         if (isBot && bots != null) value = bots.commands(id)
     }
+    val pickMusic = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            busy = true
+            val attachment = container.media.importMusic(uri)
+            busy = false
+            if (attachment != null) demo.sendAttachment(id, attachment) else notify(failed)
+        }
+    }
     LaunchedEffect(bots) {
         bots?.notices?.collect { notify(it) }
     }
@@ -249,7 +260,7 @@ internal fun ConversationRoute(
             onTakePhoto = { cameraPermission.launch(Manifest.permission.CAMERA) },
             onPickMusic = {
                 container.lock.expectReturn()
-                pickFile.launch(arrayOf("audio/*"))
+                pickMusic.launch(arrayOf("audio/*"))
             },
             onTyping = { active -> demo.setTyping(id, active) },
             onOpenInfo = when {

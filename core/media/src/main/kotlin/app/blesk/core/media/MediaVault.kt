@@ -57,6 +57,31 @@ class MediaVault(private val context: Context) {
         }
     }
 
+    /** Music as it is, no re-encoding, with what the file says about its title, artist and length. */
+    suspend fun importMusic(uri: Uri): Attachment? {
+        val file = importFile(uri) ?: return null
+        return withContext(Dispatchers.IO) {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(file.path)
+                fun tag(key: Int) = retriever.extractMetadata(key)?.trim()?.takeIf { it.isNotEmpty() }
+                Attachment.Music(
+                    path = file.path,
+                    name = file.name,
+                    title = tag(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: file.name.substringBeforeLast('.'),
+                    artist = tag(MediaMetadataRetriever.METADATA_KEY_ARTIST).orEmpty(),
+                    durationMillis = tag(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0,
+                    sizeBytes = file.sizeBytes,
+                    mime = file.mime,
+                )
+            } catch (_: RuntimeException) {
+                file
+            } finally {
+                retriever.release()
+            }
+        }
+    }
+
     /** Copies any file as is, up to [MAX_FILE_BYTES]. */
     suspend fun importFile(uri: Uri): Attachment.File? = withContext(Dispatchers.IO) {
         try {
@@ -121,7 +146,7 @@ class MediaVault(private val context: Context) {
     }
 
     companion object {
-        const val MAX_FILE_BYTES = 200L * 1024 * 1024
+        const val MAX_FILE_BYTES = 2L * 1024 * 1024 * 1024
         private const val MAX_PHOTO_SIDE = 2560
         private const val MAX_POSTER_SIDE = 720
         private const val PHOTO_QUALITY = 86

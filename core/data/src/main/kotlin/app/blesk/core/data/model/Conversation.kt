@@ -161,6 +161,19 @@ sealed interface Attachment {
     @SerialName("circle")
     data class Circle(val path: String, val poster: String, val durationMillis: Long) : Attachment
 
+    /** A song sent as it is, played right in the chat. */
+    @Serializable
+    @SerialName("music")
+    data class Music(
+        val path: String,
+        val name: String,
+        val title: String,
+        val artist: String,
+        val durationMillis: Long,
+        val sizeBytes: Long,
+        val mime: String,
+    ) : Attachment
+
     /** Up to [MAX] photos and videos sent together, shown as one mosaic. */
     @Serializable
     @SerialName("album")
@@ -186,6 +199,7 @@ fun Attachment.withoutFiles(): Attachment? = when (this) {
     is Attachment.File -> copy(path = "").takeIf { path.isNotEmpty() }
     is Attachment.Voice -> copy(path = "").takeIf { path.isNotEmpty() }
     is Attachment.Circle -> copy(path = "", poster = "").takeIf { path.isNotEmpty() || poster.isNotEmpty() }
+    is Attachment.Music -> copy(path = "").takeIf { path.isNotEmpty() }
     is Attachment.Theme -> null
     is Attachment.Album -> Attachment.Album(items.map { it.withoutFiles() ?: it }).takeIf { files.isNotEmpty() }
 }
@@ -198,6 +212,7 @@ val Attachment.files: List<String>
         is Attachment.File -> listOf(path)
         is Attachment.Voice -> listOf(path)
         is Attachment.Circle -> listOf(path, poster)
+        is Attachment.Music -> listOf(path)
         is Attachment.Theme -> emptyList()
         is Attachment.Album -> items.flatMap { it.files }
     }.filter { it.isNotEmpty() }

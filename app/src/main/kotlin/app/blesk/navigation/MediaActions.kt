@@ -9,6 +9,9 @@ import androidx.core.content.FileProvider
 import androidx.media3.common.util.UnstableApi
 import app.blesk.AppContainer
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.Message
+import app.blesk.core.media.AudioPlayer
+import app.blesk.core.media.Track
 import java.io.File
 
 /** Photos are re-encoded on the way in; videos are compressed to 720p first. */
@@ -41,4 +44,25 @@ internal fun openLink(context: Context, url: String) {
     } catch (_: ActivityNotFoundException) {
         return
     }
+}
+
+/**
+ * Plays [message]'s voice note or song. Voice notes after it in the chat follow on their own; the
+ * system player shows [voiceTitle] for them, never who sent them.
+ */
+internal fun playFrom(player: AudioPlayer, message: Message, messages: List<Message>, voiceTitle: String) {
+    fun trackOf(attachment: Attachment?): Track? = when (attachment) {
+        is Attachment.Voice -> attachment.path.takeIf { it.isNotEmpty() }
+            ?.let { Track(it, voiceTitle, durationMillis = attachment.durationMillis) }
+        is Attachment.Music -> attachment.path.takeIf { it.isNotEmpty() }
+            ?.let { Track(it, attachment.title, attachment.artist, attachment.durationMillis) }
+        else -> null
+    }
+    val track = trackOf(message.attachment) ?: return
+    val next = if (message.attachment is Attachment.Voice) {
+        messages.dropWhile { it.id != message.id }.drop(1).mapNotNull { (it.attachment as? Attachment.Voice)?.let(::trackOf) }
+    } else {
+        emptyList()
+    }
+    player.toggle(track, next)
 }

@@ -406,4 +406,6 @@
     <string name="media_transfer_cancel">Отменить</string>
     <string name="media_retry">Скачать</string>
     <string name="media_download">Скачать</string>
+    <string name="player_untitled">Без названия</string>
+    <string name="player_stop">Остановить</string>
 </resources>

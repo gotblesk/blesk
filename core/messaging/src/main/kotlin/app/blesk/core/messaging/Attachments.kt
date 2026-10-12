@@ -70,6 +70,11 @@ internal object Attachments {
             id, key, KIND_CIRCLE,
             durationMillis = attachment.durationMillis, thumbnail = inline(attachment.poster),
         )
+        is Attachment.Music -> AttachmentPointer(
+            id, key, KIND_MUSIC,
+            name = attachment.name, mime = attachment.mime, size = attachment.sizeBytes,
+            durationMillis = attachment.durationMillis, title = attachment.title, artist = attachment.artist,
+        )
         is Attachment.Theme -> error("Themes travel inline")
         is Attachment.Album -> error("Albums travel as a list of pointers")
     }
@@ -84,7 +89,7 @@ internal object Attachments {
     fun autoKindOf(kind: String): AutoKind? = when (kind) {
         KIND_PHOTO -> AutoKind.Photos
         KIND_VIDEO -> AutoKind.Videos
-        KIND_FILE -> AutoKind.Files
+        KIND_FILE, KIND_MUSIC -> AutoKind.Files
         else -> null
     }
 
@@ -114,6 +119,7 @@ internal object Attachments {
         KIND_FILE -> Attachment.File("", safeName(pointer.name), pointer.size, pointer.mime ?: "application/octet-stream")
         KIND_VOICE -> Attachment.Voice("", pointer.durationMillis, pointer.waveform.orEmpty())
         KIND_CIRCLE -> Attachment.Circle("", "", pointer.durationMillis)
+        KIND_MUSIC -> music(pointer, "")
         else -> null
     }
 
@@ -167,8 +173,19 @@ internal object Attachments {
         KIND_FILE -> Attachment.File(target.path, safeName(pointer.name), target.length(), pointer.mime ?: "application/octet-stream")
         KIND_VOICE -> Attachment.Voice(target.path, pointer.durationMillis, pointer.waveform.orEmpty())
         KIND_CIRCLE -> Attachment.Circle(target.path, poster, pointer.durationMillis)
+        KIND_MUSIC -> music(pointer, target.path)
         else -> null
     }
+
+    private fun music(pointer: AttachmentPointer, path: String) = Attachment.Music(
+        path = path,
+        name = safeName(pointer.name),
+        title = pointer.title.orEmpty().take(MAX_TAG).ifEmpty { safeName(pointer.name).substringBeforeLast('.') },
+        artist = pointer.artist.orEmpty().take(MAX_TAG),
+        durationMillis = pointer.durationMillis,
+        sizeBytes = pointer.size,
+        mime = pointer.mime ?: "audio/mpeg",
+    )
 
     private fun pathOf(attachment: Attachment): String? = when (attachment) {
         is Attachment.Photo -> attachment.path
@@ -176,6 +193,7 @@ internal object Attachments {
         is Attachment.File -> attachment.path
         is Attachment.Voice -> attachment.path
         is Attachment.Circle -> attachment.path
+        is Attachment.Music -> attachment.path
         is Attachment.Theme, is Attachment.Album -> null
     }
 
@@ -221,4 +239,6 @@ internal object Attachments {
     private const val KIND_FILE = "file"
     private const val KIND_VOICE = "voice"
     private const val KIND_CIRCLE = "circle"
+    private const val KIND_MUSIC = "music"
+    private const val MAX_TAG = 200
 }

@@ -2,11 +2,14 @@ package app.blesk
 
 import android.app.Application
 import app.blesk.background.MessageNotifier
+import app.blesk.background.PlaybackService
 import app.blesk.background.TransferService
 import app.blesk.calls.CallCoordinator
 import app.blesk.core.data.diagnostics.EventCode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -28,6 +31,11 @@ class BleskApplication : Application() {
         registerActivityLifecycleCallbacks(VisibleActivities { container.visible = it })
         CallCoordinator(this, container).start()
         notifier = MessageNotifier(this, container).also { it.start() }
+        // The first song or voice note brings up the system player, so playback survives the background.
+        container.scope.launch {
+            container.audioPlayer.playback.map { it.playing }.distinctUntilChanged().filter { it }.first()
+            PlaybackService.connect(this@BleskApplication)
+        }
         // Files keep moving in the background under a notification while any are on their way.
         container.scope.launch {
             container.chats.flatMapLatest { it?.transfers ?: flowOf(emptyMap()) }

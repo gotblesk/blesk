@@ -79,7 +79,7 @@ private suspend fun measure(context: Context, chats: ChatRepository?): StorageUs
         photos = total { it is Attachment.Photo },
         videos = total { it is Attachment.Video || it is Attachment.Circle },
         voice = total { it is Attachment.Voice },
-        files = total { it is Attachment.File },
+        files = total { it is Attachment.File || it is Attachment.Music },
         database = context.getDatabasePath("blesk.db").parentFile?.sizeOnDisk() ?: 0L,
         cache = context.cacheDir.sizeOnDisk(),
         chats = byChat.toImmutableList(),
