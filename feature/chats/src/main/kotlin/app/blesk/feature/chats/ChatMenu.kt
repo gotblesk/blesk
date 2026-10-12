@@ -29,6 +29,7 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 
 /** What can be done to a chat from the list. */
 class ChatMenuActions(
@@ -43,6 +44,7 @@ class ChatMenuActions(
 @Composable
 fun ChatMenu(conversation: Conversation, now: Long, actions: ChatMenuActions, onDismiss: () -> Unit) {
     var muting by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
     fun act(action: () -> Unit) {
         action()
         onDismiss()
@@ -78,7 +80,10 @@ fun ChatMenu(conversation: Conversation, now: Long, actions: ChatMenuActions, on
                         title = stringResource(if (conversation.pinned) R.string.chats_unpin else R.string.chats_pin),
                         icon = BleskIcons.Pin,
                         showChevron = false,
-                        onClick = { act { actions.onPin(!conversation.pinned) } },
+                        onClick = {
+                            if (!conversation.pinned) haptics.stick()
+                            act { actions.onPin(!conversation.pinned) }
+                        },
                     )
                     ListRow(
                         title = stringResource(if (conversation.archived) R.string.chats_from_archive else R.string.chats_to_archive),

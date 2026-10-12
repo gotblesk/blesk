@@ -40,6 +40,7 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 
 private val QrPaper = Color(0xFFF4F1EC)
 private val QrInk = Color(0xFF1D1F22)
@@ -79,11 +80,13 @@ fun ProfileScreen(profile: Profile, photo: ImageBitmap?, actions: ProfileActions
                 }
             }
         }
+        val haptics = rememberHaptics()
         Fields(name, username, bio)
         Button(
             text = stringResource(if (dirty || saves == 0) R.string.profile_save else R.string.profile_saved),
             onClick = {
                 actions.onSave(name.text.toString(), username.text.toString(), bio.text.toString())
+                haptics.success()
                 saves++
             },
             modifier = Modifier

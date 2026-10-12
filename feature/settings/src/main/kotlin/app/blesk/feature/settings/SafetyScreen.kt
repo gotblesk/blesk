@@ -36,6 +36,7 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.glint
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import kotlinx.coroutines.launch
 
 @Composable
@@ -50,6 +51,7 @@ fun SafetyScreen(
     /** Draws a QR code of the given text; supplied by the app. */
     qr: @Composable BoxScope.(String) -> Unit = {},
 ) {
+    val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
     var scanning by remember { mutableStateOf(false) }
     var outcome by remember { mutableStateOf<Boolean?>(null) }
@@ -108,7 +110,10 @@ fun SafetyScreen(
             Button(
                 text = stringResource(if (state.verified) R.string.safety_unmark else R.string.safety_mark),
                 kind = ButtonKind.Secondary,
-                onClick = { onSetVerified(!state.verified) },
+                onClick = {
+                    if (!state.verified) haptics.success()
+                    onSetVerified(!state.verified)
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
         }

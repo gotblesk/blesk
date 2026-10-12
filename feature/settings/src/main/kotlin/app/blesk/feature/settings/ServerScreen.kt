@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,7 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import kotlinx.coroutines.launch
 
 /** How an attempt to join a server ended. */
@@ -83,6 +85,14 @@ private fun ConnectForm(onConnect: suspend (String, String) -> ConnectOutcome) {
     var scanning by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var outcome by remember { mutableStateOf<ConnectOutcome?>(null) }
+    val haptics = rememberHaptics()
+    LaunchedEffect(outcome) {
+        when (outcome) {
+            ConnectOutcome.Ok -> haptics.success()
+            null -> Unit
+            else -> haptics.refuse()
+        }
+    }
 
     Text(
         text = stringResource(R.string.server_demo_text),

@@ -53,6 +53,7 @@ import app.blesk.core.design.component.glint
 import app.blesk.core.design.glass.BottomLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import io.livekit.android.room.Room
 import kotlinx.coroutines.delay
 
@@ -82,6 +83,14 @@ fun CallScreen(
     demoPreview: @Composable BoxScope.() -> Unit = {},
     clock: () -> Long = System::currentTimeMillis,
 ) {
+    val haptics = rememberHaptics()
+    LaunchedEffect(session.phase) {
+        when (session.phase) {
+            CallPhase.Active -> haptics.success()
+            CallPhase.Ended -> haptics.callEnded()
+            else -> Unit
+        }
+    }
     val remote = media.members.filterNot { it.local }
     val local = media.members.firstOrNull { it.local }
     val sharedScreen = remote.firstNotNullOfOrNull { it.screen }

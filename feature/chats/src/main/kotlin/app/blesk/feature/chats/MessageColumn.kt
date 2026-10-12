@@ -89,6 +89,7 @@ import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.lerp
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.MediaContent
 import app.blesk.feature.chats.media.isVisual
 import app.blesk.shared.appearance.ThemeSpec
@@ -294,6 +295,7 @@ private fun MessageEntry(
     val density = LocalDensity.current
     val swipeLimit = with(density) { ReplySwipe.toPx() }
     val drag = remember { Animatable(0f) }
+    val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
 
     Column(
@@ -310,6 +312,7 @@ private fun MessageEntry(
                 ) { change, amount ->
                     change.consume()
                     val next = drag.value + amount
+                    if (abs(drag.value) < swipeLimit && abs(next) >= swipeLimit) haptics.tick()
                     // Pull towards the middle of the screen only, with resistance past the threshold.
                     val bounded = if (own) next.coerceIn(-swipeLimit * 1.4f, 0f) else next.coerceIn(0f, swipeLimit * 1.4f)
                     scope.launch { drag.snapTo(bounded) }

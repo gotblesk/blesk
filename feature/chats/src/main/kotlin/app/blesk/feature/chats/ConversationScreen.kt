@@ -558,6 +558,8 @@ private fun SelectionHeader(count: Int, onClose: () -> Unit, onCopy: () -> Unit,
 
 @Composable
 private fun KeyWarning(onCheck: (() -> Unit)?) {
+    val haptics = rememberHaptics()
+    LaunchedEffect(Unit) { haptics.warn() }
     Capsule(
         modifier = Modifier.fillMaxWidth(),
         onClick = onCheck,

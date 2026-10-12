@@ -38,6 +38,7 @@ import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.component.rememberCopy
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import app.blesk.shared.protocol.BotInfo
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
@@ -62,6 +63,7 @@ fun BotsScreen(
 ) {
     val scope = rememberCoroutineScope()
     var shown by remember { mutableStateOf<BotWithToken?>(null) }
+    val haptics = rememberHaptics()
     var result by remember { mutableStateOf<BotResult?>(null) }
     var busy by remember { mutableStateOf(false) }
     val pad = Modifier.padding(horizontal = Blesk.dimens.gutter)
@@ -146,6 +148,7 @@ fun BotsScreen(
                 scope.launch {
                     val (outcome, created) = actions.create(username.text.toString(), title, about.text.toString())
                     result = outcome
+                    if (created == null) haptics.refuse() else haptics.success()
                     if (created != null) {
                         shown = created
                         username.clearText()

@@ -14,6 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import app.blesk.R
 import app.blesk.core.data.calls.CallSession
+import app.blesk.core.motion.Haptics
 
 /** The two call notifications: ringing (full screen when locked) and the ongoing call. */
 internal class CallNotifications(private val context: Context) {
@@ -32,10 +33,12 @@ internal class CallNotifications(private val context: Context) {
                         .build(),
                 )
                 enableVibration(true)
+                vibrationPattern = Haptics.RingPattern
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             val ongoing =
                 NotificationChannel(ONGOING, context.getString(R.string.calls_channel_ongoing), NotificationManager.IMPORTANCE_LOW)
+            system.deleteNotificationChannel(OLD_INCOMING)
             system.createNotificationChannels(listOf(ringing, ongoing))
         }
     }
@@ -93,7 +96,9 @@ internal class CallNotifications(private val context: Context) {
         PendingIntent.getActivity(context, request, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
     companion object {
-        const val INCOMING = "calls_incoming"
+        // A channel's vibration is fixed once created, so the ringing pattern needs a new channel.
+        const val INCOMING = "calls_ringing"
+        const val OLD_INCOMING = "calls_incoming"
         const val ONGOING = "calls_ongoing"
         const val INCOMING_ID = 41
         const val ONGOING_ID = 42

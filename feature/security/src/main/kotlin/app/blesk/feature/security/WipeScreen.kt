@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,8 @@ import kotlin.math.roundToInt
 
 @Composable
 fun WipeScreen(onWipe: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val haptics = rememberHaptics()
+    LaunchedEffect(Unit) { haptics.warn() }
     ScrollScreen(title = stringResource(R.string.wipe_title), onBack = onBack, modifier = modifier) {
         Text(
             text = stringResource(R.string.wipe_text),
