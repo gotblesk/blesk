@@ -81,9 +81,11 @@ import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
+import app.blesk.core.data.model.MAX_MESSAGE_CHARS
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.model.splitLongText
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
@@ -733,6 +735,15 @@ private fun Composer(
                 )
             }
             val typed = state.text.toString()
+            if (typed.length > MAX_MESSAGE_CHARS) {
+                val parts = splitLongText(typed).size
+                Text(
+                    text = pluralStringResource(R.plurals.chat_long_text, parts, parts),
+                    style = Blesk.type.label,
+                    color = Blesk.colors.textSecondary,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
             val suggestions = if (typed.startsWith("/") && ' ' !in typed) {
                 commands.filter { it.command.startsWith(typed.removePrefix("/")) }.take(MAX_SUGGESTIONS)
             } else {

@@ -27,6 +27,7 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.model.splitLongText
 import app.blesk.core.data.settings.IncomingNote
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
@@ -200,19 +201,20 @@ class ServerChatRepository(
     }
 
     override fun send(conversationId: String, text: String, replyToId: String?) {
-        if (bots.isBot(conversationId)) {
-            scope.launch { bots.send(conversationId, text.trim(), replyToId) }
-            return
-        }
-        val body = text.trim()
-        if (body.isEmpty()) return
-        if (spaces.handleOf(conversationId) != null) {
-            scope.launch {
-                runCatching { spaces.send(conversationId, body, replyToId, null) }.onFailure { log.record(EventCode.SendFailed) }
+        val parts = splitLongText(text)
+        if (parts.isEmpty()) return
+        // One coroutine for all parts, so they arrive in the order they were written.
+        scope.launch {
+            parts.forEachIndexed { index, body ->
+                val reply = replyToId.takeIf { index == 0 }
+                when {
+                    bots.isBot(conversationId) -> bots.send(conversationId, body, reply)
+                    spaces.handleOf(conversationId) != null ->
+                        runCatching { spaces.send(conversationId, body, reply, null) }.onFailure { log.record(EventCode.SendFailed) }
+                    else -> post(conversationId, body, reply, attachment = null, forwarded = false)
+                }
             }
-            return
         }
-        scope.launch { post(conversationId, body, replyToId, attachment = null, forwarded = false) }
     }
 
     override fun sendAttachment(conversationId: String, attachment: Attachment, caption: String, replyToId: String?) {

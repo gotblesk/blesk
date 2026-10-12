@@ -267,4 +267,10 @@
     <string name="emoji_objects">Вещи</string>
     <string name="emoji_symbols">Символы</string>
     <string name="emoji_flags">Флаги</string>
+    <plurals name="chat_long_text">
+        <item quantity="one">Уйдёт %1$d сообщением</item>
+        <item quantity="few">Уйдёт %1$d сообщениями по порядку</item>
+        <item quantity="many">Уйдёт %1$d сообщениями по порядку</item>
+        <item quantity="other">Уйдёт %1$d сообщениями по порядку</item>
+    </plurals>
 </resources>

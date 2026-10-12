@@ -18,6 +18,7 @@ import app.blesk.core.data.model.Preview
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.model.splitLongText
 import app.blesk.shared.protocol.BotCommand
 import app.blesk.shared.protocol.BotInfo
 import kotlinx.collections.immutable.persistentListOf
@@ -83,8 +84,10 @@ class DemoRepository(
     }
 
     override fun send(conversationId: String, text: String, replyToId: String?) {
-        val body = text.trim()
-        if (body.isEmpty()) return
+        splitLongText(text).forEachIndexed { index, part -> sendPart(conversationId, part, replyToId.takeIf { index == 0 }) }
+    }
+
+    private fun sendPart(conversationId: String, body: String, replyToId: String?) {
         val message = Message(
             id = nextId(),
             conversationId = conversationId,
