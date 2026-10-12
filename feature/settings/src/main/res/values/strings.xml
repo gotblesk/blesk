@@ -60,7 +60,7 @@
     <string name="license_open">Текст лицензии</string>
     <string name="settings_profile">Профиль</string>
     <string name="settings_profile_setup">Добавьте имя и фото</string>
-    <string name="settings_privacy_hint">Код-пароль, скриншоты, прочтение</string>
+    <string name="settings_privacy_hint">Код-пароль, скриншоты, прочтение, «печатает»</string>
     <string name="server_title">Сервер</string>
     <string name="server_demo_text">Сейчас blesk работает в демо-режиме: всё на телефоне, без сети. Подключите свой сервер, и переписка пойдёт по-настоящему, со сквозным шифрованием.</string>
     <string name="server_address">Адрес сервера</string>
@@ -136,4 +136,7 @@
     <string name="storage_counting">Считаем…</string>
     <string name="storage_clear_cache">Очистить временные файлы</string>
     <string name="storage_hint">Временные файлы — это заготовки при сжатии видео и записи. Их можно удалять без последствий. Переписка и вложения хранятся только на этом телефоне.</string>
+    <string name="you_title">Ты</string>
+    <string name="you_calls">Звонки</string>
+    <string name="you_security">Ключи и безопасность</string>
 </resources>

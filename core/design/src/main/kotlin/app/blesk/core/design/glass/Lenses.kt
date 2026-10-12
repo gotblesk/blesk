@@ -2,6 +2,7 @@ package app.blesk.core.design.glass
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -29,10 +30,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -54,25 +57,34 @@ import kotlin.math.abs
 
 private val LensShape = RoundedCornerShape(30.dp)
 
-/** The top lens: a glass capsule under the status bar holding the title and actions. */
+/**
+ * The top lens: a glass capsule under the status bar holding the title and actions. With
+ * [collapsed] set, the title starts large right on the background and gathers into the lens
+ * once the content scrolls under it.
+ */
 @Composable
 fun TopLens(
     title: String?,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     leading: @Composable RowScope.() -> Unit = {},
+    collapsed: Boolean? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val large = collapsed == false
+    val glass by animateFloatAsState(if (large) 0f else 1f, label = "lens")
     Box(
         modifier
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     ) {
+        if (glass > 0f) {
+            Box(Modifier.fillMaxWidth().height(60.dp).graphicsLayer { alpha = glass }.lens(LensShape))
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(60.dp)
-                .lens(LensShape)
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -86,7 +98,11 @@ fun TopLens(
             if (title != null) {
                 Text(
                     text = title,
-                    style = if (onBack == null) Blesk.type.title else Blesk.type.headline,
+                    style = when {
+                        large -> Blesk.type.display
+                        onBack == null -> Blesk.type.title
+                        else -> Blesk.type.headline
+                    },
                     maxLines = 1,
                     modifier = Modifier.weight(1f).semantics { heading() },
                 )
@@ -96,8 +112,9 @@ fun TopLens(
     }
 }
 
+/** A tab of the bottom lens; [badge] replaces the icon, for the profile tab's avatar. */
 @Immutable
-data class LensTab(val label: String, val icon: ImageVector)
+data class LensTab(val label: String, val icon: ImageVector, val badge: (@Composable () -> Unit)? = null)
 
 /**
  * The bottom lens as navigation. The selection is a drop of light: on a switch it stretches
@@ -161,7 +178,8 @@ fun LensTabBar(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     val tint = if (active) Blesk.colors.textPrimary else Blesk.colors.textSecondary
-                    Icon(tab.icon, contentDescription = null, tint = tint, size = 22.dp)
+                    val badge = tab.badge
+                    if (badge != null) badge() else Icon(tab.icon, contentDescription = null, tint = tint, size = 22.dp)
                     Text(tab.label, style = Blesk.type.caption, color = tint, maxLines = 1)
                 }
             }

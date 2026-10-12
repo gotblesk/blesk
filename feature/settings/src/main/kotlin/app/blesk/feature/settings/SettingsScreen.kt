@@ -1,5 +1,6 @@
 package app.blesk.feature.settings
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +20,7 @@ import app.blesk.core.data.settings.Profile
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Capsule
 import app.blesk.core.design.component.Card
+import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.SectionHeader
@@ -39,7 +41,7 @@ class SettingsActions(
     val onOpenStorage: () -> Unit = {},
 )
 
-/** The settings tab, placed under the home lenses. */
+/** The «Ты» tab: you, then everything that is set up once and rarely touched. */
 @Composable
 fun SettingsList(
     serverHost: String?,
@@ -49,12 +51,14 @@ fun SettingsList(
     contentPadding: PaddingValues,
     actions: SettingsActions,
     modifier: Modifier = Modifier,
+    demo: Boolean = serverHost == null,
+    scroll: ScrollState = rememberScrollState(),
 ) {
     val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
     Column(
         modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(contentPadding)
             .padding(bottom = 24.dp),
     ) {
@@ -68,13 +72,17 @@ fun SettingsList(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Avatar(profile.name.ifBlank { "?" }, size = 60.dp, photo = photo)
+                Avatar(profile.name.ifBlank { "?" }, size = 60.dp, photo = photo, key = profile.username.ifBlank { profile.name })
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        text = if (profile.isEmpty) stringResource(R.string.settings_profile) else profile.name,
-                        style = Blesk.type.headline,
-                        maxLines = 1,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = if (profile.isEmpty) stringResource(R.string.settings_profile) else profile.name,
+                            style = Blesk.type.headline,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (demo) DemoTag()
+                    }
                     Text(
                         text = if (profile.username.isNotBlank()) {
                             "@${profile.username}"
@@ -85,9 +93,29 @@ fun SettingsList(
                         color = Blesk.colors.textSecondary,
                         maxLines = 1,
                     )
+                    if (profile.bio.isNotBlank()) {
+                        Text(profile.bio, style = Blesk.type.label, color = Blesk.colors.textTertiary, maxLines = 2)
+                    }
                 }
                 Icon(BleskIcons.Qr, contentDescription = null, tint = Blesk.colors.textSecondary)
             }
+        }
+        Card(cardPadding.padding(top = Blesk.dimens.sectionGap)) {
+            ListRow(title = stringResource(R.string.you_calls), icon = BleskIcons.Phone, soon = true)
+            if (serverHost != null) {
+                ListRow(
+                    title = stringResource(R.string.settings_bots),
+                    subtitle = stringResource(R.string.settings_bots_hint),
+                    icon = BleskIcons.Bot,
+                    onClick = actions.onOpenBots,
+                )
+            }
+            ListRow(
+                title = stringResource(R.string.you_security),
+                subtitle = stringResource(R.string.settings_privacy_hint),
+                icon = BleskIcons.Shield,
+                onClick = actions.onOpenPrivacy,
+            )
         }
         SectionHeader(stringResource(R.string.settings_section_app))
         Card(cardPadding) {
@@ -98,21 +126,15 @@ fun SettingsList(
                 onClick = actions.onOpenAppearance,
             )
             ListRow(
-                title = stringResource(R.string.settings_privacy),
-                subtitle = stringResource(R.string.settings_privacy_hint),
-                icon = BleskIcons.Lock,
-                onClick = actions.onOpenPrivacy,
-            )
-            ListRow(
                 title = stringResource(R.string.settings_notifications),
                 subtitle = stringResource(R.string.settings_notifications_hint),
-                icon = BleskIcons.Chats,
+                icon = BleskIcons.Bell,
                 onClick = actions.onOpenNotifications,
             )
             ListRow(
                 title = stringResource(R.string.settings_storage),
                 subtitle = stringResource(R.string.settings_storage_hint),
-                icon = BleskIcons.Document,
+                icon = BleskIcons.Storage,
                 onClick = actions.onOpenStorage,
             )
         }
@@ -128,14 +150,6 @@ fun SettingsList(
                 icon = BleskIcons.Server,
                 onClick = actions.onOpenServer,
             )
-            if (serverHost != null) {
-                ListRow(
-                    title = stringResource(R.string.settings_bots),
-                    subtitle = stringResource(R.string.settings_bots_hint),
-                    icon = BleskIcons.Bot,
-                    onClick = actions.onOpenBots,
-                )
-            }
         }
         Card(cardPadding.padding(top = Blesk.dimens.sectionGap)) {
             ListRow(title = stringResource(R.string.settings_about), icon = BleskIcons.Info, onClick = actions.onOpenAbout)

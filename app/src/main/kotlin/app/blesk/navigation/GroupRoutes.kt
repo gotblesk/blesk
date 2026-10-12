@@ -24,7 +24,7 @@ import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.toImmutableList
 
 @Composable
-internal fun NewGroupRoute(container: AppContainer, onCreated: (String) -> Unit, onBack: () -> Unit) {
+internal fun NewGroupRoute(container: AppContainer, kind: NewKind, onCreated: (String) -> Unit, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val groups = chats as? GroupController ?: return
     val spaces = chats as? SpaceController
@@ -47,6 +47,7 @@ internal fun NewGroupRoute(container: AppContainer, onCreated: (String) -> Unit,
             }
         },
         onBack = onBack,
+        initialKind = kind,
     )
 }
 

@@ -62,6 +62,7 @@ import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Capsule
+import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
@@ -140,6 +141,8 @@ fun ConversationScreen(
     keyChanged: Boolean = false,
     /** What a bot offers when you type "/". */
     commands: ImmutableList<BotCommand> = persistentListOf(),
+    /** Marks the chat as part of the demo world. */
+    demo: Boolean = false,
     /** People who can be mentioned with "@" in a group or room. */
     members: ImmutableList<Contact> = persistentListOf(),
     underlay: @Composable BoxScope.() -> Unit = {},
@@ -182,7 +185,9 @@ fun ConversationScreen(
             LensScaffold(
                 underlay = underlay,
                 top = {
-                    ChatHeader(conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo, callbacks.onCall)
+                    ChatHeader(
+                        conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo, callbacks.onCall, demo,
+                    )
                 },
                 bottom = {
                     if (readOnly) {
@@ -322,16 +327,23 @@ private fun ChatHeader(
     onOpenTheme: () -> Unit,
     onOpenInfo: (() -> Unit)?,
     onCall: ((Boolean) -> Unit)?,
+    demo: Boolean,
 ) {
     val protected = conversation.protection == Protection.EndToEnd
     TopLens(
         title = null,
         onBack = onBack,
         leading = {
-            Avatar(conversation.title, size = 40.dp)
+            Avatar(
+                name = conversation.title,
+                key = conversation.id,
+                size = 40.dp,
+                protected = protected && conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
+            )
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
                 Text(conversation.title, style = Blesk.type.bodyStrong, maxLines = 1)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (demo) DemoTag()
                     if (!typing && conversation.timerSeconds > 0) {
                         Icon(BleskIcons.Timer, null, tint = Blesk.colors.textSecondary, size = 14.dp)
                     } else if (!typing && protected) {
@@ -365,7 +377,10 @@ private fun ChatHeader(
                     IconButton(BleskIcons.People, stringResource(R.string.group_info), onOpenInfo)
                 }
             }
-            IconButton(BleskIcons.Appearance, stringResource(R.string.chat_theme), onOpenTheme)
+            // Direct chats have the theme in their info screen; the header is full with calls there.
+            if (conversation.kind != ConversationKind.Direct || onOpenInfo == null) {
+                IconButton(BleskIcons.Appearance, stringResource(R.string.chat_theme), onOpenTheme)
+            }
         },
     )
 }

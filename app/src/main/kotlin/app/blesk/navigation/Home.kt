@@ -1,47 +1,42 @@
 package app.blesk.navigation
 
-import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.R
-import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.GroupController
-import app.blesk.core.data.SpaceController
 import app.blesk.core.data.model.Conversation
+import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannel
-import app.blesk.core.design.component.DemoTag
+import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.IconButton
+import app.blesk.core.design.component.Text
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
 import app.blesk.core.design.glass.LensTabBar
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.ChatList
-import app.blesk.feature.chats.ContactList
 import app.blesk.feature.chats.EmptyChats
-import app.blesk.feature.chats.SpaceSearch
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
-import app.blesk.shared.protocol.InviteLink
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
-import kotlinx.coroutines.launch
 import java.time.Instant
 
-enum class HomeTab { Chats, Contacts, Settings }
+enum class HomeTab { Chats, Rooms, You }
 
-/** The three tabs under the two lenses. */
+/** The three tabs under the two lenses: chats, rooms and you. */
 @Composable
 internal fun Home(
     container: AppContainer,
@@ -51,30 +46,49 @@ internal fun Home(
     debugUnlocked: Boolean,
     onSelectTab: (HomeTab) -> Unit,
     onOpenConversation: (String) -> Unit,
-    onNewGroup: () -> Unit,
+    onNewChat: () -> Unit,
+    onAddRoom: () -> Unit,
     onSearch: () -> Unit,
     onOpenChannel: (Conversation, RoomChannel) -> Unit,
+    onChatMenu: (Conversation) -> Unit,
     settings: SettingsActions,
 ) {
+    val chats = container.chats.collectAsStateWithLifecycle().value ?: return
+    val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
+    val photo = rememberProfilePhoto(container, profile?.photoVersion ?: 0L)
     val tabs = persistentListOf(
         LensTab(stringResource(R.string.tab_chats), BleskIcons.Chats),
-        LensTab(stringResource(R.string.tab_contacts), BleskIcons.People),
-        LensTab(stringResource(R.string.tab_settings), BleskIcons.Settings),
+        LensTab(stringResource(app.blesk.feature.chats.R.string.rooms_title), BleskIcons.Rooms),
+        LensTab(stringResource(app.blesk.feature.settings.R.string.you_title), BleskIcons.Person) {
+            val me = profile
+            Avatar(me?.name?.ifBlank { "?" } ?: "?", size = 24.dp, photo = photo, key = me?.username?.ifBlank { me.name } ?: "")
+        },
     )
-    val chats = container.chats.collectAsStateWithLifecycle().value ?: return
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val chatsList = rememberLazyListState()
+    val roomsList = rememberLazyListState()
+    val youScroll = rememberScrollState()
+    val collapsed = when (tab) {
+        HomeTab.Chats -> chatsList.firstVisibleItemIndex > 0 || chatsList.firstVisibleItemScrollOffset > COLLAPSE_AFTER
+        HomeTab.Rooms -> roomsList.firstVisibleItemIndex > 0 || roomsList.firstVisibleItemScrollOffset > COLLAPSE_AFTER
+        HomeTab.You -> youScroll.value > COLLAPSE_AFTER
+    }
+    val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
+    val typing by chats.typing.collectAsStateWithLifecycle()
     LensScaffold(
         top = {
             TopLens(
                 title = tabs[tab.ordinal].label,
+                collapsed = collapsed,
                 actions = {
-                    if (demo) DemoTag(Modifier.padding(end = 10.dp))
-                    if (tab == HomeTab.Chats) {
-                        IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), onSearch)
-                    }
-                    if (tab == HomeTab.Chats && chats is GroupController) {
-                        IconButton(BleskIcons.Plus, stringResource(app.blesk.feature.chats.R.string.group_new), onNewGroup)
+                    when (tab) {
+                        HomeTab.Chats -> {
+                            IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), onSearch)
+                            IconButton(BleskIcons.Plus, stringResource(app.blesk.feature.chats.R.string.new_chat_title), onNewChat)
+                        }
+                        HomeTab.Rooms -> if (chats is GroupController) {
+                            IconButton(BleskIcons.Plus, stringResource(app.blesk.feature.chats.R.string.rooms_add), onAddRoom)
+                        }
+                        HomeTab.You -> Unit
                     }
                 },
             )
@@ -83,61 +97,58 @@ internal fun Home(
     ) { padding ->
         when (tab) {
             HomeTab.Chats -> {
-                val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
-                val typing by chats.typing.collectAsStateWithLifecycle()
-                if (conversations.isEmpty() && !demo) {
+                val list = conversations.filter { it.kind != ConversationKind.Room }
+                if (list.isEmpty() && !demo) {
                     EmptyChats(padding)
                     return@LensScaffold
                 }
                 ChatList(
-                    conversations = conversations.toImmutableList(),
+                    conversations = list.toImmutableList(),
                     typing = typing.toImmutableSet(),
                     now = remember(conversations) { Instant.now() },
                     contentPadding = padding,
                     onOpenConversation = onOpenConversation,
                     onOpenChannel = onOpenChannel,
-                    onTogglePin = { chats.setChatPinned(it.id, !it.pinned) },
+                    state = chatsList,
+                    onLongPress = onChatMenu,
                 )
             }
-            HomeTab.Contacts -> {
-                val contacts by chats.contacts.collectAsStateWithLifecycle(initialValue = emptyList())
-                ContactList(
-                    contacts = contacts.toImmutableList(),
+            HomeTab.Rooms -> {
+                val rooms = conversations.filter { it.kind == ConversationKind.Room }
+                if (rooms.isEmpty()) {
+                    Text(
+                        text = stringResource(app.blesk.feature.chats.R.string.rooms_empty),
+                        color = Blesk.colors.textSecondary,
+                        modifier = Modifier.padding(padding).padding(Blesk.dimens.gutter + 4.dp),
+                    )
+                    return@LensScaffold
+                }
+                ChatList(
+                    conversations = rooms.toImmutableList(),
+                    typing = typing.toImmutableSet(),
+                    now = remember(conversations) { Instant.now() },
                     contentPadding = padding,
-                    onOpenContact = { contact ->
-                        scope.launch { chats.openDirect(contact.username)?.let(onOpenConversation) }
-                    },
-                    onFind = if (demo) null else { text -> find(context, chats, text, onOpenConversation) },
-                    spaces = (chats as? SpaceController)?.let { controller ->
-                        SpaceSearch(
-                            search = { query -> if (InviteLink.parse(query) != null) emptyList() else controller.searchSpaces(query) },
-                            join = { handle -> controller.joinSpace(handle)?.let(onOpenConversation) },
-                        )
-                    },
+                    onOpenConversation = onOpenConversation,
+                    onOpenChannel = onOpenChannel,
+                    state = roomsList,
+                    onLongPress = onChatMenu,
                 )
             }
-            HomeTab.Settings -> {
-                val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
+            HomeTab.You -> {
                 val current = profile ?: return@LensScaffold
                 SettingsList(
                     serverHost = serverHost,
                     debugUnlocked = debugUnlocked,
                     profile = current,
-                    photo = rememberProfilePhoto(container, current.photoVersion),
+                    photo = photo,
                     contentPadding = padding,
                     actions = settings,
+                    demo = demo,
+                    scroll = youScroll,
                 )
             }
         }
     }
 }
 
-/** A username opens a chat; an invite link asks the group's admin to let you in. */
-private suspend fun find(context: Context, chats: ChatRepository, text: String, open: (String) -> Unit): Boolean {
-    if (InviteLink.parse(text) != null) {
-        val sent = (chats as? GroupController)?.join(text) == true
-        if (sent) Toast.makeText(context, app.blesk.feature.chats.R.string.contacts_join_sent, Toast.LENGTH_LONG).show()
-        return sent
-    }
-    return chats.openDirect(text.removePrefix("@").lowercase())?.also(open) != null
-}
+private const val COLLAPSE_AFTER = 24

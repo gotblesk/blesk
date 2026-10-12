@@ -32,6 +32,7 @@ import app.blesk.core.data.GroupController
 import app.blesk.core.data.KeyState
 import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.SpaceController
+import app.blesk.core.data.demo.DemoRepository
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.SendStatus
@@ -213,6 +214,7 @@ internal fun ConversationRoute(
                 busy = busy,
                 readOnly = readOnly ?: (current.kind == ConversationKind.Channel),
                 reactions = !isSpace && !isBot,
+                demo = demo is DemoRepository,
                 keyChanged = direct && keyState.changed,
                 members = groupState?.members.orEmpty()
                     .filter { it.username != groupController?.me }

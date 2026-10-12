@@ -37,13 +37,11 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import app.blesk.core.data.model.Conversation
-import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.Text
-import app.blesk.core.design.component.glint
 import app.blesk.core.design.haptics.rememberHaptics
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
@@ -99,7 +97,6 @@ internal fun RoomCluster(
             Box(
                 Modifier
                     .clip(shape)
-                    .glint(shape, enabled = room.protection == Protection.EndToEnd)
                     .clickable(role = Role.Button) {
                         expanded = !expanded
                         if (expanded) haptics.detach() else haptics.merge()

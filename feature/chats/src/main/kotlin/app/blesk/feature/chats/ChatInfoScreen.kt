@@ -35,6 +35,7 @@ fun ChatInfoScreen(
     onTimer: (Int) -> Unit,
     onPin: (Boolean) -> Unit,
     onBack: () -> Unit,
+    onTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     ScrollScreen(title = conversation.title, onBack = onBack, modifier = modifier) {
@@ -58,6 +59,7 @@ fun ChatInfoScreen(
                 checked = conversation.pinned,
                 onCheckedChange = onPin,
             )
+            onTheme?.let { ListRow(title = stringResource(R.string.chat_theme), icon = BleskIcons.Appearance, onClick = it) }
         }
         TimerSection(conversation.timerSeconds, onTimer)
     }

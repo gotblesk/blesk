@@ -25,6 +25,7 @@ import app.blesk.core.data.settings.AppMode
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.network.ServerAddress
 import app.blesk.feature.chats.VoiceChannelScreen
+import app.blesk.feature.chats.groups.NewKind
 import app.blesk.feature.chats.media.MediaViewer
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.security.WipeScreen
@@ -67,7 +68,16 @@ data class MediaKey(val conversationId: String, val messageId: String) : NavKey
 data object ProfileKey : NavKey
 
 @Serializable
-data object NewGroupKey : NavKey
+data class NewGroupKey(val kind: NewKind = NewKind.Group) : NavKey
+
+@Serializable
+data object NewChatKey : NavKey
+
+@Serializable
+data object RoomsAddKey : NavKey
+
+@Serializable
+data object ScanKey : NavKey
 
 @Serializable
 data class GroupInfoKey(val groupId: String) : NavKey
@@ -154,8 +164,10 @@ fun BleskNavigation(container: AppContainer) {
                     debugUnlocked = debugUnlocked,
                     onSelectTab = { tab = it },
                     onOpenConversation = { backStack.add(ConversationKey(it)) },
-                    onNewGroup = { backStack.add(NewGroupKey) },
+                    onNewChat = { backStack.add(NewChatKey) },
+                    onAddRoom = { backStack.add(RoomsAddKey) },
                     onSearch = { backStack.add(SearchKey) },
+                    onChatMenu = { conversation -> container.chats.value?.setChatPinned(conversation.id, !conversation.pinned) },
                     onOpenChannel = { room, channel ->
                         when {
                             channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
@@ -222,9 +234,28 @@ fun BleskNavigation(container: AppContainer) {
                     onBack = back,
                 )
             }
-            entry<NewGroupKey> {
-                NewGroupRoute(container, onCreated = { id ->
-                    back()
+            entry<NewChatKey> {
+                NewChatRoute(
+                    container = container,
+                    onOpenConversation = { id ->
+                        back()
+                        backStack.add(ConversationKey(id))
+                    },
+                    onScan = { backStack.add(ScanKey) },
+                    onNewGroup = { kind -> backStack.add(NewGroupKey(kind)) },
+                    onBack = back,
+                )
+            }
+            entry<RoomsAddKey> { RoomsAddRoute(container, onCreate = { backStack.add(NewGroupKey(NewKind.Room)) }, onBack = back) }
+            entry<ScanKey> {
+                ScanRoute(container, onOpenConversation = { id ->
+                    while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                    backStack.add(ConversationKey(id))
+                }, onBack = back)
+            }
+            entry<NewGroupKey> { key ->
+                NewGroupRoute(container, key.kind, onCreated = { id ->
+                    while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
                     backStack.add(ConversationKey(id))
                 }, onBack = back)
             }

@@ -52,12 +52,13 @@ fun NewGroupScreen(
     onCreate: suspend (NewSpec) -> SpaceResult,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    initialKind: NewKind = NewKind.Group,
 ) {
     val scope = rememberCoroutineScope()
     val title = rememberTextFieldState()
     val handle = rememberTextFieldState()
     val about = rememberTextFieldState()
-    var kind by remember { mutableStateOf(NewKind.Group) }
+    var kind by remember { mutableStateOf(initialKind) }
     val picked = remember { mutableStateListOf<String>() }
     var busy by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<SpaceResult?>(null) }

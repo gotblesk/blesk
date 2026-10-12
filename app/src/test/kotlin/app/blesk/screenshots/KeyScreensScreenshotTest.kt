@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import app.blesk.core.calls.CallMember
 import app.blesk.core.calls.MediaState
@@ -21,11 +22,13 @@ import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.LogEntry
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.BotButton
+import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.Profile
-import app.blesk.core.design.component.DemoTag
+import app.blesk.core.design.component.Avatar
+import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
 import app.blesk.core.design.glass.LensTabBar
@@ -37,10 +40,11 @@ import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
 import app.blesk.feature.chats.ChatInfoScreen
 import app.blesk.feature.chats.ChatList
-import app.blesk.feature.chats.ContactList
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.ForwardScreen
+import app.blesk.feature.chats.NewChatActions
+import app.blesk.feature.chats.NewChatScreen
 import app.blesk.feature.chats.SearchHit
 import app.blesk.feature.chats.SearchScreen
 import app.blesk.feature.chats.VoiceChannelScreen
@@ -110,8 +114,8 @@ class KeyScreensScreenshotTest(private val name: String) {
     private val seed by lazy { DemoSeed.from(ApplicationProvider.getApplicationContext<android.content.Context>().resources, now) }
     private val tabs = persistentListOf(
         LensTab("Чаты", BleskIcons.Chats),
-        LensTab("Контакты", BleskIcons.People),
-        LensTab("Настройки", BleskIcons.Settings),
+        LensTab("Комнаты", BleskIcons.Rooms),
+        LensTab("Ты", BleskIcons.Person) { Avatar("Ева", size = 24.dp) },
     )
 
     private fun capture(screen: String, textScale: Float = 1f, content: @Composable () -> Unit) {
@@ -123,9 +127,16 @@ class KeyScreensScreenshotTest(private val name: String) {
     }
 
     @Composable
-    private fun HomeFrame(title: String, tab: Int, content: @Composable (PaddingValues) -> Unit) {
+    private fun HomeFrame(title: String, tab: Int, collapsed: Boolean = false, content: @Composable (PaddingValues) -> Unit) {
         LensScaffold(
-            top = { TopLens(title = title, actions = { DemoTag() }) },
+            top = {
+                TopLens(title = title, collapsed = collapsed, actions = {
+                    if (tab == 0) {
+                        IconButton(BleskIcons.Search, "Поиск", {})
+                        IconButton(BleskIcons.Plus, "Новый чат", {})
+                    }
+                })
+            },
             bottom = { LensTabBar(tabs = tabs, selected = tab, onSelect = {}) },
             content = content,
         )
@@ -135,7 +146,9 @@ class KeyScreensScreenshotTest(private val name: String) {
     fun chatList() = capture("01_chats") {
         HomeFrame("Чаты", 0) { padding ->
             ChatList(
-                conversations = seed.conversations.filter { it.parentId == null }.toImmutableList(),
+                conversations = seed.conversations.filter { it.parentId == null && it.kind != ConversationKind.Room }
+                    .mapIndexed { i, c -> if (i < 2) c.copy(pinned = true) else c }
+                    .toImmutableList(),
                 typing = persistentSetOf(DemoSeed.MISHA),
                 now = now,
                 contentPadding = padding,
@@ -162,9 +175,9 @@ class KeyScreensScreenshotTest(private val name: String) {
 
     @Test
     fun roomOpen() = capture("09_room_open") {
-        HomeFrame("Чаты", 0) { padding ->
+        HomeFrame("Комнаты", 1, collapsed = true) { padding ->
             ChatList(
-                conversations = seed.conversations.filter { it.parentId == null }.toImmutableList(),
+                conversations = seed.conversations.filter { it.kind == ConversationKind.Room && it.parentId == null }.toImmutableList(),
                 typing = persistentSetOf(),
                 now = now,
                 contentPadding = padding,
@@ -188,15 +201,17 @@ class KeyScreensScreenshotTest(private val name: String) {
     }
 
     @Test
-    fun contacts() = capture("03_contacts") {
-        HomeFrame("Контакты", 1) { padding ->
-            ContactList(contacts = seed.contacts.take(5).toImmutableList(), contentPadding = padding, onOpenContact = {})
-        }
+    fun contacts() = capture("03_new_chat") {
+        NewChatScreen(
+            contacts = seed.contacts.take(5).toImmutableList(),
+            actions = NewChatActions({}, {}, {}, {}, {}, onFind = { false }, spaces = null),
+            onBack = {},
+        )
     }
 
     @Test
     fun settings() = capture("04_settings") {
-        HomeFrame("Настройки", 2) { padding ->
+        HomeFrame("Ты", 2) { padding ->
             SettingsList(
                 serverHost = null,
                 debugUnlocked = true,

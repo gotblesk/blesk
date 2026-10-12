@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -52,6 +53,7 @@ fun ContactList(
     onFind: (suspend (String) -> Boolean)? = null,
     /** Public channels and open rooms matching the same query; null where there are none. */
     spaces: SpaceSearch? = null,
+    header: (LazyListScope.() -> Unit)? = null,
 ) {
     var found by remember { mutableStateOf<ImmutableList<SpaceInfo>>(persistentListOf()) }
     LazyColumn(
@@ -62,6 +64,7 @@ fun ContactList(
         ),
         verticalArrangement = Arrangement.spacedBy(Blesk.dimens.rowGap),
     ) {
+        header?.invoke(this)
         if (onFind != null) {
             item(key = "find") {
                 FindPerson { query ->

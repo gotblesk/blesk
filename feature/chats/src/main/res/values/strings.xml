@@ -190,4 +190,20 @@
     <string name="forward_title">Переслать в…</string>
     <string name="forward_send">Переслать (%1$d)</string>
     <string name="forward_done">Переслано</string>
+    <string name="chats_menu">Действия с чатом</string>
+    <string name="new_chat_title">Новый чат</string>
+    <string name="new_chat_scan">Сканировать QR-код</string>
+    <string name="new_chat_group">Создать группу</string>
+    <string name="new_chat_channel">Создать канал</string>
+    <string name="new_chat_invite">Пригласить</string>
+    <string name="new_chat_invite_text">Пиши мне в blesk: %1$s</string>
+    <string name="rooms_title">Комнаты</string>
+    <string name="rooms_empty">Комнат пока нет. Создай свою или войди по ссылке.</string>
+    <string name="rooms_add">Комната</string>
+    <string name="rooms_create">Создать комнату</string>
+    <string name="rooms_join">Войти по ссылке</string>
+    <string name="rooms_join_field">Ссылка-приглашение</string>
+    <string name="rooms_join_sent">Запрос отправлен. Ты попадёшь внутрь, когда админ будет в сети.</string>
+    <string name="rooms_join_bad">Эта ссылка не подходит</string>
+    <string name="scan_unknown">Этот код blesk не знает</string>
 </resources>
