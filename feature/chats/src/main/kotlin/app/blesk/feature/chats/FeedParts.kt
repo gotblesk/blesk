@@ -37,6 +37,7 @@ import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 internal fun DayDivider(date: LocalDate) {
@@ -55,8 +56,10 @@ internal fun DayDivider(date: LocalDate) {
     )
 }
 
-private val dayFormat = DateTimeFormatter.ofPattern("d MMMM")
-private val dayYearFormat = DateTimeFormatter.ofPattern("d MMMM yyyy")
+// The interface is Russian only, so month names are too, whatever the phone's language.
+private val russian = Locale.forLanguageTag("ru")
+private val dayFormat = DateTimeFormatter.ofPattern("d MMMM", russian)
+private val dayYearFormat = DateTimeFormatter.ofPattern("d MMMM yyyy", russian)
 
 @Composable
 internal fun UnreadDivider() {

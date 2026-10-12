@@ -1,6 +1,7 @@
 package app.blesk.feature.chats
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -254,7 +256,10 @@ fun ConversationScreen(
 
     CompositionLocalProvider(LocalMediaController provides media) {
         Box(modifier.sharedBounds(chatKey(conversation.id)).fillMaxSize()) {
+            // Behind the message menu the chat dims and blurs (blur draws from Android 12).
+            val behindMenu by animateDpAsState(if (menuFor != null && !Blesk.motion.reduced) MENU_BLUR else 0.dp, label = "blur")
             LensScaffold(
+                modifier = Modifier.blur(behindMenu),
                 underlay = underlay,
                 top = {
                     if (selection.isNotEmpty()) {
@@ -618,3 +623,5 @@ private fun PinnedBanner(message: Message, onUnpin: (() -> Unit)?) {
         if (onUnpin != null) IconButton(BleskIcons.Close, stringResource(R.string.chat_unpin), onUnpin)
     }
 }
+
+private val MENU_BLUR = 10.dp

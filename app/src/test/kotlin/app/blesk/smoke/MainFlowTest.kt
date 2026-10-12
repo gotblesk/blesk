@@ -7,12 +7,14 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.MainActivity
+import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,8 +40,12 @@ class MainFlowTest {
         compose.mainClock.advanceTimeBy(5_000)
         compose.waitForIdle()
         compose.onNodeWithText("проверка").performTouchInput { longClick() }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onRoot().captureRoboImage("build/screenshots/31_message_menu.png")
         compose.onNodeWithText("Выбрать").performClick()
         compose.onNodeWithText("Выбрано 1").assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onRoot().captureRoboImage("build/screenshots/30_selection.png")
         compose.onNodeWithContentDescription("Отменить").performClick()
         compose.onNodeWithContentDescription("Эмодзи").performClick()
         compose.onNodeWithContentDescription("Найти эмодзи").performTextInput("ржака")

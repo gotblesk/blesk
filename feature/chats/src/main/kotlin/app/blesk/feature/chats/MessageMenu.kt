@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,14 +27,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.model.Markup
 import app.blesk.core.data.model.Message
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ListRow
@@ -88,10 +92,11 @@ internal fun MessageMenu(
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            LiftedMessage(message, Modifier.flowIn(order = 0).align(if (message.isOwn) Alignment.End else Alignment.Start))
             if (onReact != null) {
                 Row(
                     modifier = Modifier
-                        .flowIn(order = 0)
+                        .flowIn(order = 1)
                         .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
                         .background(Blesk.colors.surface)
                         .padding(6.dp)
@@ -113,7 +118,7 @@ internal fun MessageMenu(
                     }
                 }
             }
-            Card(Modifier.flowIn(order = 1)) {
+            Card(Modifier.flowIn(order = 2)) {
                 onRetry?.let { retry ->
                     ListRow(
                         title = stringResource(R.string.chat_retry),
@@ -180,6 +185,26 @@ internal fun MessageMenu(
         }
     }
 }
+
+/** The pressed message, lifted above the dimmed chat so it is clear what the menu is for. */
+@Composable
+private fun LiftedMessage(message: Message, modifier: Modifier = Modifier) {
+    val text = Markup.parse(message.text).masked(stringResource(R.string.chat_spoiler))
+    if (text.isBlank()) return
+    Box(
+        modifier
+            .widthIn(max = 300.dp)
+            .shadow(LIFT_ELEVATION, BubbleShape, clip = false)
+            .background(if (message.isOwn) Blesk.colors.surfaceStrong else Blesk.colors.surface, BubbleShape)
+            .padding(horizontal = 14.dp, vertical = 9.dp)
+            .clearAndSetSemantics { },
+    ) {
+        Text(text, maxLines = LIFT_MAX_LINES)
+    }
+}
+
+private val LIFT_ELEVATION = 12.dp
+private const val LIFT_MAX_LINES = 6
 
 /**
  * The menu flows out of the pressed message: each capsule rises and swells from below, one

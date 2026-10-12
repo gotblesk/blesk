@@ -1,11 +1,15 @@
 package app.blesk.feature.chats
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -24,6 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,6 +56,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.selected
@@ -96,7 +102,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val BubbleRadius = 20.dp
-private val BubbleShape = RoundedCornerShape(BubbleRadius)
+internal val BubbleShape = RoundedCornerShape(BubbleRadius)
 private val QuoteGap = 12.dp
 private val ReplySwipe = 64.dp
 
@@ -159,17 +165,56 @@ internal fun MessageColumn(
             }
             // A message that would not go comes away from the column, leaving a gap.
             if (own && message.status == SendStatus.Failed) Spacer(Modifier.height(FailedGap))
-            MessageEntry(
-                message = message,
-                own = own,
-                quote = message.replyToId?.let(quoteText),
-                parts = parts,
-                contentAlpha = { grow.value },
-                actions = actions,
-                selected = message.id in selection,
+            SelectableRow(
                 selecting = selection.isNotEmpty(),
-            )
+                selected = message.id in selection,
+                own = own,
+                onToggle = { actions.onTap(message) },
+            ) {
+                MessageEntry(
+                    message = message,
+                    own = own,
+                    quote = message.replyToId?.let(quoteText),
+                    parts = parts,
+                    contentAlpha = { grow.value },
+                    actions = actions,
+                    selected = message.id in selection,
+                    selecting = selection.isNotEmpty(),
+                )
+            }
         }
+    }
+}
+
+/**
+ * In selection mode a circle slides in from the left of every message and the messages shift
+ * over to make room; the circle fills in for the picked ones.
+ */
+@Composable
+private fun SelectableRow(selecting: Boolean, selected: Boolean, own: Boolean, onToggle: () -> Unit, content: @Composable () -> Unit) {
+    val motion = Blesk.motion
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        AnimatedVisibility(
+            visible = selecting,
+            enter = expandHorizontally(motion.settle()) + fadeIn(motion.press()),
+            exit = shrinkHorizontally(motion.transition()) + fadeOut(motion.press()),
+        ) {
+            val fill by animateColorAsState(if (selected) Blesk.colors.accent else Color.Transparent, motion.select(), label = "pick")
+            Box(
+                Modifier
+                    .padding(end = 10.dp)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(fill)
+                    .border(1.5.dp, if (selected) Blesk.colors.accent else Blesk.colors.textTertiary, CircleShape)
+                    .clickable(onClick = onToggle)
+                    .clearAndSetSemantics { },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) Icon(BleskIcons.Check, contentDescription = null, size = 14.dp, tint = Blesk.colors.onAccent)
+            }
+        }
+        Box(Modifier.weight(1f), contentAlignment = if (own) Alignment.CenterEnd else Alignment.CenterStart) { content() }
     }
 }
 
