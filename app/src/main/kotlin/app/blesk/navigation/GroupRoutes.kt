@@ -60,7 +60,7 @@ internal fun SpaceInfoRoute(container: AppContainer, handle: String, onLeft: () 
     val me = (chats as? GroupController)?.me.orEmpty()
     val space by remember(handle) { spaces.space(SPACE_PREFIX + handle) }.collectAsStateWithLifecycle(initialValue = null)
     var version by remember { mutableIntStateOf(0) }
-    val members by produceState(emptyList<SpaceMember>(), handle, version, space?.role) {
+    val members by produceState<List<SpaceMember>?>(null, handle, version, space?.role) {
         val role = space?.role
         value = if (role == SpaceRole.Owner || role == SpaceRole.Admin) spaces.spaceMembers(handle) else emptyList()
     }
@@ -68,7 +68,7 @@ internal fun SpaceInfoRoute(container: AppContainer, handle: String, onLeft: () 
     SpaceInfoScreen(
         space = current,
         me = me,
-        members = members.toImmutableList(),
+        members = members?.toImmutableList(),
         nameOf = { username -> chats.contact(username)?.name ?: username },
         actions = SpaceActions(
             update = { title, about -> spaces.updateSpace(handle, title, about) },

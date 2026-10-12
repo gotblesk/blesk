@@ -18,9 +18,9 @@ import kotlinx.collections.immutable.toImmutableList
 internal fun BotsRoute(container: AppContainer, onBack: () -> Unit) {
     val bots = container.chats.collectAsStateWithLifecycle().value as? BotAccounts ?: return
     var version by remember { mutableIntStateOf(0) }
-    val mine by produceState(emptyList<BotInfo>(), version) { value = bots.myBots() }
+    val mine by produceState<List<BotInfo>?>(null, version) { value = bots.myBots() }
     BotsScreen(
-        bots = mine.toImmutableList(),
+        bots = mine?.toImmutableList(),
         actions = BotActions(
             create = { username, name, about -> bots.createBot(username, name, about).also { version++ } },
             renew = { username -> bots.renewToken(username) },

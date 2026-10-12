@@ -28,6 +28,7 @@ import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.NotEncryptedTag
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
+import app.blesk.core.design.component.SkeletonRows
 import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
@@ -56,7 +57,8 @@ class SpaceActions(
 fun SpaceInfoScreen(
     space: SpaceInfo,
     me: String,
-    members: ImmutableList<SpaceMember>,
+    /** Null while the list is on its way from the server. */
+    members: ImmutableList<SpaceMember>?,
     nameOf: (String) -> String,
     actions: SpaceActions,
     onBack: () -> Unit,
@@ -103,7 +105,11 @@ fun SpaceInfoScreen(
             SpaceChannels(space, admin, actions, ::run)
         }
 
-        if (admin && members.isNotEmpty()) {
+        if (admin && members == null) {
+            SectionHeader(stringResource(R.string.group_members))
+            SkeletonRows(count = 3, avatar = 40.dp)
+        }
+        if (admin && !members.isNullOrEmpty()) {
             SectionHeader(stringResource(R.string.group_members))
             Card(pad) {
                 members.forEach { member ->

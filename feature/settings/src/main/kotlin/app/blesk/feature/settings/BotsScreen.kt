@@ -31,6 +31,7 @@ import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.NotEncryptedTag
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
+import app.blesk.core.design.component.SkeletonRows
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.component.rememberCopy
@@ -48,7 +49,13 @@ class BotActions(
 )
 
 @Composable
-fun BotsScreen(bots: ImmutableList<BotInfo>, actions: BotActions, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun BotsScreen(
+    /** Null while the list is on its way from the server. */
+    bots: ImmutableList<BotInfo>?,
+    actions: BotActions,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val scope = rememberCoroutineScope()
     var shown by remember { mutableStateOf<BotWithToken?>(null) }
     var result by remember { mutableStateOf<BotResult?>(null) }
@@ -61,7 +68,9 @@ fun BotsScreen(bots: ImmutableList<BotInfo>, actions: BotActions, onBack: () -> 
         shown?.let { token -> TokenCard(token, onDone = { shown = null }) }
 
         SectionHeader(stringResource(R.string.bots_mine))
-        if (bots.isEmpty()) {
+        if (bots == null) {
+            SkeletonRows(count = 2, avatar = 40.dp)
+        } else if (bots.isEmpty()) {
             Text(stringResource(R.string.bots_none), color = Blesk.colors.textSecondary, modifier = pad.padding(horizontal = 4.dp))
         } else {
             Card(pad) {
