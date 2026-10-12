@@ -102,6 +102,8 @@ import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.motion.rememberLoopPhase
+import app.blesk.core.design.motion.sharedBounds
+import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.CircleOverlay
@@ -287,7 +289,7 @@ fun ConversationScreen(
     }
 
     CompositionLocalProvider(LocalMediaController provides media) {
-        Box(modifier.fillMaxSize()) {
+        Box(modifier.sharedBounds(chatKey(conversation.id)).fillMaxSize()) {
             LensScaffold(
                 underlay = underlay,
                 top = {
@@ -508,6 +510,7 @@ private fun ChatHeader(
                 name = conversation.title,
                 key = conversation.id,
                 size = 40.dp,
+                modifier = Modifier.sharedElement(avatarKey(conversation.id)),
                 protected = protected && conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
             )
             Column(Modifier.weight(1f).padding(start = 8.dp)) {

@@ -1,7 +1,13 @@
 package app.blesk.feature.chats
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,9 +23,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -27,10 +35,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +59,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
@@ -62,6 +74,8 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
+import app.blesk.core.design.motion.sharedBounds
+import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
@@ -74,6 +88,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * The list of conversations. Rows lie on the background; pinned chats sit on capsules that
@@ -114,11 +129,11 @@ fun ChatList(
     ) {
         header?.invoke(this)
         if (archivedCount > 0 && onOpenArchive != null) {
-            item(key = "archive") { ArchiveRow(archivedCount, onOpenArchive, rowModifier) }
+            item(key = "archive") { ArchiveRow(archivedCount, onOpenArchive, rowModifier.then(listMotion())) }
         }
         if (pinned.isNotEmpty()) {
             item(key = "pinned") {
-                PinnedCluster(pinned.toImmutableList(), rowModifier.padding(bottom = 8.dp)) { conversation ->
+                PinnedCluster(pinned.toImmutableList(), rowModifier.then(listMotion()).padding(bottom = 8.dp)) { conversation ->
                     ConversationRow(
                         conversation = conversation,
                         typing = conversation.id in typing,
@@ -144,7 +159,7 @@ fun ChatList(
                     conversation = conversation,
                     onArchive = onSwipeArchive?.let { swipe -> { swipe(conversation) } },
                     onRead = onSwipeRead?.let { swipe -> { swipe(conversation) } },
-                    modifier = rowModifier,
+                    modifier = rowModifier.then(listMotion()),
                 ) {
                     ConversationRow(
                         conversation = conversation,
@@ -157,6 +172,14 @@ fun ChatList(
             }
         }
     }
+}
+
+/** Rows glide to their new place when a chat is pinned, archived or moves up with a new message. */
+@Composable
+private fun LazyItemScope.listMotion(): Modifier {
+    val motion = Blesk.motion
+    if (motion.reduced) return Modifier
+    return Modifier.animateItem(fadeInSpec = motion.transition(), placementSpec = motion.settle(), fadeOutSpec = motion.transition())
 }
 
 @Composable
@@ -326,6 +349,7 @@ private fun ConversationRow(
     val shape = RoundedCornerShape(Blesk.dimens.capsuleRadius)
     Box(
         modifier = modifier
+            .sharedBounds(chatKey(conversation.id))
             .fillMaxWidth()
             .clip(shape)
             .drawBehind { if (press > 0f) drawRect(capsule.copy(alpha = capsule.alpha * press)) }
@@ -362,6 +386,7 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
                 key = conversation.id,
                 protected = conversation.protection == Protection.EndToEnd &&
                     conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
+                modifier = Modifier.sharedElement(avatarKey(conversation.id)),
             )
         }
         Column(Modifier.weight(1f)) {
@@ -414,10 +439,8 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
                     maxLines = 1,
                     modifier = Modifier.weight(1f),
                 )
-                when {
-                    conversation.unread > 0 -> UnreadBadge(conversation.unread, muted)
-                    conversation.markedUnread -> UnreadDot(muted)
-                }
+                UnreadCounter(conversation.unread, muted)
+                if (conversation.unread == 0 && conversation.markedUnread) UnreadDot(muted)
             }
         }
     }
@@ -458,6 +481,47 @@ internal fun UnreadBadge(count: Int, muted: Boolean = false) {
     }
 }
 
+/**
+ * The unread counter: each new message flows into it as a small drop, and once the chat is
+ * read the counter evaporates upwards instead of simply vanishing.
+ */
+@Composable
+private fun UnreadCounter(count: Int, muted: Boolean) {
+    val motion = Blesk.motion
+    var shown by remember { mutableIntStateOf(count) }
+    if (count > 0) shown = count
+    val drop = remember { Animatable(1f) }
+    var previous by remember { mutableIntStateOf(count) }
+    LaunchedEffect(count) {
+        if (count > previous && previous > 0 && !motion.reduced) {
+            drop.snapTo(0f)
+            drop.animateTo(1f, motion.transition())
+        }
+        previous = count
+    }
+    val dropColor = if (muted) Blesk.colors.textTertiary else Blesk.colors.accent
+    AnimatedVisibility(
+        visible = count > 0,
+        enter = scaleIn(motion.settle(), initialScale = 0.5f) + fadeIn(motion.press()),
+        exit = slideOutVertically(motion.transition()) { -it } + scaleOut(motion.transition(), targetScale = 0.5f) +
+            fadeOut(motion.transition()),
+    ) {
+        Box(contentAlignment = Alignment.CenterStart) {
+            UnreadBadge(shown, muted)
+            Box(
+                Modifier
+                    .offset { IntOffset(-(DropTravel.toPx() * (1f - drop.value)).roundToInt(), 0) }
+                    .size(6.dp)
+                    .graphicsLayer { alpha = if (drop.value >= 1f) 0f else 1f - drop.value * DROP_FADE }
+                    .background(dropColor, CircleShape),
+            )
+        }
+    }
+}
+
+private val DropTravel = 22.dp
+private const val DROP_FADE = 0.6f
+
 /** A chat you marked to come back to. */
 @Composable
 private fun UnreadDot(muted: Boolean) {
@@ -490,3 +554,7 @@ internal fun formatTime(at: Instant, now: Instant): String {
     val today = now.atZone(zone).truncatedTo(ChronoUnit.DAYS)
     return if (day == today) timeFormat.format(at.atZone(zone)) else dateFormat.format(at.atZone(zone))
 }
+
+/** Shared keys that carry a chat row into its open chat and back. */
+internal fun chatKey(id: String) = "chat:$id"
+internal fun avatarKey(id: String) = "avatar:$id"
