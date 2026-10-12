@@ -53,7 +53,8 @@ class MainFlowTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         compose.onNodeWithText("Ты: проверка", substring = true).assertExists()
-        compose.onNodeWithContentDescription("Назад").performClick()
+        compose.onNodeWithContentDescription("Закрыть поиск").performClick()
+        compose.mainClock.advanceTimeBy(1_000)
 
         compose.onNodeWithText("Миша Ковалёв").performTouchInput { longClick() }
         compose.onNodeWithText("В архив").performClick()

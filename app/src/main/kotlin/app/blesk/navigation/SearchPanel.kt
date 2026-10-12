@@ -1,7 +1,8 @@
 package app.blesk.navigation
 
 import android.widget.Toast
-import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,7 +18,7 @@ import app.blesk.AppContainer
 import app.blesk.core.data.settings.AppMode
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.SearchHit
-import app.blesk.feature.chats.SearchScreen
+import app.blesk.feature.chats.SearchResults
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
@@ -25,10 +26,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+/** Results for the search unfolded in the top lens of «Чаты». */
 @Composable
-internal fun SearchRoute(container: AppContainer, onOpen: (String) -> Unit, onBack: () -> Unit) {
+internal fun SearchPanel(container: AppContainer, query: TextFieldState, contentPadding: PaddingValues, onOpen: (String) -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
-    val query = rememberTextFieldState()
     var hits by remember { mutableStateOf<ImmutableList<SearchHit>?>(null) }
     val you = stringResource(R.string.chat_you)
     LaunchedEffect(chats) {
@@ -58,11 +59,11 @@ internal fun SearchRoute(container: AppContainer, onOpen: (String) -> Unit, onBa
         contacts.filter { it.name.lowercase().contains(needle) || it.username.contains(needle) }
             .filter { person -> matchingChats.none { it.id == person.id } }
     }
-    SearchScreen(
-        query = query,
+    SearchResults(
+        query = query.text.toString(),
         hits = hits,
         onOpen = { onOpen(it.conversationId) },
-        onBack = onBack,
+        contentPadding = contentPadding,
         chats = matchingChats.take(MAX_ROWS).toImmutableList(),
         people = matchingPeople.take(MAX_ROWS).toImmutableList(),
         onOpenChat = onOpen,

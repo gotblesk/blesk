@@ -159,7 +159,8 @@
     <string name="space_readonly">Здесь публикуют только админы</string>
     <string name="search_title">Поиск</string>
     <string name="search_field">Чат, человек или слово</string>
-    <string name="search_hint">Ищем только на этом телефоне</string>
+    <string name="search_hint">Чаты, люди по @имени и слова из переписки. Переписку ищем только на этом телефоне.</string>
+    <string name="search_close">Закрыть поиск</string>
     <string name="search_empty">Ничего не нашлось</string>
     <string name="chat_call">Позвонить</string>
     <string name="chat_video_call">Видеозвонок</string>

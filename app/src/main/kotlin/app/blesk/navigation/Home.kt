@@ -1,5 +1,6 @@
 package app.blesk.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,11 +10,14 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -34,6 +38,7 @@ import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
 import app.blesk.core.design.glass.LensTabBar
+import app.blesk.core.design.glass.SearchLens
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -63,7 +68,6 @@ internal fun Home(
     onOpenConversation: (String) -> Unit,
     onNewChat: () -> Unit,
     onAddRoom: () -> Unit,
-    onSearch: () -> Unit,
     onOpenChannel: (Conversation, RoomChannel) -> Unit,
     onOpenArchive: () -> Unit,
     settings: SettingsActions,
@@ -94,8 +98,27 @@ internal fun Home(
     }
     val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by chats.typing.collectAsStateWithLifecycle()
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
+    val query = rememberTextFieldState()
+    val inSearch = searching && tab == HomeTab.Chats
+    BackHandler(enabled = inSearch && searchOpen) { searchOpen = false }
     LensScaffold(
         top = {
+            if (inSearch) {
+                SearchLens(
+                    state = query,
+                    hint = stringResource(app.blesk.feature.chats.R.string.search_field),
+                    closeLabel = stringResource(app.blesk.feature.chats.R.string.search_close),
+                    open = searchOpen,
+                    onClose = { searchOpen = false },
+                    onClosed = {
+                        searching = false
+                        query.clearText()
+                    },
+                )
+                return@LensScaffold
+            }
             TopLens(
                 title = if (tab == HomeTab.Chats && !online) {
                     stringResource(app.blesk.feature.chats.R.string.chats_waiting)
@@ -106,7 +129,10 @@ internal fun Home(
                 actions = {
                     when (tab) {
                         HomeTab.Chats ->
-                            IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), onSearch)
+                            IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), {
+                                searching = true
+                                searchOpen = true
+                            })
                         HomeTab.Rooms, HomeTab.You -> Unit
                     }
                 },
@@ -125,6 +151,10 @@ internal fun Home(
             LensTabBar(tabs = tabs, selected = tab.ordinal, onSelect = { onSelectTab(HomeTab.entries[it]) }, action = action)
         },
     ) { padding ->
+        if (inSearch) {
+            SearchPanel(container, query, padding, onOpenConversation)
+            return@LensScaffold
+        }
         val motion = Blesk.motion
         AnimatedContent(
             targetState = tab,

@@ -89,9 +89,6 @@ data class GroupInfoKey(val groupId: String) : NavKey
 data class SpaceInfoKey(val handle: String) : NavKey
 
 @Serializable
-data object SearchKey : NavKey
-
-@Serializable
 data object BotsKey : NavKey
 
 @Serializable
@@ -169,7 +166,6 @@ fun BleskNavigation(container: AppContainer) {
                     onOpenConversation = { backStack.add(ConversationKey(it)) },
                     onNewChat = { backStack.add(NewChatKey) },
                     onAddRoom = { backStack.add(RoomsAddKey) },
-                    onSearch = { backStack.add(SearchKey) },
                     onOpenArchive = { backStack.add(ArchiveKey) },
                     onOpenChannel = { room, channel ->
                         when {
@@ -274,7 +270,6 @@ fun BleskNavigation(container: AppContainer) {
             entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageIds, onDone = back, onBack = back) }
             entry<NotificationsKey> { NotificationsRoute(container, back) }
             entry<StorageKey> { StorageRoute(back) }
-            entry<SearchKey> { SearchRoute(container, onOpen = { backStack.add(ConversationKey(it)) }, onBack = back) }
             entry<SpaceInfoKey> { key ->
                 SpaceInfoRoute(container, key.handle, onLeft = {
                     while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)

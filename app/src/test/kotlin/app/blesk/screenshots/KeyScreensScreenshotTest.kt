@@ -33,6 +33,7 @@ import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
 import app.blesk.core.design.glass.LensTabBar
+import app.blesk.core.design.glass.SearchLens
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.BleskTheme
@@ -47,7 +48,7 @@ import app.blesk.feature.chats.ForwardScreen
 import app.blesk.feature.chats.NewChatActions
 import app.blesk.feature.chats.NewChatScreen
 import app.blesk.feature.chats.SearchHit
-import app.blesk.feature.chats.SearchScreen
+import app.blesk.feature.chats.SearchResults
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.chats.groups.GroupActions
 import app.blesk.feature.chats.groups.GroupInfoScreen
@@ -390,15 +391,20 @@ class KeyScreensScreenshotTest(private val name: String) {
     @Test
     fun search() = capture("19_search") {
         val query = rememberTextFieldState("свет")
-        SearchScreen(
-            query = query,
-            hits = persistentListOf(
-                SearchHit("a", "1", "Аня", "Аня", "Смотри, какой свет сегодня на закате"),
-                SearchHit("b", "2", "Студия · общий", "Ты", "Свет в макете стоит сделать мягче, а тени длиннее"),
-            ),
-            onOpen = {},
-            onBack = {},
-        )
+        LensScaffold(
+            top = { SearchLens(query, "Чат, человек или слово", "Закрыть поиск", open = true, onClose = {}, onClosed = {}) },
+            bottom = { LensTabBar(tabs = tabs, selected = 0, onSelect = {}) },
+        ) { padding ->
+            SearchResults(
+                query = query.text.toString(),
+                hits = persistentListOf(
+                    SearchHit("a", "1", "Аня", "Аня", "Смотри, какой свет сегодня на закате"),
+                    SearchHit("b", "2", "Студия · общий", "Ты", "Свет в макете стоит сделать мягче, а тени длиннее"),
+                ),
+                onOpen = {},
+                contentPadding = padding,
+            )
+        }
     }
 
     private val callActions = CallActions({}, {}, {}, {}, {}, {}, {}, {})

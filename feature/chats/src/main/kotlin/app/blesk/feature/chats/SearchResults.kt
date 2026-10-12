@@ -3,10 +3,13 @@ package app.blesk.feature.chats
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,11 +27,8 @@ import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.design.component.Avatar
-import app.blesk.core.design.component.Capsule
-import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Text
-import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.theme.Blesk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -36,13 +36,16 @@ import kotlinx.collections.immutable.persistentListOf
 /** One found message: where it is and a piece of it. */
 data class SearchHit(val conversationId: String, val messageId: String, val place: String, val author: String, val text: String)
 
-/** Search over the messages stored on this phone; nothing is sent anywhere. */
+/**
+ * Results of the search unfolded from the top lens of «Чаты»: chats, people and messages.
+ * Messages are searched on this phone only; nothing is sent anywhere.
+ */
 @Composable
-fun SearchScreen(
-    query: TextFieldState,
+fun SearchResults(
+    query: String,
     hits: ImmutableList<SearchHit>?,
     onOpen: (SearchHit) -> Unit,
-    onBack: () -> Unit,
+    contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     chats: ImmutableList<Conversation> = persistentListOf(),
     people: ImmutableList<Contact> = persistentListOf(),
@@ -51,9 +54,21 @@ fun SearchScreen(
     /** Looks the typed username up on the server; null in the demo. */
     onFindUsername: ((String) -> Unit)? = null,
 ) {
-    val needle = query.text.toString().trim()
-    ScrollScreen(title = stringResource(R.string.search_title), onBack = onBack, modifier = modifier) {
-        TextInput(label = stringResource(R.string.search_field), state = query, hint = stringResource(R.string.search_hint))
+    val needle = query.trim()
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(contentPadding)
+            .padding(bottom = 24.dp),
+    ) {
+        if (needle.isEmpty()) {
+            Text(
+                text = stringResource(R.string.search_hint),
+                color = Blesk.colors.textSecondary,
+                modifier = Modifier.padding(horizontal = Blesk.dimens.gutter + 4.dp, vertical = 8.dp),
+            )
+        }
         if (chats.isNotEmpty()) {
             SectionHeader(stringResource(R.string.search_chats))
             chats.forEach { chat ->
@@ -76,7 +91,7 @@ fun SearchScreen(
             }
         }
         if (!hits.isNullOrEmpty()) SectionHeader(stringResource(R.string.search_messages))
-        Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(Blesk.dimens.rowGap)) {
+        Column(Modifier.padding(top = 4.dp)) {
             val nothing = chats.isEmpty() && people.isEmpty() && !canLookUp
             if (nothing && hits?.isEmpty() == true && needle.isNotEmpty()) {
                 Text(
@@ -86,19 +101,19 @@ fun SearchScreen(
                 )
             }
             hits?.forEach { hit ->
-                Capsule(
-                    modifier = Modifier.padding(horizontal = Blesk.dimens.gutter - 6.dp).fillMaxWidth(),
-                    onClick = { onOpen(hit) },
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button) { onOpen(hit) }
+                        .padding(horizontal = Blesk.dimens.gutter, vertical = 8.dp),
                 ) {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        Text(hit.place, style = Blesk.type.bodyStrong, maxLines = 1)
-                        Text(
-                            text = highlight("${hit.author}: ${snippet(hit.text, needle)}", needle),
-                            style = Blesk.type.label,
-                            color = Blesk.colors.textSecondary,
-                            maxLines = 2,
-                        )
-                    }
+                    Text(hit.place, style = Blesk.type.bodyStrong, maxLines = 1)
+                    Text(
+                        text = highlight("${hit.author}: ${snippet(hit.text, needle)}", needle),
+                        style = Blesk.type.label,
+                        color = Blesk.colors.textSecondary,
+                        maxLines = 2,
+                    )
                 }
             }
         }
