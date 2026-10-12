@@ -7,13 +7,16 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
@@ -116,6 +119,7 @@ internal fun Home(
     val doubleTap by container.settings.doubleTapReaction.collectAsStateWithLifecycle(initialValue = GLINT_REACTION)
     val archiveFolded by container.settings.archiveFolded.collectAsStateWithLifecycle(initialValue = false)
     val proxied by NetworkProxy.current.collectAsStateWithLifecycle()
+    val update by container.updater.available.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val onPinLimit = rememberPinLimit()
     val tabs = persistentListOf(
@@ -125,7 +129,11 @@ internal fun Home(
         LensTab(stringResource(app.blesk.feature.settings.R.string.settings_title), BleskIcons.Settings, LivingIcon.Slide),
         LensTab(stringResource(app.blesk.feature.settings.R.string.you_title), BleskIcons.Person) {
             val me = profile
-            Avatar(me?.name?.ifBlank { "?" } ?: "?", size = 24.dp, photo = photo, key = me?.username?.ifBlank { me.name } ?: "")
+            Box {
+                Avatar(me?.name?.ifBlank { "?" } ?: "?", size = 24.dp, photo = photo, key = me?.username?.ifBlank { me.name } ?: "")
+                // A newer build waits in «Ты».
+                if (update != null) Box(Modifier.align(Alignment.TopEnd).size(8.dp).background(Blesk.colors.accent, CircleShape))
+            }
         },
     )
     val youCollapseAt = with(LocalDensity.current) { (profileHeaderHeight() - YouLensReach).toPx() }
@@ -370,6 +378,7 @@ internal fun Home(
                         scroll = youScroll,
                         header = headerStyleOf(current.header),
                         headerPhoto = headerPhoto,
+                        update = update?.title,
                     )
                 }
             }

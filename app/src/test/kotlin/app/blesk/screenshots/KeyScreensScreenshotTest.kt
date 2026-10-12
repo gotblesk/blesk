@@ -103,6 +103,8 @@ import app.blesk.feature.settings.SettingsList
 import app.blesk.feature.settings.StorageActions
 import app.blesk.feature.settings.StorageScreen
 import app.blesk.feature.settings.StorageUse
+import app.blesk.feature.settings.UpdateProgress
+import app.blesk.feature.settings.UpdateScreen
 import app.blesk.feature.settings.YouList
 import app.blesk.navigation.InAppNotice
 import app.blesk.shared.appearance.Appearance
@@ -436,6 +438,17 @@ class KeyScreensScreenshotTest(private val name: String) {
             onConnect = { _, _ -> ConnectOutcome.Ok },
             onBack = {},
             proxy = ProxyControls(ProxySetting(enabled = true, host = "10.0.0.2", port = 1080), {}, { ProxyCheck.Silent }),
+        )
+    }
+
+    @Test
+    fun update() = capture("07f_update") {
+        UpdateScreen(
+            title = "blesk 1.0 RC2 (сборка 412)",
+            notes = "## 1.0 RC2\n- Прокси SOCKS5 и HTTP.\n- Превью ссылок.",
+            progress = UpdateProgress.Downloading(0.42f),
+            onInstall = {},
+            onBack = {},
         )
     }
 

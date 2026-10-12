@@ -21,6 +21,7 @@ import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.theme.Blesk
 
 /** Taps on the version row needed to unlock the debug screen. */
@@ -39,6 +40,7 @@ fun AboutScreen(
     onBack: () -> Unit,
     onOpenSandbox: () -> Unit = {},
     modifier: Modifier = Modifier,
+    updates: UpdateControls? = null,
 ) {
     val uriHandler = LocalUriHandler.current
     val source = stringResource(R.string.about_source_url)
@@ -72,6 +74,15 @@ fun AboutScreen(
                     if (taps >= DEBUG_UNLOCK_TAPS) onUnlockDebug()
                 },
             )
+            if (updates != null) {
+                ListRow(title = stringResource(R.string.about_whats_new), onClick = updates.onOpenWhatsNew)
+                ToggleRow(
+                    title = stringResource(R.string.about_updates),
+                    subtitle = stringResource(R.string.about_updates_hint),
+                    checked = updates.checking,
+                    onCheckedChange = updates.onChecking,
+                )
+            }
             ListRow(
                 title = stringResource(R.string.about_licenses),
                 subtitle = stringResource(R.string.about_license_app),
@@ -105,3 +116,6 @@ fun AboutScreen(
         }
     }
 }
+
+/** «Что нового» and whether the app looks for newer builds. */
+class UpdateControls(val checking: Boolean, val onChecking: (Boolean) -> Unit, val onOpenWhatsNew: () -> Unit)

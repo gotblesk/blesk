@@ -46,6 +46,7 @@ class SettingsActions(
     val onOpenSaved: () -> Unit = {},
     /** Deleting the account; null in the demo. */
     val onDeleteAccount: (() -> Unit)? = null,
+    val onOpenUpdate: () -> Unit = {},
 )
 
 /** The «Ты» tab: your profile and what is yours — saved messages, calls, invites, stickers, bots. */
@@ -61,6 +62,8 @@ fun YouList(
     scroll: ScrollState = rememberScrollState(),
     header: HeaderStyle = HeaderStyle.Light(0),
     headerPhoto: ImageBitmap? = null,
+    /** The title of a newer build, when there is one. */
+    update: String? = null,
 ) {
     Column(
         modifier
@@ -84,6 +87,16 @@ fun YouList(
                 share = stringResource(R.string.you_share),
             ),
         )
+        if (update != null) {
+            Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(bottom = 12.dp)) {
+                ListRow(
+                    title = stringResource(R.string.update_available),
+                    subtitle = update,
+                    icon = BleskIcons.Download,
+                    onClick = actions.onOpenUpdate,
+                )
+            }
+        }
         Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
             ListRow(title = stringResource(R.string.you_saved), icon = BleskIcons.Bookmark, onClick = actions.onOpenSaved)
             ListRow(title = stringResource(R.string.you_calls), icon = BleskIcons.Phone, soon = true)

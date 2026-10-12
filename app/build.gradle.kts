@@ -4,6 +4,31 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+val releaseKey: String? = providers.environmentVariable("BLESK_KEYSTORE_FILE").orNull
+
+/** Puts `docs/RELEASE_NOTES.md` into the app's assets for «Что нового». */
+abstract class ReleaseNotesTask : DefaultTask() {
+    @get:InputFile
+    abstract val notes: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        notes.get().asFile.copyTo(outputDir.get().file("RELEASE_NOTES.md").asFile, overwrite = true)
+    }
+}
+
+val releaseNotes = tasks.register<ReleaseNotesTask>("releaseNotes") {
+    notes.set(rootProject.layout.projectDirectory.file("docs/RELEASE_NOTES.md"))
+    outputDir.set(layout.buildDirectory.dir("generated/releaseNotes"))
+}
+
+androidComponents {
+    onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(releaseNotes, ReleaseNotesTask::outputDir) }
+}
+
 android {
     namespace = "app.blesk"
 
@@ -21,6 +46,15 @@ android {
             storePassword = "blesk-test-only"
             keyAlias = "blesk-test"
             keyPassword = "blesk-test-only"
+        }
+        // The real key lives only in the CI secrets; built-in updates trust nothing else once it is used.
+        releaseKey?.let { path ->
+            create("release") {
+                storeFile = file(path)
+                storePassword = providers.environmentVariable("BLESK_KEYSTORE_PASSWORD").orNull
+                keyAlias = providers.environmentVariable("BLESK_KEY_ALIAS").orNull
+                keyPassword = providers.environmentVariable("BLESK_KEY_PASSWORD").orNull
+            }
         }
     }
 
@@ -51,7 +85,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("test")
+            signingConfig = signingConfigs.getByName(if (releaseKey != null) "release" else "test")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

@@ -31,6 +31,7 @@ import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ProxyConfig
 import app.blesk.core.network.ProxyKind
 import app.blesk.core.network.ServerAddress
+import app.blesk.update.Updater
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +61,9 @@ class AppContainer(context: Context) {
     )
     val crashStore = CrashStore(File(context.noBackupFilesDir, "diagnostics"))
     val settings = SettingsStore(context)
+
+    /** Newer builds from GitHub Releases; only release builds ask, so tests never reach GitHub. */
+    val updater = Updater(context)
     val wallpaper = PrivateImage(context, "wallpaper.jpg", maxSide = 1600)
     val profilePhoto = PrivateImage(context, "avatar.jpg", maxSide = 512)
     val headerPhoto = PrivateImage(context, "header.jpg", maxSide = 1600)
@@ -124,6 +128,7 @@ class AppContainer(context: Context) {
             // Before the first connection, so nothing leaves directly when a proxy is set.
             NetworkProxy.set(settings.proxy.first().toConfig())
             launch { settings.proxy.collect { NetworkProxy.set(it.toConfig()) } }
+            if (!BuildConfig.DEBUG && settings.checkUpdates.first()) launch { updater.check() }
             when (val mode = settings.mode.first()) {
                 AppMode.Demo -> show(demo, api = null)
                 is AppMode.Server -> {

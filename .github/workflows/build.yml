@@ -30,7 +30,20 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Release key
+        env:
+          KEYSTORE: ${{ secrets.BLESK_KEYSTORE }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "BLESK_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          fi
+
       - name: Check, test and build
+        env:
+          BLESK_KEYSTORE_PASSWORD: ${{ secrets.BLESK_KEYSTORE_PASSWORD }}
+          BLESK_KEY_ALIAS: ${{ secrets.BLESK_KEY_ALIAS }}
+          BLESK_KEY_PASSWORD: ${{ secrets.BLESK_KEY_PASSWORD }}
         run: >
           ./gradlew --console=plain
           detekt testDebugUnitTest :server:test :app:recordRoborazziDebug :app:assembleRelease

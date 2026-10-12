@@ -57,3 +57,24 @@ curl -fsSL https://raw.githubusercontent.com/gotblesk/blesk/claude/file-review-0
    - `VPS_HOST` — IP сервера;
    - `VPS_USER` — `root`.
 4. Напишите мне «секреты добавил».
+
+## 5. Свой ключ подписи (нужен для безопасных обновлений)
+
+Сейчас сборки подписаны тестовым ключом, который лежит в репозитории. Встроенное обновление проверяет подпись, но тестовым ключом может подписать кто угодно. Свой ключ делается один раз, на сервере из пункта 2.
+
+1. В Termius откройте сервер и вставьте (пароль `ПРИДУМАЙТЕ` замените на свой длинный, запишите его в менеджер паролей):
+
+```
+docker run --rm -v /root:/out eclipse-temurin:21 keytool -genkeypair -keystore /out/blesk-release.jks -alias blesk -keyalg EC -groupname secp256r1 -validity 36500 -storepass ПРИДУМАЙТЕ -keypass ПРИДУМАЙТЕ -dname "CN=blesk"
+base64 -w0 /root/blesk-release.jks; echo
+```
+
+2. Скопируйте длинную строку, которую напечатала вторая команда.
+3. На GitHub (в браузере телефона): репозиторий blesk → Settings → Secrets and variables → Actions → New repository secret. Создайте четыре секрета:
+   - `BLESK_KEYSTORE` — длинная строка из шага 2;
+   - `BLESK_KEYSTORE_PASSWORD` — ваш пароль;
+   - `BLESK_KEY_ALIAS` — `blesk`;
+   - `BLESK_KEY_PASSWORD` — ваш пароль.
+4. Сохраните файл `/root/blesk-release.jks` у себя (например, в Termius → SFTP) и удалите с сервера: `rm /root/blesk-release.jks`. Потеряете ключ — новые версии не встанут поверх старых.
+5. Следующую сборку после этого придётся один раз поставить вручную, удалив старую: подпись сменится. Дальше обновления пойдут сами.
+6. Напишите мне «ключ добавил».

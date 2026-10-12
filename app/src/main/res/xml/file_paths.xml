@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Only received media may be shared with other apps, and only on explicit open; the camera
-     writes one scratch shot, which is moved into the encrypted vault and deleted. -->
+     writes one scratch shot, which is moved into the encrypted vault and deleted; the installer
+     reads a downloaded update after its signature is checked. -->
 <paths>
     <files-path name="media" path="media/" />
     <cache-path name="camera" path="camera/" />
+    <cache-path name="update" path="update/" />
 </paths>

@@ -181,6 +181,13 @@ class SettingsStore(context: Context) {
         }
     }
 
+    /** Whether the app asks GitHub for newer builds when it starts. */
+    val checkUpdates: Flow<Boolean> = store.data.map { it[CHECK_UPDATES] ?: true }.distinctUntilChanged()
+
+    suspend fun setCheckUpdates(enabled: Boolean) {
+        store.edit { it[CHECK_UPDATES] = enabled }
+    }
+
     /** Media older than this many days leaves the phone on its own; 0 keeps it for good. */
     val keepMediaDays: Flow<Int> = store.data.map { it[KEEP_MEDIA_DAYS] ?: 0 }.distinctUntilChanged()
 
@@ -333,6 +340,7 @@ class SettingsStore(context: Context) {
         val KEEP_ARCHIVED = booleanPreferencesKey("keep_archived")
         val KEEP_MEDIA_DAYS = intPreferencesKey("keep_media_days")
         val PROXY_ENABLED = booleanPreferencesKey("proxy_enabled")
+        val CHECK_UPDATES = booleanPreferencesKey("check_updates")
         val PROXY_SOCKS = booleanPreferencesKey("proxy_socks")
         val PROXY_HOST = stringPreferencesKey("proxy_host")
         val PROXY_PORT = intPreferencesKey("proxy_port")

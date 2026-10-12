@@ -216,4 +216,14 @@
     <string name="proxy_silent">Через этот прокси не дозвониться. Проверь адрес и порт</string>
     <string name="proxy_hint">Прокси с логином и паролем пока не поддерживаются. Звонки идут мимо прокси.</string>
     <string name="proxy_on">Включён прокси</string>
+    <string name="update_title">Обновление</string>
+    <string name="update_install">Скачать и установить</string>
+    <string name="update_downloading">Скачиваем… %1$d%%</string>
+    <string name="update_failed">Не получилось скачать. Проверь сеть и попробуй ещё раз</string>
+    <string name="update_forged">Файл подписан не ключом blesk и удалён. Ставить его нельзя</string>
+    <string name="update_handed">Подпись проверена. Дальше — системный установщик</string>
+    <string name="update_available">Доступно обновление</string>
+    <string name="about_whats_new">Что нового</string>
+    <string name="about_updates">Проверять обновления</string>
+    <string name="about_updates_hint">Раз в запуск blesk спрашивает GitHub, есть ли новая сборка. GitHub видит адрес телефона</string>
 </resources>

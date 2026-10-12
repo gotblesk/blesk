@@ -85,6 +85,8 @@ import app.blesk.feature.settings.ProxyControls
 import app.blesk.feature.settings.ServerScreen
 import app.blesk.feature.settings.ServerState
 import app.blesk.feature.settings.SettingsActions
+import app.blesk.feature.settings.UpdateControls
+import app.blesk.feature.settings.WhatsNewScreen
 import app.blesk.shared.appearance.Appearance
 import app.blesk.toConfig
 import kotlinx.collections.immutable.toImmutableList
@@ -182,6 +184,14 @@ data object PolicyKey : NavKey
 
 @Serializable
 data object SandboxKey : NavKey
+
+@Serializable
+data object UpdateKey : NavKey
+
+@Serializable
+data object WhatsNewKey : NavKey
+
+private const val NOTES = "RELEASE_NOTES.md"
 
 @Serializable
 data object BlockedKey : NavKey
@@ -304,6 +314,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenBots = { backStack.add(BotsKey) },
                                     onOpenNotifications = { backStack.add(NotificationsKey) },
                                     onOpenStorage = { backStack.add(StorageKey) },
+                                    onOpenUpdate = { backStack.add(UpdateKey) },
                                     onShowQr = { backStack.add(MyQrKey) },
                                     onDeleteAccount = if (demo) null else ({ backStack.add(WipeKey(WipeKind.DeleteAccount)) }),
                                     onShare = {
@@ -387,6 +398,14 @@ fun BleskNavigation(container: AppContainer) {
                         }
                         entry<PolicyKey> { PrivacyPolicyScreen(onBack = back) }
                         entry<SandboxKey> { MetaballSandbox(onBack = back) }
+                        entry<UpdateKey> { UpdateRoute(container, back) }
+                        entry<WhatsNewKey> {
+                            val context = LocalContext.current
+                            val notes = remember {
+                                runCatching { context.assets.open(NOTES).bufferedReader().use { it.readText() } }.getOrDefault("")
+                            }
+                            WhatsNewScreen(notes = notes, onBack = back)
+                        }
                         entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
                         entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
                         entry<ConversationKey> { key ->
@@ -487,12 +506,23 @@ fun BleskNavigation(container: AppContainer) {
                         }
                         entry<AboutKey> {
                             Box(Modifier.sharedBounds(screenKey("about"))) {
+                                val checkUpdates by container.settings.checkUpdates.collectAsStateWithLifecycle(true)
                                 AboutScreen(
                                     versionName = BuildConfig.VERSION_NAME,
                                     debugUnlocked = debugUnlocked,
                                     onOpenLicenses = { backStack.add(LicensesKey) },
                                     onOpenPolicy = { backStack.add(PolicyKey) },
                                     onOpenSandbox = { backStack.add(SandboxKey) },
+                                    updates = UpdateControls(
+                                        checking = checkUpdates,
+                                        onChecking = { enabled ->
+                                            scope.launch {
+                                                container.settings.setCheckUpdates(enabled)
+                                                if (enabled) container.updater.check()
+                                            }
+                                        },
+                                        onOpenWhatsNew = { backStack.add(WhatsNewKey) },
+                                    ),
                                     onUnlockDebug = {
                                         scope.launch { container.settings.setDebugUnlocked(true) }
                                         container.eventLog.record(EventCode.DebugUnlocked)
