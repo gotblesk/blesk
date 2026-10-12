@@ -23,6 +23,7 @@ import app.blesk.shared.protocol.Usernames
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
@@ -88,6 +89,11 @@ fun Route.accountLookupRoutes(services: Services) {
         // A hidden account answers exactly like a missing one, so a search learns nothing.
         ensure(account.visibleTo(call.account.id, call.request.queryParameters[Api.LINK])) { notFound() }
         call.respond(AccountInfo(account.username, account.identityKey.encodeBase64()))
+    }
+
+    delete(Api.ACCOUNT) {
+        services.accounts.delete(call.account.id)
+        call.respond(HttpStatusCode.NoContent)
     }
 
     put(Api.DISCOVERY) {

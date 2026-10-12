@@ -206,7 +206,7 @@ private fun Modifier.rimGlint(light: Color, strength: Float, direction: () -> Of
     }
 }
 
-private const val HUE_STEPS = 24
+private const val HUE_STEPS = 8
 private const val SPAN = 80f
 private const val SLICES = 16
 private const val RIM_SHARE = 0.045f

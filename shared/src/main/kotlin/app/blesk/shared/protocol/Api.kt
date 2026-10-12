@@ -22,6 +22,9 @@ object Api {
     const val INFO = "/v1/info"
     const val DISCOVERY = "/v1/discovery"
 
+    /** The signed-in account itself; DELETE removes it with its keys and waiting messages. */
+    const val ACCOUNT = "/v1/account"
+
     /** Query parameter of a lookup made from someone's link or QR code; see [linkKey]. */
     const val LINK = "link"
 

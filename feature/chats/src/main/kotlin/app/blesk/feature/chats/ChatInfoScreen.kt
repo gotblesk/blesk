@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.settings.Privacy
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
@@ -12,7 +13,7 @@ import app.blesk.core.design.theme.Blesk
 import kotlinx.collections.immutable.persistentListOf
 
 /** The steps offered for disappearing messages, in seconds; 0 is off. */
-val TimerSteps = listOf(0, 3_600, 86_400, 604_800)
+val TimerSteps = Privacy.TIMER_STEPS
 
 /** Disappearing messages: the same for everyone in the chat. */
 @Composable

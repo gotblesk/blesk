@@ -27,7 +27,16 @@ data class Privacy(
     val groups: Audience = Audience.Everyone,
     /** Who sees when you are online. */
     val online: Audience = Audience.Contacts,
-)
+    /** Keyboards are asked not to learn from what you type here. */
+    val incognitoKeyboard: Boolean = true,
+    /** Disappearing messages for chats you start; 0 keeps messages. One of [TIMER_STEPS]. */
+    val defaultTimerSeconds: Int = 0,
+) {
+    companion object {
+        /** Off, an hour, a day, a week: the same steps as in each chat. */
+        val TIMER_STEPS = listOf(0, 3_600, 86_400, 604_800)
+    }
+}
 
 data class Profile(
     val name: String,

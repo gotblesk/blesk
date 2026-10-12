@@ -243,15 +243,21 @@ class ServerChatRepository(
         if (bots.isBot(username)) return bots.open(username)
         val existing = db.contacts().get(username)
         existing?.let { db.contacts().markAdded(username) }
+        val fresh = db.conversations().get(username) == null
         if (existing == null) {
             val account = runCatching { api.account(username, link) }.getOrNull() ?: return null
             db.contacts().upsert(ContactEntity(username = account.username, name = account.username, identityKey = account.identityKey))
         }
         ensureConversation(username)
+        // A chat you start takes your default for disappearing messages; one someone else starts keeps theirs.
+        val timer = privacy().defaultTimerSeconds
+        if (fresh && timer > 0) setTimer(username, timer)
         return username
     }
 
     override suspend fun linkKey(): String = Api.linkKey(Base64.getDecoder().decode(keys.identityPublicKey()))
+
+    override suspend fun deleteAccount(): Boolean = runCatching { api.deleteAccount() }.isSuccess
 
     override suspend fun setDiscoverable(discoverable: Boolean) {
         runCatching { api.setDiscoverable(discoverable) }.onFailure { log.record(EventCode.SendFailed) }

@@ -31,6 +31,7 @@ import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.LockDelay
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.VibrationLevel
+import app.blesk.core.design.component.IncognitoKeyboard
 import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.NoticeHost
 import app.blesk.core.design.theme.BleskThemeWithWave
@@ -79,7 +80,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 BleskThemeWithWave(appearance = appearance) {
                     Box(Modifier.fillMaxSize()) {
-                        BleskNavigation(container)
+                        IncognitoKeyboard(privacy.incognitoKeyboard) { BleskNavigation(container) }
                         NoticeHost(container.notices, Modifier.align(Alignment.BottomCenter))
                         if (container.lock.locked) LockRoute(container, biometric = privacy.biometric)
                     }

@@ -44,6 +44,8 @@ class SettingsActions(
     val onShowQr: () -> Unit = {},
     val onShare: () -> Unit = {},
     val onOpenSaved: () -> Unit = {},
+    /** Deleting the account; null in the demo. */
+    val onDeleteAccount: (() -> Unit)? = null,
 )
 
 /** The «Ты» tab: your profile and what is yours — saved messages, calls, invites, stickers, bots. */
@@ -228,6 +230,11 @@ fun SettingsList(
             )
             if (debugUnlocked) {
                 ListRow(title = stringResource(R.string.settings_debug), icon = BleskIcons.Debug, onClick = actions.onOpenDebug)
+            }
+        }
+        actions.onDeleteAccount?.let { delete ->
+            Card(cardPadding.padding(top = Blesk.dimens.sectionGap)) {
+                ListRow(title = stringResource(R.string.settings_delete_account), icon = BleskIcons.Trash, onClick = delete)
             }
         }
     }

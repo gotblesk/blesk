@@ -7,6 +7,7 @@ import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.ServerInfo
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -91,5 +92,14 @@ class AccountsTest {
 
         val wrong = harness.client.get("${Api.ACCOUNTS}/${bob.username}?${Api.LINK}=nope") { bearerAuth(alice.token) }
         assertEquals(HttpStatusCode.NotFound, wrong.status)
+    }
+
+    @Test
+    fun `a deleted account is gone and its token stops working`() = serverTest { harness ->
+        val alice = harness.register()
+        val bob = harness.register()
+        assertEquals(HttpStatusCode.NoContent, harness.client.delete(Api.ACCOUNT) { bearerAuth(bob.token) }.status)
+        assertEquals(HttpStatusCode.NotFound, harness.client.get("${Api.ACCOUNTS}/${bob.username}") { bearerAuth(alice.token) }.status)
+        assertEquals(HttpStatusCode.Unauthorized, harness.client.get(Api.KEY_STATUS) { bearerAuth(bob.token) }.status)
     }
 }

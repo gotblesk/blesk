@@ -21,6 +21,14 @@
     <string name="privacy_title">Приватность и безопасность</string>
     <string name="privacy_lock">Замок приложения</string>
     <string name="privacy_who">Кто может</string>
+    <string name="privacy_incognito">Инкогнито-клавиатура</string>
+    <string name="privacy_incognito_hint">Клавиатура не запоминает, что ты пишешь в blesk, и не подсказывает это потом</string>
+    <string name="privacy_default_timer">Исчезающие сообщения в новых чатах</string>
+    <string name="privacy_default_timer_hint">Для чатов, которые начинаешь ты. В каждом чате таймер можно поменять</string>
+    <string name="privacy_timer_off">Выкл</string>
+    <string name="privacy_timer_hour">1 час</string>
+    <string name="privacy_timer_day">1 день</string>
+    <string name="privacy_timer_week">1 неделя</string>
     <string name="privacy_find">Найти меня по имени пользователя</string>
     <string name="privacy_find_hint">«По ссылке» — найти можно только по твоей ссылке или QR-коду</string>
     <string name="privacy_who_writes">Писать мне</string>
@@ -53,6 +61,10 @@
 
     <string name="wipe_title">Удалить всё</string>
     <string name="wipe_text">С этого телефона исчезнут все чаты, ключи шифрования, профиль и настройки. Восстановить их не получится. blesk откроется как после установки.</string>
-    <string name="wipe_slide">Сдвинь, чтобы удалить</string>
+    <string name="wipe_slide">Сдвинь до конца, чтобы подтвердить</string>
+    <string name="delete_account_title">Удалить аккаунт</string>
+    <string name="delete_account_text">Аккаунт удалится с сервера вместе с ключами и сообщениями, которые ещё не дошли, а с этого телефона исчезнут чаты, ключи и настройки. Вернуть его не получится. Твоё имя пользователя освободится.</string>
+    <string name="delete_account_action">Удалить аккаунт навсегда</string>
+    <string name="delete_account_failed">Сервер не ответил, аккаунт не удалён. Проверь интернет и попробуй ещё раз.</string>
     <string name="wipe_action">Удалить всё с телефона</string>
 </resources>

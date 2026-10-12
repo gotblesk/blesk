@@ -49,6 +49,11 @@ class AccountRepository(private val database: Database) {
         }
     }
 
+    /** Removes the account; its keys, tokens and waiting messages go with it through the foreign keys. */
+    suspend fun delete(id: Long) {
+        database.transaction { connection -> connection.update("DELETE FROM accounts WHERE id = ?", id) }
+    }
+
     suspend fun setDiscoverable(id: Long, discoverable: Boolean) {
         database.transaction { connection ->
             connection.update("UPDATE accounts SET discoverable = ? WHERE id = ?", discoverable, id)

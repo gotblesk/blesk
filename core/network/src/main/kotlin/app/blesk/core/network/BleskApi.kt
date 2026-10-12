@@ -137,6 +137,11 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
         }
     }
 
+    suspend fun deleteAccount() {
+        val response = client.delete(url(Api.ACCOUNT)) { auth() }
+        if (!response.status.isSuccess()) throw response.error()
+    }
+
     suspend fun setDiscoverable(discoverable: Boolean) {
         val response = client.put(url(Api.DISCOVERY)) { auth(); jsonBody(Discovery(discoverable)) }
         if (!response.status.isSuccess()) throw response.error()

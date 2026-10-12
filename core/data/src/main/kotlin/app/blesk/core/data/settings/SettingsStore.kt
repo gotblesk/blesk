@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -105,6 +106,8 @@ class SettingsStore(context: Context) {
             prefs[WHO_CALLS] = next.calls.name
             prefs[WHO_ADDS] = next.groups.name
             prefs[WHO_SEES_ONLINE] = next.online.name
+            prefs[INCOGNITO_KEYBOARD] = next.incognitoKeyboard
+            prefs[DEFAULT_TIMER] = next.defaultTimerSeconds
         }
     }
 
@@ -247,6 +250,8 @@ class SettingsStore(context: Context) {
         calls = audience(WHO_CALLS, Audience.Everyone),
         groups = audience(WHO_ADDS, Audience.Everyone),
         online = audience(WHO_SEES_ONLINE, Audience.Contacts),
+        incognitoKeyboard = this[INCOGNITO_KEYBOARD] ?: true,
+        defaultTimerSeconds = this[DEFAULT_TIMER]?.takeIf { it in Privacy.TIMER_STEPS } ?: 0,
     )
 
     private fun Preferences.audience(key: Preferences.Key<String>, fallback: Audience) =
@@ -277,6 +282,8 @@ class SettingsStore(context: Context) {
         val WHO_CALLS = stringPreferencesKey("who_calls")
         val WHO_ADDS = stringPreferencesKey("who_adds")
         val WHO_SEES_ONLINE = stringPreferencesKey("who_sees_online")
+        val INCOGNITO_KEYBOARD = booleanPreferencesKey("incognito_keyboard")
+        val DEFAULT_TIMER = intPreferencesKey("default_timer")
         val TYPING_INDICATOR = booleanPreferencesKey("typing_indicator")
         val NOTIFY = booleanPreferencesKey("notify")
         val NOTIFY_PREVIEW = stringPreferencesKey("notify_preview")

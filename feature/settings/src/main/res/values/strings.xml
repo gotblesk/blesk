@@ -149,6 +149,7 @@
     <string name="you_invites">Приглашения</string>
     <string name="you_stickers">Стикеры</string>
     <string name="settings_title">Настройки</string>
+    <string name="settings_delete_account">Удалить аккаунт</string>
     <string name="settings_hints_reset">Показать подсказки снова</string>
     <string name="settings_hints_reset_hint">Короткие подсказки о жестах появятся ещё раз</string>
     <string name="settings_hints_reset_done">Подсказки появятся снова</string>

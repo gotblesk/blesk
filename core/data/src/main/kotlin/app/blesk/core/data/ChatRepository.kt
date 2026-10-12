@@ -106,6 +106,9 @@ interface PeopleControls {
 
     /** The app came to the front or went away; online status follows it. */
     fun setForeground(foreground: Boolean) = Unit
+
+    /** Deletes your account on the server; false if the server could not be reached. True in the demo, where there is none. */
+    suspend fun deleteAccount(): Boolean = true
 }
 
 /** Things you do to a chat besides writing in it. */

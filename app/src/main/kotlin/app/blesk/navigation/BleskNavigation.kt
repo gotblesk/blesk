@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntryDecorator
@@ -52,6 +53,7 @@ import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.motion.LocalScreenScope
 import app.blesk.core.design.motion.LocalSharedScope
 import app.blesk.core.design.motion.screenKey
@@ -67,6 +69,7 @@ import app.blesk.feature.chats.media.MediaViewer
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.profile.MyQrScreen
 import app.blesk.feature.profile.profileLink
+import app.blesk.feature.security.WipeKind
 import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
 import app.blesk.feature.settings.ConnectOutcome
@@ -162,7 +165,7 @@ data class PinChangeKey(val requireCurrent: Boolean) : NavKey
 data object PinDisableKey : NavKey
 
 @Serializable
-data object WipeKey : NavKey
+data class WipeKey(val kind: WipeKind = WipeKind.Phone) : NavKey
 
 @Serializable
 data object LicensesKey : NavKey
@@ -264,6 +267,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenNotifications = { backStack.add(NotificationsKey) },
                                     onOpenStorage = { backStack.add(StorageKey) },
                                     onShowQr = { backStack.add(MyQrKey) },
+                                    onDeleteAccount = if (demo) null else ({ backStack.add(WipeKey(WipeKind.DeleteAccount)) }),
                                     onShare = {
                                         scope.launch {
                                             val key = container.chats.value?.linkKey()
@@ -303,7 +307,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onSetPin = { backStack.add(PinChangeKey(requireCurrent = false)) },
                                     onChangePin = { backStack.add(PinChangeKey(requireCurrent = true)) },
                                     onDisablePin = { backStack.add(PinDisableKey) },
-                                    onWipe = { backStack.add(WipeKey) },
+                                    onWipe = { backStack.add(WipeKey()) },
                                     onBack = back,
                                     onOpenBlocked = { backStack.add(BlockedKey) },
                                 )
@@ -312,9 +316,21 @@ fun BleskNavigation(container: AppContainer) {
                         entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
                         entry<BlockedKey> { BlockedRoute(container, back) }
                         entry<PinDisableKey> { PinDisableRoute(container, back) }
-                        entry<WipeKey> {
+                        entry<WipeKey> { key ->
                             val context = LocalContext.current
-                            WipeScreen(onWipe = { wipeEverything(context, container) }, onBack = back)
+                            val notify = rememberNotify()
+                            val failed = stringResource(app.blesk.feature.security.R.string.delete_account_failed)
+                            WipeScreen(
+                                kind = key.kind,
+                                onWipe = {
+                                    scope.launch {
+                                        // The account goes first: wiping the phone first would lose the key that proves it is yours.
+                                        val gone = key.kind != WipeKind.DeleteAccount || container.chats.value?.deleteAccount() == true
+                                        if (gone) wipeEverything(context, container) else notify(failed)
+                                    }
+                                },
+                                onBack = back,
+                            )
                         }
                         entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
                         entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }

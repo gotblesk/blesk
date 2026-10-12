@@ -123,6 +123,24 @@ fun PrivacyScreen(
                 checked = privacy.typingIndicator,
                 onCheckedChange = { actions.onChange(privacy.copy(typingIndicator = it)) },
             )
+            ToggleRow(
+                title = stringResource(R.string.privacy_incognito),
+                subtitle = stringResource(R.string.privacy_incognito_hint),
+                checked = privacy.incognitoKeyboard,
+                onCheckedChange = { actions.onChange(privacy.copy(incognitoKeyboard = it)) },
+            )
+            Choice(
+                title = stringResource(R.string.privacy_default_timer),
+                hint = stringResource(R.string.privacy_default_timer_hint),
+                options = persistentListOf(
+                    stringResource(R.string.privacy_timer_off),
+                    stringResource(R.string.privacy_timer_hour),
+                    stringResource(R.string.privacy_timer_day),
+                    stringResource(R.string.privacy_timer_week),
+                ),
+                selected = Privacy.TIMER_STEPS.indexOf(privacy.defaultTimerSeconds).coerceAtLeast(0),
+                onSelect = { actions.onChange(privacy.copy(defaultTimerSeconds = Privacy.TIMER_STEPS[it])) },
+            )
         }
 
         Card(pad.padding(top = Blesk.dimens.sectionGap)) {
