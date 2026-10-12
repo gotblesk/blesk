@@ -232,6 +232,7 @@ fun BleskNavigation(container: AppContainer) {
     val ready = container.chats.collectAsStateWithLifecycle().value
     val notify = rememberNotify()
     val joinSent = stringResource(app.blesk.feature.chats.R.string.contacts_join_sent)
+    val contactRemoved = stringResource(app.blesk.feature.chats.R.string.contacts_removed)
     val linkMissing = stringResource(app.blesk.feature.chats.R.string.link_not_found)
     LaunchedEffect(linkRequest, ready) {
         val link = linkRequest ?: return@LaunchedEffect
@@ -290,6 +291,11 @@ fun BleskNavigation(container: AppContainer) {
                                     },
                                     onInvite = (mode as? AppMode.Server)?.let { server ->
                                         { scope.launch { invite(context, server.username, container.chats.value?.linkKey()) } }
+                                    },
+                                    onRemove = { contact ->
+                                        container.notices.undoable(contactRemoved) {
+                                            container.chats.value?.removeContact(contact.username)
+                                        }
                                     },
                                 ),
                                 onOpenChannel = { room, channel ->

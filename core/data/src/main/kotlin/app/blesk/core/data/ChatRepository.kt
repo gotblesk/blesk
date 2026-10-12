@@ -111,6 +111,9 @@ interface PeopleControls {
     /** Accepts a message request: the person becomes a contact and sees read receipts and typing again. */
     fun accept(username: String) = Unit
 
+    /** Makes a contact a stranger again: the chat stays, but they get no receipts or typing, as with a request. */
+    fun removeContact(username: String) = Unit
+
     /** Deletes your account on the server; false if the server could not be reached. True in the demo, where there is none. */
     suspend fun deleteAccount(): Boolean = true
 }

@@ -185,6 +185,10 @@ class ServerChatRepository(
         scope.launch { db.contacts().markAdded(username) }
     }
 
+    override fun removeContact(username: String) {
+        scope.launch { db.contacts().markRemoved(username) }
+    }
+
     /** A stranger whose request you have not accepted: they get no receipts and no typing from you. */
     private suspend fun isRequest(username: String): Boolean = db.contacts().get(username)?.added == false
 

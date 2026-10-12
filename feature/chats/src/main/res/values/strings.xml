@@ -380,4 +380,7 @@
     </plurals>
     <string name="chat_link_open">Открыть ссылку</string>
     <string name="person_shared_groups">Общие группы и комнаты</string>
+    <string name="contacts_remove">Удалить из контактов</string>
+    <string name="contacts_remove_hint">Чат останется, но без «прочитано» и «печатает», как с незнакомцем</string>
+    <string name="contacts_removed">Удалено из контактов</string>
 </resources>

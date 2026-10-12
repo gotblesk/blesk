@@ -67,13 +67,23 @@ class DemoRepository(
     private val blockedIds = MutableStateFlow<Set<String>>(emptySet())
     private val people = seed.contacts
 
-    override val contacts: Flow<List<Contact>> =
-        blockedIds.map { blocked -> seed.contacts.filter { it.id in seed.directContactIds && it.id !in blocked } }
+    private val removedIds = MutableStateFlow(emptySet<String>())
+
+    override val contacts: Flow<List<Contact>> = combine(blockedIds, removedIds) { blocked, removed ->
+        seed.contacts.filter { it.id in seed.directContactIds && it.id !in blocked && it.id !in removed }
+    }
+
+    override fun removeContact(username: String) {
+        val id = people.firstOrNull { it.username == username }?.id ?: username
+        removedIds.update { it + id }
+        change(id) { it.copy(request = true) }
+    }
 
     override val blocked: Flow<List<Contact>> = blockedIds.map { blocked -> people.filter { it.id in blocked } }
 
     override fun accept(username: String) {
         val id = people.firstOrNull { it.username == username }?.id ?: username
+        removedIds.update { it - id }
         change(id) { it.copy(request = false) }
     }
 

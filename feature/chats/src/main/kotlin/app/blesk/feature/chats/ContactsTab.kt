@@ -61,6 +61,8 @@ class ContactActions(
     val onCall: ((Contact) -> Unit)? = null,
     /** Shares an invitation; null in demo mode, where there is nobody to invite. */
     val onInvite: (() -> Unit)?,
+    /** Makes them a stranger again; the chat stays. */
+    val onRemove: ((Contact) -> Unit)? = null,
 )
 
 /**
@@ -155,6 +157,15 @@ private fun ContactMenu(contact: Contact, actions: ContactActions, onDismiss: ()
                 showChevron = false,
                 onClick = { act(actions.onOpen) },
             )
+            actions.onRemove?.let { remove ->
+                ListRow(
+                    title = stringResource(R.string.contacts_remove),
+                    subtitle = stringResource(R.string.contacts_remove_hint),
+                    icon = BleskIcons.Trash,
+                    showChevron = false,
+                    onClick = { act(remove) },
+                )
+            }
         }
     }
 }
