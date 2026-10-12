@@ -7,6 +7,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,7 +19,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,12 +53,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -114,6 +127,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 private val BubbleRadius = 20.dp
@@ -463,6 +477,7 @@ private fun MessageEntry(
                             FormattedText(
                                 markup = markup,
                                 revealed = revealed,
+                                onReveal = { revealed = it },
                                 modifier = Modifier,
                                 maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_LINES,
                                 onMention = actions.onMention,
@@ -682,12 +697,13 @@ private fun FormattedText(
     revealed: Boolean,
     modifier: Modifier,
     maxLines: Int = Int.MAX_VALUE,
+    onReveal: (Boolean) -> Unit = {},
     onMention: ((String) -> Unit)? = null,
     onTextLayout: ((TextLayoutResult) -> Unit)? = null,
 ) {
     val colors = Blesk.colors
     val link = ensureContrast(colors.light, colors.surface, ContrastLevel.BODY_TEXT)
-    val text = remember(markup, revealed, colors, onMention) {
+    val text = remember(markup, colors, onMention) {
         buildAnnotatedString {
             append(markup.text)
             mention.findAll(markup.text).forEach { match ->
@@ -714,9 +730,8 @@ private fun FormattedText(
                         span.end,
                     )
                     Markup.Style.Quote -> addStyle(SpanStyle(color = colors.textSecondary), span.start, span.end)
-                    Markup.Style.Spoiler -> if (!revealed) {
-                        addStyle(SpanStyle(color = Color.Transparent, background = colors.textTertiary), span.start, span.end)
-                    }
+                    // Drawn over by the frost in [spoilerFrost]; the text itself stays as it is.
+                    Markup.Style.Spoiler -> Unit
                 }
             }
         }
@@ -724,22 +739,25 @@ private fun FormattedText(
     val mentions = remember(markup) { mention.findAll(markup.text).map { it.range }.toList() }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val pill = colors.textPrimary.copy(alpha = MENTION_ALPHA)
+    val spoilers = remember(markup) { markup.spans.filter { it.style == Markup.Style.Spoiler } }
     Text(
         text = text,
-        modifier = modifier.drawBehind {
-            val shown = layout ?: return@drawBehind
-            val inset = 3.dp.toPx()
-            mentions.forEach { range ->
-                if (range.last >= shown.layoutInput.text.length) return@forEach
-                val box = shown.getBoundingBox(range.first).let { first -> first.copy(right = shown.getBoundingBox(range.last).right) }
-                drawRoundRect(
-                    color = pill,
-                    topLeft = Offset(box.left - inset, box.top),
-                    size = Size(box.width + inset * 2, box.height),
-                    cornerRadius = CornerRadius(box.height / 2f),
-                )
-            }
-        },
+        modifier = modifier
+            .spoilerFrost(spoilers, revealed, onReveal) { layout }
+            .drawBehind {
+                val shown = layout ?: return@drawBehind
+                val inset = 3.dp.toPx()
+                mentions.forEach { range ->
+                    if (range.last >= shown.layoutInput.text.length) return@forEach
+                    val box = shown.getBoundingBox(range.first).let { first -> first.copy(right = shown.getBoundingBox(range.last).right) }
+                    drawRoundRect(
+                        color = pill,
+                        topLeft = Offset(box.left - inset, box.top),
+                        size = Size(box.width + inset * 2, box.height),
+                        cornerRadius = CornerRadius(box.height / 2f),
+                    )
+                }
+            },
         maxLines = maxLines,
         onTextLayout = { result ->
             layout = result
@@ -747,6 +765,105 @@ private fun FormattedText(
         },
     )
 }
+
+/**
+ * Spoilers under matte frost. A tap on the frost thaws it from that point outwards and the text
+ * clears; a tap on the cleared text frosts it over again. Taps elsewhere are left to the bubble.
+ */
+@Composable
+private fun Modifier.spoilerFrost(
+    spoilers: List<Markup.Span>,
+    revealed: Boolean,
+    onReveal: (Boolean) -> Unit,
+    layout: () -> TextLayoutResult?,
+): Modifier {
+    if (spoilers.isEmpty()) return this
+    val motion = Blesk.motion
+    val thaw = remember { Animatable(if (revealed) 1f else 0f) }
+    var origin by remember { mutableStateOf(Offset.Unspecified) }
+    LaunchedEffect(revealed) {
+        val target = if (revealed) 1f else 0f
+        if (motion.reduced) thaw.snapTo(target) else thaw.animateTo(target, tween(THAW_MILLIS))
+    }
+    val colors = Blesk.colors
+    val frost = lerp(colors.surface, colors.textPrimary, FROST_MIX)
+    val grain = colors.textPrimary.copy(alpha = GRAIN_ALPHA)
+    return this
+        .pointerInput(spoilers) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val up = waitForUpOrCancellation() ?: return@awaitEachGesture
+                val shown = layout() ?: return@awaitEachGesture
+                val hit = spoilers.any { span -> shown.getPathForRange(span.start, span.end).getBounds().contains(down.position) }
+                if (!hit) return@awaitEachGesture
+                up.consume()
+                origin = down.position
+                onReveal(!revealed)
+            }
+        }
+        .drawWithContent {
+            drawContent()
+            val shown = layout() ?: return@drawWithContent
+            val t = thaw.value
+            if (t >= 1f) return@drawWithContent
+            val area = Rect(Offset.Zero, size)
+            // The frost lives in its own layer, so thawing cuts it without cutting the text beneath.
+            drawIntoCanvas { canvas -> canvas.saveLayer(area, Paint()) }
+            spoilers.forEach { span ->
+                val path = shown.getPathForRange(span.start, span.end)
+                drawPath(path, frost)
+                clipPath(path) { drawGrain(path.getBounds(), grain) }
+            }
+            if (t > 0f) {
+                val center = if (origin.isSpecified) origin else area.center
+                val reach = hypot(size.width, size.height) * t * THAW_REACH
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        0f to Color.Black,
+                        THAW_EDGE to Color.Black,
+                        1f to Color.Transparent,
+                        center = center,
+                        radius = reach.coerceAtLeast(1f),
+                    ),
+                    radius = reach.coerceAtLeast(1f),
+                    center = center,
+                    blendMode = BlendMode.DstOut,
+                )
+            }
+            drawIntoCanvas { canvas -> canvas.restore() }
+        }
+}
+
+/** A fixed scatter of fine dots, so the frost reads as ground glass rather than a flat bar. */
+private fun DrawScope.drawGrain(bounds: Rect, color: Color) {
+    val step = GRAIN_STEP.dp.toPx()
+    val dot = GRAIN_DOT.dp.toPx()
+    var y = bounds.top
+    var row = 0
+    while (y < bounds.bottom) {
+        var x = bounds.left + if (row % 2 == 0) 0f else step / 2f
+        var col = 0
+        while (x < bounds.right) {
+            val jitter = ((row * GRAIN_PRIME_A + col * GRAIN_PRIME_B) % GRAIN_SPREAD) / GRAIN_SPREAD.toFloat()
+            drawCircle(color, radius = dot * (0.6f + jitter), center = Offset(x + jitter * step / 2f, y + (1f - jitter) * step / 2f))
+            x += step
+            col++
+        }
+        y += step
+        row++
+    }
+}
+
+private const val THAW_MILLIS = 650
+private const val THAW_REACH = 1.2f
+private const val THAW_EDGE = 0.7f
+private const val FROST_MIX = 0.22f
+private const val GRAIN_ALPHA = 0.22f
+private const val GRAIN_STEP = 3.5f
+private const val GRAIN_DOT = 0.6f
+private const val GRAIN_PRIME_A = 7
+private const val GRAIN_PRIME_B = 13
+private const val GRAIN_SPREAD = 11
 
 private val linkPattern = Regex("""(?i)\b(?:https?://|www\.)[^\s<>«»"]+""")
 
