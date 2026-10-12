@@ -11,12 +11,16 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,6 +53,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
@@ -61,6 +67,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
@@ -74,6 +81,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.Connection
 import app.blesk.core.data.model.BotButton
@@ -383,6 +391,15 @@ fun ConversationScreen(
                     }
                 },
             ) { padding ->
+                // The composer rises with the keyboard frame by frame; the newest messages rise with it.
+                val bottomPx = with(LocalDensity.current) { padding.calculateBottomPadding().toPx() }
+                val lastBottom = remember { floatArrayOf(bottomPx) }
+                val following = atBottom
+                SideEffect {
+                    val delta = bottomPx - lastBottom[0]
+                    lastBottom[0] = bottomPx
+                    if (delta > 0f && following) listState.dispatchRawDelta(delta)
+                }
                 Box(Modifier.fillMaxSize()) {
                     LazyColumn(
                         state = listState,
@@ -910,13 +927,14 @@ private fun Composer(
                     )
                 }
             }
-            AnimatedVisibility(visible = emojiOpen) {
+            EmojiRoom(open = emojiOpen) { height ->
                 EmojiPanel(
                     recent = recentEmoji,
                     onPick = { emoji ->
                         state.edit { replace(selection.min, selection.max, emoji) }
                         onEmojiPicked(emoji)
                     },
+                    height = height,
                 )
             }
         }
@@ -962,6 +980,47 @@ private fun PinnedBanner(message: Message, onUnpin: (() -> Unit)?) {
         if (onUnpin != null) IconButton(BleskIcons.Close, stringResource(R.string.chat_unpin), onUnpin)
     }
 }
+
+/**
+ * Room for the emoji panel exactly as tall as the last keyboard. While the keyboard slides away
+ * the room grows by as much as the keyboard shrinks, and the other way round, so the composer
+ * and the messages never jump when switching between the two. After the panel closes for the
+ * keyboard the room is held until the keyboard is all the way up.
+ */
+@Composable
+private fun EmojiRoom(open: Boolean, panel: @Composable (Dp) -> Unit) {
+    val density = LocalDensity.current
+    val ime = WindowInsets.ime.getBottom(density)
+    val navigation = WindowInsets.navigationBars.getBottom(density)
+    var keyboard by rememberSaveable { mutableIntStateOf(0) }
+    if (ime > keyboard) keyboard = ime
+    val full = if (keyboard > 0) keyboard else with(density) { DefaultPanel.roundToPx() + navigation }
+    var holding by remember { mutableStateOf(false) }
+    var wasOpen by remember { mutableStateOf(open) }
+    if (wasOpen && !open) holding = true
+    wasOpen = open
+    LaunchedEffect(holding) {
+        if (!holding) return@LaunchedEffect
+        delay(HOLD_MAX_MILLIS)
+        holding = false
+    }
+    if (holding && ime >= full - with(density) { 8.dp.roundToPx() }) holding = false
+    val room = if (open || holding) (full - maxOf(ime, navigation)).coerceAtLeast(0) else 0
+    if (room == 0 && !open) return
+    val panelHeight = with(density) { (full - navigation).toDp() }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(with(density) { room.toDp() })
+            .clipToBounds(),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        if (open) Box(Modifier.requiredHeight(panelHeight)) { panel(panelHeight) }
+    }
+}
+
+private val DefaultPanel = 300.dp
+private const val HOLD_MAX_MILLIS = 700L
 
 /** Sends "typing" at most every few seconds while text changes, and "stopped" after a pause. */
 @Composable

@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.blesk.core.design.component.Icon
@@ -95,7 +96,7 @@ internal fun loadEmoji(context: Context): Map<EmojiSection, List<EmojiEntry>> {
 
 /** Emoji with search and recent picks, shown in place of the keyboard. */
 @Composable
-internal fun EmojiPanel(recent: List<String>, onPick: (String) -> Unit, modifier: Modifier = Modifier) {
+internal fun EmojiPanel(recent: List<String>, onPick: (String) -> Unit, modifier: Modifier = Modifier, height: Dp = PANEL_HEIGHT) {
     val context = LocalContext.current
     val catalog by produceState<Map<EmojiSection, List<EmojiEntry>>>(emptyMap()) {
         value = withContext(Dispatchers.IO) { loadEmoji(context) }
@@ -110,7 +111,7 @@ internal fun EmojiPanel(recent: List<String>, onPick: (String) -> Unit, modifier
         else -> catalog[section].orEmpty()
     }
     val searchHint = stringResource(R.string.emoji_search)
-    Column(modifier.fillMaxWidth().height(PANEL_HEIGHT)) {
+    Column(modifier.fillMaxWidth().height(height)) {
         Row(
             modifier = Modifier
                 .padding(horizontal = 8.dp, vertical = 4.dp)
