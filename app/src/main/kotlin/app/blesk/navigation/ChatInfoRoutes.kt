@@ -1,5 +1,6 @@
 package app.blesk.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -118,5 +119,46 @@ internal fun ForwardRoute(container: AppContainer, from: String, messageIds: Lis
             onDone()
         },
         onBack = onBack,
+    )
+}
+
+/**
+ * Something shared into blesk from another app: pick chats, «Избранное» first, and it goes to
+ * each of them. Files are encrypted into the vault on the way, like anything attached here.
+ */
+@Composable
+internal fun ShareRoute(container: AppContainer, onDone: () -> Unit) {
+    val chats = container.chats.collectAsStateWithLifecycle().value ?: return
+    val shared = container.shareRequest.collectAsStateWithLifecycle().value ?: return
+    val context = LocalContext.current
+    val notify = rememberNotify()
+    val scope = rememberCoroutineScope()
+    val all by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
+    val targets = all.filter { it.kind != ConversationKind.Channel && it.kind != ConversationKind.Room && !it.request }
+        .sortedByDescending { it.kind == ConversationKind.Saved }
+    val done = context.getString(R.string.share_done)
+    val failed = context.getString(R.string.media_failed)
+    BackHandler(onBack = onDone)
+    ForwardScreen(
+        conversations = targets.toImmutableList(),
+        onSend = { picked ->
+            scope.launch {
+                val attachments = shared.files.map { uri ->
+                    val mime = context.contentResolver.getType(uri)
+                    if (mime?.startsWith("image/") == true || mime?.startsWith("video/") == true) {
+                        importVisual(container, mime, uri)
+                    } else {
+                        container.media.importFile(uri)
+                    }
+                }
+                picked.forEach { id ->
+                    shared.text?.let { chats.send(id, it) }
+                    attachments.filterNotNull().forEach { chats.sendAttachment(id, it) }
+                }
+                notify(if (attachments.any { it == null }) failed else done)
+                onDone()
+            }
+        },
+        onBack = onDone,
     )
 }

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -22,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -97,8 +99,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handle(intent: Intent?) {
-        val id = intent?.getStringExtra(EXTRA_CONVERSATION) ?: return
-        (application as BleskApplication).container.openRequest.value = id
+        intent ?: return
+        val container = (application as BleskApplication).container
+        when (intent.action) {
+            Intent.ACTION_VIEW -> intent.dataString?.let { container.linkRequest.value = it }
+            Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> shared(intent)?.let { container.shareRequest.value = it }
+            else -> intent.getStringExtra(EXTRA_CONVERSATION)?.let { container.openRequest.value = it }
+        }
+    }
+
+    private fun shared(intent: Intent): Shared? {
+        val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
+        val files = when (intent.action) {
+            Intent.ACTION_SEND_MULTIPLE -> IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+            else -> listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
+        }
+        return if (text == null && files.isEmpty()) null else Shared(text, files)
     }
 
     /** "Always online" can only be switched on while the app is in front, so it is checked on every start. */

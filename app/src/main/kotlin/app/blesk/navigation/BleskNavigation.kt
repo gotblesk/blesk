@@ -177,6 +177,9 @@ data object BlockedKey : NavKey
 data object RequestsKey : NavKey
 
 @Serializable
+data object ShareKey : NavKey
+
+@Serializable
 data class LicenseKey(val license: License) : NavKey
 
 @Composable
@@ -199,6 +202,24 @@ fun BleskNavigation(container: AppContainer) {
         container.openRequest.value = null
         while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
         backStack.add(ConversationKey(id))
+    }
+
+    // A blesk:// link from another app: a profile opens its chat, an invite asks to join.
+    val linkRequest by container.linkRequest.collectAsStateWithLifecycle()
+    val ready = container.chats.collectAsStateWithLifecycle().value
+    val notify = rememberNotify()
+    val joinSent = stringResource(app.blesk.feature.chats.R.string.contacts_join_sent)
+    val linkMissing = stringResource(app.blesk.feature.chats.R.string.link_not_found)
+    LaunchedEffect(linkRequest, ready) {
+        val link = linkRequest ?: return@LaunchedEffect
+        val chats = ready ?: return@LaunchedEffect
+        container.linkRequest.value = null
+        val opened = find(chats, link, open = { backStack.add(ConversationKey(it)) }) { notify(joinSent) }
+        if (!opened) notify(linkMissing)
+    }
+    val shareRequest by container.shareRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(shareRequest) {
+        if (shareRequest != null && backStack.lastOrNull() != ShareKey) backStack.add(ShareKey)
     }
 
     LaunchedEffect(backStack.size) {
@@ -319,6 +340,12 @@ fun BleskNavigation(container: AppContainer) {
                         }
                         entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
                         entry<BlockedKey> { BlockedRoute(container, back) }
+                        entry<ShareKey> {
+                            ShareRoute(container, onDone = {
+                                container.shareRequest.value = null
+                                back()
+                            })
+                        }
                         entry<RequestsKey> {
                             RequestsRoute(container, onOpenConversation = { backStack.add(ConversationKey(it)) }, onBack = back)
                         }

@@ -76,6 +76,8 @@
     <string name="requests_delete">Удалить</string>
     <string name="requests_all">Все запросы списком</string>
     <string name="requests_as_stack">Стопкой карточек</string>
+    <string name="share_done">Отправлено</string>
+    <string name="link_not_found">По этой ссылке ничего не нашлось</string>
     <string name="chat_glint">Блик</string>
     <string name="chat_reaction">реакция %1$s: %2$d</string>
     <string name="chat_react">Поставить %1$s</string>

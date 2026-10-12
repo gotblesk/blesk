@@ -91,6 +91,12 @@ class AppContainer(context: Context) {
     /** A chat to open, asked for by a notification. */
     val openRequest = MutableStateFlow<String?>(null)
 
+    /** A `blesk://` link opened from another app: someone's profile or a group invite. */
+    val linkRequest = MutableStateFlow<String?>(null)
+
+    /** Something shared into blesk from another app, waiting for the chats to send it to. */
+    val shareRequest = MutableStateFlow<Shared?>(null)
+
     /** A message for another chat while the app is in front: shown as a capsule instead of a system notification. */
     val inAppNote = MutableStateFlow<InAppNote?>(null)
 
@@ -157,3 +163,6 @@ class AppContainer(context: Context) {
 
 /** What the in-app capsule shows; the text is already masked to what the notification settings allow. */
 data class InAppNote(val conversationId: String, val title: String, val line: String)
+
+/** What another app shared: text (or a link) and files; the files are readable while the share lasts. */
+data class Shared(val text: String?, val files: List<android.net.Uri>)
