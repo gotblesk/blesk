@@ -61,6 +61,8 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.model.attachmentLabel
+import app.blesk.core.design.color.ContrastLevel
+import app.blesk.core.design.color.ensureContrast
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.fire.flashOn
@@ -177,10 +179,22 @@ private class PartRegistry {
             val bubble = rect(key) ?: return@forEach
             val full = Blob(bubble, radius)
             val g = growth(id)
-            if (g < 1f) {
+            if (g < 1f && own) {
+                // Your message comes up out of the composer, still tied to it by a bridge that
+                // stretches and snaps before the capsule joins the column.
+                val rise = dots * RISE_IN_DOTS
+                val seed = Blob(bubble.translate(0f, rise).copy(left = bubble.left + bubble.width * 0.2f), radius)
+                val moving = lerp(seed, full, g)
+                result += moving
+                if (g < SNAP_AT) {
+                    val cx = moving.rect.center.x
+                    val stretch = (1f - g / SNAP_AT)
+                    result += Blob(Rect(cx - thread, moving.rect.bottom - radius, cx + thread, moving.rect.bottom + rise * stretch), thread)
+                }
+            } else if (g < 1f) {
                 // A message that was being typed grows out of the typing dots.
-                val start = if (own) bubble.right - dots * 2f else bubble.left
-                val seed = Blob(Rect(start, bubble.bottom - dots, start + dots * 2f, bubble.bottom), dots / 2f)
+                val dot = Rect(bubble.left, bubble.bottom - dots, bubble.left + dots * 2f, bubble.bottom)
+                val seed = Blob(dot, dots / 2f)
                 result += lerp(seed, full, g)
             } else {
                 result += full
@@ -215,7 +229,6 @@ private fun MessageEntry(
     val menuLabel = stringResource(R.string.chat_copy)
     val time = timeFormat.format(message.sentAt.atZone(ZoneId.systemDefault()))
     val status = if (own) stringResource(statusLabel(message.status)) else null
-    val failed = own && message.status == SendStatus.Failed
     val edited = if (message.edited) stringResource(R.string.chat_edited) else null
     val density = LocalDensity.current
     val swipeLimit = with(density) { ReplySwipe.toPx() }
@@ -267,7 +280,6 @@ private fun MessageEntry(
             modifier = Modifier
                 .widthIn(max = 300.dp)
                 .onPlaced { parts.put(if (circle) "circle:${message.id}" else "bubble:${message.id}", it) }
-                .flashOn(message.status.takeIf { own }, if (circle) CircleShape else BubbleShape)
                 .let { if (selected) it.border(2.dp, Blesk.colors.accent, if (circle) CircleShape else BubbleShape) else it }
                 .combinedClickable(
                     onClickLabel = if (hidden && !selecting) revealLabel else null,
@@ -293,7 +305,7 @@ private fun MessageEntry(
         ) {
             if (attachment is Attachment.Circle) {
                 MediaContent(message, attachment)
-                Stamp(time, status, edited, Modifier.align(Alignment.BottomEnd).padding(6.dp), onMedia = true, failed = failed)
+                Stamp(time, message.status.takeIf { own }, edited, Modifier.align(Alignment.BottomEnd).padding(6.dp), onMedia = true)
                 return@Box
             }
             Column {
@@ -317,8 +329,7 @@ private fun MessageEntry(
                     FormattedText(markup, revealed, inset)
                 }
                 Stamp(
-                    time, status, edited,
-                    failed = failed,
+                    time, message.status.takeIf { own }, edited,
                     modifier = Modifier
                         .align(Alignment.End)
                         .padding(top = 2.dp)
@@ -378,11 +389,10 @@ private fun BotButtons(message: Message, actions: MessageActions) {
 @Composable
 private fun Stamp(
     time: String,
-    status: String?,
+    status: SendStatus?,
     edited: String?,
     modifier: Modifier = Modifier,
     onMedia: Boolean = false,
-    failed: Boolean = false,
 ) {
     val color = if (onMedia) Color.White else Blesk.colors.textTertiary
     Row(
@@ -395,8 +405,38 @@ private fun Stamp(
     ) {
         if (edited != null) Text(edited, style = Blesk.type.caption, color = color)
         Text(time, style = Blesk.type.caption, color = color)
-        if (status != null) Text(status, style = Blesk.type.caption, color = if (failed && !onMedia) Blesk.colors.danger else color)
+        if (status != null) StatusMark(status, color, onMedia)
     }
+}
+
+/**
+ * Sent and delivered flash on the mark alone, since they happen with every message; read
+ * lights the mark with the theme's light. The words are in the bubble's description.
+ */
+@Composable
+private fun StatusMark(status: SendStatus, quiet: Color, onMedia: Boolean) {
+    val colors = Blesk.colors
+    val tint = when {
+        onMedia -> quiet
+        status == SendStatus.Failed -> colors.danger
+        // On a light background the light itself is near white, so the accent stands in for it.
+        status == SendStatus.Read && !colors.isDark -> colors.accent
+        status == SendStatus.Read -> remember(colors) { ensureContrast(colors.light, colors.surfaceStrong, ContrastLevel.UI_COMPONENT) }
+        else -> quiet
+    }
+    val icon = when (status) {
+        SendStatus.Failed -> BleskIcons.Alert
+        SendStatus.Sending -> BleskIcons.Clock
+        SendStatus.Sent -> BleskIcons.Check
+        SendStatus.Delivered, SendStatus.Read -> BleskIcons.DoubleCheck
+    }
+    Icon(
+        icon,
+        contentDescription = null,
+        size = 17.dp,
+        tint = tint,
+        modifier = Modifier.flashOn(status.takeIf { it == SendStatus.Sent || it == SendStatus.Delivered }, CircleShape),
+    )
 }
 
 @Composable
@@ -471,3 +511,6 @@ private fun withMentions(text: String): AnnotatedString = buildAnnotatedString {
     }
     append(text.substring(from))
 }
+
+private const val RISE_IN_DOTS = 3f
+private const val SNAP_AT = 0.4f

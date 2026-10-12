@@ -22,6 +22,9 @@ object BleskIcons {
     val At by icon("M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM16 8v5.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1")
     val Close by icon("M6.5 6.5l11 11M17.5 6.5l-11 11")
     val Check by icon("M5 12.5l4.5 4.5L19 7.5")
+    val DoubleCheck by icon("M1.5 12l5 5 10-11M11 16l1 1 10-11")
+    val Clock by icon("M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0zM12 7.5V12l3 2")
+    val Alert by icon("M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0zM12 7.5v5.5M12 16.2v.3")
     val Plus by icon("M12 5v14M5 12h14")
     val NewChat by icon(
         "M4 11.5C4 7.4 7.6 4.5 12 4.5s8 2.9 8 7-3.6 7-8 7c-1 0-1.9-.1-2.8-.4L5 19.5l1-3.4C4.7 14.9 4 13.3 4 11.5zM12 8.5v6M9 11.5h6",

@@ -418,7 +418,7 @@ fun ConversationScreen(
                             MessageColumn(
                                 messages = group,
                                 author = if (showAuthors && !own) authorName(group.first().authorId) else null,
-                                fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds || own }.toSet() },
+                                fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds }.toSet() },
                                 quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
                                 actions = actions,
                                 selection = selection,
