@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -120,6 +121,7 @@ import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.OnOwnBubble
 import app.blesk.core.motion.rememberHaptics
+import app.blesk.feature.chats.media.LocalArrival
 import app.blesk.feature.chats.media.MediaContent
 import app.blesk.feature.chats.media.StickerSize
 import app.blesk.feature.chats.media.StickerView
@@ -548,7 +550,9 @@ private fun MessageEntry(
                     when (attachment) {
                         is Attachment.Theme -> ThemeCard(attachment.spec, actions.onApplyTheme)
                         null -> Unit
-                        else -> MediaContent(message, attachment)
+                        else -> CompositionLocalProvider(LocalArrival provides if (own) contentAlpha else ({ 1f })) {
+                            MediaContent(message, attachment)
+                        }
                     }
                     message.link?.let { LinkCard(it, Modifier.padding(top = 2.dp, bottom = 6.dp)) }
                     val stamp: @Composable () -> Unit = {

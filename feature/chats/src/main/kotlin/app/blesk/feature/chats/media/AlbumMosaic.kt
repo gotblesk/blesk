@@ -12,10 +12,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -37,6 +40,8 @@ import java.io.File
 @Composable
 internal fun AlbumMosaic(album: Attachment.Album, message: Message, width: Dp = MosaicWidth, onOpen: (index: Int) -> Unit) {
     val items = album.items
+    val arrival = LocalArrival.current
+    val rise = with(LocalDensity.current) { ArrivalRise.toPx() }
     val rows = rowsFor(items.size)
     var start = 0
     Column(Modifier.width(width).clip(RoundedCornerShape(16.dp)), verticalArrangement = Arrangement.spacedBy(Gap)) {
@@ -49,7 +54,20 @@ internal fun AlbumMosaic(album: Attachment.Album, message: Message, width: Dp = 
             Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
                 row.forEachIndexed { offset, item ->
                     val index = first + offset
-                    val place = Modifier.size(width = height * ratios[offset], height = height).sharedElement(mediaKey(message.id, index))
+                    val place = Modifier
+                        .size(width = height * ratios[offset], height = height)
+                        .sharedElement(mediaKey(message.id, index))
+                        .graphicsLayer {
+                            // Each picture comes up out of the field a beat after the one before and settles into its place.
+                            val shift = index * ARRIVAL_STAGGER
+                            val landed = ((arrival() - shift) / (1f - ARRIVAL_STAGGER * (items.size - 1))).coerceIn(0f, 1f)
+                            if (landed < 1f) {
+                                translationY = (1f - landed) * rise
+                                scaleX = ARRIVAL_SCALE + (1f - ARRIVAL_SCALE) * landed
+                                scaleY = scaleX
+                                alpha = landed
+                            }
+                        }
                     Tile(item, place, index, items.size, onOpen) {
                         transferOverlay(message, "${message.id}/$index", item)?.invoke(this)
                     }
@@ -122,3 +140,13 @@ private val MosaicWidth = 260.dp
 private val Gap = 2.dp
 private const val MIN_RATIO = 0.6f
 private const val MAX_RATIO = 1.8f
+
+/**
+ * How far a message has come in, 0 to 1, for an album of your own that was just sent; 1 for
+ * everything already there.
+ */
+val LocalArrival = staticCompositionLocalOf<() -> Float> { { 1f } }
+
+private val ArrivalRise = 240.dp
+private const val ARRIVAL_STAGGER = 0.06f
+private const val ARRIVAL_SCALE = 0.6f
