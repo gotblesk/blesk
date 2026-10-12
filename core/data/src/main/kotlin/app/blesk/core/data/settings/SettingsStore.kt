@@ -129,8 +129,19 @@ class SettingsStore(context: Context) {
     /** Enter sends instead of starting a new line; Shift+Enter still breaks the line. */
     val sendByEnter: Flow<Boolean> = store.data.map { it[SEND_BY_ENTER] ?: false }.distinctUntilChanged()
 
-    suspend fun setSendByEnter(enabled: Boolean) {
-        store.edit { it[SEND_BY_ENTER] = enabled }
+    /** The record button starts as the camera for round videos rather than the microphone. */
+    val recordCircle: Flow<Boolean> = store.data.map { it[RECORD_CIRCLE] ?: false }.distinctUntilChanged()
+
+    /** One tap starts a recording and the next one stops it, for those who cannot hold a finger down. */
+    val tapToRecord: Flow<Boolean> = store.data.map { it[TAP_TO_RECORD] ?: false }.distinctUntilChanged()
+
+    /** Changes whichever of the input field's settings is given: [sendByEnter], [recordCircle], [tapToRecord]. */
+    suspend fun setComposer(sendByEnter: Boolean? = null, circle: Boolean? = null, tapToRecord: Boolean? = null) {
+        store.edit { prefs ->
+            sendByEnter?.let { prefs[SEND_BY_ENTER] = it }
+            circle?.let { prefs[RECORD_CIRCLE] = it }
+            tapToRecord?.let { prefs[TAP_TO_RECORD] = it }
+        }
     }
 
     /** Gesture hints already learned: each shows until the gesture has been done once. */
@@ -359,6 +370,8 @@ class SettingsStore(context: Context) {
         val PROFILE_HEADER = stringPreferencesKey("profile_header")
         val PROFILE_HEADER_PHOTO = longPreferencesKey("profile_header_photo")
         val SEND_BY_ENTER = booleanPreferencesKey("send_by_enter")
+        val RECORD_CIRCLE = booleanPreferencesKey("record_circle")
+        val TAP_TO_RECORD = booleanPreferencesKey("tap_to_record")
         val KEEP_ARCHIVED = booleanPreferencesKey("keep_archived")
         val KEEP_MEDIA_DAYS = intPreferencesKey("keep_media_days")
         val PROXY_ENABLED = booleanPreferencesKey("proxy_enabled")

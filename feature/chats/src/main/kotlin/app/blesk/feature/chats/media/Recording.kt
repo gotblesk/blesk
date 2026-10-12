@@ -2,6 +2,7 @@ package app.blesk.feature.chats.media
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
@@ -41,8 +42,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -78,6 +81,11 @@ class Recorders(
     val circle: CircleRecorder,
     val onVoice: (Attachment.Voice) -> Unit,
     val onCircle: (Attachment.Circle) -> Unit,
+    /** The mode chosen last time; every chat opens with it. */
+    val startMode: RecordMode = RecordMode.Voice,
+    val onModeChange: (RecordMode) -> Unit = {},
+    /** «Запись по нажатию»: a tap starts, the next tap on «Отправить» stops, a long press switches the mode. */
+    val tapToRecord: Boolean = false,
 )
 
 /** Shared between the record button, the recording bar, the lock drop and the circle preview. */
@@ -102,8 +110,9 @@ private val CancelDistance = 120.dp
 private val LockDistance = 90.dp
 
 /**
- * Microphone or camera. A tap switches between voice note and circle; holding records.
- * Slide left to cancel, slide up to lock the recording and let go.
+ * Microphone or camera. A tap switches between voice note and circle and says how to record;
+ * holding records. Slide left to cancel, slide up to lock the recording and let go. Let go within
+ * half a second and nothing is sent: that was most likely a tap that came out too long.
  */
 @Composable
 internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
@@ -115,6 +124,7 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
     val density = LocalDensity.current
     val cancelPx = with(density) { CancelDistance.toPx() }
     val lockPx = with(density) { LockDistance.toPx() }
+    val hint = stringResource(R.string.media_record_hint)
     val micDenied = stringResource(R.string.media_permission_mic)
     val cameraDenied = stringResource(R.string.media_permission_camera)
     val permissions =
@@ -157,8 +167,22 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
         return ok
     }
 
+    fun switchMode() {
+        ui.mode = if (ui.mode == RecordMode.Voice) RecordMode.Circle else RecordMode.Voice
+        recorders.onModeChange(ui.mode)
+        haptics.tick()
+    }
+
+    // Already on the lock: the recording bar's «Отправить» is the second tap.
+    fun startLocked() {
+        if (start()) ui.locked = true
+    }
+
+    val tapToRecord = recorders.tapToRecord
     val label =
         stringResource(if (ui.mode == RecordMode.Voice) R.string.media_record_voice else R.string.media_record_circle)
+    val switchLabel = stringResource(R.string.media_record_switch)
+    val recordLabel = stringResource(R.string.media_record_start)
     Box(
         modifier = Modifier
             .size(48.dp)
@@ -166,22 +190,41 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
             .semantics {
                 contentDescription = label
                 role = Role.Button
-                onClick {
-                    ui.mode = if (ui.mode == RecordMode.Voice) RecordMode.Circle else RecordMode.Voice
+                // Holding a finger down is not something a screen reader can be asked for: recording is an action of its own.
+                onClick(if (tapToRecord) recordLabel else switchLabel) {
+                    if (tapToRecord) startLocked() else switchMode()
                     true
                 }
+                customActions = listOf(
+                    CustomAccessibilityAction(if (tapToRecord) switchLabel else recordLabel) {
+                        if (tapToRecord) switchMode() else startLocked()
+                        true
+                    },
+                )
             }
-            .pointerInput(ui) {
+            .pointerInput(ui, tapToRecord) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
-                    val quick = withTimeoutOrNull(HOLD_MILLIS) {
+                    val holdMillis = if (tapToRecord) viewConfiguration.longPressTimeoutMillis else HOLD_MILLIS
+                    val quick = withTimeoutOrNull(holdMillis) {
                         do {
                             val event = awaitPointerEvent()
                         } while (event.changes.any { it.pressed })
                     }
+                    if (tapToRecord) {
+                        if (quick != null) {
+                            startLocked()
+                        } else {
+                            switchMode()
+                            do {
+                                val event = awaitPointerEvent()
+                            } while (event.changes.any { it.pressed })
+                        }
+                        return@awaitEachGesture
+                    }
                     if (quick != null) {
-                        ui.mode = if (ui.mode == RecordMode.Voice) RecordMode.Circle else RecordMode.Voice
-                        haptics.tick()
+                        switchMode()
+                        notify(hint)
                         return@awaitEachGesture
                     }
                     if (!start()) return@awaitEachGesture
@@ -201,6 +244,11 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
                         }
                     }
                     when (outcome) {
+                        Gesture.Release if SystemClock.uptimeMillis() - down.uptimeMillis < MIN_RECORD_MILLIS -> {
+                            cancel(ui, recorders, scope)
+                            haptics.refuse()
+                            notify(hint)
+                        }
                         Gesture.Release -> finish(ui, recorders, scope)
                         Gesture.Lock -> {
                             ui.locked = true
@@ -221,6 +269,7 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
 }
 
 private const val HOLD_MILLIS = 220L
+private const val MIN_RECORD_MILLIS = 500L
 
 private enum class Gesture { Release, Lock, Cancel }
 

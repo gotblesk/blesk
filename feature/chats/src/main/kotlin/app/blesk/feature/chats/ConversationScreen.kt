@@ -206,6 +206,9 @@ fun ConversationScreen(
     transfers: Map<String, Transfer> = emptyMap(),
 ) {
     val recording = remember { RecordingUi() }
+    LaunchedEffect(recorders?.startMode) {
+        if (!recording.active) recorders?.let { recording.mode = it.startMode }
+    }
     LaunchedEffect(recording.locked) { if (recording.locked) onHintDone(GestureHint.RecordLock) }
     val haptics = rememberHaptics()
     val listState = rememberLazyListState()
@@ -578,7 +581,7 @@ fun ConversationScreen(
                         selection.isNotEmpty() -> null
                         GestureHint.Reply !in hintsSeen && othersWrote && writable -> GestureHint.Reply
                         GestureHint.DoubleTap !in hintsSeen && othersWrote && reactions -> GestureHint.DoubleTap
-                        GestureHint.RecordLock !in hintsSeen && recorders != null && writable -> GestureHint.RecordLock
+                        GestureHint.RecordLock !in hintsSeen && recorders?.tapToRecord == false && writable -> GestureHint.RecordLock
                         else -> null
                     }
                     HintCapsule(

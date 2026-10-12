@@ -126,6 +126,8 @@ fun SettingsList(
     scroll: ScrollState = rememberScrollState(),
     sendByEnter: Boolean = false,
     onSendByEnter: (Boolean) -> Unit = {},
+    tapToRecord: Boolean = false,
+    onTapToRecord: (Boolean) -> Unit = {},
     vibration: VibrationLevel = VibrationLevel.Normal,
     onVibration: (VibrationLevel) -> Unit = {},
     doubleTap: String = GLINT_REACTION,
@@ -179,6 +181,13 @@ fun SettingsList(
                 checked = sendByEnter,
                 onCheckedChange = onSendByEnter,
                 icon = BleskIcons.Send,
+            )
+            ToggleRow(
+                title = stringResource(R.string.settings_tap_to_record),
+                subtitle = stringResource(R.string.settings_tap_to_record_hint),
+                checked = tapToRecord,
+                onCheckedChange = onTapToRecord,
+                icon = BleskIcons.Mic,
             )
             Text(
                 text = stringResource(R.string.settings_double_tap),

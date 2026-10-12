@@ -137,6 +137,8 @@
     <string name="settings_vibration_quiet">Тихая</string>
     <string name="settings_vibration_normal">Обычная</string>
     <string name="settings_send_by_enter_hint">Новая строка — Shift+Enter</string>
+    <string name="settings_tap_to_record">Запись по нажатию</string>
+    <string name="settings_tap_to_record_hint">Нажми — запись, нажми ещё раз — отправка. Удержание меняет режим</string>
     <string name="storage_title">Данные и память</string>
     <string name="storage_photos">Фото</string>
     <string name="storage_videos">Видео и кружки</string>

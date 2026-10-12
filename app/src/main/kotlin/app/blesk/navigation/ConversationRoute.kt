@@ -53,6 +53,7 @@ import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.QualitySheet
 import app.blesk.feature.chats.media.MediaController
+import app.blesk.feature.chats.media.RecordMode
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.protocol.BotCommand
@@ -210,12 +211,17 @@ internal fun ConversationRoute(
         )
     }
     val transfers by remember(demo) { demo.transfers }.collectAsStateWithLifecycle()
-    val recorders = remember(id) {
+    val recordCircle by container.settings.recordCircle.collectAsStateWithLifecycle(initialValue = false)
+    val tapToRecord by container.settings.tapToRecord.collectAsStateWithLifecycle(initialValue = false)
+    val recorders = remember(id, recordCircle, tapToRecord) {
         Recorders(
             voice = container.voiceRecorder,
             circle = container.circleRecorder,
             onVoice = { demo.sendAttachment(id, it) },
             onCircle = { demo.sendAttachment(id, it) },
+            startMode = if (recordCircle) RecordMode.Circle else RecordMode.Voice,
+            onModeChange = { mode -> scope.launch { container.settings.setComposer(circle = mode == RecordMode.Circle) } },
+            tapToRecord = tapToRecord,
         )
     }
 

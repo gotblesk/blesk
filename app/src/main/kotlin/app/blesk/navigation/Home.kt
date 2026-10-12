@@ -117,6 +117,7 @@ internal fun Home(
     val photo = rememberProfilePhoto(container, profile?.photoVersion ?: 0L)
     val connection by remember(chats) { chats.connection }.collectAsStateWithLifecycle(initialValue = Connection.Online)
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
+    val tapToRecord by container.settings.tapToRecord.collectAsStateWithLifecycle(initialValue = false)
     val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
     val hintsSeen by container.settings.hintsSeen
         .map { seen -> GestureHint.entries.filter { it.name in seen }.toSet() }
@@ -373,7 +374,9 @@ internal fun Home(
                     actions = settings,
                     scroll = settingsScroll,
                     sendByEnter = sendByEnter,
-                    onSendByEnter = { enabled -> scope.launch { container.settings.setSendByEnter(enabled) } },
+                    onSendByEnter = { enabled -> scope.launch { container.settings.setComposer(sendByEnter = enabled) } },
+                    tapToRecord = tapToRecord,
+                    onTapToRecord = { enabled -> scope.launch { container.settings.setComposer(tapToRecord = enabled) } },
                     vibration = vibration,
                     onVibration = { level -> scope.launch { container.settings.setVibration(level) } },
                     doubleTap = doubleTap,

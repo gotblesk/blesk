@@ -108,8 +108,11 @@
     <string name="media_photo">Фото</string>
     <string name="media_video">Видео, %1$s</string>
     <string name="media_file_open">Открыть файл %1$s</string>
-    <string name="media_record_voice">Записать голосовое. Нажми, чтобы переключиться на кружок</string>
-    <string name="media_record_circle">Записать кружок. Нажми, чтобы переключиться на голосовое</string>
+    <string name="media_record_voice">Запись голосового</string>
+    <string name="media_record_circle">Запись кружка</string>
+    <string name="media_record_switch">Сменить режим</string>
+    <string name="media_record_start">Записать</string>
+    <string name="media_record_hint">Удерживай, чтобы записать. Нажми, чтобы сменить режим</string>
     <string name="media_slide_cancel">Влево — отмена</string>
     <string name="media_lock_hint">Вверх — без рук</string>
     <string name="media_stop_send">Отправить запись</string>
