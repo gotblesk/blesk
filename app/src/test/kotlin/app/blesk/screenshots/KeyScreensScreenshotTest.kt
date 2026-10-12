@@ -44,6 +44,7 @@ import app.blesk.core.design.glass.LensTabBar
 import app.blesk.core.design.glass.SearchLens
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.icon.LivingIcon
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.calls.CallActions
@@ -131,10 +132,10 @@ class KeyScreensScreenshotTest(private val name: String) {
     private val now = Instant.parse("2026-10-11T15:00:00Z")
     private val seed by lazy { DemoSeed.from(ApplicationProvider.getApplicationContext<android.content.Context>().resources, now) }
     private val tabs = persistentListOf(
-        LensTab("Чаты", BleskIcons.Chats),
-        LensTab("Контакты", BleskIcons.People),
-        LensTab("Комнаты", BleskIcons.Rooms),
-        LensTab("Настройки", BleskIcons.Settings),
+        LensTab("Чаты", BleskIcons.Chats, LivingIcon.Fill),
+        LensTab("Контакты", BleskIcons.People, LivingIcon.Gather),
+        LensTab("Комнаты", BleskIcons.Rooms, LivingIcon.Stick),
+        LensTab("Настройки", BleskIcons.Settings, LivingIcon.Slide),
         LensTab("Ты", BleskIcons.Person) { Avatar("Ева", size = 24.dp) },
     )
 

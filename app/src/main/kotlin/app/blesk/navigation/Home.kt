@@ -56,6 +56,7 @@ import app.blesk.core.design.glass.LensTabBar
 import app.blesk.core.design.glass.SearchLens
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.icon.LivingIcon
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.ChatList
@@ -114,10 +115,10 @@ internal fun Home(
     val scope = rememberCoroutineScope()
     val onPinLimit = rememberPinLimit()
     val tabs = persistentListOf(
-        LensTab(stringResource(R.string.tab_chats), BleskIcons.Chats),
-        LensTab(stringResource(app.blesk.feature.chats.R.string.contacts_title), BleskIcons.People),
-        LensTab(stringResource(app.blesk.feature.chats.R.string.rooms_title), BleskIcons.Rooms),
-        LensTab(stringResource(app.blesk.feature.settings.R.string.settings_title), BleskIcons.Settings),
+        LensTab(stringResource(R.string.tab_chats), BleskIcons.Chats, LivingIcon.Fill),
+        LensTab(stringResource(app.blesk.feature.chats.R.string.contacts_title), BleskIcons.People, LivingIcon.Gather),
+        LensTab(stringResource(app.blesk.feature.chats.R.string.rooms_title), BleskIcons.Rooms, LivingIcon.Stick),
+        LensTab(stringResource(app.blesk.feature.settings.R.string.settings_title), BleskIcons.Settings, LivingIcon.Slide),
         LensTab(stringResource(app.blesk.feature.settings.R.string.you_title), BleskIcons.Person) {
             val me = profile
             Avatar(me?.name?.ifBlank { "?" } ?: "?", size = 24.dp, photo = photo, key = me?.username?.ifBlank { me.name } ?: "")

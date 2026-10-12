@@ -70,7 +70,9 @@ import app.blesk.core.design.R
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.fire.lightSweep
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.icon.LivingIcon
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
@@ -142,7 +144,13 @@ fun TopLens(
 
 /** A tab of the bottom lens; [badge] replaces the icon, for the profile tab's avatar. */
 @Immutable
-data class LensTab(val label: String, val icon: ImageVector, val badge: (@Composable () -> Unit)? = null)
+data class LensTab(
+    val label: String,
+    val icon: ImageVector,
+    /** How the icon comes alive when chosen; null keeps it still. */
+    val living: LivingIcon? = null,
+    val badge: (@Composable () -> Unit)? = null,
+)
 
 /** The main action of a tab, shown as a round capsule stuck to the right of the navigation lens. */
 @Immutable
@@ -251,7 +259,14 @@ fun LensTabBar(
                 ) {
                     val tint = if (active) Blesk.colors.textPrimary else Blesk.colors.textSecondary
                     val badge = tab.badge
-                    if (badge != null) badge() else Icon(tab.icon, contentDescription = null, tint = tint, size = 24.dp)
+                    val alive by animateFloatAsState(if (active) 1f else 0f, motion.stretch(), label = "alive")
+                    val living = tab.living
+                    when {
+                        // The avatar of «Ты» catches a glint as its tab is chosen.
+                        badge != null -> Box(Modifier.lightSweep(active, CircleShape)) { badge() }
+                        living != null -> LivingIcon(living, { alive }, tint, Blesk.colors.light)
+                        else -> Icon(tab.icon, contentDescription = null, tint = tint, size = 24.dp)
+                    }
                     AnimatedVisibility(
                         visible = active && showLabel,
                         enter = fadeIn(motion.settle()) + expandHorizontally(motion.settle()),
