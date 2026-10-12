@@ -56,6 +56,7 @@ internal fun AlbumMosaic(album: Attachment.Album, width: Dp = MosaicWidth, onOpe
 private fun Tile(item: Attachment, modifier: Modifier, index: Int, total: Int, onOpen: (Int) -> Unit) {
     val video = item as? Attachment.Video
     val path = video?.thumbnail ?: (item as? Attachment.Photo)?.path.orEmpty()
+    val preview = video?.preview ?: (item as? Attachment.Photo)?.preview.orEmpty()
     val label = stringResource(
         if (video != null) R.string.media_album_video else R.string.media_album_photo,
         index + 1,
@@ -70,6 +71,8 @@ private fun Tile(item: Attachment, modifier: Modifier, index: Int, total: Int, o
     ) {
         if (path.isNotEmpty()) {
             AsyncImage(model = File(path), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        } else {
+            BlurredPreview(preview, Modifier.fillMaxSize())
         }
         if (video != null) PlayBadge(Modifier.size(36.dp))
     }

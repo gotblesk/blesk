@@ -1,7 +1,9 @@
 package app.blesk.feature.chats.media
 
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -32,6 +34,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -50,6 +53,7 @@ import app.blesk.core.media.Waveform
 import app.blesk.feature.chats.R
 import coil3.compose.AsyncImage
 import java.io.File
+import java.util.Base64
 import java.util.Locale
 
 /** Playback and opening of media, provided once per conversation. */
@@ -100,6 +104,7 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
     when (attachment) {
         is Attachment.Photo -> Picture(
             path = attachment.path,
+            preview = attachment.preview,
             ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
             description = stringResource(R.string.media_photo),
             onClick = { controller.onOpenMedia(message, 0) },
@@ -107,6 +112,7 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
         is Attachment.Video -> Box {
             Picture(
                 path = attachment.thumbnail,
+                preview = attachment.preview,
                 ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
                 description = stringResource(R.string.media_video, formatDuration(attachment.durationMillis)),
                 onClick = { controller.onOpenMedia(message, 0) },
@@ -132,20 +138,47 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
 }
 
 @Composable
-private fun Picture(path: String, ratio: Float, description: String, onClick: () -> Unit) {
-    AsyncImage(
-        model = File(path),
-        contentDescription = description,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
+private fun Picture(path: String, preview: String, ratio: Float, description: String, onClick: () -> Unit) {
+    // The size is known from the message, so the bubble never jumps when the picture arrives.
+    Box(
+        Modifier
             .widthIn(max = 260.dp)
             .width(260.dp)
             .aspectRatio(ratio.coerceIn(MIN_RATIO, MAX_RATIO))
             .clip(RoundedCornerShape(16.dp))
+            .background(Blesk.colors.surfaceStrong)
             .veiled()
-            .clickable(role = Role.Image, onClick = onClick),
-    )
+            .clickable(role = Role.Image, onClickLabel = description, onClick = onClick)
+            .semantics { contentDescription = description },
+    ) {
+        if (path.isEmpty()) {
+            BlurredPreview(preview, Modifier.matchParentSize())
+        } else {
+            AsyncImage(
+                model = File(path),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize(),
+            )
+        }
+    }
 }
+
+/** A tiny picture sent along with the message, blurred, for while the real one is on its way. */
+@Composable
+internal fun BlurredPreview(base64: String, modifier: Modifier = Modifier) {
+    val bitmap = remember(base64) {
+        base64.takeIf { it.isNotEmpty() }?.let { data ->
+            runCatching {
+                val bytes = Base64.getDecoder().decode(data)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+            }.getOrNull()
+        }
+    } ?: return
+    Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier.blur(PreviewBlur))
+}
+
+private val PreviewBlur = 12.dp
 
 private const val MIN_RATIO = 0.6f
 private const val MAX_RATIO = 1.8f

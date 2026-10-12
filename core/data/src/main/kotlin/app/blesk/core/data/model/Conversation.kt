@@ -122,11 +122,25 @@ sealed interface Attachment {
 
     @Serializable
     @SerialName("photo")
-    data class Photo(val path: String, val width: Int, val height: Int) : Attachment
+    data class Photo(
+        val path: String,
+        val width: Int,
+        val height: Int,
+        /** A tiny blurred JPEG in Base64, shown while the photo itself is still on its way. */
+        val preview: String = "",
+    ) : Attachment
 
     @Serializable
     @SerialName("video")
-    data class Video(val path: String, val thumbnail: String, val width: Int, val height: Int, val durationMillis: Long) : Attachment
+    data class Video(
+        val path: String,
+        val thumbnail: String,
+        val width: Int,
+        val height: Int,
+        val durationMillis: Long,
+        /** A small poster in Base64 for before the video arrives. */
+        val preview: String = "",
+    ) : Attachment
 
     @Serializable
     @SerialName("file")
