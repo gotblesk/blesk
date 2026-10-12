@@ -133,6 +133,10 @@ class ConversationCallbacks(
     val onReconnect: () -> Unit = {},
     /** Opens the profile of an @username mentioned in a message; null where nobody can be opened. */
     val onOpenPerson: ((username: String) -> Unit)? = null,
+    /** Opens the camera for one photo; null where it is not offered. */
+    val onTakePhoto: (() -> Unit)? = null,
+    /** Picks audio to send, kept as it is. */
+    val onPickMusic: (() -> Unit)? = null,
     /** Sends a failed message once more. */
     val onRetry: (messageId: String) -> Unit = {},
     /** Remembers an emoji picked from the panel for its «recent» row. */
@@ -366,6 +370,8 @@ fun ConversationScreen(
                             onPickMedia = callbacks.onPickMedia,
                             onPickFile = callbacks.onPickFile,
                             attachments = conversation.kind != ConversationKind.Bot,
+                            onTakePhoto = callbacks.onTakePhoto,
+                            onPickMusic = callbacks.onPickMusic,
                             commands = commands,
                             members = members,
                             online = connection.canSend,

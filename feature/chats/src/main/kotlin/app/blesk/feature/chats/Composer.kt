@@ -3,12 +3,15 @@ package app.blesk.feature.chats
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -22,6 +25,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.KeyboardActionHandler
@@ -45,6 +49,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isShiftPressed
@@ -96,6 +102,8 @@ internal fun Composer(
     onPickMedia: () -> Unit,
     onPickFile: () -> Unit,
     attachments: Boolean,
+    onTakePhoto: (() -> Unit)? = null,
+    onPickMusic: (() -> Unit)? = null,
     commands: ImmutableList<BotCommand>,
     members: ImmutableList<Contact>,
     online: Boolean,
@@ -143,26 +151,15 @@ internal fun Composer(
                 }
             }
             AnimatedVisibility(visible = attachMenu && !recording.active) {
-                Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        text = stringResource(R.string.media_photo_video),
-                        icon = BleskIcons.Image,
-                        kind = ButtonKind.Secondary,
-                        onClick = {
-                            attachMenu = false
-                            onPickMedia()
-                        },
-                    )
-                    Button(
-                        text = stringResource(R.string.media_file),
-                        icon = BleskIcons.Document,
-                        kind = ButtonKind.Secondary,
-                        onClick = {
-                            attachMenu = false
-                            onPickFile()
-                        },
-                    )
-                }
+                AttachMenu(
+                    choices = listOfNotNull(
+                        onTakePhoto?.let { AttachChoice(BleskIcons.Camera, stringResource(R.string.media_camera), it) },
+                        AttachChoice(BleskIcons.Image, stringResource(R.string.media_photo_video), onPickMedia),
+                        AttachChoice(BleskIcons.Document, stringResource(R.string.media_file), onPickFile),
+                        onPickMusic?.let { AttachChoice(BleskIcons.Music, stringResource(R.string.media_music), it) },
+                    ),
+                    onChosen = { attachMenu = false },
+                )
             }
             if (busy) {
                 Text(
@@ -237,7 +234,7 @@ internal fun Composer(
                 return@BottomLens
             }
             Row(verticalAlignment = Alignment.Bottom) {
-                if (attachments) IconButton(BleskIcons.Paperclip, stringResource(R.string.media_attach), { attachMenu = !attachMenu })
+                if (attachments) AttachToggle(open = attachMenu) { attachMenu = !attachMenu }
                 Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 4.dp), contentAlignment = Alignment.CenterStart) {
                     if (state.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
                     BasicTextField(
@@ -403,3 +400,48 @@ private const val TYPING_PAUSE_MILLIS = 5_000L
 
 private const val MAX_SUGGESTIONS = 5
 private const val DRAFT_PAUSE_MILLIS = 800L
+
+private class AttachChoice(val icon: ImageVector, val label: String, val onClick: () -> Unit)
+
+/** «+» turns into «×» while the choices are out. */
+@Composable
+private fun AttachToggle(open: Boolean, onClick: () -> Unit) {
+    val turn by animateFloatAsState(if (open) 45f else 0f, Blesk.motion.settle(), label = "attach")
+    IconButton(
+        icon = BleskIcons.Plus,
+        contentDescription = stringResource(if (open) R.string.chat_cancel else R.string.media_attach),
+        onClick = onClick,
+        modifier = Modifier.graphicsLayer { rotationZ = turn },
+    )
+}
+
+/** The attachment choices flow out of the lens one after another, as capsules. */
+@Composable
+private fun AttachMenu(choices: List<AttachChoice>, onChosen: () -> Unit) {
+    val motion = Blesk.motion
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        choices.forEachIndexed { index, choice ->
+            val shown = remember { MutableTransitionState(motion.reduced).apply { targetState = true } }
+            AnimatedVisibility(
+                visibleState = shown,
+                enter = scaleIn(motion.staggered(index), initialScale = 0.5f) + fadeIn(motion.staggered(index)),
+            ) {
+                Button(
+                    text = choice.label,
+                    icon = choice.icon,
+                    kind = ButtonKind.Secondary,
+                    onClick = {
+                        onChosen()
+                        choice.onClick()
+                    },
+                )
+            }
+        }
+    }
+}

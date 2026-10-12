@@ -34,6 +34,9 @@ object Durations {
 
     /** Followers trail the element under the finger by this much. */
     const val FOLLOW_DELAY = 25
+
+    /** Between items that come out one after another, like capsules leaving a lens. */
+    const val STAGGER = 45
 }
 
 /** The one curve for movement that is not a spring: a viscous start and a soft stop. */
@@ -65,6 +68,10 @@ class BleskMotion(val reduced: Boolean, val still: Boolean = reduced) {
     fun <T> press(): FiniteAnimationSpec<T> = if (reduced) snap() else tween(Durations.PRESS, easing = Viscous)
 
     fun <T> transition(): FiniteAnimationSpec<T> = tween(if (reduced) Durations.DISSOLVE else Durations.TRANSITION, easing = Viscous)
+
+    /** The [index]-th of several things appearing one after another. */
+    fun <T> staggered(index: Int): FiniteAnimationSpec<T> =
+        if (reduced) snap() else tween(Durations.TRANSITION, delayMillis = index * Durations.STAGGER, easing = Viscous)
 
     fun <T> signature(): FiniteAnimationSpec<T> = tween(if (reduced) Durations.DISSOLVE else Durations.SIGNATURE, easing = Viscous)
 

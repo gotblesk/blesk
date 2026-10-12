@@ -1,5 +1,6 @@
 package app.blesk.navigation
 
+import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.BleskApplication
@@ -52,6 +54,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 internal fun ConversationRoute(
@@ -134,6 +137,31 @@ internal fun ConversationRoute(
             if (attachment != null) demo.sendAttachment(id, attachment) else notify(failed)
         }
     }
+    // The camera app writes the shot to a scratch file, which is moved into the vault and deleted at once.
+    val shot = remember { File(File(context.cacheDir, "camera").apply { mkdirs() }, "shot.jpg") }
+    val shotUri = remember { FileProvider.getUriForFile(context, "${context.packageName}.files", shot) }
+    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+        if (!taken) {
+            shot.delete()
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            busy = true
+            val attachment = importVisual(container, "image/jpeg", shotUri)
+            shot.delete()
+            busy = false
+            if (attachment != null) demo.sendAttachment(id, attachment) else notify(failed)
+        }
+    }
+    val cameraDenied = stringResource(app.blesk.feature.chats.R.string.media_camera_denied)
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            container.lock.expectReturn()
+            takePicture.launch(shotUri)
+        } else {
+            notify(cameraDenied)
+        }
+    }
     val playback = container.audioPlayer.playback.collectAsStateWithLifecycle()
     DisposableEffect(Unit) { onDispose { container.audioPlayer.stop() } }
     val mediaController = remember(id) {
@@ -183,6 +211,11 @@ internal fun ConversationRoute(
             onPickFile = {
                 container.lock.expectReturn()
                 pickFile.launch(arrayOf("*/*"))
+            },
+            onTakePhoto = { cameraPermission.launch(Manifest.permission.CAMERA) },
+            onPickMusic = {
+                container.lock.expectReturn()
+                pickFile.launch(arrayOf("audio/*"))
             },
             onTyping = { active -> demo.setTyping(id, active) },
             onOpenInfo = when {
