@@ -199,8 +199,11 @@ internal fun ConversationRoute(
             onCycleSpeed = container.audioPlayer::cycleSpeed,
             onOpenMedia = { message, index -> onOpenMedia(message.id, index) },
             onOpenFile = { file -> openFile(context, file) },
+            onCancelTransfer = { message -> demo.cancelTransfer(id, message.id) },
+            onRetryTransfer = { message -> demo.retryDownload(id, message.id) },
         )
     }
+    val transfers by remember(demo) { demo.transfers }.collectAsStateWithLifecycle()
     val recorders = remember(id) {
         Recorders(
             voice = container.voiceRecorder,
@@ -312,6 +315,7 @@ internal fun ConversationRoute(
                     .map { member -> demo.contact(member.username) ?: Contact(member.username, member.username, member.username) }
                     .toImmutableList(),
                 underlay = { ChatBackdrop(chatBackground(background, wallpaper != null), wallpaper) },
+                transfers = transfers,
             )
             if (themeSheet) {
                 ChatThemeSheet(

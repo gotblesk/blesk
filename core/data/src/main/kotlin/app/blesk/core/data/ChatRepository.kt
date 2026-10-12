@@ -32,7 +32,7 @@ enum class Connection {
 }
 
 /** Everything the screens need from a world of chats, whether it is the demo or a real server. */
-interface ChatRepository : ChatTools, PeopleControls {
+interface ChatRepository : ChatTools, PeopleControls, TransferControls {
     /** Conversations shown in the list; room channels live inside their rooms. */
     val conversations: Flow<List<Conversation>>
 
@@ -83,6 +83,18 @@ interface ChatRepository : ChatTools, PeopleControls {
 
     /** Tells the other side you are typing; a no-op where it makes no sense. */
     fun setTyping(conversationId: String, active: Boolean) = Unit
+}
+
+/** Files on their way between this phone and the server. */
+interface TransferControls {
+    /** Files being sent or received, by message id (and `id/index` for album items). */
+    val transfers: StateFlow<Map<String, Transfer>> get() = MutableStateFlow(emptyMap())
+
+    /** Stops a file on its way: an upload drops the unsent message, a download can be started again. */
+    fun cancelTransfer(conversationId: String, messageId: String) = Unit
+
+    /** Fetches the files of a message again, from where the last attempt stopped. */
+    fun retryDownload(conversationId: String, messageId: String) = Unit
 }
 
 /** How many chats can be pinned at once; the list stays a list, not a second list on top. */
@@ -158,4 +170,9 @@ interface ChatTools {
 
     /** Deletes the files of attachments sent before [beforeMillis], in one chat or in all; the messages stay. */
     suspend fun clearMedia(conversationId: String?, beforeMillis: Long) = Unit
+}
+
+/** A file on its way: [done] of [total] bytes; [total] is -1 while unknown. */
+data class Transfer(val done: Long, val total: Long, val failed: Boolean = false) {
+    val fraction: Float get() = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f
 }

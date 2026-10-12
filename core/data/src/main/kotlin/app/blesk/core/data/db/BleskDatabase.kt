@@ -18,7 +18,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         GroupEntity::class,
         MessageFtsEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class BleskDatabase : RoomDatabase() {
@@ -125,6 +125,13 @@ abstract class BleskDatabase : RoomDatabase() {
             }
         }
 
+        /** Where unfinished downloads come from, so they can be cancelled, retried or started later. */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN remote TEXT")
+            }
+        }
+
         /** Opens the SQLCipher database with [passphrase]; the caller gets it from Android Keystore. */
         fun open(context: Context, passphrase: ByteArray): BleskDatabase {
             System.loadLibrary("sqlcipher")
@@ -132,7 +139,7 @@ abstract class BleskDatabase : RoomDatabase() {
                 .openHelperFactory(SupportOpenHelperFactory(passphrase))
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+                    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                 )
                 .build()
         }

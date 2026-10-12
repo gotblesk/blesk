@@ -24,6 +24,9 @@ class MediaVault(private val context: Context) {
     private val root = File(context.filesDir, "media").apply { mkdirs() }
     private val resolver = context.contentResolver
 
+    /** Ciphertext of downloads still in progress; whatever is here survives a dropped connection. */
+    val partials: File = File(context.cacheDir, "downloads").apply { mkdirs() }
+
     fun newFile(extension: String): File = File(root, "${UUID.randomUUID()}.$extension")
 
     fun owns(path: String): Boolean = File(path).canonicalPath.startsWith(root.canonicalPath)

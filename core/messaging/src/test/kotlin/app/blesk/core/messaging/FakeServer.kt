@@ -22,6 +22,9 @@ import app.blesk.shared.protocol.ServerFrame
 import app.blesk.shared.protocol.ServerInfo
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
+import app.blesk.shared.protocol.UploadStart
+import app.blesk.shared.protocol.UploadStarted
+import app.blesk.shared.protocol.UploadState
 import app.blesk.shared.protocol.UserToBot
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -50,6 +53,7 @@ class FakeServer {
     private val keys = ConcurrentHashMap<String, KeyUpload>()
     private val transports = ConcurrentHashMap<String, FakeTransport>()
     private val blobs = ConcurrentHashMap<String, ByteArray>()
+    private val uploads = ConcurrentHashMap<String, Upload>()
     private val ids = AtomicLong()
     private val bots = ConcurrentHashMap<String, BotInfo>()
 
@@ -137,13 +141,44 @@ class FakeServer {
                 blobs[id] = bytes(request)
                 ok(json.encodeToString(AttachmentUploaded.serializer(), AttachmentUploaded(id)))
             }
-            path.startsWith("/v1/attachments/") -> respond(
-                ByteReadChannel(blobs.getValue(path.substringAfterLast('/'))),
-                HttpStatusCode.OK,
-            )
+            path == "/v1/attachments/uploads" -> {
+                val start = json.decodeFromString(UploadStart.serializer(), text(request))
+                val id = "blob${ids.incrementAndGet()}"
+                uploads[id] = Upload(start.size, sortedMapOf())
+                ok(json.encodeToString(UploadStarted.serializer(), UploadStarted(id, CHUNK)))
+            }
+            path.contains("/chunks/") -> {
+                val id = path.substringAfter("/v1/attachments/").substringBefore('/')
+                uploads.getValue(id).chunks[path.substringAfterLast('/').toInt()] = bytes(request)
+                respond("", HttpStatusCode.NoContent)
+            }
+            path.endsWith("/chunks") -> {
+                val upload = uploads.getValue(path.substringAfter("/v1/attachments/").substringBefore('/'))
+                ok(json.encodeToString(UploadState.serializer(), UploadState(upload.chunks.keys.toList(), false)))
+            }
+            path.endsWith("/complete") -> {
+                val id = path.substringAfter("/v1/attachments/").substringBefore('/')
+                blobs[id] = uploads.remove(id)!!.chunks.values.fold(ByteArray(0)) { all, chunk -> all + chunk }
+                ok(json.encodeToString(AttachmentUploaded.serializer(), AttachmentUploaded(id)))
+            }
+            path.startsWith("/v1/attachments/") -> {
+                val blob = blobs.getValue(path.substringAfterLast('/'))
+                val from = request.headers[HttpHeaders.Range]?.removePrefix("bytes=")?.substringBefore('-')?.toIntOrNull()
+                if (from == null) {
+                    respond(ByteReadChannel(blob), HttpStatusCode.OK)
+                } else {
+                    respond(
+                        ByteReadChannel(blob.copyOfRange(from, blob.size)),
+                        HttpStatusCode.PartialContent,
+                        headersOf(HttpHeaders.ContentRange, "bytes $from-${blob.size - 1}/${blob.size}"),
+                    )
+                }
+            }
             else -> error(HttpStatusCode.NotFound, "no_route")
         }
     }
+
+    private class Upload(val size: Long, val chunks: java.util.SortedMap<Int, ByteArray>)
 
     private suspend fun bytes(request: HttpRequestData): ByteArray = when (val body = request.body) {
         is OutgoingContent.ByteArrayContent -> body.bytes()
@@ -189,3 +224,6 @@ class FakeTransport : Transport {
 
     override fun stop() = Unit
 }
+
+/** Small chunks, so even a test photo goes up in several pieces. */
+private const val CHUNK = 64 * 1024

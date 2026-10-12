@@ -12,6 +12,7 @@ import app.blesk.core.data.IncomingMessages
 import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.SpaceController
 import app.blesk.core.data.SpaceResult
+import app.blesk.core.data.Transfer
 import app.blesk.core.data.calls.CallSignal
 import app.blesk.core.data.calls.CallSignaling
 import app.blesk.core.data.db.BleskDatabase
@@ -71,6 +72,7 @@ import app.blesk.shared.protocol.UpdateSpace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -88,15 +90,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
-import java.time.Instant
 import java.util.Base64
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Chats on a real server. Every outgoing content is written to the encrypted outbox first and
@@ -138,7 +140,10 @@ class ServerChatRepository(
     private val incomingFlow = MutableSharedFlow<IncomingNote>(extraBufferCapacity = SIGNAL_BUFFER)
     override val incoming: SharedFlow<IncomingNote> = incomingFlow.asSharedFlow()
     private val spaces = SpaceEngine(db, api, media, me, labels)
-    private val downloads = Downloads(db, api, media)
+    private val transferState = Transfers()
+    override val transfers: StateFlow<Map<String, Transfer>> = transferState.progress
+    private val downloads = Downloads(db, api, media, transferState, scope)
+    private val uploads = ConcurrentHashMap<String, Job>()
     private val profiles = ProfileExchange(
         db = db,
         api = api,
@@ -266,7 +271,7 @@ class ServerChatRepository(
         }
         scope.launch { socket.frames.collect { frame -> handle(frame) } }
         scope.launch { socket.connected.filter { it }.collect { flush() } }
-        scope.launch { socket.connected.filter { it }.collect { if (foreground) announce(online = true) } }
+        scope.launch { socket.connected.filter { it }.collect { presenceTracker.reconnected() } }
         // The server only keeps whether you can be found by name; it is told again on every connection.
         scope.launch { socket.connected.filter { it }.collect { setDiscoverable(privacy().findable) } }
         scope.launch { socket.connected.filter { !it }.collect { synced.value = false } }
@@ -417,12 +422,15 @@ class ServerChatRepository(
         val pointers = if (attachment == null) {
             emptyList()
         } else {
+            uploads[id] = currentCoroutineContext().job
             try {
-                withContext(Dispatchers.IO) { Attachments.uploadEach(api, attachment) }
+                withContext(Dispatchers.IO) { Attachments.uploadEach(api, attachment, transferState, id) }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
                 null
+            } finally {
+                uploads.remove(id)
             }
         }
         if (pointers == null) {
@@ -479,6 +487,21 @@ class ServerChatRepository(
         db.messages().get(id)?.let { db.messages().upsert(it.copy(link = encodeLink(card))) }
         return card
     }
+
+    override fun cancelTransfer(conversationId: String, messageId: String) {
+        if (downloads.cancel(messageId)) return
+        // An upload that is stopped takes its unsent message with it.
+        uploads.remove(messageId)?.cancel() ?: return
+        scope.launch {
+            db.messages().get(messageId)?.takeIf { it.conversationId == conversationId }?.let { stored ->
+                db.messages().delete(stored.id)
+                media.forget(decodeAttachment(stored.attachment))
+            }
+            refreshPreview(conversationId)
+        }
+    }
+
+    override fun retryDownload(conversationId: String, messageId: String) = downloads.start(messageId)
 
     override fun setArchived(conversationId: String, archived: Boolean) {
         scope.launch { db.conversations().setArchived(conversationId, archived) }
@@ -642,45 +665,19 @@ class ServerChatRepository(
 
     // Presence
 
-    private val presenceState = MutableStateFlow<Map<String, Presence>>(emptyMap())
-    override val presence: StateFlow<Map<String, Presence>> = presenceState.asStateFlow()
+    private val presenceTracker = PresenceTracker(
+        scope = scope,
+        clock = clock,
+        audience = { privacy().online },
+        peers = {
+            db.conversations().recentDirect(PresenceTracker.PEERS).filter { it != me && !bots.isBot(it) }
+        },
+        allowed = ::allowed,
+        send = ::sendEphemeral,
+    )
+    override val presence: StateFlow<Map<String, Presence>> = presenceTracker.presence
 
-    @Volatile
-    private var foreground = false
-    private var heartbeat: Job? = null
-
-    override fun setForeground(foreground: Boolean) {
-        if (this.foreground == foreground) return
-        this.foreground = foreground
-        heartbeat?.cancel()
-        heartbeat = scope.launch {
-            if (!foreground) {
-                announce(online = false)
-                return@launch
-            }
-            // Online fades on the other side unless repeated, since a phone that loses the network cannot say goodbye.
-            while (isActive) {
-                announce(online = true)
-                delay(HEARTBEAT_MILLIS)
-            }
-        }
-    }
-
-    /** Tells the people allowed to see it whether you are online: your recent direct chats, or just [only]. */
-    private suspend fun announce(online: Boolean, only: String? = null, reply: Boolean = false) {
-        val audience = privacy().online
-        if (audience == Audience.Nobody) return
-        val peers = only?.let(::listOf) ?: db.conversations().recentDirect(PRESENCE_PEERS)
-        val body = Body.Presence(online, if (online) null else clock(), reply)
-        peers.filter { it != me && !bots.isBot(it) && allowed(it, audience) }.forEach { sendEphemeral(it, body) }
-    }
-
-    private suspend fun receivePresence(sender: String, body: Body.Presence) {
-        val heard = Instant.ofEpochMilli(clock())
-        presenceState.update { it + (sender to Presence(body.online, body.lastSeenMillis?.let(Instant::ofEpochMilli), heard)) }
-        // Someone just came online: they learn about you too, if they may.
-        if (body.online && !body.reply && foreground) announce(online = true, only = sender, reply = true)
-    }
+    override fun setForeground(foreground: Boolean) = presenceTracker.setForeground(foreground)
 
     // Groups and rooms
 
@@ -995,7 +992,7 @@ class ServerChatRepository(
             is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
             is Body.CallOffer, is Body.CallAnswer, is Body.CallEnd, is Body.Timer -> applyControl(sender, content, body)
             is Body.Profile -> profiles.receive(sender, body)
-            is Body.Presence -> receivePresence(sender, body)
+            is Body.Presence -> presenceTracker.receive(sender, body)
         }
     }
 
@@ -1071,6 +1068,9 @@ class ServerChatRepository(
                 expiresAt = expiry(content.sentAtMillis, content.expiresInSeconds.coerceIn(0, MAX_TIMER_SECONDS)),
                 forwardedFrom = if (body.forwarded) FORWARDED else null,
                 link = encodeLink(body.link?.sanitized(body.text)),
+                remote = RemoteFiles(body.attachment?.takeIf { album.isEmpty() && it.kind != Attachments.KIND_THEME }, album)
+                    .takeIf { it.single != null || it.album.isNotEmpty() }
+                    ?.encode(),
             ),
         )
         if (inserted == -1L) return
@@ -1089,7 +1089,7 @@ class ServerChatRepository(
             val name = author?.let { contactCache.value[it]?.name ?: it }
             incomingFlow.tryEmit(IncomingNote(conversation, title ?: sender, name, preview, kind))
         }
-        scope.launch { downloads.fetch(content.id, body.attachment.takeIf { album.isEmpty() }, album) }
+        downloads.start(content.id)
     }
 
     private suspend fun receiveText(sender: String, content: Content, body: Body.Text) {
@@ -1166,8 +1166,6 @@ class ServerChatRepository(
     private suspend fun MessageCrypto.hasSessionSafe(username: String) = withContext(Dispatchers.IO) { hasSession(username) }
 
     private companion object {
-        const val HEARTBEAT_MILLIS = 4 * 60_000L
-        const val PRESENCE_PEERS = 30
         const val UNAUTHORIZED = 401
         const val TOO_MANY = 429
         val CLIENT_ERRORS = 400..499

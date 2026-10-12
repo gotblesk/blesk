@@ -58,6 +58,8 @@ data class MessageEntity(
     val forwardedFrom: String? = null,
     /** JSON of the link card. */
     val link: String? = null,
+    /** JSON of where the files of a received message lie on the server, kept until they are downloaded. */
+    val remote: String? = null,
 )
 
 /** Full-text index over message text, kept in step with [MessageEntity] by Room's triggers. */

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +23,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.Message
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.R
 import coil3.compose.AsyncImage
@@ -32,7 +34,7 @@ import java.io.File
  * its pictures need to share the width at their own proportions, so there are no empty spaces.
  */
 @Composable
-internal fun AlbumMosaic(album: Attachment.Album, width: Dp = MosaicWidth, onOpen: (index: Int) -> Unit) {
+internal fun AlbumMosaic(album: Attachment.Album, message: Message, width: Dp = MosaicWidth, onOpen: (index: Int) -> Unit) {
     val items = album.items
     val rows = rowsFor(items.size)
     var start = 0
@@ -45,7 +47,10 @@ internal fun AlbumMosaic(album: Attachment.Album, width: Dp = MosaicWidth, onOpe
             val height = (width - Gap * (count - 1)) / ratios.sum()
             Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
                 row.forEachIndexed { offset, item ->
-                    Tile(item, Modifier.size(width = height * ratios[offset], height = height), first + offset, items.size, onOpen)
+                    val index = first + offset
+                    Tile(item, Modifier.size(width = height * ratios[offset], height = height), index, items.size, onOpen) {
+                        transferOverlay(message, "${message.id}/$index")?.invoke(this)
+                    }
                 }
             }
         }
@@ -53,7 +58,14 @@ internal fun AlbumMosaic(album: Attachment.Album, width: Dp = MosaicWidth, onOpe
 }
 
 @Composable
-private fun Tile(item: Attachment, modifier: Modifier, index: Int, total: Int, onOpen: (Int) -> Unit) {
+private fun Tile(
+    item: Attachment,
+    modifier: Modifier,
+    index: Int,
+    total: Int,
+    onOpen: (Int) -> Unit,
+    overlay: @Composable BoxScope.() -> Unit,
+) {
     val video = item as? Attachment.Video
     val path = video?.thumbnail ?: (item as? Attachment.Photo)?.path.orEmpty()
     val preview = video?.preview ?: (item as? Attachment.Photo)?.preview.orEmpty()
@@ -75,6 +87,7 @@ private fun Tile(item: Attachment, modifier: Modifier, index: Int, total: Int, o
             BlurredPreview(preview, Modifier.fillMaxSize())
         }
         if (video != null) PlayBadge(Modifier.size(36.dp))
+        overlay()
     }
 }
 

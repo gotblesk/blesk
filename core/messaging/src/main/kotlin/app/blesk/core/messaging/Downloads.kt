@@ -5,28 +5,94 @@ import app.blesk.core.data.model.Attachment
 import app.blesk.core.media.MediaVault
 import app.blesk.core.network.BleskApi
 import app.blesk.shared.protocol.AttachmentPointer
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import java.util.concurrent.ConcurrentHashMap
 
-/** Brings the files of a received message onto the phone and points the stored message at them. */
-internal class Downloads(private val db: BleskDatabase, private val api: BleskApi, private val media: MediaVault) {
+/** Where the files of a received message lie on the server, until they are all on the phone. */
+@Serializable
+internal data class RemoteFiles(val single: AttachmentPointer? = null, val album: List<AttachmentPointer> = emptyList()) {
+    fun encode(): String = storageJson.encodeToString(serializer(), this)
 
-    /** One file, or an album item by item, each showing up in the mosaic as soon as it is here. */
-    suspend fun fetch(messageId: String, single: AttachmentPointer?, album: List<AttachmentPointer>) {
-        single?.let { pointer ->
-            val local = download(pointer) ?: return
-            val stored = db.messages().get(messageId) ?: return
-            db.messages().upsert(stored.copy(attachment = encodeAttachment(local)))
-        }
-        album.forEachIndexed { index, pointer ->
-            val local = download(pointer) ?: return@forEachIndexed
-            val stored = db.messages().get(messageId) ?: return
-            val current = decodeAttachment(stored.attachment) as? Attachment.Album ?: return
-            val items = current.items.toMutableList().apply { if (index < size) set(index, local) }
-            db.messages().upsert(stored.copy(attachment = encodeAttachment(Attachment.Album(items))))
-        }
+    companion object {
+        fun decode(raw: String?): RemoteFiles? = raw?.let { runCatching { storageJson.decodeFromString(serializer(), it) }.getOrNull() }
+    }
+}
+
+/**
+ * Brings the files of received messages onto the phone and points the stored message at them.
+ * A download can be cancelled and started again; it continues from the bytes already here.
+ */
+internal class Downloads(
+    private val db: BleskDatabase,
+    private val api: BleskApi,
+    private val media: MediaVault,
+    private val transfers: Transfers,
+    private val scope: CoroutineScope,
+) {
+    private val jobs = ConcurrentHashMap<String, Job>()
+
+    fun start(messageId: String) {
+        if (jobs[messageId]?.isActive == true) return
+        jobs[messageId] = scope.launch { run(messageId) }
     }
 
-    private suspend fun download(pointer: AttachmentPointer): Attachment? =
-        runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }.getOrNull()
+    fun cancel(messageId: String): Boolean {
+        val job = jobs.remove(messageId) ?: return false
+        job.cancel()
+        scope.launch {
+            val remote = RemoteFiles.decode(db.messages().get(messageId)?.remote) ?: return@launch
+            if (remote.single != null) transfers.fail(messageId)
+            remote.album.indices.forEach { transfers.fail(Attachments.albumTag(messageId, it)) }
+        }
+        return true
+    }
+
+    /** One file, or an album item by item, each showing up in the mosaic as soon as it is here. */
+    private suspend fun run(messageId: String) {
+        val remote = RemoteFiles.decode(db.messages().get(messageId)?.remote) ?: return
+        var complete = true
+        remote.single?.let { pointer ->
+            val local = download(pointer, messageId)
+            val stored = db.messages().get(messageId) ?: return
+            if (local == null) complete = false else db.messages().upsert(stored.copy(attachment = encodeAttachment(local)))
+        }
+        remote.album.forEachIndexed { index, pointer ->
+            val stored = db.messages().get(messageId) ?: return
+            val current = decodeAttachment(stored.attachment) as? Attachment.Album ?: return
+            if (current.items.getOrNull(index)?.let(::arrived) == true) return@forEachIndexed
+            val local = download(pointer, Attachments.albumTag(messageId, index))
+            if (local == null) {
+                complete = false
+                return@forEachIndexed
+            }
+            val fresh = db.messages().get(messageId) ?: return
+            val items = (decodeAttachment(fresh.attachment) as? Attachment.Album ?: return).items.toMutableList()
+            if (index < items.size) items[index] = local
+            db.messages().upsert(fresh.copy(attachment = encodeAttachment(Attachment.Album(items))))
+        }
+        if (complete) db.messages().get(messageId)?.let { db.messages().upsert(it.copy(remote = null)) }
+        jobs.remove(messageId)
+    }
+
+    private fun arrived(item: Attachment) = when (item) {
+        is Attachment.Photo -> item.path.isNotEmpty()
+        is Attachment.Video -> item.path.isNotEmpty()
+        else -> true
+    }
+
+    private suspend fun download(pointer: AttachmentPointer, tag: String): Attachment? =
+        try {
+            withContext(Dispatchers.IO) { Attachments.download(api, media, pointer, transfers, tag) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            transfers.fail(tag)
+            null
+        }
 }

@@ -3,6 +3,7 @@ package app.blesk.core.messaging
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import app.blesk.core.crypto.AttachmentCipher
+import app.blesk.core.crypto.StreamingCipher
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.media.MediaVault
 import app.blesk.core.network.BleskApi
@@ -10,6 +11,7 @@ import app.blesk.shared.appearance.ThemeFile
 import app.blesk.shared.protocol.AttachmentPointer
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.util.Base64
 
 /**
@@ -20,17 +22,26 @@ import java.util.Base64
 internal object Attachments {
     private const val MAX_INLINE_POSTER = 96 * 1024
 
-    suspend fun upload(api: BleskApi, attachment: Attachment): AttachmentPointer? {
+    /**
+     * Encrypts [attachment] with a fresh streaming key and uploads it in chunks, reporting under
+     * [tag]; the ciphertext waits in a temporary file so an interrupted upload can continue.
+     */
+    suspend fun upload(
+        api: BleskApi,
+        attachment: Attachment,
+        transfers: Transfers = Transfers(),
+        tag: String? = null,
+    ): AttachmentPointer? {
         if (attachment is Attachment.Theme) {
             return AttachmentPointer(id = "", key = "", kind = KIND_THEME, name = ThemeFile(theme = attachment.spec).encode())
         }
         val source = File(pathOf(attachment) ?: return null)
-        val key = AttachmentCipher.newKey()
+        val key = StreamingCipher.newKey()
         val encrypted = File.createTempFile("upload", ".bin")
         try {
-            encrypted.outputStream().use { out -> source.inputStream().use { AttachmentCipher.encrypt(key, it, out) } }
-            val id = api.uploadAttachment(encrypted).id
-            return pointerFor(attachment, id, b64(key))
+            encrypted.outputStream().use { out -> source.inputStream().use { StreamingCipher.encrypt(key, it, out) } }
+            val id = transfers.send(api, encrypted, tag)
+            return pointerFor(attachment, id, b64(key)).copy(scheme = SCHEME_STREAMING, size = source.length())
         } finally {
             encrypted.delete()
         }
@@ -63,10 +74,13 @@ internal object Attachments {
     }
 
     /** Every file of [attachment] uploaded: one pointer, or one per album item in order. */
-    suspend fun uploadEach(api: BleskApi, attachment: Attachment): List<AttachmentPointer>? {
-        val parts = (attachment as? Attachment.Album)?.items ?: listOf(attachment)
-        return parts.map { upload(api, it) ?: return null }
+    suspend fun uploadEach(api: BleskApi, attachment: Attachment, transfers: Transfers, messageId: String): List<AttachmentPointer>? {
+        val album = attachment as? Attachment.Album ?: return listOf(upload(api, attachment, transfers, messageId) ?: return null)
+        return album.items.mapIndexed { index, item -> upload(api, item, transfers, albumTag(messageId, index)) ?: return null }
     }
+
+    /** The progress key of one album item. */
+    fun albumTag(messageId: String, index: Int) = "$messageId/$index"
 
     /** An album before its files arrive: the size of each item, so the mosaic is laid out at once. */
     fun placeholders(pointers: List<AttachmentPointer>): Attachment.Album =
@@ -91,34 +105,57 @@ internal object Attachments {
         else -> null
     }
 
-    /** Downloads, verifies and decrypts; returns the attachment pointing at the local copy. */
-    suspend fun download(api: BleskApi, media: MediaVault, pointer: AttachmentPointer): Attachment? {
+    /**
+     * Downloads, verifies and decrypts; returns the attachment pointing at the local copy. The
+     * ciphertext collects in [partials] under the attachment id, so a broken download continues.
+     */
+    suspend fun download(
+        api: BleskApi,
+        media: MediaVault,
+        pointer: AttachmentPointer,
+        transfers: Transfers = Transfers(),
+        tag: String? = null,
+    ): Attachment? {
         if (pointer.kind == KIND_THEME) return placeholder(pointer)
         val key = if (pointer.key.isEmpty()) null else unb64(pointer.key)
-        if (key != null && key.size != AttachmentCipher.KEY_BYTES) return null
-        val encrypted = File.createTempFile("download", ".bin")
+        val streaming = pointer.scheme == SCHEME_STREAMING
+        val keyBytes = if (streaming) StreamingCipher.KEY_BYTES else AttachmentCipher.KEY_BYTES
+        if (key != null && key.size != keyBytes) return null
+        val encrypted = File(media.partials, partialName(pointer.id))
+        // Kept on a network error, so the next attempt continues; dropped once used or found broken.
+        transfers.fetch(api, pointer.id, encrypted, tag)
+        val target = media.newFile(extension(pointer))
         try {
-            encrypted.outputStream().use { api.downloadAttachment(pointer.id, it) }
-            val target = media.newFile(extension(pointer))
-            if (key == null) {
-                encrypted.copyTo(target, overwrite = true)
-            } else {
-                target.outputStream().use { AttachmentCipher.decrypt(key, encrypted, it) }
-            }
-            val poster = pointer.thumbnail?.let { data -> media.newFile("jpg").also { it.writeBytes(unb64(data)) }.path }.orEmpty()
-            return when (pointer.kind) {
-                KIND_PHOTO -> Attachment.Photo(target.path, pointer.width, pointer.height)
-                KIND_VIDEO -> Attachment.Video(target.path, poster, pointer.width, pointer.height, pointer.durationMillis)
-                KIND_FILE -> Attachment.File(
-                    target.path, safeName(pointer.name), target.length(), pointer.mime ?: "application/octet-stream",
-                )
-                KIND_VOICE -> Attachment.Voice(target.path, pointer.durationMillis, pointer.waveform.orEmpty())
-                KIND_CIRCLE -> Attachment.Circle(target.path, poster, pointer.durationMillis)
-                else -> null
-            }
+            decrypt(key, streaming, encrypted, target)
+        } catch (broken: IOException) {
+            target.delete()
+            throw broken
         } finally {
             encrypted.delete()
         }
+        val poster = pointer.thumbnail?.let { data -> media.newFile("jpg").also { it.writeBytes(unb64(data)) }.path }.orEmpty()
+        return local(pointer, target, poster)
+    }
+
+    private fun partialName(id: String) = id.filter { it.isLetterOrDigit() || it == '-' || it == '_' } + ".part"
+
+    private fun decrypt(key: ByteArray?, streaming: Boolean, encrypted: File, target: File) {
+        when {
+            key == null -> encrypted.copyTo(target, overwrite = true)
+            streaming -> target.outputStream().use { out ->
+                encrypted.inputStream().use { StreamingCipher.decrypting(key, it).copyTo(out) }
+            }
+            else -> target.outputStream().use { AttachmentCipher.decrypt(key, encrypted, it) }
+        }
+    }
+
+    private fun local(pointer: AttachmentPointer, target: File, poster: String): Attachment? = when (pointer.kind) {
+        KIND_PHOTO -> Attachment.Photo(target.path, pointer.width, pointer.height)
+        KIND_VIDEO -> Attachment.Video(target.path, poster, pointer.width, pointer.height, pointer.durationMillis)
+        KIND_FILE -> Attachment.File(target.path, safeName(pointer.name), target.length(), pointer.mime ?: "application/octet-stream")
+        KIND_VOICE -> Attachment.Voice(target.path, pointer.durationMillis, pointer.waveform.orEmpty())
+        KIND_CIRCLE -> Attachment.Circle(target.path, poster, pointer.durationMillis)
+        else -> null
     }
 
     private fun pathOf(attachment: Attachment): String? = when (attachment) {
@@ -163,9 +200,10 @@ internal object Attachments {
 
     private fun unb64(text: String) = Base64.getDecoder().decode(text)
 
+    private const val SCHEME_STREAMING = 2
     private const val PREVIEW_SIDE = 32
     private const val PREVIEW_QUALITY = 60
-    private const val KIND_THEME = "theme"
+    internal const val KIND_THEME = "theme"
     internal const val KIND_PHOTO = "photo"
     private const val KIND_VIDEO = "video"
     private const val KIND_FILE = "file"

@@ -38,6 +38,7 @@ class MigrationTest {
                 BleskDatabase.MIGRATION_7_8,
                 BleskDatabase.MIGRATION_8_9,
                 BleskDatabase.MIGRATION_9_10,
+                BleskDatabase.MIGRATION_10_11,
             )
             .allowMainThreadQueries()
             .build()

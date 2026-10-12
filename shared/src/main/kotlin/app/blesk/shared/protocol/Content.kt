@@ -192,6 +192,8 @@ data class AttachmentPointer(
     val waveform: String? = null,
     /** Base64 of a small JPEG preview, encrypted along with the message. */
     val thumbnail: String? = null,
+    /** 1: AES-CBC with HMAC over the whole file; 2: Tink streaming AEAD in 1 MB segments, playable while it downloads. */
+    val scheme: Int = 1,
 )
 
 /**

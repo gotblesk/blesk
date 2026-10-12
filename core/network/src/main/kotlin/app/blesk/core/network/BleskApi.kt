@@ -33,6 +33,9 @@ import app.blesk.shared.protocol.Spaces
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
 import app.blesk.shared.protocol.UpdateSpace
+import app.blesk.shared.protocol.UploadStart
+import app.blesk.shared.protocol.UploadStarted
+import app.blesk.shared.protocol.UploadState
 import app.blesk.shared.protocol.UserToBot
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -45,6 +48,7 @@ import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
@@ -54,14 +58,17 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
+import io.ktor.http.contentLength
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.copyTo
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
+import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -69,6 +76,7 @@ import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.IOException
 import java.io.OutputStream
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -208,6 +216,48 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
         }
     }
 
+    /** Starts a chunked upload of [size] encrypted bytes; null when the server does not take chunks. */
+    suspend fun startUpload(size: Long): UploadStarted? = optional { client.post(url(Api.UPLOADS)) { auth(); jsonBody(UploadStart(size)) } }
+
+    suspend fun uploadChunk(id: String, n: Int, bytes: ByteArray) =
+        expect { client.put(url("${Api.ATTACHMENTS}/$id/chunks/$n")) { auth(); setBody(bytes) } }
+
+    suspend fun uploadState(id: String): UploadState = call { client.get(url("${Api.ATTACHMENTS}/$id/chunks")) { auth() } }
+
+    suspend fun completeUpload(id: String) = expect { client.post(url("${Api.ATTACHMENTS}/$id/complete")) { auth() } }
+
+    /**
+     * Appends the attachment from byte [from] on to [output], reporting each piece through
+     * [onBytes]; returns the full size. Used to continue a download after the connection dropped.
+     */
+    suspend fun downloadFrom(
+        id: String,
+        from: Long,
+        output: OutputStream,
+        onBytes: (piece: Long, total: Long) -> Unit = { _, _ -> },
+    ): Long =
+        client.prepareGet(url("${Api.ATTACHMENTS}/$id")) {
+            auth()
+            if (from > 0) header(HttpHeaders.Range, "bytes=$from-")
+        }.execute { response ->
+            if (!response.status.isSuccess()) throw response.error()
+            val partial = response.status == HttpStatusCode.PartialContent
+            // A server that ignores the range sends everything again; the caller then starts over.
+            if (from > 0 && !partial) throw IOException("range not honoured")
+            val total = response.headers[HttpHeaders.ContentRange]?.substringAfter('/')?.toLongOrNull()
+                ?: response.contentLength()?.plus(from)
+                ?: -1L
+            val channel = response.bodyAsChannel()
+            val buffer = ByteArray(DOWNLOAD_BUFFER)
+            while (true) {
+                val read = channel.readAvailable(buffer, 0, buffer.size)
+                if (read < 0) break
+                output.write(buffer, 0, read)
+                onBytes(read.toLong(), total)
+            }
+            total
+        }
+
     // Public spaces: plain HTTP JSON, not end-to-end encrypted.
 
     suspend fun createSpace(request: CreateSpace): SpaceInfo = call { client.post(url(Spaces.PATH)) { auth(); jsonBody(request) } }
@@ -304,6 +354,7 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
     private companion object {
         const val TIMEOUT_MILLIS = 15_000L
         const val PROXY_CHECK_MILLIS = 8_000L
+        const val DOWNLOAD_BUFFER = 64 * 1024
         const val POST_PAGE = 50
         const val MEMBER_PAGE = 200
         const val SOCKET_TIMEOUT_MILLIS = 60_000L

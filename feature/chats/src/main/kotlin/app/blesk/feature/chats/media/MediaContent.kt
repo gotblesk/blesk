@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -42,9 +43,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.Transfer
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.Message
 import app.blesk.core.design.component.Icon
+import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -66,6 +69,10 @@ class MediaController(
     /** Opens the viewer on a message's photo or video; [index] is the place within an album. */
     val onOpenMedia: (message: Message, index: Int) -> Unit,
     val onOpenFile: (Attachment.File) -> Unit,
+    /** Stops a file on its way: an upload takes the unsent message with it. */
+    val onCancelTransfer: (Message) -> Unit = {},
+    /** Starts a stopped download again from where it was. */
+    val onRetryTransfer: (Message) -> Unit = {},
 ) {
     companion object {
         val Inert = MediaController(mutableStateOf(Playback()), {}, { _, _, _ -> }, {}, { _, _ -> }, {})
@@ -108,6 +115,7 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
             ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
             description = stringResource(R.string.media_photo),
             onClick = { controller.onOpenMedia(message, 0) },
+            transfer = transferOverlay(message, message.id),
         )
         is Attachment.Video -> Box {
             Picture(
@@ -116,8 +124,9 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
                 ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
                 description = stringResource(R.string.media_video, formatDuration(attachment.durationMillis)),
                 onClick = { controller.onOpenMedia(message, 0) },
+                transfer = transferOverlay(message, message.id),
             )
-            PlayBadge(Modifier.align(Alignment.Center))
+            if (LocalTransfers.current[message.id] == null) PlayBadge(Modifier.align(Alignment.Center))
             Text(
                 text = formatDuration(attachment.durationMillis),
                 style = Blesk.type.caption,
@@ -129,16 +138,28 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
                     .padding(horizontal = 8.dp, vertical = 2.dp),
             )
         }
-        is Attachment.File -> FileRow(attachment) { controller.onOpenFile(attachment) }
+        is Attachment.File -> {
+            val transfer = LocalTransfers.current[message.id]
+            FileRow(attachment, transfer, { controller.onOpenFile(attachment) }) {
+                if (transfer?.failed == true) controller.onRetryTransfer(message) else controller.onCancelTransfer(message)
+            }
+        }
         is Attachment.Voice -> VoiceNote(attachment, controller)
         is Attachment.Circle -> CircleNote(attachment)
         is Attachment.Theme -> Unit
-        is Attachment.Album -> AlbumMosaic(attachment) { index -> controller.onOpenMedia(message, index) }
+        is Attachment.Album -> AlbumMosaic(attachment, message) { index -> controller.onOpenMedia(message, index) }
     }
 }
 
 @Composable
-private fun Picture(path: String, preview: String, ratio: Float, description: String, onClick: () -> Unit) {
+private fun Picture(
+    path: String,
+    preview: String,
+    ratio: Float,
+    description: String,
+    onClick: () -> Unit,
+    transfer: (@Composable BoxScope.() -> Unit)? = null,
+) {
     // The size is known from the message, so the bubble never jumps when the picture arrives.
     Box(
         Modifier
@@ -161,6 +182,22 @@ private fun Picture(path: String, preview: String, ratio: Float, description: St
                 modifier = Modifier.matchParentSize(),
             )
         }
+        transfer?.invoke(this)
+    }
+}
+
+/** The ring over a picture of [message] while [tag] is on its way. */
+@Composable
+internal fun transferOverlay(message: Message, tag: String): (@Composable BoxScope.() -> Unit)? {
+    val transfer = LocalTransfers.current[tag] ?: return null
+    val controller = LocalMediaController.current
+    return {
+        TransferRing(
+            transfer = transfer,
+            onCancel = { controller.onCancelTransfer(message) },
+            onRetry = { controller.onRetryTransfer(message) },
+            modifier = Modifier.align(Alignment.Center),
+        )
     }
 }
 
@@ -196,7 +233,7 @@ internal fun PlayBadge(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun FileRow(file: Attachment.File, onOpen: () -> Unit) {
+private fun FileRow(file: Attachment.File, transfer: Transfer?, onOpen: () -> Unit, onTransfer: () -> Unit) {
     val label = stringResource(R.string.media_file_open, file.name)
     Row(
         modifier = Modifier
@@ -211,7 +248,17 @@ private fun FileRow(file: Attachment.File, onOpen: () -> Unit) {
         }
         Column(Modifier.widthIn(max = 200.dp)) {
             Text(file.name, style = Blesk.type.bodyStrong, maxLines = 2)
-            Text(formatSize(file.sizeBytes), style = Blesk.type.caption, color = Blesk.colors.textSecondary)
+            val size = transfer?.takeIf { it.total > 0 }
+                ?.let { stringResource(R.string.media_transfer, formatSize(it.done), formatSize(it.total)) }
+                ?: formatSize(file.sizeBytes)
+            Text(size, style = Blesk.type.caption, color = Blesk.colors.textSecondary)
+        }
+        if (transfer != null) {
+            IconButton(
+                icon = if (transfer.failed) BleskIcons.Download else BleskIcons.Close,
+                contentDescription = stringResource(if (transfer.failed) R.string.media_retry else R.string.media_transfer_cancel),
+                onClick = onTransfer,
+            )
         }
     }
 }
@@ -312,7 +359,7 @@ internal fun formatDuration(millis: Long): String {
 private fun formatSpeed(speed: Float) = if (speed == speed.toInt().toFloat()) "${speed.toInt()}x" else "${speed}x"
 
 @Composable
-private fun formatSize(bytes: Long): String = when {
+internal fun formatSize(bytes: Long): String = when {
     bytes < 1024 -> stringResource(R.string.media_size_b, bytes.toString())
     bytes < 1024 * 1024 -> stringResource(R.string.media_size_kb, String.format(Locale.getDefault(), "%.0f", bytes / 1024.0))
     else -> stringResource(R.string.media_size_mb, String.format(Locale.getDefault(), "%.1f", bytes / (1024.0 * 1024.0)))

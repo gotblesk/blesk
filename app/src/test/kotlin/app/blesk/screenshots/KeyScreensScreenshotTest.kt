@@ -18,6 +18,7 @@ import app.blesk.core.data.Connection
 import app.blesk.core.data.KeyState
 import app.blesk.core.data.SafetyCode
 import app.blesk.core.data.SpaceResult
+import app.blesk.core.data.Transfer
 import app.blesk.core.data.calls.CallPhase
 import app.blesk.core.data.calls.CallSession
 import app.blesk.core.data.demo.DemoSeed
@@ -542,6 +543,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
             callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            transfers = mapOf("album/0" to Transfer(13_000_000, 48_000_000), "album/4" to Transfer(0, -1, failed = true)),
         )
     }
 
