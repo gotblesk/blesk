@@ -3,6 +3,7 @@ package app.blesk.core.design.component
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -24,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import app.blesk.core.design.color.ContrastLevel
 import app.blesk.core.design.color.Oklch
 import app.blesk.core.design.color.ensureContrast
+import app.blesk.core.design.metaball.Blob
+import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -78,6 +82,46 @@ fun Avatar(
         )
     }
 }
+
+/**
+ * A group without a photo: the monograms of two or three members ([faces] as name and colour
+ * key) stuck together into one small drop, instead of the first letter of the group's name.
+ */
+@Composable
+fun GroupAvatar(faces: List<Pair<String, String>>, modifier: Modifier = Modifier, size: Dp = Blesk.dimens.avatar) {
+    val shown = faces.take(MAX_FACES)
+    val face = size * if (shown.size == 2) PAIR_SHARE else TRIO_SHARE
+    val spots = if (shown.size == 2) PairSpots else TrioSpots
+    Box(
+        modifier
+            .size(size)
+            .clearAndSetSemantics { }
+            .metaballs(Blesk.colors.surfaceStrong, smoothness = size * BRIDGE_SHARE) {
+                val r = face.toPx() / 2f + RIM.toPx()
+                shown.indices.map { i ->
+                    val c = Offset(this.size.width * spots[i].x, this.size.height * spots[i].y)
+                    Blob(Rect(c.x - r, c.y - r, c.x + r, c.y + r), r)
+                }
+            },
+    ) {
+        shown.forEachIndexed { i, (name, key) ->
+            Avatar(
+                name = name,
+                size = face,
+                key = key,
+                modifier = Modifier.offset(x = size * spots[i].x - face / 2, y = size * spots[i].y - face / 2),
+            )
+        }
+    }
+}
+
+private val PairSpots = listOf(Offset(0.34f, 0.34f), Offset(0.66f, 0.66f))
+private val TrioSpots = listOf(Offset(0.5f, 0.3f), Offset(0.3f, 0.68f), Offset(0.7f, 0.68f))
+private const val MAX_FACES = 3
+private const val PAIR_SHARE = 0.6f
+private const val TRIO_SHARE = 0.5f
+private const val BRIDGE_SHARE = 0.3f
+private val RIM = 1.5.dp
 
 /** The colour a monogram avatar of [key] sits on, for shapes that grow out of it. */
 @Composable

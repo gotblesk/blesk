@@ -74,7 +74,7 @@ internal fun decodeButtons(json: String?): ImmutableList<ImmutableList<BotButton
         ?: persistentListOf()
 
 /** A room carries its channels from the group state, so the list can show it as a cluster. */
-internal fun ConversationEntity.toModel(state: GroupState? = null) = Conversation(
+internal fun ConversationEntity.toModel(state: GroupState? = null, me: String = "") = Conversation(
     id = id,
     kind = runCatching { ConversationKind.valueOf(kind) }.getOrDefault(ConversationKind.Direct),
     title = title,
@@ -85,6 +85,8 @@ internal fun ConversationEntity.toModel(state: GroupState? = null) = Conversatio
     pinned = pinned,
     pinRank = pinRank,
     memberCount = state?.members?.size ?: 0,
+    faces = state?.members.orEmpty().filter { it.username != me }.take(FACES)
+        .map { Contact(it.username, it.username, it.username) }.toImmutableList(),
     channels = state?.channels?.map { channel ->
         RoomChannel(
             id = if (channel.kind == GroupChannelKind.Text) "${id}${GroupEngine.CHANNEL_SEPARATOR}${channel.id}" else channel.id,
@@ -112,3 +114,5 @@ internal fun ConversationEntity.toModel(space: SpaceInfo) = toModel().copy(
         persistentListOf()
     },
 )
+
+private const val FACES = 3

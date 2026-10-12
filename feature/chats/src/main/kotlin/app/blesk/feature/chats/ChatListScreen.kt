@@ -80,6 +80,7 @@ import app.blesk.core.data.model.Markup
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.design.component.Avatar
+import app.blesk.core.design.component.GroupAvatar
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.NotEncryptedTag
 import app.blesk.core.design.component.Tag
@@ -659,6 +660,8 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         if (conversation.kind == ConversationKind.Saved) {
             SavedAvatar()
+        } else if (conversation.faces.size >= 2) {
+            GroupAvatar(conversation.faces.map { it.name to it.id }, Modifier.sharedElement(avatarKey(conversation.id)))
         } else {
             Avatar(
                 name = conversation.title,

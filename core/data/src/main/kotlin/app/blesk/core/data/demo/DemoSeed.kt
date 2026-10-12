@@ -15,6 +15,7 @@ import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.shared.protocol.BotCommand
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 import java.time.Duration
 import java.time.Instant
 
@@ -102,6 +103,13 @@ class DemoSeed(
 
             fun updated(id: String) = last[id]?.sentAt ?: now
 
+            fun faces(id: String) = messages.filter { it.conversationId == id && it.authorId != ME }
+                .map { it.authorId }
+                .distinct()
+                .mapNotNull(byId::get)
+                .take(3)
+                .toImmutableList()
+
             val roomTitle = resources.getString(R.string.demo_title_room)
             val generalTitle = resources.getString(R.string.demo_channel_general)
             val designTitle = resources.getString(R.string.demo_channel_design)
@@ -112,7 +120,7 @@ class DemoSeed(
                 Conversation(ANYA, ConversationKind.Direct, byId.getValue(ANYA).name, Protection.EndToEnd,
                     preview(ANYA, false), updated(ANYA), unread = 2),
                 Conversation(GROUP, ConversationKind.Group, resources.getString(R.string.demo_title_group), Protection.EndToEnd,
-                    preview(GROUP, true), updated(GROUP), memberCount = 4),
+                    preview(GROUP, true), updated(GROUP), memberCount = 4, faces = faces(GROUP)),
                 Conversation(
                     ROOM, ConversationKind.Room, roomTitle, Protection.EndToEnd,
                     preview(ROOM_GENERAL, true), updated(ROOM_GENERAL), unread = 3, memberCount = 6,

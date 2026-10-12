@@ -71,6 +71,7 @@ import app.blesk.core.data.model.SendStatus
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Capsule
 import app.blesk.core.design.component.DemoTag
+import app.blesk.core.design.component.GroupAvatar
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.LocalNotices
@@ -595,13 +596,21 @@ private fun ChatHeader(
                     .padding(end = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Avatar(
-                    name = conversation.title,
-                    key = conversation.id,
-                    size = 36.dp,
-                    modifier = Modifier.sharedElement(avatarKey(conversation.id)),
-                    protected = protected && conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
-                )
+                if (conversation.faces.size >= 2) {
+                    GroupAvatar(
+                        faces = conversation.faces.map { it.name to it.id },
+                        modifier = Modifier.sharedElement(avatarKey(conversation.id)),
+                        size = 36.dp,
+                    )
+                } else {
+                    Avatar(
+                        name = conversation.title,
+                        key = conversation.id,
+                        size = 36.dp,
+                        modifier = Modifier.sharedElement(avatarKey(conversation.id)),
+                        protected = protected && conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
+                    )
+                }
                 Column(Modifier.weight(1f).padding(start = 10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(

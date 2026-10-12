@@ -154,7 +154,7 @@ class ServerChatRepository(
             val states = groupRows.associate { it.id to storageJson.decodeFromString(GroupState.serializer(), it.state) }
             list.filter { it.previewText != null && it.parentId == null }.map { row ->
                 val space = spaces.handleOf(row.id)?.let(spaceInfo::get)
-                if (space != null) row.toModel(space) else row.toModel(states[row.id])
+                if (space != null) row.toModel(space) else row.toModel(states[row.id], me)
             }
         }
 
@@ -170,7 +170,7 @@ class ServerChatRepository(
             when {
                 row == null -> null
                 space != null -> row.toModel(space)
-                else -> row.toModel(state?.takeIf { row.parentId == null })
+                else -> row.toModel(state?.takeIf { row.parentId == null }, me)
             }
         }
 

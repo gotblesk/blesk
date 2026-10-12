@@ -39,6 +39,8 @@ data class Conversation(
     /** Place among pinned chats, smallest first. */
     val pinRank: Int = 0,
     val memberCount: Int = 0,
+    /** Up to three members other than you, for a group's avatar of their monograms. */
+    val faces: ImmutableList<Contact> = persistentListOf(),
     val channels: ImmutableList<RoomChannel> = persistentListOf(),
     /** For a room channel: the room it belongs to. Channels are not listed on their own. */
     val parentId: String? = null,
