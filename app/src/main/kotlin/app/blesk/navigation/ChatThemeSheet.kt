@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import app.blesk.R
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.settings.ThemePicker
@@ -47,6 +48,7 @@ internal fun ChatThemeSheet(
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
+                .dragToDismiss(onDismiss)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(Blesk.dimens.gutter)
                 .clip(RoundedCornerShape(Blesk.dimens.cardRadius))

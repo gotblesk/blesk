@@ -26,6 +26,7 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 
@@ -56,6 +57,7 @@ fun ChatMenu(conversation: Conversation, now: Long, actions: ChatMenuActions, on
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
+                .dragToDismiss(onDismiss)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(Blesk.dimens.gutter)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},

@@ -42,6 +42,7 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.component.rememberCopy
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -87,6 +88,7 @@ internal fun MessageMenu(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .dragToDismiss(onDismiss)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(Blesk.dimens.gutter)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
