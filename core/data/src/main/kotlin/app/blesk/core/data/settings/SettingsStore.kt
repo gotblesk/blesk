@@ -119,6 +119,13 @@ class SettingsStore(context: Context) {
         store.edit { it[SEND_BY_ENTER] = enabled }
     }
 
+    /** What chats lie on: `none`, `photo`, `light:N` or `solid:N`; null until chosen, when a picked photo shows. */
+    val chatBackground: Flow<String?> = store.data.map { it[CHAT_BACKGROUND] }.distinctUntilChanged()
+
+    suspend fun setChatBackground(value: String) {
+        store.edit { it[CHAT_BACKGROUND] = value }
+    }
+
     /** «Не возвращать из архива»: a new message leaves an archived chat in the archive. */
     val keepArchived: Flow<Boolean> = store.data.map { it[KEEP_ARCHIVED] ?: false }.distinctUntilChanged()
 
@@ -244,6 +251,7 @@ class SettingsStore(context: Context) {
         val PROFILE_HEADER_PHOTO = longPreferencesKey("profile_header_photo")
         val SEND_BY_ENTER = booleanPreferencesKey("send_by_enter")
         val KEEP_ARCHIVED = booleanPreferencesKey("keep_archived")
+        val CHAT_BACKGROUND = stringPreferencesKey("chat_background")
         val ARCHIVE_FOLDED = booleanPreferencesKey("archive_folded")
         val VIBRATION = stringPreferencesKey("vibration")
         val RECENT_EMOJI = stringPreferencesKey("recent_emoji")

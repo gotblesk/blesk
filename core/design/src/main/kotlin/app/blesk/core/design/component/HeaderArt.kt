@@ -88,6 +88,46 @@ fun HeaderArt(style: HeaderStyle, photo: ImageBitmap?, modifier: Modifier = Modi
     }
 }
 
+/**
+ * What a chat lies on: nothing but the theme's background, one of the «Свет» compositions, a
+ * flat tone, or your photo. Light and photo are softened, so bubbles keep their contrast.
+ */
+@Composable
+fun ChatBackdrop(style: HeaderStyle?, photo: ImageBitmap?, modifier: Modifier = Modifier) {
+    if (style == null) return
+    Box(modifier.fillMaxSize().clearAndSetSemantics { }) {
+        when {
+            style is HeaderStyle.Photo && photo != null -> {
+                Image(photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                val scrim = Blesk.colors.background.copy(alpha = PHOTO_SCRIM)
+                Box(Modifier.matchParentSize().drawBehind { drawRect(scrim) })
+            }
+            style is HeaderStyle.Solid -> SolidFill(style.tone)
+            style is HeaderStyle.Light -> LightFill(style.preset, onBackground = true)
+        }
+    }
+}
+
+/** Reads a stored chat background: `none`, `photo`, `light:N` or `solid:N`; null is the plain background. */
+fun chatBackdropOf(stored: String): HeaderStyle? {
+    val kind = stored.substringBefore(':')
+    val value = stored.substringAfter(':', "").toIntOrNull() ?: 0
+    return when (kind) {
+        "photo" -> HeaderStyle.Photo
+        "light" -> HeaderStyle.Light(value)
+        "solid" -> HeaderStyle.Solid(value)
+        else -> null
+    }
+}
+
+/** The stored form of [style], the inverse of [chatBackdropOf]. */
+fun chatBackdropKey(style: HeaderStyle?): String = when (style) {
+    null -> "none"
+    HeaderStyle.Photo -> "photo"
+    is HeaderStyle.Light -> "light:${style.preset}"
+    is HeaderStyle.Solid -> "solid:${style.tone}"
+}
+
 @Composable
 private fun BoxScope.HeaderFill(style: HeaderStyle, photo: ImageBitmap?) {
     when {
@@ -120,12 +160,14 @@ fun rememberTone(tone: Int): Color {
  * differently; with animations off or in battery saver the light stands still.
  */
 @Composable
-private fun BoxScope.LightFill(preset: Int) {
+private fun BoxScope.LightFill(preset: Int, onBackground: Boolean = false) {
     val colors = Blesk.colors
     val pools = LightPresets[preset.mod(LightPresets.size)]
     val moving = !Blesk.motion.still
     val phase by rememberLoopPhase(LIGHT_PERIOD_MILLIS)
-    val depth = colors.surfaceStrong
+    // Behind a chat the light lies on the plain background and is gentler, so bubbles stay readable on it.
+    val depth = if (onBackground) colors.background else colors.surfaceStrong
+    val dim = if (onBackground) BACKDROP_DIM else 1f
     val light = colors.light
     Box(
         Modifier
@@ -142,7 +184,7 @@ private fun BoxScope.LightFill(preset: Int) {
                     val radius = size.maxDimension * pool.radius
                     drawCircle(
                         Brush.radialGradient(
-                            listOf(light.copy(alpha = pool.strength), light.copy(alpha = 0f)),
+                            listOf(light.copy(alpha = pool.strength * dim), light.copy(alpha = 0f)),
                             center = center,
                             radius = radius,
                         ),
@@ -171,3 +213,5 @@ private const val FADE_FROM = 0.55f
 private const val LIGHT_PERIOD_MILLIS = 14_000
 private const val TONE_LIFT = 0.12f
 private const val TONE_CHROMA = 0.07f
+private const val PHOTO_SCRIM = 0.55f
+private const val BACKDROP_DIM = 0.6f

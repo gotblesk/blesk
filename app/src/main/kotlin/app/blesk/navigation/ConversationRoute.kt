@@ -4,7 +4,6 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.FileProvider
@@ -39,8 +37,8 @@ import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Privacy
+import app.blesk.core.design.component.ChatBackdrop
 import app.blesk.core.design.component.rememberNotify
-import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
@@ -79,6 +77,7 @@ internal fun ConversationRoute(
     val privacy by container.settings.privacy.collectAsStateWithLifecycle(initialValue = Privacy())
     val chatThemes by container.settings.chatThemes.collectAsStateWithLifecycle(initialValue = emptyMap())
     val wallpaperVersion by container.settings.wallpaperVersion.collectAsStateWithLifecycle(initialValue = 0L)
+    val background by container.settings.chatBackground.collectAsStateWithLifecycle(initialValue = null)
     val wallpaper by produceState<ImageBitmap?>(null, wallpaperVersion) {
         value = container.wallpaper.load()?.asImageBitmap()
     }
@@ -277,12 +276,7 @@ internal fun ConversationRoute(
                     .filter { it.username != groupController?.me }
                     .map { member -> demo.contact(member.username) ?: Contact(member.username, member.username, member.username) }
                     .toImmutableList(),
-                underlay = {
-                    wallpaper?.let { image ->
-                        Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        Box(Modifier.fillMaxSize().background(Blesk.colors.background.copy(alpha = WALLPAPER_SCRIM)))
-                    }
-                },
+                underlay = { ChatBackdrop(chatBackground(background, wallpaper != null), wallpaper) },
             )
             if (themeSheet) {
                 ChatThemeSheet(
@@ -306,4 +300,3 @@ private const val SPACE_PREFIX = "space:"
 private const val MAX_USERNAME_LENGTH = 32
 
 /** Keeps text readable over any photo without hiding it. */
-private const val WALLPAPER_SCRIM = 0.45f

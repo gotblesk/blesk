@@ -10,9 +10,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.R
 import app.blesk.core.data.diagnostics.EventCode
+import app.blesk.core.design.component.HeaderStyle
+import app.blesk.core.design.component.chatBackdropKey
+import app.blesk.core.design.component.chatBackdropOf
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.feature.settings.AppearanceFileActions
 import app.blesk.feature.settings.AppearanceScreen
@@ -29,6 +33,7 @@ internal fun AppearanceRoute(container: AppContainer, appearance: Appearance, on
     val notify = rememberNotify()
     val scope = rememberCoroutineScope()
     var hasWallpaper by remember { mutableStateOf(container.wallpaper.exists) }
+    val background by container.settings.chatBackground.collectAsStateWithLifecycle(initialValue = null)
     val resolver = context.contentResolver
     val failed = context.getString(app.blesk.feature.settings.R.string.appearance_open_failed)
 
@@ -43,6 +48,7 @@ internal fun AppearanceRoute(container: AppContainer, appearance: Appearance, on
             if (container.wallpaper.import(uri)) {
                 hasWallpaper = true
                 container.settings.bumpWallpaper()
+                container.settings.setChatBackground(chatBackdropKey(HeaderStyle.Photo))
             }
         }
     }
@@ -84,6 +90,8 @@ internal fun AppearanceRoute(container: AppContainer, appearance: Appearance, on
         onChange = ::change,
         files = AppearanceFileActions(
             hasWallpaper = hasWallpaper,
+            background = chatBackground(background, hasWallpaper),
+            onBackground = { style -> scope.launch { container.settings.setChatBackground(chatBackdropKey(style)) } },
             onPickWallpaper = {
                 container.lock.expectReturn()
                 pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -91,7 +99,11 @@ internal fun AppearanceRoute(container: AppContainer, appearance: Appearance, on
             onRemoveWallpaper = {
                 container.wallpaper.clear()
                 hasWallpaper = false
-                scope.launch { container.settings.bumpWallpaper() }
+                scope.launch {
+                    container.settings.bumpWallpaper()
+                    val showingPhoto = chatBackdropOf(background.orEmpty()) == HeaderStyle.Photo
+                    if (showingPhoto) container.settings.setChatBackground(chatBackdropKey(null))
+                }
             },
             onSaveTheme = {
                 container.lock.expectReturn()
@@ -117,4 +129,11 @@ private fun java.io.InputStream.readBytes(limit: Int): ByteArray {
         total += read
     }
     return buffer.copyOf(total)
+}
+
+/** Before anything is chosen, a photo picked in an older version keeps showing. */
+internal fun chatBackground(stored: String?, hasPhoto: Boolean): HeaderStyle? = when {
+    stored != null -> chatBackdropOf(stored).takeUnless { it == HeaderStyle.Photo && !hasPhoto }
+    hasPhoto -> HeaderStyle.Photo
+    else -> null
 }

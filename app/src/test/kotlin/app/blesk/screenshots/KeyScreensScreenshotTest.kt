@@ -33,6 +33,8 @@ import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.Profile
 import app.blesk.core.design.component.Avatar
+import app.blesk.core.design.component.ChatBackdrop
+import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
@@ -449,6 +451,19 @@ class KeyScreensScreenshotTest(private val name: String) {
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
             callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
             focusMessageId = "link",
+        )
+    }
+
+    @Test
+    fun backdrop() = capture("02d_chat_backdrop") {
+        val conversation = seed.conversations.first { it.id == DemoSeed.ANYA }
+        ConversationScreen(
+            conversation = conversation,
+            messages = seed.messages.filter { it.conversationId == conversation.id }.toImmutableList(),
+            typing = false,
+            authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            underlay = { ChatBackdrop(HeaderStyle.Light(2), null) },
         )
     }
 

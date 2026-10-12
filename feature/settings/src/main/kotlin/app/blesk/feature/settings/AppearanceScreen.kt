@@ -2,6 +2,7 @@ package app.blesk.feature.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -22,9 +24,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.blesk.core.design.color.Oklch
 import app.blesk.core.design.component.Card
+import app.blesk.core.design.component.ChatBackdrop
+import app.blesk.core.design.component.HeaderStyle
+import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
@@ -37,6 +44,7 @@ import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskPalette
+import app.blesk.core.motion.rememberHaptics
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemePreset
 import app.blesk.shared.appearance.ThemeSpec
@@ -53,6 +61,9 @@ class AppearanceFileActions(
     val onRemoveWallpaper: () -> Unit,
     val onSaveTheme: () -> Unit,
     val onOpenTheme: () -> Unit,
+    /** The chosen chat background, as [chatBackdropOf] reads it. */
+    val background: HeaderStyle? = null,
+    val onBackground: (HeaderStyle?) -> Unit = {},
 )
 
 @Composable
@@ -173,6 +184,7 @@ fun AppearanceScreen(
         }
 
         SectionHeader(stringResource(R.string.appearance_wallpaper))
+        BackdropChoices(selected = files.background, hasPhoto = files.hasWallpaper, onSelect = files.onBackground)
         Card(pad) {
             ListRow(
                 title = stringResource(R.string.appearance_wallpaper_pick),
@@ -276,4 +288,46 @@ internal fun themeName(preset: ThemePreset): Int = when (preset) {
     ThemePreset.Lilac -> R.string.appearance_theme_lilac
     ThemePreset.Lime -> R.string.appearance_theme_lime
     ThemePreset.Custom -> R.string.appearance_theme_custom
+}
+
+/** Small previews of every background a chat can lie on; the chosen one is outlined. */
+@Composable
+private fun BackdropChoices(selected: HeaderStyle?, hasPhoto: Boolean, onSelect: (HeaderStyle?) -> Unit) {
+    val choices = buildList<Pair<HeaderStyle?, String>> {
+        add(null to stringResource(R.string.appearance_background_none))
+        repeat(HeaderStyle.Light.PRESETS) { add(HeaderStyle.Light(it) to stringResource(R.string.appearance_background_light, it + 1)) }
+        repeat(HeaderStyle.Solid.TONES) { add(HeaderStyle.Solid(it) to stringResource(R.string.appearance_background_tone, it + 1)) }
+        if (hasPhoto) add(HeaderStyle.Photo to stringResource(R.string.appearance_background_photo))
+    }
+    val haptics = rememberHaptics()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = Blesk.dimens.gutter, vertical = 8.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        choices.forEach { (style, label) ->
+            val chosen = style == selected
+            val shape = RoundedCornerShape(14.dp)
+            Box(
+                Modifier
+                    .size(56.dp, 84.dp)
+                    .clip(shape)
+                    .background(Blesk.colors.background)
+                    .border(if (chosen) 2.dp else Blesk.dimens.hairline, if (chosen) Blesk.colors.accent else Blesk.colors.hairline, shape)
+                    .selectable(selected = chosen, role = Role.RadioButton) {
+                        haptics.tick()
+                        onSelect(style)
+                    }
+                    .semantics { contentDescription = label },
+            ) {
+                ChatBackdrop(style, photo = null)
+                if (style == HeaderStyle.Photo) {
+                    Icon(BleskIcons.Image, contentDescription = null, modifier = Modifier.align(Alignment.Center))
+                }
+            }
+        }
+    }
 }
