@@ -1,5 +1,6 @@
 package app.blesk.server
 
+import app.blesk.server.attachments.chunkName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,9 @@ private val log = LoggerFactory.getLogger("blesk.maintenance")
 
 /** Attachments and undelivered messages are kept this long, then deleted. */
 private val RetentionPeriod = 30.days.toJavaDuration()
+
+/** A chunked upload never finished in a day is not coming back. */
+private val AbandonedUpload = 1.days.toJavaDuration()
 
 /** Long enough to cover any client retry of the same message. */
 private val IdempotencyWindow = 7.days.toJavaDuration()
@@ -58,9 +62,11 @@ suspend fun runMaintenance(services: Services) {
     services.postRateLimiter.evictIdle()
     services.callRateLimiter.evictIdle()
     do {
-        val expired = services.attachments.expired(now - RetentionPeriod, ATTACHMENT_BATCH)
-        expired.forEach { id ->
-            withContext(Dispatchers.IO) { services.storage.delete(id) }
+        val expired = services.attachments.expired(now - RetentionPeriod, now - AbandonedUpload, ATTACHMENT_BATCH)
+        expired.forEach { (id, chunks) ->
+            withContext(Dispatchers.IO) {
+                if (chunks == 0) services.storage.delete(id) else repeat(chunks) { services.storage.delete(chunkName(id, it)) }
+            }
             services.attachments.forget(id)
         }
     } while (expired.size == ATTACHMENT_BATCH)

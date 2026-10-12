@@ -45,12 +45,33 @@ object Api {
     /** Signed by the identity key to log in. */
     fun authProof(nonce: String) = "blesk-auth:$nonce".encodeToByteArray()
 
-    /** Max size of an encrypted attachment upload. */
+    /** Max size of an encrypted attachment sent in one request. */
     const val MAX_ATTACHMENT_BYTES = 210L * 1024 * 1024
+
+    /** Max size of an encrypted attachment uploaded in chunks: 2 GiB of file plus the encryption overhead. */
+    const val MAX_CHUNKED_BYTES = 2L * 1024 * 1024 * 1024 + 64L * 1024 * 1024
+
+    /** Every chunk but the last is exactly this long; a lost connection costs at most one chunk. */
+    const val CHUNK_BYTES = 4 * 1024 * 1024
+
+    /** Starts a chunked upload: `POST` with [UploadStart], then `PUT {id}/chunks/{n}`, then `POST {id}/complete`. */
+    const val UPLOADS = "/v1/attachments/uploads"
 
     /** Max size of one encrypted message body. */
     const val MAX_MESSAGE_BYTES = 256 * 1024
 }
+
+/** The full size of the encrypted file about to be uploaded in chunks. */
+@Serializable
+data class UploadStart(val size: Long)
+
+/** Where the chunks of a new upload go, and how long each is. */
+@Serializable
+data class UploadStarted(val id: String, val chunkBytes: Int)
+
+/** Which chunks the server already has, so an interrupted upload continues where it stopped. */
+@Serializable
+data class UploadState(val received: List<Int>, val complete: Boolean)
 
 /** Whether the account may be found by its username; hidden accounts open only from a link or QR code. */
 @Serializable

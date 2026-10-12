@@ -170,9 +170,9 @@ class SpacePostsTest {
         assertEquals("unknown_attachment", unknown.body<ErrorBody>().code)
 
         val farFuture = Instant.now().plusSeconds(400L * 24 * 3600)
-        assertTrue(upload.id !in harness.services.attachments.expired(farFuture, 10_000))
+        assertTrue(upload.id !in harness.services.attachments.expired(farFuture, farFuture, 10_000).map { it.first })
         delete(harness, owner, post)
-        assertTrue(upload.id in harness.services.attachments.expired(farFuture, 10_000))
+        assertTrue(upload.id in harness.services.attachments.expired(farFuture, farFuture, 10_000).map { it.first })
     }
 
     @Test
