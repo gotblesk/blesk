@@ -251,18 +251,20 @@ fun ConversationScreen(
     }
 
     val actions = remember(conversation.id) {
+        val react: (Message, String) -> Unit = { message, symbol ->
+            haptics.stick()
+            callbacks.onReact(message.id, symbol)
+        }
         MessageActions(
             onReply = { replyToId = it.id; editingId = null },
             onMenu = {
                 haptics.menu()
                 menuFor = it
             },
-            onReact = { message, symbol ->
-                haptics.stick()
-                callbacks.onReact(message.id, symbol)
-            },
+            onReact = react,
             onApplyTheme = callbacks.onApplyTheme,
             onButton = { message, button -> callbacks.onButton(message.id, button) },
+            onDoubleTap = if (reactions) ({ message -> react(message, QuickReactions.first()) }) else null,
             onTap = { message ->
                 when {
                     selection.isNotEmpty() -> selection = if (message.id in selection) selection - message.id else selection + message.id

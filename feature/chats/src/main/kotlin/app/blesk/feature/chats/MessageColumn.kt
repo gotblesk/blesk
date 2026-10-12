@@ -93,6 +93,8 @@ internal class MessageActions(
     val onButton: (Message, BotButton) -> Unit = { _, _ -> },
     /** A plain tap; it picks messages while some are selected. */
     val onTap: (Message) -> Unit = {},
+    /** The quick reaction on a double tap; null where reactions are not offered. */
+    val onDoubleTap: ((Message) -> Unit)? = null,
 )
 
 /**
@@ -272,6 +274,7 @@ private fun MessageEntry(
                     onLongClickLabel = menuLabel,
                     onLongClick = { actions.onMenu(message) },
                     onClick = { if (hidden && !selecting) revealed = true else actions.onTap(message) },
+                    onDoubleClick = actions.onDoubleTap?.takeUnless { selecting }?.let { react -> { react(message) } },
                 )
                 .semantics(mergeDescendants = true) {
                     this.selected = selected
