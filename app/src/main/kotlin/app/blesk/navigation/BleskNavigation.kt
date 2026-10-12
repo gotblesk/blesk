@@ -76,6 +76,7 @@ import app.blesk.feature.settings.ConnectOutcome
 import app.blesk.feature.settings.License
 import app.blesk.feature.settings.LicenseTextScreen
 import app.blesk.feature.settings.LicensesScreen
+import app.blesk.feature.settings.PrivacyPolicyScreen
 import app.blesk.feature.settings.ServerScreen
 import app.blesk.feature.settings.ServerState
 import app.blesk.feature.settings.SettingsActions
@@ -169,6 +170,9 @@ data class WipeKey(val kind: WipeKind = WipeKind.Phone) : NavKey
 
 @Serializable
 data object LicensesKey : NavKey
+
+@Serializable
+data object PolicyKey : NavKey
 
 @Serializable
 data object BlockedKey : NavKey
@@ -366,6 +370,7 @@ fun BleskNavigation(container: AppContainer) {
                                 onBack = back,
                             )
                         }
+                        entry<PolicyKey> { PrivacyPolicyScreen(onBack = back) }
                         entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
                         entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
                         entry<ConversationKey> { key ->
@@ -470,6 +475,7 @@ fun BleskNavigation(container: AppContainer) {
                                     versionName = BuildConfig.VERSION_NAME,
                                     debugUnlocked = debugUnlocked,
                                     onOpenLicenses = { backStack.add(LicensesKey) },
+                                    onOpenPolicy = { backStack.add(PolicyKey) },
                                     onUnlockDebug = {
                                         scope.launch { container.settings.setDebugUnlocked(true) }
                                         container.eventLog.record(EventCode.DebugUnlocked)

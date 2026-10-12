@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -30,9 +31,12 @@ fun AboutScreen(
     debugUnlocked: Boolean,
     onUnlockDebug: () -> Unit,
     onOpenLicenses: () -> Unit,
+    onOpenPolicy: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val uriHandler = LocalUriHandler.current
+    val source = stringResource(R.string.about_source_url)
     var taps by remember { mutableIntStateOf(0) }
     val remaining = DEBUG_UNLOCK_TAPS - taps
     ScrollScreen(title = stringResource(R.string.about_title), onBack = onBack, modifier = modifier) {
@@ -56,6 +60,16 @@ fun AboutScreen(
                 title = stringResource(R.string.about_licenses),
                 subtitle = stringResource(R.string.about_license_app),
                 onClick = onOpenLicenses,
+            )
+            ListRow(
+                title = stringResource(R.string.about_policy),
+                subtitle = stringResource(R.string.about_policy_hint),
+                onClick = onOpenPolicy,
+            )
+            ListRow(
+                title = stringResource(R.string.about_source),
+                subtitle = source.removePrefix("https://"),
+                onClick = { uriHandler.openUri(source) },
             )
         }
         val hint = when {

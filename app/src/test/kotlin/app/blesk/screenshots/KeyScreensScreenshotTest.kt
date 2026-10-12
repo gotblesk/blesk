@@ -88,6 +88,7 @@ import app.blesk.feature.settings.BotActions
 import app.blesk.feature.settings.BotsScreen
 import app.blesk.feature.settings.LicensesScreen
 import app.blesk.feature.settings.NotificationsScreen
+import app.blesk.feature.settings.PrivacyPolicyScreen
 import app.blesk.feature.settings.SafetyScreen
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
@@ -401,7 +402,12 @@ class KeyScreensScreenshotTest(private val name: String) {
 
     @Test
     fun about() = capture("07_about") {
-        AboutScreen(versionName = "0.3.0", debugUnlocked = false, onUnlockDebug = {}, onOpenLicenses = {}, onBack = {})
+        AboutScreen(versionName = "0.3.0", debugUnlocked = false, onUnlockDebug = {}, onOpenLicenses = {}, onOpenPolicy = {}, onBack = {})
+    }
+
+    @Test
+    fun policy() = capture("07b_policy") {
+        PrivacyPolicyScreen(onBack = {})
     }
 
     @Test
