@@ -404,5 +404,6 @@
     <string name="media_left_seconds">%1$d с</string>
     <string name="media_left_minutes">%1$d мин</string>
     <string name="media_transfer_cancel">Отменить</string>
-    <string name="media_retry">Скачать снова</string>
+    <string name="media_retry">Скачать</string>
+    <string name="media_download">Скачать</string>
 </resources>

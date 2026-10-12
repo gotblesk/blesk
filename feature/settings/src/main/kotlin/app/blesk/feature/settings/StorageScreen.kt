@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.settings.AutoDownload
+import app.blesk.core.data.settings.AutoKind
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Card
@@ -20,6 +22,7 @@ import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.theme.Blesk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -46,10 +49,17 @@ class StorageActions(
     val onClearChat: (id: String) -> Unit,
     val onClearCache: () -> Unit,
     val onBack: () -> Unit,
+    val onAutoDownload: (AutoDownload) -> Unit = {},
 )
 
 @Composable
-fun StorageScreen(use: StorageUse?, keepMediaDays: Int, actions: StorageActions, modifier: Modifier = Modifier) {
+fun StorageScreen(
+    use: StorageUse?,
+    keepMediaDays: Int,
+    actions: StorageActions,
+    modifier: Modifier = Modifier,
+    autoDownload: AutoDownload = AutoDownload(),
+) {
     val context = LocalContext.current
     fun size(bytes: Long?): String =
         bytes?.let { Formatter.formatShortFileSize(context, it) } ?: context.getString(R.string.storage_counting)
@@ -68,6 +78,22 @@ fun StorageScreen(use: StorageUse?, keepMediaDays: Int, actions: StorageActions,
             kind = ButtonKind.Secondary,
             onClick = actions.onClearCache,
             modifier = Modifier.padding(Blesk.dimens.gutter).fillMaxWidth(),
+        )
+
+        SectionHeader(stringResource(R.string.storage_auto))
+        Card(pad) {
+            AutoKinds(stringResource(R.string.storage_auto_wifi), autoDownload.wifi) {
+                actions.onAutoDownload(autoDownload.copy(wifi = it))
+            }
+            AutoKinds(stringResource(R.string.storage_auto_mobile), autoDownload.mobile) {
+                actions.onAutoDownload(autoDownload.copy(mobile = it))
+            }
+        }
+        Text(
+            stringResource(R.string.storage_auto_hint),
+            style = Blesk.type.label,
+            color = Blesk.colors.textSecondary,
+            modifier = pad.padding(top = 8.dp),
         )
 
         SectionHeader(stringResource(R.string.storage_keep))
@@ -121,6 +147,27 @@ fun StorageScreen(use: StorageUse?, keepMediaDays: Int, actions: StorageActions,
             style = Blesk.type.label,
             color = Blesk.colors.textSecondary,
             modifier = pad.padding(vertical = Blesk.dimens.sectionGap),
+        )
+    }
+}
+
+/** One network's switches: photos, videos and files that come by themselves over it. */
+@Composable
+private fun AutoKinds(title: String, kinds: Set<AutoKind>, onChange: (Set<AutoKind>) -> Unit) {
+    Text(
+        text = title,
+        style = Blesk.type.bodyStrong,
+        modifier = Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = 12.dp),
+    )
+    listOf(
+        AutoKind.Photos to R.string.storage_auto_photos,
+        AutoKind.Videos to R.string.storage_auto_videos,
+        AutoKind.Files to R.string.storage_auto_files,
+    ).forEach { (kind, label) ->
+        ToggleRow(
+            title = stringResource(label),
+            checked = kind in kinds,
+            onCheckedChange = { on -> onChange(if (on) kinds + kind else kinds - kind) },
         )
     }
 }

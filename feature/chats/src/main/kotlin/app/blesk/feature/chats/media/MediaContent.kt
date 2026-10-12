@@ -115,7 +115,7 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
             ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
             description = stringResource(R.string.media_photo),
             onClick = { controller.onOpenMedia(message, 0) },
-            transfer = transferOverlay(message, message.id),
+            transfer = transferOverlay(message, message.id, attachment),
         )
         is Attachment.Video -> Box {
             Picture(
@@ -124,7 +124,7 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
                 ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
                 description = stringResource(R.string.media_video, formatDuration(attachment.durationMillis)),
                 onClick = { controller.onOpenMedia(message, 0) },
-                transfer = transferOverlay(message, message.id),
+                transfer = transferOverlay(message, message.id, attachment),
             )
             if (LocalTransfers.current[message.id] == null) PlayBadge(Modifier.align(Alignment.Center))
             Text(
@@ -139,7 +139,9 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
             )
         }
         is Attachment.File -> {
+            // A file left for a tap offers the same button as one whose download stopped.
             val transfer = LocalTransfers.current[message.id]
+                ?: Transfer(0, -1, failed = true).takeIf { message.pending && attachment.path.isEmpty() }
             FileRow(attachment, transfer, { controller.onOpenFile(attachment) }) {
                 if (transfer?.failed == true) controller.onRetryTransfer(message) else controller.onCancelTransfer(message)
             }
@@ -188,9 +190,16 @@ private fun Picture(
 
 /** The ring over a picture of [message] while [tag] is on its way. */
 @Composable
-internal fun transferOverlay(message: Message, tag: String): (@Composable BoxScope.() -> Unit)? {
-    val transfer = LocalTransfers.current[tag] ?: return null
+internal fun transferOverlay(message: Message, tag: String, item: Attachment?): (@Composable BoxScope.() -> Unit)? {
     val controller = LocalMediaController.current
+    val transfer = LocalTransfers.current[tag]
+    if (transfer == null) {
+        // Not on its way yet: «Автозагрузка» left it for a tap, which shows how much it is.
+        if (!message.pending || item == null || item.arrived()) return null
+        return {
+            Waiting(item.downloadSize(), { controller.onRetryTransfer(message) }, Modifier.align(Alignment.Center))
+        }
+    }
     return {
         TransferRing(
             transfer = transfer,
@@ -363,4 +372,49 @@ internal fun formatSize(bytes: Long): String = when {
     bytes < 1024 -> stringResource(R.string.media_size_b, bytes.toString())
     bytes < 1024 * 1024 -> stringResource(R.string.media_size_kb, String.format(Locale.getDefault(), "%.0f", bytes / 1024.0))
     else -> stringResource(R.string.media_size_mb, String.format(Locale.getDefault(), "%.1f", bytes / (1024.0 * 1024.0)))
+}
+
+/** A file left for a tap: a download button with its size under it. */
+@Composable
+private fun Waiting(size: Long, onDownload: () -> Unit, modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.media_download)
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.45f))
+                .clickable(role = Role.Button, onClickLabel = label, onClick = onDownload)
+                .semantics { contentDescription = label },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(BleskIcons.Download, contentDescription = null, tint = Color.White, size = 20.dp)
+        }
+        if (size > 0) {
+            Text(
+                text = formatSize(size),
+                style = Blesk.type.caption,
+                color = Color.White,
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+            )
+        }
+    }
+}
+
+private fun Attachment.arrived(): Boolean = when (this) {
+    is Attachment.Photo -> path.isNotEmpty()
+    is Attachment.Video -> path.isNotEmpty()
+    is Attachment.File -> path.isNotEmpty()
+    else -> true
+}
+
+private fun Attachment.downloadSize(): Long = when (this) {
+    is Attachment.Photo -> sizeBytes
+    is Attachment.Video -> sizeBytes
+    is Attachment.File -> sizeBytes
+    else -> 0
 }

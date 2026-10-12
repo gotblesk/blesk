@@ -4,6 +4,7 @@ import app.blesk.core.crypto.StreamingCipher
 import app.blesk.core.data.StreamSource
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.settings.AutoKind
 import app.blesk.core.media.MediaVault
 import app.blesk.core.network.BleskApi
 import app.blesk.shared.protocol.AttachmentPointer
@@ -37,8 +38,16 @@ internal class Downloads(
     private val media: MediaVault,
     private val transfers: Transfers,
     private val scope: CoroutineScope,
+    /** Whether files of this kind come on their own over the current network. */
+    private val autoDownload: (AutoKind) -> Boolean = { true },
 ) {
     private val jobs = ConcurrentHashMap<String, Job>()
+
+    /** A message just arrived: its files come now if «Автозагрузка» allows, otherwise on a tap. */
+    fun arrived(messageId: String, remote: RemoteFiles) {
+        val kinds = (listOfNotNull(remote.single) + remote.album).mapNotNull { Attachments.autoKindOf(it.kind) }
+        if (kinds.all(autoDownload)) start(messageId)
+    }
 
     fun start(messageId: String) {
         if (jobs[messageId]?.isActive == true) return

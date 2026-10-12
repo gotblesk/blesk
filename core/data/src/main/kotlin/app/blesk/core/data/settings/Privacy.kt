@@ -78,3 +78,13 @@ data class Profile(
         fun isValidUsername(username: String): Boolean = username.length >= 3 && username == normalizeUsername(username)
     }
 }
+
+/** What arrives by itself, without a tap: voice and round videos always, the rest as set here. */
+enum class AutoKind { Photos, Videos, Files }
+
+data class AutoDownload(
+    val wifi: Set<AutoKind> = AutoKind.entries.toSet(),
+    val mobile: Set<AutoKind> = setOf(AutoKind.Photos),
+) {
+    fun allows(kind: AutoKind, metered: Boolean) = kind in (if (metered) mobile else wifi)
+}

@@ -183,6 +183,19 @@ class SettingsStore(context: Context) {
         }
     }
 
+    val autoDownload: Flow<AutoDownload> = store.data.map { prefs ->
+        fun kinds(key: Preferences.Key<Set<String>>, default: Set<AutoKind>) =
+            prefs[key]?.mapNotNull { name -> AutoKind.entries.firstOrNull { it.name == name } }?.toSet() ?: default
+        AutoDownload(wifi = kinds(AUTO_WIFI, AutoDownload().wifi), mobile = kinds(AUTO_MOBILE, AutoDownload().mobile))
+    }.distinctUntilChanged()
+
+    suspend fun setAutoDownload(auto: AutoDownload) {
+        store.edit {
+            it[AUTO_WIFI] = auto.wifi.map(AutoKind::name).toSet()
+            it[AUTO_MOBILE] = auto.mobile.map(AutoKind::name).toSet()
+        }
+    }
+
     /** Whether the app asks GitHub for newer builds when it starts. */
     val checkUpdates: Flow<Boolean> = store.data.map { it[CHECK_UPDATES] ?: true }.distinctUntilChanged()
 
@@ -350,6 +363,8 @@ class SettingsStore(context: Context) {
         val KEEP_MEDIA_DAYS = intPreferencesKey("keep_media_days")
         val PROXY_ENABLED = booleanPreferencesKey("proxy_enabled")
         val CHECK_UPDATES = booleanPreferencesKey("check_updates")
+        val AUTO_WIFI = stringSetPreferencesKey("auto_wifi")
+        val AUTO_MOBILE = stringSetPreferencesKey("auto_mobile")
         val PROXY_SOCKS = booleanPreferencesKey("proxy_socks")
         val PROXY_HOST = stringPreferencesKey("proxy_host")
         val PROXY_PORT = intPreferencesKey("proxy_port")

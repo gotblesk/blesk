@@ -228,4 +228,11 @@
     <string name="about_updates_hint">Раз в запуск blesk спрашивает GitHub, есть ли новая сборка. GitHub видит адрес телефона</string>
     <string name="settings_server_proxied">через прокси</string>
     <string name="settings_sign_out">Выйти из аккаунта</string>
+    <string name="storage_auto">Автозагрузка</string>
+    <string name="storage_auto_wifi">По Wi-Fi</string>
+    <string name="storage_auto_mobile">По мобильной сети</string>
+    <string name="storage_auto_photos">Фото</string>
+    <string name="storage_auto_videos">Видео</string>
+    <string name="storage_auto_files">Файлы</string>
+    <string name="storage_auto_hint">Голосовые и кружки приходят всегда. Остальное без автозагрузки скачивается по нажатию — на нём виден размер.</string>
 </resources>

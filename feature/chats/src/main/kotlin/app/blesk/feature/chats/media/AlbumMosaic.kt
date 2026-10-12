@@ -49,7 +49,7 @@ internal fun AlbumMosaic(album: Attachment.Album, message: Message, width: Dp = 
                 row.forEachIndexed { offset, item ->
                     val index = first + offset
                     Tile(item, Modifier.size(width = height * ratios[offset], height = height), index, items.size, onOpen) {
-                        transferOverlay(message, "${message.id}/$index")?.invoke(this)
+                        transferOverlay(message, "${message.id}/$index", item)?.invoke(this)
                     }
                 }
             }

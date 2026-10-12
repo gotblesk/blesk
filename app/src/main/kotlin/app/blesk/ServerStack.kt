@@ -1,6 +1,7 @@
 package app.blesk
 
 import android.content.Context
+import android.net.ConnectivityManager
 import app.blesk.core.crypto.DatabaseKey
 import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
@@ -61,6 +62,7 @@ internal class ServerStack(
             network = container.network,
             keepArchived = { keepArchived.value },
             linkPreview = LinkPreviews()::forText,
+            autoDownload = { kind -> container.autoDownload.value.allows(kind, context.isMetered()) },
         ).also { repository -> store.onIdentityChanged = repository::onKeyChanged }
 
     companion object {
@@ -68,3 +70,6 @@ internal class ServerStack(
             ServerStack(context, container, ServerAddress(mode.url, mode.pin))
     }
 }
+
+/** Mobile data, or a Wi-Fi the system knows to be paid by the byte. */
+private fun Context.isMetered(): Boolean = getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: true

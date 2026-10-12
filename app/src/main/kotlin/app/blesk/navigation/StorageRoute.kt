@@ -31,12 +31,15 @@ internal fun StorageRoute(container: AppContainer, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val chats by container.chats.collectAsState()
     val keepMediaDays by container.settings.keepMediaDays.collectAsState(0)
+    val autoDownload by container.autoDownload.collectAsState()
     var version by remember { mutableIntStateOf(0) }
     val use by produceState<StorageUse?>(null, version, chats) { value = withContext(Dispatchers.IO) { measure(context, chats) } }
     StorageScreen(
         use = use,
         keepMediaDays = keepMediaDays,
+        autoDownload = autoDownload,
         actions = StorageActions(
+            onAutoDownload = { auto -> scope.launch { container.settings.setAutoDownload(auto) } },
             onKeepMedia = { days ->
                 scope.launch {
                     container.settings.setKeepMediaDays(days)

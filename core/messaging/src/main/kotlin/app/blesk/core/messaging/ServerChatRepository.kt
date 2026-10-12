@@ -37,6 +37,7 @@ import app.blesk.core.data.model.files
 import app.blesk.core.data.model.splitLongText
 import app.blesk.core.data.model.withoutFiles
 import app.blesk.core.data.settings.Audience
+import app.blesk.core.data.settings.AutoKind
 import app.blesk.core.data.settings.IncomingNote
 import app.blesk.core.data.settings.NoteKind
 import app.blesk.core.data.settings.Privacy
@@ -129,6 +130,8 @@ class ServerChatRepository(
     private val keepArchived: () -> Boolean = { false },
     /** Builds the card of the first link in a message; asked only when link previews are on. */
     private val linkPreview: suspend (text: String) -> LinkPreview? = { null },
+    /** «Автозагрузка»: whether a kind of file comes by itself over the network the phone is on now. */
+    private val autoDownload: (AutoKind) -> Boolean = { true },
 ) : ChatRepository,
     GroupController,
     SpaceController,
@@ -142,7 +145,7 @@ class ServerChatRepository(
     private val spaces = SpaceEngine(db, api, media, me, labels)
     private val transferState = Transfers()
     override val transfers: StateFlow<Map<String, Transfer>> = transferState.progress
-    private val downloads = Downloads(db, api, media, transferState, scope)
+    private val downloads = Downloads(db, api, media, transferState, scope, autoDownload)
     private val uploads = ConcurrentHashMap<String, Job>()
     private val profiles = ProfileExchange(
         db = db,
@@ -1056,6 +1059,8 @@ class ServerChatRepository(
 
     private suspend fun storeIncoming(sender: String, conversation: String, content: Content, body: Body.Text, author: String?) {
         val album = body.album.take(Attachment.Album.MAX)
+        val remote = RemoteFiles(body.attachment?.takeIf { album.isEmpty() && it.kind != Attachments.KIND_THEME }, album)
+            .takeIf { it.single != null || it.album.isNotEmpty() }
         val placeholder = if (album.isNotEmpty()) Attachments.placeholders(album) else body.attachment?.let(Attachments::placeholder)
         val inserted = db.messages().insert(
             MessageEntity(
@@ -1070,9 +1075,7 @@ class ServerChatRepository(
                 expiresAt = expiry(content.sentAtMillis, content.expiresInSeconds.coerceIn(0, MAX_TIMER_SECONDS)),
                 forwardedFrom = if (body.forwarded) FORWARDED else null,
                 link = encodeLink(body.link?.sanitized(body.text)),
-                remote = RemoteFiles(body.attachment?.takeIf { album.isEmpty() && it.kind != Attachments.KIND_THEME }, album)
-                    .takeIf { it.single != null || it.album.isNotEmpty() }
-                    ?.encode(),
+                remote = remote?.encode(),
             ),
         )
         if (inserted == -1L) return
@@ -1091,7 +1094,7 @@ class ServerChatRepository(
             val name = author?.let { contactCache.value[it]?.name ?: it }
             incomingFlow.tryEmit(IncomingNote(conversation, title ?: sender, name, preview, kind))
         }
-        downloads.start(content.id)
+        remote?.let { downloads.arrived(content.id, it) }
     }
 
     private suspend fun receiveText(sender: String, content: Content, body: Body.Text) {

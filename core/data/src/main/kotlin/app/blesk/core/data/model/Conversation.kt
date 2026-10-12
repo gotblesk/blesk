@@ -104,6 +104,8 @@ data class Message(
     val buttons: ImmutableList<ImmutableList<BotButton>> = persistentListOf(),
     /** The card of the first link in the text, as the sender's phone built it. */
     val link: LinkPreview? = null,
+    /** Its files are still on the server: not downloaded yet, or waiting for a tap. */
+    val pending: Boolean = false,
 ) {
     val isOwn: Boolean get() = authorId == ME
 }
@@ -128,6 +130,8 @@ sealed interface Attachment {
         val height: Int,
         /** A tiny blurred JPEG in Base64, shown while the photo itself is still on its way. */
         val preview: String = "",
+        /** How much it is to download, before it is here. */
+        val sizeBytes: Long = 0,
     ) : Attachment
 
     @Serializable
@@ -140,6 +144,7 @@ sealed interface Attachment {
         val durationMillis: Long,
         /** A small poster in Base64 for before the video arrives. */
         val preview: String = "",
+        val sizeBytes: Long = 0,
     ) : Attachment
 
     @Serializable

@@ -66,6 +66,7 @@ internal fun MessageEntity.toModel(me: String) = Message(
     expiresAt = expiresAt?.let(Instant::ofEpochMilli),
     forwardedFrom = forwardedFrom,
     link = link?.let(::decodeLink),
+    pending = remote != null,
 )
 
 internal fun decodeLink(raw: String): LinkPreview? =

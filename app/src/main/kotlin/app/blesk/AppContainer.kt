@@ -15,6 +15,7 @@ import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
+import app.blesk.core.data.settings.AutoDownload
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.PrivateImage
 import app.blesk.core.data.settings.ProxySetting
@@ -92,6 +93,9 @@ class AppContainer(context: Context) {
     private val chatsState = MutableStateFlow<ChatRepository?>(null)
     private val privacy = settings.privacy.stateIn(scope, SharingStarted.Eagerly, Privacy())
     private val keepArchived = settings.keepArchived.stateIn(scope, SharingStarted.Eagerly, false)
+
+    /** «Автозагрузка», read on every arriving file. */
+    val autoDownload = settings.autoDownload.stateIn(scope, SharingStarted.Eagerly, AutoDownload())
     private val profile = settings.profile
         .map { OwnProfile(it.name, it.bio, it.links, profilePhoto.stored) }
         .stateIn(scope, SharingStarted.Eagerly, OwnProfile("", ""))

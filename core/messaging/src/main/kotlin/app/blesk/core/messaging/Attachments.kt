@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import app.blesk.core.crypto.AttachmentCipher
 import app.blesk.core.crypto.StreamingCipher
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.settings.AutoKind
 import app.blesk.core.media.MediaVault
 import app.blesk.core.network.BleskApi
 import app.blesk.shared.appearance.ThemeFile
@@ -79,6 +80,14 @@ internal object Attachments {
         return album.items.mapIndexed { index, item -> upload(api, item, transfers, albumTag(messageId, index)) ?: return null }
     }
 
+    /** Which «Автозагрузка» switch decides on a file of [kind]; voice and round videos always come. */
+    fun autoKindOf(kind: String): AutoKind? = when (kind) {
+        KIND_PHOTO -> AutoKind.Photos
+        KIND_VIDEO -> AutoKind.Videos
+        KIND_FILE -> AutoKind.Files
+        else -> null
+    }
+
     /** The progress key of one album item. */
     fun albumTag(messageId: String, index: Int) = "$messageId/$index"
 
@@ -97,8 +106,11 @@ internal object Attachments {
     /** What the chat shows before the file has arrived: everything but the bytes. */
     fun placeholder(pointer: AttachmentPointer): Attachment? = when (pointer.kind) {
         KIND_THEME -> pointer.name?.let(ThemeFile::decode)?.let { Attachment.Theme(it.theme) }
-        KIND_PHOTO -> Attachment.Photo("", pointer.width, pointer.height, preview = pointer.thumbnail.orEmpty())
-        KIND_VIDEO -> Attachment.Video("", "", pointer.width, pointer.height, pointer.durationMillis, preview = pointer.thumbnail.orEmpty())
+        KIND_PHOTO -> Attachment.Photo("", pointer.width, pointer.height, preview = pointer.thumbnail.orEmpty(), sizeBytes = pointer.size)
+        KIND_VIDEO -> Attachment.Video(
+            "", "", pointer.width, pointer.height, pointer.durationMillis,
+            preview = pointer.thumbnail.orEmpty(), sizeBytes = pointer.size,
+        )
         KIND_FILE -> Attachment.File("", safeName(pointer.name), pointer.size, pointer.mime ?: "application/octet-stream")
         KIND_VOICE -> Attachment.Voice("", pointer.durationMillis, pointer.waveform.orEmpty())
         KIND_CIRCLE -> Attachment.Circle("", "", pointer.durationMillis)
