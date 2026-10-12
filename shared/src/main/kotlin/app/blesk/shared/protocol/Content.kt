@@ -18,6 +18,35 @@ data class Content(
     val expiresInSeconds: Int = 0,
 )
 
+/**
+ * A link card. The sender's phone fetches the page, so neither the server nor the recipients
+ * visit it; [image] is a small JPEG in Base64.
+ */
+@Serializable
+data class LinkPreview(
+    val url: String,
+    val title: String,
+    val description: String = "",
+    val image: String? = null,
+) {
+    /** What a recipient keeps: only a card for a link that is really in [text], within the limits. */
+    fun sanitized(text: String): LinkPreview? {
+        if (!url.startsWith("https://", ignoreCase = true) || url !in text || title.isBlank()) return null
+        return LinkPreview(
+            url = url,
+            title = title.take(MAX_TITLE),
+            description = description.take(MAX_DESCRIPTION),
+            image = image?.takeIf { it.length <= MAX_IMAGE_BYTES * 4 / 3 + 4 },
+        )
+    }
+
+    companion object {
+        const val MAX_TITLE = 200
+        const val MAX_DESCRIPTION = 300
+        const val MAX_IMAGE_BYTES = 48 * 1024
+    }
+}
+
 @Serializable
 sealed interface Body {
     @Serializable
@@ -28,6 +57,8 @@ sealed interface Body {
         val attachment: AttachmentPointer? = null,
         /** Passed on from another chat; who wrote it first is not revealed. */
         val forwarded: Boolean = false,
+        /** The card of the first link in [text], built by the sender's phone. */
+        val link: LinkPreview? = null,
     ) : Body
 
     /** The chat's disappearing-message timer was changed by the sender. */

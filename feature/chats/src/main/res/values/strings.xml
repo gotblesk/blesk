@@ -378,4 +378,5 @@
         <item quantity="many">%1$d человек ждут ответа</item>
         <item quantity="other">%1$d человека ждут ответа</item>
     </plurals>
+    <string name="chat_link_open">Открыть ссылку</string>
 </resources>

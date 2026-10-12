@@ -39,6 +39,8 @@ class AccessibilityTest {
         val density = compose.density
         nodes.fetchSemanticsNodes().forEach { node ->
             val config = node.config
+            // A link inside a sentence is read with its text and, per WCAG 2.5.8, has no minimum size.
+            if (node.parent?.config?.contains(SemanticsProperties.Text) == true && SemanticsProperties.Role !in config) return@forEach
             val label = config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString().orEmpty() +
                 config.getOrNull(SemanticsProperties.Text)?.joinToString().orEmpty() +
                 config.getOrNull(SemanticsActions.OnClick)?.label.orEmpty() +

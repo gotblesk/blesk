@@ -53,6 +53,7 @@ import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.InviteLink
+import app.blesk.shared.protocol.LinkPreview
 import app.blesk.shared.protocol.OutgoingMessage
 import app.blesk.shared.protocol.ReceiptKind
 import app.blesk.shared.protocol.RoleChange
@@ -86,6 +87,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.time.Instant
 import java.util.Base64
@@ -118,6 +120,8 @@ class ServerChatRepository(
     private val network: Flow<Boolean> = flowOf(true),
     /** «Не возвращать из архива»: archived chats stay there whatever arrives. */
     private val keepArchived: () -> Boolean = { false },
+    /** Builds the card of the first link in a message; asked only when link previews are on. */
+    private val linkPreview: suspend (text: String) -> LinkPreview? = { null },
 ) : ChatRepository,
     GroupController,
     SpaceController,
@@ -335,7 +339,7 @@ class ServerChatRepository(
             if (bots.isBot(conversationId)) {
                 bots.send(conversationId, failed.text, failed.replyToId)
             } else {
-                post(conversationId, failed.text, failed.replyToId, attachment, forwarded = failed.forwardedFrom != null)
+                post(conversationId, failed.text, failed.replyToId, attachment, forwarded = failed.forwardedFrom != null, failed.link)
             }
         }
     }
@@ -348,14 +352,21 @@ class ServerChatRepository(
                 when {
                     bots.isBot(target) -> if (original.text.isNotBlank()) bots.send(target, original.text, null)
                     spaces.handleOf(target) != null -> runCatching { spaces.send(target, original.text, null, attachment) }
-                    else -> post(target, original.text, null, attachment, forwarded = true)
+                    else -> post(target, original.text, null, attachment, forwarded = true, original.link)
                 }
             }
         }
     }
 
     /** Stores, then encrypts and sends one of your messages; with the chat's timer if it has one. */
-    private suspend fun post(conversationId: String, text: String, replyToId: String?, attachment: Attachment?, forwarded: Boolean) {
+    private suspend fun post(
+        conversationId: String,
+        text: String,
+        replyToId: String?,
+        attachment: Attachment?,
+        forwarded: Boolean,
+        storedLink: String? = null,
+    ) {
         if (text.isEmpty() && attachment == null) return
         val id = UUID.randomUUID().toString()
         val sentAt = clock()
@@ -368,9 +379,11 @@ class ServerChatRepository(
                 attachment = encodeAttachment(attachment),
                 expiresAt = expiry(sentAt, timer),
                 forwardedFrom = if (forwarded) FORWARDED else null,
+                link = storedLink,
             ),
         )
         setPreview(conversationId, null, text.ifEmpty { labels(attachment) }, sentAt)
+        val link = storedLink?.let(::decodeLink) ?: cardFor(id, text, attachment, forwarded)
         if (conversationId == me) {
             advanceStatus(listOf(id), SendStatus.Read)
             return
@@ -388,8 +401,16 @@ class ServerChatRepository(
                 return
             }
         }
-        dispatch(conversationId, Content(id, sentAt, Body.Text(text, replyToId, pointer, forwarded), expiresInSeconds = timer))
+        dispatch(conversationId, Content(id, sentAt, Body.Text(text, replyToId, pointer, forwarded, link), expiresInSeconds = timer))
         log.record(EventCode.MessageQueued)
+    }
+
+    /** The link card for a new message of yours, kept with it; the bubble shows it as soon as it is ready. */
+    private suspend fun cardFor(id: String, text: String, attachment: Attachment?, forwarded: Boolean): LinkPreview? {
+        if (attachment != null || forwarded || !privacy().linkPreviews) return null
+        val card = withTimeoutOrNull(LINK_PREVIEW_MILLIS) { linkPreview(text) } ?: return null
+        db.messages().get(id)?.let { db.messages().upsert(it.copy(link = encodeLink(card))) }
+        return card
     }
 
     override fun setArchived(conversationId: String, archived: Boolean) {
@@ -994,6 +1015,7 @@ class ServerChatRepository(
                 attachment = encodeAttachment(placeholder),
                 expiresAt = expiry(content.sentAtMillis, content.expiresInSeconds.coerceIn(0, MAX_TIMER_SECONDS)),
                 forwardedFrom = if (body.forwarded) FORWARDED else null,
+                link = encodeLink(body.link?.sanitized(body.text)),
             ),
         )
         if (inserted == -1L) return
@@ -1097,6 +1119,7 @@ class ServerChatRepository(
         const val SEARCH_LIMIT = 100
         const val SIGNAL_BUFFER = 16
         const val FORWARDED = "forwarded"
+        const val LINK_PREVIEW_MILLIS = 8_000L
         const val MILLIS_PER_SECOND = 1000L
         const val SWEEP_MIN_MILLIS = 1_000L
         const val SWEEP_MAX_MILLIS = 60_000L

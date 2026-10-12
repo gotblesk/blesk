@@ -12,14 +12,17 @@
     <string name="demo_title_group">Выходные</string>
     <string name="demo_title_room">Студия</string>
     <string name="demo_title_channel">Заметки blesk</string>
+    <string name="demo_link_title">Набережная у старого моста</string>
+    <string name="demo_link_description">Деревянный настил, скамейки у воды и вид на реку. Вечером здесь почти никого</string>
     <string name="demo_channel_general">общее</string>
     <string name="demo_channel_design">макеты</string>
     <string name="demo_channel_voice">созвон</string>
 
     <string-array name="demo_chat_anya">
-        <item>anya|Привет! Ты в субботу как, свободна?</item>
+        <item>anya|Привет! Ты в субботу как, есть время?</item>
         <item>me|Привет. До обеда занята, потом да</item>
         <item>anya|Отлично. Хочу показать тебе одно место у реки</item>
+        <item>anya|Вот оно https://parki.example/naberezhnaya</item>
         <item>anya|Там **тихо** и почти ||никого||</item>
         <item>me|Звучит хорошо. Во сколько?</item>
         <item>anya|Давай в четыре у моста</item>

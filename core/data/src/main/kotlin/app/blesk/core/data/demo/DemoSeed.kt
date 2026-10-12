@@ -13,6 +13,7 @@ import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.shared.protocol.BotCommand
+import app.blesk.shared.protocol.LinkPreview
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -86,11 +87,17 @@ class DemoSeed(
                 "$GROUP-5" to persistentListOf(Reaction("\uD83D\uDC4D", 2, mine = false)),
                 "$ROOM_GENERAL-1" to persistentListOf(Reaction("\uD83D\uDD25", 3, mine = true)),
             )
-            val replies = mapOf("$GROUP-4" to "$GROUP-3", "$ANYA-4" to "$ANYA-2")
+            val replies = mapOf("$GROUP-4" to "$GROUP-3", "$ANYA-5" to "$ANYA-2")
+            val link = LinkPreview(
+                url = "https://parki.example/naberezhnaya",
+                title = resources.getString(R.string.demo_link_title),
+                description = resources.getString(R.string.demo_link_description),
+            )
             val messages = rawMessages.map { message ->
                 message.copy(
                     reactions = reactions[message.id] ?: message.reactions,
                     replyToId = replies[message.id],
+                    link = link.takeIf { link.url in message.text },
                 )
             }
             val last = messages.groupBy { it.conversationId }.mapValues { it.value.last() }

@@ -130,6 +130,12 @@ fun PrivacyScreen(
                 onCheckedChange = { actions.onChange(privacy.copy(typingIndicator = it)) },
             )
             ToggleRow(
+                title = stringResource(R.string.privacy_link_previews),
+                subtitle = stringResource(R.string.privacy_link_previews_hint),
+                checked = privacy.linkPreviews,
+                onCheckedChange = { actions.onChange(privacy.copy(linkPreviews = it)) },
+            )
+            ToggleRow(
                 title = stringResource(R.string.privacy_incognito),
                 subtitle = stringResource(R.string.privacy_incognito_hint),
                 checked = privacy.incognitoKeyboard,

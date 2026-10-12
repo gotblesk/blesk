@@ -56,6 +56,8 @@ data class MessageEntity(
     /** Epoch millis when it disappears; null keeps it. */
     val expiresAt: Long? = null,
     val forwardedFrom: String? = null,
+    /** JSON of the link card. */
+    val link: String? = null,
 )
 
 /** Full-text index over message text, kept in step with [MessageEntity] by Room's triggers. */

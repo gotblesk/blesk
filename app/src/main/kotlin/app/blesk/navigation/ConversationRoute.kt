@@ -148,7 +148,8 @@ internal fun ConversationRoute(
     }
     // The camera app writes the shot to a scratch file, which is moved into the vault and deleted at once.
     val shot = remember { File(File(context.cacheDir, "camera").apply { mkdirs() }, "shot.jpg") }
-    val shotUri = remember { FileProvider.getUriForFile(context, "${context.packageName}.files", shot) }
+    // Resolved when the camera opens, not on every chat: the provider checks the path against its roots.
+    val shotUri by lazy { FileProvider.getUriForFile(context, "${context.packageName}.files", shot) }
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
         if (!taken) {
             shot.delete()

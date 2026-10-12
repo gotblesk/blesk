@@ -19,6 +19,7 @@ import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.model.SendStatus
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupState
+import app.blesk.shared.protocol.LinkPreview
 import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
 import kotlinx.collections.immutable.ImmutableList
@@ -64,7 +65,13 @@ internal fun MessageEntity.toModel(me: String) = Message(
     buttons = decodeButtons(buttons),
     expiresAt = expiresAt?.let(Instant::ofEpochMilli),
     forwardedFrom = forwardedFrom,
+    link = link?.let(::decodeLink),
 )
+
+internal fun decodeLink(raw: String): LinkPreview? =
+    runCatching { storageJson.decodeFromString(LinkPreview.serializer(), raw) }.getOrNull()
+
+internal fun encodeLink(link: LinkPreview?): String? = link?.let { storageJson.encodeToString(LinkPreview.serializer(), it) }
 
 private val buttonRows = ListSerializer(ListSerializer(BotButton.serializer()))
 

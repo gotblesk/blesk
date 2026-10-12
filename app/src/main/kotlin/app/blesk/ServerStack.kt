@@ -15,6 +15,7 @@ import app.blesk.core.messaging.AccountManager
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.messaging.ServerChatRepository
 import app.blesk.core.network.BleskApi
+import app.blesk.core.network.LinkPreviews
 import app.blesk.core.network.ServerAddress
 import app.blesk.core.network.Socket
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +59,7 @@ internal class ServerStack(
             savedTitle = context.getString(R.string.demo_saved_title),
             network = container.network,
             keepArchived = { keepArchived.value },
+            linkPreview = LinkPreviews()::forText,
         ).also { repository -> store.onIdentityChanged = repository::onKeyChanged }
 
     companion object {

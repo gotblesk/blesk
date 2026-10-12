@@ -17,6 +17,8 @@ data class Privacy(
     val secureScreen: Boolean = false,
     val readReceipts: Boolean = true,
     val typingIndicator: Boolean = true,
+    /** Your phone opens the first link of a message you send and attaches its card. */
+    val linkPreviews: Boolean = true,
     /** Whether typing your username finds you; with it off, only your link or QR code does. */
     val findable: Boolean = true,
     /** Who may write to you; from anyone else messages are dropped on this phone. Never [Audience.Nobody]. */

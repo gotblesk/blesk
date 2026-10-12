@@ -1,6 +1,7 @@
 package app.blesk.core.data.model
 
 import app.blesk.shared.appearance.ThemeSpec
+import app.blesk.shared.protocol.LinkPreview
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -91,6 +92,8 @@ data class Message(
     val forwardedFrom: String? = null,
     /** Inline buttons under a bot message, row by row. */
     val buttons: ImmutableList<ImmutableList<BotButton>> = persistentListOf(),
+    /** The card of the first link in the text, as the sender's phone built it. */
+    val link: LinkPreview? = null,
 ) {
     val isOwn: Boolean get() = authorId == ME
 }

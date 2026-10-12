@@ -516,6 +516,7 @@ private fun MessageEntry(
                         null -> Unit
                         else -> MediaContent(message, attachment)
                     }
+                    message.link?.let { LinkCard(it, Modifier.padding(top = 2.dp, bottom = 6.dp)) }
                     val stamp: @Composable () -> Unit = {
                         Stamp(
                             time, message.status.takeIf { own }, edited,
@@ -742,7 +743,6 @@ private fun rememberRemaining(sentAt: Instant, expiresAt: Instant): State<Float>
 private const val MELT_STEPS = 200
 private const val MIN_MELT_STEP_MILLIS = 1_000L
 
-/** Formatted message text; spoilers stay covered until the bubble is tapped. */
 /**
  * Message text with its markup. Mentions sit on small capsules and open the person; links are
  * in the theme's light and open in the browser.

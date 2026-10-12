@@ -101,6 +101,7 @@ class SettingsStore(context: Context) {
             prefs[SECURE_SCREEN] = next.secureScreen
             prefs[READ_RECEIPTS] = next.readReceipts
             prefs[TYPING_INDICATOR] = next.typingIndicator
+            prefs[LINK_PREVIEWS] = next.linkPreviews
             prefs[FINDABLE] = next.findable
             prefs[WHO_WRITES] = next.write.name
             prefs[WHO_CALLS] = next.calls.name
@@ -247,6 +248,7 @@ class SettingsStore(context: Context) {
         secureScreen = this[SECURE_SCREEN] ?: false,
         readReceipts = this[READ_RECEIPTS] ?: true,
         typingIndicator = this[TYPING_INDICATOR] ?: true,
+        linkPreviews = this[LINK_PREVIEWS] ?: true,
         findable = this[FINDABLE] ?: true,
         write = audience(WHO_WRITES, Audience.Everyone),
         calls = audience(WHO_CALLS, Audience.Everyone),
@@ -292,6 +294,7 @@ class SettingsStore(context: Context) {
         val WIPE_AFTER_TEN = booleanPreferencesKey("wipe_after_ten")
         val DEFAULT_TIMER = intPreferencesKey("default_timer")
         val TYPING_INDICATOR = booleanPreferencesKey("typing_indicator")
+        val LINK_PREVIEWS = booleanPreferencesKey("link_previews")
         val NOTIFY = booleanPreferencesKey("notify")
         val NOTIFY_PREVIEW = stringPreferencesKey("notify_preview")
         val ALWAYS_ONLINE = booleanPreferencesKey("always_online")

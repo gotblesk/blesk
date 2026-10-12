@@ -25,6 +25,7 @@ import app.blesk.shared.protocol.BotInfo
 import app.blesk.shared.protocol.BotMessage
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.InlineButton
+import app.blesk.shared.protocol.LinkPreview
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -77,6 +78,9 @@ class TwoClientsTest {
             profile = { displayName to "" },
             labels = { it?.javaClass?.simpleName.orEmpty() },
             log = EventLog(),
+            linkPreview = { text ->
+                LinkPreview(text.substringAfter("сюда "), "Страница", image = "A".repeat(LinkPreview.MAX_IMAGE_BYTES * 2))
+            },
         )
 
         fun register() = runBlocking { assertEquals(RegisterResult.Ok, accounts.register(api, name)) }
@@ -183,6 +187,15 @@ class TwoClientsTest {
         }
         assertEquals("заметки", File(delivered.path).readText())
         assertTrue(server.transport("bob").acked.isNotEmpty())
+
+        alice.repo.send("bob", "смотри сюда https://blesk.example/a")
+        val card = eventually { bob.messages("alice").lastOrNull()?.link }
+        // An oversized picture is dropped on arrival; the card itself stays.
+        assertEquals(LinkPreview("https://blesk.example/a", "Страница"), card)
+        alice.privacy = alice.privacy.copy(linkPreviews = false)
+        alice.repo.send("bob", "и сюда https://blesk.example/b")
+        val plain = eventually { bob.messages("alice").lastOrNull()?.takeIf { it.text.endsWith("/b") } }
+        assertEquals(null, plain.link)
     }
 
     @Test
