@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.shared.appearance.Appearance
@@ -118,6 +119,17 @@ class SettingsStore(context: Context) {
 
     suspend fun setSendByEnter(enabled: Boolean) {
         store.edit { it[SEND_BY_ENTER] = enabled }
+    }
+
+    /** Gesture hints already learned: each shows until the gesture has been done once. */
+    val hintsSeen: Flow<Set<String>> = store.data.map { it[HINTS_SEEN].orEmpty() }.distinctUntilChanged()
+
+    suspend fun markHint(hint: GestureHint) {
+        store.edit { it[HINTS_SEEN] = it[HINTS_SEEN].orEmpty() + hint.name }
+    }
+
+    suspend fun resetHints() {
+        store.edit { it.remove(HINTS_SEEN) }
     }
 
     /** What a double tap on a message puts on it: the «блик» unless an emoji was chosen instead. */
@@ -261,6 +273,7 @@ class SettingsStore(context: Context) {
         val KEEP_ARCHIVED = booleanPreferencesKey("keep_archived")
         val CHAT_BACKGROUND = stringPreferencesKey("chat_background")
         val DOUBLE_TAP = stringPreferencesKey("double_tap_reaction")
+        val HINTS_SEEN = stringSetPreferencesKey("hints_seen")
         val ARCHIVE_FOLDED = booleanPreferencesKey("archive_folded")
         val VIBRATION = stringPreferencesKey("vibration")
         val RECENT_EMOJI = stringPreferencesKey("recent_emoji")

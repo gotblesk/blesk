@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="design_hint_close">Понятно</string>
     <string name="design_soon">скоро</string>
     <string name="design_demo">Демо</string>
     <string name="design_back">Назад</string>

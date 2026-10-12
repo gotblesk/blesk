@@ -68,10 +68,12 @@ import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.settings.GestureHint
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Capsule
 import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.component.GroupAvatar
+import app.blesk.core.design.component.HintCapsule
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.LocalNotices
@@ -173,6 +175,9 @@ fun ConversationScreen(
     demo: Boolean = false,
     /** People who can be mentioned with "@" in a group or room. */
     members: ImmutableList<Contact> = persistentListOf(),
+    /** Gesture hints already learned; by default none are offered. */
+    hintsSeen: Set<GestureHint> = GestureHint.entries.toSet(),
+    onHintDone: (GestureHint) -> Unit = {},
     /** What a double tap puts on a message: the «блик», or the emoji chosen in settings. */
     doubleTapReaction: String = GLINT_REACTION,
     /** Own username, to find messages that mention you; null when unknown. */
@@ -184,6 +189,7 @@ fun ConversationScreen(
     underlay: @Composable BoxScope.() -> Unit = {},
 ) {
     val recording = remember { RecordingUi() }
+    LaunchedEffect(recording.locked) { if (recording.locked) onHintDone(GestureHint.RecordLock) }
     val haptics = rememberHaptics()
     val listState = rememberLazyListState()
     val initialIds = remember(conversation.id) { messages.map { it.id }.toSet() }
@@ -271,7 +277,11 @@ fun ConversationScreen(
             callbacks.onReact(message.id, symbol)
         }
         MessageActions(
-            onReply = { replyToId = it.id; editingId = null },
+            onReply = {
+                replyToId = it.id
+                editingId = null
+                onHintDone(GestureHint.Reply)
+            },
             onMenu = {
                 haptics.menu()
                 menuFor = it
@@ -279,7 +289,14 @@ fun ConversationScreen(
             onReact = react,
             onApplyTheme = callbacks.onApplyTheme,
             onButton = { message, button -> callbacks.onButton(message.id, button) },
-            onDoubleTap = if (reactions) ({ message -> react(message, doubleTapReaction) }) else null,
+            onDoubleTap = if (reactions) {
+                { message ->
+                    react(message, doubleTapReaction)
+                    onHintDone(GestureHint.DoubleTap)
+                }
+            } else {
+                null
+            },
             onMention = callbacks.onOpenPerson,
             onTap = { message ->
                 when {
@@ -498,6 +515,23 @@ fun ConversationScreen(
                             }
                         }
                     }
+                    val othersWrote = messages.any { !it.isOwn }
+                    val writable = !readOnly
+                    val hint = when {
+                        selection.isNotEmpty() -> null
+                        GestureHint.Reply !in hintsSeen && othersWrote && writable -> GestureHint.Reply
+                        GestureHint.DoubleTap !in hintsSeen && othersWrote && reactions -> GestureHint.DoubleTap
+                        GestureHint.RecordLock !in hintsSeen && recorders != null && writable -> GestureHint.RecordLock
+                        else -> null
+                    }
+                    HintCapsule(
+                        text = hint?.let { hintText(it) },
+                        onClose = { hint?.let(onHintDone) },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = Blesk.dimens.gutter)
+                            .padding(bottom = padding.calculateBottomPadding() + 12.dp),
+                    )
                     ScrollDate(
                         date = shownDay,
                         scrolling = listState.isScrollInProgress,

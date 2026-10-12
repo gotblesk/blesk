@@ -465,6 +465,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
             callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
             underlay = { ChatBackdrop(HeaderStyle.Light(2), null) },
+            hintsSeen = emptySet(),
         )
     }
 

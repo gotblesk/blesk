@@ -149,6 +149,9 @@
     <string name="you_invites">Приглашения</string>
     <string name="you_stickers">Стикеры</string>
     <string name="settings_title">Настройки</string>
+    <string name="settings_hints_reset">Показать подсказки снова</string>
+    <string name="settings_hints_reset_hint">Короткие подсказки о жестах появятся ещё раз</string>
+    <string name="settings_hints_reset_done">Подсказки появятся снова</string>
     <string name="settings_double_tap">Двойное касание по сообщению</string>
     <string name="settings_double_tap_glint">Блик</string>
     <string name="settings_privacy">Приватность и безопасность</string>

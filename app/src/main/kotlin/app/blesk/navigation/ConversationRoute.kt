@@ -37,6 +37,7 @@ import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.settings.GestureHint
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.design.component.ChatBackdrop
 import app.blesk.core.design.component.rememberNotify
@@ -52,6 +53,7 @@ import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -79,6 +81,9 @@ internal fun ConversationRoute(
     val chatThemes by container.settings.chatThemes.collectAsStateWithLifecycle(initialValue = emptyMap())
     val wallpaperVersion by container.settings.wallpaperVersion.collectAsStateWithLifecycle(initialValue = 0L)
     val background by container.settings.chatBackground.collectAsStateWithLifecycle(initialValue = null)
+    val hintsSeen by container.settings.hintsSeen
+        .map { seen -> GestureHint.entries.filter { it.name in seen }.toSet() }
+        .collectAsStateWithLifecycle(initialValue = GestureHint.entries.toSet())
     val doubleTapReaction by container.settings.doubleTapReaction.collectAsStateWithLifecycle(initialValue = GLINT_REACTION)
     val wallpaper by produceState<ImageBitmap?>(null, wallpaperVersion) {
         value = container.wallpaper.load()?.asImageBitmap()
@@ -274,6 +279,8 @@ internal fun ConversationRoute(
                 connection = connection,
                 sendByEnter = sendByEnter,
                 doubleTapReaction = doubleTapReaction,
+                hintsSeen = hintsSeen,
+                onHintDone = { hint -> scope.launch { container.settings.markHint(hint) } },
                 recentEmoji = recentEmoji.toImmutableList(),
                 members = groupState?.members.orEmpty()
                     .filter { it.username != groupController?.me }

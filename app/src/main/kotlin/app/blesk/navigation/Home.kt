@@ -7,7 +7,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -22,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -37,9 +40,11 @@ import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.RoomChannel
+import app.blesk.core.data.settings.GestureHint
 import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.HeaderStyle
+import app.blesk.core.design.component.HintCapsule
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.profileHeaderHeight
@@ -61,12 +66,14 @@ import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.ContactsTab
 import app.blesk.feature.chats.Newcomer
 import app.blesk.feature.chats.NewcomerChats
+import app.blesk.feature.chats.hintText
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.feature.settings.YouList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.Instant
 import app.blesk.feature.chats.R as ChatsR
@@ -99,6 +106,9 @@ internal fun Home(
     val connection by remember(chats) { chats.connection }.collectAsStateWithLifecycle(initialValue = Connection.Online)
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
     val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
+    val hintsSeen by container.settings.hintsSeen
+        .map { seen -> GestureHint.entries.filter { it.name in seen }.toSet() }
+        .collectAsStateWithLifecycle(initialValue = GestureHint.entries.toSet())
     val doubleTap by container.settings.doubleTapReaction.collectAsStateWithLifecycle(initialValue = GLINT_REACTION)
     val archiveFolded by container.settings.archiveFolded.collectAsStateWithLifecycle(initialValue = false)
     val scope = rememberCoroutineScope()
@@ -246,24 +256,45 @@ internal fun Home(
                         )
                         return@AnimatedContent
                     }
-                    ChatList(
-                        conversations = list.toImmutableList(),
-                        typing = typing.toImmutableSet(),
-                        now = remember(conversations) { Instant.now() },
-                        contentPadding = padding,
-                        onOpenConversation = onOpenConversation,
-                        onOpenChannel = onOpenChannel,
-                        state = chatsList,
-                        onLongPress = { menuFor = it },
-                        onSwipeArchive = { chats.setArchived(it.id, true) },
-                        onSwipeRead = { toggleRead(chats, it) },
-                        archivedCount = archived,
-                        onOpenArchive = onOpenArchive,
-                        onReorderPinned = chats::reorderPinned,
-                        onSwipeUnpin = { chats.setChatPinned(it.id, false) },
-                        archiveFolded = archiveFolded,
-                        onFoldArchive = { folded -> scope.launch { container.settings.setArchiveFolded(folded) } },
-                    )
+                    val pinnedCount = list.count { it.pinned }
+                    val listHint = when {
+                        GestureHint.PinnedDrag !in hintsSeen && pinnedCount >= 2 -> GestureHint.PinnedDrag
+                        GestureHint.ArchivePull !in hintsSeen && archiveFolded && archived > 0 -> GestureHint.ArchivePull
+                        else -> null
+                    }
+                    val markHint: (GestureHint) -> Unit = { hint -> scope.launch { container.settings.markHint(hint) } }
+                    Box(Modifier.fillMaxSize()) {
+                        ChatList(
+                            conversations = list.toImmutableList(),
+                            typing = typing.toImmutableSet(),
+                            now = remember(conversations) { Instant.now() },
+                            contentPadding = padding,
+                            onOpenConversation = onOpenConversation,
+                            onOpenChannel = onOpenChannel,
+                            state = chatsList,
+                            onLongPress = { menuFor = it },
+                            onSwipeArchive = { chats.setArchived(it.id, true) },
+                            onSwipeRead = { toggleRead(chats, it) },
+                            archivedCount = archived,
+                            onOpenArchive = onOpenArchive,
+                            onReorderPinned = { order ->
+                                chats.reorderPinned(order)
+                                markHint(GestureHint.PinnedDrag)
+                            },
+                            onSwipeUnpin = { chats.setChatPinned(it.id, false) },
+                            archiveFolded = archiveFolded,
+                            onFoldArchive = { folded -> scope.launch { container.settings.setArchiveFolded(folded) } },
+                            onPullArchive = { markHint(GestureHint.ArchivePull) },
+                        )
+                        HintCapsule(
+                            text = listHint?.let { hintText(it) },
+                            onClose = { listHint?.let(markHint) },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(horizontal = Blesk.dimens.gutter)
+                                .padding(bottom = padding.calculateBottomPadding() + 12.dp),
+                        )
+                    }
                 }
                 HomeTab.Contacts -> ContactsTab(
                     contacts = contacts.toImmutableList(),
@@ -307,6 +338,7 @@ internal fun Home(
                     vibration = vibration,
                     onVibration = { level -> scope.launch { container.settings.setVibration(level) } },
                     doubleTap = doubleTap,
+                    onResetHints = { scope.launch { container.settings.resetHints() } },
                     onDoubleTap = { symbol -> scope.launch { container.settings.setDoubleTapReaction(symbol) } },
                 )
                 HomeTab.You -> {

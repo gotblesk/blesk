@@ -22,6 +22,7 @@ import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.motion.screenKey
 import app.blesk.core.design.motion.sharedBounds
@@ -114,6 +115,7 @@ fun SettingsList(
     onVibration: (VibrationLevel) -> Unit = {},
     doubleTap: String = GLINT_REACTION,
     onDoubleTap: (String) -> Unit = {},
+    onResetHints: (() -> Unit)? = null,
 ) {
     val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
     Column(
@@ -173,6 +175,20 @@ fun SettingsList(
                 onSelect = { onDoubleTap(DoubleTapChoices[it]) },
                 modifier = Modifier.padding(bottom = 8.dp),
             )
+            onResetHints?.let { reset ->
+                val done = stringResource(R.string.settings_hints_reset_done)
+                val notify = rememberNotify()
+                ListRow(
+                    title = stringResource(R.string.settings_hints_reset),
+                    subtitle = stringResource(R.string.settings_hints_reset_hint),
+                    icon = BleskIcons.Info,
+                    showChevron = false,
+                    onClick = {
+                        reset()
+                        notify(done)
+                    },
+                )
+            }
             Text(
                 text = stringResource(R.string.settings_vibration),
                 style = Blesk.type.bodyStrong,

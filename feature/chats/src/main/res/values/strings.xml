@@ -55,6 +55,11 @@
     <string name="info_e2ee_hint">Сообщения и звонки шифруются на телефонах. Сервер не может их прочитать.</string>
     <string name="info_not_e2ee">Без сквозного шифрования</string>
     <string name="info_not_e2ee_hint">Сервер хранит содержимое и может его прочитать. Не пиши здесь того, что должно остаться между вами.</string>
+    <string name="hint_reply">Потяни сообщение в сторону, чтобы ответить на него</string>
+    <string name="hint_double_tap">Коснись сообщения дважды, чтобы поставить реакцию</string>
+    <string name="hint_record_lock">Удерживай запись и сдвинь палец вверх, чтобы записывать без рук</string>
+    <string name="hint_pinned_drag">Зажми закреплённый чат и тяни, чтобы поменять порядок</string>
+    <string name="hint_archive_pull">Потяни список вниз, чтобы открыть свёрнутый архив</string>
     <string name="chat_glint">Блик</string>
     <string name="chat_reaction">реакция %1$s: %2$d</string>
     <string name="chat_react">Поставить %1$s</string>

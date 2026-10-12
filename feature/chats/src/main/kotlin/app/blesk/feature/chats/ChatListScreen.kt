@@ -135,13 +135,18 @@ fun ChatList(
     /** The archive row folded into the top lens: pulling the list down opens the archive. */
     archiveFolded: Boolean = false,
     onFoldArchive: ((Boolean) -> Unit)? = null,
+    /** The archive was opened by pulling the list down. */
+    onPullArchive: () -> Unit = {},
 ) {
     val haptics = rememberHaptics()
     val threshold = with(LocalDensity.current) { PullThreshold.toPx() }
     val pull = remember { PullToArchive() }
     pull.threshold = threshold
     pull.onCross = haptics::tick
-    pull.onOpen = { onOpenArchive?.invoke() }
+    pull.onOpen = {
+        onPullArchive()
+        onOpenArchive?.invoke()
+    }
     val pulling = archiveFolded && archivedCount > 0 && onOpenArchive != null
     val pinned = conversations.filter { it.pinned && !it.isRoomCluster() }
         .sortedWith(compareBy<Conversation> { it.pinRank }.thenByDescending { it.kind == ConversationKind.Saved })
