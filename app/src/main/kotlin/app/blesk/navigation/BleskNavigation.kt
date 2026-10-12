@@ -85,7 +85,7 @@ import kotlinx.serialization.Serializable
 data object HomeKey : NavKey
 
 @Serializable
-data class ConversationKey(val id: String) : NavKey
+data class ConversationKey(val id: String, val focusMessageId: String? = null) : NavKey
 
 @Serializable
 data class VoiceChannelKey(val roomId: String, val channelId: String) : NavKey
@@ -219,6 +219,7 @@ fun BleskNavigation(container: AppContainer) {
                             debugUnlocked = debugUnlocked,
                             onSelectTab = { tab = it },
                             onOpenConversation = { backStack.add(ConversationKey(it)) },
+                            onOpenMessage = { chat, message -> backStack.add(ConversationKey(chat, message)) },
                             onNewChat = { backStack.add(NewChatKey) },
                             onAddRoom = { backStack.add(RoomsAddKey) },
                             onOpenArchive = { backStack.add(ArchiveKey) },
@@ -301,6 +302,7 @@ fun BleskNavigation(container: AppContainer) {
                         ConversationRoute(
                             container = container,
                             id = key.id,
+                            focusMessageId = key.focusMessageId,
                             appearance = appearance,
                             onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
                             onOpenGroup = { backStack.add(GroupInfoKey(it)) },

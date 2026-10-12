@@ -91,6 +91,7 @@ import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.glint
 import app.blesk.core.design.fire.flashOn
+import app.blesk.core.design.fire.lightSweep
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.lerp
@@ -141,6 +142,8 @@ internal fun MessageColumn(
     actions: MessageActions,
     modifier: Modifier = Modifier,
     selection: Set<String> = emptySet(),
+    /** A message a search led to; light passes over it once. */
+    flashId: String? = null,
 ) {
     val own = messages.first().isOwn
     val parts = remember { PartRegistry() }
@@ -190,6 +193,7 @@ internal fun MessageColumn(
                         actions = actions,
                         selected = message.id in selection,
                         selecting = selection.isNotEmpty(),
+                        flashing = message.id == flashId,
                     )
                 }
                 if (own) OnOwnBubble(entry) else entry()
@@ -321,6 +325,7 @@ private fun MessageEntry(
     actions: MessageActions,
     selected: Boolean = false,
     selecting: Boolean = false,
+    flashing: Boolean = false,
 ) {
     val replyLabel = stringResource(R.string.chat_reply)
     val menuLabel = stringResource(R.string.chat_copy)
@@ -385,7 +390,8 @@ private fun MessageEntry(
                 .let { if (selected) it.border(2.dp, Blesk.colors.accent, if (circle) CircleShape else BubbleShape) else it }
                 .let { modifier ->
                     val shape = if (circle) CircleShape else BubbleShape
-                    melting?.let { left -> modifier.glint(shape, intensity = { left.value }) } ?: modifier
+                    val glinting = melting?.let { left -> modifier.glint(shape, intensity = { left.value }) } ?: modifier
+                    glinting.lightSweep(flashing, shape)
                 }
                 .combinedClickable(
                     onClickLabel = if (hidden && !selecting) revealLabel else null,

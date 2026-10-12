@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -55,6 +56,7 @@ fun SearchResults(
     onFindUsername: ((String) -> Unit)? = null,
 ) {
     val needle = query.trim()
+    val matchLight = Blesk.colors.light.copy(alpha = if (Blesk.colors.isDark) MATCH_DARK else MATCH_LIGHT)
     Column(
         modifier
             .fillMaxSize()
@@ -109,7 +111,7 @@ fun SearchResults(
                 ) {
                     Text(hit.place, style = Blesk.type.bodyStrong, maxLines = 1)
                     Text(
-                        text = highlight("${hit.author}: ${snippet(hit.text, needle)}", needle),
+                        text = highlight("${hit.author}: ${snippet(hit.text, needle)}", needle, matchLight),
                         style = Blesk.type.label,
                         color = Blesk.colors.textSecondary,
                         maxLines = 2,
@@ -139,6 +141,8 @@ private fun ResultRow(title: String, subtitle: String?, key: String, onClick: ()
 }
 
 private const val MIN_USERNAME = 3
+private const val MATCH_LIGHT = 0.6f
+private const val MATCH_DARK = 0.3f
 
 /** Keeps the match in view for long messages. */
 private fun snippet(text: String, needle: String): String {
@@ -147,13 +151,14 @@ private fun snippet(text: String, needle: String): String {
     return "…" + text.substring(at - SNIPPET_LEAD)
 }
 
-private fun highlight(text: String, needle: String): AnnotatedString = buildAnnotatedString {
+/** Matches are marked with the theme's light, so they read as lit rather than bolded. */
+private fun highlight(text: String, needle: String, light: Color): AnnotatedString = buildAnnotatedString {
     var from = 0
     while (needle.isNotEmpty()) {
         val at = text.indexOf(needle, from, ignoreCase = true)
         if (at < 0) break
         append(text.substring(from, at))
-        withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(text.substring(at, at + needle.length)) }
+        withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, background = light)) { append(text.substring(at, at + needle.length)) }
         from = at + needle.length
     }
     append(text.substring(from))

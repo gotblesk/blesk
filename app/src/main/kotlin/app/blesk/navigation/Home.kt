@@ -82,6 +82,7 @@ internal fun Home(
     debugUnlocked: Boolean,
     onSelectTab: (HomeTab) -> Unit,
     onOpenConversation: (String) -> Unit,
+    onOpenMessage: (conversationId: String, messageId: String) -> Unit,
     onNewChat: () -> Unit,
     onAddRoom: () -> Unit,
     onOpenChannel: (Conversation, RoomChannel) -> Unit,
@@ -205,7 +206,7 @@ internal fun Home(
         },
     ) { padding ->
         if (inSearch && tab == HomeTab.Chats) {
-            SearchPanel(container, query, padding, onOpenConversation)
+            SearchPanel(container, query, padding, onOpenConversation, onOpenMessage)
             return@LensScaffold
         }
         val motion = Blesk.motion
@@ -270,7 +271,10 @@ internal fun Home(
                     state = contactsList,
                 )
                 HomeTab.Rooms -> {
-                    val rooms = conversations.filter { it.kind == ConversationKind.Room && it.id !in container.notices.hidden }
+                    // Archived rooms live in the archive with the chats; pinned ones lead, in the order given.
+                    val hidden = container.notices.hidden
+                    val rooms = conversations.filter { it.kind == ConversationKind.Room && !it.archived && it.id !in hidden }
+                        .sortedWith(compareByDescending<Conversation> { it.pinned }.thenBy { if (it.pinned) it.pinRank else 0 })
                     if (rooms.isEmpty()) {
                         Text(
                             text = stringResource(app.blesk.feature.chats.R.string.rooms_empty),

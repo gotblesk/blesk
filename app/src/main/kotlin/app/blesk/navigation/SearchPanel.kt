@@ -28,7 +28,13 @@ import kotlinx.coroutines.launch
 
 /** Results for the search unfolded in the top lens of «Чаты». */
 @Composable
-internal fun SearchPanel(container: AppContainer, query: TextFieldState, contentPadding: PaddingValues, onOpen: (String) -> Unit) {
+internal fun SearchPanel(
+    container: AppContainer,
+    query: TextFieldState,
+    contentPadding: PaddingValues,
+    onOpen: (String) -> Unit,
+    onOpenMessage: (conversationId: String, messageId: String) -> Unit,
+) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     var hits by remember { mutableStateOf<ImmutableList<SearchHit>?>(null) }
     val you = stringResource(R.string.chat_you)
@@ -63,7 +69,7 @@ internal fun SearchPanel(container: AppContainer, query: TextFieldState, content
     SearchResults(
         query = query.text.toString(),
         hits = hits,
-        onOpen = { onOpen(it.conversationId) },
+        onOpen = { onOpenMessage(it.conversationId, it.messageId) },
         contentPadding = contentPadding,
         chats = matchingChats.take(MAX_ROWS).toImmutableList(),
         people = matchingPeople.take(MAX_ROWS).toImmutableList(),

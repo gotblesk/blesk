@@ -164,6 +164,8 @@ fun ConversationScreen(
     me: String? = null,
     /** How many messages were unread when the chat was opened, before it was marked read. */
     unreadAtOpen: Int = conversation.unread,
+    /** Opens at this message, from search, and lets light pass over it once. */
+    focusMessageId: String? = null,
     underlay: @Composable BoxScope.() -> Unit = {},
 ) {
     val recording = remember { RecordingUi() }
@@ -220,11 +222,17 @@ fun ConversationScreen(
     }
     var seen by remember(conversation.id) { mutableIntStateOf(messages.size) }
     var opened by remember(conversation.id) { mutableStateOf(false) }
+    var flashId by remember(conversation.id) { mutableStateOf<String?>(null) }
     LaunchedEffect(messages.size, typing) {
         // Counted from the data, not the layout: on the first frame the list is not measured yet.
         val total = leading + feed.size + if (typing) 1 else 0
         val divider = feed.indexOf(FeedEntry.Unread)
+        val focus = focusMessageId?.let { id -> feed.indexOfFirst { it is FeedEntry.Run && it.messages.any { m -> m.id == id } } } ?: -1
         when {
+            !opened && focus >= 0 -> {
+                listState.scrollToItem(focus + leading)
+                flashId = focusMessageId
+            }
             !opened && divider >= 0 -> listState.scrollToItem(divider + leading)
             !opened -> listState.scrollToItem(total - 1)
             atBottom || messages.lastOrNull()?.isOwn == true -> {
@@ -425,6 +433,7 @@ fun ConversationScreen(
                                 quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
                                 actions = actions,
                                 selection = selection,
+                                flashId = flashId,
                             )
                         }
                         if (typing) item(key = "typing") { TypingDots() }
