@@ -59,6 +59,7 @@ import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.icon.LivingIcon
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
+import app.blesk.core.network.NetworkProxy
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.ChatMenuActions
@@ -78,6 +79,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.Instant
 import app.blesk.feature.chats.R as ChatsR
+import app.blesk.feature.settings.R as SettingsR
 
 enum class HomeTab { Chats, Contacts, Rooms, Settings, You }
 
@@ -113,6 +115,7 @@ internal fun Home(
         .collectAsStateWithLifecycle(initialValue = GestureHint.entries.toSet())
     val doubleTap by container.settings.doubleTapReaction.collectAsStateWithLifecycle(initialValue = GLINT_REACTION)
     val archiveFolded by container.settings.archiveFolded.collectAsStateWithLifecycle(initialValue = false)
+    val proxied by NetworkProxy.current.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val onPinLimit = rememberPinLimit()
     val tabs = persistentListOf(
@@ -194,6 +197,8 @@ internal fun Home(
                     title = tabs[tab.ordinal].label,
                     collapsed = collapsed,
                     actions = {
+                        // The shield says the app's traffic goes through a proxy; it opens the setting.
+                        if (proxied != null) IconButton(BleskIcons.Shield, stringResource(SettingsR.string.proxy_on), settings.onOpenServer)
                         if (searchable) {
                             IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), {
                                 searching = true

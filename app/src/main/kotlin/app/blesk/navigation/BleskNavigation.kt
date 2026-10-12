@@ -53,6 +53,7 @@ import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
+import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.motion.LocalScreenScope
 import app.blesk.core.design.motion.LocalSharedScope
@@ -61,6 +62,7 @@ import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.motion.BleskMotion
+import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ServerAddress
 import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.VoiceChannelScreen
@@ -78,10 +80,13 @@ import app.blesk.feature.settings.LicenseTextScreen
 import app.blesk.feature.settings.LicensesScreen
 import app.blesk.feature.settings.MetaballSandbox
 import app.blesk.feature.settings.PrivacyPolicyScreen
+import app.blesk.feature.settings.ProxyCheck
+import app.blesk.feature.settings.ProxyControls
 import app.blesk.feature.settings.ServerScreen
 import app.blesk.feature.settings.ServerState
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.shared.appearance.Appearance
+import app.blesk.toConfig
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -326,10 +331,16 @@ fun BleskNavigation(container: AppContainer) {
                         entry<ServerKey> {
                             Box(Modifier.sharedBounds(screenKey("server"))) {
                                 val server = mode as? AppMode.Server
+                                val proxy by container.settings.proxy.collectAsStateWithLifecycle(ProxySetting())
                                 ServerScreen(
                                     connected = server?.let { ServerState(it.url, it.username, it.pin != null) },
                                     onConnect = { raw, username -> connect(container, raw, username) },
                                     onBack = back,
+                                    proxy = ProxyControls(
+                                        setting = proxy,
+                                        onSave = { scope.launch { container.settings.setProxy(it) } },
+                                        onCheck = { checkProxy(container, it) },
+                                    ),
                                 )
                             }
                         }
@@ -591,4 +602,15 @@ private fun shareProfile(context: Context, username: String, key: String?) {
     if (username.isBlank()) return
     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, profileLink(username, key))
     context.startActivity(Intent.createChooser(send, context.getString(app.blesk.feature.profile.R.string.my_share_title)))
+}
+
+/** Asks the server through the proxy; in the demo, where there is no server, only whether the proxy answers. */
+private suspend fun checkProxy(container: AppContainer, setting: ProxySetting): ProxyCheck {
+    val config = setting.copy(enabled = true).toConfig() ?: return ProxyCheck.Silent
+    val api = container.api
+    return when {
+        api != null -> api.checkThrough(config)?.let { ProxyCheck.Works(it) } ?: ProxyCheck.Silent
+        NetworkProxy.reachable(config) -> ProxyCheck.Works(null)
+        else -> ProxyCheck.Silent
+    }
 }

@@ -10,12 +10,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -65,54 +67,57 @@ class Socket(private val api: BleskApi, private val scope: CoroutineScope) : Tra
 
     override fun start() {
         if (job?.isActive == true) return
-        job = scope.launch {
-            var backoff = MIN_BACKOFF_MILLIS
-            var failures = 0
-            while (isActive) {
-                if (failures < FAILING_AFTER) linkState.value = Link.Connecting
-                try {
-                    api.client.webSocket(urlString = api.socketUrl(), request = { api.token?.let { bearerAuth(it) } }) {
-                        online.value = true
-                        linkState.value = Link.Online
-                        backoff = MIN_BACKOFF_MILLIS
-                        failures = 0
-                        val writer = launch {
-                            for (frame in pending) {
-                                send(Frame.Text(api.json.encodeToString(ClientFrame.serializer(), frame)))
-                            }
-                        }
-                        try {
-                            for (frame in incoming) {
-                                if (frame !is Frame.Text) continue
-                                val parsed = try {
-                                    api.json.decodeFromString(ServerFrame.serializer(), frame.readText())
-                                } catch (_: SerializationException) {
-                                    null
-                                }
-                                parsed?.let { frameFlow.emit(it) }
-                            }
-                        } finally {
-                            writer.cancel()
-                        }
-                    }
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: IOException) {
-                    // Network trouble: fall through to the backoff below.
-                } catch (_: IllegalStateException) {
-                    // Handshake refused (for example an expired token): retry later.
-                } catch (_: Exception) {
-                    // Any other transport failure is treated the same way.
-                }
-                online.value = false
-                failures++
-                linkState.value = if (failures >= FAILING_AFTER) Link.Failing else Link.Connecting
-                if (withTimeoutOrNull(backoff) { wake.receive() } != null) {
+        // A new proxy setting drops the open socket and dials again along the new route.
+        job = scope.launch { NetworkProxy.current.collectLatest { api.dropConnections(); connectLoop() } }
+    }
+
+    private suspend fun connectLoop() = coroutineScope {
+        var backoff = MIN_BACKOFF_MILLIS
+        var failures = 0
+        while (isActive) {
+            if (failures < FAILING_AFTER) linkState.value = Link.Connecting
+            try {
+                api.client.webSocket(urlString = api.socketUrl(), request = { api.token?.let { bearerAuth(it) } }) {
+                    online.value = true
+                    linkState.value = Link.Online
                     backoff = MIN_BACKOFF_MILLIS
                     failures = 0
-                } else {
-                    backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF_MILLIS)
+                    val writer = launch {
+                        for (frame in pending) {
+                            send(Frame.Text(api.json.encodeToString(ClientFrame.serializer(), frame)))
+                        }
+                    }
+                    try {
+                        for (frame in incoming) {
+                            if (frame !is Frame.Text) continue
+                            val parsed = try {
+                                api.json.decodeFromString(ServerFrame.serializer(), frame.readText())
+                            } catch (_: SerializationException) {
+                                null
+                            }
+                            parsed?.let { frameFlow.emit(it) }
+                        }
+                    } finally {
+                        writer.cancel()
+                    }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: IOException) {
+                // Network trouble: fall through to the backoff below.
+            } catch (_: IllegalStateException) {
+                // Handshake refused (for example an expired token): retry later.
+            } catch (_: Exception) {
+                // Any other transport failure is treated the same way.
+            }
+            online.value = false
+            failures++
+            linkState.value = if (failures >= FAILING_AFTER) Link.Failing else Link.Connecting
+            if (withTimeoutOrNull(backoff) { wake.receive() } != null) {
+                backoff = MIN_BACKOFF_MILLIS
+                failures = 0
+            } else {
+                backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF_MILLIS)
             }
         }
     }

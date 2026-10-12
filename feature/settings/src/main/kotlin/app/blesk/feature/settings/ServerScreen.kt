@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Card
@@ -48,6 +49,7 @@ fun ServerScreen(
     onConnect: suspend (address: String, username: String) -> ConnectOutcome,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    proxy: ProxyControls? = null,
 ) {
     ScrollScreen(title = stringResource(R.string.server_title), onBack = onBack, modifier = modifier) {
         if (connected != null) {
@@ -71,11 +73,19 @@ fun ServerScreen(
                 color = Blesk.colors.textSecondary,
                 modifier = Modifier.padding(horizontal = Blesk.dimens.gutter + 4.dp, vertical = 12.dp),
             )
-            return@ScrollScreen
+        } else {
+            ConnectForm(onConnect)
         }
-        ConnectForm(onConnect)
+        proxy?.let { ProxySection(it.setting, it.onSave, it.onCheck) }
     }
 }
+
+/** The proxy part of the screen: the saved setting, saving it, and checking it. */
+class ProxyControls(
+    val setting: ProxySetting,
+    val onSave: (ProxySetting) -> Unit,
+    val onCheck: suspend (ProxySetting) -> ProxyCheck,
+)
 
 @Composable
 private fun ConnectForm(onConnect: suspend (String, String) -> ConnectOutcome) {

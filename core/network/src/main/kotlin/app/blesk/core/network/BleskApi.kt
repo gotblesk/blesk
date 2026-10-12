@@ -62,8 +62,12 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.copyTo
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.OutputStream
 import java.security.MessageDigest
@@ -71,6 +75,7 @@ import java.security.SecureRandom
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.util.Base64
+import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 
@@ -91,13 +96,33 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
 
     var token: String? = null
 
+    private val http: OkHttpClient by lazy {
+        OkHttpClient.Builder().proxySelector(NetworkProxy.selector).apply { pinTo(address) }.build()
+    }
+
     val client: HttpClient = (engine?.let { HttpClient(it) { configure() } } ?: HttpClient(OkHttp) {
         configure()
-        engine { config { pinTo(address) } }
+        engine { preconfigured = http }
     })
 
-    /** An OkHttp client with the same trust rules, for libraries that bring their own networking (calls). */
-    fun okHttpClient(): OkHttpClient = OkHttpClient.Builder().apply { pinTo(address) }.build()
+    /** An OkHttp client with the same trust rules and proxy, for libraries that bring their own networking (calls). */
+    fun okHttpClient(): OkHttpClient = http.newBuilder().build()
+
+    /** Closes idle connections, so the next request takes the route the proxy setting says now. */
+    fun dropConnections() = http.connectionPool.evictAll()
+
+    /** How long the server takes to answer through [proxy], in milliseconds; null if it does not. */
+    suspend fun checkThrough(proxy: ProxyConfig): Long? = withContext(Dispatchers.IO) {
+        val probe = http.newBuilder()
+            .proxy(proxy.toProxy())
+            .connectionPool(ConnectionPool())
+            .callTimeout(PROXY_CHECK_MILLIS, TimeUnit.MILLISECONDS)
+            .build()
+        val started = System.nanoTime()
+        runCatching {
+            probe.newCall(Request.Builder().url(url(Api.INFO)).build()).execute().use { it.isSuccessful }
+        }.getOrDefault(false).takeIf { it }?.let { TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) }
+    }
 
     private fun io.ktor.client.HttpClientConfig<*>.configure() {
         expectSuccess = false
@@ -278,6 +303,7 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
 
     private companion object {
         const val TIMEOUT_MILLIS = 15_000L
+        const val PROXY_CHECK_MILLIS = 8_000L
         const val POST_PAGE = 50
         const val MEMBER_PAGE = 200
         const val SOCKET_TIMEOUT_MILLIS = 60_000L

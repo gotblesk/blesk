@@ -163,6 +163,24 @@ class SettingsStore(context: Context) {
         store.edit { it[KEEP_ARCHIVED] = enabled }
     }
 
+    val proxy: Flow<ProxySetting> = store.data.map {
+        ProxySetting(
+            enabled = it[PROXY_ENABLED] ?: false,
+            socks = it[PROXY_SOCKS] ?: true,
+            host = it[PROXY_HOST].orEmpty(),
+            port = it[PROXY_PORT] ?: 0,
+        )
+    }.distinctUntilChanged()
+
+    suspend fun setProxy(proxy: ProxySetting) {
+        store.edit {
+            it[PROXY_ENABLED] = proxy.enabled
+            it[PROXY_SOCKS] = proxy.socks
+            it[PROXY_HOST] = proxy.host.trim()
+            it[PROXY_PORT] = proxy.port
+        }
+    }
+
     /** Media older than this many days leaves the phone on its own; 0 keeps it for good. */
     val keepMediaDays: Flow<Int> = store.data.map { it[KEEP_MEDIA_DAYS] ?: 0 }.distinctUntilChanged()
 
@@ -314,6 +332,10 @@ class SettingsStore(context: Context) {
         val SEND_BY_ENTER = booleanPreferencesKey("send_by_enter")
         val KEEP_ARCHIVED = booleanPreferencesKey("keep_archived")
         val KEEP_MEDIA_DAYS = intPreferencesKey("keep_media_days")
+        val PROXY_ENABLED = booleanPreferencesKey("proxy_enabled")
+        val PROXY_SOCKS = booleanPreferencesKey("proxy_socks")
+        val PROXY_HOST = stringPreferencesKey("proxy_host")
+        val PROXY_PORT = intPreferencesKey("proxy_port")
         val CHAT_BACKGROUND = stringPreferencesKey("chat_background")
         val DOUBLE_TAP = stringPreferencesKey("double_tap_reaction")
         val HINTS_SEEN = stringSetPreferencesKey("hints_seen")

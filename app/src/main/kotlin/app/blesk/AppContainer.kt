@@ -17,6 +17,7 @@ import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.PrivateImage
+import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.data.settings.SettingsStore
 import app.blesk.core.design.component.Notices
 import app.blesk.core.media.AudioPlayer
@@ -25,6 +26,10 @@ import app.blesk.core.media.MediaVault
 import app.blesk.core.media.VideoCompressor
 import app.blesk.core.media.VoiceRecorder
 import app.blesk.core.messaging.RegisterResult
+import app.blesk.core.network.BleskApi
+import app.blesk.core.network.NetworkProxy
+import app.blesk.core.network.ProxyConfig
+import app.blesk.core.network.ProxyKind
 import app.blesk.core.network.ServerAddress
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -41,7 +46,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import java.io.File
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -117,15 +121,18 @@ class AppContainer(context: Context) {
 
     init {
         scope.launch {
+            // Before the first connection, so nothing leaves directly when a proxy is set.
+            NetworkProxy.set(settings.proxy.first().toConfig())
+            launch { settings.proxy.collect { NetworkProxy.set(it.toConfig()) } }
             when (val mode = settings.mode.first()) {
-                AppMode.Demo -> show(demo, http = null)
+                AppMode.Demo -> show(demo, api = null)
                 is AppMode.Server -> {
                     val stack = ServerStack.from(appContext, this@AppContainer, mode)
                     val repository = withContext(Dispatchers.IO) {
                         stack.repository(mode.username, privacy, profile, keepArchived)
                     }
                     repository.start()
-                    show(repository, http = stack.api::okHttpClient)
+                    show(repository, stack.api)
                 }
             }
         }
@@ -146,11 +153,16 @@ class AppContainer(context: Context) {
         eventLog.record(EventCode.ServerRegistered)
         val repository = withContext(Dispatchers.IO) { stack.repository(username, privacy, profile, keepArchived) }
         repository.start()
-        show(repository, http = stack.api::okHttpClient)
+        show(repository, stack.api)
         return result
     }
 
-    private fun show(repository: ChatRepository, http: (() -> OkHttpClient)?) {
+    /** The server of the current world; null in the demo. */
+    var api: BleskApi? = null
+        private set
+
+    private fun show(repository: ChatRepository, api: BleskApi?) {
+        this.api = api
         repository.setForeground(visible)
         scope.launch { clearOldMedia(repository, settings.keepMediaDays.first()) }
         callsScope?.cancel()
@@ -161,7 +173,7 @@ class AppContainer(context: Context) {
             scope = callScope,
             media = CallMedia(appContext, callScope),
             signaling = repository as? CallSignaling,
-            http = { http?.invoke() },
+            http = { api?.okHttpClient() },
             nameOf = { username -> repository.contact(username)?.name ?: username },
         )
         chatsState.value = repository
@@ -173,3 +185,6 @@ data class InAppNote(val conversationId: String, val title: String, val line: St
 
 /** What another app shared: text (or a link) and files; the files are readable while the share lasts. */
 data class Shared(val text: String?, val files: List<android.net.Uri>)
+
+internal fun ProxySetting.toConfig(): ProxyConfig? =
+    if (usable) ProxyConfig(if (socks) ProxyKind.Socks5 else ProxyKind.Http, host, port) else null

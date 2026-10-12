@@ -33,6 +33,7 @@ import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.Profile
+import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.ChatBackdrop
 import app.blesk.core.design.component.HeaderStyle
@@ -87,11 +88,16 @@ import app.blesk.feature.settings.AppearanceScreen
 import app.blesk.feature.settings.BotActions
 import app.blesk.feature.settings.BotsScreen
 import app.blesk.feature.settings.ChatUse
+import app.blesk.feature.settings.ConnectOutcome
 import app.blesk.feature.settings.LicensesScreen
 import app.blesk.feature.settings.MetaballSandbox
 import app.blesk.feature.settings.NotificationsScreen
 import app.blesk.feature.settings.PrivacyPolicyScreen
+import app.blesk.feature.settings.ProxyCheck
+import app.blesk.feature.settings.ProxyControls
 import app.blesk.feature.settings.SafetyScreen
+import app.blesk.feature.settings.ServerScreen
+import app.blesk.feature.settings.ServerState
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.feature.settings.StorageActions
@@ -420,6 +426,16 @@ class KeyScreensScreenshotTest(private val name: String) {
             ),
             keepMediaDays = 90,
             actions = StorageActions({}, {}, {}, {}),
+        )
+    }
+
+    @Test
+    fun server() = capture("07e_server_proxy") {
+        ServerScreen(
+            connected = ServerState("https://chat.example.ru", "alex", pinned = true),
+            onConnect = { _, _ -> ConnectOutcome.Ok },
+            onBack = {},
+            proxy = ProxyControls(ProxySetting(enabled = true, host = "10.0.0.2", port = 1080), {}, { ProxyCheck.Silent }),
         )
     }
 

@@ -26,7 +26,7 @@ import java.util.Base64
 class LinkPreviews(
     private val client: HttpClient = HttpClient(OkHttp) {
         followRedirects = true
-        engine { config { followSslRedirects(false) } }
+        engine { config { followSslRedirects(false).proxySelector(NetworkProxy.selector) } }
         install(HttpTimeout) {
             requestTimeoutMillis = TIMEOUT_MILLIS
             connectTimeoutMillis = TIMEOUT_MILLIS
