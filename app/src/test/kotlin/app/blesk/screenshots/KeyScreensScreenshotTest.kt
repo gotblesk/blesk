@@ -27,6 +27,7 @@ import app.blesk.core.data.diagnostics.LogEntry
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.ConversationKind
+import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.NotificationSettings
@@ -260,7 +261,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             if (message.id == "${DemoSeed.ANYA}-2") {
                 message.copy(
                     reactions = persistentListOf(
-                        Reaction("\u2764\uFE0F", 2, mine = true),
+                        Reaction(GLINT_REACTION, 2, mine = true),
                         Reaction("\uD83D\uDD25", 1, mine = false),
                         Reaction("\uD83D\uDC4D", 1, mine = false),
                     ),

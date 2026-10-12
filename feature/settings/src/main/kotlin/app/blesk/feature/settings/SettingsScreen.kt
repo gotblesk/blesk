@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.settings.Profile
 import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.Card
@@ -26,6 +27,7 @@ import app.blesk.core.design.motion.screenKey
 import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.theme.Blesk
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 class SettingsActions(
     val onOpenProfile: () -> Unit,
@@ -110,6 +112,8 @@ fun SettingsList(
     onSendByEnter: (Boolean) -> Unit = {},
     vibration: VibrationLevel = VibrationLevel.Normal,
     onVibration: (VibrationLevel) -> Unit = {},
+    doubleTap: String = GLINT_REACTION,
+    onDoubleTap: (String) -> Unit = {},
 ) {
     val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
     Column(
@@ -158,6 +162,18 @@ fun SettingsList(
                 icon = BleskIcons.Send,
             )
             Text(
+                text = stringResource(R.string.settings_double_tap),
+                style = Blesk.type.bodyStrong,
+                modifier = Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = 10.dp),
+            )
+            Segmented(
+                options = DoubleTapChoices.map { if (it == GLINT_REACTION) stringResource(R.string.settings_double_tap_glint) else it }
+                    .toImmutableList(),
+                selected = DoubleTapChoices.indexOf(doubleTap).coerceAtLeast(0),
+                onSelect = { onDoubleTap(DoubleTapChoices[it]) },
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            Text(
                 text = stringResource(R.string.settings_vibration),
                 style = Blesk.type.bodyStrong,
                 modifier = Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = 10.dp),
@@ -200,3 +216,5 @@ fun SettingsList(
         }
     }
 }
+
+private val DoubleTapChoices = listOf(GLINT_REACTION, "\u2764\uFE0F", "\uD83D\uDC4D", "\uD83D\uDD25")

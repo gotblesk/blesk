@@ -149,6 +149,8 @@
     <string name="you_invites">Приглашения</string>
     <string name="you_stickers">Стикеры</string>
     <string name="settings_title">Настройки</string>
+    <string name="settings_double_tap">Двойное касание по сообщению</string>
+    <string name="settings_double_tap_glint">Блик</string>
     <string name="settings_privacy">Приватность и безопасность</string>
     <string name="settings_section_chats">Чаты</string>
     <string name="you_action_edit">Изменить</string>

@@ -64,6 +64,7 @@ import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
+import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
@@ -171,6 +172,8 @@ fun ConversationScreen(
     demo: Boolean = false,
     /** People who can be mentioned with "@" in a group or room. */
     members: ImmutableList<Contact> = persistentListOf(),
+    /** What a double tap puts on a message: the «блик», or the emoji chosen in settings. */
+    doubleTapReaction: String = GLINT_REACTION,
     /** Own username, to find messages that mention you; null when unknown. */
     me: String? = null,
     /** How many messages were unread when the chat was opened, before it was marked read. */
@@ -275,7 +278,7 @@ fun ConversationScreen(
             onReact = react,
             onApplyTheme = callbacks.onApplyTheme,
             onButton = { message, button -> callbacks.onButton(message.id, button) },
-            onDoubleTap = if (reactions) ({ message -> react(message, QuickReactions.first()) }) else null,
+            onDoubleTap = if (reactions) ({ message -> react(message, doubleTapReaction) }) else null,
             onMention = callbacks.onOpenPerson,
             onTap = { message ->
                 when {

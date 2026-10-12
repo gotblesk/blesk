@@ -35,6 +35,7 @@ import app.blesk.core.data.GroupController
 import app.blesk.core.data.MAX_PINNED
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
+import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.Avatar
@@ -98,6 +99,7 @@ internal fun Home(
     val connection by remember(chats) { chats.connection }.collectAsStateWithLifecycle(initialValue = Connection.Online)
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
     val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
+    val doubleTap by container.settings.doubleTapReaction.collectAsStateWithLifecycle(initialValue = GLINT_REACTION)
     val archiveFolded by container.settings.archiveFolded.collectAsStateWithLifecycle(initialValue = false)
     val scope = rememberCoroutineScope()
     val onPinLimit = rememberPinLimit()
@@ -304,6 +306,8 @@ internal fun Home(
                     onSendByEnter = { enabled -> scope.launch { container.settings.setSendByEnter(enabled) } },
                     vibration = vibration,
                     onVibration = { level -> scope.launch { container.settings.setVibration(level) } },
+                    doubleTap = doubleTap,
+                    onDoubleTap = { symbol -> scope.launch { container.settings.setDoubleTapReaction(symbol) } },
                 )
                 HomeTab.You -> {
                     val current = profile ?: return@AnimatedContent

@@ -51,6 +51,7 @@
     <string name="chat_editing">Изменение сообщения</string>
     <string name="chat_cancel">Отменить</string>
     <string name="chat_edited">изменено</string>
+    <string name="chat_glint">Блик</string>
     <string name="chat_reaction">реакция %1$s: %2$d</string>
     <string name="chat_react">Поставить %1$s</string>
     <string name="chat_you">Ты</string>

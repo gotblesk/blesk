@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.coroutines.flow.Flow
@@ -117,6 +118,13 @@ class SettingsStore(context: Context) {
 
     suspend fun setSendByEnter(enabled: Boolean) {
         store.edit { it[SEND_BY_ENTER] = enabled }
+    }
+
+    /** What a double tap on a message puts on it: the «блик» unless an emoji was chosen instead. */
+    val doubleTapReaction: Flow<String> = store.data.map { it[DOUBLE_TAP] ?: GLINT_REACTION }.distinctUntilChanged()
+
+    suspend fun setDoubleTapReaction(symbol: String) {
+        store.edit { it[DOUBLE_TAP] = symbol }
     }
 
     /** What chats lie on: `none`, `photo`, `light:N` or `solid:N`; null until chosen, when a picked photo shows. */
@@ -252,6 +260,7 @@ class SettingsStore(context: Context) {
         val SEND_BY_ENTER = booleanPreferencesKey("send_by_enter")
         val KEEP_ARCHIVED = booleanPreferencesKey("keep_archived")
         val CHAT_BACKGROUND = stringPreferencesKey("chat_background")
+        val DOUBLE_TAP = stringPreferencesKey("double_tap_reaction")
         val ARCHIVE_FOLDED = booleanPreferencesKey("archive_folded")
         val VIBRATION = stringPreferencesKey("vibration")
         val RECENT_EMOJI = stringPreferencesKey("recent_emoji")

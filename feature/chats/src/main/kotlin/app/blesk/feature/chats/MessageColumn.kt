@@ -97,6 +97,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.BotButton
+import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.Markup
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Reaction
@@ -615,7 +616,9 @@ private fun Reactions(
     Row(modifier.padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         reactions.forEach { reaction ->
             key(reaction.symbol) {
-                val label = stringResource(R.string.chat_reaction, reaction.symbol, reaction.count)
+                val glint = reaction.symbol == GLINT_REACTION
+                val name = if (glint) stringResource(R.string.chat_glint) else reaction.symbol
+                val label = stringResource(R.string.chat_reaction, name, reaction.count)
                 val ring by animateFloatAsState(if (reaction.mine) 1f else 0f, label = "mine")
                 // A new reaction sticks on with a small ripple of the surface, then rests.
                 val stick = remember { Animatable(STICK_FROM) }
@@ -635,7 +638,7 @@ private fun Reactions(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(reaction.symbol, style = Blesk.type.label)
+                    if (glint) GlintSpark(fresh = reaction.mine) else Text(reaction.symbol, style = Blesk.type.label)
                     if (reaction.count > 1) {
                         AnimatedContent(
                             targetState = reaction.count,
@@ -864,6 +867,33 @@ private const val GRAIN_DOT = 0.6f
 private const val GRAIN_PRIME_A = 7
 private const val GRAIN_PRIME_B = 13
 private const val GRAIN_SPREAD = 11
+
+/**
+ * The «блик» reaction: a spark of the theme's light. Set just now, it flares up turning a quarter
+ * and settles; with reduced motion it simply appears.
+ */
+@Composable
+private fun GlintSpark(fresh: Boolean) {
+    val motion = Blesk.motion
+    val flare = remember { Animatable(if (fresh && !motion.reduced) 0f else 1f) }
+    LaunchedEffect(Unit) { flare.animateTo(1f, motion.stretch()) }
+    val light = ensureContrast(Blesk.colors.light, Blesk.colors.surface, ContrastLevel.UI_COMPONENT)
+    Icon(
+        icon = BleskIcons.Spark,
+        contentDescription = null,
+        tint = light,
+        size = 18.dp,
+        modifier = Modifier.graphicsLayer {
+            val grow = SPARK_FROM + (1f - SPARK_FROM) * flare.value
+            scaleX = grow
+            scaleY = grow
+            rotationZ = (1f - flare.value) * SPARK_TURN
+        },
+    )
+}
+
+private const val SPARK_FROM = 0.2f
+private const val SPARK_TURN = 90f
 
 private val linkPattern = Regex("""(?i)\b(?:https?://|www\.)[^\s<>«»"]+""")
 

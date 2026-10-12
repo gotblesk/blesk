@@ -35,6 +35,7 @@ import app.blesk.core.data.SpaceController
 import app.blesk.core.data.demo.DemoRepository
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.ConversationKind
+import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.design.component.ChatBackdrop
@@ -78,6 +79,7 @@ internal fun ConversationRoute(
     val chatThemes by container.settings.chatThemes.collectAsStateWithLifecycle(initialValue = emptyMap())
     val wallpaperVersion by container.settings.wallpaperVersion.collectAsStateWithLifecycle(initialValue = 0L)
     val background by container.settings.chatBackground.collectAsStateWithLifecycle(initialValue = null)
+    val doubleTapReaction by container.settings.doubleTapReaction.collectAsStateWithLifecycle(initialValue = GLINT_REACTION)
     val wallpaper by produceState<ImageBitmap?>(null, wallpaperVersion) {
         value = container.wallpaper.load()?.asImageBitmap()
     }
@@ -271,6 +273,7 @@ internal fun ConversationRoute(
                 focusMessageId = focusMessageId,
                 connection = connection,
                 sendByEnter = sendByEnter,
+                doubleTapReaction = doubleTapReaction,
                 recentEmoji = recentEmoji.toImmutableList(),
                 members = groupState?.members.orEmpty()
                     .filter { it.username != groupController?.me }

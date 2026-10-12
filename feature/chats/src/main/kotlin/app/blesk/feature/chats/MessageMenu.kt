@@ -37,9 +37,11 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.Markup
 import app.blesk.core.data.model.Message
 import app.blesk.core.design.component.Card
+import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.dragToDismiss
@@ -50,7 +52,7 @@ import app.blesk.core.design.theme.OnOwnBubble
 import kotlinx.coroutines.delay
 
 /** Quick reactions offered in the message menu. User content, not interface icons. */
-internal val QuickReactions = listOf("❤️", "👍", "🔥", "😂", "😮", "😢")
+internal val QuickReactions = listOf("❤️", "👍", "🔥", "😂", "😢")
 
 /** A matte sheet with reactions and actions for one message. */
 @Composable
@@ -106,8 +108,10 @@ internal fun MessageMenu(
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    QuickReactions.forEach { symbol ->
-                        val label = stringResource(R.string.chat_react, symbol)
+                    (listOf(GLINT_REACTION) + QuickReactions).forEach { symbol ->
+                        val glint = symbol == GLINT_REACTION
+                        val name = if (glint) stringResource(R.string.chat_glint) else symbol
+                        val label = stringResource(R.string.chat_react, name)
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
@@ -116,7 +120,11 @@ internal fun MessageMenu(
                                 .semantics { contentDescription = label },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(symbol, style = Blesk.type.headline)
+                            if (glint) {
+                                Icon(BleskIcons.Spark, contentDescription = null, tint = Blesk.colors.textPrimary)
+                            } else {
+                                Text(symbol, style = Blesk.type.headline)
+                            }
                         }
                     }
                 }

@@ -128,4 +128,10 @@ sealed interface Attachment {
 /** A reaction and who left it. [mine] is whether the phone owner is among them. */
 data class Reaction(val symbol: String, val count: Int, val mine: Boolean)
 
+/**
+ * The house reaction «блик», set by a double tap: a token rather than an emoji, drawn as a spark
+ * of the theme's light. Older versions show the token as text, which is harmless.
+ */
+const val GLINT_REACTION = "blesk:glint"
+
 const val ME = "me"
