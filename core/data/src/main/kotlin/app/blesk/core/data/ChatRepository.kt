@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
+import java.io.File
 
 /** The state of the link to the server, as the status capsule shows it. */
 enum class Connection {
@@ -95,6 +96,9 @@ interface TransferControls {
 
     /** Fetches the files of a message again, from where the last attempt stopped. */
     fun retryDownload(conversationId: String, messageId: String) = Unit
+
+    /** A video of a message that can play before it has fully arrived; starts its download. Null if it cannot. */
+    suspend fun stream(conversationId: String, messageId: String, index: Int): StreamSource? = null
 }
 
 /** How many chats can be pinned at once; the list stays a list, not a second list on top. */
@@ -176,3 +180,6 @@ interface ChatTools {
 data class Transfer(val done: Long, val total: Long, val failed: Boolean = false) {
     val fraction: Float get() = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f
 }
+
+/** Where a video still on its way can be played from: its growing ciphertext, the key and the final size. */
+class StreamSource(val ciphertext: File, val key: ByteArray, val ciphertextBytes: Long)

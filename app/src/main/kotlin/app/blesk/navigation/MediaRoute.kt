@@ -36,17 +36,21 @@ internal fun MediaRoute(container: AppContainer, key: MediaKey, onBack: () -> Un
     val failed = stringResource(R.string.media_save_failed)
     val loaded = messages ?: return
     val items = mutableListOf<Attachment>()
+    // Which message and album place each page comes from, to stream a video that has not arrived.
+    val origins = mutableListOf<Pair<String, Int>>()
     var start = 0
     loaded.forEach { message ->
         val visuals = message.attachment?.visuals.orEmpty()
         if (message.id == key.messageId) start = items.size + key.index.coerceIn(0, (visuals.size - 1).coerceAtLeast(0))
         items += visuals
+        visuals.indices.forEach { origins += message.id to it }
     }
     if (items.isEmpty()) return
     MediaViewer(
         items = items,
         start = start,
         onBack = onBack,
+        stream = { page -> origins.getOrNull(page)?.let { (messageId, index) -> chats.stream(key.conversationId, messageId, index) } },
         onSave = if (privacy.saveMedia) {
             { item -> scope.launch { notify(if (saveToGallery(context, item)) saved else failed) } }
         } else {

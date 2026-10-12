@@ -137,7 +137,7 @@ internal object Attachments {
         return local(pointer, target, poster)
     }
 
-    private fun partialName(id: String) = id.filter { it.isLetterOrDigit() || it == '-' || it == '_' } + ".part"
+    fun partialName(id: String) = id.filter { it.isLetterOrDigit() || it == '-' || it == '_' } + ".part"
 
     private fun decrypt(key: ByteArray?, streaming: Boolean, encrypted: File, target: File) {
         when {
@@ -198,9 +198,9 @@ internal object Attachments {
 
     private fun b64(bytes: ByteArray) = Base64.getEncoder().encodeToString(bytes)
 
-    private fun unb64(text: String) = Base64.getDecoder().decode(text)
+    fun unb64(text: String) = Base64.getDecoder().decode(text)
 
-    private const val SCHEME_STREAMING = 2
+    const val SCHEME_STREAMING = 2
     private const val PREVIEW_SIDE = 32
     private const val PREVIEW_QUALITY = 60
     internal const val KIND_THEME = "theme"

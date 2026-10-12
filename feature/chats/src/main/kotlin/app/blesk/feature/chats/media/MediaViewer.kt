@@ -1,5 +1,6 @@
 package app.blesk.feature.chats.media
 
+import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,7 +43,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.compose.ContentFrame
+import app.blesk.core.data.StreamSource
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Slider
@@ -49,6 +53,7 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.media.EncryptedStream
 import app.blesk.feature.chats.R
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -66,6 +71,8 @@ fun MediaViewer(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onSave: ((Attachment) -> Unit)? = null,
+    /** For a video still on its way: where to play it from while it downloads. */
+    stream: suspend (page: Int) -> StreamSource? = { null },
 ) {
     val pager = rememberPagerState(initialPage = start.coerceIn(0, (items.size - 1).coerceAtLeast(0))) { items.size }
     Box(modifier.fillMaxSize().background(Color.Black)) {
@@ -77,7 +84,11 @@ fun MediaViewer(
             when (val item = items[page]) {
                 is Attachment.Photo -> ZoomablePhoto(item.path)
                 // Only the video on screen plays; the neighbours wait as their posters.
-                is Attachment.Video -> if (pager.currentPage == page) VideoPlayer(item) else Poster(item.thumbnail)
+                is Attachment.Video -> when {
+                    pager.currentPage != page -> Poster(item.thumbnail)
+                    item.path.isNotEmpty() -> VideoPlayer(item) { setMediaItem(MediaItem.fromUri(item.path)) }
+                    else -> StreamingVideo(item) { stream(page) }
+                }
                 else -> Unit
             }
         }
@@ -134,13 +145,30 @@ private fun ZoomablePhoto(path: String) {
 
 private const val MAX_ZOOM = 5f
 
+/** A video that has not fully arrived: it plays as the ciphertext comes, decrypted on the fly. */
 @OptIn(UnstableApi::class)
 @Composable
-private fun VideoPlayer(video: Attachment.Video) {
+private fun StreamingVideo(video: Attachment.Video, source: suspend () -> StreamSource?) {
+    val stream by produceState<StreamSource?>(null, video) { value = source() }
+    val found = stream
+    if (found == null) {
+        Poster(video.thumbnail)
+        return
+    }
+    VideoPlayer(video) {
+        val media = ProgressiveMediaSource.Factory(EncryptedStream.factory(found))
+            .createMediaSource(MediaItem.fromUri(Uri.fromFile(found.ciphertext)))
+        setMediaSource(media)
+    }
+}
+
+@OptIn(UnstableApi::class)
+@Composable
+private fun VideoPlayer(video: Attachment.Video, load: ExoPlayer.() -> Unit) {
     val context = LocalContext.current
-    val player = remember(video.path) {
+    val player = remember(video) {
         ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(video.path))
+            load()
             prepare()
             play()
         }

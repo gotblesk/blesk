@@ -12,6 +12,7 @@ import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.InAppMp4Muxer
 import androidx.media3.transformer.Transformer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -28,7 +29,9 @@ class VideoCompressor(private val context: Context) {
         val shortSide = withContext(Dispatchers.IO) { shortSideOf(input) } ?: return false
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { continuation ->
+                // The index goes at the front, so the video can start playing before it has all arrived.
                 val transformer = Transformer.Builder(context)
+                    .setMuxerFactory(InAppMp4Muxer.Factory().setAttemptStreamableOutputEnabled(true))
                     .setVideoMimeType(MimeTypes.VIDEO_H264)
                     .setAudioMimeType(MimeTypes.AUDIO_AAC)
                     .addListener(object : Transformer.Listener {

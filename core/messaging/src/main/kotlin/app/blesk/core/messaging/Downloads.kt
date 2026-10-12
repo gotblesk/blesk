@@ -1,5 +1,7 @@
 package app.blesk.core.messaging
 
+import app.blesk.core.crypto.StreamingCipher
+import app.blesk.core.data.StreamSource
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.media.MediaVault
@@ -12,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 /** Where the files of a received message lie on the server, until they are all on the phone. */
@@ -51,6 +54,17 @@ internal class Downloads(
             remote.album.indices.forEach { transfers.fail(Attachments.albumTag(messageId, it)) }
         }
         return true
+    }
+
+    /** A video of [messageId] that can play while it arrives; its download starts if it has not. */
+    suspend fun stream(messageId: String, index: Int): StreamSource? {
+        val remote = RemoteFiles.decode(db.messages().get(messageId)?.remote) ?: return null
+        val pointer = remote.single?.takeIf { index == 0 } ?: remote.album.getOrNull(index) ?: return null
+        if (pointer.scheme != Attachments.SCHEME_STREAMING || pointer.key.isEmpty()) return null
+        val key = Attachments.unb64(pointer.key)
+        start(messageId)
+        val ciphertext = File(media.partials, Attachments.partialName(pointer.id))
+        return StreamSource(ciphertext, key, StreamingCipher.ciphertextSize(key, pointer.size))
     }
 
     /** One file, or an album item by item, each showing up in the mosaic as soon as it is here. */

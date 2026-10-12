@@ -503,6 +503,8 @@ class ServerChatRepository(
 
     override fun retryDownload(conversationId: String, messageId: String) = downloads.start(messageId)
 
+    override suspend fun stream(conversationId: String, messageId: String, index: Int) = downloads.stream(messageId, index)
+
     override fun setArchived(conversationId: String, archived: Boolean) {
         scope.launch { db.conversations().setArchived(conversationId, archived) }
     }
