@@ -51,6 +51,10 @@
     <string name="chat_editing">Изменение сообщения</string>
     <string name="chat_cancel">Отменить</string>
     <string name="chat_edited">изменено</string>
+    <string name="info_e2ee">Сквозное шифрование</string>
+    <string name="info_e2ee_hint">Сообщения и звонки шифруются на телефонах. Сервер не может их прочитать.</string>
+    <string name="info_not_e2ee">Без сквозного шифрования</string>
+    <string name="info_not_e2ee_hint">Сервер хранит содержимое и может его прочитать. Не пиши здесь того, что должно остаться между вами.</string>
     <string name="chat_glint">Блик</string>
     <string name="chat_reaction">реакция %1$s: %2$d</string>
     <string name="chat_react">Поставить %1$s</string>

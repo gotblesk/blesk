@@ -35,6 +35,7 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.feature.chats.EncryptionRow
 import app.blesk.feature.chats.R
 import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
@@ -89,6 +90,7 @@ fun SpaceInfoScreen(
             )
             Text(stringResource(R.string.space_open_note), style = Blesk.type.label, color = Blesk.colors.textSecondary)
         }
+        EncryptionRow(protected = false)
 
         if (admin) {
             val title = rememberTextFieldState(space.title)

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.Message
+import app.blesk.core.data.model.Protection
 import app.blesk.core.design.component.ActionCluster
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ClusterAction
@@ -154,6 +155,7 @@ fun PersonProfileScreen(
                 },
                 Modifier.padding(horizontal = Blesk.dimens.gutter, vertical = 16.dp),
             )
+            EncryptionRow(conversation.protection == Protection.EndToEnd)
             actions.onVerify?.let { verify -> KeysRow(verified, verify) }
             SharedContent(messages, actions)
             TimerSection(conversation.timerSeconds, actions.onTimer)

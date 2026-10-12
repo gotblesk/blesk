@@ -37,6 +37,7 @@ import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.feature.chats.EncryptionRow
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.TimerSection
 import app.blesk.shared.protocol.GroupChannelKind
@@ -93,6 +94,7 @@ fun GroupInfoScreen(
             )
         }
 
+        EncryptionRow(protected = true)
         SectionHeader(stringResource(R.string.group_members))
         Card(pad) {
             state.members.forEach { member ->
