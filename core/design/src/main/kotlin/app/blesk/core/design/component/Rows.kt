@@ -1,7 +1,7 @@
 package app.blesk.core.design.component
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,19 +9,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -33,8 +34,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.blesk.core.design.R
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.metaball.Blob
+import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @Composable
 fun SectionHeader(text: String, modifier: Modifier = Modifier) {
@@ -138,26 +143,49 @@ fun ToggleRow(
     }
 }
 
-/** Visual switch only; the row around it owns the semantics and the click. */
+/**
+ * Visual switch only; the row around it owns the semantics and the click. The knob flows
+ * across: its front runs ahead and the rest catches up, stretched for a moment like a drop.
+ */
 @Composable
 fun Switch(checked: Boolean, modifier: Modifier = Modifier) {
     val colors = Blesk.colors
-    val track by animateColorAsState(if (checked) colors.accent else colors.surfaceStrong, Blesk.motion.select(), label = "track")
-    val knob by animateColorAsState(if (checked) colors.onAccent else colors.textSecondary, Blesk.motion.select(), label = "knob")
-    val shift by animateDpAsState(if (checked) 20.dp else 0.dp, Blesk.motion.select(), label = "shift")
+    val motion = Blesk.motion
+    val track by animateColorAsState(if (checked) colors.accent else colors.surfaceStrong, motion.select(), label = "track")
+    val knob by animateColorAsState(if (checked) colors.onAccent else colors.textSecondary, motion.select(), label = "knob")
+    val target = if (checked) 1f else 0f
+    val lead = remember { Animatable(target) }
+    val tail = remember { Animatable(target) }
+    LaunchedEffect(checked) {
+        launch { lead.animateTo(target, motion.select()) }
+        launch { tail.animateTo(target, motion.stretch()) }
+    }
     Box(
         modifier = modifier
             .clearAndSetSemantics { }
             .size(width = 46.dp, height = 26.dp)
             .clip(CircleShape)
             .background(track)
-            .padding(3.dp),
-    ) {
-        Spacer(
-            Modifier
-                .offset(x = shift)
-                .size(20.dp)
-                .background(knob, CircleShape),
-        )
-    }
+            .padding(3.dp)
+            .metaballs(knob, smoothness = 10.dp) {
+                val r = size.height / 2f
+                val travel = size.width - size.height
+                fun drop(at: Float, scale: Float): Blob {
+                    val cx = r + travel * at
+                    val rr = r * scale
+                    return Blob(Rect(cx - rr, size.height / 2f - rr, cx + rr, size.height / 2f + rr), rr)
+                }
+                // Two drops in one place would add up to a larger knob, so at rest there is only one.
+                val stretch = abs(lead.value - tail.value).coerceAtMost(1f)
+                if (stretch < REST) {
+                    listOf(drop(lead.value, 1f))
+                } else {
+                    listOf(drop(lead.value, LEAD_IN_MOTION), drop(tail.value, TAIL_IN_MOTION))
+                }
+            },
+    )
 }
+
+private const val REST = 0.02f
+private const val LEAD_IN_MOTION = 0.85f
+private const val TAIL_IN_MOTION = 0.55f

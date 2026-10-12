@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -135,6 +136,9 @@ private val BubbleRadius = 20.dp
 internal val BubbleShape = RoundedCornerShape(BubbleRadius)
 private val QuoteGap = 12.dp
 private val ReplySwipe = 64.dp
+private val ReplyDrop = 32.dp
+private const val REPLY_DROP_FROM = 0.4f
+private const val NECK_SHARE = 0.55f
 
 /** Callbacks a message can trigger. */
 internal class MessageActions(
@@ -265,6 +269,11 @@ private class PartRegistry {
     // a message edited) the column is drawn again instead of keeping the old shape.
     private val placed = mutableStateMapOf<String, Pair<Offset, IntSize>>()
 
+    fun forget(key: String) {
+        coordinates.remove(key)
+        placed.remove(key)
+    }
+
     fun put(key: String, layout: LayoutCoordinates) {
         coordinates[key] = layout
         val now = layout.positionInRoot() to layout.size
@@ -285,6 +294,26 @@ private class PartRegistry {
             rect(key)?.let { into += Blob(it, it.height / 2f) }
         }
     }
+
+    /**
+     * While a message is pulled aside to reply, a drop stays where its edge was and a neck ties
+     * it to the moving bubble, thinning with the distance until it breaks at [ReplySwipe].
+     */
+    private fun replyBlobs(id: String, bubble: Rect, radius: Float, own: Boolean, into: MutableList<Blob>) {
+        val drop = rect("reply:$id") ?: return
+        if (drop.width <= 0f) return
+        into += Blob(drop, drop.height / 2f)
+        val gap = if (own) drop.left - bubble.right else bubble.left - drop.right
+        val reach = replyReach
+        if (gap <= 0f || gap >= reach) return
+        val thickness = drop.height * NECK_SHARE * (1f - gap / reach)
+        val cy = drop.center.y
+        val (from, to) = if (own) bubble.right - radius to drop.center.x else drop.center.x to bubble.left + radius
+        into += Blob(Rect(from, cy - thickness / 2f, to, cy + thickness / 2f), thickness / 2f)
+    }
+
+    /** How far a reply pull goes before the neck breaks, in pixels. */
+    var replyReach = 1f
 
     fun blobs(radius: Float, thread: Float, dots: Float, own: Boolean, growth: (String) -> Float): List<Blob> {
         val result = ArrayList<Blob>()
@@ -321,6 +350,7 @@ private class PartRegistry {
                 result += Blob(Rect(x - thread / 2f, quote.bottom - radius / 2f, x + thread / 2f, bubble.top + radius / 2f), thread / 2f)
             }
             reactionBlobs(id, result)
+            replyBlobs(id, bubble, radius, own, result)
         }
         // Messages of one author in a row are one column: each pair is tied by a wide neck, so
         // the column holds together whatever lies between them and however it is drawn.
@@ -356,166 +386,189 @@ private fun MessageEntry(
     val edited = if (message.edited) stringResource(R.string.chat_edited) else null
     val density = LocalDensity.current
     val swipeLimit = with(density) { ReplySwipe.toPx() }
+    parts.replyReach = swipeLimit
     val drag = remember { Animatable(0f) }
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
 
-    Column(
-        horizontalAlignment = if (own) Alignment.End else Alignment.Start,
-        modifier = Modifier
-            .offset { IntOffset(drag.value.roundToInt(), 0) }
-            .pointerInput(message.id) {
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        if (abs(drag.value) >= swipeLimit) actions.onReply(message)
-                        scope.launch { drag.animateTo(0f, spring(dampingRatio = 0.8f)) }
-                    },
-                    onDragCancel = { scope.launch { drag.animateTo(0f) } },
-                ) { change, amount ->
-                    change.consume()
-                    val next = drag.value + amount
-                    if (abs(drag.value) < swipeLimit && abs(next) >= swipeLimit) haptics.tick()
-                    // Pull towards the middle of the screen only, with resistance past the threshold.
-                    val bounded = if (own) next.coerceIn(-swipeLimit * 1.4f, 0f) else next.coerceIn(0f, swipeLimit * 1.4f)
-                    scope.launch { drag.snapTo(bounded) }
-                }
-            },
-    ) {
-        if (quote != null) {
-            Text(
-                text = quote,
-                style = Blesk.type.label,
-                color = Blesk.colors.textSecondary,
-                maxLines = 1,
+    Box(contentAlignment = if (own) Alignment.CenterEnd else Alignment.CenterStart) {
+        val pulled = (abs(drag.value) / swipeLimit).coerceIn(0f, 1f)
+        if (pulled > 0f) {
+            DisposableEffect(message.id) { onDispose { parts.forget("reply:${message.id}") } }
+            Box(
                 modifier = Modifier
-                    .padding(bottom = QuoteGap)
-                    .widthIn(max = 220.dp)
-                    .onPlaced { parts.put("quote:${message.id}", it) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            )
-        }
-        val attachment = message.attachment
-        val circle = attachment is Attachment.Circle
-        val label = LocalContext.current.resources.attachmentLabel(attachment)
-        val markup = remember(message.text) { Markup.parse(message.text) }
-        val spoilerMask = stringResource(R.string.chat_spoiler)
-        val revealLabel = stringResource(R.string.chat_spoiler_reveal)
-        var revealed by remember(message.id) { mutableStateOf(false) }
-        var expanded by remember(message.id) { mutableStateOf(false) }
-        var cut by remember(message.id) { mutableStateOf(false) }
-        val readMore = stringResource(R.string.chat_read_more)
-        val hidden = !revealed && markup.spans.any { it.style == Markup.Style.Spoiler }
-        val melting = message.expiresAt?.let { rememberRemaining(message.sentAt, it) }
-        Box(
-            modifier = Modifier
-                .widthIn(max = 300.dp)
-                // A one-line message is still a full touch target.
-                .heightIn(min = Blesk.dimens.touchTarget)
-                .onPlaced { parts.put(if (circle) "circle:${message.id}" else "bubble:${message.id}", it) }
-                .let { if (selected) it.border(2.dp, Blesk.colors.accent, if (circle) CircleShape else BubbleShape) else it }
-                .let { modifier ->
-                    val shape = if (circle) CircleShape else BubbleShape
-                    val glinting = melting?.let { left -> modifier.glint(shape, intensity = { left.value }) } ?: modifier
-                    glinting.lightSweep(flashing, shape)
-                }
-                .combinedClickable(
-                    onClickLabel = if (hidden && !selecting) revealLabel else null,
-                    onLongClickLabel = menuLabel,
-                    onLongClick = { actions.onMenu(message) },
-                    onClick = { if (hidden && !selecting) revealed = true else actions.onTap(message) },
-                    onDoubleClick = actions.onDoubleTap?.takeUnless { selecting }?.let { react -> { react(message) } },
+                    .padding(horizontal = 4.dp)
+                    .size(ReplyDrop * (REPLY_DROP_FROM + (1f - REPLY_DROP_FROM) * pulled))
+                    .onPlaced { parts.put("reply:${message.id}", it) }
+                    .graphicsLayer { alpha = pulled },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    icon = BleskIcons.Forward,
+                    contentDescription = null,
+                    size = 16.dp,
+                    tint = Blesk.colors.textSecondary,
+                    modifier = Modifier.graphicsLayer { scaleX = -1f },
                 )
-                .semantics(mergeDescendants = true) {
-                    this.selected = selected
-                    val body = if (hidden) markup.masked(spoilerMask) else markup.text
-                    contentDescription = listOfNotNull(label.ifEmpty { null }, body.ifEmpty { null }, edited, time, status)
-                        .joinToString(", ")
-                    customActions = listOfNotNull(
-                        CustomAccessibilityAction(replyLabel) { actions.onReply(message); true },
-                        CustomAccessibilityAction(readMore) { expanded = true; true }.takeIf { cut && !expanded },
-                    )
-                }
-                .graphicsLayer { alpha = contentAlpha() }
-                // Opening a long message grows the bubble downwards in place, without a jump.
-                .animateContentSize(Blesk.motion.settle())
-                .padding(
-                    horizontal = if (circle || attachment?.isVisual() == true) 4.dp else 14.dp,
-                    vertical = if (circle || attachment?.isVisual() == true) 4.dp else 9.dp,
-                ),
-        ) {
-            if (attachment is Attachment.Circle) {
-                MediaContent(message, attachment)
-                Stamp(time, message.status.takeIf { own }, edited, Modifier.align(Alignment.BottomEnd).padding(6.dp), onMedia = true)
-                return@Box
             }
-            Column {
-                if (message.forwardedFrom != null) {
-                    Row(
-                        modifier = Modifier.padding(bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Icon(BleskIcons.Forward, contentDescription = null, size = 14.dp, tint = Blesk.colors.textTertiary)
-                        Text(stringResource(R.string.chat_forwarded), style = Blesk.type.caption, color = Blesk.colors.textTertiary)
-                    }
-                }
-                when (attachment) {
-                    is Attachment.Theme -> ThemeCard(attachment.spec, actions.onApplyTheme)
-                    null -> Unit
-                    else -> MediaContent(message, attachment)
-                }
-                val stamp: @Composable () -> Unit = {
-                    Stamp(
-                        time, message.status.takeIf { own }, edited,
-                        modifier = Modifier.padding(horizontal = if (attachment?.isVisual() == true) 8.dp else 0.dp),
-                    )
-                }
-                if (message.text.isNotEmpty()) {
-                    val inset = if (attachment?.isVisual() == true) Modifier.padding(horizontal = 10.dp, vertical = 6.dp) else Modifier
-                    TextWithStamp(
-                        modifier = inset,
-                        text = { onLayout ->
-                            FormattedText(
-                                markup = markup,
-                                revealed = revealed,
-                                onReveal = { revealed = it },
-                                modifier = Modifier,
-                                maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_LINES,
-                                onMention = actions.onMention,
-                            ) { layout ->
-                                if (!expanded) cut = layout.hasVisualOverflow
-                                onLayout(layout)
-                            }
+        }
+        Column(
+            horizontalAlignment = if (own) Alignment.End else Alignment.Start,
+            modifier = Modifier
+                .offset { IntOffset(drag.value.roundToInt(), 0) }
+                .pointerInput(message.id) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (abs(drag.value) >= swipeLimit) actions.onReply(message)
+                            scope.launch { drag.animateTo(0f, spring(dampingRatio = 0.8f)) }
                         },
-                        stamp = stamp,
+                        onDragCancel = { scope.launch { drag.animateTo(0f) } },
+                    ) { change, amount ->
+                        change.consume()
+                        val next = drag.value + amount
+                        if (abs(drag.value) < swipeLimit && abs(next) >= swipeLimit) haptics.tick()
+                        // Pull towards the middle of the screen only, with resistance past the threshold.
+                        val bounded = if (own) next.coerceIn(-swipeLimit * 1.4f, 0f) else next.coerceIn(0f, swipeLimit * 1.4f)
+                        scope.launch { drag.snapTo(bounded) }
+                    }
+                },
+        ) {
+            if (quote != null) {
+                Text(
+                    text = quote,
+                    style = Blesk.type.label,
+                    color = Blesk.colors.textSecondary,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .padding(bottom = QuoteGap)
+                        .widthIn(max = 220.dp)
+                        .onPlaced { parts.put("quote:${message.id}", it) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+            val attachment = message.attachment
+            val circle = attachment is Attachment.Circle
+            val label = LocalContext.current.resources.attachmentLabel(attachment)
+            val markup = remember(message.text) { Markup.parse(message.text) }
+            val spoilerMask = stringResource(R.string.chat_spoiler)
+            val revealLabel = stringResource(R.string.chat_spoiler_reveal)
+            var revealed by remember(message.id) { mutableStateOf(false) }
+            var expanded by remember(message.id) { mutableStateOf(false) }
+            var cut by remember(message.id) { mutableStateOf(false) }
+            val readMore = stringResource(R.string.chat_read_more)
+            val hidden = !revealed && markup.spans.any { it.style == Markup.Style.Spoiler }
+            val melting = message.expiresAt?.let { rememberRemaining(message.sentAt, it) }
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 300.dp)
+                    // A one-line message is still a full touch target.
+                    .heightIn(min = Blesk.dimens.touchTarget)
+                    .onPlaced { parts.put(if (circle) "circle:${message.id}" else "bubble:${message.id}", it) }
+                    .let { if (selected) it.border(2.dp, Blesk.colors.accent, if (circle) CircleShape else BubbleShape) else it }
+                    .let { modifier ->
+                        val shape = if (circle) CircleShape else BubbleShape
+                        val glinting = melting?.let { left -> modifier.glint(shape, intensity = { left.value }) } ?: modifier
+                        glinting.lightSweep(flashing, shape)
+                    }
+                    .combinedClickable(
+                        onClickLabel = if (hidden && !selecting) revealLabel else null,
+                        onLongClickLabel = menuLabel,
+                        onLongClick = { actions.onMenu(message) },
+                        onClick = { if (hidden && !selecting) revealed = true else actions.onTap(message) },
+                        onDoubleClick = actions.onDoubleTap?.takeUnless { selecting }?.let { react -> { react(message) } },
                     )
-                    if (cut && !expanded) {
-                        Text(
-                            text = readMore,
-                            style = Blesk.type.bodyStrong,
-                            color = Blesk.colors.textSecondary,
-                            modifier = Modifier
-                                .padding(top = 4.dp)
-                                .clearAndSetSemantics { }
-                                .clickable { expanded = true },
+                    .semantics(mergeDescendants = true) {
+                        this.selected = selected
+                        val body = if (hidden) markup.masked(spoilerMask) else markup.text
+                        contentDescription = listOfNotNull(label.ifEmpty { null }, body.ifEmpty { null }, edited, time, status)
+                            .joinToString(", ")
+                        customActions = listOfNotNull(
+                            CustomAccessibilityAction(replyLabel) { actions.onReply(message); true },
+                            CustomAccessibilityAction(readMore) { expanded = true; true }.takeIf { cut && !expanded },
                         )
                     }
-                } else {
-                    Box(Modifier.align(Alignment.End).padding(top = 2.dp)) { stamp() }
+                    .graphicsLayer { alpha = contentAlpha() }
+                    // Opening a long message grows the bubble downwards in place, without a jump.
+                    .animateContentSize(Blesk.motion.settle())
+                    .padding(
+                        horizontal = if (circle || attachment?.isVisual() == true) 4.dp else 14.dp,
+                        vertical = if (circle || attachment?.isVisual() == true) 4.dp else 9.dp,
+                    ),
+            ) {
+                if (attachment is Attachment.Circle) {
+                    MediaContent(message, attachment)
+                    Stamp(time, message.status.takeIf { own }, edited, Modifier.align(Alignment.BottomEnd).padding(6.dp), onMedia = true)
+                    return@Box
+                }
+                Column {
+                    if (message.forwardedFrom != null) {
+                        Row(
+                            modifier = Modifier.padding(bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(BleskIcons.Forward, contentDescription = null, size = 14.dp, tint = Blesk.colors.textTertiary)
+                            Text(stringResource(R.string.chat_forwarded), style = Blesk.type.caption, color = Blesk.colors.textTertiary)
+                        }
+                    }
+                    when (attachment) {
+                        is Attachment.Theme -> ThemeCard(attachment.spec, actions.onApplyTheme)
+                        null -> Unit
+                        else -> MediaContent(message, attachment)
+                    }
+                    val stamp: @Composable () -> Unit = {
+                        Stamp(
+                            time, message.status.takeIf { own }, edited,
+                            modifier = Modifier.padding(horizontal = if (attachment?.isVisual() == true) 8.dp else 0.dp),
+                        )
+                    }
+                    if (message.text.isNotEmpty()) {
+                        val inset = if (attachment?.isVisual() == true) Modifier.padding(horizontal = 10.dp, vertical = 6.dp) else Modifier
+                        TextWithStamp(
+                            modifier = inset,
+                            text = { onLayout ->
+                                FormattedText(
+                                    markup = markup,
+                                    revealed = revealed,
+                                    onReveal = { revealed = it },
+                                    modifier = Modifier,
+                                    maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_LINES,
+                                    onMention = actions.onMention,
+                                ) { layout ->
+                                    if (!expanded) cut = layout.hasVisualOverflow
+                                    onLayout(layout)
+                                }
+                            },
+                            stamp = stamp,
+                        )
+                        if (cut && !expanded) {
+                            Text(
+                                text = readMore,
+                                style = Blesk.type.bodyStrong,
+                                color = Blesk.colors.textSecondary,
+                                modifier = Modifier
+                                    .padding(top = 4.dp)
+                                    .clearAndSetSemantics { }
+                                    .clickable { expanded = true },
+                            )
+                        }
+                    } else {
+                        Box(Modifier.align(Alignment.End).padding(top = 2.dp)) { stamp() }
+                    }
                 }
             }
+            if (message.reactions.isNotEmpty()) {
+                Reactions(
+                    reactions = message.reactions,
+                    onToggle = { actions.onReact(message, it) },
+                    onPlaced = { symbol, layout -> parts.put("reaction:${message.id}:$symbol", layout) },
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp)
+                        .offset(y = (-6).dp),
+                )
+            }
+            if (message.buttons.isNotEmpty()) BotButtons(message, actions)
         }
-        if (message.reactions.isNotEmpty()) {
-            Reactions(
-                reactions = message.reactions,
-                onToggle = { actions.onReact(message, it) },
-                onPlaced = { symbol, layout -> parts.put("reaction:${message.id}:$symbol", layout) },
-                modifier = Modifier
-                    .padding(horizontal = 10.dp)
-                    .offset(y = (-6).dp),
-            )
-        }
-        if (message.buttons.isNotEmpty()) BotButtons(message, actions)
     }
 }
 
