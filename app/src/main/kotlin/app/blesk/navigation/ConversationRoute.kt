@@ -1,6 +1,5 @@
 package app.blesk.navigation
 
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,6 +37,7 @@ import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Privacy
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.feature.chats.ConversationCallbacks
@@ -113,13 +113,14 @@ internal fun ConversationRoute(
     var busy by remember { mutableStateOf(false) }
     val failed = stringResource(app.blesk.feature.chats.R.string.media_failed)
     val context = LocalContext.current
+    val notify = rememberNotify()
     val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             busy = true
             val attachment = importVisual(container, context.contentResolver.getType(uri), uri)
             busy = false
-            if (attachment != null) demo.sendAttachment(id, attachment) else Toast.makeText(context, failed, Toast.LENGTH_SHORT).show()
+            if (attachment != null) demo.sendAttachment(id, attachment) else notify(failed)
         }
     }
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -128,7 +129,7 @@ internal fun ConversationRoute(
             busy = true
             val attachment = container.media.importFile(uri)
             busy = false
-            if (attachment != null) demo.sendAttachment(id, attachment) else Toast.makeText(context, failed, Toast.LENGTH_SHORT).show()
+            if (attachment != null) demo.sendAttachment(id, attachment) else notify(failed)
         }
     }
     val playback = container.audioPlayer.playback.collectAsStateWithLifecycle()
@@ -162,7 +163,7 @@ internal fun ConversationRoute(
         if (isBot && bots != null) value = bots.commands(id)
     }
     LaunchedEffect(bots) {
-        bots?.notices?.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+        bots?.notices?.collect { notify(it) }
     }
     val callbacks = remember(id, direct) {
         ConversationCallbacks(
@@ -207,7 +208,7 @@ internal fun ConversationRoute(
     }
 
     val current = conversation ?: return
-    val messages = loaded ?: return
+    val messages = (loaded ?: return).filter { it.id !in container.notices.hidden }
     val unread = unreadAtOpen ?: return
     BleskTheme(appearance = if (override != null) appearance.copy(theme = override) else appearance) {
         Box(Modifier.fillMaxSize()) {

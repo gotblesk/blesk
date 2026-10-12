@@ -172,7 +172,8 @@ internal fun Home(
         ) { shown ->
             when (shown) {
                 HomeTab.Chats -> {
-                    val list = conversations.filter { it.kind != ConversationKind.Room && !it.archived }
+                    val hidden = container.notices.hidden
+                    val list = conversations.filter { it.kind != ConversationKind.Room && !it.archived && it.id !in hidden }
                     val archived = conversations.count { it.archived }
                     if (list.isEmpty() && archived == 0 && !demo) {
                         EmptyChats(padding)
@@ -194,7 +195,7 @@ internal fun Home(
                     )
                 }
                 HomeTab.Rooms -> {
-                    val rooms = conversations.filter { it.kind == ConversationKind.Room }
+                    val rooms = conversations.filter { it.kind == ConversationKind.Room && it.id !in container.notices.hidden }
                     if (rooms.isEmpty()) {
                         Text(
                             text = stringResource(app.blesk.feature.chats.R.string.rooms_empty),

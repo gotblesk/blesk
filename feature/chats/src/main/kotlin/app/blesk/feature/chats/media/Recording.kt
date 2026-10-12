@@ -2,7 +2,6 @@ package app.blesk.feature.chats.media
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
@@ -55,6 +54,7 @@ import app.blesk.core.data.model.Attachment
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
@@ -108,6 +108,7 @@ private val LockDistance = 90.dp
 @Composable
 internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
     val context = LocalContext.current
+    val notify = rememberNotify()
     val owner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val haptics = rememberHaptics()
@@ -119,7 +120,8 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
     val permissions =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
             if (granted.values.any { !it }) {
-                Toast.makeText(context, if (ui.mode == RecordMode.Voice) micDenied else cameraDenied, Toast.LENGTH_LONG).show()
+                haptics.warn()
+                notify(if (ui.mode == RecordMode.Voice) micDenied else cameraDenied)
             }
         }
     fun needed(): Array<String> {

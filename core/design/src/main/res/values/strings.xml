@@ -3,6 +3,8 @@
     <string name="design_soon">скоро</string>
     <string name="design_demo">Демо</string>
     <string name="design_back">Назад</string>
+    <string name="design_undo">Отменить</string>
+    <string name="design_copied">Скопировано</string>
     <string name="design_not_encrypted">без шифрования</string>
     <string name="design_encrypted">защищено</string>
     <string name="design_on">включено</string>

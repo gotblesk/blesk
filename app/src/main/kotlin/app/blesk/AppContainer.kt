@@ -18,6 +18,7 @@ import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.PrivateImage
 import app.blesk.core.data.settings.SettingsStore
+import app.blesk.core.design.component.Notices
 import app.blesk.core.media.AudioPlayer
 import app.blesk.core.media.CircleRecorder
 import app.blesk.core.media.MediaVault
@@ -62,6 +63,7 @@ class AppContainer(context: Context) {
     val voiceRecorder = VoiceRecorder(context, media)
     val circleRecorder = CircleRecorder(context, media)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
+    val notices = Notices(scope)
     val network: StateFlow<Boolean> by lazy { networkAvailable(context.applicationContext, scope) }
 
     @androidx.annotation.OptIn(UnstableApi::class)

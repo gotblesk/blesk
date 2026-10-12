@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.core.data.GroupController
@@ -22,6 +23,7 @@ import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun NewGroupRoute(container: AppContainer, kind: NewKind, onCreated: (String) -> Unit, onBack: () -> Unit) {
@@ -101,6 +103,7 @@ internal fun GroupInfoRoute(container: AppContainer, groupId: String, onLeft: ()
     val state by remember(groupId) { groups.group(groupId) }.collectAsStateWithLifecycle(initialValue = null)
     val contacts by chats.contacts.collectAsStateWithLifecycle(initialValue = emptyList())
     val conversation by remember(groupId) { chats.conversation(groupId) }.collectAsStateWithLifecycle(initialValue = null)
+    val leftText = stringResource(app.blesk.feature.chats.R.string.group_left)
     val current = state ?: return
     GroupInfoScreen(
         timerSeconds = conversation?.timerSeconds ?: 0,
@@ -117,8 +120,11 @@ internal fun GroupInfoRoute(container: AppContainer, groupId: String, onLeft: ()
             addChannel = { title, kind, adminsOnly -> groups.addChannel(groupId, title, kind, adminsOnly) },
             removeChannel = { groups.removeChannel(groupId, it) },
             setInvite = { groups.setInvite(groupId, it) },
+            // The group leaves the list at once; the leaving itself waits out «Отменить».
             leave = {
-                groups.leave(groupId)
+                container.notices.undoable(leftText, hidden = listOf(groupId)) {
+                    container.scope.launch { groups.leave(groupId) }
+                }
                 onLeft()
             },
         ),

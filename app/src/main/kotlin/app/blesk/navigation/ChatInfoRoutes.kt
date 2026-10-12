@@ -1,6 +1,5 @@
 package app.blesk.navigation
 
-import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +14,7 @@ import app.blesk.core.data.KeyState
 import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.feature.chats.ChatInfoScreen
 import app.blesk.feature.chats.ForwardScreen
 import app.blesk.feature.chats.R
@@ -66,6 +66,7 @@ internal fun ChatInfoRoute(container: AppContainer, id: String, onVerify: () -> 
 internal fun ForwardRoute(container: AppContainer, from: String, messageIds: List<String>, onDone: () -> Unit, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val context = LocalContext.current
+    val notify = rememberNotify()
     val all by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val targets = all.flatMap { conversation ->
         when {
@@ -82,7 +83,7 @@ internal fun ForwardRoute(container: AppContainer, from: String, messageIds: Lis
         conversations = targets.toImmutableList(),
         onSend = { picked ->
             messageIds.forEach { chats.forward(from, it, picked) }
-            Toast.makeText(context, done, Toast.LENGTH_SHORT).show()
+            notify(done)
             onDone()
         },
         onBack = onBack,

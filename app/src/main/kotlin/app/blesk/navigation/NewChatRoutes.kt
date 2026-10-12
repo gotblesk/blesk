@@ -2,7 +2,6 @@ package app.blesk.navigation
 
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -10,12 +9,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.GroupController
 import app.blesk.core.data.SpaceController
 import app.blesk.core.data.settings.AppMode
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.TopLens
 import app.blesk.feature.chats.NewChatActions
@@ -41,6 +42,8 @@ internal fun NewChatRoute(
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = AppMode.Demo)
     val context = LocalContext.current
+    val notify = rememberNotify()
+    val joinSent = stringResource(R.string.contacts_join_sent)
     val scope = rememberCoroutineScope()
     val contacts by chats.contacts.collectAsStateWithLifecycle(initialValue = emptyList())
     val server = mode as? AppMode.Server
@@ -52,7 +55,7 @@ internal fun NewChatRoute(
             onNewChannel = if (chats is SpaceController) ({ onNewGroup(NewKind.Channel) }) else null,
             onInvite = server?.let { { invite(context, it.username) } },
             onOpenContact = { contact -> scope.launch { chats.openDirect(contact.username)?.let(onOpenConversation) } },
-            onFind = if (server == null) null else { text -> find(context, chats, text, onOpenConversation) },
+            onFind = if (server == null) null else { text -> find(chats, text, onOpenConversation) { notify(joinSent) } },
             spaces = (chats as? SpaceController)?.let { controller ->
                 SpaceSearch(
                     search = { query -> if (InviteLink.parse(query) != null) emptyList() else controller.searchSpaces(query) },
@@ -79,6 +82,8 @@ internal fun RoomsAddRoute(container: AppContainer, onCreate: () -> Unit, onBack
 internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> Unit, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val context = LocalContext.current
+    val notify = rememberNotify()
+    val joinSent = stringResource(R.string.contacts_join_sent)
     val scope = rememberCoroutineScope()
     LensScaffold(top = { TopLens(title = context.getString(R.string.new_chat_scan), onBack = onBack) }) { padding ->
         QrScanner(
@@ -89,10 +94,10 @@ internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> 
                             onOpenConversation(it)
                             true
                         } ?: false
-                        InviteLink.parse(code) != null -> find(context, chats, code, onOpenConversation)
+                        InviteLink.parse(code) != null -> find(chats, code, onOpenConversation) { notify(joinSent) }
                         else -> false
                     }
-                    if (!handled) Toast.makeText(context, R.string.scan_unknown, Toast.LENGTH_SHORT).show()
+                    if (!handled) notify(context.getString(R.string.scan_unknown))
                 }
             },
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -103,10 +108,10 @@ internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> 
 private const val PROFILE_PREFIX = "blesk://u/"
 
 /** A username opens a chat; an invite link asks the group's admin to let you in. */
-internal suspend fun find(context: Context, chats: ChatRepository, text: String, open: (String) -> Unit): Boolean {
+internal suspend fun find(chats: ChatRepository, text: String, open: (String) -> Unit, onJoinSent: () -> Unit): Boolean {
     if (InviteLink.parse(text) != null) {
         val sent = (chats as? GroupController)?.join(text) == true
-        if (sent) Toast.makeText(context, R.string.contacts_join_sent, Toast.LENGTH_LONG).show()
+        if (sent) onJoinSent()
         return sent
     }
     return chats.openDirect(text.removePrefix("@").lowercase())?.also(open) != null

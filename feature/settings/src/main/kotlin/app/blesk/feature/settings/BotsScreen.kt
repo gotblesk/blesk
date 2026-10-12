@@ -1,6 +1,5 @@
 package app.blesk.feature.settings
 
-import android.content.ClipData
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,8 +16,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -36,6 +33,7 @@ import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
+import app.blesk.core.design.component.rememberCopy
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.shared.protocol.BotInfo
@@ -145,8 +143,7 @@ fun BotsScreen(bots: ImmutableList<BotInfo>, actions: BotActions, onBack: () -> 
 
 @Composable
 private fun TokenCard(token: BotWithToken, onDone: () -> Unit) {
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
+    val copy = rememberCopy()
     var copied by remember(token) { mutableStateOf(false) }
     Card(Modifier.padding(Blesk.dimens.gutter)) {
         Column(Modifier.padding(Blesk.dimens.gutter), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -158,10 +155,8 @@ private fun TokenCard(token: BotWithToken, onDone: () -> Unit) {
                     text = stringResource(if (copied) R.string.bots_copied else R.string.bots_copy),
                     icon = BleskIcons.Copy,
                     onClick = {
-                        scope.launch {
-                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("blesk bot", token.token)))
-                            copied = true
-                        }
+                        copy(token.token, true)
+                        copied = true
                     },
                 )
                 Button(text = stringResource(R.string.bots_done), kind = ButtonKind.Secondary, onClick = onDone)

@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -30,6 +31,8 @@ import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.LockDelay
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.VibrationLevel
+import app.blesk.core.design.component.LocalNotices
+import app.blesk.core.design.component.NoticeHost
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.motion.LocalHapticLevel
 import app.blesk.navigation.BleskNavigation
@@ -70,10 +73,14 @@ class MainActivity : ComponentActivity() {
             SystemBars(isDark = appearance.theme.isDark)
             AskForNotifications(container)
             val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
-            CompositionLocalProvider(LocalHapticLevel provides vibration.toHapticLevel()) {
+            CompositionLocalProvider(
+                LocalHapticLevel provides vibration.toHapticLevel(),
+                LocalNotices provides container.notices,
+            ) {
                 BleskTheme(appearance = appearance) {
                     Box(Modifier.fillMaxSize()) {
                         BleskNavigation(container)
+                        NoticeHost(container.notices, Modifier.align(Alignment.BottomCenter))
                         if (container.lock.locked) LockRoute(container, biometric = privacy.biometric)
                     }
                 }

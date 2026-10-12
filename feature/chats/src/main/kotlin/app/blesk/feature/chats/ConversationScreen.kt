@@ -1,6 +1,5 @@
 package app.blesk.feature.chats
 
-import android.content.ClipData
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -61,8 +60,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
@@ -94,7 +92,9 @@ import app.blesk.core.design.component.Capsule
 import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
+import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.rememberCopy
 import app.blesk.core.design.glass.BottomLens
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.TopLens
@@ -205,6 +205,14 @@ fun ConversationScreen(
     BackHandler(enabled = selection.isNotEmpty()) { selection = emptySet() }
     val input = rememberTextFieldState(conversation.draft)
     DraftKeeper(input, callbacks.onDraft)
+    val notices = LocalNotices.current
+    val resources = LocalContext.current.resources
+
+    // Deleting waits out «Отменить»; until then the screen that owns the list hides the messages.
+    fun deleteWithUndo(ids: List<String>) {
+        val text = resources.getQuantityString(R.plurals.chat_deleted, ids.size, ids.size)
+        if (notices == null) ids.forEach(callbacks.onDelete) else notices.undoable(text, hidden = ids) { ids.forEach(callbacks.onDelete) }
+    }
     val byId = remember(messages) { messages.associateBy { it.id } }
     // The divider stays where the chat was left, even after the messages are marked read.
     val unreadFrom = remember(conversation.id) {
@@ -285,14 +293,13 @@ fun ConversationScreen(
                 top = {
                     if (selection.isNotEmpty()) {
                         val picked = messages.filter { it.id in selection }
-                        val clipboard = LocalClipboard.current
-                        val scope = rememberCoroutineScope()
+                        val copy = rememberCopy()
                         SelectionHeader(
                             count = picked.size,
                             onClose = { selection = emptySet() },
                             onCopy = {
                                 val text = picked.joinToString("\n") { it.text }
-                                scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("blesk", text))) }
+                                copy(text, false)
                                 selection = emptySet()
                             },
                             onForward = callbacks.onForward?.let { forward ->
@@ -303,7 +310,7 @@ fun ConversationScreen(
                             },
                             onDelete = if (picked.all { it.isOwn } && conversation.kind != ConversationKind.Bot) {
                                 {
-                                    picked.forEach { callbacks.onDelete(it.id) }
+                                    deleteWithUndo(picked.map { it.id })
                                     selection = emptySet()
                                 }
                             } else {
@@ -450,7 +457,7 @@ fun ConversationScreen(
                         replyToId = null
                         input.setTextAndPlaceCursorAtEnd(message.text)
                     },
-                    onDelete = { callbacks.onDelete(message.id) },
+                    onDelete = { deleteWithUndo(listOf(message.id)) },
                     editable = conversation.kind != ConversationKind.Bot,
                     onForward = callbacks.onForward?.let { forward -> { forward(listOf(message.id)) } },
                     onSelect = { selection = setOf(message.id) },

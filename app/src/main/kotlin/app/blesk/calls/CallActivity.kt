@@ -9,13 +9,13 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.viewfinder.core.ImplementationMode
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -25,7 +25,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,6 +40,8 @@ import app.blesk.core.calls.MediaState
 import app.blesk.core.data.calls.CallPhase
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.VibrationLevel
+import app.blesk.core.design.component.LocalNotices
+import app.blesk.core.design.component.NoticeHost
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.motion.LocalHapticLevel
 import app.blesk.feature.calls.CallActions
@@ -63,7 +67,7 @@ class CallActivity : ComponentActivity() {
             if (result[Manifest.permission.RECORD_AUDIO] == true || granted(Manifest.permission.RECORD_AUDIO)) {
                 perform(intent)
             } else {
-                Toast.makeText(this, R.string.calls_need_microphone, Toast.LENGTH_LONG).show()
+                container.notices.show(getString(R.string.calls_need_microphone))
                 if (intent.action == ANSWER) container.calls.value?.decline()
                 finishIfIdle()
             }
@@ -90,9 +94,15 @@ class CallActivity : ComponentActivity() {
             }
             val manager by container.calls.collectAsStateWithLifecycle()
             val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
-            CompositionLocalProvider(LocalHapticLevel provides vibration.toHapticLevel()) {
+            CompositionLocalProvider(
+                LocalHapticLevel provides vibration.toHapticLevel(),
+                LocalNotices provides container.notices,
+            ) {
                 BleskTheme(appearance = appearance) {
-                    manager?.let { Call(it) }
+                    Box(Modifier.fillMaxSize()) {
+                        manager?.let { Call(it) }
+                        NoticeHost(container.notices, Modifier.align(Alignment.BottomCenter), lift = 160.dp)
+                    }
                 }
             }
         }
@@ -201,7 +211,7 @@ class CallActivity : ComponentActivity() {
             CALL -> {
                 val to = intent.getStringExtra(EXTRA_TO) ?: return
                 if (!manager.call(to, intent.getBooleanExtra(EXTRA_VIDEO, false))) {
-                    Toast.makeText(this, R.string.calls_busy, Toast.LENGTH_SHORT).show()
+                    container.notices.show(getString(R.string.calls_busy))
                 }
             }
             VOICE -> manager.joinVoice(

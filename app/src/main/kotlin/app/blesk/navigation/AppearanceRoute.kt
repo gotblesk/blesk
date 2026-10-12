@@ -1,6 +1,5 @@
 package app.blesk.navigation
 
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import app.blesk.AppContainer
 import app.blesk.R
 import app.blesk.core.data.diagnostics.EventCode
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.feature.settings.AppearanceFileActions
 import app.blesk.feature.settings.AppearanceScreen
 import app.blesk.shared.appearance.Appearance
@@ -26,6 +26,7 @@ import java.io.IOException
 @Composable
 internal fun AppearanceRoute(container: AppContainer, appearance: Appearance, onBack: () -> Unit) {
     val context = LocalContext.current
+    val notify = rememberNotify()
     val scope = rememberCoroutineScope()
     var hasWallpaper by remember { mutableStateOf(container.wallpaper.exists) }
     val resolver = context.contentResolver
@@ -56,7 +57,7 @@ internal fun AppearanceRoute(container: AppContainer, appearance: Appearance, on
                     false
                 }
             }
-            if (ok) Toast.makeText(context, R.string.theme_saved, Toast.LENGTH_SHORT).show()
+            if (ok) notify(context.getString(R.string.theme_saved))
         }
     }
     val openTheme = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -70,10 +71,10 @@ internal fun AppearanceRoute(container: AppContainer, appearance: Appearance, on
                 }
             }
             if (file == null) {
-                Toast.makeText(context, failed, Toast.LENGTH_SHORT).show()
+                notify(failed)
             } else {
                 change(appearance.copy(theme = file.theme))
-                Toast.makeText(context, R.string.theme_opened, Toast.LENGTH_SHORT).show()
+                notify(context.getString(R.string.theme_opened))
             }
         }
     }

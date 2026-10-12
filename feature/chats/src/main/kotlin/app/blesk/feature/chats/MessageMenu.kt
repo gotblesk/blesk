@@ -1,6 +1,5 @@
 package app.blesk.feature.chats
 
-import android.content.ClipData
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -24,15 +23,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -42,10 +38,10 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.rememberCopy
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /** Quick reactions offered in the message menu. User content, not interface icons. */
 internal val QuickReactions = listOf("❤️", "👍", "🔥", "😂", "😮", "😢")
@@ -66,8 +62,7 @@ internal fun MessageMenu(
     onSelect: (() -> Unit)? = null,
     onRetry: (() -> Unit)? = null,
 ) {
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
+    val copy = rememberCopy()
     val closeLabel = stringResource(R.string.chat_close)
     fun act(action: () -> Unit) {
         action()
@@ -139,7 +134,7 @@ internal fun MessageMenu(
                     showChevron = false,
                     onClick = {
                         act {
-                            scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("blesk", message.text))) }
+                            copy(message.text, false)
                         }
                     },
                 )
