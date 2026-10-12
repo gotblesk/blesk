@@ -14,13 +14,21 @@ import app.blesk.core.design.icon.BleskIcons
  * size. Either way the pictures are re-encoded, so place and camera never leave the phone.
  */
 @Composable
-fun QualitySheet(count: Int, originalBytes: Long, onSend: (original: Boolean) -> Unit, onDismiss: () -> Unit) {
-    val size = Formatter.formatShortFileSize(LocalContext.current, originalBytes)
+fun QualitySheet(
+    count: Int,
+    originalBytes: Long,
+    compressedBytes: Long,
+    onSend: (original: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val size = Formatter.formatShortFileSize(context, originalBytes)
+    val compressed = Formatter.formatShortFileSize(context, compressedBytes)
     MenuSheet(title = pluralStringResource(R.plurals.quality_title, count, count), onDismiss = onDismiss) {
         Card {
             ListRow(
                 title = stringResource(R.string.quality_compressed),
-                subtitle = stringResource(R.string.quality_compressed_hint),
+                subtitle = stringResource(R.string.quality_compressed_hint, compressed),
                 icon = BleskIcons.Image,
                 showChevron = false,
                 onClick = { onSend(false) },

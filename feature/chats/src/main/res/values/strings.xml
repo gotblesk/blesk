@@ -396,7 +396,7 @@
         <item quantity="other">Отправить %1$d фото или видео</item>
     </plurals>
     <string name="quality_compressed">Сжатое</string>
-    <string name="quality_compressed_hint">Меньше и быстрее, для экрана телефона хватает</string>
+    <string name="quality_compressed_hint">Около %1$s, для экрана телефона хватает</string>
     <string name="quality_original">Оригинал</string>
     <string name="quality_original_hint">Полный размер, сейчас %1$s</string>
     <string name="media_transfer">%1$s из %2$s</string>

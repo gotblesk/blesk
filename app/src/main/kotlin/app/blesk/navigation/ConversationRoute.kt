@@ -2,6 +2,8 @@ package app.blesk.navigation
 
 import android.Manifest
 import android.content.Context
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -56,10 +58,12 @@ import app.blesk.shared.protocol.BotCommand
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -331,9 +335,13 @@ internal fun ConversationRoute(
             }
             if (picked.isNotEmpty()) {
                 val originalBytes = remember(picked) { picked.sumOf { uri -> sizeOf(context, uri) } }
+                val compressedBytes by produceState(originalBytes, picked) {
+                    value = withContext(Dispatchers.IO) { picked.sumOf { uri -> compressedSizeOf(context, uri) } }
+                }
                 QualitySheet(
                     count = picked.size,
                     originalBytes = originalBytes,
+                    compressedBytes = compressedBytes,
                     onSend = ::sendPicked,
                     onDismiss = { picked = emptyList() },
                 )
@@ -341,6 +349,36 @@ internal fun ConversationRoute(
         }
     }
 }
+
+/**
+ * Roughly what «Сжатое» comes to: a photo at 2560 px in JPEG takes about a byte for every eight
+ * pixels, a video at 720p about two and a half megabits a second; never more than the original.
+ */
+private fun compressedSizeOf(context: Context, uri: Uri): Long {
+    val original = sizeOf(context, uri)
+    val mime = context.contentResolver.getType(uri).orEmpty()
+    val estimate = if (mime.startsWith("video/")) {
+        val retriever = MediaMetadataRetriever()
+        val millis = runCatching {
+            retriever.setDataSource(context, uri)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+        }.getOrNull().also { retriever.release() } ?: return original
+        millis * VIDEO_BITS_PER_SECOND / BITS_PER_BYTE / MILLIS_PER_SECOND
+    } else {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        runCatching { context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } }
+        val longest = maxOf(bounds.outWidth, bounds.outHeight).takeIf { it > 0 } ?: return original
+        val scale = minOf(1.0, PHOTO_SIDE / longest)
+        (bounds.outWidth * scale * bounds.outHeight * scale / PIXELS_PER_BYTE).toLong()
+    }
+    return if (original > 0) minOf(original, estimate) else estimate
+}
+
+private const val VIDEO_BITS_PER_SECOND = 2_500_000L
+private const val BITS_PER_BYTE = 8L
+private const val MILLIS_PER_SECOND = 1_000L
+private const val PHOTO_SIDE = 2560.0
+private const val PIXELS_PER_BYTE = 8.0
 
 /** The size a picked file reports, or 0 if it does not say. */
 private fun sizeOf(context: Context, uri: Uri): Long = runCatching {
