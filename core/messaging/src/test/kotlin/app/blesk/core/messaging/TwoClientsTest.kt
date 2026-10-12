@@ -127,6 +127,24 @@ class TwoClientsTest {
     }
 
     @Test
+    fun onlineStatusReachesContacts() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        alice.register()
+        bob.register()
+        alice.repo.start()
+        bob.repo.start()
+        runBlocking { alice.repo.openDirect("bob") }
+        alice.repo.send("bob", "привет")
+        eventually { bob.messages("alice").firstOrNull() }
+
+        alice.repo.setForeground(true)
+        eventually { bob.repo.presence.value["alice"]?.takeIf { it.online } }
+        alice.repo.setForeground(false)
+        eventually { bob.repo.presence.value["alice"]?.takeIf { !it.online && it.lastSeen != null } }
+    }
+
+    @Test
     fun conversationEndToEnd() {
         val alice = Client("alice", "Алиса")
         val bob = Client("bob", "Боб")

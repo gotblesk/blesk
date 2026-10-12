@@ -35,8 +35,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -68,6 +70,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
@@ -126,6 +129,8 @@ fun ChatList(
     /** Swipe right: read, or back to unread. */
     onSwipeRead: ((Conversation) -> Unit)? = null,
     archivedCount: Int = 0,
+    /** Direct chats whose person is online right now; they get the dot of light. */
+    online: ImmutableSet<String> = persistentSetOf(),
     onOpenArchive: (() -> Unit)? = null,
     /** Pinned chats dragged into a new order; null keeps the order fixed. */
     onReorderPinned: ((List<String>) -> Unit)? = null,
@@ -151,90 +156,95 @@ fun ChatList(
         .sortedWith(compareBy<Conversation> { it.pinRank }.thenByDescending { it.kind == ConversationKind.Saved })
     val rest = conversations.filterNot { it.pinned && !it.isRoomCluster() }
     val rowModifier = Modifier.padding(horizontal = Blesk.dimens.gutter - 6.dp)
-    LazyColumn(
-        state = state,
-        modifier = modifier
-            .fillMaxSize()
-            .then(if (pulling) Modifier.nestedScroll(pull) else Modifier),
-        contentPadding = PaddingValues(
-            top = contentPadding.calculateTopPadding() + 4.dp,
-            bottom = contentPadding.calculateBottomPadding() + 16.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        header?.invoke(this)
-        if (archivedCount > 0 && onOpenArchive != null) {
-            if (archiveFolded) {
-                item(key = "archive-pull") { ArchivePull(pull, rowModifier) }
-            } else {
-                item(key = "archive") {
-                    SwipeRow(
-                        conversation = null,
-                        onArchive = onFoldArchive?.let { fold -> { fold(true) } },
-                        onRead = null,
-                        leftIcon = BleskIcons.ArrowUp,
-                        leftLabel = stringResource(R.string.chats_archive_fold),
-                        modifier = rowModifier.then(listMotion()),
-                    ) { ArchiveRow(archivedCount, onOpenArchive, Modifier) }
+    CompositionLocalProvider(LocalOnline provides online) {
+        LazyColumn(
+            state = state,
+            modifier = modifier
+                .fillMaxSize()
+                .then(if (pulling) Modifier.nestedScroll(pull) else Modifier),
+            contentPadding = PaddingValues(
+                top = contentPadding.calculateTopPadding() + 4.dp,
+                bottom = contentPadding.calculateBottomPadding() + 16.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            header?.invoke(this)
+            if (archivedCount > 0 && onOpenArchive != null) {
+                if (archiveFolded) {
+                    item(key = "archive-pull") { ArchivePull(pull, rowModifier) }
+                } else {
+                    item(key = "archive") {
+                        SwipeRow(
+                            conversation = null,
+                            onArchive = onFoldArchive?.let { fold -> { fold(true) } },
+                            onRead = null,
+                            leftIcon = BleskIcons.ArrowUp,
+                            leftLabel = stringResource(R.string.chats_archive_fold),
+                            modifier = rowModifier.then(listMotion()),
+                        ) { ArchiveRow(archivedCount, onOpenArchive, Modifier) }
+                    }
                 }
             }
-        }
-        if (pinned.isNotEmpty()) {
-            item(key = "pinned") {
-                PinnedCluster(
-                    pinned = pinned.toImmutableList(),
-                    onReorder = onReorderPinned,
-                    onMenu = onLongPress,
-                    modifier = rowModifier.then(listMotion()).padding(bottom = 8.dp),
-                ) { conversation, menuInGesture ->
+            if (pinned.isNotEmpty()) {
+                item(key = "pinned") {
+                    PinnedCluster(
+                        pinned = pinned.toImmutableList(),
+                        onReorder = onReorderPinned,
+                        onMenu = onLongPress,
+                        modifier = rowModifier.then(listMotion()).padding(bottom = 8.dp),
+                    ) { conversation, menuInGesture ->
+                        SwipeRow(
+                            conversation = conversation,
+                            onArchive = onSwipeUnpin?.let { swipe -> { swipe(conversation) } },
+                            onRead = null,
+                            leftIcon = BleskIcons.Pin,
+                            leftLabel = stringResource(R.string.chats_unpin),
+                        ) {
+                            ConversationRow(
+                                conversation = conversation,
+                                typing = conversation.id in typing,
+                                now = now,
+                                onClick = { onOpenConversation(conversation.id) },
+                                // While the order can change, the long press lifts the capsule and the menu opens on release.
+                                onLongClick = if (menuInGesture) null else onLongPress?.let { press -> { press(conversation) } },
+                                onCapsule = true,
+                            )
+                        }
+                    }
+                }
+            }
+            items(rest, key = { it.id }) { conversation ->
+                if (conversation.isRoomCluster()) {
+                    RoomCluster(
+                        room = conversation,
+                        initiallyOpen = conversation.id in openRooms,
+                        now = now,
+                        onOpenChannel = { onOpenChannel(conversation, it) },
+                        modifier = rowModifier.padding(vertical = 6.dp),
+                    )
+                } else {
                     SwipeRow(
                         conversation = conversation,
-                        onArchive = onSwipeUnpin?.let { swipe -> { swipe(conversation) } },
-                        onRead = null,
-                        leftIcon = BleskIcons.Pin,
-                        leftLabel = stringResource(R.string.chats_unpin),
+                        onArchive = onSwipeArchive?.let { swipe -> { swipe(conversation) } },
+                        onRead = onSwipeRead?.let { swipe -> { swipe(conversation) } },
+                        modifier = rowModifier.then(listMotion()),
                     ) {
                         ConversationRow(
                             conversation = conversation,
                             typing = conversation.id in typing,
                             now = now,
                             onClick = { onOpenConversation(conversation.id) },
-                            // While the order can change, the long press lifts the capsule and the menu opens on release.
-                            onLongClick = if (menuInGesture) null else onLongPress?.let { press -> { press(conversation) } },
-                            onCapsule = true,
+                            onLongClick = onLongPress?.let { press -> { press(conversation) } },
                         )
                     }
                 }
             }
         }
-        items(rest, key = { it.id }) { conversation ->
-            if (conversation.isRoomCluster()) {
-                RoomCluster(
-                    room = conversation,
-                    initiallyOpen = conversation.id in openRooms,
-                    now = now,
-                    onOpenChannel = { onOpenChannel(conversation, it) },
-                    modifier = rowModifier.padding(vertical = 6.dp),
-                )
-            } else {
-                SwipeRow(
-                    conversation = conversation,
-                    onArchive = onSwipeArchive?.let { swipe -> { swipe(conversation) } },
-                    onRead = onSwipeRead?.let { swipe -> { swipe(conversation) } },
-                    modifier = rowModifier.then(listMotion()),
-                ) {
-                    ConversationRow(
-                        conversation = conversation,
-                        typing = conversation.id in typing,
-                        now = now,
-                        onClick = { onOpenConversation(conversation.id) },
-                        onLongClick = onLongPress?.let { press -> { press(conversation) } },
-                    )
-                }
-            }
-        }
     }
 }
+
+/** Who is online, for the dots on the avatars of the rows below. */
+internal val LocalOnline = compositionLocalOf<Set<String>> { emptySet() }
 
 /** Rows glide to their new place when a chat is pinned, archived or moves up with a new message. */
 @Composable
@@ -603,7 +613,13 @@ private fun ConversationRow(
 @Composable
 internal fun ConversationSummary(conversation: Conversation, typing: Boolean, now: Instant, modifier: Modifier = Modifier) {
     val muted = conversation.muted(now.toEpochMilli())
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    val online = conversation.id in LocalOnline.current
+    val onlineLabel = stringResource(R.string.chat_online_spoken)
+    Row(
+        modifier = modifier.semantics { if (online) stateDescription = onlineLabel },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
         if (conversation.kind == ConversationKind.Saved) {
             SavedAvatar()
         } else if (conversation.faces.size >= 2) {
@@ -615,6 +631,7 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
                 protected = conversation.protection == Protection.EndToEnd &&
                     conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
                 modifier = Modifier.sharedElement(avatarKey(conversation.id)),
+                online = online,
             )
         }
         Column(Modifier.weight(1f)) {

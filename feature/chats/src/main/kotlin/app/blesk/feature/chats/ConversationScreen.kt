@@ -66,6 +66,7 @@ import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.Message
+import app.blesk.core.data.model.Presence
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.GestureHint
@@ -106,6 +107,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.PI
 import kotlin.math.sin
@@ -179,6 +181,8 @@ fun ConversationScreen(
     demo: Boolean = false,
     /** People who can be mentioned with "@" in a group or room. */
     members: ImmutableList<Contact> = persistentListOf(),
+    /** What the other person of a direct chat last said about being online. */
+    presence: Presence? = null,
     /** You blocked the other person: instead of the composer there is «Разблокировать». */
     blocked: Boolean = false,
     /** Gesture hints already learned; by default none are offered. */
@@ -352,7 +356,7 @@ fun ConversationScreen(
                         Column {
                             ChatHeader(
                                 conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo,
-                                callbacks.onCall, demo,
+                                callbacks.onCall, demo, presence,
                             )
                             ConnectionStatus(connection, callbacks.onReconnect)
                             if (pinned.isNotEmpty()) {
@@ -617,11 +621,14 @@ private fun ChatHeader(
     onOpenInfo: (() -> Unit)?,
     onCall: ((Boolean) -> Unit)?,
     demo: Boolean,
+    presence: Presence?,
 ) {
     val protected = conversation.protection == Protection.EndToEnd
+    val now = Instant.now()
     val encryption = stringResource(if (protected) R.string.chat_e2ee_spoken else R.string.chat_not_e2ee_spoken)
     val status = when {
         typing -> stringResource(R.string.chats_typing)
+        presence?.isOnline(now) == true -> stringResource(R.string.chat_online)
         conversation.timerSeconds > 0 -> stringResource(R.string.chat_timer, timerLabel(conversation.timerSeconds))
         conversation.kind == ConversationKind.Saved -> stringResource(R.string.chat_saved_status)
         conversation.kind == ConversationKind.Bot -> stringResource(R.string.chat_bot_label)
@@ -629,6 +636,7 @@ private fun ChatHeader(
             pluralStringResource(R.plurals.chats_subscribers, conversation.memberCount, conversation.memberCount)
         conversation.kind == ConversationKind.Group || conversation.kind == ConversationKind.Room ->
             pluralStringResource(R.plurals.chats_members, conversation.memberCount, conversation.memberCount)
+        presence?.wasRecent(now) == true -> stringResource(R.string.chat_recently)
         else -> "@${conversation.id}"
     }
     val openLabel = stringResource(R.string.chat_open_profile)

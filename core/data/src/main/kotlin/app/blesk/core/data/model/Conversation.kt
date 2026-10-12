@@ -7,6 +7,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.time.Duration
 import java.time.Instant
 
 /** How a conversation is protected. Drives the glint: only [EndToEnd] shines. */
@@ -129,6 +130,23 @@ sealed interface Attachment {
 
 /** A reaction and who left it. [mine] is whether the phone owner is among them. */
 data class Reaction(val symbol: String, val count: Int, val mine: Boolean)
+
+/** What someone last told you about being online; [lastSeen] is when they went away. */
+data class Presence(val online: Boolean, val lastSeen: Instant?, val heardAt: Instant) {
+    /** Online only while fresh: a phone that drops off the network cannot say goodbye. */
+    fun isOnline(now: Instant): Boolean = online && Duration.between(heardAt, now) < STALE
+
+    /** Seen within a day: shown as «недавно в сети», never as an exact time. */
+    fun wasRecent(now: Instant): Boolean {
+        val last = if (online) heardAt else lastSeen ?: return false
+        return Duration.between(last, now) < RECENT
+    }
+
+    companion object {
+        val STALE: Duration = Duration.ofMinutes(5)
+        val RECENT: Duration = Duration.ofDays(1)
+    }
+}
 
 /**
  * The house reaction «блик», set by a double tap: a token rather than an emoji, drawn as a spark

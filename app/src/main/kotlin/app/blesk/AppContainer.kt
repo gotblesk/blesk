@@ -94,9 +94,13 @@ class AppContainer(context: Context) {
     /** A message for another chat while the app is in front: shown as a capsule instead of a system notification. */
     val inAppNote = MutableStateFlow<InAppNote?>(null)
 
-    /** Whether one of the app's screens is in front of the user. */
+    /** Whether one of the app's screens is in front of the user; «в сети» follows it. */
     @Volatile
     var visible = false
+        set(value) {
+            field = value
+            chats.value?.setForeground(value)
+        }
 
     private val callsState = MutableStateFlow<CallManager?>(null)
     private var callsScope: CoroutineScope? = null
@@ -135,6 +139,7 @@ class AppContainer(context: Context) {
     }
 
     private fun show(repository: ChatRepository, http: (() -> OkHttpClient)?) {
+        repository.setForeground(visible)
         callsScope?.cancel()
         callsState.value?.media?.disconnect()
         val callScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))

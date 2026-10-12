@@ -141,6 +141,8 @@ internal fun Home(
     }
     val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by chats.typing.collectAsStateWithLifecycle()
+    val presence by chats.presence.collectAsStateWithLifecycle()
+    val online = remember(presence) { presence.filterValues { it.isOnline(Instant.now()) }.keys.toImmutableSet() }
     var searching by rememberSaveable { mutableStateOf(false) }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     val query = rememberTextFieldState()
@@ -277,6 +279,7 @@ internal fun Home(
                             onSwipeArchive = { chats.setArchived(it.id, true) },
                             onSwipeRead = { toggleRead(chats, it) },
                             archivedCount = archived,
+                            online = online,
                             onOpenArchive = onOpenArchive,
                             onReorderPinned = { order ->
                                 chats.reorderPinned(order)
@@ -303,6 +306,7 @@ internal fun Home(
                     contentPadding = padding,
                     actions = contactActions,
                     state = contactsList,
+                    online = online,
                     lastWritten = remember(conversations) {
                         conversations.filter { it.kind == ConversationKind.Direct }.associate { it.id to it.updatedAt }
                     },

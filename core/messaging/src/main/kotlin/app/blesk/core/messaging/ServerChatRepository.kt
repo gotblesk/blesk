@@ -28,6 +28,7 @@ import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
+import app.blesk.core.data.model.Presence
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.model.splitLongText
@@ -81,10 +82,12 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.time.Instant
 import java.util.Base64
 import java.util.UUID
 
@@ -223,6 +226,7 @@ class ServerChatRepository(
         }
         scope.launch { socket.frames.collect { frame -> handle(frame) } }
         scope.launch { socket.connected.filter { it }.collect { flush() } }
+        scope.launch { socket.connected.filter { it }.collect { if (foreground) announce(online = true) } }
         // The server only keeps whether you can be found by name; it is told again on every connection.
         scope.launch { socket.connected.filter { it }.collect { setDiscoverable(privacy().findable) } }
         scope.launch { socket.connected.filter { !it }.collect { synced.value = false } }
@@ -512,13 +516,61 @@ class ServerChatRepository(
     override fun setTyping(conversationId: String, active: Boolean) {
         if (!privacy().typingIndicator) return
         scope.launch {
-            if (groups.groupOf(conversationId) != null || !crypto.hasSessionSafe(conversationId)) return@launch
-            runCatching {
-                val content = Content(UUID.randomUUID().toString(), clock(), Body.Typing(active))
-                val sealed = withContext(Dispatchers.IO) { crypto.encrypt(conversationId, content) }
-                api.send(conversationId, OutgoingMessage(content.id, sealed.type, sealed.body, ephemeral = true))
+            if (groups.groupOf(conversationId) != null) return@launch
+            sendEphemeral(conversationId, Body.Typing(active))
+        }
+    }
+
+    /** Something that only matters right now: never queued, never starts a session, lost if they are offline. */
+    private suspend fun sendEphemeral(to: String, body: Body) {
+        if (!crypto.hasSessionSafe(to)) return
+        runCatching {
+            val content = Content(UUID.randomUUID().toString(), clock(), body)
+            val sealed = withContext(Dispatchers.IO) { crypto.encrypt(to, content) }
+            api.send(to, OutgoingMessage(content.id, sealed.type, sealed.body, ephemeral = true))
+        }
+    }
+
+    // Presence
+
+    private val presenceState = MutableStateFlow<Map<String, Presence>>(emptyMap())
+    override val presence: StateFlow<Map<String, Presence>> = presenceState.asStateFlow()
+
+    @Volatile
+    private var foreground = false
+    private var heartbeat: Job? = null
+
+    override fun setForeground(foreground: Boolean) {
+        if (this.foreground == foreground) return
+        this.foreground = foreground
+        heartbeat?.cancel()
+        heartbeat = scope.launch {
+            if (!foreground) {
+                announce(online = false)
+                return@launch
+            }
+            // Online fades on the other side unless repeated, since a phone that loses the network cannot say goodbye.
+            while (isActive) {
+                announce(online = true)
+                delay(HEARTBEAT_MILLIS)
             }
         }
+    }
+
+    /** Tells the people allowed to see it whether you are online: your recent direct chats, or just [only]. */
+    private suspend fun announce(online: Boolean, only: String? = null, reply: Boolean = false) {
+        val audience = privacy().online
+        if (audience == Audience.Nobody) return
+        val peers = only?.let(::listOf) ?: db.conversations().recentDirect(PRESENCE_PEERS)
+        val body = Body.Presence(online, if (online) null else clock(), reply)
+        peers.filter { it != me && !bots.isBot(it) && allowed(it, audience) }.forEach { sendEphemeral(it, body) }
+    }
+
+    private suspend fun receivePresence(sender: String, body: Body.Presence) {
+        val heard = Instant.ofEpochMilli(clock())
+        presenceState.update { it + (sender to Presence(body.online, body.lastSeenMillis?.let(Instant::ofEpochMilli), heard)) }
+        // Someone just came online: they learn about you too, if they may.
+        if (body.online && !body.reply && foreground) announce(online = true, only = sender, reply = true)
     }
 
     // Groups and rooms
@@ -843,6 +895,7 @@ class ServerChatRepository(
             is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
             is Body.CallOffer, is Body.CallAnswer, is Body.CallEnd, is Body.Timer -> applyControl(sender, content, body)
             is Body.Profile -> receiveProfile(sender, body)
+            is Body.Presence -> receivePresence(sender, body)
         }
     }
 
@@ -1011,6 +1064,8 @@ class ServerChatRepository(
     private suspend fun MessageCrypto.hasSessionSafe(username: String) = withContext(Dispatchers.IO) { hasSession(username) }
 
     private companion object {
+        const val HEARTBEAT_MILLIS = 4 * 60_000L
+        const val PRESENCE_PEERS = 30
         const val UNAUTHORIZED = 401
         const val TOO_MANY = 429
         val CLIENT_ERRORS = 400..499

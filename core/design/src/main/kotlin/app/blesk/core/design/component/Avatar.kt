@@ -48,6 +48,8 @@ fun Avatar(
     photo: ImageBitmap? = null,
     protected: Boolean = false,
     key: String = name,
+    /** A dot of the theme's light on the edge: the person is online right now. */
+    online: Boolean = false,
 ) {
     val letter = name.trim().firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString().orEmpty()
     val dark = Blesk.colors.isDark
@@ -62,6 +64,7 @@ fun Avatar(
             .size(size)
             .let { if (protected && strength > 0f) it.rimGlint(light, strength) { source.value } else it }
             .background(fill, CircleShape)
+            .let { if (online) it.onlineDot(size) else it }
             .clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {
@@ -122,6 +125,31 @@ private const val PAIR_SHARE = 0.6f
 private const val TRIO_SHARE = 0.5f
 private const val BRIDGE_SHARE = 0.3f
 private val RIM = 1.5.dp
+
+/** The «в сети» dot: 8 dp of the theme's light, ringed with the background so it reads on any avatar. */
+@Composable
+private fun Modifier.onlineDot(size: Dp): Modifier {
+    val colors = Blesk.colors
+    // The light itself, not a contrast-corrected grey: in the pale theme a grey dot would read as «away».
+    val dot = colors.light
+    val ring = colors.background
+    val edge = if (colors.isDark) colors.background else colors.textPrimary
+    return drawWithContent {
+        drawContent()
+        val r = OnlineDot.toPx() / 2f
+        // On the rim at about half past four, where a dot sits naturally on a round face.
+        val center = Offset(this.size.width * DOT_AT, this.size.height * DOT_AT)
+        drawCircle(ring, r + DotRing.toPx(), center)
+        drawCircle(edge, r + DotEdge.toPx(), center)
+        drawCircle(dot, r, center)
+    }.let { if (size < MIN_DOTTED) this else it }
+}
+
+private val OnlineDot = 8.dp
+private val DotRing = 2.5.dp
+private val DotEdge = 1.dp
+private val MIN_DOTTED = 20.dp
+private const val DOT_AT = 0.85f
 
 /** The colour a monogram avatar of [key] sits on, for shapes that grow out of it. */
 @Composable

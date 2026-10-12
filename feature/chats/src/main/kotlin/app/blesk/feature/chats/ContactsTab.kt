@@ -52,6 +52,8 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import java.time.Instant
 
+private enum class ContactOrder { Name, Recent, Online }
+
 class ContactActions(
     val onOpen: (Contact) -> Unit,
     val onWrite: (Contact) -> Unit,
@@ -75,15 +77,23 @@ fun ContactsTab(
     state: LazyListState = rememberLazyListState(),
     /** When you last wrote to each person, by contact id; it orders «Недавние». */
     lastWritten: Map<String, Instant> = emptyMap(),
+    /** Who is online right now, by contact id. */
+    online: Set<String> = emptySet(),
 ) {
-    var recentFirst by rememberSaveable { mutableStateOf(false) }
+    var order by rememberSaveable { mutableStateOf(ContactOrder.Name) }
     var menuFor by remember { mutableStateOf<Contact?>(null) }
-    val shown = remember(contacts, query, recentFirst, lastWritten) {
+    val shown = remember(contacts, query, order, lastWritten, online) {
         val needle = query.trim().removePrefix("@")
         val byName = compareBy(String.CASE_INSENSITIVE_ORDER) { contact: Contact -> contact.name }
         contacts
             .filter { needle.isEmpty() || it.name.contains(needle, ignoreCase = true) || it.username.contains(needle, ignoreCase = true) }
-            .sortedWith(if (recentFirst) compareByDescending<Contact> { lastWritten[it.id] }.then(byName) else byName)
+            .sortedWith(
+                when (order) {
+                    ContactOrder.Name -> byName
+                    ContactOrder.Recent -> compareByDescending<Contact> { lastWritten[it.id] }.then(byName)
+                    ContactOrder.Online -> compareByDescending<Contact> { it.id in online }.then(byName)
+                },
+            )
     }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -101,9 +111,13 @@ fun ContactsTab(
         if (query.isBlank() && contacts.size > 1) {
             item(key = "sort") {
                 Segmented(
-                    options = persistentListOf(stringResource(R.string.contacts_by_name), stringResource(R.string.contacts_recent)),
-                    selected = if (recentFirst) 1 else 0,
-                    onSelect = { recentFirst = it == 1 },
+                    options = persistentListOf(
+                        stringResource(R.string.contacts_by_name),
+                        stringResource(R.string.contacts_recent),
+                        stringResource(R.string.contacts_online),
+                    ),
+                    selected = order.ordinal,
+                    onSelect = { order = ContactOrder.entries[it] },
                     modifier = Modifier.padding(vertical = 4.dp),
                 )
             }
@@ -113,7 +127,7 @@ fun ContactsTab(
                 StateMessage(stringResource(if (query.isBlank()) R.string.contacts_empty else R.string.contacts_nothing_found))
             }
         }
-        items(shown, key = { it.id }) { contact -> ContactRow(contact, actions) { menuFor = contact } }
+        items(shown, key = { it.id }) { contact -> ContactRow(contact, contact.id in online, actions) { menuFor = contact } }
     }
     menuFor?.let { contact -> ContactMenu(contact, actions) { menuFor = null } }
 }
@@ -165,7 +179,7 @@ private fun InviteRow(onInvite: () -> Unit) {
 
 /** A person on the background; a capsule rises under the finger while it is pressed. */
 @Composable
-private fun ContactRow(contact: Contact, actions: ContactActions, onMenu: () -> Unit) {
+private fun ContactRow(contact: Contact, online: Boolean, actions: ContactActions, onMenu: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val press by animateFloatAsState(if (pressed) 1f else 0f, label = "press")
@@ -198,7 +212,7 @@ private fun ContactRow(contact: Contact, actions: ContactActions, onMenu: () -> 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Avatar(contact.name, key = contact.username)
+            Avatar(contact.name, key = contact.username, online = online)
             Column(Modifier.weight(1f)) {
                 Text(contact.name, style = Blesk.type.bodyStrong, maxLines = 1)
                 Text("@${contact.username}", style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)

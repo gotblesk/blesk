@@ -193,6 +193,7 @@ class KeyScreensScreenshotTest(private val name: String) {
                 contentPadding = padding,
                 onOpenConversation = {},
                 onOpenChannel = { _, _ -> },
+                online = persistentSetOf(DemoSeed.ANYA, DemoSeed.MISHA),
             )
         }
     }

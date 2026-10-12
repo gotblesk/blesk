@@ -20,6 +20,9 @@ interface ConversationDao {
     @Query("SELECT * FROM conversations WHERE id = :id")
     suspend fun get(id: String): ConversationEntity?
 
+    @Query("SELECT id FROM conversations WHERE kind = 'Direct' ORDER BY updatedAt DESC LIMIT :limit")
+    suspend fun recentDirect(limit: Int): List<String>
+
     @Query("SELECT * FROM conversations WHERE parentId = :parentId")
     suspend fun children(parentId: String): List<ConversationEntity>
 

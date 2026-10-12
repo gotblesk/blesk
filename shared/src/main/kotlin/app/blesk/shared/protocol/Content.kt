@@ -43,6 +43,14 @@ sealed interface Body {
     @SerialName("typing")
     data class Typing(val active: Boolean) : Body
 
+    /**
+     * «В сети», sent only to people allowed to see it, end to end like everything else. [reply]
+     * marks an answer to someone who just came online, so answers are never answered again.
+     */
+    @Serializable
+    @SerialName("presence")
+    data class Presence(val online: Boolean, val lastSeenMillis: Long? = null, val reply: Boolean = false) : Body
+
     @Serializable
     @SerialName("reaction")
     data class Reaction(val target: String, val symbol: String, val remove: Boolean = false) : Body

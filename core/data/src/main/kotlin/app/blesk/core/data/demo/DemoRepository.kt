@@ -14,6 +14,7 @@ import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.ME
 import app.blesk.core.data.model.Message
+import app.blesk.core.data.model.Presence
 import app.blesk.core.data.model.Preview
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.Reaction
@@ -29,11 +30,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 
@@ -77,6 +82,20 @@ class DemoRepository(
     }
 
     override val typing: StateFlow<Set<String>> = typingState.asStateFlow()
+
+    // Аня is around and Миша was here a couple of hours ago; refreshed so Аня never goes stale.
+    override val presence: StateFlow<Map<String, Presence>> = flow {
+        while (true) {
+            val now = clock()
+            emit(
+                mapOf(
+                    DemoSeed.ANYA to Presence(online = true, lastSeen = null, heardAt = now),
+                    DemoSeed.MISHA to Presence(online = false, lastSeen = now.minus(Duration.ofHours(2)), heardAt = now),
+                ),
+            )
+            delay(PRESENCE_REFRESH_MILLIS)
+        }
+    }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
 
     override fun conversation(id: String): Flow<Conversation?> = all.map { list -> list.firstOrNull { it.id == id } }
 
@@ -332,6 +351,7 @@ class DemoRepository(
 
     companion object {
         private const val STATUS_STEP_MILLIS = 450L
+        private const val PRESENCE_REFRESH_MILLIS = 60_000L
         private const val TYPING_MILLIS = 1400L
         private const val SEARCH_LIMIT = 100
         private const val MILLIS_PER_SECOND = 1000L

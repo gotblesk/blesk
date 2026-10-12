@@ -84,6 +84,7 @@ internal fun ConversationRoute(
     val hintsSeen by container.settings.hintsSeen
         .map { seen -> GestureHint.entries.filter { it.name in seen }.toSet() }
         .collectAsStateWithLifecycle(initialValue = GestureHint.entries.toSet())
+    val presence by demo.presence.collectAsStateWithLifecycle()
     val blockedPeople by remember(demo) { demo.blocked }.collectAsStateWithLifecycle(initialValue = emptyList())
     val doubleTapReaction by container.settings.doubleTapReaction.collectAsStateWithLifecycle(initialValue = GLINT_REACTION)
     val wallpaper by produceState<ImageBitmap?>(null, wallpaperVersion) {
@@ -282,6 +283,7 @@ internal fun ConversationRoute(
                 sendByEnter = sendByEnter,
                 doubleTapReaction = doubleTapReaction,
                 blocked = direct && blockedPeople.any { it.id == id || it.username == id },
+                presence = if (direct) presence[id] else null,
                 hintsSeen = hintsSeen,
                 onHintDone = { hint -> scope.launch { container.settings.markHint(hint) } },
                 recentEmoji = recentEmoji.toImmutableList(),

@@ -4,8 +4,10 @@ import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.Message
+import app.blesk.core.data.model.Presence
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 
@@ -98,6 +100,12 @@ interface PeopleControls {
 
     /** Whether people may find you by typing your username. */
     suspend fun setDiscoverable(discoverable: Boolean) = Unit
+
+    /** What people allowed to tell you have said about being online, by username. */
+    val presence: StateFlow<Map<String, Presence>> get() = MutableStateFlow(emptyMap())
+
+    /** The app came to the front or went away; online status follows it. */
+    fun setForeground(foreground: Boolean) = Unit
 }
 
 /** Things you do to a chat besides writing in it. */
