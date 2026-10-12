@@ -63,6 +63,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.lerp
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.blesk.core.design.R
@@ -73,6 +74,7 @@ import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.condense
 import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
@@ -124,7 +126,8 @@ fun TopLens(
                 Text(
                     text = title,
                     style = when {
-                        large -> Blesk.type.display
+                        // A collapsible title shrinks into the lens and grows denser on the way.
+                        collapsed != null -> condense(lerp(Blesk.type.display, Blesk.type.title, glass), glass)
                         onBack == null -> Blesk.type.title
                         else -> Blesk.type.headline
                     },

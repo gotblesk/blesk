@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.blesk.core.design.R
+import kotlin.math.roundToInt
 
 /** Onest is variable (100–900); each weight is an instance of the one bundled file. */
 private fun onest(weight: Int) = Font(
@@ -24,10 +25,32 @@ val Onest = FontFamily(
     onest(450),
     onest(500),
     onest(560),
-    onest(620),
+    onest(600),
+    // Every step a condensing heading passes through, so its weight grows smoothly rather than jumping.
+    onest(625),
+    onest(650),
+    onest(675),
     onest(700),
+    onest(725),
+    onest(750),
     onest(800),
 )
+
+/**
+ * [style] tightening as a heading gathers into a lens: the weight grows from 600 to 750 in
+ * steps of 25 and the tracking narrows, so a smaller heading keeps its presence.
+ */
+fun condense(style: TextStyle, fraction: Float): TextStyle {
+    val f = fraction.coerceIn(0f, 1f)
+    val weight = ((CONDENSE_FROM + (CONDENSE_TO - CONDENSE_FROM) * f) / CONDENSE_STEP).roundToInt() * CONDENSE_STEP
+    return style.copy(fontWeight = FontWeight(weight), letterSpacing = (TRACK_FROM + (TRACK_TO - TRACK_FROM) * f).em)
+}
+
+private const val CONDENSE_FROM = 600f
+private const val CONDENSE_TO = 750f
+private const val CONDENSE_STEP = 25
+private const val TRACK_FROM = -0.02f
+private const val TRACK_TO = -0.035f
 
 /** Large, dense headings; calm body text. */
 @Immutable
@@ -51,17 +74,19 @@ data class BleskType(
             lineHeight = (line * scale).sp,
             letterSpacing = tracking,
             lineHeightStyle = trim,
+            // Times, counters and sizes keep their width as digits change.
+            fontFeatureSettings = "tnum",
         )
 
         fun create(scale: Float = 1f) = BleskType(
-            display = style(36f, 38f, 800, (-0.035).em, scale),
-            title = style(26f, 30f, 700, (-0.025).em, scale),
-            headline = style(19f, 24f, 620, (-0.01).em, scale),
+            display = style(32f, 38f, 600, (-0.02).em, scale),
+            title = style(22f, 28f, 600, (-0.015).em, scale),
+            headline = style(17f, 22f, 500, (-0.005).em, scale),
             body = style(16f, 22f, 400, 0.em, scale),
             bodyStrong = style(16f, 22f, 560, 0.em, scale),
-            label = style(14f, 18f, 500, 0.005.em, scale),
-            caption = style(12.5f, 16f, 450, 0.01.em, scale),
-            overline = style(11.5f, 14f, 620, 0.08.em, scale),
+            label = style(13f, 18f, 500, 0.005.em, scale),
+            caption = style(11f, 14f, 450, 0.01.em, scale),
+            overline = style(11f, 14f, 620, 0.08.em, scale),
         )
     }
 }

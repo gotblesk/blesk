@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -20,8 +21,10 @@ import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.ProfileHero
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.condense
 
 /** The things the «Ты» header can do. */
 class YouHeaderActions(val onEdit: () -> Unit, val onQr: () -> Unit, val onShare: () -> Unit)
@@ -53,9 +56,11 @@ fun YouHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // The name grows denser as the page scrolls, on its way into the lens.
+            val heroPx = with(LocalDensity.current) { profileHeaderHeight().toPx() }
             Text(
                 text = name,
-                style = Blesk.type.title,
+                style = condense(Blesk.type.title, scroll() / heroPx),
                 maxLines = 2,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.semantics { heading() },

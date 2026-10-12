@@ -22,7 +22,7 @@ data class BleskDimens(
         fun forDensity(density: UiDensity) = when (density) {
             UiDensity.Comfortable -> BleskDimens(
                 gutter = 16.dp, rowHeight = 72.dp, rowGap = 6.dp, sectionGap = 28.dp,
-                avatar = 48.dp, capsuleRadius = 28.dp, cardRadius = 22.dp, hairline = 1.dp, touchTarget = 48.dp,
+                avatar = 52.dp, capsuleRadius = 28.dp, cardRadius = 22.dp, hairline = 1.dp, touchTarget = 48.dp,
             )
             UiDensity.Compact -> BleskDimens(
                 gutter = 14.dp, rowHeight = 62.dp, rowGap = 4.dp, sectionGap = 22.dp,

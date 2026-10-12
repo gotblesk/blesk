@@ -60,6 +60,7 @@ import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.condense
 import coil3.compose.AsyncImage
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -124,7 +125,7 @@ fun PersonProfileScreen(
             )
             Text(
                 text = conversation.title,
-                style = Blesk.type.title,
+                style = condense(Blesk.type.title, scroll.value / headerPx),
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
