@@ -11,6 +11,7 @@ import app.blesk.AppContainer
 import app.blesk.MainActivity
 import app.blesk.R
 import app.blesk.core.data.IncomingMessages
+import app.blesk.core.data.model.Markup
 import app.blesk.core.data.settings.IncomingNote
 import app.blesk.core.data.settings.NotificationPreview
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -55,8 +56,9 @@ internal class MessageNotifier(private val context: Context, private val contain
         val conversation = container.chats.value?.conversation(note.conversationId)?.first()
         if (conversation?.muted(System.currentTimeMillis()) == true) return
         val generic = context.getString(R.string.notify_new_message)
+        val text = Markup.parse(note.text).masked(context.getString(R.string.notify_spoiler))
         val (title, line) = when (settings.preview) {
-            NotificationPreview.NameAndText -> note.title to (note.author?.let { "$it: ${note.text}" } ?: note.text)
+            NotificationPreview.NameAndText -> note.title to (note.author?.let { "$it: $text" } ?: text)
             NotificationPreview.NameOnly -> note.title to generic
             NotificationPreview.Nothing -> context.getString(R.string.app_name) to generic
         }

@@ -2,6 +2,9 @@ package app.blesk.feature.chats
 
 import android.content.ClipData
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,12 +22,15 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
@@ -38,6 +44,7 @@ import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Quick reactions offered in the message menu. User content, not interface icons. */
@@ -56,6 +63,7 @@ internal fun MessageMenu(
     onForward: (() -> Unit)? = null,
     onPin: (() -> Unit)? = null,
     pinned: Boolean = false,
+    onSelect: (() -> Unit)? = null,
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -87,6 +95,7 @@ internal fun MessageMenu(
             if (onReact != null) {
                 Row(
                     modifier = Modifier
+                        .flowIn(order = 0)
                         .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
                         .background(Blesk.colors.surface)
                         .padding(6.dp)
@@ -108,7 +117,7 @@ internal fun MessageMenu(
                     }
                 }
             }
-            Card {
+            Card(Modifier.flowIn(order = 1)) {
                 ListRow(
                     title = stringResource(R.string.chat_reply),
                     icon = BleskIcons.Back,
@@ -141,6 +150,14 @@ internal fun MessageMenu(
                         onClick = { act(pin) },
                     )
                 }
+                onSelect?.let { select ->
+                    ListRow(
+                        title = stringResource(R.string.chat_select),
+                        icon = BleskIcons.Check,
+                        showChevron = false,
+                        onClick = { act(select) },
+                    )
+                }
                 if (message.isOwn && editable) {
                     ListRow(
                         title = stringResource(R.string.chat_edit),
@@ -159,3 +176,31 @@ internal fun MessageMenu(
         }
     }
 }
+
+/**
+ * The menu flows out of the pressed message: each capsule rises and swells from below, one
+ * after another. Under reduced motion it simply appears.
+ */
+@Composable
+private fun Modifier.flowIn(order: Int): Modifier {
+    val reduced = Blesk.motion.reduced
+    val progress = remember { Animatable(if (reduced) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (reduced) return@LaunchedEffect
+        delay(order * FLOW_STAGGER_MS)
+        progress.animateTo(1f, spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow))
+    }
+    return graphicsLayer {
+        val t = progress.value
+        alpha = t.coerceIn(0f, 1f)
+        val scale = FLOW_START_SCALE + (1f - FLOW_START_SCALE) * t
+        scaleX = scale
+        scaleY = scale
+        translationY = (1f - t) * FLOW_RISE_DP.dp.toPx()
+        transformOrigin = TransformOrigin(0.5f, 1f)
+    }
+}
+
+private const val FLOW_STAGGER_MS = 45L
+private const val FLOW_START_SCALE = 0.86f
+private const val FLOW_RISE_DP = 24

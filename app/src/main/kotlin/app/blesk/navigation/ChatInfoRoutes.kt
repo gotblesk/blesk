@@ -63,7 +63,7 @@ internal fun ChatInfoRoute(container: AppContainer, id: String, onVerify: () -> 
 
 /** Every chat you can write to, room channels included, except the one the message is from. */
 @Composable
-internal fun ForwardRoute(container: AppContainer, from: String, messageId: String, onDone: () -> Unit, onBack: () -> Unit) {
+internal fun ForwardRoute(container: AppContainer, from: String, messageIds: List<String>, onDone: () -> Unit, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val context = LocalContext.current
     val all by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -81,7 +81,7 @@ internal fun ForwardRoute(container: AppContainer, from: String, messageId: Stri
     ForwardScreen(
         conversations = targets.toImmutableList(),
         onSend = { picked ->
-            chats.forward(from, messageId, picked)
+            messageIds.forEach { chats.forward(from, it, picked) }
             Toast.makeText(context, done, Toast.LENGTH_SHORT).show()
             onDone()
         },

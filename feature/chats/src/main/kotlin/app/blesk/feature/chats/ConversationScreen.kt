@@ -1,7 +1,10 @@
 package app.blesk.feature.chats
 
+import android.content.ClipData
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -18,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
@@ -29,9 +34,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -43,10 +51,16 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -88,10 +102,13 @@ import app.blesk.shared.appearance.ThemeSpec
 import app.blesk.shared.protocol.BotCommand
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -115,7 +132,7 @@ class ConversationCallbacks(
     /** Keeps the unsent text; called a moment after typing stops and when leaving. */
     val onDraft: (String) -> Unit = {},
     /** Opens the chat picker to forward a message; null where forwarding is not offered. */
-    val onForward: ((messageId: String) -> Unit)? = null,
+    val onForward: ((messageIds: List<String>) -> Unit)? = null,
     /** Pins a message above the chat, or unpins with null. */
     val onPin: ((messageId: String?) -> Unit)? = null,
     /** A press on an inline button under a bot message. */
@@ -145,6 +162,8 @@ fun ConversationScreen(
     demo: Boolean = false,
     /** People who can be mentioned with "@" in a group or room. */
     members: ImmutableList<Contact> = persistentListOf(),
+    /** Own username, to find messages that mention you; null when unknown. */
+    me: String? = null,
     underlay: @Composable BoxScope.() -> Unit = {},
 ) {
     val recording = remember { RecordingUi() }
@@ -154,17 +173,52 @@ fun ConversationScreen(
     var replyToId by rememberSaveable(conversation.id) { mutableStateOf<String?>(null) }
     var editingId by rememberSaveable(conversation.id) { mutableStateOf<String?>(null) }
     var menuFor by remember { mutableStateOf<Message?>(null) }
+    var selection by remember(conversation.id) { mutableStateOf<Set<String>>(emptySet()) }
+    BackHandler(enabled = selection.isNotEmpty()) { selection = emptySet() }
     val input = rememberTextFieldState(conversation.draft)
     DraftKeeper(input, callbacks.onDraft)
     val byId = remember(messages) { messages.associateBy { it.id } }
-    val groups = remember(messages) { groupMessages(messages) }
+    // The divider stays where the chat was left, even after the messages are marked read.
+    val unreadFrom = remember(conversation.id) {
+        conversation.unread.takeIf { it > 0 }?.let { messages.getOrNull(messages.size - it) }?.takeUnless { it.isOwn }?.id
+    }
+    val feed = remember(messages, unreadFrom) { buildFeed(messages, ZoneId.systemDefault(), unreadFrom) }
+    var mentions by remember(conversation.id) {
+        val tag = me?.let { "@$it" }
+        val unread = unreadFrom?.let { from -> messages.dropWhile { it.id != from } }.orEmpty()
+        mutableStateOf(if (tag == null) emptyList() else unread.filter { it.text.contains(tag, ignoreCase = true) }.map { it.id })
+    }
     val showAuthors = conversation.kind == ConversationKind.Group || conversation.kind == ConversationKind.Room
     val you = stringResource(R.string.chat_you)
 
-    LaunchedEffect(messages.size, typing) {
-        val last = groups.size + if (typing) 1 else 0
-        if (last > 0) listState.animateScrollToItem(last)
+    val atBottom by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()
+            // One item of slack: a message that has just arrived must not count as scrolled away.
+            last == null || last.index >= info.totalItemsCount - 2
+        }
     }
+    val pinned = conversation.pinnedMessageId?.let(byId::get)
+    // The protection note, and possibly the pinned banner and key warning, come before the feed.
+    val leading = 1 + (if (pinned != null) 1 else 0) + (if (keyChanged) 1 else 0)
+    var seen by remember(conversation.id) { mutableIntStateOf(messages.size) }
+    var opened by remember(conversation.id) { mutableStateOf(false) }
+    LaunchedEffect(messages.size, typing) {
+        // Counted from the data, not the layout: on the first frame the list is not measured yet.
+        val total = leading + feed.size + if (typing) 1 else 0
+        val divider = feed.indexOf(FeedEntry.Unread)
+        when {
+            !opened && divider >= 0 -> listState.scrollToItem(divider + leading)
+            !opened -> listState.scrollToItem(total - 1)
+            atBottom || messages.lastOrNull()?.isOwn == true -> {
+                listState.animateScrollToItem(total - 1)
+                seen = messages.size
+            }
+        }
+        opened = true
+    }
+    LaunchedEffect(atBottom) { if (atBottom) seen = messages.size }
     val lastOwnStatus = messages.lastOrNull { it.isOwn }?.status
     LaunchedEffect(lastOwnStatus) {
         if (lastOwnStatus == SendStatus.Delivered) haptics.event()
@@ -177,6 +231,9 @@ fun ConversationScreen(
             onReact = { message, symbol -> callbacks.onReact(message.id, symbol) },
             onApplyTheme = callbacks.onApplyTheme,
             onButton = { message, button -> callbacks.onButton(message.id, button) },
+            onTap = { message ->
+                if (selection.isNotEmpty()) selection = if (message.id in selection) selection - message.id else selection + message.id
+            },
         )
     }
 
@@ -185,9 +242,38 @@ fun ConversationScreen(
             LensScaffold(
                 underlay = underlay,
                 top = {
-                    ChatHeader(
-                        conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo, callbacks.onCall, demo,
-                    )
+                    if (selection.isNotEmpty()) {
+                        val picked = messages.filter { it.id in selection }
+                        val clipboard = LocalClipboard.current
+                        val scope = rememberCoroutineScope()
+                        SelectionHeader(
+                            count = picked.size,
+                            onClose = { selection = emptySet() },
+                            onCopy = {
+                                val text = picked.joinToString("\n") { it.text }
+                                scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("blesk", text))) }
+                                selection = emptySet()
+                            },
+                            onForward = callbacks.onForward?.let { forward ->
+                                {
+                                    forward(picked.map { it.id })
+                                    selection = emptySet()
+                                }
+                            },
+                            onDelete = if (picked.all { it.isOwn } && conversation.kind != ConversationKind.Bot) {
+                                {
+                                    picked.forEach { callbacks.onDelete(it.id) }
+                                    selection = emptySet()
+                                }
+                            } else {
+                                null
+                            },
+                        )
+                    } else {
+                        ChatHeader(
+                            conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo, callbacks.onCall, demo,
+                        )
+                    }
                 },
                 bottom = {
                     if (readOnly) {
@@ -239,33 +325,57 @@ fun ConversationScreen(
                     }
                 },
             ) { padding ->
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = Blesk.dimens.gutter,
-                        end = Blesk.dimens.gutter,
-                        top = padding.calculateTopPadding() + 8.dp,
-                        bottom = padding.calculateBottomPadding() + 12.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    item(key = "note") { ProtectionNote(conversation.protection) }
-                    conversation.pinnedMessageId?.let(byId::get)?.let { pinned ->
-                        item(key = "pinned") { PinnedBanner(pinned, onUnpin = callbacks.onPin?.let { unpin -> { unpin(null) } }) }
+                Box(Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = Blesk.dimens.gutter,
+                            end = Blesk.dimens.gutter,
+                            top = padding.calculateTopPadding() + 8.dp,
+                            bottom = padding.calculateBottomPadding() + 12.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        item(key = "note") { ProtectionNote(conversation.protection) }
+                        pinned?.let { message ->
+                            item(key = "pinned") { PinnedBanner(message, onUnpin = callbacks.onPin?.let { unpin -> { unpin(null) } }) }
+                        }
+                        if (keyChanged) item(key = "key") { KeyWarning(callbacks.onOpenInfo) }
+                        items(feed, key = { it.key }) { entry ->
+                            val group = when (entry) {
+                                is FeedEntry.Day -> return@items DayDivider(entry.date)
+                                FeedEntry.Unread -> return@items UnreadDivider()
+                                is FeedEntry.Run -> entry.messages
+                            }
+                            val own = group.first().isOwn
+                            MessageColumn(
+                                messages = group,
+                                author = if (showAuthors && !own) authorName(group.first().authorId) else null,
+                                fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds || own }.toSet() },
+                                quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
+                                actions = actions,
+                                selection = selection,
+                            )
+                        }
+                        if (typing) item(key = "typing") { TypingDots() }
                     }
-                    if (keyChanged) item(key = "key") { KeyWarning(callbacks.onOpenInfo) }
-                    items(groups, key = { it.first().id }) { group ->
-                        val own = group.first().isOwn
-                        MessageColumn(
-                            messages = group,
-                            author = if (showAuthors && !own) authorName(group.first().authorId) else null,
-                            fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds || own }.toSet() },
-                            quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
-                            actions = actions,
-                        )
-                    }
-                    if (typing) item(key = "typing") { TypingDots() }
+                    val scope = rememberCoroutineScope()
+                    JumpButtons(
+                        showDown = !atBottom,
+                        unseen = (messages.size - seen).coerceAtLeast(0),
+                        mentions = mentions.size,
+                        onDown = { scope.launch { listState.animateScrollToItem(leading + feed.size) } },
+                        onMention = {
+                            val target = mentions.first()
+                            mentions = mentions.drop(1)
+                            val index = feed.indexOfFirst { it is FeedEntry.Run && it.messages.any { message -> message.id == target } }
+                            if (index >= 0) scope.launch { listState.animateScrollToItem(index + leading) }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = Blesk.dimens.gutter, bottom = padding.calculateBottomPadding() + 12.dp),
+                    )
                 }
             }
             if (recording.active && recording.mode == RecordMode.Circle && recorders != null) {
@@ -283,7 +393,8 @@ fun ConversationScreen(
                     },
                     onDelete = { callbacks.onDelete(message.id) },
                     editable = conversation.kind != ConversationKind.Bot,
-                    onForward = callbacks.onForward?.let { forward -> { forward(message.id) } },
+                    onForward = callbacks.onForward?.let { forward -> { forward(listOf(message.id)) } },
+                    onSelect = { selection = setOf(message.id) },
                     onPin = callbacks.onPin?.let { pin -> { pin(if (conversation.pinnedMessageId == message.id) null else message.id) } },
                     pinned = conversation.pinnedMessageId == message.id,
                     onReact = if (reactions) ({ symbol -> callbacks.onReact(message.id, symbol) }) else null,
@@ -299,25 +410,6 @@ private fun quoteOf(message: Message, you: String, authorName: (String) -> Strin
 }
 
 /** Runs of one author's messages, broken after a quiet gap. */
-private fun groupMessages(messages: List<Message>): List<ImmutableList<Message>> {
-    val groups = ArrayList<ImmutableList<Message>>()
-    var current = ArrayList<Message>()
-    messages.forEach { message ->
-        val previous = current.lastOrNull()
-        val sameRun = previous != null &&
-            previous.authorId == message.authorId &&
-            message.sentAt.epochSecond - previous.sentAt.epochSecond < GROUP_GAP_SECONDS
-        if (!sameRun && current.isNotEmpty()) {
-            groups += current.toImmutableList()
-            current = ArrayList()
-        }
-        current += message
-    }
-    if (current.isNotEmpty()) groups += current.toImmutableList()
-    return groups
-}
-
-private const val GROUP_GAP_SECONDS = 10 * 60
 
 @Composable
 private fun ChatHeader(
@@ -381,6 +473,101 @@ private fun ChatHeader(
             if (conversation.kind != ConversationKind.Direct || onOpenInfo == null) {
                 IconButton(BleskIcons.Appearance, stringResource(R.string.chat_theme), onOpenTheme)
             }
+        },
+    )
+}
+
+@Composable
+private fun DayDivider(date: LocalDate) {
+    val today = LocalDate.now()
+    val text = when (date) {
+        today -> stringResource(R.string.chat_today)
+        today.minusDays(1) -> stringResource(R.string.chat_yesterday)
+        else -> date.format(if (date.year == today.year) dayFormat else dayYearFormat)
+    }
+    Text(
+        text = text,
+        style = Blesk.type.caption,
+        color = Blesk.colors.textSecondary,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).semantics { heading() },
+    )
+}
+
+private val dayFormat = DateTimeFormatter.ofPattern("d MMMM")
+private val dayYearFormat = DateTimeFormatter.ofPattern("d MMMM yyyy")
+
+@Composable
+private fun UnreadDivider() {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).semantics(mergeDescendants = true) { heading() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.weight(1f).height(1.dp).background(Blesk.colors.hairline))
+        Text(stringResource(R.string.chat_unread_divider), style = Blesk.type.caption, color = Blesk.colors.textSecondary)
+        Box(Modifier.weight(1f).height(1.dp).background(Blesk.colors.hairline))
+    }
+}
+
+/** Round matte buttons over the messages: to the first unread mention of you, and to the bottom. */
+@Composable
+private fun JumpButtons(
+    showDown: Boolean,
+    unseen: Int,
+    mentions: Int,
+    onDown: () -> Unit,
+    onMention: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.End) {
+        if (mentions > 0) {
+            JumpButton(BleskIcons.At, pluralStringResource(R.plurals.chat_jump_mentions, mentions, mentions), mentions, onMention)
+        }
+        if (showDown) {
+            val label = if (unseen > 0) {
+                pluralStringResource(R.plurals.chat_jump_new, unseen, unseen)
+            } else {
+                stringResource(R.string.chat_jump_down)
+            }
+            JumpButton(BleskIcons.ArrowDown, label, unseen, onDown)
+        }
+    }
+}
+
+@Composable
+private fun JumpButton(icon: ImageVector, label: String, count: Int, onClick: () -> Unit) {
+    Box {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Blesk.colors.surfaceStrong)
+                .border(1.dp, Blesk.colors.hairline, CircleShape)
+                .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+                .semantics { contentDescription = label },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = Blesk.colors.textPrimary)
+        }
+        if (count > 0) {
+            Box(Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp).clearAndSetSemantics { }) {
+                UnreadBadge(count)
+            }
+        }
+    }
+}
+
+/** Replaces the chat header while messages are picked. */
+@Composable
+private fun SelectionHeader(count: Int, onClose: () -> Unit, onCopy: () -> Unit, onForward: (() -> Unit)?, onDelete: (() -> Unit)?) {
+    TopLens(
+        title = pluralStringResource(R.plurals.chat_selected, count, count),
+        leading = { IconButton(BleskIcons.Close, stringResource(R.string.chat_cancel), onClose) },
+        actions = {
+            IconButton(BleskIcons.Copy, stringResource(R.string.chat_copy), onCopy)
+            onForward?.let { IconButton(BleskIcons.Forward, stringResource(R.string.chat_forward), it) }
+            onDelete?.let { IconButton(BleskIcons.Trash, stringResource(R.string.chat_delete), it) }
         },
     )
 }

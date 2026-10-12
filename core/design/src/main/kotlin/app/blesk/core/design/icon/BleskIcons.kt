@@ -17,6 +17,8 @@ object BleskIcons {
 
     val Back by icon("M15 5l-7 7 7 7")
     val ChevronRight by icon("M9.5 5.5l6.5 6.5-6.5 6.5")
+    val ArrowDown by icon("M12 5v14M6 13l6 6 6-6")
+    val At by icon("M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM16 8v5.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1")
     val Close by icon("M6.5 6.5l11 11M17.5 6.5l-11 11")
     val Check by icon("M5 12.5l4.5 4.5L19 7.5")
     val Plus by icon("M12 5v14M5 12h14")

@@ -61,7 +61,7 @@ internal fun ConversationRoute(
     onOpenSpace: (handle: String) -> Unit,
     onCall: (video: Boolean) -> Unit,
     onVerify: () -> Unit,
-    onForward: (messageId: String) -> Unit,
+    onForward: (messageIds: List<String>) -> Unit,
     onBack: () -> Unit,
 ) {
     val demo = container.chats.collectAsStateWithLifecycle().value ?: return
@@ -216,6 +216,7 @@ internal fun ConversationRoute(
                 reactions = !isSpace && !isBot,
                 demo = demo is DemoRepository,
                 keyChanged = direct && keyState.changed,
+                me = groupController?.me,
                 members = groupState?.members.orEmpty()
                     .filter { it.username != groupController?.me }
                     .map { member -> demo.contact(member.username) ?: Contact(member.username, member.username, member.username) }

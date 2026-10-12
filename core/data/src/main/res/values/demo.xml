@@ -19,7 +19,7 @@
         <item>anya|Привет! Ты в субботу как, свободна?</item>
         <item>me|Привет. До обеда занята, потом да</item>
         <item>anya|Отлично. Хочу показать тебе одно место у реки</item>
-        <item>anya|Там тихо и почти никого</item>
+        <item>anya|Там **тихо** и почти ||никого||</item>
         <item>me|Звучит хорошо. Во сколько?</item>
         <item>anya|Давай в четыре у моста</item>
     </string-array>
@@ -35,7 +35,7 @@
         <item>dima|Я. Могу взять двоих</item>
         <item>katya|Я с вами!</item>
         <item>lera|Тогда выезжаем в девять</item>
-        <item>me|Возьму термос и плед</item>
+        <item>me|Возьму термос и __плед__</item>
         <item>dima|Идеально</item>
     </string-array>
 

@@ -36,6 +36,10 @@ class MainFlowTest {
         compose.onNodeWithContentDescription("Отправить").performClick()
         compose.mainClock.advanceTimeBy(5_000)
         compose.waitForIdle()
+        compose.onNodeWithText("проверка").performTouchInput { longClick() }
+        compose.onNodeWithText("Выбрать").performClick()
+        compose.onNodeWithText("Выбрано 1").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Отменить").performClick()
         compose.onNodeWithContentDescription("Назад").performClick()
 
         compose.onNodeWithContentDescription("Поиск").performClick()

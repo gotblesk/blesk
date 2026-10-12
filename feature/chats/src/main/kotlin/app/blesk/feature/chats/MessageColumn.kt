@@ -22,8 +22,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,16 +42,21 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.BotButton
+import app.blesk.core.data.model.Markup
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.SendStatus
@@ -84,6 +91,8 @@ internal class MessageActions(
     val onReact: (Message, String) -> Unit,
     val onApplyTheme: (ThemeSpec) -> Unit,
     val onButton: (Message, BotButton) -> Unit = { _, _ -> },
+    /** A plain tap; it picks messages while some are selected. */
+    val onTap: (Message) -> Unit = {},
 )
 
 /**
@@ -98,6 +107,7 @@ internal fun MessageColumn(
     quoteText: (String) -> String?,
     actions: MessageActions,
     modifier: Modifier = Modifier,
+    selection: Set<String> = emptySet(),
 ) {
     val own = messages.first().isOwn
     val parts = remember { PartRegistry() }
@@ -136,6 +146,8 @@ internal fun MessageColumn(
                 parts = parts,
                 contentAlpha = { grow.value },
                 actions = actions,
+                selected = message.id in selection,
+                selecting = selection.isNotEmpty(),
             )
         }
     }
@@ -194,6 +206,8 @@ private fun MessageEntry(
     parts: PartRegistry,
     contentAlpha: () -> Float,
     actions: MessageActions,
+    selected: Boolean = false,
+    selecting: Boolean = false,
 ) {
     val replyLabel = stringResource(R.string.chat_reply)
     val menuLabel = stringResource(R.string.chat_copy)
@@ -241,19 +255,27 @@ private fun MessageEntry(
         val attachment = message.attachment
         val circle = attachment is Attachment.Circle
         val label = LocalContext.current.resources.attachmentLabel(attachment)
+        val markup = remember(message.text) { Markup.parse(message.text) }
+        val spoilerMask = stringResource(R.string.chat_spoiler)
+        val revealLabel = stringResource(R.string.chat_spoiler_reveal)
+        var revealed by remember(message.id) { mutableStateOf(false) }
+        val hidden = !revealed && markup.spans.any { it.style == Markup.Style.Spoiler }
         Box(
             modifier = Modifier
                 .widthIn(max = 300.dp)
                 .onPlaced { parts.put(if (circle) "circle:${message.id}" else "bubble:${message.id}", it) }
                 .flashOn(message.status.takeIf { own }, if (circle) CircleShape else BubbleShape)
+                .let { if (selected) it.border(2.dp, Blesk.colors.accent, if (circle) CircleShape else BubbleShape) else it }
                 .combinedClickable(
-                    onClickLabel = null,
+                    onClickLabel = if (hidden && !selecting) revealLabel else null,
                     onLongClickLabel = menuLabel,
                     onLongClick = { actions.onMenu(message) },
-                    onClick = {},
+                    onClick = { if (hidden && !selecting) revealed = true else actions.onTap(message) },
                 )
                 .semantics(mergeDescendants = true) {
-                    contentDescription = listOfNotNull(label.ifEmpty { null }, message.text.ifEmpty { null }, edited, time, status)
+                    this.selected = selected
+                    val body = if (hidden) markup.masked(spoilerMask) else markup.text
+                    contentDescription = listOfNotNull(label.ifEmpty { null }, body.ifEmpty { null }, edited, time, status)
                         .joinToString(", ")
                     customActions = listOf(
                         CustomAccessibilityAction(replyLabel) { actions.onReply(message); true },
@@ -288,7 +310,7 @@ private fun MessageEntry(
                 }
                 if (message.text.isNotEmpty()) {
                     val inset = if (attachment?.isVisual() == true) Modifier.padding(horizontal = 10.dp, vertical = 6.dp) else Modifier
-                    Text(withMentions(message.text), modifier = inset)
+                    FormattedText(markup, revealed, inset)
                 }
                 Stamp(
                     time, status, edited,
@@ -395,6 +417,34 @@ internal fun statusLabel(status: SendStatus) = when (status) {
     SendStatus.Sent -> R.string.chat_status_sent
     SendStatus.Delivered -> R.string.chat_status_delivered
     SendStatus.Read -> R.string.chat_status_read
+}
+
+/** Formatted message text; spoilers stay covered until the bubble is tapped. */
+@Composable
+private fun FormattedText(markup: Markup, revealed: Boolean, modifier: Modifier) {
+    val colors = Blesk.colors
+    val text = remember(markup, revealed, colors) {
+        buildAnnotatedString {
+            append(withMentions(markup.text))
+            markup.spans.forEach { span ->
+                when (span.style) {
+                    Markup.Style.Bold -> addStyle(SpanStyle(fontWeight = FontWeight.SemiBold), span.start, span.end)
+                    Markup.Style.Italic -> addStyle(SpanStyle(fontStyle = FontStyle.Italic), span.start, span.end)
+                    Markup.Style.Strike -> addStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), span.start, span.end)
+                    Markup.Style.Mono -> addStyle(
+                        SpanStyle(fontFamily = FontFamily.Monospace, background = colors.hairline),
+                        span.start,
+                        span.end,
+                    )
+                    Markup.Style.Quote -> addStyle(SpanStyle(color = colors.textSecondary), span.start, span.end)
+                    Markup.Style.Spoiler -> if (!revealed) {
+                        addStyle(SpanStyle(color = Color.Transparent, background = colors.textTertiary), span.start, span.end)
+                    }
+                }
+            }
+        }
+    }
+    Text(text, modifier = modifier)
 }
 
 private val mention = Regex("(?<![\\w@])@[a-z0-9_]{3,32}")

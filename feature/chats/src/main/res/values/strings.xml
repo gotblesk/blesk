@@ -228,4 +228,29 @@
     <string name="search_people">Люди</string>
     <string name="search_messages">Сообщения</string>
     <string name="search_find_username">Найти @%1$s на сервере</string>
+    <string name="chat_select">Выбрать</string>
+    <plurals name="chat_selected">
+        <item quantity="one">Выбрано %1$d</item>
+        <item quantity="few">Выбрано %1$d</item>
+        <item quantity="many">Выбрано %1$d</item>
+        <item quantity="other">Выбрано %1$d</item>
+    </plurals>
+    <string name="chat_spoiler">скрытый текст</string>
+    <string name="chat_spoiler_reveal">Показать скрытый текст</string>
+    <string name="chat_today">Сегодня</string>
+    <string name="chat_yesterday">Вчера</string>
+    <string name="chat_unread_divider">Непрочитанные</string>
+    <string name="chat_jump_down">Вниз, к последним сообщениям</string>
+    <plurals name="chat_jump_new">
+        <item quantity="one">Вниз, %1$d новое сообщение</item>
+        <item quantity="few">Вниз, %1$d новых сообщения</item>
+        <item quantity="many">Вниз, %1$d новых сообщений</item>
+        <item quantity="other">Вниз, %1$d новых сообщения</item>
+    </plurals>
+    <plurals name="chat_jump_mentions">
+        <item quantity="one">К упоминанию, %1$d</item>
+        <item quantity="few">К упоминаниям, %1$d</item>
+        <item quantity="many">К упоминаниям, %1$d</item>
+        <item quantity="other">К упоминаниям, %1$d</item>
+    </plurals>
 </resources>

@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
+import app.blesk.core.data.model.Markup
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.design.component.Avatar
@@ -438,7 +439,8 @@ private fun previewText(conversation: Conversation): String {
         ConversationKind.Direct, ConversationKind.Bot -> ""
         else -> pluralStringResource(R.plurals.chats_members, conversation.memberCount, conversation.memberCount)
     }
-    return if (preview.authorName != null) "${preview.authorName}: ${preview.text}" else preview.text
+    val text = Markup.parse(preview.text).masked(stringResource(R.string.chat_spoiler))
+    return if (preview.authorName != null) "${preview.authorName}: $text" else text
 }
 
 @Composable
