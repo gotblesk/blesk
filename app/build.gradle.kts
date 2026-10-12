@@ -36,7 +36,7 @@ android {
         applicationId = "app.blesk"
         // CI passes the run number so every build installs over the previous one.
         versionCode = providers.gradleProperty("blesk.versionCode").orNull?.toInt() ?: 1
-        versionName = "1.0.0-rc1" + (providers.gradleProperty("blesk.versionSuffix").orNull ?: "")
+        versionName = "1.0.0-rc2" + (providers.gradleProperty("blesk.versionSuffix").orNull ?: "")
     }
 
     signingConfigs {
