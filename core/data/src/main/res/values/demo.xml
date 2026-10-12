@@ -50,6 +50,12 @@
         <item>channel|Личные чаты, группы и закрытые комнаты в blesk шифруются всегда. Их видно по тонкому блику по краю.</item>
     </string-array>
 
+    <string name="demo_saved_title">Избранное</string>
+    <string-array name="demo_chat_saved">
+        <item>me|Купить плёнку для «Зенита»</item>
+        <item>me|Идея: тёмная тема с тёплым светом от лампы</item>
+    </string-array>
+
     <string-array name="demo_chat_bot">
         <item>bot|Я бот-эхо. Напиши что-нибудь, и я повторю.</item>
     </string-array>

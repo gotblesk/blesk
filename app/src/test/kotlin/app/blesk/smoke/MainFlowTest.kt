@@ -3,11 +3,13 @@ package app.blesk.smoke
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.MainActivity
 import org.junit.Rule
@@ -41,6 +43,12 @@ class MainFlowTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         compose.onNodeWithText("Ты: проверка", substring = true).assertExists()
+        compose.onNodeWithContentDescription("Назад").performClick()
+
+        compose.onNodeWithText("Миша Ковалёв").performTouchInput { longClick() }
+        compose.onNodeWithText("В архив").performClick()
+        compose.onNodeWithText("Архив").performClick()
+        compose.onNodeWithText("Миша Ковалёв").assertIsDisplayed()
         compose.onNodeWithContentDescription("Назад").performClick()
 
         compose.onNodeWithContentDescription("Новый чат").performClick()

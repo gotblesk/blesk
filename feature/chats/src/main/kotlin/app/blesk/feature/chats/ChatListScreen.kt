@@ -1,9 +1,12 @@
 package app.blesk.feature.chats
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -26,17 +30,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -58,10 +67,12 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlin.math.abs
 
 /**
  * The list of conversations. Rows lie on the background; pinned chats sit on capsules that
@@ -81,8 +92,14 @@ fun ChatList(
     /** Long press on a chat; null where nothing is offered. */
     onLongPress: ((Conversation) -> Unit)? = null,
     header: (LazyListScope.() -> Unit)? = null,
+    /** Swipe left: into the archive (or out of it); null turns the swipe off. */
+    onSwipeArchive: ((Conversation) -> Unit)? = null,
+    /** Swipe right: read, or back to unread. */
+    onSwipeRead: ((Conversation) -> Unit)? = null,
+    archivedCount: Int = 0,
+    onOpenArchive: (() -> Unit)? = null,
 ) {
-    val pinned = conversations.filter { it.pinned && !it.isRoomCluster() }
+    val pinned = conversations.filter { it.pinned && !it.isRoomCluster() }.sortedByDescending { it.kind == ConversationKind.Saved }
     val rest = conversations.filterNot { it.pinned && !it.isRoomCluster() }
     val rowModifier = Modifier.padding(horizontal = Blesk.dimens.gutter - 6.dp)
     LazyColumn(
@@ -95,6 +112,9 @@ fun ChatList(
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         header?.invoke(this)
+        if (archivedCount > 0 && onOpenArchive != null) {
+            item(key = "archive") { ArchiveRow(archivedCount, onOpenArchive, rowModifier) }
+        }
         if (pinned.isNotEmpty()) {
             item(key = "pinned") {
                 PinnedCluster(pinned.toImmutableList(), rowModifier.padding(bottom = 8.dp)) { conversation ->
@@ -119,18 +139,126 @@ fun ChatList(
                     modifier = rowModifier.padding(vertical = 6.dp),
                 )
             } else {
-                ConversationRow(
+                SwipeRow(
                     conversation = conversation,
-                    typing = conversation.id in typing,
-                    now = now,
-                    onClick = { onOpenConversation(conversation.id) },
-                    onLongClick = onLongPress?.let { press -> { press(conversation) } },
+                    onArchive = onSwipeArchive?.let { swipe -> { swipe(conversation) } },
+                    onRead = onSwipeRead?.let { swipe -> { swipe(conversation) } },
                     modifier = rowModifier,
-                )
+                ) {
+                    ConversationRow(
+                        conversation = conversation,
+                        typing = conversation.id in typing,
+                        now = now,
+                        onClick = { onOpenConversation(conversation.id) },
+                        onLongClick = onLongPress?.let { press -> { press(conversation) } },
+                    )
+                }
             }
         }
     }
 }
+
+@Composable
+private fun ArchiveRow(count: Int, onOpen: () -> Unit, modifier: Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
+            .clickable(role = Role.Button, onClick = onOpen)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.size(Blesk.dimens.avatar).background(Blesk.colors.surface, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(BleskIcons.Archive, contentDescription = null, tint = Blesk.colors.textSecondary)
+        }
+        Text(stringResource(R.string.chats_archive), style = Blesk.type.bodyStrong, modifier = Modifier.weight(1f))
+        Text(pluralStringResource(R.plurals.chats_archived, count, count), style = Blesk.type.label, color = Blesk.colors.textSecondary)
+    }
+}
+
+/**
+ * A row that follows the finger sideways: far enough to the left archives it, to the right
+ * toggles read. TalkBack gets the same as named actions.
+ */
+@Composable
+private fun SwipeRow(
+    conversation: Conversation,
+    onArchive: (() -> Unit)?,
+    onRead: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    if (onArchive == null && onRead == null) {
+        Box(modifier) { content() }
+        return
+    }
+    val offset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val haptics = rememberHaptics()
+    val threshold = with(LocalDensity.current) { SwipeThreshold.toPx() }
+    val unread = conversation.unread > 0 || conversation.markedUnread
+    val archiveLabel = stringResource(
+        if (conversation.archived) R.string.chats_from_archive else R.string.chats_to_archive,
+    )
+    val readLabel = stringResource(if (unread) R.string.chats_mark_read else R.string.chats_mark_unread)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .semantics {
+                customActions = listOfNotNull(
+                    onArchive?.let { CustomAccessibilityAction(archiveLabel) { it(); true } },
+                    onRead?.let { CustomAccessibilityAction(readLabel) { it(); true } },
+                )
+            },
+    ) {
+        val progress = (abs(offset.value) / threshold).coerceIn(0f, 1f)
+        if (offset.value != 0f) {
+            Row(
+                Modifier
+                    .matchParentSize()
+                    .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
+                    .background(Blesk.colors.surface.copy(alpha = progress)),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = if (offset.value > 0) Arrangement.Start else Arrangement.End,
+            ) {
+                Icon(
+                    icon = if (offset.value > 0) BleskIcons.Check else BleskIcons.Archive,
+                    contentDescription = null,
+                    tint = Blesk.colors.textSecondary.copy(alpha = progress),
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+            }
+        }
+        Box(
+            Modifier
+                .graphicsLayer { translationX = offset.value }
+                .pointerInput(onArchive, onRead) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            val value = offset.value
+                            when {
+                                value <= -threshold && onArchive != null -> onArchive()
+                                value >= threshold && onRead != null -> onRead()
+                            }
+                            if (abs(value) >= threshold) haptics.detach()
+                            scope.launch { offset.animateTo(0f) }
+                        },
+                        onDragCancel = { scope.launch { offset.animateTo(0f) } },
+                    ) { change, delta ->
+                        val next = offset.value + delta
+                        val allowed = (next < 0 && onArchive != null) || (next > 0 && onRead != null)
+                        if (allowed || next == 0f) {
+                            change.consume()
+                            scope.launch { offset.snapTo(next.coerceIn(-threshold * 1.4f, threshold * 1.4f)) }
+                        }
+                    }
+                },
+        ) { content() }
+    }
+}
+
+private val SwipeThreshold = 96.dp
 
 private fun Conversation.isRoomCluster() = kind == ConversationKind.Room && channels.isNotEmpty()
 
@@ -223,13 +351,18 @@ private fun ConversationRow(
 
 @Composable
 internal fun ConversationSummary(conversation: Conversation, typing: Boolean, now: Instant, modifier: Modifier = Modifier) {
+    val muted = conversation.muted(now.toEpochMilli())
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Avatar(
-            name = conversation.title,
-            key = conversation.id,
-            protected = conversation.protection == Protection.EndToEnd &&
-                conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
-        )
+        if (conversation.kind == ConversationKind.Saved) {
+            SavedAvatar()
+        } else {
+            Avatar(
+                name = conversation.title,
+                key = conversation.id,
+                protected = conversation.protection == Protection.EndToEnd &&
+                    conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
+            )
+        }
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -244,6 +377,14 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     KindTag(conversation)
+                    if (muted) {
+                        Icon(
+                            BleskIcons.BellOff,
+                            contentDescription = stringResource(R.string.chats_muted),
+                            size = 14.dp,
+                            tint = Blesk.colors.textTertiary,
+                        )
+                    }
                 }
                 if (conversation.pinned) {
                     Icon(
@@ -272,7 +413,10 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
                     maxLines = 1,
                     modifier = Modifier.weight(1f),
                 )
-                if (conversation.unread > 0) UnreadBadge(conversation.unread)
+                when {
+                    conversation.unread > 0 -> UnreadBadge(conversation.unread, muted)
+                    conversation.markedUnread -> UnreadDot(muted)
+                }
             }
         }
     }
@@ -298,17 +442,40 @@ private fun previewText(conversation: Conversation): String {
 }
 
 @Composable
-internal fun UnreadBadge(count: Int) {
+internal fun UnreadBadge(count: Int, muted: Boolean = false) {
     val label = pluralStringResource(R.plurals.chats_unread, count, count)
     Box(
         modifier = Modifier
             .height(20.dp)
-            .background(Blesk.colors.accent, CircleShape)
+            .background(if (muted) Blesk.colors.surfaceStrong else Blesk.colors.accent, CircleShape)
             .padding(horizontal = 7.dp)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Text(count.toString(), style = Blesk.type.caption, color = Blesk.colors.onAccent)
+        Text(count.toString(), style = Blesk.type.caption, color = if (muted) Blesk.colors.textSecondary else Blesk.colors.onAccent)
+    }
+}
+
+/** A chat you marked to come back to. */
+@Composable
+private fun UnreadDot(muted: Boolean) {
+    val label = stringResource(R.string.chats_marked_unread)
+    Box(
+        Modifier
+            .size(12.dp)
+            .background(if (muted) Blesk.colors.textTertiary else Blesk.colors.accent, CircleShape)
+            .semantics { contentDescription = label },
+    )
+}
+
+/** «Избранное» has no person behind it, so it shows a bookmark instead of a letter. */
+@Composable
+private fun SavedAvatar() {
+    Box(
+        Modifier.size(Blesk.dimens.avatar).background(Blesk.colors.surfaceStrong, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(BleskIcons.Bookmark, contentDescription = null, tint = Blesk.colors.textPrimary)
     }
 }
 

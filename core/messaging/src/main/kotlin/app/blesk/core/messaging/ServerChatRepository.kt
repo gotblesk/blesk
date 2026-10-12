@@ -98,6 +98,8 @@ class ServerChatRepository(
     private val labels: (Attachment?) -> String,
     private val log: EventLog,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** The title of «Избранное», your notes to yourself; it lives under your own username. */
+    private val savedTitle: String = "",
 ) : ChatRepository,
     GroupController,
     SpaceController,
@@ -188,6 +190,7 @@ class ServerChatRepository(
         scope.launch { socket.frames.collect { frame -> handle(frame) } }
         scope.launch { socket.connected.filter { it }.collect { flush() } }
         scope.launch { sweep() }
+        scope.launch { ensureSaved() }
     }
 
     fun stop() = socket.stop()
@@ -263,6 +266,10 @@ class ServerChatRepository(
             ),
         )
         setPreview(conversationId, null, text.ifEmpty { labels(attachment) }, sentAt)
+        if (conversationId == me) {
+            advanceStatus(listOf(id), SendStatus.Read)
+            return
+        }
         val pointer = if (attachment == null) {
             null
         } else {
@@ -278,6 +285,35 @@ class ServerChatRepository(
         }
         dispatch(conversationId, Content(id, sentAt, Body.Text(text, replyToId, pointer, forwarded), expiresInSeconds = timer))
         log.record(EventCode.MessageQueued)
+    }
+
+    override fun setArchived(conversationId: String, archived: Boolean) {
+        scope.launch { db.conversations().setArchived(conversationId, archived) }
+    }
+
+    override fun mute(conversationId: String, untilMillis: Long) {
+        scope.launch { db.conversations().setMuted(conversationId, untilMillis) }
+    }
+
+    override fun markUnread(conversationId: String, unread: Boolean) {
+        scope.launch { db.conversations().setMarkedUnread(conversationId, unread) }
+    }
+
+    /** «Избранное» is a chat with yourself: always there, pinned, and never sent anywhere. */
+    private suspend fun ensureSaved() {
+        if (savedTitle.isEmpty() || db.conversations().get(me) != null) return
+        db.conversations().upsert(
+            ConversationEntity(
+                id = me,
+                kind = ConversationKind.Saved.name,
+                title = savedTitle,
+                protection = Protection.EndToEnd.name,
+                peer = null,
+                updatedAt = clock(),
+                pinned = true,
+                previewText = "",
+            ),
+        )
     }
 
     override fun saveDraft(conversationId: String, text: String) {
@@ -523,6 +559,8 @@ class ServerChatRepository(
 
     /** Group conversations go through the sender key; everything else is one-to-one. */
     private suspend fun dispatch(conversationId: String, content: Content) {
+        // «Избранное» stays on this phone: reactions, edits and timers there are local only.
+        if (conversationId == me) return
         if (groups.groupOf(conversationId) != null) {
             if (!groups.send(conversationId, content) && content.body is Body.Text) {
                 advanceStatus(listOf(content.id), SendStatus.Failed, force = true)

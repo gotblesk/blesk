@@ -22,6 +22,10 @@ data class ConversationEntity(
     val draft: String = "",
     val timerSeconds: Int = 0,
     val pinnedMessageId: String? = null,
+    val archived: Boolean = false,
+    /** Epoch millis until which the chat is silent; [Long.MAX_VALUE] is forever, 0 is not muted. */
+    val mutedUntil: Long = 0,
+    val markedUnread: Boolean = false,
 )
 
 @Entity(

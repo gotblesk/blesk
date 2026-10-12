@@ -35,6 +35,7 @@ class DemoSeed(
         const val ROOM = "room"
         const val CHANNEL = "channel"
         const val BOT = "bot"
+        const val SAVED = "saved"
         const val ROOM_GENERAL = "room-general"
         const val ROOM_DESIGN = "room-design"
         const val ROOM_VOICE = "room-voice"
@@ -60,6 +61,7 @@ class DemoSeed(
                 Thread(MISHA, R.array.demo_chat_misha, 180),
                 Thread(CHANNEL, R.array.demo_chat_channel, 60 * 26),
                 Thread(BOT, R.array.demo_chat_bot, 60 * 50),
+                Thread(SAVED, R.array.demo_chat_saved, 60 * 6),
             )
             val rawMessages = threads.flatMap { thread ->
                 val items = resources.getStringArray(thread.array)
@@ -105,6 +107,8 @@ class DemoSeed(
             val designTitle = resources.getString(R.string.demo_channel_design)
 
             val conversations = listOf(
+                Conversation(SAVED, ConversationKind.Saved, resources.getString(R.string.demo_saved_title), Protection.EndToEnd,
+                    preview(SAVED, false), updated(SAVED), pinned = true),
                 Conversation(ANYA, ConversationKind.Direct, byId.getValue(ANYA).name, Protection.EndToEnd,
                     preview(ANYA, false), updated(ANYA), unread = 2),
                 Conversation(GROUP, ConversationKind.Group, resources.getString(R.string.demo_title_group), Protection.EndToEnd,

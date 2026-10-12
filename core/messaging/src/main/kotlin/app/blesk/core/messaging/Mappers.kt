@@ -94,6 +94,9 @@ internal fun ConversationEntity.toModel(state: GroupState? = null) = Conversatio
     draft = draft,
     timerSeconds = timerSeconds,
     pinnedMessageId = pinnedMessageId,
+    archived = archived,
+    mutedUntil = mutedUntil,
+    markedUnread = markedUnread,
 )
 
 internal fun ContactEntity.toModel() = Contact(id = username, name = name.ifBlank { username }, username = username)

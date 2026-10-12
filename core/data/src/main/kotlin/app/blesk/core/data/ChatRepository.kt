@@ -57,6 +57,15 @@ interface ChatTools {
     /** Keeps what you typed but did not send. */
     fun saveDraft(conversationId: String, text: String) = Unit
 
+    /** Archived chats leave the list for the archive. */
+    fun setArchived(conversationId: String, archived: Boolean) = Unit
+
+    /** Silent until [untilMillis]; [Long.MAX_VALUE] for good, 0 to turn sound back on. */
+    fun mute(conversationId: String, untilMillis: Long) = Unit
+
+    /** Shows the chat as unread again, or clears that mark. */
+    fun markUnread(conversationId: String, unread: Boolean) = Unit
+
     /** Pinned chats stay on top of the list. */
     fun setChatPinned(conversationId: String, pinned: Boolean) = Unit
 

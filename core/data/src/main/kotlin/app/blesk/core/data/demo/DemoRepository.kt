@@ -222,6 +222,12 @@ class DemoRepository(
         all.update { it.sortedWith(conversationOrder) }
     }
 
+    override fun setArchived(conversationId: String, archived: Boolean) = change(conversationId) { it.copy(archived = archived) }
+
+    override fun mute(conversationId: String, untilMillis: Long) = change(conversationId) { it.copy(mutedUntil = untilMillis) }
+
+    override fun markUnread(conversationId: String, unread: Boolean) = change(conversationId) { it.copy(markedUnread = unread) }
+
     override fun pinMessage(conversationId: String, messageId: String?) = change(conversationId) { it.copy(pinnedMessageId = messageId) }
 
     override fun setTimer(conversationId: String, seconds: Int) = change(conversationId) { it.copy(timerSeconds = seconds) }
@@ -250,7 +256,7 @@ class DemoRepository(
     }
 
     override fun markRead(conversationId: String) {
-        all.update { list -> list.map { if (it.id == conversationId) it.copy(unread = 0) else it } }
+        all.update { list -> list.map { if (it.id == conversationId) it.copy(unread = 0, markedUnread = false) else it } }
     }
 
     private fun nextId() = "local-${ids.incrementAndGet()}"
@@ -301,6 +307,8 @@ class DemoRepository(
         private const val FORWARDED = "forwarded"
 
         val conversationOrder: Comparator<Conversation> =
-            compareByDescending<Conversation> { it.pinned }.thenByDescending { it.updatedAt }
+            compareByDescending<Conversation> { it.kind == ConversationKind.Saved }
+                .thenByDescending { it.pinned }
+                .thenByDescending { it.updatedAt }
     }
 }

@@ -8,6 +8,7 @@ import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
+@Suppress("TooManyFunctions") // one query per column the list can change
 interface ConversationDao {
     @Query("SELECT * FROM conversations ORDER BY pinned DESC, updatedAt DESC")
     fun observeAll(): Flow<List<ConversationEntity>>
@@ -30,6 +31,15 @@ interface ConversationDao {
     @Query("UPDATE conversations SET draft = :draft WHERE id = :id")
     suspend fun setDraft(id: String, draft: String)
 
+    @Query("UPDATE conversations SET archived = :archived WHERE id = :id")
+    suspend fun setArchived(id: String, archived: Boolean)
+
+    @Query("UPDATE conversations SET mutedUntil = :until WHERE id = :id")
+    suspend fun setMuted(id: String, until: Long)
+
+    @Query("UPDATE conversations SET markedUnread = :unread WHERE id = :id")
+    suspend fun setMarkedUnread(id: String, unread: Boolean)
+
     @Query("UPDATE conversations SET pinned = :pinned WHERE id = :id")
     suspend fun setPinned(id: String, pinned: Boolean)
 
@@ -39,7 +49,7 @@ interface ConversationDao {
     @Query("UPDATE conversations SET timerSeconds = :seconds WHERE id = :id")
     suspend fun setTimer(id: String, seconds: Int)
 
-    @Query("UPDATE conversations SET unread = 0 WHERE id = :id")
+    @Query("UPDATE conversations SET unread = 0, markedUnread = 0 WHERE id = :id")
     suspend fun markRead(id: String)
 
     @Query("UPDATE conversations SET unread = unread + 1 WHERE id = :id")

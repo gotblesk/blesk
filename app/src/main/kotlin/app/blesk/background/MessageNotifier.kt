@@ -52,6 +52,8 @@ internal class MessageNotifier(private val context: Context, private val contain
         val settings = container.settings.notifications.first()
         if (!settings.enabled || !manager.areNotificationsEnabled()) return
         if (container.visible && container.openConversation == note.conversationId) return
+        val conversation = container.chats.value?.conversation(note.conversationId)?.first()
+        if (conversation?.muted(System.currentTimeMillis()) == true) return
         val generic = context.getString(R.string.notify_new_message)
         val (title, line) = when (settings.preview) {
             NotificationPreview.NameAndText -> note.title to (note.author?.let { "$it: ${note.text}" } ?: note.text)

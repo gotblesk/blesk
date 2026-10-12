@@ -17,7 +17,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         SignalStateEntity::class,
         GroupEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class BleskDatabase : RoomDatabase() {
@@ -63,12 +63,21 @@ abstract class BleskDatabase : RoomDatabase() {
             }
         }
 
+        /** Archive, mute and «mark as unread» for chats. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE conversations ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE conversations ADD COLUMN mutedUntil INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE conversations ADD COLUMN markedUnread INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /** Opens the SQLCipher database with [passphrase]; the caller gets it from Android Keystore. */
         fun open(context: Context, passphrase: ByteArray): BleskDatabase {
             System.loadLibrary("sqlcipher")
             return Room.databaseBuilder(context, BleskDatabase::class.java, NAME)
                 .openHelperFactory(SupportOpenHelperFactory(passphrase))
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
         }
     }

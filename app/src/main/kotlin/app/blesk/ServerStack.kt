@@ -6,6 +6,7 @@ import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.crypto.signal.SignalStore
+import app.blesk.core.data.R
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
@@ -49,6 +50,7 @@ internal class ServerStack(
             profile = { profile.value },
             labels = context.resources::attachmentLabel,
             log = container.eventLog,
+            savedTitle = context.getString(R.string.demo_saved_title),
         ).also { repository -> store.onIdentityChanged = repository::onKeyChanged }
 
     companion object {

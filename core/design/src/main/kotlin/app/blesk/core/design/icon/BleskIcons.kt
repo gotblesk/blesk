@@ -99,6 +99,9 @@ object BleskIcons {
             "M5 6.5v11c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-11M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5",
     )
     val Rooms by icon("M4.5 9.5a3 3 0 0 1 3-3h4a3 3 0 0 1 0 6h-4a3 3 0 0 1-3-3zM9.5 15.5a3 3 0 0 1 3-3h4a3 3 0 0 1 0 6h-4a3 3 0 0 1-3-3z")
+    val Bookmark by icon("M7 4.5h10a1 1 0 0 1 1 1v14l-6-3.8-6 3.8v-14a1 1 0 0 1 1-1z")
+    val BellOff by icon("M6.5 16.5V11a5.5 5.5 0 0 1 9-4.2M17.5 10.5v6l1.5 2H8M10 20.5h4M4.5 4.5l15 15")
+    val Archive by icon("M4.5 5h15v4h-15zM5.5 9v9.5a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9M10 12.5h4")
     val Pin by icon("M8.5 4.5h7M10 4.5v5.2L7 13.5h10l-3-3.8V4.5M12 13.5v6")
     val Timer by icon("M12 20a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM12 9.5V13l2.2 1.6M10 3.5h4")
     val Forward by icon("M19 12l-6-6v3.5C8 9.5 5 12.5 5 18c1.6-3 4.3-4.5 8-4.5V17l6-5z")

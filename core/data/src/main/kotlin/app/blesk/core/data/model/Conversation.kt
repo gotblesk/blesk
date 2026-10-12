@@ -12,7 +12,16 @@ import java.time.Instant
 /** How a conversation is protected. Drives the glint: only [EndToEnd] shines. */
 enum class Protection { EndToEnd, Open }
 
-enum class ConversationKind { Direct, Group, Room, Channel, Bot }
+enum class ConversationKind {
+    Direct,
+    Group,
+    Room,
+    Channel,
+    Bot,
+
+    /** «Избранное»: notes to yourself, never leave the phone. */
+    Saved,
+}
 
 data class Contact(val id: String, val name: String, val username: String)
 
@@ -36,7 +45,12 @@ data class Conversation(
     /** Messages vanish this many seconds after they are sent; 0 keeps them. */
     val timerSeconds: Int = 0,
     val pinnedMessageId: String? = null,
-)
+    val archived: Boolean = false,
+    val mutedUntil: Long = 0,
+    val markedUnread: Boolean = false,
+) {
+    fun muted(now: Long): Boolean = mutedUntil > now
+}
 
 enum class RoomChannelKind { Text, Voice }
 

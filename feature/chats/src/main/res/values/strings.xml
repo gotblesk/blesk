@@ -205,4 +205,23 @@
     <string name="rooms_join_sent">Запрос отправлен. Ты попадёшь внутрь, когда админ будет в сети.</string>
     <string name="rooms_join_bad">Эта ссылка не подходит</string>
     <string name="scan_unknown">Этот код blesk не знает</string>
+    <string name="chats_muted">без звука</string>
+    <string name="chats_marked_unread">помечен непрочитанным</string>
+    <string name="chats_archive">Архив</string>
+    <string name="chats_to_archive">В архив</string>
+    <string name="chats_from_archive">Вернуть из архива</string>
+    <string name="chats_mute">Без звука</string>
+    <string name="chats_unmute">Включить звук</string>
+    <string name="chats_mute_hour">На 1 час</string>
+    <string name="chats_mute_eight">На 8 часов</string>
+    <string name="chats_mute_two_days">На 2 дня</string>
+    <string name="chats_mute_forever">Навсегда</string>
+    <string name="chats_mark_unread">Пометить непрочитанным</string>
+    <string name="chats_mark_read">Пометить прочитанным</string>
+    <plurals name="chats_archived">
+        <item quantity="one">%1$d чат</item>
+        <item quantity="few">%1$d чата</item>
+        <item quantity="many">%1$d чатов</item>
+        <item quantity="other">%1$d чата</item>
+    </plurals>
 </resources>

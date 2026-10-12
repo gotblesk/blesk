@@ -5,13 +5,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.R
+import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.GroupController
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
@@ -26,6 +29,8 @@ import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.ChatList
+import app.blesk.feature.chats.ChatMenu
+import app.blesk.feature.chats.ChatMenuActions
 import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
@@ -50,9 +55,10 @@ internal fun Home(
     onAddRoom: () -> Unit,
     onSearch: () -> Unit,
     onOpenChannel: (Conversation, RoomChannel) -> Unit,
-    onChatMenu: (Conversation) -> Unit,
+    onOpenArchive: () -> Unit,
     settings: SettingsActions,
 ) {
+    var menuFor by remember { mutableStateOf<Conversation?>(null) }
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
     val photo = rememberProfilePhoto(container, profile?.photoVersion ?: 0L)
@@ -97,8 +103,9 @@ internal fun Home(
     ) { padding ->
         when (tab) {
             HomeTab.Chats -> {
-                val list = conversations.filter { it.kind != ConversationKind.Room }
-                if (list.isEmpty() && !demo) {
+                val list = conversations.filter { it.kind != ConversationKind.Room && !it.archived }
+                val archived = conversations.count { it.archived }
+                if (list.isEmpty() && archived == 0 && !demo) {
                     EmptyChats(padding)
                     return@LensScaffold
                 }
@@ -110,7 +117,11 @@ internal fun Home(
                     onOpenConversation = onOpenConversation,
                     onOpenChannel = onOpenChannel,
                     state = chatsList,
-                    onLongPress = onChatMenu,
+                    onLongPress = { menuFor = it },
+                    onSwipeArchive = { chats.setArchived(it.id, true) },
+                    onSwipeRead = { toggleRead(chats, it) },
+                    archivedCount = archived,
+                    onOpenArchive = onOpenArchive,
                 )
             }
             HomeTab.Rooms -> {
@@ -131,7 +142,7 @@ internal fun Home(
                     onOpenConversation = onOpenConversation,
                     onOpenChannel = onOpenChannel,
                     state = roomsList,
-                    onLongPress = onChatMenu,
+                    onLongPress = { menuFor = it },
                 )
             }
             HomeTab.You -> {
@@ -149,6 +160,26 @@ internal fun Home(
             }
         }
     }
+    menuFor?.let { conversation ->
+        ChatMenu(
+            conversation = conversation,
+            now = System.currentTimeMillis(),
+            actions = chatMenuActions(chats, conversation),
+            onDismiss = { menuFor = null },
+        )
+    }
+}
+
+internal fun chatMenuActions(chats: ChatRepository, conversation: Conversation) = ChatMenuActions(
+    onPin = { chats.setChatPinned(conversation.id, it) },
+    onArchive = { chats.setArchived(conversation.id, it) },
+    onMute = { chats.mute(conversation.id, it) },
+    onMarkUnread = { unread -> if (unread) chats.markUnread(conversation.id, true) else chats.markRead(conversation.id) },
+)
+
+/** Read becomes unread and back, as the swipe and the menu both offer. */
+internal fun toggleRead(chats: ChatRepository, conversation: Conversation) {
+    if (conversation.unread > 0 || conversation.markedUnread) chats.markRead(conversation.id) else chats.markUnread(conversation.id, true)
 }
 
 private const val COLLAPSE_AFTER = 24

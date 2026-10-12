@@ -74,6 +74,9 @@ data class NewGroupKey(val kind: NewKind = NewKind.Group) : NavKey
 data object NewChatKey : NavKey
 
 @Serializable
+data object ArchiveKey : NavKey
+
+@Serializable
 data object RoomsAddKey : NavKey
 
 @Serializable
@@ -167,7 +170,7 @@ fun BleskNavigation(container: AppContainer) {
                     onNewChat = { backStack.add(NewChatKey) },
                     onAddRoom = { backStack.add(RoomsAddKey) },
                     onSearch = { backStack.add(SearchKey) },
-                    onChatMenu = { conversation -> container.chats.value?.setChatPinned(conversation.id, !conversation.pinned) },
+                    onOpenArchive = { backStack.add(ArchiveKey) },
                     onOpenChannel = { room, channel ->
                         when {
                             channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
@@ -246,6 +249,7 @@ fun BleskNavigation(container: AppContainer) {
                     onBack = back,
                 )
             }
+            entry<ArchiveKey> { ArchiveRoute(container, onOpenConversation = { backStack.add(ConversationKey(it)) }, onBack = back) }
             entry<RoomsAddKey> { RoomsAddRoute(container, onCreate = { backStack.add(NewGroupKey(NewKind.Room)) }, onBack = back) }
             entry<ScanKey> {
                 ScanRoute(container, onOpenConversation = { id ->
