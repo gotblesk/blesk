@@ -12,7 +12,7 @@ import java.io.IOException
 
 /** Your bots on the server; the token is only ever shown, never stored here. */
 internal class BotOwner(private val api: BleskApi) : BotAccounts {
-    override suspend fun myBots(): List<BotInfo> = runCatching { api.myBots() }.getOrDefault(emptyList())
+    override suspend fun myBots(): List<BotInfo>? = runCatching { api.myBots() }.getOrNull()
 
     override suspend fun createBot(username: String, name: String, about: String): Pair<BotResult, BotWithToken?> {
         val handle = username.trim().lowercase().removePrefix("@").let { if (it.endsWith(Bots.SUFFIX)) it else it + Bots.SUFFIX }

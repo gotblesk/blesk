@@ -537,7 +537,7 @@ class ServerChatRepository(
         spaces.forget(handle)
     }.isSuccess
 
-    override suspend fun spaceMembers(handle: String) = runCatching { api.spaceMembers(handle) }.getOrDefault(emptyList())
+    override suspend fun spaceMembers(handle: String) = runCatching { api.spaceMembers(handle) }.getOrNull()
 
     override suspend fun setSpaceRole(handle: String, username: String, role: SpaceRole) =
         runCatching { api.setSpaceRole(handle, RoleChange(username, role)) }.isSuccess

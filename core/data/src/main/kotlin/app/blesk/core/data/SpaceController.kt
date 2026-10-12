@@ -29,7 +29,8 @@ interface SpaceController {
 
     suspend fun deleteSpace(handle: String): Boolean
 
-    suspend fun spaceMembers(handle: String): List<SpaceMember>
+    /** Null when the server could not be asked. */
+    suspend fun spaceMembers(handle: String): List<SpaceMember>?
 
     suspend fun setSpaceRole(handle: String, username: String, role: SpaceRole): Boolean
 

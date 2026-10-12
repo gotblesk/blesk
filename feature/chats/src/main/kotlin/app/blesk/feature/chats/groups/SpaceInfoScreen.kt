@@ -29,6 +29,7 @@ import app.blesk.core.design.component.NotEncryptedTag
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.SkeletonRows
+import app.blesk.core.design.component.StateMessage
 import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
@@ -41,6 +42,7 @@ import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
+import app.blesk.core.design.R as DesignR
 
 /** What can be done to a public space; each action refreshes what the screen shows. */
 class SpaceActions(
@@ -63,6 +65,8 @@ fun SpaceInfoScreen(
     actions: SpaceActions,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    membersFailed: Boolean = false,
+    onRetryMembers: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val owner = space.role == SpaceRole.Owner
@@ -107,7 +111,15 @@ fun SpaceInfoScreen(
 
         if (admin && members == null) {
             SectionHeader(stringResource(R.string.group_members))
-            SkeletonRows(count = 3, avatar = 40.dp)
+            if (membersFailed) {
+                StateMessage(
+                    text = stringResource(DesignR.string.design_failed),
+                    action = stringResource(DesignR.string.design_retry),
+                    onAction = onRetryMembers,
+                )
+            } else {
+                SkeletonRows(count = 3, avatar = 40.dp)
+            }
         }
         if (admin && !members.isNullOrEmpty()) {
             SectionHeader(stringResource(R.string.group_members))

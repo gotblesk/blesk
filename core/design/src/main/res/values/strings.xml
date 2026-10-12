@@ -6,6 +6,9 @@
     <string name="design_undo">Отменить</string>
     <string name="design_copied">Скопировано</string>
     <string name="design_loading">Загрузка</string>
+    <string name="design_failed">Не получилось загрузить</string>
+    <string name="design_retry">Повторить</string>
+    <string name="design_open_settings">Открыть настройки</string>
     <string name="design_not_encrypted">без шифрования</string>
     <string name="design_encrypted">защищено</string>
     <string name="design_on">включено</string>

@@ -3,6 +3,7 @@ package app.blesk.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -18,9 +19,18 @@ import kotlinx.collections.immutable.toImmutableList
 internal fun BotsRoute(container: AppContainer, onBack: () -> Unit) {
     val bots = container.chats.collectAsStateWithLifecycle().value as? BotAccounts ?: return
     var version by remember { mutableIntStateOf(0) }
-    val mine by produceState<List<BotInfo>?>(null, version) { value = bots.myBots() }
+    var failed by remember { mutableStateOf(false) }
+    val mine by produceState<List<BotInfo>?>(null, version) {
+        value = null
+        failed = false
+        val loaded = bots.myBots()
+        failed = loaded == null
+        value = loaded
+    }
     BotsScreen(
         bots = mine?.toImmutableList(),
+        failed = failed,
+        onRetry = { version++ },
         actions = BotActions(
             create = { username, name, about -> bots.createBot(username, name, about).also { version++ } },
             renew = { username -> bots.renewToken(username) },

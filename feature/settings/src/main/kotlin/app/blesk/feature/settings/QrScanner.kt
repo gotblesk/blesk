@@ -2,7 +2,10 @@ package app.blesk.feature.settings
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
@@ -15,7 +18,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -28,13 +30,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import app.blesk.core.design.component.Text
-import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.component.StateMessage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
@@ -47,6 +46,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+import app.blesk.core.design.R as DesignR
 
 /** Camera preview that reports the first QR code it reads. Decoding happens on the phone. */
 @Composable
@@ -60,12 +60,16 @@ fun QrScanner(onCode: (String) -> Unit, modifier: Modifier = Modifier) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
     LaunchedEffect(Unit) { if (!granted) permission.launch(Manifest.permission.CAMERA) }
     if (!granted) {
+        // Once refused, the system no longer asks; the only way back is the app's settings.
         Box(modifier, contentAlignment = Alignment.Center) {
-            Text(
+            StateMessage(
                 text = stringResource(R.string.server_scan_permission),
-                color = Blesk.colors.textSecondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(16.dp),
+                action = stringResource(DesignR.string.design_open_settings),
+                onAction = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+                    )
+                },
             )
         }
         return

@@ -3,6 +3,7 @@ package app.blesk.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,15 +61,22 @@ internal fun SpaceInfoRoute(container: AppContainer, handle: String, onLeft: () 
     val me = (chats as? GroupController)?.me.orEmpty()
     val space by remember(handle) { spaces.space(SPACE_PREFIX + handle) }.collectAsStateWithLifecycle(initialValue = null)
     var version by remember { mutableIntStateOf(0) }
+    var membersFailed by remember { mutableStateOf(false) }
     val members by produceState<List<SpaceMember>?>(null, handle, version, space?.role) {
+        value = null
+        membersFailed = false
         val role = space?.role
-        value = if (role == SpaceRole.Owner || role == SpaceRole.Admin) spaces.spaceMembers(handle) else emptyList()
+        val loaded = if (role == SpaceRole.Owner || role == SpaceRole.Admin) spaces.spaceMembers(handle) else emptyList()
+        membersFailed = loaded == null
+        value = loaded
     }
     val current = space ?: return
     SpaceInfoScreen(
         space = current,
         me = me,
         members = members?.toImmutableList(),
+        membersFailed = membersFailed,
+        onRetryMembers = { version++ },
         nameOf = { username -> chats.contact(username)?.name ?: username },
         actions = SpaceActions(
             update = { title, about -> spaces.updateSpace(handle, title, about) },

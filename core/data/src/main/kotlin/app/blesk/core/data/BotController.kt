@@ -26,7 +26,8 @@ interface BotController {
 
 /** The bots you own: creating them and handing their tokens to your program. */
 interface BotAccounts {
-    suspend fun myBots(): List<BotInfo>
+    /** Null when the server could not be asked, so a failure is never shown as «no bots». */
+    suspend fun myBots(): List<BotInfo>?
 
     suspend fun createBot(username: String, name: String, about: String): Pair<BotResult, BotWithToken?>
 

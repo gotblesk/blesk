@@ -32,6 +32,7 @@ import app.blesk.core.design.component.NotEncryptedTag
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.SkeletonRows
+import app.blesk.core.design.component.StateMessage
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.component.rememberCopy
@@ -40,6 +41,7 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.shared.protocol.BotInfo
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
+import app.blesk.core.design.R as DesignR
 
 /** What the bots screen can do; each action refreshes the list afterwards. */
 class BotActions(
@@ -55,6 +57,8 @@ fun BotsScreen(
     actions: BotActions,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    failed: Boolean = false,
+    onRetry: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var shown by remember { mutableStateOf<BotWithToken?>(null) }
@@ -68,7 +72,13 @@ fun BotsScreen(
         shown?.let { token -> TokenCard(token, onDone = { shown = null }) }
 
         SectionHeader(stringResource(R.string.bots_mine))
-        if (bots == null) {
+        if (failed) {
+            StateMessage(
+                text = stringResource(DesignR.string.design_failed),
+                action = stringResource(DesignR.string.design_retry),
+                onAction = onRetry,
+            )
+        } else if (bots == null) {
             SkeletonRows(count = 2, avatar = 40.dp)
         } else if (bots.isEmpty()) {
             Text(stringResource(R.string.bots_none), color = Blesk.colors.textSecondary, modifier = pad.padding(horizontal = 4.dp))

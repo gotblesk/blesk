@@ -173,7 +173,7 @@ class DemoRepository(
         }
     }
 
-    override suspend fun myBots(): List<BotInfo> = emptyList()
+    override suspend fun myBots(): List<BotInfo>? = emptyList()
 
     override suspend fun createBot(username: String, name: String, about: String): Pair<BotResult, BotWithToken?> = BotResult.Failed to null
 
