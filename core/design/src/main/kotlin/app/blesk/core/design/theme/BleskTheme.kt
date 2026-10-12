@@ -72,3 +72,24 @@ fun BleskTheme(
         content = content,
     )
 }
+
+/**
+ * Content drawn on one of your own messages: the text colours switch to the ones made for that
+ * bubble, so everything inside keeps its contrast without knowing where it is.
+ */
+@Composable
+fun OnOwnBubble(content: @Composable () -> Unit) {
+    val colors = Blesk.colors
+    val own = remember(colors) {
+        colors.copy(
+            textPrimary = colors.onBubbleOwn,
+            textSecondary = colors.onBubbleOwnQuiet,
+            textTertiary = colors.onBubbleOwnQuiet,
+            hairline = colors.onBubbleOwn.copy(alpha = OWN_HAIRLINE),
+            surface = colors.bubbleOwn,
+        )
+    }
+    CompositionLocalProvider(LocalColors provides own, content = content)
+}
+
+private const val OWN_HAIRLINE = 0.16f

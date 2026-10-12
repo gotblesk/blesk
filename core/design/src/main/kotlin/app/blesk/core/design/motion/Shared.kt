@@ -36,3 +36,6 @@ fun Modifier.sharedElement(key: String): Modifier {
     if (Blesk.motion.reduced) return this
     return with(shared) { this@sharedElement.sharedElement(rememberSharedContentState(key), screen) }
 }
+
+/** The shared key that ties a settings row to the screen it opens. */
+fun screenKey(name: String) = "screen:$name"

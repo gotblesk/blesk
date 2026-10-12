@@ -46,6 +46,7 @@ import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.component.rememberCopy
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.OnOwnBubble
 import kotlinx.coroutines.delay
 
 /** Quick reactions offered in the message menu. User content, not interface icons. */
@@ -197,11 +198,11 @@ private fun LiftedMessage(message: Message, modifier: Modifier = Modifier) {
         modifier
             .widthIn(max = 300.dp)
             .shadow(LIFT_ELEVATION, BubbleShape, clip = false)
-            .background(if (message.isOwn) Blesk.colors.surfaceStrong else Blesk.colors.surface, BubbleShape)
+            .background(if (message.isOwn) Blesk.colors.bubbleOwn else Blesk.colors.surface, BubbleShape)
             .padding(horizontal = 14.dp, vertical = 9.dp)
             .clearAndSetSemantics { },
     ) {
-        Text(text, maxLines = LIFT_MAX_LINES)
+        if (message.isOwn) OnOwnBubble { Text(text, maxLines = LIFT_MAX_LINES) } else Text(text, maxLines = LIFT_MAX_LINES)
     }
 }
 

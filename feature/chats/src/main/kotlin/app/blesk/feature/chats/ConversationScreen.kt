@@ -3,6 +3,7 @@ package app.blesk.feature.chats
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,10 +49,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.Connection
 import app.blesk.core.data.model.BotButton
@@ -475,6 +479,11 @@ private fun quoteOf(message: Message, you: String, authorName: (String) -> Strin
     return "$who: ${message.text}"
 }
 
+/**
+ * The chat's top lens: avatar and name, a small lock beside the name when the chat is end-to-end
+ * encrypted, and the status underneath. The whole header opens the profile; on the right there
+ * are only the calls. The lock is never the only sign: TalkBack reads the protection out loud.
+ */
 @Composable
 private fun ChatHeader(
     conversation: Conversation,
@@ -486,39 +495,62 @@ private fun ChatHeader(
     demo: Boolean,
 ) {
     val protected = conversation.protection == Protection.EndToEnd
+    val encryption = stringResource(if (protected) R.string.chat_e2ee_spoken else R.string.chat_not_e2ee_spoken)
+    val status = when {
+        typing -> stringResource(R.string.chats_typing)
+        conversation.timerSeconds > 0 -> stringResource(R.string.chat_timer, timerLabel(conversation.timerSeconds))
+        conversation.kind == ConversationKind.Saved -> stringResource(R.string.chat_saved_status)
+        conversation.kind == ConversationKind.Bot -> stringResource(R.string.chat_bot_label)
+        conversation.kind == ConversationKind.Channel ->
+            pluralStringResource(R.plurals.chats_subscribers, conversation.memberCount, conversation.memberCount)
+        conversation.kind == ConversationKind.Group || conversation.kind == ConversationKind.Room ->
+            pluralStringResource(R.plurals.chats_members, conversation.memberCount, conversation.memberCount)
+        else -> "@${conversation.id}"
+    }
+    val openLabel = stringResource(R.string.chat_open_profile)
     TopLens(
         title = null,
         onBack = onBack,
         leading = {
-            Avatar(
-                name = conversation.title,
-                key = conversation.id,
-                size = 40.dp,
-                modifier = Modifier.sharedElement(avatarKey(conversation.id)),
-                protected = protected && conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
-            )
-            Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(conversation.title, style = Blesk.type.bodyStrong, maxLines = 1)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (demo) DemoTag()
-                    if (!typing && conversation.timerSeconds > 0) {
-                        Icon(BleskIcons.Timer, null, tint = Blesk.colors.textSecondary, size = 14.dp)
-                    } else if (!typing && protected) {
-                        Icon(BleskIcons.Shield, null, tint = Blesk.colors.textSecondary, size = 14.dp)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = Blesk.dimens.touchTarget)
+                    .clip(RoundedCornerShape(24.dp))
+                    .clickable(role = Role.Button, onClickLabel = openLabel, onClick = onOpenInfo ?: onOpenTheme)
+                    .semantics(mergeDescendants = true) { contentDescription = "${conversation.title}, $encryption, $status" }
+                    .padding(end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Avatar(
+                    name = conversation.title,
+                    key = conversation.id,
+                    size = 36.dp,
+                    modifier = Modifier.sharedElement(avatarKey(conversation.id)),
+                    protected = protected && conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
+                )
+                Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = conversation.title,
+                            style = Blesk.type.bodyStrong,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (protected) Icon(BleskIcons.Lock, contentDescription = null, tint = Blesk.colors.textSecondary, size = 14.dp)
                     }
-                    Text(
-                        text = when {
-                            typing -> stringResource(R.string.chats_typing)
-                            conversation.timerSeconds > 0 -> stringResource(R.string.chat_timer, timerLabel(conversation.timerSeconds))
-                            protected -> stringResource(R.string.chat_protected)
-                            conversation.kind == ConversationKind.Bot -> stringResource(R.string.chat_bot_label)
-                            else -> stringResource(app.blesk.core.design.R.string.design_not_encrypted)
-                        },
-                        style = Blesk.type.caption,
-                        color = if (typing) Blesk.colors.accent else Blesk.colors.textSecondary,
-                        maxLines = 1,
-                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = status,
+                            style = Blesk.type.caption,
+                            color = if (typing) Blesk.colors.accent else Blesk.colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false).semantics { liveRegion = LiveRegionMode.Polite },
+                        )
+                        if (demo) DemoTag()
+                    }
                 }
             }
         },
@@ -526,17 +558,6 @@ private fun ChatHeader(
             if (onCall != null) {
                 IconButton(BleskIcons.Phone, stringResource(R.string.chat_call), { onCall(false) })
                 IconButton(BleskIcons.Video, stringResource(R.string.chat_video_call), { onCall(true) })
-            }
-            if (onOpenInfo != null) {
-                if (conversation.kind == ConversationKind.Direct) {
-                    IconButton(BleskIcons.Info, stringResource(R.string.info_title), onOpenInfo)
-                } else {
-                    IconButton(BleskIcons.People, stringResource(R.string.group_info), onOpenInfo)
-                }
-            }
-            // Direct chats have the theme in their info screen; the header is full with calls there.
-            if (conversation.kind != ConversationKind.Direct || onOpenInfo == null) {
-                IconButton(BleskIcons.Appearance, stringResource(R.string.chat_theme), onOpenTheme)
             }
         },
     )

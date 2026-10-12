@@ -310,4 +310,8 @@
     <string name="person_chat_deleted">Чат удалён</string>
     <string name="person_size_mb">%1$.1f МБ</string>
     <string name="person_size_kb">%1$d КБ</string>
+    <string name="chat_e2ee_spoken">сквозное шифрование</string>
+    <string name="chat_not_e2ee_spoken">без сквозного шифрования</string>
+    <string name="chat_saved_status">заметки для себя</string>
+    <string name="chat_open_profile">Открыть профиль</string>
 </resources>

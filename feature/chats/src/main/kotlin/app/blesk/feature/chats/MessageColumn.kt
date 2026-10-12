@@ -37,6 +37,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -45,12 +47,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -63,6 +68,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -70,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.BotButton
@@ -89,6 +96,7 @@ import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.lerp
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.OnOwnBubble
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.MediaContent
 import app.blesk.feature.chats.media.isVisual
@@ -139,7 +147,7 @@ internal fun MessageColumn(
     val growth = remember { HashMap<String, Animatable<Float, *>>() }
     val density = LocalDensity.current
     val radius = with(density) { BubbleRadius.toPx() }
-    val color = if (own) Blesk.colors.surfaceStrong else Blesk.colors.surface
+    val color = if (own) Blesk.colors.bubbleOwn else Blesk.colors.surface
 
     Column(
         modifier = modifier
@@ -172,16 +180,19 @@ internal fun MessageColumn(
                 own = own,
                 onToggle = { actions.onTap(message) },
             ) {
-                MessageEntry(
-                    message = message,
-                    own = own,
-                    quote = message.replyToId?.let(quoteText),
-                    parts = parts,
-                    contentAlpha = { grow.value },
-                    actions = actions,
-                    selected = message.id in selection,
-                    selecting = selection.isNotEmpty(),
-                )
+                val entry: @Composable () -> Unit = {
+                    MessageEntry(
+                        message = message,
+                        own = own,
+                        quote = message.replyToId?.let(quoteText),
+                        parts = parts,
+                        contentAlpha = { grow.value },
+                        actions = actions,
+                        selected = message.id in selection,
+                        selecting = selection.isNotEmpty(),
+                    )
+                }
+                if (own) OnOwnBubble(entry) else entry()
             }
         }
     }
@@ -223,19 +234,35 @@ private fun SelectableRow(selecting: Boolean, selected: Boolean, own: Boolean, o
 private class PartRegistry {
     var root: LayoutCoordinates? = null
     private val coordinates = LinkedHashMap<String, LayoutCoordinates>()
+
+    // Where each drop was last placed, as state: when a drop moves or grows (a reaction added,
+    // a message edited) the column is drawn again instead of keeping the old shape.
+    private val placed = mutableStateMapOf<String, Pair<Offset, IntSize>>()
+
     fun put(key: String, layout: LayoutCoordinates) {
         coordinates[key] = layout
+        val now = layout.positionInRoot() to layout.size
+        if (placed[key] != now) placed[key] = now
     }
 
     private fun rect(key: String): Rect? {
+        placed[key] ?: return null
         val origin = root ?: return null
         val child = coordinates[key]?.takeIf { it.isAttached } ?: return null
         if (!origin.isAttached) return null
         return origin.localBoundingBoxOf(child, clipBounds = false)
     }
 
+    /** Every reaction is its own capsule; side by side they stick into one cluster on the message's edge. */
+    private fun reactionBlobs(id: String, into: MutableList<Blob>) {
+        coordinates.keys.filter { it.startsWith("reaction:$id:") }.forEach { key ->
+            rect(key)?.let { into += Blob(it, it.height / 2f) }
+        }
+    }
+
     fun blobs(radius: Float, thread: Float, dots: Float, own: Boolean, growth: (String) -> Float): List<Blob> {
         val result = ArrayList<Blob>()
+        val settled = ArrayList<Rect>()
         coordinates.keys.filter { it.startsWith("bubble:") }.forEach { key ->
             val id = key.removePrefix("bubble:")
             val bubble = rect(key) ?: return@forEach
@@ -260,17 +287,25 @@ private class PartRegistry {
                 result += lerp(seed, full, g)
             } else {
                 result += full
+                settled += bubble
             }
             rect("quote:$id")?.let { quote ->
                 result += Blob(quote, radius)
                 val x = if (own) quote.right - radius else quote.left + radius
                 result += Blob(Rect(x - thread / 2f, quote.bottom - radius / 2f, x + thread / 2f, bubble.top + radius / 2f), thread / 2f)
             }
-            rect("reactions:$id")?.let { result += Blob(it, it.height / 2f) }
+            reactionBlobs(id, result)
+        }
+        // Messages of one author in a row are one column: each pair is tied by a wide neck, so
+        // the column holds together whatever lies between them and however it is drawn.
+        settled.sortedBy { it.top }.zipWithNext { upper, lower ->
+            val left = maxOf(upper.left, lower.left) + radius * NECK_INSET
+            val right = minOf(upper.right, lower.right) - radius * NECK_INSET
+            if (right > left) result += Blob(Rect(left, upper.bottom - radius, right, lower.top + radius), radius / 2f)
         }
         coordinates.keys.filter { it.startsWith("circle:") }.forEach { key ->
             rect(key)?.let { result += Blob(it, minOf(it.width, it.height) / 2f) }
-            rect("reactions:${key.removePrefix("circle:")}")?.let { result += Blob(it, it.height / 2f) }
+            reactionBlobs(key.removePrefix("circle:"), result)
         }
         return result
     }
@@ -344,6 +379,8 @@ private fun MessageEntry(
         Box(
             modifier = Modifier
                 .widthIn(max = 300.dp)
+                // A one-line message is still a full touch target.
+                .heightIn(min = Blesk.dimens.touchTarget)
                 .onPlaced { parts.put(if (circle) "circle:${message.id}" else "bubble:${message.id}", it) }
                 .let { if (selected) it.border(2.dp, Blesk.colors.accent, if (circle) CircleShape else BubbleShape) else it }
                 .let { modifier ->
@@ -393,27 +430,28 @@ private fun MessageEntry(
                     null -> Unit
                     else -> MediaContent(message, attachment)
                 }
+                val stamp: @Composable () -> Unit = {
+                    Stamp(
+                        time, message.status.takeIf { own }, edited,
+                        modifier = Modifier.padding(horizontal = if (attachment?.isVisual() == true) 8.dp else 0.dp),
+                    )
+                }
                 if (message.text.isNotEmpty()) {
                     val inset = if (attachment?.isVisual() == true) Modifier.padding(horizontal = 10.dp, vertical = 6.dp) else Modifier
-                    FormattedText(markup, revealed, inset)
+                    TextWithStamp(inset, text = { onLayout -> FormattedText(markup, revealed, Modifier, onLayout) }, stamp = stamp)
+                } else {
+                    Box(Modifier.align(Alignment.End).padding(top = 2.dp)) { stamp() }
                 }
-                Stamp(
-                    time, message.status.takeIf { own }, edited,
-                    modifier = Modifier
-                        .align(Alignment.End)
-                        .padding(top = 2.dp)
-                        .padding(horizontal = if (attachment?.isVisual() == true) 8.dp else 0.dp),
-                )
             }
         }
         if (message.reactions.isNotEmpty()) {
             Reactions(
                 reactions = message.reactions,
                 onToggle = { actions.onReact(message, it) },
+                onPlaced = { symbol, layout -> parts.put("reaction:${message.id}:$symbol", layout) },
                 modifier = Modifier
                     .padding(horizontal = 10.dp)
-                    .offset(y = (-6).dp)
-                    .onPlaced { parts.put("reactions:${message.id}", it) },
+                    .offset(y = (-6).dp),
             )
         }
         if (message.buttons.isNotEmpty()) BotButtons(message, actions)
@@ -487,10 +525,9 @@ private fun StatusMark(status: SendStatus, quiet: Color, onMedia: Boolean) {
     val colors = Blesk.colors
     val tint = when {
         onMedia -> quiet
-        status == SendStatus.Failed -> colors.danger
-        // On a light background the light itself is near white, so the accent stands in for it.
-        status == SendStatus.Read && !colors.isDark -> colors.accent
-        status == SendStatus.Read -> remember(colors) { ensureContrast(colors.light, colors.surfaceStrong, ContrastLevel.UI_COMPONENT) }
+        // Status marks sit on your own bubble, whose colour is the surface here.
+        status == SendStatus.Failed -> remember(colors) { ensureContrast(colors.danger, colors.surface, ContrastLevel.UI_COMPONENT) }
+        status == SendStatus.Read -> remember(colors) { ensureContrast(colors.light, colors.surface, ContrastLevel.UI_COMPONENT) }
         else -> quiet
     }
     val icon = when (status) {
@@ -509,7 +546,12 @@ private fun StatusMark(status: SendStatus, quiet: Color, onMedia: Boolean) {
 }
 
 @Composable
-private fun Reactions(reactions: ImmutableList<Reaction>, onToggle: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun Reactions(
+    reactions: ImmutableList<Reaction>,
+    onToggle: (String) -> Unit,
+    onPlaced: (symbol: String, LayoutCoordinates) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(modifier.padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         reactions.forEach { reaction ->
             key(reaction.symbol) {
@@ -525,6 +567,7 @@ private fun Reactions(reactions: ImmutableList<Reaction>, onToggle: (String) -> 
                             scaleX = stick.value
                             scaleY = 2f - stick.value
                         }
+                        .onPlaced { onPlaced(reaction.symbol, it) }
                         .border(1.dp, Blesk.colors.light.copy(alpha = 0.5f * ring), CircleShape)
                         .clickable { onToggle(reaction.symbol) }
                         .semantics(mergeDescendants = true) { contentDescription = label }
@@ -585,7 +628,7 @@ private const val MIN_MELT_STEP_MILLIS = 1_000L
 
 /** Formatted message text; spoilers stay covered until the bubble is tapped. */
 @Composable
-private fun FormattedText(markup: Markup, revealed: Boolean, modifier: Modifier) {
+private fun FormattedText(markup: Markup, revealed: Boolean, modifier: Modifier, onTextLayout: ((TextLayoutResult) -> Unit)? = null) {
     val colors = Blesk.colors
     val text = remember(markup, revealed, colors) {
         buildAnnotatedString {
@@ -608,8 +651,42 @@ private fun FormattedText(markup: Markup, revealed: Boolean, modifier: Modifier)
             }
         }
     }
-    Text(text, modifier = modifier)
+    Text(text, modifier = modifier, onTextLayout = onTextLayout)
 }
+
+/**
+ * Text with the time and status tucked into the end of its last line when they fit there,
+ * otherwise on a line of their own at the right, the way a short message stays one line tall.
+ */
+@Composable
+private fun TextWithStamp(
+    modifier: Modifier,
+    text: @Composable (onLayout: (TextLayoutResult) -> Unit) -> Unit,
+    stamp: @Composable () -> Unit,
+) {
+    val lastLine = remember { mutableFloatStateOf(0f) }
+    val gap = with(LocalDensity.current) { StampGap.roundToPx() }
+    Layout(
+        content = {
+            text { layout -> lastLine.floatValue = layout.getLineRight(layout.lineCount - 1) }
+            stamp()
+        },
+        modifier = modifier,
+    ) { measurables, constraints ->
+        val textPlaceable = measurables[0].measure(constraints.copy(minWidth = 0))
+        val stampPlaceable = measurables[1].measure(constraints.copy(minWidth = 0, minHeight = 0))
+        val inlineEnd = lastLine.floatValue.toInt() + gap + stampPlaceable.width
+        val inline = inlineEnd <= constraints.maxWidth
+        val width = if (inline) maxOf(textPlaceable.width, inlineEnd) else maxOf(textPlaceable.width, stampPlaceable.width)
+        val height = if (inline) textPlaceable.height else textPlaceable.height + stampPlaceable.height
+        layout(width.coerceIn(constraints.minWidth, constraints.maxWidth), height) {
+            textPlaceable.place(0, 0)
+            stampPlaceable.place(width - stampPlaceable.width, height - stampPlaceable.height)
+        }
+    }
+}
+
+private val StampGap = 8.dp
 
 private val mention = Regex("(?<![\\w@])@[a-z0-9_]{3,32}")
 
@@ -628,3 +705,4 @@ private const val RISE_IN_DOTS = 3f
 private const val SNAP_AT = 0.4f
 private const val STICK_FROM = 0.8f
 private val FailedGap = 14.dp
+private const val NECK_INSET = 0.6f

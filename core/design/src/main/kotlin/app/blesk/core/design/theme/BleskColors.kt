@@ -34,6 +34,11 @@ data class BleskColors(
     val onAccent: Color,
     val danger: Color,
     val spectrum: ImmutableList<Color>,
+    /** Your messages: clearly apart from everyone else's, graphite in the light theme. */
+    val bubbleOwn: Color = surfaceStrong,
+    val onBubbleOwn: Color = textPrimary,
+    /** Time, status and other quiet text on your messages. */
+    val onBubbleOwnQuiet: Color = textTertiary,
 )
 
 object BleskPalette {
@@ -71,6 +76,14 @@ object BleskPalette {
             listOf(background, surface, surfaceStrong), minRatio = ContrastLevel.BODY_TEXT,
         )
 
+        // Your messages stand apart by lightness: graphite in the light theme, a lighter step of
+        // the background in the dark ones; the gap to others' messages is checked like text.
+        val ownBase = if (dark) bg.withL(bg.l + OWN_STEP_DARK) else Oklch(OWN_LIGHT_L, textChroma, textHue)
+        val bubbleOwn = ownBase.toColor()
+        val onBubbleOwn = ensureContrast(if (dark) textPrimary else background, bubbleOwn, ContrastLevel.BODY_TEXT)
+        val onBubbleOwnQuiet =
+            ensureContrast(lerpColor(onBubbleOwn, bubbleOwn, QUIET_MIX), bubbleOwn, ContrastLevel.LARGE_TEXT)
+
         return BleskColors(
             isDark = dark,
             background = background,
@@ -86,6 +99,9 @@ object BleskPalette {
             onAccent = onAccent,
             danger = danger,
             spectrum = spectrumFor(theme, dark),
+            bubbleOwn = bubbleOwn,
+            onBubbleOwn = onBubbleOwn,
+            onBubbleOwnQuiet = onBubbleOwnQuiet,
         )
     }
 
@@ -108,6 +124,15 @@ object BleskPalette {
         return hues.map { Oklch(l, c, it.mod(360f)).toColor() }.toImmutableList()
     }
 
+    private fun lerpColor(a: Color, b: Color, t: Float) = Color(
+        red = a.red + (b.red - a.red) * t,
+        green = a.green + (b.green - a.green) * t,
+        blue = a.blue + (b.blue - a.blue) * t,
+    )
+
+    private const val OWN_STEP_DARK = 0.2f
+    private const val OWN_LIGHT_L = 0.32f
+    private const val QUIET_MIX = 0.35f
     private const val SURFACE_STEP = 0.05f
     private const val SURFACE_STRONG_STEP = 0.1f
 

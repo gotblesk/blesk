@@ -70,7 +70,7 @@ class MainFlowTest {
 
         compose.onNodeWithContentDescription("Новый чат").performClick()
         compose.onNodeWithText("Лера").performClick()
-        compose.onNodeWithText("защищено").assertIsDisplayed()
+        compose.onNodeWithContentDescription("сквозное шифрование", substring = true).assertIsDisplayed()
         compose.onNodeWithContentDescription("Назад").performClick()
 
         compose.onNodeWithText("Комнаты").performClick()

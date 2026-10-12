@@ -5,12 +5,18 @@ import android.content.Intent
 import android.os.Build
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -21,13 +27,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import androidx.navigation3.ui.NavDisplay
+import androidx.navigationevent.NavigationEvent
 import app.blesk.AppContainer
 import app.blesk.BuildConfig
 import app.blesk.calls.CallActivity
@@ -37,6 +52,8 @@ import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.design.motion.LocalScreenScope
 import app.blesk.core.design.motion.LocalSharedScope
+import app.blesk.core.design.motion.screenKey
+import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.motion.BleskMotion
@@ -176,62 +193,64 @@ fun BleskNavigation(container: AppContainer) {
     val motion = Blesk.motion
     SharedTransitionLayout {
         CompositionLocalProvider(LocalSharedScope provides this) {
+            val screenDecorator = remember {
+                NavEntryDecorator<Any>(decorate = { entry -> Screen { entry.Content() } })
+            }
             NavDisplay(
                 sharedTransitionScope = this@SharedTransitionLayout,
                 transitionSpec = { screenEnter(motion) },
                 popTransitionSpec = { screenExit(motion) },
-                predictivePopTransitionSpec = { screenExit(motion) },
+                predictivePopTransitionSpec = { edge -> screenExit(motion, towardsLeft = edge == NavigationEvent.EDGE_LEFT) },
+                entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), screenDecorator),
                 backStack = backStack,
                 onBack = back,
                 entryProvider = entryProvider {
                     entry<HomeKey> {
-                        Screen {
-                            var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
-                            Home(
-                                container = container,
-                                tab = tab,
-                                demo = demo,
-                                serverHost = (mode as? AppMode.Server)?.url?.removePrefix("https://"),
-                                debugUnlocked = debugUnlocked,
-                                onSelectTab = { tab = it },
-                                onOpenConversation = { backStack.add(ConversationKey(it)) },
-                                onNewChat = { backStack.add(NewChatKey) },
-                                onAddRoom = { backStack.add(RoomsAddKey) },
-                                onOpenArchive = { backStack.add(ArchiveKey) },
-                                onOpenChannel = { room, channel ->
-                                    when {
-                                        channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
-                                        // The demo has nobody to talk to, so its voice channels stay a picture.
-                                        demo -> backStack.add(VoiceChannelKey(room.id, channel.id))
-                                        else -> {
-                                            val title = "${room.title} · ${channel.title}"
-                                            val channelId = channel.id.substringAfter(':')
-                                            context.startActivity(CallActivity.voice(context, room.id, channelId, channel.id, title))
-                                        }
+                        var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
+                        Home(
+                            container = container,
+                            tab = tab,
+                            demo = demo,
+                            serverHost = (mode as? AppMode.Server)?.url?.removePrefix("https://"),
+                            debugUnlocked = debugUnlocked,
+                            onSelectTab = { tab = it },
+                            onOpenConversation = { backStack.add(ConversationKey(it)) },
+                            onNewChat = { backStack.add(NewChatKey) },
+                            onAddRoom = { backStack.add(RoomsAddKey) },
+                            onOpenArchive = { backStack.add(ArchiveKey) },
+                            onOpenChannel = { room, channel ->
+                                when {
+                                    channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
+                                    // The demo has nobody to talk to, so its voice channels stay a picture.
+                                    demo -> backStack.add(VoiceChannelKey(room.id, channel.id))
+                                    else -> {
+                                        val title = "${room.title} · ${channel.title}"
+                                        val channelId = channel.id.substringAfter(':')
+                                        context.startActivity(CallActivity.voice(context, room.id, channelId, channel.id, title))
+                                    }
+                                }
+                            },
+                            settings = SettingsActions(
+                                onOpenProfile = { backStack.add(ProfileKey) },
+                                onOpenAppearance = { backStack.add(AppearanceKey) },
+                                onOpenPrivacy = { backStack.add(PrivacyKey) },
+                                onOpenAbout = { backStack.add(AboutKey) },
+                                onOpenDebug = { backStack.add(DebugKey) },
+                                onOpenServer = { backStack.add(ServerKey) },
+                                onOpenBots = { backStack.add(BotsKey) },
+                                onOpenNotifications = { backStack.add(NotificationsKey) },
+                                onOpenStorage = { backStack.add(StorageKey) },
+                                onShowQr = { backStack.add(MyQrKey) },
+                                onShare = { scope.launch { shareProfile(context, container.settings.profile.first().username) } },
+                                onOpenSaved = {
+                                    scope.launch {
+                                        val chats = container.chats.value ?: return@launch
+                                        chats.conversations.first().firstOrNull { it.kind == ConversationKind.Saved }
+                                            ?.let { backStack.add(ConversationKey(it.id)) }
                                     }
                                 },
-                                settings = SettingsActions(
-                                    onOpenProfile = { backStack.add(ProfileKey) },
-                                    onOpenAppearance = { backStack.add(AppearanceKey) },
-                                    onOpenPrivacy = { backStack.add(PrivacyKey) },
-                                    onOpenAbout = { backStack.add(AboutKey) },
-                                    onOpenDebug = { backStack.add(DebugKey) },
-                                    onOpenServer = { backStack.add(ServerKey) },
-                                    onOpenBots = { backStack.add(BotsKey) },
-                                    onOpenNotifications = { backStack.add(NotificationsKey) },
-                                    onOpenStorage = { backStack.add(StorageKey) },
-                                    onShowQr = { backStack.add(MyQrKey) },
-                                    onShare = { scope.launch { shareProfile(context, container.settings.profile.first().username) } },
-                                    onOpenSaved = {
-                                        scope.launch {
-                                            val chats = container.chats.value ?: return@launch
-                                            chats.conversations.first().firstOrNull { it.kind == ConversationKind.Saved }
-                                                ?.let { backStack.add(ConversationKey(it.id)) }
-                                        }
-                                    },
-                                ),
-                            )
-                        }
+                            ),
+                        )
                     }
                     entry<ProfileKey> { ProfileRoute(container, back) }
                     entry<MyQrKey> {
@@ -239,22 +258,26 @@ fun BleskNavigation(container: AppContainer) {
                         MyQrScreen(profile?.username.orEmpty(), onBack = back)
                     }
                     entry<ServerKey> {
-                        val server = mode as? AppMode.Server
-                        ServerScreen(
-                            connected = server?.let { ServerState(it.url, it.username, it.pin != null) },
-                            onConnect = { raw, username -> connect(container, raw, username) },
-                            onBack = back,
-                        )
+                        Box(Modifier.sharedBounds(screenKey("server"))) {
+                            val server = mode as? AppMode.Server
+                            ServerScreen(
+                                connected = server?.let { ServerState(it.url, it.username, it.pin != null) },
+                                onConnect = { raw, username -> connect(container, raw, username) },
+                                onBack = back,
+                            )
+                        }
                     }
                     entry<PrivacyKey> {
-                        PrivacyRoute(
-                            container = container,
-                            onSetPin = { backStack.add(PinChangeKey(requireCurrent = false)) },
-                            onChangePin = { backStack.add(PinChangeKey(requireCurrent = true)) },
-                            onDisablePin = { backStack.add(PinDisableKey) },
-                            onWipe = { backStack.add(WipeKey) },
-                            onBack = back,
-                        )
+                        Box(Modifier.sharedBounds(screenKey("privacy"))) {
+                            PrivacyRoute(
+                                container = container,
+                                onSetPin = { backStack.add(PinChangeKey(requireCurrent = false)) },
+                                onChangePin = { backStack.add(PinChangeKey(requireCurrent = true)) },
+                                onDisablePin = { backStack.add(PinDisableKey) },
+                                onWipe = { backStack.add(WipeKey) },
+                                onBack = back,
+                            )
+                        }
                     }
                     entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
                     entry<PinDisableKey> { PinDisableRoute(container, back) }
@@ -265,20 +288,18 @@ fun BleskNavigation(container: AppContainer) {
                     entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
                     entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
                     entry<ConversationKey> { key ->
-                        Screen {
-                            ConversationRoute(
-                                container = container,
-                                id = key.id,
-                                appearance = appearance,
-                                onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
-                                onOpenGroup = { backStack.add(GroupInfoKey(it)) },
-                                onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
-                                onVerify = { backStack.add(ChatInfoKey(key.id)) },
-                                onForward = { messageIds -> backStack.add(ForwardKey(key.id, messageIds)) },
-                                onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
-                                onBack = back,
-                            )
-                        }
+                        ConversationRoute(
+                            container = container,
+                            id = key.id,
+                            appearance = appearance,
+                            onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
+                            onOpenGroup = { backStack.add(GroupInfoKey(it)) },
+                            onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
+                            onVerify = { backStack.add(ChatInfoKey(key.id)) },
+                            onForward = { messageIds -> backStack.add(ForwardKey(key.id, messageIds)) },
+                            onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
+                            onBack = back,
+                        )
                     }
                     entry<NewChatKey> {
                         NewChatRoute(
@@ -293,7 +314,7 @@ fun BleskNavigation(container: AppContainer) {
                         )
                     }
                     entry<ArchiveKey> {
-                        Screen { ArchiveRoute(container, onOpenConversation = { backStack.add(ConversationKey(it)) }, onBack = back) }
+                        ArchiveRoute(container, onOpenConversation = { backStack.add(ConversationKey(it)) }, onBack = back)
                     }
                     entry<RoomsAddKey> { RoomsAddRoute(container, onCreate = { backStack.add(NewGroupKey(NewKind.Room)) }, onBack = back) }
                     entry<ScanKey> {
@@ -313,7 +334,9 @@ fun BleskNavigation(container: AppContainer) {
                             while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
                         }, onBack = back)
                     }
-                    entry<BotsKey> { BotsRoute(container, back) }
+                    entry<BotsKey> {
+                        Box(Modifier.sharedBounds(screenKey("bots"))) { BotsRoute(container, back) }
+                    }
                     entry<SafetyKey> { key -> SafetyRoute(container, key.username, back) }
                     entry<ChatInfoKey> { key ->
                         ChatInfoRoute(
@@ -327,8 +350,12 @@ fun BleskNavigation(container: AppContainer) {
                         )
                     }
                     entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageIds, onDone = back, onBack = back) }
-                    entry<NotificationsKey> { NotificationsRoute(container, back) }
-                    entry<StorageKey> { StorageRoute(back) }
+                    entry<NotificationsKey> {
+                        Box(Modifier.sharedBounds(screenKey("notifications"))) { NotificationsRoute(container, back) }
+                    }
+                    entry<StorageKey> {
+                        Box(Modifier.sharedBounds(screenKey("storage"))) { StorageRoute(back) }
+                    }
                     entry<SpaceInfoKey> { key ->
                         SpaceInfoRoute(container, key.handle, onLeft = {
                             while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
@@ -348,19 +375,23 @@ fun BleskNavigation(container: AppContainer) {
                         channel?.let { VoiceChannelScreen(channel = it, onBack = back) }
                     }
                     entry<AppearanceKey> {
-                        AppearanceRoute(container, appearance, back)
+                        Box(Modifier.sharedBounds(screenKey("appearance"))) {
+                            AppearanceRoute(container, appearance, back)
+                        }
                     }
                     entry<AboutKey> {
-                        AboutScreen(
-                            versionName = BuildConfig.VERSION_NAME,
-                            debugUnlocked = debugUnlocked,
-                            onOpenLicenses = { backStack.add(LicensesKey) },
-                            onUnlockDebug = {
-                                scope.launch { container.settings.setDebugUnlocked(true) }
-                                container.eventLog.record(EventCode.DebugUnlocked)
-                            },
-                            onBack = back,
-                        )
+                        Box(Modifier.sharedBounds(screenKey("about"))) {
+                            AboutScreen(
+                                versionName = BuildConfig.VERSION_NAME,
+                                debugUnlocked = debugUnlocked,
+                                onOpenLicenses = { backStack.add(LicensesKey) },
+                                onUnlockDebug = {
+                                    scope.launch { container.settings.setDebugUnlocked(true) }
+                                    container.eventLog.record(EventCode.DebugUnlocked)
+                                },
+                                onBack = back,
+                            )
+                        }
                     }
                     entry<DebugKey> {
                         val entries by container.eventLog.entries.collectAsStateWithLifecycle()
@@ -395,10 +426,28 @@ private suspend fun connect(container: AppContainer, raw: String, username: Stri
     }
 }
 
-/** Gives a screen its enter and exit, so a chat row and its chat can be one shared element. */
+/**
+ * Every screen knows its enter and exit, so a chat row and its chat can be one shared element,
+ * and a screen leaving by the back gesture rounds its corners as it shrinks, like a card being
+ * put back, instead of turning into a sharp rectangle.
+ */
 @Composable
 private fun Screen(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalScreenScope provides LocalNavAnimatedContentScope.current, content = content)
+    val scope = LocalNavAnimatedContentScope.current
+    val corner by scope.transition.animateDp(label = "corner") { if (it == EnterExitState.Visible) 0.dp else SCREEN_CORNER }
+    // The screen being returned to starts a little dim and clears as the gesture goes on.
+    val dim by scope.transition.animateFloat(label = "dim") { if (it == EnterExitState.PreEnter) UNDER_DIM else 0f }
+    CompositionLocalProvider(LocalScreenScope provides scope) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(corner))
+                .drawWithContent {
+                    drawContent()
+                    if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
+                },
+        ) { content() }
+    }
 }
 
 /** Deeper screens come out of where they were opened from; everything dissolves rather than slides in whole. */
@@ -406,11 +455,27 @@ private fun AnimatedContentTransitionScope<*>.screenEnter(motion: BleskMotion): 
     (fadeIn(motion.transition()) + scaleIn(motion.transition(), initialScale = if (motion.reduced) 1f else ENTER_SCALE))
         .togetherWith(fadeOut(motion.transition()))
 
-private fun AnimatedContentTransitionScope<*>.screenExit(motion: BleskMotion): ContentTransform =
-    fadeIn(motion.transition())
-        .togetherWith(fadeOut(motion.transition()) + scaleOut(motion.transition(), targetScale = if (motion.reduced) 1f else ENTER_SCALE))
+/** Going back, the leaving screen stays on top while it shrinks into place, so the bars below never draw over it. */
+private fun AnimatedContentTransitionScope<*>.screenExit(motion: BleskMotion, towardsLeft: Boolean? = null): ContentTransform =
+    ContentTransform(
+        targetContentEnter = fadeIn(motion.transition()),
+        initialContentExit = fadeOut(motion.transition()) + scaleOut(
+            motion.transition(),
+            targetScale = if (motion.reduced) 1f else EXIT_SCALE,
+            // With no element to return into, the screen shrinks towards the edge the swipe comes from.
+            transformOrigin = when (towardsLeft) {
+                true -> TransformOrigin(0f, 0.5f)
+                false -> TransformOrigin(1f, 0.5f)
+                null -> TransformOrigin.Center
+            },
+        ),
+        targetContentZIndex = -1f,
+    )
 
+private val SCREEN_CORNER = 28.dp
 private const val ENTER_SCALE = 0.96f
+private const val EXIT_SCALE = 0.9f
+private const val UNDER_DIM = 0.25f
 
 /** Sends a link to your profile through any app the person chooses. */
 private fun shareProfile(context: Context, username: String) {

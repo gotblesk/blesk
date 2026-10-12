@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +44,7 @@ fun Text(
     style: TextStyle = Blesk.type.body,
     color: Color = Blesk.colors.textPrimary,
     maxLines: Int = Int.MAX_VALUE,
+    onTextLayout: ((TextLayoutResult) -> Unit)? = null,
 ) {
     BasicText(
         text = text,
@@ -50,6 +52,7 @@ fun Text(
         style = style.merge(color = color),
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
+        onTextLayout = onTextLayout,
     )
 }
 

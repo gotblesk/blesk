@@ -25,6 +25,7 @@ import app.blesk.core.data.diagnostics.LogEntry
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.ConversationKind
+import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.core.data.settings.Privacy
@@ -231,6 +232,32 @@ class KeyScreensScreenshotTest(private val name: String) {
             conversation = conversation,
             messages = seed.messages.filter { it.conversationId == conversation.id }.toImmutableList(),
             typing = true,
+            authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+        )
+    }
+
+    /** A run of one author's messages and a cluster of reactions: both must read as one shape. */
+    @Test
+    fun direct() = capture("02b_conversation_direct") {
+        val conversation = seed.conversations.first { it.id == DemoSeed.ANYA }
+        val messages = seed.messages.filter { it.conversationId == conversation.id || it.conversationId == DemoSeed.SAVED }.map { message ->
+            if (message.id == "${DemoSeed.ANYA}-2") {
+                message.copy(
+                    reactions = persistentListOf(
+                        Reaction("\u2764\uFE0F", 2, mine = true),
+                        Reaction("\uD83D\uDD25", 1, mine = false),
+                        Reaction("\uD83D\uDC4D", 1, mine = false),
+                    ),
+                )
+            } else {
+                message
+            }
+        }
+        ConversationScreen(
+            conversation = conversation,
+            messages = messages.toImmutableList(),
+            typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
             callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
         )

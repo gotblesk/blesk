@@ -22,6 +22,8 @@ import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.motion.screenKey
+import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.theme.Blesk
 import kotlinx.collections.immutable.persistentListOf
 
@@ -92,6 +94,7 @@ fun SettingsList(
                     subtitle = stringResource(R.string.settings_bots_hint),
                     icon = BleskIcons.Bot,
                     onClick = actions.onOpenBots,
+                    modifier = Modifier.sharedBounds(screenKey("bots")),
                 )
             }
             ListRow(
@@ -99,6 +102,7 @@ fun SettingsList(
                 subtitle = stringResource(R.string.settings_privacy_hint),
                 icon = BleskIcons.Shield,
                 onClick = actions.onOpenPrivacy,
+                modifier = Modifier.sharedBounds(screenKey("privacy")),
             )
         }
         SectionHeader(stringResource(R.string.settings_section_app))
@@ -108,18 +112,21 @@ fun SettingsList(
                 subtitle = stringResource(R.string.settings_appearance_hint),
                 icon = BleskIcons.Appearance,
                 onClick = actions.onOpenAppearance,
+                modifier = Modifier.sharedBounds(screenKey("appearance")),
             )
             ListRow(
                 title = stringResource(R.string.settings_notifications),
                 subtitle = stringResource(R.string.settings_notifications_hint),
                 icon = BleskIcons.Bell,
                 onClick = actions.onOpenNotifications,
+                modifier = Modifier.sharedBounds(screenKey("notifications")),
             )
             ListRow(
                 title = stringResource(R.string.settings_storage),
                 subtitle = stringResource(R.string.settings_storage_hint),
                 icon = BleskIcons.Storage,
                 onClick = actions.onOpenStorage,
+                modifier = Modifier.sharedBounds(screenKey("storage")),
             )
             ToggleRow(
                 title = stringResource(R.string.settings_send_by_enter),
@@ -155,10 +162,16 @@ fun SettingsList(
                 },
                 icon = BleskIcons.Server,
                 onClick = actions.onOpenServer,
+                modifier = Modifier.sharedBounds(screenKey("server")),
             )
         }
         Card(cardPadding.padding(top = Blesk.dimens.sectionGap)) {
-            ListRow(title = stringResource(R.string.settings_about), icon = BleskIcons.Info, onClick = actions.onOpenAbout)
+            ListRow(
+                title = stringResource(R.string.settings_about),
+                icon = BleskIcons.Info,
+                onClick = actions.onOpenAbout,
+                modifier = Modifier.sharedBounds(screenKey("about")),
+            )
             if (debugUnlocked) {
                 ListRow(title = stringResource(R.string.settings_debug), icon = BleskIcons.Debug, onClick = actions.onOpenDebug)
             }
