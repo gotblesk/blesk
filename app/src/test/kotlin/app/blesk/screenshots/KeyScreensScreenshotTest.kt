@@ -389,7 +389,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             query = query,
             hits = persistentListOf(
                 SearchHit("a", "1", "Аня", "Аня", "Смотри, какой свет сегодня на закате"),
-                SearchHit("b", "2", "Студия · общий", "Вы", "Свет в макете стоит сделать мягче, а тени длиннее"),
+                SearchHit("b", "2", "Студия · общий", "Ты", "Свет в макете стоит сделать мягче, а тени длиннее"),
             ),
             onOpen = {},
             onBack = {},

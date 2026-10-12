@@ -15,7 +15,7 @@
     <string name="call_failed">Не удалось соединиться</string>
     <string name="call_unavailable">Звонки на этом сервере не настроены</string>
     <string name="call_encrypted">Защищено сквозным шифрованием</string>
-    <string name="call_demo">Демо: звонок никуда не уходит, видна только ваша камера</string>
+    <string name="call_demo">Демо: звонок никуда не уходит, видна только твоя камера</string>
     <string name="call_accept">Ответить</string>
     <string name="call_decline">Отклонить</string>
     <string name="call_hang_up">Завершить</string>
@@ -28,7 +28,7 @@
     <string name="call_speaker_off">Выключить громкую связь</string>
     <string name="call_share_on">Показать экран</string>
     <string name="call_share_off">Перестать показывать экран</string>
-    <string name="call_you">Вы</string>
+    <string name="call_you">Ты</string>
     <string name="call_muted">%1$s, микрофон выключен</string>
     <string name="call_speaking">%1$s говорит</string>
 </resources>

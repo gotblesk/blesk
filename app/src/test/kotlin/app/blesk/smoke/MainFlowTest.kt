@@ -40,7 +40,7 @@ class MainFlowTest {
         compose.onNodeWithContentDescription("Слово из переписки").performTextInput("проверка")
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
-        compose.onNodeWithText("Вы: проверка", substring = true).assertExists()
+        compose.onNodeWithText("Ты: проверка", substring = true).assertExists()
         compose.onNodeWithContentDescription("Назад").performClick()
 
         compose.onNodeWithContentDescription("Новый чат").performClick()

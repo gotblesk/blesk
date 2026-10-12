@@ -82,7 +82,7 @@ fun Avatar(
 /** Same lightness and chroma for everyone, only the hue differs. */
 private fun hueFor(key: String, dark: Boolean): Color {
     val hue = (key.hashCode().toUInt().toLong() % HUE_STEPS) * (360f / HUE_STEPS)
-    return Oklch(if (dark) 0.40f else 0.86f, if (dark) 0.07f else 0.06f, hue).toColor()
+    return Oklch(if (dark) 0.47f else 0.86f, if (dark) 0.085f else 0.06f, hue).toColor()
 }
 
 /** A short arc of light over the rim, drawn above the photo or letter. */

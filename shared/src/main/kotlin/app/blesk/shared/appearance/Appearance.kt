@@ -108,8 +108,8 @@ data class ThemeSpec(
         /** Graphite rather than black. */
         val Dark = ThemeSpec(ThemePreset.Dark, 0.215f, 0.008f, 265f, 1f, 0f, 0f)
 
-        /** Muted lilac, flat, with pale lilac light. */
-        val Lilac = ThemeSpec(ThemePreset.Lilac, 0.34f, 0.055f, 305f, 0.9f, 0.06f, 305f)
+        /** Deep lilac, flat, with pale lilac light. */
+        val Lilac = ThemeSpec(ThemePreset.Lilac, 0.27f, 0.065f, 300f, 0.9f, 0.07f, 305f)
 
         /** Dark background; glints, flashes and active elements glow lime. */
         val Lime = ThemeSpec(ThemePreset.Lime, 0.19f, 0.012f, 135f, 0.91f, 0.2f, 128f, accentFromLight = true)

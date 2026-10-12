@@ -76,7 +76,7 @@ object BleskPalette {
             background = background,
             surface = surface,
             surfaceStrong = surfaceStrong,
-            glassTint = bg.withL(bg.l + step * SURFACE_STEP).toColor(alpha = if (dark) 0.55f else 0.6f),
+            glassTint = bg.withL(bg.l + step * GLASS_STEP).toColor(alpha = if (dark) 0.55f else 0.6f),
             hairline = textPrimary.copy(alpha = if (dark) 0.10f else 0.09f),
             textPrimary = textPrimary,
             textSecondary = textSecondary,
@@ -108,8 +108,11 @@ object BleskPalette {
         return hues.map { Oklch(l, c, it.mod(360f)).toColor() }.toImmutableList()
     }
 
-    private const val SURFACE_STEP = 0.045f
-    private const val SURFACE_STRONG_STEP = 0.085f
+    private const val SURFACE_STEP = 0.05f
+    private const val SURFACE_STRONG_STEP = 0.1f
+
+    /** Lenses sit between the two surfaces, so background, rows, lenses and pressed parts read as separate steps. */
+    private const val GLASS_STEP = 0.075f
     private const val SURFACE_CHROMA = 0.9f
     private const val TEXT_CHROMA_SHARE = 0.35f
     private const val MAX_TEXT_CHROMA = 0.03f

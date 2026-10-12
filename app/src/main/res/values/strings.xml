@@ -2,8 +2,6 @@
 <resources>
     <string name="app_name" translatable="false">blesk</string>
     <string name="tab_chats">Чаты</string>
-    <string name="tab_contacts">Контакты</string>
-    <string name="tab_settings">Настройки</string>
     <string name="chat_theme_title">Оформление чата</string>
     <string name="chat_theme_app">Как во всём приложении</string>
     <string name="chat_theme_send">Отправить тему в чат</string>
@@ -13,10 +11,10 @@
     <string name="calls_channel_incoming">Входящие звонки</string>
     <string name="calls_channel_ongoing">Идущий звонок</string>
     <string name="calls_need_microphone">Для звонка нужен доступ к микрофону</string>
-    <string name="calls_busy">Сначала завершите текущий звонок</string>
+    <string name="calls_busy">Сначала заверши текущий звонок</string>
     <string name="notify_channel_messages">Сообщения</string>
     <string name="notify_channel_online">Всегда на связи</string>
     <string name="notify_new_message">Новое сообщение</string>
     <string name="notify_online_title">blesk на связи</string>
-    <string name="notify_online_text">Соединение с вашим сервером открыто, чтобы приходили сообщения и звонки</string>
+    <string name="notify_online_text">Соединение с твоим сервером открыто, чтобы приходили сообщения и звонки</string>
 </resources>

@@ -2,7 +2,7 @@
 <resources>
     <string name="chats_title">Чаты</string>
     <string name="chats_settings">Настройки</string>
-    <string name="chats_you">Вы</string>
+    <string name="chats_you">Ты</string>
     <string name="chats_bot">бот</string>
     <string name="chats_channel">канал</string>
     <string name="chats_encrypted">защищено сквозным шифрованием</string>
@@ -35,13 +35,12 @@
     <string name="chat_status_delivered">доставлено</string>
     <string name="chat_status_read">прочитано</string>
     <string name="chat_channel_readonly">Публикации в канале пишут только авторы</string>
-    <string name="chat_encrypted_note">Сообщения защищены сквозным шифрованием. Прочитать их можете только вы и собеседники.</string>
+    <string name="chat_encrypted_note">Сообщения защищены сквозным шифрованием. Прочитать их могут только участники чата.</string>
     <string name="chat_open_note">Этот чат не зашифрован сквозным шифрованием.</string>
     <string name="chats_typing">печатает…</string>
     <string name="chats_room_expanded">каналы показаны</string>
     <string name="chats_room_collapsed">каналы свёрнуты</string>
     <string name="chats_speaking">говорит</string>
-    <string name="contacts_title">Контакты</string>
     <string name="chat_protected">защищено</string>
     <string name="chat_reply">Ответить</string>
     <string name="chat_copy">Копировать</string>
@@ -54,8 +53,8 @@
     <string name="chat_edited">изменено</string>
     <string name="chat_reaction">реакция %1$s: %2$d</string>
     <string name="chat_react">Поставить %1$s</string>
-    <string name="chat_you">Вы</string>
-    <string name="chat_empty">Здесь пока пусто. Напишите первым.</string>
+    <string name="chat_you">Ты</string>
+    <string name="chat_empty">Здесь пока пусто. Напиши первым.</string>
     <string name="voice_join">Подключиться</string>
     <string name="voice_hint">Голосовые каналы заработают вместе со звонками.</string>
     <plurals name="voice_count">
@@ -78,16 +77,16 @@
     <string name="media_photo">Фото</string>
     <string name="media_video">Видео, %1$s</string>
     <string name="media_file_open">Открыть файл %1$s</string>
-    <string name="media_record_voice">Записать голосовое. Нажмите, чтобы переключиться на кружок</string>
-    <string name="media_record_circle">Записать кружок. Нажмите, чтобы переключиться на голосовое</string>
+    <string name="media_record_voice">Записать голосовое. Нажми, чтобы переключиться на кружок</string>
+    <string name="media_record_circle">Записать кружок. Нажми, чтобы переключиться на голосовое</string>
     <string name="media_slide_cancel">Влево — отмена</string>
     <string name="media_lock_hint">Вверх — без рук</string>
     <string name="media_stop_send">Отправить запись</string>
     <string name="media_cancel">Отменить запись</string>
     <string name="media_preparing">Готовим видео…</string>
     <string name="media_failed">Не получилось прикрепить</string>
-    <string name="media_permission_mic">Чтобы записать голосовое, разрешите доступ к микрофону</string>
-    <string name="media_permission_camera">Чтобы записать кружок, разрешите доступ к камере и микрофону</string>
+    <string name="media_permission_mic">Чтобы записать голосовое, разреши доступ к микрофону</string>
+    <string name="media_permission_camera">Чтобы записать кружок, разреши доступ к камере и микрофону</string>
     <string name="media_size_b">%1$s Б</string>
     <string name="media_size_kb">%1$s КБ</string>
     <string name="media_size_mb">%1$s МБ</string>
@@ -95,7 +94,7 @@
     <string name="contacts_find_action">Найти</string>
     <string name="contacts_not_found">Ничего не нашлось на сервере</string>
     <string name="chats_empty_title">Пока тихо</string>
-    <string name="chats_empty_text">Найдите человека по имени пользователя во вкладке «Контакты» и напишите первым. Все личные чаты шифруются сквозным шифрованием.</string>
+    <string name="chats_empty_text">Нажми «+» вверху, найди человека по имени пользователя и напиши первым. Все личные чаты шифруются сквозным шифрованием.</string>
     <string name="group_new">Новая группа или комната</string>
     <string name="group_new_title">Создать</string>
     <string name="group_kind_group">Группа</string>
@@ -105,7 +104,7 @@
     <string name="group_name">Название</string>
     <string name="group_members">Участники</string>
     <string name="group_pick_contacts">Кого позвать</string>
-    <string name="group_no_contacts">Сначала найдите людей во вкладке «Контакты»</string>
+    <string name="group_no_contacts">Сначала найди людей: «+» на вкладке «Чаты»</string>
     <string name="group_create">Создать</string>
     <string name="group_info">Сведения</string>
     <string name="group_save">Сохранить</string>
@@ -117,7 +116,7 @@
     <string name="group_add_members">Добавить участников</string>
     <string name="group_add">Добавить</string>
     <string name="group_invite">Приглашение по ссылке</string>
-    <string name="group_invite_hint">Кто откроет ссылку, попадёт сюда, когда вы или другой админ будете в сети</string>
+    <string name="group_invite_hint">Кто откроет ссылку, попадёт сюда, когда кто-то из админов будет в сети</string>
     <string name="group_invite_copy">Скопировать ссылку</string>
     <string name="group_invite_copied">Ссылка скопирована</string>
     <string name="group_channels">Каналы</string>
@@ -128,10 +127,10 @@
     <string name="group_channel_admins_only">Пишут только админы</string>
     <string name="group_channel_delete">Удалить канал %1$s</string>
     <string name="group_leave">Выйти</string>
-    <string name="group_leave_hint">Вы перестанете получать сообщения, а переписка исчезнет с этого телефона</string>
+    <string name="group_leave_hint">Ты перестанешь получать сообщения, а переписка исчезнет с этого телефона</string>
     <string name="group_readonly">Здесь пишут только админы</string>
-    <string name="group_you">вы</string>
-    <string name="contacts_join_sent">Запрос отправлен. Вы попадёте внутрь, когда админ будет в сети.</string>
+    <string name="group_you">ты</string>
+    <string name="contacts_join_sent">Запрос отправлен. Ты попадёшь внутрь, когда админ будет в сети.</string>
     <string name="contacts_find_hint">Имя пользователя, адрес канала или ссылка-приглашение</string>
     <string name="group_kind_channel">Канал</string>
     <string name="group_kind_open">Открытая</string>
@@ -142,7 +141,7 @@
     <string name="space_about">Описание</string>
     <string name="space_error_taken">Этот адрес уже занят</string>
     <string name="space_error_invalid">Такой адрес не подходит</string>
-    <string name="space_error_failed">Не получилось создать. Проверьте связь.</string>
+    <string name="space_error_failed">Не получилось создать. Проверь связь.</string>
     <string name="space_join">Вступить</string>
     <string name="chat_open">Открыть</string>
     <string name="space_found">Каналы и открытые комнаты</string>
@@ -166,7 +165,7 @@
     <string name="chat_video_call">Видеозвонок</string>
     <string name="chat_bot_label">бот · без шифрования</string>
     <string name="chat_verify">Проверка ключей</string>
-    <string name="chat_key_changed">Ключ безопасности собеседника изменился. Нажмите, чтобы проверить.</string>
+    <string name="chat_key_changed">Ключ безопасности собеседника изменился. Нажми, чтобы проверить.</string>
     <string name="chats_pin">Закрепить чат</string>
     <string name="chats_unpin">Открепить чат</string>
     <string name="chats_pinned">закреплён</string>
@@ -178,7 +177,7 @@
     <string name="chat_pinned">Закреплённое сообщение</string>
     <string name="info_title">Сведения</string>
     <string name="info_key_verified">Ключ проверен</string>
-    <string name="info_key_not_verified">Сравните цифры с собеседником</string>
+    <string name="info_key_not_verified">Сравни цифры с собеседником</string>
     <string name="info_timer">Исчезающие сообщения</string>
     <string name="info_timer_off">Выкл</string>
     <string name="info_timer_hour">1 час</string>
