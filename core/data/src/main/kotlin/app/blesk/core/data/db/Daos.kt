@@ -115,6 +115,9 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE conversationId = :conversationId")
     suspend fun deleteConversation(conversationId: String)
 
+    @Query("SELECT * FROM messages WHERE attachment IS NOT NULL")
+    suspend fun withFiles(): List<MessageEntity>
+
     /** Every message of a chat, so its files can be removed before the rows. */
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId AND attachment IS NOT NULL")
     suspend fun withFilesIn(conversationId: String): List<MessageEntity>

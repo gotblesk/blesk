@@ -5,6 +5,7 @@ import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Presence
+import app.blesk.core.data.model.StoredMedia
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -145,4 +146,10 @@ interface ChatTools {
 
     /** Sends a copy of a message to other chats, marked as forwarded. */
     fun forward(conversationId: String, messageId: String, to: List<String>) = Unit
+
+    /** Attachments whose files are on this phone. */
+    suspend fun storedMedia(): List<StoredMedia> = emptyList()
+
+    /** Deletes the files of attachments sent before [beforeMillis], in one chat or in all; the messages stay. */
+    suspend fun clearMedia(conversationId: String?, beforeMillis: Long) = Unit
 }

@@ -44,6 +44,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 /** Process-wide dependencies, built once in [BleskApplication]. */
 class AppContainer(context: Context) {
@@ -130,6 +131,11 @@ class AppContainer(context: Context) {
         }
     }
 
+    /** «Хранить медиа»: files older than [days] leave the phone; the messages stay. */
+    suspend fun clearOldMedia(repository: ChatRepository, days: Int) {
+        if (days > 0) repository.clearMedia(null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(days.toLong()))
+    }
+
     /** Creates an account on [address] and switches the app to it. */
     suspend fun connect(address: ServerAddress, username: String): RegisterResult {
         val stack = ServerStack(appContext, this, address)
@@ -146,6 +152,7 @@ class AppContainer(context: Context) {
 
     private fun show(repository: ChatRepository, http: (() -> OkHttpClient)?) {
         repository.setForeground(visible)
+        scope.launch { clearOldMedia(repository, settings.keepMediaDays.first()) }
         callsScope?.cancel()
         callsState.value?.media?.disconnect()
         val callScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))

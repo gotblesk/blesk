@@ -86,12 +86,16 @@ import app.blesk.feature.settings.AppearanceFileActions
 import app.blesk.feature.settings.AppearanceScreen
 import app.blesk.feature.settings.BotActions
 import app.blesk.feature.settings.BotsScreen
+import app.blesk.feature.settings.ChatUse
 import app.blesk.feature.settings.LicensesScreen
 import app.blesk.feature.settings.NotificationsScreen
 import app.blesk.feature.settings.PrivacyPolicyScreen
 import app.blesk.feature.settings.SafetyScreen
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
+import app.blesk.feature.settings.StorageActions
+import app.blesk.feature.settings.StorageScreen
+import app.blesk.feature.settings.StorageUse
 import app.blesk.feature.settings.YouList
 import app.blesk.navigation.InAppNotice
 import app.blesk.shared.appearance.Appearance
@@ -403,6 +407,19 @@ class KeyScreensScreenshotTest(private val name: String) {
     @Test
     fun about() = capture("07_about") {
         AboutScreen(versionName = "0.3.0", debugUnlocked = false, onUnlockDebug = {}, onOpenLicenses = {}, onOpenPolicy = {}, onBack = {})
+    }
+
+    @Test
+    fun storage() = capture("07c_storage") {
+        StorageScreen(
+            use = StorageUse(
+                photos = 412_000_000, videos = 1_250_000_000, voice = 18_400_000, files = 96_000_000,
+                database = 24_000_000, cache = 3_100_000,
+                chats = persistentListOf(ChatUse("anya", "Аня Соколова", 820_000_000), ChatUse("group", "Выходные", 410_000_000)),
+            ),
+            keepMediaDays = 90,
+            actions = StorageActions({}, {}, {}, {}),
+        )
     }
 
     @Test

@@ -163,6 +163,13 @@ class SettingsStore(context: Context) {
         store.edit { it[KEEP_ARCHIVED] = enabled }
     }
 
+    /** Media older than this many days leaves the phone on its own; 0 keeps it for good. */
+    val keepMediaDays: Flow<Int> = store.data.map { it[KEEP_MEDIA_DAYS] ?: 0 }.distinctUntilChanged()
+
+    suspend fun setKeepMediaDays(days: Int) {
+        store.edit { it[KEEP_MEDIA_DAYS] = days }
+    }
+
     /** The archive row folded into the top lens; pulling the list down opens it. */
     val archiveFolded: Flow<Boolean> = store.data.map { it[ARCHIVE_FOLDED] ?: false }.distinctUntilChanged()
 
@@ -306,6 +313,7 @@ class SettingsStore(context: Context) {
         val PROFILE_HEADER_PHOTO = longPreferencesKey("profile_header_photo")
         val SEND_BY_ENTER = booleanPreferencesKey("send_by_enter")
         val KEEP_ARCHIVED = booleanPreferencesKey("keep_archived")
+        val KEEP_MEDIA_DAYS = intPreferencesKey("keep_media_days")
         val CHAT_BACKGROUND = stringPreferencesKey("chat_background")
         val DOUBLE_TAP = stringPreferencesKey("double_tap_reaction")
         val HINTS_SEEN = stringSetPreferencesKey("hints_seen")

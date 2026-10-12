@@ -186,6 +186,10 @@ class TwoClientsTest {
             (bob.messages("alice").firstOrNull()?.attachment as? Attachment.File)?.takeIf { it.path.isNotEmpty() }
         }
         assertEquals("заметки", File(delivered.path).readText())
+        assertEquals(listOf("alice"), runBlocking { bob.repo.storedMedia() }.map { it.conversationId })
+        runBlocking { bob.repo.clearMedia("alice", Long.MAX_VALUE) }
+        assertTrue(!File(delivered.path).exists())
+        assertEquals("", (bob.messages("alice").first().attachment as Attachment.File).path)
         assertTrue(server.transport("bob").acked.isNotEmpty())
 
         alice.repo.send("bob", "смотри сюда https://blesk.example/a")

@@ -444,7 +444,7 @@ fun BleskNavigation(container: AppContainer) {
                             Box(Modifier.sharedBounds(screenKey("notifications"))) { NotificationsRoute(container, back) }
                         }
                         entry<StorageKey> {
-                            Box(Modifier.sharedBounds(screenKey("storage"))) { StorageRoute(back) }
+                            Box(Modifier.sharedBounds(screenKey("storage"))) { StorageRoute(container, back) }
                         }
                         entry<SpaceInfoKey> { key ->
                             SpaceInfoRoute(container, key.handle, onLeft = {

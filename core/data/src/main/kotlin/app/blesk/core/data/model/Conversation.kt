@@ -133,6 +133,30 @@ sealed interface Attachment {
     data class Circle(val path: String, val poster: String, val durationMillis: Long) : Attachment
 }
 
+/** The same attachment without its files on this phone, or null when it has none to remove. */
+fun Attachment.withoutFiles(): Attachment? = when (this) {
+    is Attachment.Photo -> copy(path = "").takeIf { path.isNotEmpty() }
+    is Attachment.Video -> copy(path = "", thumbnail = "").takeIf { path.isNotEmpty() || thumbnail.isNotEmpty() }
+    is Attachment.File -> copy(path = "").takeIf { path.isNotEmpty() }
+    is Attachment.Voice -> copy(path = "").takeIf { path.isNotEmpty() }
+    is Attachment.Circle -> copy(path = "", poster = "").takeIf { path.isNotEmpty() || poster.isNotEmpty() }
+    is Attachment.Theme -> null
+}
+
+/** Paths of the files an attachment keeps on this phone. */
+val Attachment.files: List<String>
+    get() = when (this) {
+        is Attachment.Photo -> listOf(path)
+        is Attachment.Video -> listOf(path, thumbnail)
+        is Attachment.File -> listOf(path)
+        is Attachment.Voice -> listOf(path)
+        is Attachment.Circle -> listOf(path, poster)
+        is Attachment.Theme -> emptyList()
+    }.filter { it.isNotEmpty() }
+
+/** An attachment kept on this phone, for counting space by chat and by kind. */
+data class StoredMedia(val conversationId: String, val sentAtMillis: Long, val attachment: Attachment)
+
 /** A reaction and who left it. [mine] is whether the phone owner is among them. */
 data class Reaction(val symbol: String, val count: Int, val mine: Boolean)
 

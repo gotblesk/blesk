@@ -31,7 +31,10 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Presence
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
+import app.blesk.core.data.model.StoredMedia
+import app.blesk.core.data.model.files
 import app.blesk.core.data.model.splitLongText
+import app.blesk.core.data.model.withoutFiles
 import app.blesk.core.data.settings.Audience
 import app.blesk.core.data.settings.IncomingNote
 import app.blesk.core.data.settings.NoteKind
@@ -405,6 +408,21 @@ class ServerChatRepository(
         }
         dispatch(conversationId, Content(id, sentAt, Body.Text(text, replyToId, pointer, forwarded, link), expiresInSeconds = timer))
         log.record(EventCode.MessageQueued)
+    }
+
+    override suspend fun storedMedia(): List<StoredMedia> = db.messages().withFiles().mapNotNull { row ->
+        decodeAttachment(row.attachment)?.takeIf { it.files.isNotEmpty() }?.let { StoredMedia(row.conversationId, row.sentAt, it) }
+    }
+
+    override suspend fun clearMedia(conversationId: String?, beforeMillis: Long) {
+        db.messages().withFiles()
+            .filter { (conversationId == null || it.conversationId == conversationId) && it.sentAt < beforeMillis }
+            .forEach { row ->
+                val attachment = decodeAttachment(row.attachment) ?: return@forEach
+                val cleared = attachment.withoutFiles() ?: return@forEach
+                media.forget(attachment)
+                db.messages().upsert(row.copy(attachment = encodeAttachment(cleared)))
+            }
     }
 
     /** Channels tell about every post; rooms only about the ones that mention you. */

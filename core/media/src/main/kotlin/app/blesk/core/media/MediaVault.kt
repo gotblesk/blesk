@@ -9,6 +9,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.exifinterface.media.ExifInterface
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.files
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -29,15 +30,7 @@ class MediaVault(private val context: Context) {
 
     /** Deletes the files of an attachment that lives here; used when a message disappears. */
     fun forget(attachment: Attachment?) {
-        val paths = when (attachment) {
-            is Attachment.Photo -> listOf(attachment.path)
-            is Attachment.Video -> listOf(attachment.path, attachment.thumbnail)
-            is Attachment.File -> listOf(attachment.path)
-            is Attachment.Voice -> listOf(attachment.path)
-            is Attachment.Circle -> listOf(attachment.path, attachment.poster)
-            is Attachment.Theme, null -> emptyList()
-        }
-        paths.filter { it.isNotEmpty() && owns(it) }.forEach { File(it).delete() }
+        attachment?.files.orEmpty().filter(::owns).forEach { File(it).delete() }
     }
 
     suspend fun importPhoto(uri: Uri): Attachment.Photo? = withContext(Dispatchers.IO) {
