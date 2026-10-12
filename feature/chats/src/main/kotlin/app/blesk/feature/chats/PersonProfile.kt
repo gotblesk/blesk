@@ -64,8 +64,10 @@ import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.component.rememberPhotoFile
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.condense
+import app.blesk.feature.chats.media.mediaKey
 import coil3.compose.AsyncImage
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -305,6 +307,7 @@ private fun SharedContent(messages: ImmutableList<Message>, actions: PersonActio
                         modifier = Modifier
                             .fillMaxWidth(THIRD)
                             .aspectRatio(1f)
+                            .sharedElement(mediaKey(message.id, 0))
                             .clip(RoundedCornerShape(10.dp))
                             .background(Blesk.colors.surface)
                             .clickable(role = Role.Button) { actions.onOpenMedia(message.id) },

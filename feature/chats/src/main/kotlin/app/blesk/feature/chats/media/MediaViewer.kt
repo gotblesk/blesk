@@ -8,8 +8,10 @@ import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -52,6 +54,7 @@ import app.blesk.core.design.component.Slider
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.media.EncryptedStream
 import app.blesk.feature.chats.R
@@ -73,6 +76,8 @@ fun MediaViewer(
     onSave: ((Attachment) -> Unit)? = null,
     /** For a video still on its way: where to play it from while it downloads. */
     stream: suspend (page: Int) -> StreamSource? = { null },
+    /** The [mediaKey] of each page, so the open picture grows out of its place in the chat and back. */
+    sharedKeys: (page: Int) -> String? = { null },
 ) {
     val pager = rememberPagerState(initialPage = start.coerceIn(0, (items.size - 1).coerceAtLeast(0))) { items.size }
     Box(modifier.fillMaxSize().background(Color.Black)) {
@@ -81,13 +86,18 @@ fun MediaViewer(
             beyondViewportPageCount = 1,
             modifier = Modifier.fillMaxSize().dragToDismiss(onBack),
         ) { page ->
+            // Only the page on screen travels back into the chat; its neighbours just fade.
+            val sharedKey = if (pager.currentPage == page) sharedKeys(page) else null
             when (val item = items[page]) {
-                is Attachment.Photo -> ZoomablePhoto(item.path)
-                // Only the video on screen plays; the neighbours wait as their posters.
-                is Attachment.Video -> when {
-                    pager.currentPage != page -> Poster(item.thumbnail)
-                    item.path.isNotEmpty() -> VideoPlayer(item) { setMediaItem(MediaItem.fromUri(item.path)) }
-                    else -> StreamingVideo(item) { stream(page) }
+                is Attachment.Photo -> ZoomablePhoto(item, sharedKey)
+                is Attachment.Video -> Box(Modifier.fillMaxSize()) {
+                    Fitted(item.width, item.height, sharedKey) { Poster(item.thumbnail) }
+                    // Only the video on screen plays; the neighbours wait as their posters.
+                    when {
+                        pager.currentPage != page -> Unit
+                        item.path.isNotEmpty() -> VideoPlayer(item) { setMediaItem(MediaItem.fromUri(item.path)) }
+                        else -> StreamingVideo(item) { stream(page) }
+                    }
                 }
                 else -> Unit
             }
@@ -114,33 +124,53 @@ fun MediaViewer(
     }
 }
 
+/**
+ * The picture's own frame, centred: the shared element has the picture's shape, so it grows from
+ * the cropped thumbnail without the black bars around it.
+ */
 @Composable
-private fun Poster(path: String) {
-    AsyncImage(model = File(path), contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+private fun Fitted(width: Int, height: Int, sharedKey: String?, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    val ratio = if (width > 0 && height > 0) width.toFloat() / height else 1f
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .aspectRatio(ratio)
+                .then(if (sharedKey != null) Modifier.sharedElement(sharedKey) else Modifier)
+                .then(modifier),
+            content = content,
+        )
+    }
 }
 
 @Composable
-private fun ZoomablePhoto(path: String) {
+private fun Poster(path: String) {
+    AsyncImage(model = File(path), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+}
+
+@Composable
+private fun ZoomablePhoto(photo: Attachment.Photo, sharedKey: String?) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     val state = rememberTransformableState { zoom, pan, _ ->
         scale = (scale * zoom).coerceIn(1f, MAX_ZOOM)
         offset = if (scale == 1f) Offset.Zero else offset + pan
     }
-    AsyncImage(
-        model = File(path),
-        contentDescription = stringResource(R.string.media_photo),
-        contentScale = ContentScale.Fit,
-        modifier = Modifier
-            .fillMaxSize()
-            .transformable(state)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                translationX = offset.x
-                translationY = offset.y
-            },
-    )
+    val zoomed = Modifier.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+        translationX = offset.x
+        translationY = offset.y
+    }
+    Box(Modifier.fillMaxSize().transformable(state)) {
+        Fitted(photo.width, photo.height, sharedKey, zoomed) {
+            AsyncImage(
+                model = File(photo.path),
+                contentDescription = stringResource(R.string.media_photo),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
 }
 
 private const val MAX_ZOOM = 5f
@@ -150,11 +180,8 @@ private const val MAX_ZOOM = 5f
 @Composable
 private fun StreamingVideo(video: Attachment.Video, source: suspend () -> StreamSource?) {
     val stream by produceState<StreamSource?>(null, video) { value = source() }
-    val found = stream
-    if (found == null) {
-        Poster(video.thumbnail)
-        return
-    }
+    // Until then the poster underneath stays.
+    val found = stream ?: return
     VideoPlayer(video) {
         val media = ProgressiveMediaSource.Factory(EncryptedStream.factory(found))
             .createMediaSource(MediaItem.fromUri(Uri.fromFile(found.ciphertext)))
@@ -197,6 +224,8 @@ private fun VideoPlayer(video: Attachment.Video, load: ExoPlayer.() -> Unit) {
         ContentFrame(
             player = player,
             contentScale = ContentScale.Fit,
+            // No black shutter: the poster underneath shows until the first frame.
+            shutter = {},
             modifier = Modifier
                 .fillMaxSize()
                 .clickable(

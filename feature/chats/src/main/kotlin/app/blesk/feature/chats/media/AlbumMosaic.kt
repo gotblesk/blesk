@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.Message
+import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.R
 import coil3.compose.AsyncImage
@@ -48,7 +49,8 @@ internal fun AlbumMosaic(album: Attachment.Album, message: Message, width: Dp = 
             Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
                 row.forEachIndexed { offset, item ->
                     val index = first + offset
-                    Tile(item, Modifier.size(width = height * ratios[offset], height = height), index, items.size, onOpen) {
+                    val place = Modifier.size(width = height * ratios[offset], height = height).sharedElement(mediaKey(message.id, index))
+                    Tile(item, place, index, items.size, onOpen) {
                         transferOverlay(message, "${message.id}/$index", item)?.invoke(this)
                     }
                 }

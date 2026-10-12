@@ -51,6 +51,7 @@ import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.icon.BleskIcons
+import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.media.Playback
 import app.blesk.core.media.Waveform
@@ -105,6 +106,9 @@ private val VeilBlur = 28.dp
 private const val VEIL_SCRIM = 0.9f
 
 /** True when the attachment fills the bubble edge to edge rather than sitting above text. */
+/** Ties a picture in the chat to its page in the viewer, so it grows out of its place and back. */
+fun mediaKey(messageId: String, index: Int) = "media:$messageId/$index"
+
 internal fun Attachment.isVisual() = this is Attachment.Photo || this is Attachment.Video || this is Attachment.Album
 
 @Composable
@@ -116,6 +120,7 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
             preview = attachment.preview,
             ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
             description = stringResource(R.string.media_photo),
+            sharedKey = mediaKey(message.id, 0),
             onClick = { controller.onOpenMedia(message, 0) },
             transfer = transferOverlay(message, message.id, attachment),
         )
@@ -125,6 +130,7 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
                 preview = attachment.preview,
                 ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
                 description = stringResource(R.string.media_video, formatDuration(attachment.durationMillis)),
+                sharedKey = mediaKey(message.id, 0),
                 onClick = { controller.onOpenMedia(message, 0) },
                 transfer = transferOverlay(message, message.id, attachment),
             )
@@ -162,6 +168,7 @@ private fun Picture(
     preview: String,
     ratio: Float,
     description: String,
+    sharedKey: String,
     onClick: () -> Unit,
     transfer: (@Composable BoxScope.() -> Unit)? = null,
 ) {
@@ -171,6 +178,7 @@ private fun Picture(
             .widthIn(max = 260.dp)
             .width(260.dp)
             .aspectRatio(ratio.coerceIn(MIN_RATIO, MAX_RATIO))
+            .sharedElement(sharedKey)
             .clip(RoundedCornerShape(16.dp))
             .background(Blesk.colors.surfaceStrong)
             .veiled()

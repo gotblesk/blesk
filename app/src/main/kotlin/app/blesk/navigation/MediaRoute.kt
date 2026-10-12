@@ -18,6 +18,7 @@ import app.blesk.core.data.settings.Privacy
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.media.MediaViewer
+import app.blesk.feature.chats.media.mediaKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,6 +51,7 @@ internal fun MediaRoute(container: AppContainer, key: MediaKey, onBack: () -> Un
         items = items,
         start = start,
         onBack = onBack,
+        sharedKeys = { page -> origins.getOrNull(page)?.let { (messageId, index) -> mediaKey(messageId, index) } },
         stream = { page -> origins.getOrNull(page)?.let { (messageId, index) -> chats.stream(key.conversationId, messageId, index) } },
         onSave = if (privacy.saveMedia) {
             { item -> scope.launch { notify(if (saveToGallery(context, item)) saved else failed) } }
