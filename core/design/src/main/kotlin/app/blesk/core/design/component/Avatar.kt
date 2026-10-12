@@ -1,5 +1,6 @@
 package app.blesk.core.design.component
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -7,6 +8,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,6 +21,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -29,6 +33,8 @@ import app.blesk.core.design.color.ensureContrast
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.atan2
 import kotlin.math.cos
 
@@ -50,7 +56,11 @@ fun Avatar(
     key: String = name,
     /** A dot of the theme's light on the edge: the person is online right now. */
     online: Boolean = false,
+    /** A photo file to show when no [photo] is given; read off the main thread. */
+    photoFile: String? = null,
 ) {
+    val loaded = rememberPhotoFile(photoFile.takeIf { photo == null })
+    val picture = photo ?: loaded
     val letter = name.trim().firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString().orEmpty()
     val dark = Blesk.colors.isDark
     val fill = remember(key, dark) { hueFor(key, dark) }
@@ -68,9 +78,9 @@ fun Avatar(
             .clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {
-        if (photo != null) {
+        if (picture != null) {
             Image(
-                bitmap = photo,
+                bitmap = picture,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize().clip(CircleShape),
@@ -210,3 +220,24 @@ private const val HUE_STEPS = 8
 private const val SPAN = 80f
 private const val SLICES = 16
 private const val RIM_SHARE = 0.045f
+
+/** Decodes a small picture from [path] for an avatar, once per path; null until it is read or if it cannot be. */
+@Composable
+fun rememberPhotoFile(path: String?): ImageBitmap? {
+    val bitmap by produceState<ImageBitmap?>(null, path) {
+        value = path?.let {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(it, bounds)
+                    var sample = 1
+                    while (bounds.outWidth / (sample * 2) >= AVATAR_PIXELS) sample *= 2
+                    BitmapFactory.decodeFile(it, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
+                }.getOrNull()
+            }
+        }
+    }
+    return bitmap
+}
+
+private const val AVATAR_PIXELS = 256

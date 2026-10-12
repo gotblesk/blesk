@@ -129,10 +129,23 @@ sealed interface Body {
     @SerialName("call_end")
     data class CallEnd(val callId: String, val reason: CallEndReason = CallEndReason.HangUp) : Body
 
-    /** Your name and bio, shared only with people you write to. */
+    /**
+     * Your name, bio and links, shared only with people you write to, and your photo for those
+     * allowed to see it. Sent again to contacts whenever it changes.
+     */
     @Serializable
     @SerialName("profile")
-    data class Profile(val name: String, val bio: String) : Body
+    data class Profile(
+        val name: String,
+        val bio: String,
+        val links: List<String> = emptyList(),
+        val photo: AttachmentPointer? = null,
+    ) : Body {
+        companion object {
+            const val MAX_LINKS = 3
+            const val MAX_LINK = 200
+        }
+    }
 }
 
 @Serializable

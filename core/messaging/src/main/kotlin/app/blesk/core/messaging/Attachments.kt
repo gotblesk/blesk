@@ -133,7 +133,7 @@ internal object Attachments {
     private fun unb64(text: String) = Base64.getDecoder().decode(text)
 
     private const val KIND_THEME = "theme"
-    private const val KIND_PHOTO = "photo"
+    internal const val KIND_PHOTO = "photo"
     private const val KIND_VIDEO = "video"
     private const val KIND_FILE = "file"
     private const val KIND_VOICE = "voice"

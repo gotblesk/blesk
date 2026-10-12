@@ -34,4 +34,5 @@
     <string name="profile_crop_hint">Двигай и увеличивай фото двумя пальцами: в аватар попадёт то, что внутри круга</string>
     <string name="profile_crop_cancel">Отмена</string>
     <string name="profile_crop_done">Готово</string>
+    <string name="profile_link">Ссылка %1$d</string>
 </resources>

@@ -107,6 +107,7 @@ class SettingsStore(context: Context) {
             prefs[WHO_CALLS] = next.calls.name
             prefs[WHO_ADDS] = next.groups.name
             prefs[WHO_SEES_ONLINE] = next.online.name
+            prefs[WHO_SEES_PHOTO] = next.photo.name
             prefs[INCOGNITO_KEYBOARD] = next.incognitoKeyboard
             prefs[WIPE_AFTER_TEN] = next.wipeAfterTen
             prefs[DEFAULT_TIMER] = next.defaultTimerSeconds
@@ -231,14 +232,16 @@ class SettingsStore(context: Context) {
             photoVersion = prefs[PROFILE_PHOTO] ?: 0L,
             header = prefs[PROFILE_HEADER] ?: Profile.DEFAULT_HEADER,
             headerVersion = prefs[PROFILE_HEADER_PHOTO] ?: 0L,
+            links = prefs[PROFILE_LINKS].orEmpty().lines().filter { it.isNotBlank() },
         )
     }.distinctUntilChanged()
 
-    suspend fun updateProfile(name: String, username: String, bio: String) {
+    suspend fun updateProfile(name: String, username: String, bio: String, links: List<String> = emptyList()) {
         store.edit {
             it[PROFILE_NAME] = name.trim().take(Profile.MAX_NAME)
             it[PROFILE_USERNAME] = Profile.normalizeUsername(username)
             it[PROFILE_BIO] = bio.trim().take(Profile.MAX_BIO)
+            it[PROFILE_LINKS] = Profile.cleanLinks(links).joinToString("\n")
         }
     }
 
@@ -286,6 +289,7 @@ class SettingsStore(context: Context) {
         calls = audience(WHO_CALLS, Audience.Everyone),
         groups = audience(WHO_ADDS, Audience.Everyone),
         online = audience(WHO_SEES_ONLINE, Audience.Contacts),
+        photo = audience(WHO_SEES_PHOTO, Audience.Contacts),
         incognitoKeyboard = this[INCOGNITO_KEYBOARD] ?: true,
         wipeAfterTen = this[WIPE_AFTER_TEN] ?: false,
         defaultTimerSeconds = this[DEFAULT_TIMER]?.takeIf { it in Privacy.TIMER_STEPS } ?: 0,
@@ -322,6 +326,7 @@ class SettingsStore(context: Context) {
         val WHO_CALLS = stringPreferencesKey("who_calls")
         val WHO_ADDS = stringPreferencesKey("who_adds")
         val WHO_SEES_ONLINE = stringPreferencesKey("who_sees_online")
+        val WHO_SEES_PHOTO = stringPreferencesKey("who_sees_photo")
         val INCOGNITO_KEYBOARD = booleanPreferencesKey("incognito_keyboard")
         val WIPE_AFTER_TEN = booleanPreferencesKey("wipe_after_ten")
         val DEFAULT_TIMER = intPreferencesKey("default_timer")
@@ -333,6 +338,7 @@ class SettingsStore(context: Context) {
         val PROFILE_NAME = stringPreferencesKey("profile_name")
         val PROFILE_USERNAME = stringPreferencesKey("profile_username")
         val PROFILE_BIO = stringPreferencesKey("profile_bio")
+        val PROFILE_LINKS = stringPreferencesKey("profile_links")
         val PROFILE_PHOTO = longPreferencesKey("profile_photo")
         val PROFILE_HEADER = stringPreferencesKey("profile_header")
         val PROFILE_HEADER_PHOTO = longPreferencesKey("profile_header_photo")

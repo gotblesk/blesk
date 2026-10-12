@@ -639,6 +639,7 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
                     conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
                 modifier = Modifier.sharedElement(avatarKey(conversation.id)),
                 online = online,
+                photoFile = conversation.photo,
             )
         }
         Column(Modifier.weight(1f)) {

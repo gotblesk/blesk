@@ -25,7 +25,15 @@ enum class ConversationKind {
     Saved,
 }
 
-data class Contact(val id: String, val name: String, val username: String)
+data class Contact(
+    val id: String,
+    val name: String,
+    val username: String,
+    /** Their profile photo on this phone, if they shared it with you. */
+    val photo: String? = null,
+    val bio: String = "",
+    val links: ImmutableList<String> = persistentListOf(),
+)
 
 data class Preview(val authorName: String?, val text: String)
 
@@ -57,6 +65,8 @@ data class Conversation(
     val markedUnread: Boolean = false,
     /** Someone you do not know wrote first: it waits in «Запросы» until you accept, delete or block. */
     val request: Boolean = false,
+    /** The other person's profile photo on this phone, for a direct chat. */
+    val photo: String? = null,
 ) {
     fun muted(now: Long): Boolean = mutedUntil > now
 }

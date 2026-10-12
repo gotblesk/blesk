@@ -58,6 +58,7 @@ class TwoClientsTest {
 
     private inner class Client(val name: String, displayName: String) {
         var privacy = Privacy()
+        var photo: File? = null
         val db: BleskDatabase = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java).allowMainThreadQueries().build()
         val store = SignalStore(db.signal())
         val keys = KeyManager(store)
@@ -75,7 +76,7 @@ class TwoClientsTest {
             me = name,
             scope = scope,
             privacy = { privacy },
-            profile = { displayName to "" },
+            profile = { OwnProfile(displayName, "", listOf("https://blesk.example/$name"), photo) },
             labels = { it?.javaClass?.simpleName.orEmpty() },
             log = EventLog(),
             linkPreview = { text ->
@@ -128,6 +129,27 @@ class TwoClientsTest {
         alice.repo.send("bob", "третье")
         eventually { server.transport("bob").acked.takeIf { it.size > before } }
         assertTrue(bob.messages("alice").none { it.text == "третье" })
+    }
+
+    @Test
+    fun profilePhotoGoesOnlyToThoseAllowed() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        alice.photo = File(context.cacheDir, "alice.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        alice.register()
+        bob.register()
+        alice.repo.start()
+        bob.repo.start()
+        runBlocking { alice.repo.openDirect("bob") }
+        alice.repo.send("bob", "привет")
+        val shared = eventually { bob.repo.contact("alice")?.photo }
+        assertTrue(File(shared).exists())
+        assertEquals(listOf("https://blesk.example/alice"), bob.repo.contact("alice")?.links)
+
+        alice.privacy = alice.privacy.copy(photo = Audience.Nobody)
+        alice.repo.profileChanged()
+        eventually { bob.repo.contact("alice")?.takeIf { it.photo == null } }
+        assertTrue(!File(shared).exists())
     }
 
     @Test

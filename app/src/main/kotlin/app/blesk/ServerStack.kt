@@ -12,6 +12,7 @@ import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.messaging.AccountManager
+import app.blesk.core.messaging.OwnProfile
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.messaging.ServerChatRepository
 import app.blesk.core.network.BleskApi
@@ -38,7 +39,7 @@ internal class ServerStack(
     fun repository(
         username: String,
         privacy: StateFlow<Privacy>,
-        profile: StateFlow<Pair<String, String>>,
+        profile: StateFlow<OwnProfile>,
         keepArchived: StateFlow<Boolean>,
     ) =
         ServerChatRepository(

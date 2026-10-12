@@ -73,7 +73,7 @@ internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit) {
         actions = ProfileActions(
             onSave = { draft ->
                 scope.launch {
-                    container.settings.updateProfile(draft.name, draft.username, draft.bio)
+                    container.settings.updateProfile(draft.name, draft.username, draft.bio, draft.links)
                     container.settings.setProfileHeader(draft.header)
                 }
             },

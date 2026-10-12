@@ -696,6 +696,7 @@ private fun ChatHeader(
                         size = 36.dp,
                         modifier = Modifier.sharedElement(avatarKey(conversation.id)),
                         protected = protected && conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
+                        photoFile = conversation.photo,
                     )
                 }
                 Column(Modifier.weight(1f).padding(start = 10.dp)) {

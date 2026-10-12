@@ -223,7 +223,7 @@ private fun ContactRow(contact: Contact, online: Boolean, actions: ContactAction
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Avatar(contact.name, key = contact.username, online = online)
+            Avatar(contact.name, key = contact.username, online = online, photoFile = contact.photo)
             Column(Modifier.weight(1f)) {
                 Text(contact.name, style = Blesk.type.bodyStrong, maxLines = 1)
                 Text("@${contact.username}", style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)

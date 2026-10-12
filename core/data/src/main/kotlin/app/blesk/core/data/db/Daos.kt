@@ -159,6 +159,9 @@ interface ContactDao {
     @Query("UPDATE contacts SET added = 0 WHERE username = :username")
     suspend fun markRemoved(username: String)
 
+    @Query("SELECT * FROM contacts")
+    suspend fun all(): List<ContactEntity>
+
     @Query("UPDATE contacts SET blocked = :blocked WHERE username = :username")
     suspend fun setBlocked(username: String, blocked: Boolean)
 }

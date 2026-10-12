@@ -81,4 +81,5 @@
     <string name="privacy_link_previews_hint">Страницу открывает твой телефон при отправке, сервер её не видит. Сайт увидит твой адрес в сети</string>
     <string name="privacy_keys">Фраза и ключи</string>
     <string name="privacy_phrase">Фраза восстановления</string>
+    <string name="privacy_who_sees_photo">Видеть моё фото</string>
 </resources>

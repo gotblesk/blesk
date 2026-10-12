@@ -110,7 +110,14 @@ internal fun ConversationEntity.toModel(state: GroupState? = null, me: String = 
     markedUnread = markedUnread,
 )
 
-internal fun ContactEntity.toModel() = Contact(id = username, name = name.ifBlank { username }, username = username)
+internal fun ContactEntity.toModel() = Contact(
+    id = username,
+    name = name.ifBlank { username },
+    username = username,
+    photo = photo,
+    bio = bio,
+    links = links.lines().filter { it.isNotBlank() }.toImmutableList(),
+)
 
 /** A public space as a conversation: its channels (for a room) come from the server's description. */
 internal fun ConversationEntity.toModel(space: SpaceInfo) = toModel().copy(

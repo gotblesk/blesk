@@ -25,6 +25,7 @@ import app.blesk.core.media.CircleRecorder
 import app.blesk.core.media.MediaVault
 import app.blesk.core.media.VideoCompressor
 import app.blesk.core.media.VoiceRecorder
+import app.blesk.core.messaging.OwnProfile
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.network.BleskApi
 import app.blesk.core.network.NetworkProxy
@@ -38,10 +39,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -87,8 +93,8 @@ class AppContainer(context: Context) {
     private val privacy = settings.privacy.stateIn(scope, SharingStarted.Eagerly, Privacy())
     private val keepArchived = settings.keepArchived.stateIn(scope, SharingStarted.Eagerly, false)
     private val profile = settings.profile
-        .map { it.name to it.bio }
-        .stateIn(scope, SharingStarted.Eagerly, "" to "")
+        .map { OwnProfile(it.name, it.bio, it.links, profilePhoto.stored) }
+        .stateIn(scope, SharingStarted.Eagerly, OwnProfile("", ""))
 
     /** The world the screens show: the demo, or the server once connected. Null while opening. */
     val chats: StateFlow<ChatRepository?> = chatsState.asStateFlow()
@@ -129,6 +135,17 @@ class AppContainer(context: Context) {
             NetworkProxy.set(settings.proxy.first().toConfig())
             launch { settings.proxy.collect { NetworkProxy.set(it.toConfig()) } }
             if (!BuildConfig.DEBUG && settings.checkUpdates.first()) launch { updater.check() }
+            // A changed name, bio, links, photo or «Кто видит фото» goes again to the people you talk to.
+            launch {
+                combine(settings.profile, settings.privacy.map { it.photo }) { own, audience -> own.copy(header = "") to audience }
+                    .distinctUntilChanged()
+                    .drop(1)
+                    .collectLatest {
+                        // Typing a name saves on every change; only the settled profile goes out.
+                        delay(PROFILE_SETTLE_MILLIS)
+                        chats.value?.profileChanged()
+                    }
+            }
             when (val mode = settings.mode.first()) {
                 AppMode.Demo -> show(demo, api = null)
                 is AppMode.Server -> {
@@ -193,3 +210,5 @@ data class Shared(val text: String?, val files: List<android.net.Uri>)
 
 internal fun ProxySetting.toConfig(): ProxyConfig? =
     if (usable) ProxyConfig(if (socks) ProxyKind.Socks5 else ProxyKind.Http, host, port) else null
+
+private const val PROFILE_SETTLE_MILLIS = 2_000L

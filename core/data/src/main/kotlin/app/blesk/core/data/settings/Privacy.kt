@@ -29,6 +29,8 @@ data class Privacy(
     val groups: Audience = Audience.Everyone,
     /** Who sees when you are online. */
     val online: Audience = Audience.Contacts,
+    /** Who gets your profile photo along with your name. */
+    val photo: Audience = Audience.Contacts,
     /** Ten wrong codes in a row erase everything on this phone. */
     val wipeAfterTen: Boolean = false,
     /** Keyboards are asked not to learn from what you type here. */
@@ -50,12 +52,20 @@ data class Profile(
     /** The header: "light:<preset>", "solid:<tone>" or "photo". */
     val header: String = DEFAULT_HEADER,
     val headerVersion: Long = 0,
+    /** Up to [MAX_LINKS] web addresses shown under the bio. */
+    val links: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean get() = name.isBlank() && username.isBlank()
 
     companion object {
         const val MAX_NAME = 64
         const val MAX_BIO = 160
+        const val MAX_LINKS = 3
+        const val MAX_LINK = 200
+
+        /** Trimmed, non-empty, distinct and no more than [MAX_LINKS] of them. */
+        fun cleanLinks(links: List<String>): List<String> =
+            links.map { it.trim().take(MAX_LINK) }.filter { it.isNotEmpty() }.distinct().take(MAX_LINKS)
         const val DEFAULT_HEADER = "light:0"
         const val MAX_USERNAME = 32
 

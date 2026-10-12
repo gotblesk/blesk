@@ -57,6 +57,7 @@ fun PrivacyScreen(
             AudienceChoice(stringResource(R.string.privacy_who_calls), privacy.calls) { actions.onChange(privacy.copy(calls = it)) }
             AudienceChoice(stringResource(R.string.privacy_who_adds), privacy.groups) { actions.onChange(privacy.copy(groups = it)) }
             AudienceChoice(stringResource(R.string.privacy_who_sees_online), privacy.online) { actions.onChange(privacy.copy(online = it)) }
+            AudienceChoice(stringResource(R.string.privacy_who_sees_photo), privacy.photo) { actions.onChange(privacy.copy(photo = it)) }
             actions.onOpenBlocked?.let { open ->
                 ListRow(title = stringResource(R.string.privacy_blocked), icon = BleskIcons.Shield, onClick = open)
             }

@@ -78,6 +78,10 @@ data class ContactEntity(
     val added: Boolean = true,
     /** Nothing from them reaches you, and they cannot tell. */
     val blocked: Boolean = false,
+    /** Their profile photo in the media folder, if they let you see it. */
+    val photo: String? = null,
+    /** Their profile links, one per line. */
+    val links: String = "",
 )
 
 /** Encrypted-later work: content waiting to be encrypted and sent. Survives restarts. */

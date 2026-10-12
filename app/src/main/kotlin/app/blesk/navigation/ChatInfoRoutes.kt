@@ -93,6 +93,7 @@ internal fun ChatInfoRoute(
         ),
         onBack = onBack,
         shared = shared.toImmutableList(),
+        about = chats.contact(id),
     )
     if (themeSheet) {
         ChatThemeSheet(

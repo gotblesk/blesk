@@ -20,6 +20,9 @@ class PrivateImage(context: Context, fileName: String, private val maxSide: Int)
 
     val exists: Boolean get() = file.exists()
 
+    /** The stored picture, for sending it on; null while there is none. */
+    val stored: File? get() = file.takeIf { it.exists() }
+
     suspend fun import(uri: Uri): Boolean = withContext(Dispatchers.IO) {
         try {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

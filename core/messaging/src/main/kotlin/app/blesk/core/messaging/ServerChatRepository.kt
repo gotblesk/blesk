@@ -115,7 +115,7 @@ class ServerChatRepository(
     override val me: String,
     private val scope: CoroutineScope,
     private val privacy: () -> Privacy,
-    private val profile: () -> Pair<String, String>,
+    private val profile: () -> OwnProfile,
     private val labels: (Attachment?) -> String,
     private val log: EventLog,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -138,6 +138,17 @@ class ServerChatRepository(
     private val incomingFlow = MutableSharedFlow<IncomingNote>(extraBufferCapacity = SIGNAL_BUFFER)
     override val incoming: SharedFlow<IncomingNote> = incomingFlow.asSharedFlow()
     private val spaces = SpaceEngine(db, api, media, me, labels)
+    private val profiles = ProfileExchange(
+        db = db,
+        api = api,
+        crypto = crypto,
+        media = media,
+        me = me,
+        profile = profile,
+        photoAudience = { privacy().photo },
+        allowed = ::allowed,
+        enqueue = ::enqueue,
+    )
     private val bots =
         BotEngine(db, api, me, clock) { bot, title, text ->
             scope.launch { returnFromArchive(bot) }
@@ -176,8 +187,8 @@ class ServerChatRepository(
             list.filter { it.previewText != null && it.parentId == null && byName[it.peer]?.blocked != true }.map { row ->
                 val space = spaces.handleOf(row.id)?.let(spaceInfo::get)
                 val model = if (space != null) row.toModel(space) else row.toModel(states[row.id], me)
-                val stranger = row.peer != null && byName[row.peer]?.added == false
-                if (stranger) model.copy(request = true) else model
+                val peer = row.peer?.let(byName::get)
+                model.copy(request = model.request || peer?.added == false, photo = peer?.photo)
             }
         }
 
@@ -780,7 +791,7 @@ class ServerChatRepository(
             if (!crypto.hasSessionSafe(to)) {
                 val bundle = api.bundle(to, linkOf(to)) ?: return
                 withContext(Dispatchers.IO) { crypto.startSession(bundle) }
-                shareProfile(to)
+                profiles.share(to)
             }
             val sealed = withContext(Dispatchers.IO) { crypto.encrypt(to, content) }
             api.send(to, OutgoingMessage(content.id, sealed.type, sealed.body))
@@ -851,7 +862,7 @@ class ServerChatRepository(
                     return true
                 }
                 withContext(Dispatchers.IO) { crypto.startSession(bundle) }
-                shareProfile(item.recipient)
+                profiles.share(item.recipient)
             }
             val sealed = withContext(Dispatchers.IO) { crypto.encrypt(item.recipient, content) }
             api.send(item.recipient, OutgoingMessage(content.id, sealed.type, sealed.body, item.ephemeral))
@@ -894,15 +905,6 @@ class ServerChatRepository(
         db.outbox().delete(item.id)
         if (content.body is Body.Text) advanceStatus(listOf(content.id), SendStatus.Failed, force = true)
         log.record(EventCode.SendFailed)
-    }
-
-    /** Your name and bio go to a person once, when the encrypted session with them starts. */
-    private suspend fun shareProfile(recipient: String) {
-        val (name, bio) = profile()
-        if (name.isBlank() && bio.isBlank()) return
-        val content = Content(UUID.randomUUID().toString(), clock(), Body.Profile(name, bio))
-        val sealed = withContext(Dispatchers.IO) { crypto.encrypt(recipient, content) }
-        api.send(recipient, OutgoingMessage(content.id, sealed.type, sealed.body))
     }
 
     // Incoming
@@ -974,17 +976,13 @@ class ServerChatRepository(
             is Body.JoinRequest -> groups.onJoinRequest(sender, body)
             is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
             is Body.CallOffer, is Body.CallAnswer, is Body.CallEnd, is Body.Timer -> applyControl(sender, content, body)
-            is Body.Profile -> receiveProfile(sender, body)
+            is Body.Profile -> profiles.receive(sender, body)
             is Body.Presence -> receivePresence(sender, body)
         }
     }
 
-    private suspend fun receiveProfile(sender: String, body: Body.Profile) {
-        val known = db.contacts().get(sender)
-        val base = known ?: ContactEntity(sender, sender, added = false)
-        val updated = base.copy(name = body.name.take(MAX_NAME), bio = body.bio.take(MAX_BIO))
-        db.contacts().upsert(updated)
-        db.conversations().get(sender)?.let { db.conversations().upsert(it.copy(title = body.name.ifBlank { sender })) }
+    override fun profileChanged() {
+        scope.launch { profiles.broadcast(clock) }
     }
 
     /** Privacy and blocking on what arrives directly; refused things vanish as if never sent. */
@@ -1172,8 +1170,6 @@ class ServerChatRepository(
 
         /** Longest timer accepted from others: a year. */
         const val MAX_TIMER_SECONDS = 365 * 24 * 3600
-        const val MAX_NAME = 64
-        const val MAX_BIO = 140
     }
 }
 

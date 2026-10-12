@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.maxLength
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -49,6 +50,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.settings.Profile
 import app.blesk.core.design.component.Button
@@ -71,7 +73,13 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 
 /** What the edit leaves behind when saved. */
-data class ProfileDraft(val name: String, val username: String, val bio: String, val header: String)
+data class ProfileDraft(
+    val name: String,
+    val username: String,
+    val bio: String,
+    val header: String,
+    val links: List<String> = emptyList(),
+)
 
 class ProfileActions(
     val onSave: (ProfileDraft) -> Unit,
@@ -97,6 +105,7 @@ fun ProfileScreen(
     val name = rememberTextFieldState(profile.name)
     val username = rememberTextFieldState(profile.username)
     val bio = rememberTextFieldState(profile.bio)
+    val links = List(Profile.MAX_LINKS) { rememberTextFieldState(profile.links.getOrElse(it) { "" }) }
     var header by rememberSaveable(profile.header) { mutableStateOf(profile.header) }
     var saves by remember { mutableIntStateOf(0) }
     var leaving by remember { mutableStateOf(false) }
@@ -106,8 +115,9 @@ fun ProfileScreen(
         username = Profile.normalizeUsername(username.text.toString()),
         bio = bio.text.toString(),
         header = header,
+        links = Profile.cleanLinks(links.map { it.text.toString() }),
     )
-    val dirty = draft != ProfileDraft(profile.name, profile.username, profile.bio, profile.header)
+    val dirty = draft != ProfileDraft(profile.name, profile.username, profile.bio, profile.header, profile.links)
     val style = chatBackdropOf(header) ?: HeaderStyle.Light(0)
     val scroll = rememberScrollState()
 
@@ -175,6 +185,17 @@ fun ProfileScreen(
                 hint = stringResource(R.string.profile_counter, bio.text.length, Profile.MAX_BIO),
                 inputTransformation = InputTransformation.maxLength(Profile.MAX_BIO),
             )
+            // One more field appears as soon as the previous one is filled, up to three.
+            links.forEachIndexed { index, link ->
+                if (index == 0 || links[index - 1].text.isNotBlank()) {
+                    TextInput(
+                        label = stringResource(R.string.profile_link, index + 1),
+                        state = link,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+                        inputTransformation = InputTransformation.maxLength(Profile.MAX_LINK),
+                    )
+                }
+            }
             SectionHeader(stringResource(R.string.profile_header))
             HeaderPicker(
                 selected = style,

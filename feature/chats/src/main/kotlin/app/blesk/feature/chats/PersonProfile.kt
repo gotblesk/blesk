@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
@@ -59,6 +60,7 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.component.glint
 import app.blesk.core.design.component.profileHeaderHeight
+import app.blesk.core.design.component.rememberPhotoFile
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -110,7 +112,10 @@ fun PersonProfileScreen(
     modifier: Modifier = Modifier,
     /** Groups and rooms you are both in. */
     shared: ImmutableList<Conversation> = persistentListOf(),
+    /** What they said about themselves, if they shared it. */
+    about: Contact? = null,
 ) {
+    val photo = rememberPhotoFile(conversation.photo)
     val scroll = rememberScrollState()
     var more by remember { mutableStateOf(false) }
     val headerPx = with(LocalDensity.current) { profileHeaderHeight().toPx() }
@@ -126,7 +131,7 @@ fun PersonProfileScreen(
             ProfileHero(
                 name = conversation.title,
                 key = conversation.id,
-                photo = null,
+                photo = photo,
                 header = HeaderStyle.Light(preset),
                 headerPhoto = null,
                 scroll = { scroll.value },
@@ -147,6 +152,14 @@ fun PersonProfileScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
+            about?.bio?.takeIf { it.isNotBlank() }?.let { bio ->
+                Text(
+                    text = bio,
+                    color = Blesk.colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Blesk.dimens.gutter).padding(top = 8.dp),
+                )
+            }
             ActionCluster(
                 buildList {
                     add(ClusterAction(BleskIcons.Chats, stringResource(R.string.person_write), actions.onWrite))
@@ -164,6 +177,13 @@ fun PersonProfileScreen(
                 },
                 Modifier.padding(horizontal = Blesk.dimens.gutter, vertical = 16.dp),
             )
+            about?.links?.takeIf { it.isNotEmpty() }?.let { links ->
+                Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(bottom = Blesk.dimens.sectionGap)) {
+                    links.forEach { link ->
+                        ListRow(title = link.removePrefix("https://"), icon = BleskIcons.Share, onClick = { actions.onOpenLink(link) })
+                    }
+                }
+            }
             EncryptionRow(conversation.protection == Protection.EndToEnd)
             actions.onVerify?.let { verify -> KeysRow(verified, verify) }
             SharedContent(messages, actions)
