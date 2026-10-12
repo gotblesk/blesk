@@ -33,7 +33,7 @@ import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.NoticeHost
-import app.blesk.core.design.theme.BleskTheme
+import app.blesk.core.design.theme.BleskThemeWithWave
 import app.blesk.core.motion.LocalHapticLevel
 import app.blesk.navigation.BleskNavigation
 import app.blesk.navigation.LockRoute
@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                 LocalHapticLevel provides vibration.toHapticLevel(),
                 LocalNotices provides container.notices,
             ) {
-                BleskTheme(appearance = appearance) {
+                BleskThemeWithWave(appearance = appearance) {
                     Box(Modifier.fillMaxSize()) {
                         BleskNavigation(container)
                         NoticeHost(container.notices, Modifier.align(Alignment.BottomCenter))
