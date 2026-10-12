@@ -77,7 +77,8 @@ internal class SpaceEngine(
         }
     }
 
-    suspend fun store(post: Post) {
+    /** Keeps [post]; returns its conversation when it is new here, so it can be announced. */
+    suspend fun store(post: Post): String? {
         val conversationId =
             if (known.value[post.space]?.kind == SpaceKind.Room) conversation(post.space, post.channel) else PREFIX + post.space
         val placeholder = post.attachment?.let(Attachments::placeholder)
@@ -95,19 +96,19 @@ internal class SpaceEngine(
                 attachment = existing?.attachment ?: encodeAttachment(placeholder),
             ),
         )
-        if (existing == null) {
-            val preview = post.text.ifEmpty { labels(placeholder) }
-            db.conversations().setPreview(conversationId, post.author.takeIf { it != me }, preview, post.createdAtMillis)
-            db.conversations().get(conversationId)?.parentId?.let {
-                db.conversations().setPreview(it, post.author, preview, post.createdAtMillis)
-            }
-            post.attachment?.let { pointer ->
-                val local = runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }.getOrNull()
-                db.messages().get(messageId(post.space, post.id))?.let {
-                    db.messages().upsert(it.copy(attachment = encodeAttachment(local)))
-                }
+        if (existing != null) return null
+        val preview = post.text.ifEmpty { labels(placeholder) }
+        db.conversations().setPreview(conversationId, post.author.takeIf { it != me }, preview, post.createdAtMillis)
+        db.conversations().get(conversationId)?.parentId?.let {
+            db.conversations().setPreview(it, post.author, preview, post.createdAtMillis)
+        }
+        post.attachment?.let { pointer ->
+            val local = runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }.getOrNull()
+            db.messages().get(messageId(post.space, post.id))?.let {
+                db.messages().upsert(it.copy(attachment = encodeAttachment(local)))
             }
         }
+        return conversationId
     }
 
     suspend fun removed(space: String, id: Long) = db.messages().delete(messageId(space, id))

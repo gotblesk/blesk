@@ -14,8 +14,11 @@
     <string name="calls_channel_ongoing">Идущий звонок</string>
     <string name="calls_need_microphone">Для звонка нужен доступ к микрофону</string>
     <string name="calls_busy">Сначала заверши текущий звонок</string>
-    <string name="notify_channel_messages">Сообщения</string>
-    <string name="notify_channel_online">Всегда на связи</string>
+    <string name="notify_channel_direct">Личные</string>
+    <string name="notify_channel_groups">Группы</string>
+    <string name="notify_channel_rooms">Комнаты: упоминания</string>
+    <string name="notify_channel_channels">Каналы</string>
+    <string name="notify_channel_online">Служебные</string>
     <string name="notify_new_message">Новое сообщение</string>
     <string name="notify_spoiler">скрытый текст</string>
     <string name="notify_online_title">blesk на связи</string>

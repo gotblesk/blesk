@@ -14,6 +14,7 @@ import app.blesk.R
 import app.blesk.core.data.IncomingMessages
 import app.blesk.core.data.model.Markup
 import app.blesk.core.data.settings.IncomingNote
+import app.blesk.core.data.settings.NoteKind
 import app.blesk.core.data.settings.NotificationPreview
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
@@ -28,9 +29,15 @@ internal class MessageNotifier(private val context: Context, private val contain
 
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel =
-                NotificationChannel(CHANNEL, context.getString(R.string.notify_channel_messages), NotificationManager.IMPORTANCE_HIGH)
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            val system = context.getSystemService(NotificationManager::class.java)
+            // One channel per kind, so the system settings can silence groups while keeping direct chats loud.
+            val channels = NoteKind.entries.map { kind ->
+                val importance =
+                    if (kind == NoteKind.Channel) NotificationManager.IMPORTANCE_DEFAULT else NotificationManager.IMPORTANCE_HIGH
+                NotificationChannel(channelOf(kind), context.getString(channelName(kind)), importance)
+            }
+            system.deleteNotificationChannel(OLD_CHANNEL)
+            system.createNotificationChannels(channels)
         }
     }
 
@@ -79,13 +86,14 @@ internal class MessageNotifier(private val context: Context, private val contain
             MainActivity.open(context, note.conversationId),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val hidden = NotificationCompat.Builder(context, CHANNEL)
+        val channel = channelOf(note.kind)
+        val hidden = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(generic)
             .build()
         val style = NotificationCompat.InboxStyle().also { inbox -> history.forEach(inbox::addLine) }
-        val notification = NotificationCompat.Builder(context, CHANNEL)
+        val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(title)
             .setContentText(line)
@@ -101,7 +109,17 @@ internal class MessageNotifier(private val context: Context, private val contain
     }
 
     private companion object {
-        const val CHANNEL = "messages"
+        const val OLD_CHANNEL = "messages"
+
+        fun channelOf(kind: NoteKind) = "messages_" + kind.name.lowercase()
+
+        fun channelName(kind: NoteKind) = when (kind) {
+            NoteKind.Direct -> R.string.notify_channel_direct
+            NoteKind.Group -> R.string.notify_channel_groups
+            NoteKind.Room -> R.string.notify_channel_rooms
+            NoteKind.Channel -> R.string.notify_channel_channels
+        }
+
         const val ID = 7
         const val MAX_LINES = 5
     }

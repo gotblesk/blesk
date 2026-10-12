@@ -10,5 +10,14 @@ data class NotificationSettings(
     val alwaysOnline: Boolean = false,
 )
 
+/** Where a message came from; each kind has its own notification channel. */
+enum class NoteKind { Direct, Group, Room, Channel }
+
 /** A new message worth telling about; [text] is never logged. */
-data class IncomingNote(val conversationId: String, val title: String, val author: String?, val text: String)
+data class IncomingNote(
+    val conversationId: String,
+    val title: String,
+    val author: String?,
+    val text: String,
+    val kind: NoteKind = NoteKind.Direct,
+)

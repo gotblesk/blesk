@@ -34,6 +34,7 @@ import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.model.splitLongText
 import app.blesk.core.data.settings.Audience
 import app.blesk.core.data.settings.IncomingNote
+import app.blesk.core.data.settings.NoteKind
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
 import app.blesk.core.network.ApiException
@@ -55,6 +56,7 @@ import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.InviteLink
 import app.blesk.shared.protocol.LinkPreview
 import app.blesk.shared.protocol.OutgoingMessage
+import app.blesk.shared.protocol.Post
 import app.blesk.shared.protocol.ReceiptKind
 import app.blesk.shared.protocol.RoleChange
 import app.blesk.shared.protocol.ServerFrame
@@ -404,6 +406,20 @@ class ServerChatRepository(
         dispatch(conversationId, Content(id, sentAt, Body.Text(text, replyToId, pointer, forwarded, link), expiresInSeconds = timer))
         log.record(EventCode.MessageQueued)
     }
+
+    /** Channels tell about every post; rooms only about the ones that mention you. */
+    private suspend fun announcePost(conversation: String, post: Post) {
+        if (post.author == me) return
+        val room = spaces.spaces.value[post.space]?.kind == SpaceKind.Room
+        if (room && !mentionsMe(post.text)) return
+        val row = db.conversations().get(conversation)
+        val title = row?.parentId?.let { db.conversations().get(it)?.title } ?: row?.title ?: post.space
+        val preview = post.text.ifEmpty { labels(null) }
+        val kind = if (room) NoteKind.Room else NoteKind.Channel
+        incomingFlow.tryEmit(IncomingNote(conversation, title, post.author.takeIf { room }, preview, kind))
+    }
+
+    private fun mentionsMe(text: String) = Regex("""(^|[^\w@])@${Regex.escape(me)}\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)
 
     /** The link card for a new message of yours, kept with it; the bubble shows it as soon as it is ready. */
     private suspend fun cardFor(id: String, text: String, attachment: Attachment?, forwarded: Boolean): LinkPreview? {
@@ -878,7 +894,7 @@ class ServerChatRepository(
                 log.record(EventCode.ServerSynced)
                 scope.launch { runCatching { spaces.sync() } }
             }
-            is ServerFrame.SpacePost -> spaces.store(frame.post)
+            is ServerFrame.SpacePost -> spaces.store(frame.post)?.let { announcePost(it, frame.post) }
             is ServerFrame.SpacePostChanged -> frame.post?.let { spaces.store(it) } ?: spaces.removed(frame.space, frame.id)
         }
     }
@@ -1025,7 +1041,15 @@ class ServerChatRepository(
         setPreview(conversation, author, preview, content.sentAtMillis)
         val row = db.conversations().get(conversation)
         val title = row?.parentId?.let { db.conversations().get(it)?.title } ?: row?.title
-        incomingFlow.tryEmit(IncomingNote(conversation, title ?: sender, author?.let { contactCache.value[it]?.name ?: it }, preview))
+        val kind = when {
+            row?.parentId != null -> NoteKind.Room
+            author != null -> NoteKind.Group
+            else -> NoteKind.Direct
+        }
+        if (kind != NoteKind.Room || mentionsMe(body.text)) {
+            val name = author?.let { contactCache.value[it]?.name ?: it }
+            incomingFlow.tryEmit(IncomingNote(conversation, title ?: sender, name, preview, kind))
+        }
         body.attachment?.let { pointer ->
             scope.launch {
                 val local = runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }.getOrNull()
