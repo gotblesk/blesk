@@ -33,17 +33,19 @@ class MediaVault(private val context: Context) {
         attachment?.files.orEmpty().filter(::owns).forEach { File(it).delete() }
     }
 
-    suspend fun importPhoto(uri: Uri): Attachment.Photo? = withContext(Dispatchers.IO) {
+    /** Re-encodes a picked photo; [original] keeps its full size, otherwise the long side is cut to 2560. */
+    suspend fun importPhoto(uri: Uri, original: Boolean = false): Attachment.Photo? = withContext(Dispatchers.IO) {
+        val side = if (original) ORIGINAL_PHOTO_SIDE else MAX_PHOTO_SIDE
         try {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return@withContext null
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
-            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, MAX_PHOTO_SIDE) }
+            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, side) }
             val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) } ?: return@withContext null
             val rotation = resolver.openInputStream(uri)?.use { ExifInterface(it).rotationDegrees } ?: 0
-            val bitmap = decoded.rotated(rotation).scaledDown(MAX_PHOTO_SIDE)
+            val bitmap = decoded.rotated(rotation).scaledDown(side)
             val file = newFile("jpg")
-            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, PHOTO_QUALITY, it) }
+            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, if (original) ORIGINAL_QUALITY else PHOTO_QUALITY, it) }
             Attachment.Photo(file.path, bitmap.width, bitmap.height).also { bitmap.recycle() }
         } catch (_: IOException) {
             null
@@ -120,6 +122,10 @@ class MediaVault(private val context: Context) {
         private const val MAX_PHOTO_SIDE = 2560
         private const val MAX_POSTER_SIDE = 720
         private const val PHOTO_QUALITY = 86
+        private const val ORIGINAL_QUALITY = 95
+
+        // Large enough for any phone camera, small enough to decode without running out of memory.
+        private const val ORIGINAL_PHOTO_SIDE = 8192
         private const val MAX_NAME = 120
         private const val MAX_EXTENSION = 8
 

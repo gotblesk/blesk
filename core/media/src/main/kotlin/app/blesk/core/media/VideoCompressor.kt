@@ -23,7 +23,8 @@ import kotlin.coroutines.resume
 @UnstableApi
 class VideoCompressor(private val context: Context) {
 
-    suspend fun compress(input: Uri, output: File): Boolean {
+    /** Re-encodes [input] to H.264 and AAC; unless [original], the short side is cut to 720. */
+    suspend fun compress(input: Uri, output: File, original: Boolean = false): Boolean {
         val shortSide = withContext(Dispatchers.IO) { shortSideOf(input) } ?: return false
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { continuation ->
@@ -41,7 +42,7 @@ class VideoCompressor(private val context: Context) {
                         }
                     })
                     .build()
-                val effects = if (shortSide > MAX_SHORT_SIDE) {
+                val effects = if (!original && shortSide > MAX_SHORT_SIDE) {
                     Effects(emptyList(), listOf(Presentation.createForShortSide(MAX_SHORT_SIDE)))
                 } else {
                     Effects.EMPTY

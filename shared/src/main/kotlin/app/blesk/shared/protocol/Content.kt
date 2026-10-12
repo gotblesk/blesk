@@ -59,6 +59,8 @@ sealed interface Body {
         val forwarded: Boolean = false,
         /** The card of the first link in [text], built by the sender's phone. */
         val link: LinkPreview? = null,
+        /** Photos and videos sent together; [attachment] stays empty then. */
+        val album: List<AttachmentPointer> = emptyList(),
     ) : Body
 
     /** The chat's disappearing-message timer was changed by the sender. */

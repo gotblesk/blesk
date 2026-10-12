@@ -13,10 +13,10 @@ import java.io.File
 
 /** Photos are re-encoded on the way in; videos are compressed to 720p first. */
 @OptIn(UnstableApi::class)
-internal suspend fun importVisual(container: AppContainer, mime: String?, uri: Uri): Attachment? {
-    if (mime?.startsWith("video/") != true) return container.media.importPhoto(uri)
+internal suspend fun importVisual(container: AppContainer, mime: String?, uri: Uri, original: Boolean = false): Attachment? {
+    if (mime?.startsWith("video/") != true) return container.media.importPhoto(uri, original)
     val output = container.media.newFile("mp4")
-    if (!container.videoCompressor.compress(uri, output)) return null
+    if (!container.videoCompressor.compress(uri, output, original)) return null
     return container.media.describeVideo(output)
 }
 

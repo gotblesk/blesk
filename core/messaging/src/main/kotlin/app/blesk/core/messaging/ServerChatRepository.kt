@@ -138,6 +138,7 @@ class ServerChatRepository(
     private val incomingFlow = MutableSharedFlow<IncomingNote>(extraBufferCapacity = SIGNAL_BUFFER)
     override val incoming: SharedFlow<IncomingNote> = incomingFlow.asSharedFlow()
     private val spaces = SpaceEngine(db, api, media, me, labels)
+    private val downloads = Downloads(db, api, media)
     private val profiles = ProfileExchange(
         db = db,
         api = api,
@@ -327,8 +328,13 @@ class ServerChatRepository(
         // Bots take text only; files to a program in the clear are not worth the risk.
         if (bots.isBot(conversationId)) return
         if (spaces.handleOf(conversationId) != null) {
+            // Open rooms keep one file per post, so an album goes out as a row of posts.
+            val parts = (attachment as? Attachment.Album)?.items ?: listOf(attachment)
             scope.launch {
-                runCatching { spaces.send(conversationId, caption, replyToId, attachment) }.onFailure { log.record(EventCode.SendFailed) }
+                parts.forEachIndexed { index, part ->
+                    val text = caption.takeIf { index == parts.lastIndex }.orEmpty()
+                    runCatching { spaces.send(conversationId, text, replyToId, part) }.onFailure { log.record(EventCode.SendFailed) }
+                }
             }
             return
         }
@@ -408,20 +414,32 @@ class ServerChatRepository(
             advanceStatus(listOf(id), SendStatus.Read)
             return
         }
-        val pointer = if (attachment == null) {
-            null
+        val pointers = if (attachment == null) {
+            emptyList()
         } else {
             try {
-                withContext(Dispatchers.IO) { Attachments.upload(api, attachment) }
+                withContext(Dispatchers.IO) { Attachments.uploadEach(api, attachment) }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                advanceStatus(listOf(id), SendStatus.Failed, force = true)
-                log.record(EventCode.SendFailed)
-                return
+                null
             }
         }
-        dispatch(conversationId, Content(id, sentAt, Body.Text(text, replyToId, pointer, forwarded, link), expiresInSeconds = timer))
+        if (pointers == null) {
+            advanceStatus(listOf(id), SendStatus.Failed, force = true)
+            log.record(EventCode.SendFailed)
+            return
+        }
+        val album = attachment is Attachment.Album
+        val body = Body.Text(
+            text = text,
+            replyTo = replyToId,
+            attachment = pointers.firstOrNull().takeUnless { album },
+            forwarded = forwarded,
+            link = link,
+            album = if (album) pointers else emptyList(),
+        )
+        dispatch(conversationId, Content(id, sentAt, body, expiresInSeconds = timer))
         log.record(EventCode.MessageQueued)
     }
 
@@ -1038,7 +1056,8 @@ class ServerChatRepository(
     }
 
     private suspend fun storeIncoming(sender: String, conversation: String, content: Content, body: Body.Text, author: String?) {
-        val placeholder = body.attachment?.let(Attachments::placeholder)
+        val album = body.album.take(Attachment.Album.MAX)
+        val placeholder = if (album.isNotEmpty()) Attachments.placeholders(album) else body.attachment?.let(Attachments::placeholder)
         val inserted = db.messages().insert(
             MessageEntity(
                 id = content.id,
@@ -1070,13 +1089,7 @@ class ServerChatRepository(
             val name = author?.let { contactCache.value[it]?.name ?: it }
             incomingFlow.tryEmit(IncomingNote(conversation, title ?: sender, name, preview, kind))
         }
-        body.attachment?.let { pointer ->
-            scope.launch {
-                val local = runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }.getOrNull()
-                val stored = db.messages().get(content.id)
-                if (local != null && stored != null) db.messages().upsert(stored.copy(attachment = encodeAttachment(local)))
-            }
-        }
+        scope.launch { downloads.fetch(content.id, body.attachment.takeIf { album.isEmpty() }, album) }
     }
 
     private suspend fun receiveText(sender: String, content: Content, body: Body.Text) {

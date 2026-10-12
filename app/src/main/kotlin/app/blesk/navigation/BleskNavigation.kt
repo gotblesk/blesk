@@ -67,7 +67,6 @@ import app.blesk.core.network.ServerAddress
 import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.chats.groups.NewKind
-import app.blesk.feature.chats.media.MediaViewer
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.profile.MyQrScreen
 import app.blesk.feature.profile.profileLink
@@ -114,7 +113,7 @@ data object AboutKey : NavKey
 data object DebugKey : NavKey
 
 @Serializable
-data class MediaKey(val conversationId: String, val messageId: String) : NavKey
+data class MediaKey(val conversationId: String, val messageId: String, val index: Int = 0) : NavKey
 
 @Serializable
 data object ProfileKey : NavKey
@@ -420,7 +419,7 @@ fun BleskNavigation(container: AppContainer) {
                                 id = key.id,
                                 focusMessageId = key.focusMessageId,
                                 appearance = appearance,
-                                onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
+                                onOpenMedia = { messageId, index -> backStack.add(MediaKey(key.id, messageId, index)) },
                                 onOpenGroup = { backStack.add(GroupInfoKey(it)) },
                                 onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
                                 onVerify = { backStack.add(ChatInfoKey(key.id)) },
@@ -493,12 +492,7 @@ fun BleskNavigation(container: AppContainer) {
                                 while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
                             }, onBack = back)
                         }
-                        entry<MediaKey> { key ->
-                            val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry
-                            val messages by chats.messages(key.conversationId).collectAsStateWithLifecycle(initialValue = null)
-                            val attachment = messages?.firstOrNull { it.id == key.messageId }?.attachment
-                            if (attachment != null) MediaViewer(attachment, onBack = back)
-                        }
+                        entry<MediaKey> { key -> MediaRoute(container, key, onBack = back) }
                         entry<VoiceChannelKey> { key ->
                             val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry
                             val channel by chats.conversation(key.roomId)

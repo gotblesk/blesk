@@ -53,7 +53,18 @@ internal object Attachments {
             durationMillis = attachment.durationMillis, thumbnail = inline(attachment.poster),
         )
         is Attachment.Theme -> error("Themes travel inline")
+        is Attachment.Album -> error("Albums travel as a list of pointers")
     }
+
+    /** Every file of [attachment] uploaded: one pointer, or one per album item in order. */
+    suspend fun uploadEach(api: BleskApi, attachment: Attachment): List<AttachmentPointer>? {
+        val parts = (attachment as? Attachment.Album)?.items ?: listOf(attachment)
+        return parts.map { upload(api, it) ?: return null }
+    }
+
+    /** An album before its files arrive: the size of each item, so the mosaic is laid out at once. */
+    fun placeholders(pointers: List<AttachmentPointer>): Attachment.Album =
+        Attachment.Album(pointers.filter { it.kind == KIND_PHOTO || it.kind == KIND_VIDEO }.mapNotNull(::placeholder))
 
     /** For public spaces: uploaded as is, with an empty key, because those are not encrypted anyway. */
     suspend fun uploadPlain(api: BleskApi, attachment: Attachment): AttachmentPointer? {
@@ -110,7 +121,7 @@ internal object Attachments {
         is Attachment.File -> attachment.path
         is Attachment.Voice -> attachment.path
         is Attachment.Circle -> attachment.path
-        is Attachment.Theme -> null
+        is Attachment.Theme, is Attachment.Album -> null
     }
 
     private fun extension(pointer: AttachmentPointer) = when (pointer.kind) {

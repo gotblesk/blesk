@@ -82,4 +82,6 @@
     <string name="privacy_keys">Фраза и ключи</string>
     <string name="privacy_phrase">Фраза восстановления</string>
     <string name="privacy_who_sees_photo">Видеть моё фото</string>
+    <string name="privacy_save_media">Сохранение в галерею</string>
+    <string name="privacy_save_media_hint">Кнопка в просмотре фото и видео. Сохранённое увидят другие приложения</string>
 </resources>

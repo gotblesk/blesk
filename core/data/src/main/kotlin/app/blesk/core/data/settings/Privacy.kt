@@ -29,6 +29,8 @@ data class Privacy(
     val groups: Audience = Audience.Everyone,
     /** Who sees when you are online. */
     val online: Audience = Audience.Contacts,
+    /** Photos and videos can be saved from the viewer to the phone's gallery. */
+    val saveMedia: Boolean = true,
     /** Who gets your profile photo along with your name. */
     val photo: Audience = Audience.Contacts,
     /** Ten wrong codes in a row erase everything on this phone. */

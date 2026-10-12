@@ -141,7 +141,24 @@ sealed interface Attachment {
     @Serializable
     @SerialName("circle")
     data class Circle(val path: String, val poster: String, val durationMillis: Long) : Attachment
+
+    /** Up to [MAX] photos and videos sent together, shown as one mosaic. */
+    @Serializable
+    @SerialName("album")
+    data class Album(val items: List<Attachment>) : Attachment {
+        companion object {
+            const val MAX = 10
+        }
+    }
 }
+
+/** The photos and videos an attachment shows, one by one: an album's items, or the attachment itself. */
+val Attachment.visuals: List<Attachment>
+    get() = when (this) {
+        is Attachment.Album -> items.filter { it is Attachment.Photo || it is Attachment.Video }
+        is Attachment.Photo, is Attachment.Video -> listOf(this)
+        else -> emptyList()
+    }
 
 /** The same attachment without its files on this phone, or null when it has none to remove. */
 fun Attachment.withoutFiles(): Attachment? = when (this) {
@@ -151,6 +168,7 @@ fun Attachment.withoutFiles(): Attachment? = when (this) {
     is Attachment.Voice -> copy(path = "").takeIf { path.isNotEmpty() }
     is Attachment.Circle -> copy(path = "", poster = "").takeIf { path.isNotEmpty() || poster.isNotEmpty() }
     is Attachment.Theme -> null
+    is Attachment.Album -> Attachment.Album(items.map { it.withoutFiles() ?: it }).takeIf { files.isNotEmpty() }
 }
 
 /** Paths of the files an attachment keeps on this phone. */
@@ -162,6 +180,7 @@ val Attachment.files: List<String>
         is Attachment.Voice -> listOf(path)
         is Attachment.Circle -> listOf(path, poster)
         is Attachment.Theme -> emptyList()
+        is Attachment.Album -> items.flatMap { it.files }
     }.filter { it.isNotEmpty() }
 
 /** An attachment kept on this phone, for counting space by chat and by kind. */

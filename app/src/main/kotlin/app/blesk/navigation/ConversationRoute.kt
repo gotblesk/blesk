@@ -1,6 +1,9 @@
 package app.blesk.navigation
 
 import android.Manifest
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +36,7 @@ import app.blesk.core.data.KeyState
 import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.SpaceController
 import app.blesk.core.data.demo.DemoRepository
+import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.GLINT_REACTION
@@ -44,6 +48,7 @@ import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
+import app.blesk.feature.chats.QualitySheet
 import app.blesk.feature.chats.media.MediaController
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.shared.appearance.Appearance
@@ -63,7 +68,7 @@ internal fun ConversationRoute(
     id: String,
     appearance: Appearance,
     focusMessageId: String? = null,
-    onOpenMedia: (messageId: String) -> Unit,
+    onOpenMedia: (messageId: String, index: Int) -> Unit,
     onOpenGroup: (groupId: String) -> Unit,
     onOpenSpace: (handle: String) -> Unit,
     onCall: (video: Boolean) -> Unit,
@@ -128,13 +133,25 @@ internal fun ConversationRoute(
     val failed = stringResource(app.blesk.feature.chats.R.string.media_failed)
     val context = LocalContext.current
     val notify = rememberNotify()
-    val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+    // Picked photos and videos wait for «Сжатое» or «Оригинал» before they are encoded and sent.
+    var picked by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    val pickMedia =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(Attachment.Album.MAX)) { uris ->
+            picked = uris.take(Attachment.Album.MAX)
+        }
+    fun sendPicked(original: Boolean) {
+        val uris = picked
+        picked = emptyList()
         scope.launch {
             busy = true
-            val attachment = importVisual(container, context.contentResolver.getType(uri), uri)
+            val items = uris.mapNotNull { uri -> importVisual(container, context.contentResolver.getType(uri), uri, original) }
             busy = false
-            if (attachment != null) demo.sendAttachment(id, attachment) else notify(failed)
+            when {
+                items.size < uris.size && items.isEmpty() -> notify(failed)
+                items.size == 1 -> demo.sendAttachment(id, items.single())
+                else -> demo.sendAttachment(id, Attachment.Album(items))
+            }
+            if (items.size < uris.size && items.isNotEmpty()) notify(failed)
         }
     }
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -180,7 +197,7 @@ internal fun ConversationRoute(
             onToggleVoice = container.audioPlayer::toggle,
             onSeekVoice = container.audioPlayer::seek,
             onCycleSpeed = container.audioPlayer::cycleSpeed,
-            onOpenMedia = { onOpenMedia(it.id) },
+            onOpenMedia = { message, index -> onOpenMedia(message.id, index) },
             onOpenFile = { file -> openFile(context, file) },
         )
     }
@@ -308,9 +325,25 @@ internal fun ConversationRoute(
                     onDismiss = { themeSheet = false },
                 )
             }
+            if (picked.isNotEmpty()) {
+                val originalBytes = remember(picked) { picked.sumOf { uri -> sizeOf(context, uri) } }
+                QualitySheet(
+                    count = picked.size,
+                    originalBytes = originalBytes,
+                    onSend = ::sendPicked,
+                    onDismiss = { picked = emptyList() },
+                )
+            }
         }
     }
 }
+
+/** The size a picked file reports, or 0 if it does not say. */
+private fun sizeOf(context: Context, uri: Uri): Long = runCatching {
+    context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) cursor.getLong(0) else 0L
+    } ?: 0L
+}.getOrDefault(0L)
 
 private const val SPACE_PREFIX = "space:"
 

@@ -12,4 +12,5 @@ fun Resources.attachmentLabel(attachment: Attachment?): String = when (attachmen
     is Attachment.Voice -> getString(R.string.attachment_voice)
     is Attachment.Circle -> getString(R.string.attachment_circle)
     is Attachment.Theme -> getString(R.string.attachment_theme)
+    is Attachment.Album -> getString(R.string.attachment_album, attachment.items.size)
 }

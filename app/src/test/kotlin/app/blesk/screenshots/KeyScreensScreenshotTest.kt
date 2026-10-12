@@ -528,6 +528,24 @@ class KeyScreensScreenshotTest(private val name: String) {
     }
 
     @Test
+    fun album() = capture("02e_album") {
+        val base = seed.messages.first { it.conversationId == DemoSeed.ANYA }
+        val sizes = listOf(4000 to 3000, 3000 to 4000, 1080 to 1920, 4000 to 3000, 1920 to 1080)
+        val items = sizes.mapIndexed { index, (w, h) ->
+            if (index == 2) Attachment.Video("", "", w, h, 12_000) else Attachment.Photo("", w, h)
+        }
+        ConversationScreen(
+            conversation = seed.conversations.first { it.id == DemoSeed.ANYA },
+            messages = persistentListOf(
+                base.copy(id = "album", authorId = "me", text = "Вчерашний закат", attachment = Attachment.Album(items)),
+            ),
+            typing = false,
+            authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+        )
+    }
+
+    @Test
     fun backdrop() = capture("02d_chat_backdrop") {
         val conversation = seed.conversations.first { it.id == DemoSeed.ANYA }
         ConversationScreen(

@@ -46,6 +46,7 @@ import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
+import app.blesk.core.data.model.visuals
 import app.blesk.core.design.component.ActionCluster
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ClusterAction
@@ -282,7 +283,7 @@ private fun SharedContent(messages: ImmutableList<Message>, actions: PersonActio
     val gutter = Modifier.padding(horizontal = Blesk.dimens.gutter)
     when (SharedTab.entries[tab]) {
         SharedTab.Media -> {
-            val media = newest.filter { it.attachment is Attachment.Photo || it.attachment is Attachment.Video }
+            val media = newest.filter { it.attachment?.visuals.orEmpty().isNotEmpty() }
             if (media.isEmpty()) return Empty()
             FlowRow(
                 gutter.padding(top = 8.dp),
@@ -290,7 +291,8 @@ private fun SharedContent(messages: ImmutableList<Message>, actions: PersonActio
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 media.take(MAX_SHOWN).forEach { message ->
-                    val path = when (val a = message.attachment) {
+                    // An album shows its first picture here; the viewer pages through the rest.
+                    val path = when (val a = message.attachment?.visuals?.firstOrNull()) {
                         is Attachment.Photo -> a.path
                         is Attachment.Video -> a.thumbnail
                         else -> return@forEach

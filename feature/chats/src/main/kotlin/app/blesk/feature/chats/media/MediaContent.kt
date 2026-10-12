@@ -59,11 +59,12 @@ class MediaController(
     val onToggleVoice: (String) -> Unit,
     val onSeekVoice: (path: String, fraction: Float, durationMillis: Long) -> Unit,
     val onCycleSpeed: () -> Unit,
-    val onOpenMedia: (Message) -> Unit,
+    /** Opens the viewer on a message's photo or video; [index] is the place within an album. */
+    val onOpenMedia: (message: Message, index: Int) -> Unit,
     val onOpenFile: (Attachment.File) -> Unit,
 ) {
     companion object {
-        val Inert = MediaController(mutableStateOf(Playback()), {}, { _, _, _ -> }, {}, {}, {})
+        val Inert = MediaController(mutableStateOf(Playback()), {}, { _, _, _ -> }, {}, { _, _ -> }, {})
     }
 }
 
@@ -91,7 +92,7 @@ private val VeilBlur = 28.dp
 private const val VEIL_SCRIM = 0.9f
 
 /** True when the attachment fills the bubble edge to edge rather than sitting above text. */
-internal fun Attachment.isVisual() = this is Attachment.Photo || this is Attachment.Video
+internal fun Attachment.isVisual() = this is Attachment.Photo || this is Attachment.Video || this is Attachment.Album
 
 @Composable
 internal fun MediaContent(message: Message, attachment: Attachment) {
@@ -101,14 +102,14 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
             path = attachment.path,
             ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
             description = stringResource(R.string.media_photo),
-            onClick = { controller.onOpenMedia(message) },
+            onClick = { controller.onOpenMedia(message, 0) },
         )
         is Attachment.Video -> Box {
             Picture(
                 path = attachment.thumbnail,
                 ratio = attachment.width.toFloat() / attachment.height.coerceAtLeast(1),
                 description = stringResource(R.string.media_video, formatDuration(attachment.durationMillis)),
-                onClick = { controller.onOpenMedia(message) },
+                onClick = { controller.onOpenMedia(message, 0) },
             )
             PlayBadge(Modifier.align(Alignment.Center))
             Text(
@@ -126,6 +127,7 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
         is Attachment.Voice -> VoiceNote(attachment, controller)
         is Attachment.Circle -> CircleNote(attachment)
         is Attachment.Theme -> Unit
+        is Attachment.Album -> AlbumMosaic(attachment) { index -> controller.onOpenMedia(message, index) }
     }
 }
 
@@ -149,7 +151,7 @@ private const val MIN_RATIO = 0.6f
 private const val MAX_RATIO = 1.8f
 
 @Composable
-private fun PlayBadge(modifier: Modifier = Modifier) {
+internal fun PlayBadge(modifier: Modifier = Modifier) {
     Box(
         modifier
             .size(48.dp)

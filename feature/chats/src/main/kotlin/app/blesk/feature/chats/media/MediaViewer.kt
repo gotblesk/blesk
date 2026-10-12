@@ -7,12 +7,15 @@ import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +33,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -39,6 +45,8 @@ import androidx.media3.ui.compose.ContentFrame
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Slider
+import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.R
@@ -47,19 +55,57 @@ import kotlinx.coroutines.delay
 import java.io.File
 import app.blesk.core.design.R as DesignR
 
-/** Full-screen photo (pinch to zoom) or video (tap to pause, slider to seek). */
+/**
+ * Full-screen photos and videos of a chat, paged sideways from [start]: pinch to zoom a photo,
+ * tap a video to pause it, swipe down to close. [onSave] is null where saving is turned off.
+ */
 @Composable
-fun MediaViewer(attachment: Attachment, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun MediaViewer(
+    items: List<Attachment>,
+    start: Int,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    onSave: ((Attachment) -> Unit)? = null,
+) {
+    val pager = rememberPagerState(initialPage = start.coerceIn(0, (items.size - 1).coerceAtLeast(0))) { items.size }
     Box(modifier.fillMaxSize().background(Color.Black)) {
-        when (attachment) {
-            is Attachment.Photo -> ZoomablePhoto(attachment.path)
-            is Attachment.Video -> VideoPlayer(attachment)
-            else -> Unit
+        HorizontalPager(
+            state = pager,
+            beyondViewportPageCount = 1,
+            modifier = Modifier.fillMaxSize().dragToDismiss(onBack),
+        ) { page ->
+            when (val item = items[page]) {
+                is Attachment.Photo -> ZoomablePhoto(item.path)
+                // Only the video on screen plays; the neighbours wait as their posters.
+                is Attachment.Video -> if (pager.currentPage == page) VideoPlayer(item) else Poster(item.thumbnail)
+                else -> Unit
+            }
         }
-        Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(8.dp)) {
+        Row(
+            Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(8.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             IconButton(BleskIcons.Back, stringResource(DesignR.string.design_back), onBack)
+            if (items.size > 1) {
+                Text(
+                    text = stringResource(R.string.media_counter, pager.currentPage + 1, items.size),
+                    style = Blesk.type.label,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            } else {
+                Box(Modifier.weight(1f))
+            }
+            onSave?.let { save ->
+                IconButton(BleskIcons.Download, stringResource(R.string.media_save), { items.getOrNull(pager.currentPage)?.let(save) })
+            }
         }
     }
+}
+
+@Composable
+private fun Poster(path: String) {
+    AsyncImage(model = File(path), contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
 }
 
 @Composable

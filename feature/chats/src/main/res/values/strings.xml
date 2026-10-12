@@ -383,4 +383,20 @@
     <string name="contacts_remove">Удалить из контактов</string>
     <string name="contacts_remove_hint">Чат останется, но без «прочитано» и «печатает», как с незнакомцем</string>
     <string name="contacts_removed">Удалено из контактов</string>
+    <string name="media_album_photo">Фото %1$d из %2$d</string>
+    <string name="media_album_video">Видео %1$d из %2$d</string>
+    <string name="media_save">Сохранить в галерею</string>
+    <string name="media_saved">Сохранено в галерею</string>
+    <string name="media_save_failed">Не получилось сохранить</string>
+    <string name="media_counter">%1$d из %2$d</string>
+    <plurals name="quality_title">
+        <item quantity="one">Отправить %1$d фото или видео</item>
+        <item quantity="few">Отправить %1$d фото или видео</item>
+        <item quantity="many">Отправить %1$d фото или видео</item>
+        <item quantity="other">Отправить %1$d фото или видео</item>
+    </plurals>
+    <string name="quality_compressed">Сжатое</string>
+    <string name="quality_compressed_hint">Меньше и быстрее, для экрана телефона хватает</string>
+    <string name="quality_original">Оригинал</string>
+    <string name="quality_original_hint">Полный размер, сейчас %1$s</string>
 </resources>
