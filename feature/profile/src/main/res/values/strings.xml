@@ -20,4 +20,18 @@
     <string name="my_qr_hint">Пусть отсканируют его в blesk: «Новый чат» → «Сканер QR»</string>
     <string name="my_qr_no_name">Сначала задай имя пользователя в профиле, и здесь появится твой код.</string>
     <string name="my_share_title">Поделиться профилем</string>
+    <string name="profile_counter">%1$d из %2$d</string>
+    <string name="profile_header">Шапка</string>
+    <string name="profile_header_light">Свет</string>
+    <string name="profile_header_solid">Цвет</string>
+    <string name="profile_header_photo">Фото</string>
+    <string name="profile_header_pick">Своё фото</string>
+    <string name="profile_header_focus">Нажми на шапку там, что должно остаться в кадре</string>
+    <string name="profile_leave_title">Выйти без сохранения?</string>
+    <string name="profile_leave_discard">Отменить изменения</string>
+    <string name="profile_leave_stay">Остаться</string>
+    <string name="profile_crop_title">Фото профиля</string>
+    <string name="profile_crop_hint">Двигай и увеличивай фото двумя пальцами: в аватар попадёт то, что внутри круга</string>
+    <string name="profile_crop_cancel">Отмена</string>
+    <string name="profile_crop_done">Готово</string>
 </resources>

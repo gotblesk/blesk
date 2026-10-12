@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +51,9 @@ import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.HintCapsule
 import app.blesk.core.design.component.IconButton
+import app.blesk.core.design.component.LocalHeaderFocus
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.headerFocusOf
 import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.glass.LensAction
@@ -371,18 +374,20 @@ internal fun Home(
                 )
                 HomeTab.You -> {
                     val current = profile ?: return@AnimatedContent
-                    YouList(
-                        serverHost = serverHost,
-                        profile = current,
-                        photo = photo,
-                        contentPadding = padding,
-                        actions = settings,
-                        demo = demo,
-                        scroll = youScroll,
-                        header = headerStyleOf(current.header),
-                        headerPhoto = headerPhoto,
-                        update = update?.title,
-                    )
+                    CompositionLocalProvider(LocalHeaderFocus provides headerFocusOf(current.header)) {
+                        YouList(
+                            serverHost = serverHost,
+                            profile = current,
+                            photo = photo,
+                            contentPadding = padding,
+                            actions = settings,
+                            demo = demo,
+                            scroll = youScroll,
+                            header = headerStyleOf(current.header),
+                            headerPhoto = headerPhoto,
+                            update = update?.title,
+                        )
+                    }
                 }
             }
         }

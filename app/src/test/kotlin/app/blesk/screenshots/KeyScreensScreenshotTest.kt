@@ -482,7 +482,7 @@ class KeyScreensScreenshotTest(private val name: String) {
 
     @Test
     fun profile() = capture("10_profile") {
-        ProfileScreen(profile = profile, photo = null, actions = ProfileActions({ _, _, _ -> }, {}, {}, {}))
+        ProfileScreen(profile = profile, photo = null, headerPhoto = null, actions = ProfileActions({}, {}, {}, {}, {}))
     }
 
     @Test

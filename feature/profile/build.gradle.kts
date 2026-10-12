@@ -6,5 +6,6 @@ plugins {
 dependencies {
     implementation(project(":core:design"))
     implementation(project(":core:data"))
+    implementation(libs.androidx.activity.compose)
     implementation(libs.zxing.core)
 }

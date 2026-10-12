@@ -9,6 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -120,6 +123,26 @@ fun chatBackdropOf(stored: String): HeaderStyle? {
     }
 }
 
+/** The part of a header photo that stays in view when it is cropped to the header's shape. */
+val LocalHeaderFocus = staticCompositionLocalOf<Alignment> { Alignment.Center }
+
+/** Reads the focus out of a stored profile header, `photo:x:y` with each in -100..100; centre otherwise. */
+fun headerFocusOf(stored: String): Alignment {
+    val parts = stored.split(':')
+    if (parts.firstOrNull() != "photo" || parts.size < FOCUS_PARTS) return Alignment.Center
+    val x = parts[1].toIntOrNull() ?: 0
+    val y = parts[2].toIntOrNull() ?: 0
+    fun bias(value: Int) = value.coerceIn(-FOCUS_RANGE, FOCUS_RANGE) / FOCUS_RANGE.toFloat()
+    return BiasAlignment(bias(x), bias(y))
+}
+
+/** The stored form of a header photo focused on ([x], [y]), each from -1 to 1. */
+fun headerPhotoKey(x: Float, y: Float): String =
+    "photo:${(x.coerceIn(-1f, 1f) * FOCUS_RANGE).toInt()}:${(y.coerceIn(-1f, 1f) * FOCUS_RANGE).toInt()}"
+
+private const val FOCUS_RANGE = 100
+private const val FOCUS_PARTS = 3
+
 /** The stored form of [style], the inverse of [chatBackdropOf]. */
 fun chatBackdropKey(style: HeaderStyle?): String = when (style) {
     null -> "none"
@@ -131,8 +154,13 @@ fun chatBackdropKey(style: HeaderStyle?): String = when (style) {
 @Composable
 private fun BoxScope.HeaderFill(style: HeaderStyle, photo: ImageBitmap?) {
     when {
-        style is HeaderStyle.Photo && photo != null ->
-            Image(photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+        style is HeaderStyle.Photo && photo != null -> Image(
+            photo,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            alignment = LocalHeaderFocus.current,
+            modifier = Modifier.matchParentSize(),
+        )
         style is HeaderStyle.Solid -> SolidFill(style.tone)
         else -> LightFill((style as? HeaderStyle.Light)?.preset ?: 0)
     }

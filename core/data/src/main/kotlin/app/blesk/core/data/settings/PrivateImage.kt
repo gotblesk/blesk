@@ -38,6 +38,30 @@ class PrivateImage(context: Context, fileName: String, private val maxSide: Int)
         }
     }
 
+    /** Decodes [uri] scaled down for editing, without keeping it; null if it cannot be read. */
+    suspend fun decode(uri: Uri): Bitmap? = withContext(Dispatchers.IO) {
+        try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return@withContext null
+            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight) }
+            resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+        } catch (_: IOException) {
+            null
+        } catch (_: SecurityException) {
+            null
+        }
+    }
+
+    /** Keeps [bitmap] as this picture, for one that was cropped first. */
+    suspend fun save(bitmap: Bitmap): Boolean = withContext(Dispatchers.IO) {
+        try {
+            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, QUALITY, it) }
+            true
+        } catch (_: IOException) {
+            false
+        }
+    }
+
     suspend fun load(): Bitmap? = withContext(Dispatchers.IO) {
         if (!file.exists()) null else BitmapFactory.decodeFile(file.path)
     }
