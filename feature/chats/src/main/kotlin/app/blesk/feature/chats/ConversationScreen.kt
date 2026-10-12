@@ -63,6 +63,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import app.blesk.core.data.Connection
 import app.blesk.core.data.Transfer
+import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Conversation
@@ -160,6 +161,8 @@ class ConversationCallbacks(
     val onRetry: (messageId: String) -> Unit = {},
     /** Remembers an emoji picked from the panel for its «recent» row. */
     val onEmojiPicked: (String) -> Unit = {},
+    /** A photo of the chat into the sticker maker, by its path. */
+    val onMakeSticker: ((path: String) -> Unit)? = null,
 )
 
 @Composable
@@ -184,6 +187,8 @@ fun ConversationScreen(
     /** Enter sends the message; Shift+Enter breaks the line. */
     sendByEnter: Boolean = false,
     recentEmoji: ImmutableList<String> = persistentListOf(),
+    /** Null where stickers cannot be sent: bots, read-only chats. */
+    stickers: StickerShelf? = null,
     /** What a bot offers when you type "/". */
     commands: ImmutableList<BotCommand> = persistentListOf(),
     /** Marks the chat as part of the demo world. */
@@ -471,6 +476,7 @@ fun ConversationScreen(
                             sendByEnter = sendByEnter,
                             recentEmoji = recentEmoji,
                             onEmojiPicked = callbacks.onEmojiPicked,
+                            stickers = stickers,
                             replyTo = replyToId?.let(byId::get),
                             editing = editingId?.let(byId::get),
                             authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
@@ -648,6 +654,9 @@ fun ConversationScreen(
                     onPin = callbacks.onPin?.let { pin -> { pin(message.id, message.id !in conversation.pinnedMessageIds) } },
                     pinned = message.id in conversation.pinnedMessageIds,
                     onReact = if (reactions) ({ symbol -> actions.onReact(message, symbol) }) else null,
+                    onMakeSticker = (message.attachment as? Attachment.Photo)?.path?.takeIf { it.isNotEmpty() }?.let { path ->
+                        callbacks.onMakeSticker?.let { make -> { make(path) } }
+                    },
                 )
             }
         }

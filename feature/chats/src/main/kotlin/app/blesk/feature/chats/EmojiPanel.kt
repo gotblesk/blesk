@@ -23,8 +23,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -45,9 +47,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.blesk.core.design.component.Icon
+import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -94,13 +98,39 @@ internal fun loadEmoji(context: Context): Map<EmojiSection, List<EmojiEntry>> {
     return sections
 }
 
-/** Emoji with search and recent picks, shown in place of the keyboard. */
+/**
+ * In place of the keyboard: emoji with search and recent picks, and, where stickers can be
+ * sent, a second tab with them.
+ */
 @Composable
-internal fun EmojiPanel(recent: List<String>, onPick: (String) -> Unit, modifier: Modifier = Modifier, height: Dp = PANEL_HEIGHT) {
-    val context = LocalContext.current
-    val catalog by produceState<Map<EmojiSection, List<EmojiEntry>>>(emptyMap()) {
-        value = withContext(Dispatchers.IO) { loadEmoji(context) }
+fun EmojiPanel(
+    recent: List<String>,
+    onPick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    height: Dp = PANEL_HEIGHT,
+    stickers: StickerShelf? = null,
+    startWithStickers: Boolean = false,
+) {
+    var showStickers by rememberSaveable { mutableStateOf(startWithStickers) }
+    Column(modifier.fillMaxWidth().height(height)) {
+        if (stickers != null) {
+            Segmented(
+                options = persistentListOf(stringResource(R.string.emoji_tab), stringResource(R.string.sticker_tab)),
+                selected = if (showStickers) 1 else 0,
+                onSelect = { showStickers = it == 1 },
+            )
+        }
+        if (stickers != null && showStickers) {
+            StickerPanel(stickers, Modifier.weight(1f))
+        } else {
+            EmojiTab(recent, onPick, Modifier.weight(1f))
+        }
     }
+}
+
+@Composable
+private fun EmojiTab(recent: List<String>, onPick: (String) -> Unit, modifier: Modifier) {
+    val catalog by rememberEmojiCatalog(load = true)
     val byEmoji = remember(catalog) { catalog.values.flatten().associateBy { it.emoji } }
     var section by rememberSaveable { mutableStateOf(if (recent.isEmpty()) EmojiSection.Emotions else EmojiSection.Recent) }
     val query = rememberTextFieldState()
@@ -110,30 +140,8 @@ internal fun EmojiPanel(recent: List<String>, onPick: (String) -> Unit, modifier
         section == EmojiSection.Recent -> recent.map { byEmoji[it] ?: EmojiEntry(it, it, "") }
         else -> catalog[section].orEmpty()
     }
-    val searchHint = stringResource(R.string.emoji_search)
-    Column(modifier.fillMaxWidth().height(height)) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
-                .background(Blesk.colors.surface)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(BleskIcons.Search, contentDescription = null, tint = Blesk.colors.textTertiary)
-            Box(Modifier.weight(1f).heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
-                if (query.text.isEmpty()) Text(searchHint, color = Blesk.colors.textTertiary)
-                BasicTextField(
-                    state = query,
-                    textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
-                    cursorBrush = SolidColor(Blesk.colors.accent),
-                    lineLimits = TextFieldLineLimits.SingleLine,
-                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = searchHint },
-                )
-            }
-        }
+    Column(modifier) {
+        SearchField(query, stringResource(R.string.emoji_search))
         if (needle.isEmpty()) {
             LazyRow(contentPadding = PaddingValues(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(EmojiSection.entries.filter { it != EmojiSection.Recent || recent.isNotEmpty() }) { item ->
@@ -169,8 +177,44 @@ internal fun EmojiPanel(recent: List<String>, onPick: (String) -> Unit, modifier
     }
 }
 
+/** The emoji list, read once [load] turns true; empty until then. */
 @Composable
-private fun SectionChip(title: String, selected: Boolean, onClick: () -> Unit) {
+internal fun rememberEmojiCatalog(load: Boolean): State<Map<EmojiSection, List<EmojiEntry>>> {
+    val context = LocalContext.current
+    return produceState(emptyMap(), load) {
+        if (load) value = withContext(Dispatchers.IO) { loadEmoji(context) }
+    }
+}
+
+/** A search line in the panel's capsule style. */
+@Composable
+internal fun SearchField(query: TextFieldState, hint: String) {
+    Row(
+        modifier = Modifier
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
+            .background(Blesk.colors.surface)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(BleskIcons.Search, contentDescription = null, tint = Blesk.colors.textTertiary)
+        Box(Modifier.weight(1f).heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
+            if (query.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
+            BasicTextField(
+                state = query,
+                textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
+                cursorBrush = SolidColor(Blesk.colors.accent),
+                lineLimits = TextFieldLineLimits.SingleLine,
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = hint },
+            )
+        }
+    }
+}
+
+@Composable
+internal fun SectionChip(title: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .heightIn(min = 48.dp)

@@ -31,6 +31,17 @@ class MediaVault(private val context: Context) {
 
     fun owns(path: String): Boolean = File(path).canonicalPath.startsWith(root.canonicalPath)
 
+    /** A copy of [source] that belongs to the chat, so the message keeps it whatever happens to the original. */
+    suspend fun copyIn(source: File, extension: String): File? = withContext(Dispatchers.IO) {
+        val target = newFile(extension)
+        try {
+            source.copyTo(target, overwrite = true)
+        } catch (_: IOException) {
+            target.delete()
+            null
+        }
+    }
+
     /** Deletes the files of an attachment that lives here; used when a message disappears. */
     fun forget(attachment: Attachment?) {
         attachment?.files.orEmpty().filter(::owns).forEach { File(it).delete() }
@@ -165,7 +176,7 @@ class MediaVault(private val context: Context) {
     }
 }
 
-private fun Bitmap.rotated(degrees: Int): Bitmap {
+internal fun Bitmap.rotated(degrees: Int): Bitmap {
     if (degrees == 0) return this
     val rotated = Bitmap.createBitmap(this, 0, 0, width, height, Matrix().apply { postRotate(degrees.toFloat()) }, true)
     if (rotated !== this) recycle()

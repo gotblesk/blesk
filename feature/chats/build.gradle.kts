@@ -8,6 +8,8 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:media"))
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
+    implementation(libs.lottie.compose)
     implementation(libs.media3.ui.compose)
     implementation(libs.camerax.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

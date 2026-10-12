@@ -44,6 +44,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -120,6 +121,8 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.OnOwnBubble
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.MediaContent
+import app.blesk.feature.chats.media.StickerSize
+import app.blesk.feature.chats.media.StickerView
 import app.blesk.feature.chats.media.isVisual
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.collections.immutable.ImmutableList
@@ -363,6 +366,8 @@ private class PartRegistry {
             rect(key)?.let { result += Blob(it, minOf(it.width, it.height) / 2f) }
             reactionBlobs(key.removePrefix("circle:"), result)
         }
+        // A sticker has no bubble at all; only its reactions hang off it.
+        coordinates.keys.filter { it.startsWith("sticker:") }.forEach { key -> reactionBlobs(key.removePrefix("sticker:"), result) }
         return result
     }
 }
@@ -448,6 +453,8 @@ private fun MessageEntry(
             }
             val attachment = message.attachment
             val circle = attachment is Attachment.Circle
+            val sticker = attachment as? Attachment.Sticker
+            var replays by remember(message.id) { mutableIntStateOf(0) }
             val label = LocalContext.current.resources.attachmentLabel(attachment)
             val markup = remember(message.text) { Markup.parse(message.text) }
             val spoilerMask = stringResource(R.string.chat_spoiler)
@@ -463,7 +470,14 @@ private fun MessageEntry(
                     .widthIn(max = 300.dp)
                     // A one-line message is still a full touch target.
                     .heightIn(min = Blesk.dimens.touchTarget)
-                    .onPlaced { parts.put(if (circle) "circle:${message.id}" else "bubble:${message.id}", it) }
+                    .onPlaced {
+                        val kind = when {
+                            circle -> "circle"
+                            sticker != null -> "sticker"
+                            else -> "bubble"
+                        }
+                        parts.put("$kind:${message.id}", it)
+                    }
                     .let { if (selected) it.border(2.dp, Blesk.colors.accent, if (circle) CircleShape else BubbleShape) else it }
                     .let { modifier ->
                         val shape = if (circle) CircleShape else BubbleShape
@@ -474,7 +488,13 @@ private fun MessageEntry(
                         onClickLabel = if (hidden && !selecting) revealLabel else null,
                         onLongClickLabel = menuLabel,
                         onLongClick = { actions.onMenu(message) },
-                        onClick = { if (hidden && !selecting) revealed = true else actions.onTap(message) },
+                        onClick = {
+                            when {
+                                hidden && !selecting -> revealed = true
+                                sticker != null && !selecting -> replays++
+                                else -> actions.onTap(message)
+                            }
+                        },
                         onDoubleClick = actions.onDoubleTap?.takeUnless { selecting }?.let { react -> { react(message) } },
                     )
                     .semantics(mergeDescendants = true) {
@@ -487,7 +507,16 @@ private fun MessageEntry(
                             CustomAccessibilityAction(readMore) { expanded = true; true }.takeIf { cut && !expanded },
                         )
                     }
-                    .graphicsLayer { alpha = contentAlpha() }
+                    .graphicsLayer {
+                        val grown = contentAlpha()
+                        alpha = grown
+                        // «Отрыв»: a sent sticker comes up out of the field and settles, there being no bubble to grow.
+                        if (sticker != null && own && grown < 1f) {
+                            translationY = (1f - grown) * size.height * STICKER_RISE
+                            scaleX = STICKER_START_SCALE + (1f - STICKER_START_SCALE) * grown
+                            scaleY = scaleX
+                        }
+                    }
                     // Opening a long message grows the bubble downwards in place, without a jump.
                     .animateContentSize(Blesk.motion.settle())
                     .padding(
@@ -495,6 +524,11 @@ private fun MessageEntry(
                         vertical = if (circle || attachment?.isVisual() == true) 4.dp else 9.dp,
                     ),
             ) {
+                if (sticker != null) {
+                    StickerView(sticker.path, sticker.format, Modifier.size(StickerSize), replay = replays)
+                    Stamp(time, message.status.takeIf { own }, edited, Modifier.align(Alignment.BottomEnd).padding(6.dp), onMedia = true)
+                    return@Box
+                }
                 if (attachment is Attachment.Circle) {
                     MediaContent(message, attachment)
                     Stamp(time, message.status.takeIf { own }, edited, Modifier.align(Alignment.BottomEnd).padding(6.dp), onMedia = true)
@@ -1004,3 +1038,6 @@ private const val SNAP_AT = 0.4f
 private const val STICK_FROM = 0.8f
 private val FailedGap = 14.dp
 private const val NECK_INSET = 0.6f
+
+private const val STICKER_RISE = 0.8f
+private const val STICKER_START_SCALE = 0.6f

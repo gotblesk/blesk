@@ -53,6 +53,7 @@ import app.blesk.core.design.theme.BleskTheme
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.QualitySheet
+import app.blesk.feature.chats.StickerShelf
 import app.blesk.feature.chats.media.MediaController
 import app.blesk.feature.chats.media.RecordMode
 import app.blesk.feature.chats.media.Recorders
@@ -83,6 +84,8 @@ internal fun ConversationRoute(
     onForward: (messageIds: List<String>) -> Unit,
     onBack: () -> Unit,
     onOpenPerson: (conversationId: String) -> Unit = {},
+    onOpenStickers: () -> Unit = {},
+    onMakeSticker: (uri: String) -> Unit = {},
 ) {
     val demo = container.chats.collectAsStateWithLifecycle().value ?: return
     val scope = rememberCoroutineScope()
@@ -234,6 +237,19 @@ internal fun ConversationRoute(
         .collectAsStateWithLifecycle(initialValue = KeyState(false, false))
     val bots = demo as? BotController
     val isBot = bots?.isBot(id) == true
+    val stickerLibrary by container.stickers.library.collectAsStateWithLifecycle()
+    val stickers = StickerShelf(
+        library = stickerLibrary,
+        onSend = { sticker ->
+            scope.launch {
+                val copy = container.media.copyIn(File(sticker.path), sticker.format.extension) ?: return@launch notify(failed)
+                demo.sendAttachment(id, Attachment.Sticker(copy.path, sticker.emoji, sticker.format))
+                container.stickers.markUsed(sticker.id)
+            }
+        },
+        onToggleFavorite = { sticker -> scope.launch { container.stickers.toggleFavorite(sticker.id) } },
+        onOpenSets = onOpenStickers,
+    )
     val commands by produceState(emptyList<BotCommand>(), id, isBot) {
         if (isBot && bots != null) value = bots.commands(id)
     }
@@ -282,6 +298,7 @@ internal fun ConversationRoute(
             onDraft = { text -> demo.saveDraft(id, text) },
             onForward = onForward,
             onPin = { messageId, pinned -> demo.pinMessage(id, messageId, pinned) },
+            onMakeSticker = { path -> onMakeSticker(Uri.fromFile(File(path)).toString()) },
             onButton = { messageId, button ->
                 val link = button.url
                 val data = button.data
@@ -334,6 +351,7 @@ internal fun ConversationRoute(
                 hintsSeen = hintsSeen,
                 onHintDone = { hint -> scope.launch { container.settings.markHint(hint) } },
                 recentEmoji = recentEmoji.toImmutableList(),
+                stickers = stickers.takeIf { !isBot },
                 members = groupState?.members.orEmpty()
                     .filter { it.username != groupController?.me }
                     .map { member -> demo.contact(member.username) ?: Contact(member.username, member.username, member.username) }

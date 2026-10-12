@@ -328,6 +328,7 @@ fun BleskNavigation(container: AppContainer) {
                                             shareProfile(context, container.settings.profile.first().username, key)
                                         }
                                     },
+                                    onOpenStickers = { backStack.add(StickersKey) },
                                     onOpenSaved = {
                                         scope.launch {
                                             val chats = container.chats.value ?: return@launch
@@ -427,6 +428,8 @@ fun BleskNavigation(container: AppContainer) {
                                 onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
                                 onBack = back,
                                 onOpenPerson = { backStack.add(ChatInfoKey(it)) },
+                                onOpenStickers = { backStack.add(StickersKey) },
+                                onMakeSticker = { uri -> backStack.add(StickerMakeKey(uri)) },
                             )
                         }
                         entry<NewChatKey> {
@@ -493,6 +496,9 @@ fun BleskNavigation(container: AppContainer) {
                             }, onBack = back)
                         }
                         entry<MediaKey> { key -> MediaRoute(container, key, onBack = back) }
+                        entry<StickersKey> { StickersRoute(container, onOpen = { backStack.add(StickerSetKey(it)) }, onBack = back) }
+                        entry<StickerSetKey> { key -> StickerSetRoute(container, key.setId, onMake = { backStack.add(it) }, onBack = back) }
+                        entry<StickerMakeKey> { key -> StickerMakeRoute(container, key, onBack = back) }
                         entry<VoiceChannelKey> { key ->
                             val chats = container.chats.collectAsStateWithLifecycle().value ?: return@entry
                             val channel by chats.conversation(key.roomId)

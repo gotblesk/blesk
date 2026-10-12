@@ -69,6 +69,7 @@ internal fun MessageMenu(
     pinned: Boolean = false,
     onSelect: (() -> Unit)? = null,
     onRetry: (() -> Unit)? = null,
+    onMakeSticker: (() -> Unit)? = null,
 ) {
     val copy = rememberCopy()
     val closeLabel = stringResource(R.string.chat_close)
@@ -168,6 +169,14 @@ internal fun MessageMenu(
                         icon = BleskIcons.Pin,
                         showChevron = false,
                         onClick = { act(pin) },
+                    )
+                }
+                onMakeSticker?.let { make ->
+                    ListRow(
+                        title = stringResource(R.string.sticker_make),
+                        icon = BleskIcons.Sticker,
+                        showChevron = false,
+                        onClick = { act(make) },
                     )
                 }
                 onSelect?.let { select ->

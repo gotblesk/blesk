@@ -5,8 +5,10 @@ import android.graphics.BitmapFactory
 import app.blesk.core.crypto.AttachmentCipher
 import app.blesk.core.crypto.StreamingCipher
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.StickerFormat
 import app.blesk.core.data.settings.AutoKind
 import app.blesk.core.media.MediaVault
+import app.blesk.core.media.StickerMaker
 import app.blesk.core.network.BleskApi
 import app.blesk.shared.appearance.ThemeFile
 import app.blesk.shared.protocol.AttachmentPointer
@@ -75,6 +77,10 @@ internal object Attachments {
             name = attachment.name, mime = attachment.mime, size = attachment.sizeBytes,
             durationMillis = attachment.durationMillis, title = attachment.title, artist = attachment.artist,
         )
+        is Attachment.Sticker -> AttachmentPointer(
+            id, key, KIND_STICKER,
+            name = attachment.emoji, mime = attachment.format.mime, size = File(attachment.path).length(),
+        )
         is Attachment.Theme -> error("Themes travel inline")
         is Attachment.Album -> error("Albums travel as a list of pointers")
     }
@@ -120,6 +126,7 @@ internal object Attachments {
         KIND_VOICE -> Attachment.Voice("", pointer.durationMillis, pointer.waveform.orEmpty())
         KIND_CIRCLE -> Attachment.Circle("", "", pointer.durationMillis)
         KIND_MUSIC -> music(pointer, "")
+        KIND_STICKER -> Attachment.Sticker("", stickerEmoji(pointer), stickerFormat(pointer, null))
         else -> null
     }
 
@@ -174,7 +181,33 @@ internal object Attachments {
         KIND_VOICE -> Attachment.Voice(target.path, pointer.durationMillis, pointer.waveform.orEmpty())
         KIND_CIRCLE -> Attachment.Circle(target.path, poster, pointer.durationMillis)
         KIND_MUSIC -> music(pointer, target.path)
+        KIND_STICKER -> sticker(pointer, target)
         else -> null
+    }
+
+    /**
+     * A sticker that keeps to the limits, or nothing: a Lottie file is parsed by the app, so
+     * a big or malformed one from someone else is not let in.
+     */
+    private fun sticker(pointer: AttachmentPointer, file: File): Attachment.Sticker? {
+        val format = stickerFormat(pointer, file)
+        val limit = if (format == StickerFormat.Lottie) StickerMaker.MAX_LOTTIE_BYTES else StickerMaker.MAX_BYTES
+        val bytes = file.length()
+        val valid = bytes <= limit && (format != StickerFormat.Lottie || StickerMaker.formatOf(file) == StickerFormat.Lottie)
+        if (!valid) {
+            file.delete()
+            return null
+        }
+        return Attachment.Sticker(file.path, stickerEmoji(pointer), format)
+    }
+
+    private fun stickerEmoji(pointer: AttachmentPointer) = pointer.name.orEmpty().take(MAX_STICKER_EMOJI)
+
+    /** Lottie by its type; a WebP is animated or still by its own header, once its bytes are here. */
+    private fun stickerFormat(pointer: AttachmentPointer, file: File?): StickerFormat = when {
+        pointer.mime == StickerFormat.Lottie.mime -> StickerFormat.Lottie
+        file != null && StickerMaker.formatOf(file) == StickerFormat.Animated -> StickerFormat.Animated
+        else -> StickerFormat.Static
     }
 
     private fun music(pointer: AttachmentPointer, path: String) = Attachment.Music(
@@ -194,6 +227,7 @@ internal object Attachments {
         is Attachment.Voice -> attachment.path
         is Attachment.Circle -> attachment.path
         is Attachment.Music -> attachment.path
+        is Attachment.Sticker -> attachment.path
         is Attachment.Theme, is Attachment.Album -> null
     }
 
@@ -201,6 +235,7 @@ internal object Attachments {
         KIND_PHOTO -> "jpg"
         KIND_VIDEO, KIND_CIRCLE -> "mp4"
         KIND_VOICE -> "audio"
+        KIND_STICKER -> if (pointer.mime == StickerFormat.Lottie.mime) "json" else "webp"
         else -> safeName(pointer.name).substringAfterLast('.', "bin").take(8)
     }
 
@@ -240,5 +275,7 @@ internal object Attachments {
     private const val KIND_VOICE = "voice"
     private const val KIND_CIRCLE = "circle"
     private const val KIND_MUSIC = "music"
+    private const val KIND_STICKER = "sticker"
+    private const val MAX_STICKER_EMOJI = 16
     private const val MAX_TAG = 200
 }

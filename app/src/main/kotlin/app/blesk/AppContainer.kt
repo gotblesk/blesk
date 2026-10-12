@@ -20,10 +20,12 @@ import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.PrivateImage
 import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.data.settings.SettingsStore
+import app.blesk.core.data.stickers.StickerStore
 import app.blesk.core.design.component.Notices
 import app.blesk.core.media.AudioPlayer
 import app.blesk.core.media.CircleRecorder
 import app.blesk.core.media.MediaVault
+import app.blesk.core.media.StickerMaker
 import app.blesk.core.media.VideoCompressor
 import app.blesk.core.media.VoiceRecorder
 import app.blesk.core.messaging.OwnProfile
@@ -79,6 +81,8 @@ class AppContainer(context: Context) {
     val media = MediaVault(context)
     val voiceRecorder = VoiceRecorder(context, media)
     val circleRecorder = CircleRecorder(context, media)
+    val stickers by lazy { StickerStore(context) }
+    val stickerMaker = StickerMaker(context)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
     val notices = Notices(scope)
     val network: StateFlow<Boolean> by lazy { networkAvailable(context.applicationContext, scope) }

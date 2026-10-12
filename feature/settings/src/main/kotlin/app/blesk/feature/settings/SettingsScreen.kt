@@ -44,6 +44,7 @@ class SettingsActions(
     val onShowQr: () -> Unit = {},
     val onShare: () -> Unit = {},
     val onOpenSaved: () -> Unit = {},
+    val onOpenStickers: () -> Unit = {},
     /** Deleting the account; null in the demo. */
     val onDeleteAccount: (() -> Unit)? = null,
     val onOpenUpdate: () -> Unit = {},
@@ -101,7 +102,7 @@ fun YouList(
             ListRow(title = stringResource(R.string.you_saved), icon = BleskIcons.Bookmark, onClick = actions.onOpenSaved)
             ListRow(title = stringResource(R.string.you_calls), icon = BleskIcons.Phone, soon = true)
             ListRow(title = stringResource(R.string.you_invites), icon = BleskIcons.Invite, soon = true)
-            ListRow(title = stringResource(R.string.you_stickers), icon = BleskIcons.Sticker, soon = true)
+            ListRow(title = stringResource(R.string.you_stickers), icon = BleskIcons.Sticker, onClick = actions.onOpenStickers)
             if (serverHost != null) {
                 ListRow(
                     title = stringResource(R.string.settings_bots),

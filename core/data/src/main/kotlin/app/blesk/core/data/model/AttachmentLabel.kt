@@ -13,6 +13,7 @@ fun Resources.attachmentLabel(attachment: Attachment?): String = when (attachmen
     is Attachment.Circle -> getString(R.string.attachment_circle)
     is Attachment.Theme -> getString(R.string.attachment_theme)
     is Attachment.Album -> getString(R.string.attachment_album, attachment.items.size)
+    is Attachment.Sticker -> getString(R.string.attachment_sticker, attachment.emoji).trim()
     is Attachment.Music -> getString(
         R.string.attachment_music,
         listOf(attachment.artist, attachment.title).filter { it.isNotEmpty() }.joinToString(" — "),

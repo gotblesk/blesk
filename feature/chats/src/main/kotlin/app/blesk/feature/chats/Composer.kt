@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,7 +26,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.KeyboardActionHandler
@@ -46,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
@@ -82,11 +87,13 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.glass.BottomLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.LockDrop
 import app.blesk.feature.chats.media.RecordButton
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.feature.chats.media.RecordingBar
 import app.blesk.feature.chats.media.RecordingUi
+import app.blesk.feature.chats.media.StickerView
 import app.blesk.shared.protocol.BotCommand
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.delay
@@ -110,6 +117,7 @@ internal fun Composer(
     sendByEnter: Boolean,
     recentEmoji: ImmutableList<String>,
     onEmojiPicked: (String) -> Unit,
+    stickers: StickerShelf?,
     replyTo: Message?,
     editing: Message?,
     authorName: (Message) -> String,
@@ -203,6 +211,9 @@ internal fun Composer(
                     Text("/${command.command}", style = Blesk.type.bodyStrong)
                     Text(command.description, style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)
                 }
+            }
+            if (stickers != null && editing == null) {
+                StickerSuggestions(typed, stickers) { state.clearText() }
             }
             val word = typed.substringAfterLast(' ').substringAfterLast('\n')
             if (word.startsWith("@") && members.isNotEmpty()) {
@@ -306,6 +317,7 @@ internal fun Composer(
                         onEmojiPicked(emoji)
                     },
                     height = height,
+                    stickers = stickers.takeIf { editing == null },
                 )
             }
         }
@@ -445,3 +457,44 @@ private fun AttachMenu(choices: List<AttachChoice>, onChosen: () -> Unit) {
         }
     }
 }
+
+/** A lone emoji in the field brings up the stickers that stand for it; a tap sends one instead of the emoji. */
+@Composable
+private fun StickerSuggestions(typed: String, shelf: StickerShelf, onSent: () -> Unit) {
+    val emoji = typed.trim()
+    if (!emoji.isLoneEmoji()) return
+    val found = remember(emoji, shelf.library) { shelf.library.matching(emoji).take(MAX_STICKER_SUGGESTIONS) }
+    if (found.isEmpty()) return
+    val label = stringResource(R.string.sticker_suggestions)
+    val haptics = rememberHaptics()
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        items(found, key = { it.id }) { sticker ->
+            StickerView(
+                path = sticker.path,
+                format = sticker.format,
+                description = sticker.caption.ifEmpty { sticker.emoji },
+                plays = 1,
+                modifier = Modifier
+                    .size(SuggestedSticker)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(role = Role.Button, onClickLabel = stringResource(R.string.sticker_send)) {
+                        haptics.detach()
+                        shelf.onSend(sticker)
+                        onSent()
+                    },
+            )
+        }
+    }
+}
+
+/** Short, and nothing in it is a letter, a digit or a space: one emoji, or a few glued together. */
+private fun String.isLoneEmoji(): Boolean =
+    isNotEmpty() && length <= MAX_EMOJI_CHARS && none { it.isLetterOrDigit() || it.isWhitespace() }
+
+private val SuggestedSticker = 64.dp
+private const val MAX_EMOJI_CHARS = 16
+private const val MAX_STICKER_SUGGESTIONS = 20

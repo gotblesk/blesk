@@ -109,6 +109,9 @@ private const val VEIL_SCRIM = 0.9f
 /** Ties a picture in the chat to its page in the viewer, so it grows out of its place and back. */
 fun mediaKey(messageId: String, index: Int) = "media:$messageId/$index"
 
+/** A sticker in the chat: big enough to read its face, small enough to leave room for words. */
+val StickerSize = 160.dp
+
 internal fun Attachment.isVisual() = this is Attachment.Photo || this is Attachment.Video || this is Attachment.Album
 
 @Composable
@@ -159,6 +162,7 @@ internal fun MediaContent(message: Message, attachment: Attachment) {
         is Attachment.Circle -> CircleNote(attachment)
         is Attachment.Theme -> Unit
         is Attachment.Album -> AlbumMosaic(attachment, message) { index -> controller.onOpenMedia(message, index) }
+        is Attachment.Sticker -> StickerView(attachment.path, attachment.format, Modifier.size(StickerSize))
     }
 }
 

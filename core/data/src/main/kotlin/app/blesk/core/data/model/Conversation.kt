@@ -174,6 +174,11 @@ sealed interface Attachment {
         val mime: String,
     ) : Attachment
 
+    /** A sticker: no bubble, a transparent background; [emoji] is what it stands for. */
+    @Serializable
+    @SerialName("sticker")
+    data class Sticker(val path: String, val emoji: String, val format: StickerFormat) : Attachment
+
     /** Up to [MAX] photos and videos sent together, shown as one mosaic. */
     @Serializable
     @SerialName("album")
@@ -200,6 +205,7 @@ fun Attachment.withoutFiles(): Attachment? = when (this) {
     is Attachment.Voice -> copy(path = "").takeIf { path.isNotEmpty() }
     is Attachment.Circle -> copy(path = "", poster = "").takeIf { path.isNotEmpty() || poster.isNotEmpty() }
     is Attachment.Music -> copy(path = "").takeIf { path.isNotEmpty() }
+    is Attachment.Sticker -> copy(path = "").takeIf { path.isNotEmpty() }
     is Attachment.Theme -> null
     is Attachment.Album -> Attachment.Album(items.map { it.withoutFiles() ?: it }).takeIf { files.isNotEmpty() }
 }
@@ -213,6 +219,7 @@ val Attachment.files: List<String>
         is Attachment.Voice -> listOf(path)
         is Attachment.Circle -> listOf(path, poster)
         is Attachment.Music -> listOf(path)
+        is Attachment.Sticker -> listOf(path)
         is Attachment.Theme -> emptyList()
         is Attachment.Album -> items.flatMap { it.files }
     }.filter { it.isNotEmpty() }
