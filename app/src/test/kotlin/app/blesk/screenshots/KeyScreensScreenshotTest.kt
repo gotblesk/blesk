@@ -29,6 +29,7 @@ import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.Profile
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.IconButton
+import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
 import app.blesk.core.design.glass.LensTabBar
@@ -131,13 +132,17 @@ class KeyScreensScreenshotTest(private val name: String) {
         LensScaffold(
             top = {
                 TopLens(title = title, collapsed = collapsed, actions = {
-                    if (tab == 0) {
-                        IconButton(BleskIcons.Search, "Поиск", {})
-                        IconButton(BleskIcons.Plus, "Новый чат", {})
-                    }
+                    if (tab == 0) IconButton(BleskIcons.Search, "Поиск", {})
                 })
             },
-            bottom = { LensTabBar(tabs = tabs, selected = tab, onSelect = {}) },
+            bottom = {
+                val action = when (tab) {
+                    0 -> LensAction(BleskIcons.NewChat, "Новый чат", {})
+                    1 -> LensAction(BleskIcons.Plus, "Создать комнату", {})
+                    else -> LensAction(BleskIcons.Edit, "Изменить профиль", {})
+                }
+                LensTabBar(tabs = tabs, selected = tab, onSelect = {}, action = action)
+            },
             content = content,
         )
     }

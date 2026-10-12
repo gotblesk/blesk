@@ -1,5 +1,11 @@
 package app.blesk.navigation
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +30,7 @@ import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
 import app.blesk.core.design.glass.LensTabBar
@@ -98,80 +105,100 @@ internal fun Home(
                 collapsed = collapsed,
                 actions = {
                     when (tab) {
-                        HomeTab.Chats -> {
+                        HomeTab.Chats ->
                             IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), onSearch)
-                            IconButton(BleskIcons.Plus, stringResource(app.blesk.feature.chats.R.string.new_chat_title), onNewChat)
-                        }
-                        HomeTab.Rooms -> if (chats is GroupController) {
-                            IconButton(BleskIcons.Plus, stringResource(app.blesk.feature.chats.R.string.rooms_add), onAddRoom)
-                        }
-                        HomeTab.You -> Unit
+                        HomeTab.Rooms, HomeTab.You -> Unit
                     }
                 },
             )
         },
-        bottom = { LensTabBar(tabs = tabs, selected = tab.ordinal, onSelect = { onSelectTab(HomeTab.entries[it]) }) },
+        bottom = {
+            val action = when (tab) {
+                HomeTab.Chats -> LensAction(BleskIcons.NewChat, stringResource(app.blesk.feature.chats.R.string.new_chat_title), onNewChat)
+                HomeTab.Rooms -> if (chats is GroupController) {
+                    LensAction(BleskIcons.Plus, stringResource(app.blesk.feature.chats.R.string.rooms_add), onAddRoom)
+                } else {
+                    null
+                }
+                HomeTab.You -> LensAction(BleskIcons.Edit, stringResource(R.string.you_edit), settings.onOpenProfile)
+            }
+            LensTabBar(tabs = tabs, selected = tab.ordinal, onSelect = { onSelectTab(HomeTab.entries[it]) }, action = action)
+        },
     ) { padding ->
-        when (tab) {
-            HomeTab.Chats -> {
-                val list = conversations.filter { it.kind != ConversationKind.Room && !it.archived }
-                val archived = conversations.count { it.archived }
-                if (list.isEmpty() && archived == 0 && !demo) {
-                    EmptyChats(padding)
-                    return@LensScaffold
-                }
-                ChatList(
-                    conversations = list.toImmutableList(),
-                    typing = typing.toImmutableSet(),
-                    now = remember(conversations) { Instant.now() },
-                    contentPadding = padding,
-                    onOpenConversation = onOpenConversation,
-                    onOpenChannel = onOpenChannel,
-                    state = chatsList,
-                    onLongPress = { menuFor = it },
-                    onSwipeArchive = { chats.setArchived(it.id, true) },
-                    onSwipeRead = { toggleRead(chats, it) },
-                    archivedCount = archived,
-                    onOpenArchive = onOpenArchive,
-                )
-            }
-            HomeTab.Rooms -> {
-                val rooms = conversations.filter { it.kind == ConversationKind.Room }
-                if (rooms.isEmpty()) {
-                    Text(
-                        text = stringResource(app.blesk.feature.chats.R.string.rooms_empty),
-                        color = Blesk.colors.textSecondary,
-                        modifier = Modifier.padding(padding).padding(Blesk.dimens.gutter + 4.dp),
+        val motion = Blesk.motion
+        AnimatedContent(
+            targetState = tab,
+            transitionSpec = {
+                // Tabs are one level: a dissolve with a small shift towards the tab, never a whole screen sliding in.
+                val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                val shift = if (motion.reduced) 0 else TAB_SHIFT_PERCENT
+                val enter = fadeIn(motion.transition()) + slideInHorizontally(motion.transition()) { it * shift * direction / 100 }
+                val exit = fadeOut(motion.transition()) + slideOutHorizontally(motion.transition()) { -it * shift * direction / 100 }
+                enter.togetherWith(exit)
+            },
+            label = "tab",
+        ) { shown ->
+            when (shown) {
+                HomeTab.Chats -> {
+                    val list = conversations.filter { it.kind != ConversationKind.Room && !it.archived }
+                    val archived = conversations.count { it.archived }
+                    if (list.isEmpty() && archived == 0 && !demo) {
+                        EmptyChats(padding)
+                        return@AnimatedContent
+                    }
+                    ChatList(
+                        conversations = list.toImmutableList(),
+                        typing = typing.toImmutableSet(),
+                        now = remember(conversations) { Instant.now() },
+                        contentPadding = padding,
+                        onOpenConversation = onOpenConversation,
+                        onOpenChannel = onOpenChannel,
+                        state = chatsList,
+                        onLongPress = { menuFor = it },
+                        onSwipeArchive = { chats.setArchived(it.id, true) },
+                        onSwipeRead = { toggleRead(chats, it) },
+                        archivedCount = archived,
+                        onOpenArchive = onOpenArchive,
                     )
-                    return@LensScaffold
                 }
-                ChatList(
-                    conversations = rooms.toImmutableList(),
-                    typing = typing.toImmutableSet(),
-                    now = remember(conversations) { Instant.now() },
-                    contentPadding = padding,
-                    onOpenConversation = onOpenConversation,
-                    onOpenChannel = onOpenChannel,
-                    state = roomsList,
-                    onLongPress = { menuFor = it },
-                )
-            }
-            HomeTab.You -> {
-                val current = profile ?: return@LensScaffold
-                SettingsList(
-                    serverHost = serverHost,
-                    debugUnlocked = debugUnlocked,
-                    profile = current,
-                    photo = photo,
-                    contentPadding = padding,
-                    actions = settings,
-                    demo = demo,
-                    scroll = youScroll,
-                    sendByEnter = sendByEnter,
-                    onSendByEnter = { enabled -> scope.launch { container.settings.setSendByEnter(enabled) } },
-                    vibration = vibration,
-                    onVibration = { level -> scope.launch { container.settings.setVibration(level) } },
-                )
+                HomeTab.Rooms -> {
+                    val rooms = conversations.filter { it.kind == ConversationKind.Room }
+                    if (rooms.isEmpty()) {
+                        Text(
+                            text = stringResource(app.blesk.feature.chats.R.string.rooms_empty),
+                            color = Blesk.colors.textSecondary,
+                            modifier = Modifier.padding(padding).padding(Blesk.dimens.gutter + 4.dp),
+                        )
+                        return@AnimatedContent
+                    }
+                    ChatList(
+                        conversations = rooms.toImmutableList(),
+                        typing = typing.toImmutableSet(),
+                        now = remember(conversations) { Instant.now() },
+                        contentPadding = padding,
+                        onOpenConversation = onOpenConversation,
+                        onOpenChannel = onOpenChannel,
+                        state = roomsList,
+                        onLongPress = { menuFor = it },
+                    )
+                }
+                HomeTab.You -> {
+                    val current = profile ?: return@AnimatedContent
+                    SettingsList(
+                        serverHost = serverHost,
+                        debugUnlocked = debugUnlocked,
+                        profile = current,
+                        photo = photo,
+                        contentPadding = padding,
+                        actions = settings,
+                        demo = demo,
+                        scroll = youScroll,
+                        sendByEnter = sendByEnter,
+                        onSendByEnter = { enabled -> scope.launch { container.settings.setSendByEnter(enabled) } },
+                        vibration = vibration,
+                        onVibration = { level -> scope.launch { container.settings.setVibration(level) } },
+                    )
+                }
             }
         }
     }
@@ -198,3 +225,5 @@ internal fun toggleRead(chats: ChatRepository, conversation: Conversation) {
 }
 
 private const val COLLAPSE_AFTER = 24
+
+private const val TAB_SHIFT_PERCENT = 6

@@ -23,6 +23,9 @@ object BleskIcons {
     val Close by icon("M6.5 6.5l11 11M17.5 6.5l-11 11")
     val Check by icon("M5 12.5l4.5 4.5L19 7.5")
     val Plus by icon("M12 5v14M5 12h14")
+    val NewChat by icon(
+        "M4 11.5C4 7.4 7.6 4.5 12 4.5s8 2.9 8 7-3.6 7-8 7c-1 0-1.9-.1-2.8-.4L5 19.5l1-3.4C4.7 14.9 4 13.3 4 11.5zM12 8.5v6M9 11.5h6",
+    )
     val Search by icon("M17.5 11a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0zM16 16l4 4")
     val Chats by icon(
         "M4 11.5C4 7.4 7.6 4.5 12 4.5s8 2.9 8 7-3.6 7-8 7c-1 0-1.9-.1-2.8-.4L5 19.5l1-3.4C4.7 14.9 4 13.3 4 11.5z",

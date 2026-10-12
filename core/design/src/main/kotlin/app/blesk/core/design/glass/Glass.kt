@@ -83,7 +83,7 @@ fun LensScaffold(
  * blur on 12, matte below and when the glass strength is set to zero.
  */
 @Composable
-fun Modifier.lens(shape: Shape, elevation: Dp = 18.dp): Modifier {
+fun Modifier.lens(shape: Shape, elevation: Dp = 18.dp, refract: Boolean = true): Modifier {
     val backdrop = LocalBackdrop.current
     val strength = Blesk.appearance.glassStrength
     val colors = Blesk.colors
@@ -99,7 +99,7 @@ fun Modifier.lens(shape: Shape, elevation: Dp = 18.dp): Modifier {
         effects = {
             vibrancy()
             blur((if (mode == GlassMode.Refraction) 6.dp else 14.dp).toPx() * strength)
-            if (mode == GlassMode.Refraction) {
+            if (mode == GlassMode.Refraction && refract) {
                 lens(refractionHeight = 14.dp.toPx() * strength, refractionAmount = 28.dp.toPx() * strength)
             }
         },

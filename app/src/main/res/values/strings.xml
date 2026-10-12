@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name" translatable="false">blesk</string>
     <string name="tab_chats">Чаты</string>
+    <string name="you_edit">Изменить профиль</string>
     <string name="chat_theme_title">Оформление чата</string>
     <string name="chat_theme_app">Как во всём приложении</string>
     <string name="chat_theme_send">Отправить тему в чат</string>

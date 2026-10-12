@@ -1,9 +1,16 @@
 package app.blesk.core.design.glass
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
@@ -26,6 +34,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -34,11 +43,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -54,6 +67,8 @@ import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val LensShape = RoundedCornerShape(30.dp)
 
@@ -116,6 +131,10 @@ fun TopLens(
 @Immutable
 data class LensTab(val label: String, val icon: ImageVector, val badge: (@Composable () -> Unit)? = null)
 
+/** The main action of a tab, shown as a round capsule stuck to the right of the navigation lens. */
+@Immutable
+data class LensAction(val icon: ImageVector, val label: String, val onClick: () -> Unit)
+
 /**
  * The bottom lens as navigation. The selection is a drop of light: on a switch it stretches
  * from the old tab to the new one, then comes away on the spot.
@@ -126,6 +145,7 @@ fun LensTabBar(
     selected: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    action: LensAction? = null,
 ) {
     val haptics = rememberHaptics()
     val motion = Blesk.motion
@@ -146,10 +166,22 @@ fun LensTabBar(
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 18.dp, vertical = 10.dp),
     ) {
+        if (action != null && !motion.reduced) {
+            // The bridge sits under both lenses' edges, so it reads as one liquid with them.
+            Box(
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = BarHeight / 2)
+                    .width(BarHeight + ActionGap)
+                    .height(BarHeight)
+                    .lens(BridgeShape, elevation = 0.dp, refract = false),
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
+                .padding(end = if (action != null) BarHeight + ActionGap else 0.dp)
+                .height(BarHeight)
                 .lens(CircleShape)
                 .padding(6.dp)
                 .metaballs(color = drop, smoothness = 18.dp) {
@@ -184,8 +216,65 @@ fun LensTabBar(
                 }
             }
         }
+        if (action != null) ActionCapsule(action, Modifier.align(Alignment.CenterEnd))
     }
 }
+
+/** The icon flows into the next one when the tab changes: the old one shrinks away as the new one swells. */
+@Composable
+private fun ActionCapsule(action: LensAction, modifier: Modifier = Modifier) {
+    val motion = Blesk.motion
+    Box(
+        modifier = modifier
+            .size(BarHeight)
+            .lens(CircleShape)
+            .clickable(role = Role.Button, onClickLabel = action.label, onClick = action.onClick)
+            .semantics { contentDescription = action.label },
+        contentAlignment = Alignment.Center,
+    ) {
+        AnimatedContent(
+            targetState = action.icon,
+            transitionSpec = {
+                (scaleIn(motion.settle(), initialScale = 0.4f) + fadeIn(motion.press()))
+                    .togetherWith(scaleOut(motion.press(), targetScale = 0.4f) + fadeOut(motion.press()))
+            },
+            label = "action",
+        ) { icon ->
+            Icon(icon, contentDescription = null, tint = Blesk.colors.textPrimary, size = 24.dp)
+        }
+    }
+}
+
+private val BarHeight = 64.dp
+private val ActionGap = 10.dp
+
+/**
+ * The neck between the end of the navigation lens and the action capsule: two concave curves
+ * between the circles, with the circles themselves cut out so no glass is drawn twice.
+ * The box spans from the centre of the bar's rounded end to the centre of the capsule.
+ */
+private val BridgeShape = GenericShape { size, _ ->
+    val radius = size.height / 2f
+    val cy = size.height / 2f
+    val waist = size.height * BRIDGE_WAIST
+    val dx = radius * cos(BRIDGE_ANGLE)
+    val dy = radius * sin(BRIDGE_ANGLE)
+    val neck = Path().apply {
+        moveTo(dx, cy - dy)
+        quadraticTo(size.width / 2f, cy - waist, size.width - dx, cy - dy)
+        lineTo(size.width - dx, cy + dy)
+        quadraticTo(size.width / 2f, cy + waist, dx, cy + dy)
+        close()
+    }
+    val circles = Path().apply {
+        addOval(Rect(Offset(0f, cy), radius))
+        addOval(Rect(Offset(size.width, cy), radius))
+    }
+    addPath(Path.combine(PathOperation.Difference, neck, circles))
+}
+
+private const val BRIDGE_WAIST = 0.16f
+private const val BRIDGE_ANGLE = 0.75f
 
 private fun tabDrops(lead: Float, tail: Float, count: Int, width: Float, height: Float): List<Blob> {
     if (count == 0) return emptyList()
