@@ -425,16 +425,33 @@ fun ConversationScreen(
                                     fadeOutSpec = Blesk.motion.transition(),
                                 )
                             }
-                            MessageColumn(
-                                modifier = itemMotion,
-                                messages = group,
-                                author = if (showAuthors && !own) authorName(group.first().authorId) else null,
-                                fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds }.toSet() },
-                                quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
-                                actions = actions,
-                                selection = selection,
-                                flashId = flashId,
-                            )
+                            val author = if (showAuthors && !own) authorName(group.first().authorId) else null
+                            val column: @Composable (Modifier) -> Unit = { columnModifier ->
+                                MessageColumn(
+                                    modifier = columnModifier,
+                                    messages = group,
+                                    author = author,
+                                    fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds }.toSet() },
+                                    quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
+                                    actions = actions,
+                                    selection = selection,
+                                    flashId = flashId,
+                                )
+                            }
+                            if (author == null) {
+                                column(itemMotion)
+                            } else {
+                                // One face per column, at its foot, next to the latest message.
+                                Row(itemMotion, verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Avatar(
+                                        name = author,
+                                        size = ColumnAvatar,
+                                        key = group.first().authorId,
+                                        modifier = Modifier.padding(bottom = 2.dp),
+                                    )
+                                    column(Modifier.weight(1f))
+                                }
+                            }
                         }
                         if (typing) item(key = "typing") { TypingDots() }
                     }
@@ -665,3 +682,4 @@ private fun PinnedBanner(message: Message, onUnpin: (() -> Unit)?) {
 }
 
 private val MENU_BLUR = 10.dp
+private val ColumnAvatar = 28.dp

@@ -90,6 +90,7 @@ import app.blesk.core.design.color.ensureContrast
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.glint
+import app.blesk.core.design.component.rememberAvatarInk
 import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.fire.lightSweep
 import app.blesk.core.design.icon.BleskIcons
@@ -166,7 +167,7 @@ internal fun MessageColumn(
             Text(
                 text = author,
                 style = Blesk.type.label,
-                color = Blesk.colors.textSecondary,
+                color = rememberAvatarInk(messages.first().authorId),
                 modifier = Modifier.padding(start = 14.dp, bottom = 2.dp),
             )
         }

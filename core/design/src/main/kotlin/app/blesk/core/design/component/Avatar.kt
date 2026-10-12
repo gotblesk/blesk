@@ -86,11 +86,29 @@ fun rememberAvatarFill(key: String): Color {
     return remember(key, dark) { hueFor(key, dark) }
 }
 
-/** Same lightness and chroma for everyone, only the hue differs. */
-private fun hueFor(key: String, dark: Boolean): Color {
-    val hue = (key.hashCode().toUInt().toLong() % HUE_STEPS) * (360f / HUE_STEPS)
-    return Oklch(if (dark) 0.47f else 0.86f, if (dark) 0.085f else 0.06f, hue).toColor()
+/**
+ * Text in the same hue as [key]'s monogram, readable on the background: an author's name in a
+ * group is coloured like their avatar, so a column is matched to its face at a glance.
+ */
+@Composable
+fun rememberAvatarInk(key: String): Color {
+    val dark = Blesk.colors.isDark
+    val background = Blesk.colors.background
+    return remember(key, dark, background) {
+        val ink = Oklch(if (dark) INK_DARK_L else INK_LIGHT_L, INK_CHROMA, hueOf(key)).toColor()
+        ensureContrast(ink, background, ContrastLevel.BODY_TEXT)
+    }
 }
+
+/** Same lightness and chroma for everyone, only the hue differs. */
+private fun hueFor(key: String, dark: Boolean): Color =
+    Oklch(if (dark) 0.47f else 0.86f, if (dark) 0.085f else 0.06f, hueOf(key)).toColor()
+
+private fun hueOf(key: String) = (key.hashCode().toUInt().toLong() % HUE_STEPS) * (360f / HUE_STEPS)
+
+private const val INK_LIGHT_L = 0.48f
+private const val INK_DARK_L = 0.8f
+private const val INK_CHROMA = 0.11f
 
 /** A short arc of light over the rim, drawn above the photo or letter. */
 private fun Modifier.rimGlint(light: Color, strength: Float, direction: () -> Offset): Modifier = drawWithContent {
