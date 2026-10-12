@@ -213,6 +213,7 @@ private fun MessageEntry(
     val menuLabel = stringResource(R.string.chat_copy)
     val time = timeFormat.format(message.sentAt.atZone(ZoneId.systemDefault()))
     val status = if (own) stringResource(statusLabel(message.status)) else null
+    val failed = own && message.status == SendStatus.Failed
     val edited = if (message.edited) stringResource(R.string.chat_edited) else null
     val density = LocalDensity.current
     val swipeLimit = with(density) { ReplySwipe.toPx() }
@@ -289,7 +290,7 @@ private fun MessageEntry(
         ) {
             if (attachment is Attachment.Circle) {
                 MediaContent(message, attachment)
-                Stamp(time, status, edited, Modifier.align(Alignment.BottomEnd).padding(6.dp), onMedia = true)
+                Stamp(time, status, edited, Modifier.align(Alignment.BottomEnd).padding(6.dp), onMedia = true, failed = failed)
                 return@Box
             }
             Column {
@@ -314,7 +315,8 @@ private fun MessageEntry(
                 }
                 Stamp(
                     time, status, edited,
-                    Modifier
+                    failed = failed,
+                    modifier = Modifier
                         .align(Alignment.End)
                         .padding(top = 2.dp)
                         .padding(horizontal = if (attachment?.isVisual() == true) 8.dp else 0.dp),
@@ -371,7 +373,14 @@ private fun BotButtons(message: Message, actions: MessageActions) {
 
 /** Time, edit mark and delivery status. Over media it sits on a dark pill. */
 @Composable
-private fun Stamp(time: String, status: String?, edited: String?, modifier: Modifier = Modifier, onMedia: Boolean = false) {
+private fun Stamp(
+    time: String,
+    status: String?,
+    edited: String?,
+    modifier: Modifier = Modifier,
+    onMedia: Boolean = false,
+    failed: Boolean = false,
+) {
     val color = if (onMedia) Color.White else Blesk.colors.textTertiary
     Row(
         modifier = if (onMedia) {
@@ -383,7 +392,7 @@ private fun Stamp(time: String, status: String?, edited: String?, modifier: Modi
     ) {
         if (edited != null) Text(edited, style = Blesk.type.caption, color = color)
         Text(time, style = Blesk.type.caption, color = color)
-        if (status != null) Text(status, style = Blesk.type.caption, color = color)
+        if (status != null) Text(status, style = Blesk.type.caption, color = if (failed && !onMedia) Blesk.colors.danger else color)
     }
 }
 

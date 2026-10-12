@@ -64,6 +64,7 @@ internal fun Home(
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
     val photo = rememberProfilePhoto(container, profile?.photoVersion ?: 0L)
+    val online by remember(chats) { chats.online }.collectAsStateWithLifecycle(initialValue = true)
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
     val scope = rememberCoroutineScope()
     val tabs = persistentListOf(
@@ -87,7 +88,11 @@ internal fun Home(
     LensScaffold(
         top = {
             TopLens(
-                title = tabs[tab.ordinal].label,
+                title = if (tab == HomeTab.Chats && !online) {
+                    stringResource(app.blesk.feature.chats.R.string.chats_waiting)
+                } else {
+                    tabs[tab.ordinal].label
+                },
                 collapsed = collapsed,
                 actions = {
                     when (tab) {

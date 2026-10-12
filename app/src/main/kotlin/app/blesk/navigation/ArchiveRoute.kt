@@ -13,6 +13,7 @@ import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.TopLens
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatMenu
+import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.chats.R
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
@@ -24,9 +25,14 @@ internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) 
     val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by chats.typing.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<Conversation?>(null) }
+    val archived = conversations.filter { it.archived }
     LensScaffold(top = { TopLens(title = stringResource(R.string.chats_archive), onBack = onBack) }) { padding ->
+        if (archived.isEmpty()) {
+            EmptyChats(padding, title = stringResource(R.string.archive_empty_title), text = stringResource(R.string.archive_empty_text))
+            return@LensScaffold
+        }
         ChatList(
-            conversations = conversations.filter { it.archived }.toImmutableList(),
+            conversations = archived.toImmutableList(),
             typing = typing.toImmutableSet(),
             now = remember(conversations) { Instant.now() },
             contentPadding = padding,

@@ -7,6 +7,7 @@ import app.blesk.core.data.model.Message
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 
 /** Everything the screens need from a world of chats, whether it is the demo or a real server. */
 interface ChatRepository : ChatTools {
@@ -47,6 +48,12 @@ interface ChatRepository : ChatTools {
 
     /** Messages containing [query], newest first. Runs on the phone only. */
     suspend fun search(query: String): List<Message>
+
+    /** Whether messages can leave the phone right now; the demo is always online. */
+    val online: Flow<Boolean> get() = flowOf(true)
+
+    /** Sends a message that failed to go out once more, as a new message at the end of the chat. */
+    fun retry(conversationId: String, messageId: String) = Unit
 
     /** Tells the other side you are typing; a no-op where it makes no sense. */
     fun setTyping(conversationId: String, active: Boolean) = Unit

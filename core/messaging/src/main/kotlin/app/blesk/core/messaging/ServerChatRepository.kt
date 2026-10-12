@@ -229,6 +229,23 @@ class ServerChatRepository(
         scope.launch { post(conversationId, caption.trim(), replyToId, attachment, forwarded = false) }
     }
 
+    override val online: Flow<Boolean> get() = socket.connected
+
+    override fun retry(conversationId: String, messageId: String) {
+        scope.launch {
+            val failed = db.messages().get(messageId)
+                ?.takeIf { it.conversationId == conversationId && it.authorId == me && it.status == SendStatus.Failed.name }
+                ?: return@launch
+            db.messages().delete(messageId)
+            val attachment = decodeAttachment(failed.attachment)
+            if (bots.isBot(conversationId)) {
+                bots.send(conversationId, failed.text, failed.replyToId)
+            } else {
+                post(conversationId, failed.text, failed.replyToId, attachment, forwarded = failed.forwardedFrom != null)
+            }
+        }
+    }
+
     override fun forward(conversationId: String, messageId: String, to: List<String>) {
         scope.launch {
             val original = db.messages().get(messageId)?.takeIf { it.conversationId == conversationId } ?: return@launch

@@ -84,6 +84,7 @@ internal fun ConversationRoute(
         value = demo.conversation(id).first()?.unread ?: 0
         demo.markRead(id)
     }
+    val online by remember(demo) { demo.online }.collectAsStateWithLifecycle(initialValue = true)
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
     val recentEmoji by container.settings.recentEmoji.collectAsStateWithLifecycle(initialValue = emptyList())
     val application = LocalContext.current.applicationContext as? BleskApplication
@@ -197,6 +198,7 @@ internal fun ConversationRoute(
                     data != null -> bots?.press(id, messageId, data)
                 }
             },
+            onRetry = { messageId -> demo.retry(id, messageId) },
             onEmojiPicked = { emoji -> scope.launch { container.settings.pickEmoji(emoji) } },
             onBack = onBack,
         )
@@ -228,6 +230,7 @@ internal fun ConversationRoute(
                 keyChanged = direct && keyState.changed,
                 me = groupController?.me,
                 unreadAtOpen = unread,
+                online = online,
                 sendByEnter = sendByEnter,
                 recentEmoji = recentEmoji.toImmutableList(),
                 members = groupState?.members.orEmpty()

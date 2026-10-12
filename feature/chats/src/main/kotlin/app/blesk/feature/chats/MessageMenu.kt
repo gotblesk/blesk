@@ -64,6 +64,7 @@ internal fun MessageMenu(
     onPin: (() -> Unit)? = null,
     pinned: Boolean = false,
     onSelect: (() -> Unit)? = null,
+    onRetry: (() -> Unit)? = null,
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -118,6 +119,14 @@ internal fun MessageMenu(
                 }
             }
             Card(Modifier.flowIn(order = 1)) {
+                onRetry?.let { retry ->
+                    ListRow(
+                        title = stringResource(R.string.chat_retry),
+                        icon = BleskIcons.Send,
+                        showChevron = false,
+                        onClick = { act(retry) },
+                    )
+                }
                 ListRow(
                     title = stringResource(R.string.chat_reply),
                     icon = BleskIcons.Back,

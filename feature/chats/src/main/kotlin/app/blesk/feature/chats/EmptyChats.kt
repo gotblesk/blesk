@@ -25,7 +25,12 @@ import kotlin.math.sin
 
 /** An empty list is shapes and type, not a picture: two drops slowly drifting apart and together. */
 @Composable
-fun EmptyChats(contentPadding: PaddingValues, modifier: Modifier = Modifier) {
+fun EmptyChats(
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+    title: String = stringResource(R.string.chats_empty_title),
+    text: String = stringResource(R.string.chats_empty_text),
+) {
     val phase by rememberLoopPhase(5200)
     Box(modifier.fillMaxSize().padding(contentPadding), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -46,9 +51,9 @@ fun EmptyChats(contentPadding: PaddingValues, modifier: Modifier = Modifier) {
                         )
                     },
             )
-            Text(stringResource(R.string.chats_empty_title), style = Blesk.type.title)
+            Text(title, style = Blesk.type.title)
             Text(
-                text = stringResource(R.string.chats_empty_text),
+                text = text,
                 color = Blesk.colors.textSecondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 40.dp),

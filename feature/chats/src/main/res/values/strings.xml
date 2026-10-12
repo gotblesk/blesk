@@ -273,4 +273,9 @@
         <item quantity="many">Уйдёт %1$d сообщениями по порядку</item>
         <item quantity="other">Уйдёт %1$d сообщениями по порядку</item>
     </plurals>
+    <string name="chat_retry">Отправить ещё раз</string>
+    <string name="chat_offline">Нет связи с сервером. Сообщения подождут и уйдут сами.</string>
+    <string name="chats_waiting">Ожидание сети…</string>
+    <string name="archive_empty_title">Архив пуст</string>
+    <string name="archive_empty_text">Смахни чат влево, и он уйдёт сюда.</string>
 </resources>

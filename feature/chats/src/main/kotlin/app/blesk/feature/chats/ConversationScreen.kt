@@ -151,6 +151,8 @@ class ConversationCallbacks(
     val onPin: ((messageId: String?) -> Unit)? = null,
     /** A press on an inline button under a bot message. */
     val onButton: (messageId: String, button: BotButton) -> Unit = { _, _ -> },
+    /** Sends a failed message once more. */
+    val onRetry: (messageId: String) -> Unit = {},
     /** Remembers an emoji picked from the panel for its «recent» row. */
     val onEmojiPicked: (String) -> Unit = {},
 )
@@ -172,6 +174,8 @@ fun ConversationScreen(
     reactions: Boolean = conversation.kind != ConversationKind.Bot,
     /** The other person's key changed and has not been checked since. */
     keyChanged: Boolean = false,
+    /** False while messages cannot leave the phone; they wait in the queue meanwhile. */
+    online: Boolean = true,
     /** Enter sends the message; Shift+Enter breaks the line. */
     sendByEnter: Boolean = false,
     recentEmoji: ImmutableList<String> = persistentListOf(),
@@ -253,7 +257,11 @@ fun ConversationScreen(
             onApplyTheme = callbacks.onApplyTheme,
             onButton = { message, button -> callbacks.onButton(message.id, button) },
             onTap = { message ->
-                if (selection.isNotEmpty()) selection = if (message.id in selection) selection - message.id else selection + message.id
+                when {
+                    selection.isNotEmpty() -> selection = if (message.id in selection) selection - message.id else selection + message.id
+                    // A failed message answers a tap with what can be done about it.
+                    message.isOwn && message.status == SendStatus.Failed -> menuFor = message
+                }
             },
         )
     }
@@ -323,6 +331,7 @@ fun ConversationScreen(
                             attachments = conversation.kind != ConversationKind.Bot,
                             commands = commands,
                             members = members,
+                            online = online,
                             sendByEnter = sendByEnter,
                             recentEmoji = recentEmoji,
                             onEmojiPicked = callbacks.onEmojiPicked,
@@ -366,6 +375,16 @@ fun ConversationScreen(
                             item(key = "pinned") { PinnedBanner(message, onUnpin = callbacks.onPin?.let { unpin -> { unpin(null) } }) }
                         }
                         if (keyChanged) item(key = "key") { KeyWarning(callbacks.onOpenInfo) }
+                        if (messages.isEmpty()) {
+                            item(key = "empty") {
+                                Text(
+                                    text = stringResource(R.string.chat_empty),
+                                    color = Blesk.colors.textSecondary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+                                )
+                            }
+                        }
                         items(feed, key = { it.key }) { entry ->
                             val group = when (entry) {
                                 is FeedEntry.Day -> return@items DayDivider(entry.date)
@@ -419,6 +438,7 @@ fun ConversationScreen(
                     editable = conversation.kind != ConversationKind.Bot,
                     onForward = callbacks.onForward?.let { forward -> { forward(listOf(message.id)) } },
                     onSelect = { selection = setOf(message.id) },
+                    onRetry = if (message.isOwn && message.status == SendStatus.Failed) ({ callbacks.onRetry(message.id) }) else null,
                     onPin = callbacks.onPin?.let { pin -> { pin(if (conversation.pinnedMessageId == message.id) null else message.id) } },
                     pinned = conversation.pinnedMessageId == message.id,
                     onReact = if (reactions) ({ symbol -> callbacks.onReact(message.id, symbol) }) else null,
@@ -661,6 +681,7 @@ private fun Composer(
     attachments: Boolean,
     commands: ImmutableList<BotCommand>,
     members: ImmutableList<Contact>,
+    online: Boolean,
     sendByEnter: Boolean,
     recentEmoji: ImmutableList<String>,
     onEmojiPicked: (String) -> Unit,
@@ -732,6 +753,14 @@ private fun Composer(
                     style = Blesk.type.label,
                     color = Blesk.colors.textSecondary,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                )
+            }
+            if (!online) {
+                Text(
+                    text = stringResource(R.string.chat_offline),
+                    style = Blesk.type.label,
+                    color = Blesk.colors.textSecondary,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
             val typed = state.text.toString()
