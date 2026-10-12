@@ -131,6 +131,8 @@ class ConversationCallbacks(
     val onButton: (messageId: String, button: BotButton) -> Unit = { _, _ -> },
     /** Tries the server again right away. */
     val onReconnect: () -> Unit = {},
+    /** Opens the profile of an @username mentioned in a message; null where nobody can be opened. */
+    val onOpenPerson: ((username: String) -> Unit)? = null,
     /** Sends a failed message once more. */
     val onRetry: (messageId: String) -> Unit = {},
     /** Remembers an emoji picked from the panel for its «recent» row. */
@@ -270,6 +272,7 @@ fun ConversationScreen(
             onApplyTheme = callbacks.onApplyTheme,
             onButton = { message, button -> callbacks.onButton(message.id, button) },
             onDoubleTap = if (reactions) ({ message -> react(message, QuickReactions.first()) }) else null,
+            onMention = callbacks.onOpenPerson,
             onTap = { message ->
                 when {
                     selection.isNotEmpty() -> selection = if (message.id in selection) selection - message.id else selection + message.id
@@ -472,6 +475,24 @@ fun ConversationScreen(
                         }
                         if (typing) item(key = "typing") { TypingDots() }
                     }
+                    val shownDay by remember(feed) {
+                        derivedStateOf {
+                            val visible = listState.layoutInfo.visibleItemsInfo
+                            val first = visible.firstOrNull { it.index >= leading } ?: return@derivedStateOf null
+                            feed.getOrNull(first.index - leading)?.let { entry ->
+                                when (entry) {
+                                    is FeedEntry.Day -> entry.date
+                                    is FeedEntry.Run -> entry.messages.first().sentAt.atZone(ZoneId.systemDefault()).toLocalDate()
+                                    FeedEntry.Unread -> null
+                                }
+                            }
+                        }
+                    }
+                    ScrollDate(
+                        date = shownDay,
+                        scrolling = listState.isScrollInProgress,
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = padding.calculateTopPadding() + 8.dp),
+                    )
                     val scope = rememberCoroutineScope()
                     JumpButtons(
                         showDown = farFromEnd,

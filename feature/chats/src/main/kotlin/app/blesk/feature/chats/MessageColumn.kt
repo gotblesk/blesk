@@ -48,8 +48,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -67,15 +70,15 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -129,6 +132,8 @@ internal class MessageActions(
     val onTap: (Message) -> Unit = {},
     /** The quick reaction on a double tap; null where reactions are not offered. */
     val onDoubleTap: ((Message) -> Unit)? = null,
+    /** A press on an @username in the text; null where people cannot be opened. */
+    val onMention: ((String) -> Unit)? = null,
 )
 
 /**
@@ -455,7 +460,13 @@ private fun MessageEntry(
                     TextWithStamp(
                         modifier = inset,
                         text = { onLayout ->
-                            FormattedText(markup, revealed, Modifier, if (expanded) Int.MAX_VALUE else COLLAPSED_LINES) { layout ->
+                            FormattedText(
+                                markup = markup,
+                                revealed = revealed,
+                                modifier = Modifier,
+                                maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_LINES,
+                                onMention = actions.onMention,
+                            ) { layout ->
                                 if (!expanded) cut = layout.hasVisualOverflow
                                 onLayout(layout)
                             }
@@ -661,18 +672,37 @@ private const val MELT_STEPS = 200
 private const val MIN_MELT_STEP_MILLIS = 1_000L
 
 /** Formatted message text; spoilers stay covered until the bubble is tapped. */
+/**
+ * Message text with its markup. Mentions sit on small capsules and open the person; links are
+ * in the theme's light and open in the browser.
+ */
 @Composable
 private fun FormattedText(
     markup: Markup,
     revealed: Boolean,
     modifier: Modifier,
     maxLines: Int = Int.MAX_VALUE,
+    onMention: ((String) -> Unit)? = null,
     onTextLayout: ((TextLayoutResult) -> Unit)? = null,
 ) {
     val colors = Blesk.colors
-    val text = remember(markup, revealed, colors) {
+    val link = ensureContrast(colors.light, colors.surface, ContrastLevel.BODY_TEXT)
+    val text = remember(markup, revealed, colors, onMention) {
         buildAnnotatedString {
-            append(withMentions(markup.text))
+            append(markup.text)
+            mention.findAll(markup.text).forEach { match ->
+                addStyle(SpanStyle(fontWeight = FontWeight.SemiBold), match.range.first, match.range.last + 1)
+                if (onMention != null) {
+                    val username = match.value.removePrefix("@")
+                    addLink(LinkAnnotation.Clickable(username) { onMention(username) }, match.range.first, match.range.last + 1)
+                }
+            }
+            links(markup.text).forEach { range ->
+                val url = markup.text.substring(range).let { if (it.startsWith("http")) it else "https://$it" }
+                // Underlined as well: on a graphite bubble the light of a pale theme is close to the text colour.
+                val style = SpanStyle(color = link, textDecoration = TextDecoration.Underline)
+                addLink(LinkAnnotation.Url(url, TextLinkStyles(style)), range.first, range.last + 1)
+            }
             markup.spans.forEach { span ->
                 when (span.style) {
                     Markup.Style.Bold -> addStyle(SpanStyle(fontWeight = FontWeight.SemiBold), span.start, span.end)
@@ -691,8 +721,44 @@ private fun FormattedText(
             }
         }
     }
-    Text(text, modifier = modifier, maxLines = maxLines, onTextLayout = onTextLayout)
+    val mentions = remember(markup) { mention.findAll(markup.text).map { it.range }.toList() }
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val pill = colors.textPrimary.copy(alpha = MENTION_ALPHA)
+    Text(
+        text = text,
+        modifier = modifier.drawBehind {
+            val shown = layout ?: return@drawBehind
+            val inset = 3.dp.toPx()
+            mentions.forEach { range ->
+                if (range.last >= shown.layoutInput.text.length) return@forEach
+                val box = shown.getBoundingBox(range.first).let { first -> first.copy(right = shown.getBoundingBox(range.last).right) }
+                drawRoundRect(
+                    color = pill,
+                    topLeft = Offset(box.left - inset, box.top),
+                    size = Size(box.width + inset * 2, box.height),
+                    cornerRadius = CornerRadius(box.height / 2f),
+                )
+            }
+        },
+        maxLines = maxLines,
+        onTextLayout = { result ->
+            layout = result
+            onTextLayout?.invoke(result)
+        },
+    )
 }
+
+private val linkPattern = Regex("""(?i)\b(?:https?://|www\.)[^\s<>«»"]+""")
+
+/** Web addresses in the text, without the punctuation a sentence puts after them. */
+private fun links(text: String): List<IntRange> = linkPattern.findAll(text).map { match ->
+    var end = match.range.last
+    while (end > match.range.first && text[end] in TRAILING) end--
+    match.range.first..end
+}.toList()
+
+private const val TRAILING = ".,;:!?)»"
+private const val MENTION_ALPHA = 0.1f
 
 /**
  * Text with the time and status tucked into the end of its last line when they fit there,
@@ -732,17 +798,6 @@ private val StampGap = 8.dp
 private const val COLLAPSED_LINES = 25
 
 private val mention = Regex("(?<![\\w@])@[a-z0-9_]{3,32}")
-
-/** @usernames stand out, so people notice they are mentioned. */
-private fun withMentions(text: String): AnnotatedString = buildAnnotatedString {
-    var from = 0
-    mention.findAll(text).forEach { match ->
-        append(text.substring(from, match.range.first))
-        withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(match.value) }
-        from = match.range.last + 1
-    }
-    append(text.substring(from))
-}
 
 private const val RISE_IN_DOTS = 3f
 private const val SNAP_AT = 0.4f

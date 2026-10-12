@@ -421,11 +421,14 @@ class KeyScreensScreenshotTest(private val name: String) {
         val essay = (1..40).joinToString("\n") { "Строка $it длинного письма о том, как мы ехали за город" }
         ConversationScreen(
             conversation = seed.conversations.first { it.id == DemoSeed.ANYA },
-            messages = persistentListOf(base.copy(id = "long", authorId = DemoSeed.ANYA, text = essay)),
+            messages = persistentListOf(
+                base.copy(id = "link", authorId = "me", text = "@orlov, глянь маршрут: https://example.org/route, там всё"),
+                base.copy(id = "long", authorId = DemoSeed.ANYA, text = essay),
+            ),
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
             callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
-            focusMessageId = "long",
+            focusMessageId = "link",
         )
     }
 

@@ -66,6 +66,7 @@ internal fun ConversationRoute(
     onVerify: () -> Unit,
     onForward: (messageIds: List<String>) -> Unit,
     onBack: () -> Unit,
+    onOpenPerson: (conversationId: String) -> Unit = {},
 ) {
     val demo = container.chats.collectAsStateWithLifecycle().value ?: return
     val scope = rememberCoroutineScope()
@@ -169,6 +170,7 @@ internal fun ConversationRoute(
     val callbacks = remember(id, direct) {
         ConversationCallbacks(
             onSend = { text, replyTo -> demo.send(id, text, replyTo) },
+            onOpenPerson = { username -> scope.launch { demo.openDirect(username)?.let(onOpenPerson) } },
             onEdit = { messageId, text -> demo.edit(id, messageId, text) },
             onDelete = { messageId -> demo.delete(id, messageId) },
             onReact = { messageId, symbol -> demo.toggleReaction(id, messageId, symbol) },

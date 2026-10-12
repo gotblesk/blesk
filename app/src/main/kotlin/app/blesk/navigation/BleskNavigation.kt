@@ -311,6 +311,7 @@ fun BleskNavigation(container: AppContainer) {
                             onForward = { messageIds -> backStack.add(ForwardKey(key.id, messageIds)) },
                             onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
                             onBack = back,
+                            onOpenPerson = { backStack.add(ChatInfoKey(it)) },
                         )
                     }
                     entry<NewChatKey> {

@@ -3,6 +3,7 @@ package app.blesk.feature.chats
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -19,7 +20,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,20 +42,17 @@ import androidx.compose.ui.unit.dp
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.glass.lens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
 internal fun DayDivider(date: LocalDate) {
-    val today = LocalDate.now()
-    val text = when (date) {
-        today -> stringResource(R.string.chat_today)
-        today.minusDays(1) -> stringResource(R.string.chat_yesterday)
-        else -> date.format(if (date.year == today.year) dayFormat else dayYearFormat)
-    }
+    val text = dayLabel(date)
     Text(
         text = text,
         style = Blesk.type.caption,
@@ -60,6 +61,51 @@ internal fun DayDivider(date: LocalDate) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).semantics { heading() },
     )
 }
+
+@Composable
+internal fun dayLabel(date: LocalDate): String {
+    val today = LocalDate.now()
+    return when (date) {
+        today -> stringResource(R.string.chat_today)
+        today.minusDays(1) -> stringResource(R.string.chat_yesterday)
+        else -> date.format(if (date.year == today.year) dayFormat else dayYearFormat)
+    }
+}
+
+/**
+ * The day of what is on screen, in a capsule under the top lens while the feed moves; it goes
+ * a second after scrolling stops, so it never sits over the messages for long.
+ */
+@Composable
+internal fun ScrollDate(date: LocalDate?, scrolling: Boolean, modifier: Modifier = Modifier) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(scrolling) {
+        if (scrolling) {
+            visible = true
+        } else {
+            delay(DATE_LINGER_MILLIS)
+            visible = false
+        }
+    }
+    val motion = Blesk.motion
+    AnimatedVisibility(
+        visible = visible && date != null,
+        enter = fadeIn(motion.press()) + scaleIn(motion.settle(), initialScale = 0.9f),
+        exit = fadeOut(motion.transition()),
+        modifier = modifier,
+    ) {
+        Text(
+            text = date?.let { dayLabel(it) }.orEmpty(),
+            style = Blesk.type.caption,
+            modifier = Modifier
+                .lens(CircleShape, elevation = 6.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .clearAndSetSemantics { },
+        )
+    }
+}
+
+private const val DATE_LINGER_MILLIS = 1000L
 
 // The interface is Russian only, so month names are too, whatever the phone's language.
 private val russian = Locale.forLanguageTag("ru")
