@@ -226,6 +226,9 @@ class TwoClientsTest {
         val forwarded = eventually { carol.messages("bob").firstOrNull { it.text == "исчезнет" } }
         assertNotNull(forwarded.forwardedFrom)
 
+        // Full-text search folds case for Cyrillic and matches word beginnings.
+        assertEquals("исчезнет", runBlocking { bob.repo.search("ИСЧЕЗ") }.firstOrNull()?.text)
+
         alice.repo.saveDraft("bob", "недописанное")
         eventually { runBlocking { alice.repo.conversation("bob").first() }?.takeIf { it.draft == "недописанное" } }
     }

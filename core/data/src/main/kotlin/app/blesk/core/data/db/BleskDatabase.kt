@@ -16,8 +16,9 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         OutboxEntity::class,
         SignalStateEntity::class,
         GroupEntity::class,
+        MessageFtsEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class BleskDatabase : RoomDatabase() {
@@ -30,6 +31,19 @@ abstract class BleskDatabase : RoomDatabase() {
 
     companion object {
         private const val NAME = "blesk.db"
+
+        /** As Room creates it for [MessageFtsEntity]; kept identical so the schema check passes after migrating. */
+        private val FTS_SCHEMA = listOf(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS `messages_fts` USING FTS4(`text` TEXT NOT NULL, tokenize=unicode61, content=`messages`)",
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_messages_fts_BEFORE_UPDATE BEFORE UPDATE ON `messages` " +
+                "BEGIN DELETE FROM `messages_fts` WHERE `docid`=OLD.`rowid`; END",
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_messages_fts_BEFORE_DELETE BEFORE DELETE ON `messages` " +
+                "BEGIN DELETE FROM `messages_fts` WHERE `docid`=OLD.`rowid`; END",
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_messages_fts_AFTER_UPDATE AFTER UPDATE ON `messages` " +
+                "BEGIN INSERT INTO `messages_fts`(`docid`, `text`) VALUES (NEW.`rowid`, NEW.`text`); END",
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_messages_fts_AFTER_INSERT AFTER INSERT ON `messages` " +
+                "BEGIN INSERT INTO `messages_fts`(`docid`, `text`) VALUES (NEW.`rowid`, NEW.`text`); END",
+        )
 
         /** Groups and rooms: a group table, room channels under their room, sealed fan-out in the outbox. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -72,12 +86,20 @@ abstract class BleskDatabase : RoomDatabase() {
             }
         }
 
+        /** A full-text index over messages; filled once from what is already there. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                FTS_SCHEMA.forEach(db::execSQL)
+                db.execSQL("INSERT INTO messages_fts(messages_fts) VALUES ('rebuild')")
+            }
+        }
+
         /** Opens the SQLCipher database with [passphrase]; the caller gets it from Android Keystore. */
         fun open(context: Context, passphrase: ByteArray): BleskDatabase {
             System.loadLibrary("sqlcipher")
             return Room.databaseBuilder(context, BleskDatabase::class.java, NAME)
                 .openHelperFactory(SupportOpenHelperFactory(passphrase))
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
         }
     }

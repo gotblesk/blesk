@@ -95,12 +95,12 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE conversationId = :conversationId")
     suspend fun deleteConversation(conversationId: String)
 
-    /**
-     * Plain substring search; the database is encrypted, so this never leaves the phone.
-     * [query] must have `\`, `%` and `_` escaped with a backslash.
-     */
-    @Query("SELECT * FROM messages WHERE text LIKE '%' || :query || '%' ESCAPE '\\' ORDER BY sentAt DESC LIMIT 100")
-    suspend fun search(query: String): List<MessageEntity>
+    /** Full-text search; [match] is an FTS query such as `"свет"*`. Case and Cyrillic are handled by unicode61. */
+    @Query(
+        "SELECT messages.* FROM messages JOIN messages_fts ON messages.rowid = messages_fts.rowid " +
+            "WHERE messages_fts MATCH :match ORDER BY messages.sentAt DESC LIMIT 200",
+    )
+    suspend fun searchFullText(match: String): List<MessageEntity>
 
     @Query("UPDATE messages SET status = :status WHERE id IN (:ids) AND authorId = :author")
     suspend fun setStatus(ids: List<String>, author: String, status: String)

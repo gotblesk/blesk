@@ -1,6 +1,8 @@
 package app.blesk.core.data.db
 
 import androidx.room.Entity
+import androidx.room.Fts4
+import androidx.room.FtsOptions
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -52,6 +54,11 @@ data class MessageEntity(
     val expiresAt: Long? = null,
     val forwardedFrom: String? = null,
 )
+
+/** Full-text index over message text, kept in step with [MessageEntity] by Room's triggers. */
+@Fts4(contentEntity = MessageEntity::class, tokenizer = FtsOptions.TOKENIZER_UNICODE61)
+@Entity(tableName = "messages_fts")
+data class MessageFtsEntity(val text: String)
 
 @Entity(tableName = "contacts")
 data class ContactEntity(

@@ -1,16 +1,20 @@
 package app.blesk.navigation
 
+import android.widget.Toast
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.core.data.settings.AppMode
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.SearchHit
 import app.blesk.feature.chats.SearchScreen
@@ -19,6 +23,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun SearchRoute(container: AppContainer, onOpen: (String) -> Unit, onBack: () -> Unit) {
@@ -40,8 +45,41 @@ internal fun SearchRoute(container: AppContainer, onOpen: (String) -> Unit, onBa
             }.toImmutableList()
         }
     }
-    SearchScreen(query = query, hits = hits, onOpen = { onOpen(it.conversationId) }, onBack = onBack)
+    val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
+    val contacts by chats.contacts.collectAsStateWithLifecycle(initialValue = emptyList())
+    val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = AppMode.Demo)
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val needle = query.text.toString().trim().removePrefix("@").lowercase()
+    val matchingChats = if (needle.isEmpty()) emptyList() else conversations.filter { it.title.lowercase().contains(needle) }
+    val matchingPeople = if (needle.isEmpty()) {
+        emptyList()
+    } else {
+        contacts.filter { it.name.lowercase().contains(needle) || it.username.contains(needle) }
+            .filter { person -> matchingChats.none { it.id == person.id } }
+    }
+    SearchScreen(
+        query = query,
+        hits = hits,
+        onOpen = { onOpen(it.conversationId) },
+        onBack = onBack,
+        chats = matchingChats.take(MAX_ROWS).toImmutableList(),
+        people = matchingPeople.take(MAX_ROWS).toImmutableList(),
+        onOpenChat = onOpen,
+        onOpenPerson = { person -> scope.launch { chats.openDirect(person.username)?.let(onOpen) } },
+        onFindUsername = if (mode is AppMode.Server) {
+            { username ->
+                scope.launch {
+                    val id = chats.openDirect(username)
+                    if (id != null) onOpen(id) else Toast.makeText(context, R.string.contacts_not_found, Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            null
+        },
+    )
 }
 
 private const val MIN_QUERY = 2
+private const val MAX_ROWS = 5
 private const val DEBOUNCE_MILLIS = 250L

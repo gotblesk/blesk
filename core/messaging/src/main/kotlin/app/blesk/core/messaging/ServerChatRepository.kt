@@ -164,23 +164,15 @@ class ServerChatRepository(
 
     override fun contact(id: String): Contact? = contactCache.value[id]
 
-    /**
-     * SQLite folds case for latin letters only, so the query is also tried lowercased and
-     * capitalised; that covers how people actually type in Cyrillic.
-     */
+    /** Full-text search over the decrypted database on this phone; every word is matched as a prefix. */
     override suspend fun search(query: String): List<Message> {
-        val needle = query.trim()
-        if (needle.isEmpty()) return emptyList()
-        val variants = setOf(needle, needle.lowercase(), needle.lowercase().replaceFirstChar { it.uppercase() })
-        return variants
-            .flatMap { db.messages().search(escapeLike(it)) }
-            .distinctBy { it.id }
-            .sortedByDescending { it.sentAt }
+        val words = query.split(Regex("\\s+")).map { word -> word.filter { it.isLetterOrDigit() } }.filter { it.isNotEmpty() }
+        if (words.isEmpty()) return emptyList()
+        val match = words.joinToString(" ") { "$it*" }
+        return runCatching { db.messages().searchFullText(match) }.getOrDefault(emptyList())
             .take(SEARCH_LIMIT)
             .map { it.toModel(me) }
     }
-
-    private fun escapeLike(text: String) = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     fun start() {
         scope.launch {

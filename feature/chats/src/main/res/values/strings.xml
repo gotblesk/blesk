@@ -158,7 +158,7 @@
     <string name="space_delete_hint">Пространство исчезнет у всех вместе с записями</string>
     <string name="space_readonly">Здесь публикуют только админы</string>
     <string name="search_title">Поиск</string>
-    <string name="search_field">Слово из переписки</string>
+    <string name="search_field">Чат, человек или слово</string>
     <string name="search_hint">Ищем только на этом телефоне</string>
     <string name="search_empty">Ничего не нашлось</string>
     <string name="chat_call">Позвонить</string>
@@ -224,4 +224,8 @@
         <item quantity="many">%1$d чатов</item>
         <item quantity="other">%1$d чата</item>
     </plurals>
+    <string name="search_chats">Чаты</string>
+    <string name="search_people">Люди</string>
+    <string name="search_messages">Сообщения</string>
+    <string name="search_find_username">Найти @%1$s на сервере</string>
 </resources>
