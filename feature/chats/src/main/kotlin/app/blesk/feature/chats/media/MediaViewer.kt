@@ -3,10 +3,8 @@ package app.blesk.feature.chats.media
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
@@ -20,11 +18,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -35,22 +30,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
-import androidx.media3.ui.compose.ContentFrame
 import app.blesk.core.data.StreamSource
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.design.component.IconButton
-import app.blesk.core.design.component.Slider
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
@@ -59,7 +49,6 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.media.EncryptedStream
 import app.blesk.feature.chats.R
 import coil3.compose.AsyncImage
-import kotlinx.coroutines.delay
 import java.io.File
 import app.blesk.core.design.R as DesignR
 
@@ -102,6 +91,8 @@ fun MediaViewer(
                 else -> Unit
             }
         }
+        // In the corner window only the picture shows.
+        if (LocalPictureInPicture.current?.active?.value == true) return@Box
         Row(
             Modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(8.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -188,68 +179,3 @@ private fun StreamingVideo(video: Attachment.Video, source: suspend () -> Stream
         setMediaSource(media)
     }
 }
-
-@OptIn(UnstableApi::class)
-@Composable
-private fun VideoPlayer(video: Attachment.Video, load: ExoPlayer.() -> Unit) {
-    val context = LocalContext.current
-    val player = remember(video) {
-        ExoPlayer.Builder(context).build().apply {
-            load()
-            prepare()
-            play()
-        }
-    }
-    var position by remember { mutableLongStateOf(0L) }
-    var playing by remember { mutableStateOf(true) }
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                playing = isPlaying
-            }
-        }
-        player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-            player.release()
-        }
-    }
-    LaunchedEffect(player) {
-        while (true) {
-            position = player.currentPosition
-            delay(TICK_MILLIS)
-        }
-    }
-    Box(Modifier.fillMaxSize()) {
-        ContentFrame(
-            player = player,
-            contentScale = ContentScale.Fit,
-            // No black shutter: the poster underneath shows until the first frame.
-            shutter = {},
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClickLabel = stringResource(if (playing) R.string.media_pause else R.string.media_play),
-                ) { if (player.isPlaying) player.pause() else player.play() },
-        )
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .background(Blesk.colors.background.copy(alpha = 0.6f)),
-        ) {
-            Slider(
-                title = formatDuration(position),
-                value = position.toFloat(),
-                range = 0f..video.durationMillis.coerceAtLeast(1).toFloat(),
-                valueLabel = formatDuration(video.durationMillis),
-                onValueChange = { player.seekTo(it.toLong()) },
-            )
-        }
-    }
-}
-
-private const val TICK_MILLIS = 200L

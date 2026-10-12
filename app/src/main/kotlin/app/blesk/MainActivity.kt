@@ -1,12 +1,15 @@
 package app.blesk
 
 import android.Manifest
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -20,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -38,6 +42,8 @@ import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.NoticeHost
 import app.blesk.core.design.theme.BleskThemeWithWave
 import app.blesk.core.motion.LocalHapticLevel
+import app.blesk.feature.chats.media.LocalPictureInPicture
+import app.blesk.feature.chats.media.PictureInPicture
 import app.blesk.navigation.BleskNavigation
 import app.blesk.navigation.LockRoute
 import app.blesk.shared.appearance.Appearance
@@ -79,6 +85,7 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalHapticLevel provides vibration.toHapticLevel(),
                 LocalNotices provides container.notices,
+                LocalPictureInPicture provides pictureInPicture,
             ) {
                 BleskThemeWithWave(appearance = appearance) {
                     Box(Modifier.fillMaxSize()) {
@@ -92,6 +99,37 @@ class MainActivity : ComponentActivity() {
     }
 
     private var lockDelay = LockDelay.Immediately.millis
+
+    private val inCorner = mutableStateOf(false)
+    private var cornerAspect: Rational? = null
+
+    /**
+     * A playing video shrinks into a corner when the person leaves the app. Not with the app
+     * lock on: the corner window would show the chat past the lock.
+     */
+    private val pictureInPicture = PictureInPicture(inCorner) { aspect ->
+        val locked = (application as BleskApplication).container.pinVault.isSet
+        cornerAspect = aspect.takeIf { !locked }
+        runCatching { setPictureInPictureParams(cornerParams()) }
+    }
+
+    private fun cornerParams(): PictureInPictureParams = PictureInPictureParams.Builder().apply {
+        cornerAspect?.let(::setAspectRatio)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) setAutoEnterEnabled(cornerAspect != null)
+    }.build()
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // Android 12 and later go into the corner by themselves, from the parameters above.
+        if (cornerAspect != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            runCatching { enterPictureInPictureMode(cornerParams()) }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        inCorner.value = isInPictureInPictureMode
+    }
 
     override fun onResume() {
         super.onResume()

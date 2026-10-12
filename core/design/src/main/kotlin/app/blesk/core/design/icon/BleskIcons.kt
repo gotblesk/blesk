@@ -122,6 +122,9 @@ object BleskIcons {
     val Share by icon("M12 15V4.5M7.5 9L12 4.5 16.5 9M5 13.5v4A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5v-4")
     val Forward by icon("M19 12l-6-6v3.5C8 9.5 5 12.5 5 18c1.6-3 4.3-4.5 8-4.5V17l6-5z")
     val Flip by icon("M5 10a7 7 0 0 1 12.6-3.6M19 14a7 7 0 0 1-12.6 3.6M17.8 3.5v3h-3M6.2 20.5v-3h3")
+    val Expand by icon("M4.5 9V4.5H9M19.5 9V4.5H15M4.5 15v4.5H9M19.5 15v4.5H15")
+    val Shrink by icon("M9 4.5V9H4.5M15 4.5V9h4.5M9 19.5V15H4.5M15 19.5V15h4.5")
+    val PictureInPicture by icon("M20 11V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5M14 14h6v5h-6z")
 
     private fun icon(pathData: String) = lazy {
         ImageVector.Builder(
