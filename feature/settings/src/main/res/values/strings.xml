@@ -4,7 +4,7 @@
     <string name="settings_appearance_hint">Тема, стекло и блеск</string>
     <string name="settings_notifications">Уведомления</string>
     <string name="settings_storage">Данные и память</string>
-    <string name="settings_server">Сервер</string>
+    <string name="settings_server">Сервер и прокси</string>
     <string name="settings_server_demo">Сейчас демо-режим, всё работает без сети</string>
     <string name="settings_about">О приложении</string>
     <string name="settings_debug">Отладка</string>
@@ -63,7 +63,7 @@
     <string name="settings_profile">Профиль</string>
     <string name="settings_profile_setup">Добавь имя и фото</string>
     <string name="settings_privacy_hint">Код-пароль, скриншоты, прочтение, «печатает»</string>
-    <string name="server_title">Сервер</string>
+    <string name="server_title">Сервер и прокси</string>
     <string name="server_demo_text">Сейчас blesk работает в демо-режиме: всё на телефоне, без сети. Подключи свой сервер, и переписка пойдёт по-настоящему, со сквозным шифрованием.</string>
     <string name="server_address">Адрес сервера</string>
     <string name="server_address_hint">Например, chat.example.ru. Проще — отсканировать QR-код, который показал сервер при установке.</string>
@@ -226,4 +226,6 @@
     <string name="about_whats_new">Что нового</string>
     <string name="about_updates">Проверять обновления</string>
     <string name="about_updates_hint">Раз в запуск blesk спрашивает GitHub, есть ли новая сборка. GitHub видит адрес телефона</string>
+    <string name="settings_server_proxied">через прокси</string>
+    <string name="settings_sign_out">Выйти из аккаунта</string>
 </resources>

@@ -131,6 +131,8 @@ fun SettingsList(
     doubleTap: String = GLINT_REACTION,
     onDoubleTap: (String) -> Unit = {},
     onResetHints: (() -> Unit)? = null,
+    proxied: Boolean = false,
+    versionName: String = "",
 ) {
     val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
     Column(
@@ -224,11 +226,14 @@ fun SettingsList(
         Card(cardPadding) {
             ListRow(
                 title = stringResource(R.string.settings_server),
-                subtitle = if (serverHost != null) {
-                    stringResource(R.string.settings_server_connected, serverHost)
-                } else {
-                    stringResource(R.string.settings_server_demo)
-                },
+                subtitle = listOfNotNull(
+                    if (serverHost != null) {
+                        stringResource(R.string.settings_server_connected, serverHost)
+                    } else {
+                        stringResource(R.string.settings_server_demo)
+                    },
+                    stringResource(R.string.settings_server_proxied).takeIf { proxied },
+                ).joinToString(" · "),
                 icon = BleskIcons.Server,
                 onClick = actions.onOpenServer,
                 modifier = Modifier.sharedBounds(screenKey("server")),
@@ -237,6 +242,7 @@ fun SettingsList(
         Card(cardPadding.padding(top = Blesk.dimens.sectionGap)) {
             ListRow(
                 title = stringResource(R.string.settings_about),
+                subtitle = versionName.ifEmpty { null },
                 icon = BleskIcons.Info,
                 onClick = actions.onOpenAbout,
                 modifier = Modifier.sharedBounds(screenKey("about")),
@@ -247,6 +253,8 @@ fun SettingsList(
         }
         actions.onDeleteAccount?.let { delete ->
             Card(cardPadding.padding(top = Blesk.dimens.sectionGap)) {
+                // Leaving needs the recovery phrase first, or it would lose the account for good.
+                ListRow(title = stringResource(R.string.settings_sign_out), icon = BleskIcons.Back, soon = true)
                 ListRow(title = stringResource(R.string.settings_delete_account), icon = BleskIcons.Trash, onClick = delete)
             }
         }

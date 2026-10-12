@@ -155,6 +155,11 @@ fun PrivacyScreen(
             )
         }
 
+        SectionHeader(stringResource(R.string.privacy_keys))
+        Card(pad) {
+            ListRow(title = stringResource(R.string.privacy_phrase), icon = BleskIcons.Lock, soon = true)
+        }
+
         Card(pad.padding(top = Blesk.dimens.sectionGap)) {
             ListRow(
                 title = stringResource(R.string.privacy_wipe),

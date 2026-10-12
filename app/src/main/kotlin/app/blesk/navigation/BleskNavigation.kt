@@ -472,6 +472,7 @@ fun BleskNavigation(container: AppContainer) {
                                 onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
                                 onChatDeleted = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
                                 onBack = back,
+                                onOpenConversation = { backStack.add(ConversationKey(it)) },
                             )
                         }
                         entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageIds, onDone = back, onBack = back) }

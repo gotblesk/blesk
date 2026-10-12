@@ -379,4 +379,5 @@
         <item quantity="other">%1$d человека ждут ответа</item>
     </plurals>
     <string name="chat_link_open">Открыть ссылку</string>
+    <string name="person_shared_groups">Общие группы и комнаты</string>
 </resources>

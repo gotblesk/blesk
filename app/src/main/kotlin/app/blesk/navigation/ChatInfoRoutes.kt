@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -11,8 +12,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.core.data.GroupController
 import app.blesk.core.data.KeyState
 import app.blesk.core.data.KeyVerification
+import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.design.component.rememberNotify
@@ -22,6 +25,7 @@ import app.blesk.feature.chats.PersonProfileScreen
 import app.blesk.feature.chats.R
 import app.blesk.shared.appearance.Appearance
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
@@ -34,6 +38,7 @@ internal fun ChatInfoRoute(
     onCall: ((video: Boolean) -> Unit)?,
     onChatDeleted: () -> Unit,
     onBack: () -> Unit,
+    onOpenConversation: (String) -> Unit = {},
 ) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val conversation by remember(id) { chats.conversation(id) }.collectAsStateWithLifecycle(initialValue = null)
@@ -52,6 +57,14 @@ internal fun ChatInfoRoute(
     val deleted = stringResource(app.blesk.feature.chats.R.string.person_chat_deleted)
     val username = chats.contact(id)?.username ?: id
     val blocked by remember(chats) { chats.blocked }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val all by remember(chats) { chats.conversations }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val shared by produceState(emptyList<Conversation>(), all, username) {
+        val groups = chats as? GroupController
+        value = all.filter { it.kind == ConversationKind.Group || it.kind == ConversationKind.Room }.filter { group ->
+            val members = groups?.group(group.id)?.first()?.members?.map { it.username }
+            members?.contains(username) ?: group.faces.any { it.username == username }
+        }
+    }
     PersonProfileScreen(
         conversation = current,
         username = chats.contact(id)?.username ?: id,
@@ -76,8 +89,10 @@ internal fun ChatInfoRoute(
             onPlayVoice = { path -> container.audioPlayer.toggle(path) },
             onBlock = if (current.kind == ConversationKind.Direct) ({ block -> chats.setBlocked(username, block) }) else null,
             blocked = blocked.any { it.username == username },
+            onOpenConversation = onOpenConversation,
         ),
         onBack = onBack,
+        shared = shared.toImmutableList(),
     )
     if (themeSheet) {
         ChatThemeSheet(

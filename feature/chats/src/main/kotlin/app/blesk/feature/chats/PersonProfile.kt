@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.Conversation
+import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.design.component.ActionCluster
@@ -51,6 +52,7 @@ import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ProfileHero
+import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.StateMessage
 import app.blesk.core.design.component.Text
@@ -88,6 +90,7 @@ class PersonActions(
     /** Blocks or unblocks; null where there is nobody to block, as with bots. */
     val onBlock: ((Boolean) -> Unit)? = null,
     val blocked: Boolean = false,
+    val onOpenConversation: (String) -> Unit = {},
 )
 
 /**
@@ -105,6 +108,8 @@ fun PersonProfileScreen(
     actions: PersonActions,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Groups and rooms you are both in. */
+    shared: ImmutableList<Conversation> = persistentListOf(),
 ) {
     val scroll = rememberScrollState()
     var more by remember { mutableStateOf(false) }
@@ -162,6 +167,18 @@ fun PersonProfileScreen(
             EncryptionRow(conversation.protection == Protection.EndToEnd)
             actions.onVerify?.let { verify -> KeysRow(verified, verify) }
             SharedContent(messages, actions)
+            if (shared.isNotEmpty()) {
+                SectionHeader(stringResource(R.string.person_shared_groups))
+                Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
+                    shared.forEach { group ->
+                        ListRow(
+                            title = group.title,
+                            icon = if (group.kind == ConversationKind.Room) BleskIcons.Rooms else BleskIcons.People,
+                            onClick = { actions.onOpenConversation(group.id) },
+                        )
+                    }
+                }
+            }
             TimerSection(conversation.timerSeconds, actions.onTimer)
             if (actions.onDeleteChat != null || actions.onBlock != null) {
                 Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = Blesk.dimens.sectionGap)) {

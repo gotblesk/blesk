@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.BuildConfig
 import app.blesk.R
 import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.Connection
@@ -365,6 +366,8 @@ internal fun Home(
                     doubleTap = doubleTap,
                     onResetHints = { scope.launch { container.settings.resetHints() } },
                     onDoubleTap = { symbol -> scope.launch { container.settings.setDoubleTapReaction(symbol) } },
+                    proxied = proxied != null,
+                    versionName = BuildConfig.VERSION_NAME,
                 )
                 HomeTab.You -> {
                     val current = profile ?: return@AnimatedContent
