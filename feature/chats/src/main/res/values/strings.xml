@@ -180,6 +180,7 @@
     <string name="chat_key_changed">Ключ безопасности собеседника изменился. Нажми, чтобы проверить.</string>
     <string name="chats_pin">Закрепить чат</string>
     <string name="chats_unpin">Открепить чат</string>
+    <string name="chat_pinned_number">%1$d из %2$d</string>
     <string name="chat_read_more">Читать дальше</string>
     <string name="chats_archive_fold">Свернуть архив</string>
     <string name="chats_archive_pull">Потяни, чтобы открыть архив</string>

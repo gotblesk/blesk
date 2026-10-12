@@ -46,7 +46,8 @@ data class Conversation(
     val draft: String = "",
     /** Messages vanish this many seconds after they are sent; 0 keeps them. */
     val timerSeconds: Int = 0,
-    val pinnedMessageId: String? = null,
+    /** Pinned messages, oldest pin first. */
+    val pinnedMessageIds: ImmutableList<String> = persistentListOf(),
     val archived: Boolean = false,
     val mutedUntil: Long = 0,
     val markedUnread: Boolean = false,

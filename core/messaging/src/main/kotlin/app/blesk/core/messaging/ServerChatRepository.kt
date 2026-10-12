@@ -19,6 +19,8 @@ import app.blesk.core.data.db.ContactEntity
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.MessageEntity
 import app.blesk.core.data.db.OutboxEntity
+import app.blesk.core.data.db.PIN_SEPARATOR
+import app.blesk.core.data.db.pinnedIds
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.Attachment
@@ -382,8 +384,12 @@ class ServerChatRepository(
         if (!keepArchived()) db.conversations().returnFromArchive(conversationId, clock())
     }
 
-    override fun pinMessage(conversationId: String, messageId: String?) {
-        scope.launch { db.conversations().pinMessage(conversationId, messageId) }
+    override fun pinMessage(conversationId: String, messageId: String, pinned: Boolean) {
+        scope.launch {
+            val current = db.conversations().get(conversationId)?.pinnedIds().orEmpty()
+            val next = if (pinned) (current - messageId) + messageId else current - messageId
+            db.conversations().pinMessage(conversationId, next.joinToString(PIN_SEPARATOR).ifEmpty { null })
+        }
     }
 
     override fun setTimer(conversationId: String, seconds: Int) {

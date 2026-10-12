@@ -246,7 +246,10 @@ class DemoRepository(
 
     override fun markUnread(conversationId: String, unread: Boolean) = change(conversationId) { it.copy(markedUnread = unread) }
 
-    override fun pinMessage(conversationId: String, messageId: String?) = change(conversationId) { it.copy(pinnedMessageId = messageId) }
+    override fun pinMessage(conversationId: String, messageId: String, pinned: Boolean) = change(conversationId) {
+        val rest = it.pinnedMessageIds - messageId
+        it.copy(pinnedMessageIds = (if (pinned) rest + messageId else rest).toImmutableList())
+    }
 
     override fun setTimer(conversationId: String, seconds: Int) = change(conversationId) { it.copy(timerSeconds = seconds) }
 

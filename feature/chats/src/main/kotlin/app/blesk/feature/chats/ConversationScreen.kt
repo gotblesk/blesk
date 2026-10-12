@@ -2,7 +2,6 @@ package app.blesk.feature.chats
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,11 +13,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -48,9 +49,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -75,6 +78,7 @@ import app.blesk.core.design.component.rememberCopy
 import app.blesk.core.design.glass.BottomLens
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.TopLens
+import app.blesk.core.design.glass.lens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
@@ -93,6 +97,7 @@ import app.blesk.shared.appearance.ThemeSpec
 import app.blesk.shared.protocol.BotCommand
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.time.ZoneId
@@ -120,8 +125,8 @@ class ConversationCallbacks(
     val onDraft: (String) -> Unit = {},
     /** Opens the chat picker to forward a message; null where forwarding is not offered. */
     val onForward: ((messageIds: List<String>) -> Unit)? = null,
-    /** Pins a message above the chat, or unpins with null. */
-    val onPin: ((messageId: String?) -> Unit)? = null,
+    /** Pins a message above the chat, or unpins it. */
+    val onPin: ((messageId: String, pinned: Boolean) -> Unit)? = null,
     /** A press on an inline button under a bot message. */
     val onButton: (messageId: String, button: BotButton) -> Unit = { _, _ -> },
     /** Tries the server again right away. */
@@ -209,9 +214,9 @@ fun ConversationScreen(
             last == null || last.index >= info.totalItemsCount - 2
         }
     }
-    val pinned = conversation.pinnedMessageId?.let(byId::get)
-    // The protection note, and possibly the pinned banner and key warning, come before the feed.
-    val leading = 1 + (if (pinned != null) 1 else 0) + (if (keyChanged) 1 else 0)
+    val pinned = conversation.pinnedMessageIds.mapNotNull(byId::get)
+    // The protection note, and possibly the key warning, come before the feed.
+    val leading = 1 + (if (keyChanged) 1 else 0)
     // The way down is offered once the newest message is more than a screen away.
     val farFromEnd by remember {
         derivedStateOf {
@@ -223,6 +228,7 @@ fun ConversationScreen(
     var seen by remember(conversation.id) { mutableIntStateOf(messages.size) }
     var opened by remember(conversation.id) { mutableStateOf(false) }
     var flashId by remember(conversation.id) { mutableStateOf<String?>(null) }
+    val pinScope = rememberCoroutineScope()
     LaunchedEffect(messages.size, typing) {
         // Counted from the data, not the layout: on the first frame the list is not measured yet.
         val total = leading + feed.size + if (typing) 1 else 0
@@ -315,6 +321,20 @@ fun ConversationScreen(
                                 callbacks.onCall, demo,
                             )
                             ConnectionStatus(connection, callbacks.onReconnect)
+                            if (pinned.isNotEmpty()) {
+                                PinnedCapsule(
+                                    pinned = pinned.toImmutableList(),
+                                    onShow = { message ->
+                                        val index = feed.indexOfFirst { it is FeedEntry.Run && it.messages.any { m -> m.id == message.id } }
+                                        if (index >= 0) {
+                                            pinScope.launch { listState.animateScrollToItem(index + leading) }
+                                            flashId = null
+                                            flashId = message.id
+                                        }
+                                    },
+                                    onUnpin = callbacks.onPin?.let { pin -> { message -> pin(message.id, false) } },
+                                )
+                            }
                         }
                     }
                 },
@@ -394,9 +414,6 @@ fun ConversationScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         item(key = "note") { ProtectionNote(conversation.protection) }
-                        pinned?.let { message ->
-                            item(key = "pinned") { PinnedBanner(message, onUnpin = callbacks.onPin?.let { unpin -> { unpin(null) } }) }
-                        }
                         if (keyChanged) item(key = "key") { KeyWarning(callbacks.onOpenInfo) }
                         if (messages.isEmpty()) {
                             item(key = "empty") {
@@ -491,8 +508,8 @@ fun ConversationScreen(
                     onForward = callbacks.onForward?.let { forward -> { forward(listOf(message.id)) } },
                     onSelect = { selection = setOf(message.id) },
                     onRetry = if (message.isOwn && message.status == SendStatus.Failed) ({ callbacks.onRetry(message.id) }) else null,
-                    onPin = callbacks.onPin?.let { pin -> { pin(if (conversation.pinnedMessageId == message.id) null else message.id) } },
-                    pinned = conversation.pinnedMessageId == message.id,
+                    onPin = callbacks.onPin?.let { pin -> { pin(message.id, message.id !in conversation.pinnedMessageIds) } },
+                    pinned = message.id in conversation.pinnedMessageIds,
                     onReact = if (reactions) ({ symbol -> actions.onReact(message, symbol) }) else null,
                 )
             }
@@ -659,25 +676,48 @@ private fun TypingDots() {
     )
 }
 
+/**
+ * Pinned messages: a small capsule hanging from the top lens. A press goes to the message shown
+ * and turns the capsule to the one pinned before it; with several, it shows which one it is.
+ */
 @Composable
-private fun PinnedBanner(message: Message, onUnpin: (() -> Unit)?) {
+private fun PinnedCapsule(pinned: ImmutableList<Message>, onShow: (Message) -> Unit, onUnpin: ((Message) -> Unit)?) {
+    var shown by remember { mutableIntStateOf(pinned.lastIndex) }
+    val index = shown.coerceIn(0, pinned.lastIndex)
+    val message = pinned[index]
+    val haptics = rememberHaptics()
+    val number = stringResource(R.string.chat_pinned_number, index + 1, pinned.size)
+    val unpinLabel = stringResource(R.string.chat_unpin)
+    val title = stringResource(R.string.chat_pinned)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
-            .background(Blesk.colors.surface)
-            .padding(start = 14.dp, top = 4.dp, bottom = 4.dp),
+            // Tucked a little under the lens, so it reads as hanging from it rather than lying below.
+            .padding(horizontal = 40.dp)
+            .offset(y = (-4).dp)
+            .lens(CircleShape, elevation = 8.dp)
+            .clickable(role = Role.Button, onClickLabel = title) {
+                haptics.tick()
+                onShow(message)
+                shown = if (index == 0) pinned.lastIndex else index - 1
+            }
+            .semantics {
+                if (onUnpin != null) customActions = listOf(CustomAccessibilityAction(unpinLabel) { onUnpin(message); true })
+            }
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Icon(BleskIcons.Pin, contentDescription = stringResource(R.string.chat_pinned), size = 18.dp, tint = Blesk.colors.textSecondary)
+        Icon(BleskIcons.Pin, contentDescription = title, size = 16.dp, tint = Blesk.colors.textSecondary)
         Text(
-            text = message.text.ifEmpty { stringResource(R.string.chat_pinned) },
+            text = message.text.ifEmpty { title },
             style = Blesk.type.label,
-            maxLines = 2,
-            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
         )
-        if (onUnpin != null) IconButton(BleskIcons.Close, stringResource(R.string.chat_unpin), onUnpin)
+        if (pinned.size > 1) {
+            Text(text = number, style = Blesk.type.caption, color = Blesk.colors.textSecondary, maxLines = 1)
+        }
     }
 }
 

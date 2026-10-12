@@ -108,7 +108,7 @@ interface ChatTools {
     fun reorderPinned(ids: List<String>) = Unit
 
     /** One pinned message per chat, shown above the messages; null unpins. Kept on this phone. */
-    fun pinMessage(conversationId: String, messageId: String?) = Unit
+    fun pinMessage(conversationId: String, messageId: String, pinned: Boolean) = Unit
 
     /** Disappearing messages for everyone in the chat; 0 turns them off. */
     fun setTimer(conversationId: String, seconds: Int) = Unit

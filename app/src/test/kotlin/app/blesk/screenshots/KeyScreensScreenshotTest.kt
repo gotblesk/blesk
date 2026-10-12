@@ -250,6 +250,7 @@ class KeyScreensScreenshotTest(private val name: String) {
     @Test
     fun direct() = capture("02b_conversation_direct") {
         val conversation = seed.conversations.first { it.id == DemoSeed.ANYA }
+            .copy(pinnedMessageIds = persistentListOf("${DemoSeed.ANYA}-1", "${DemoSeed.ANYA}-2"))
         val messages = seed.messages.filter { it.conversationId == conversation.id || it.conversationId == DemoSeed.SAVED }.map { message ->
             if (message.id == "${DemoSeed.ANYA}-2") {
                 message.copy(

@@ -3,6 +3,7 @@ package app.blesk.core.messaging
 import app.blesk.core.data.db.ContactEntity
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.MessageEntity
+import app.blesk.core.data.db.pinnedIds
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.BotButton
 import app.blesk.core.data.model.Contact
@@ -94,7 +95,7 @@ internal fun ConversationEntity.toModel(state: GroupState? = null) = Conversatio
     parentId = parentId,
     draft = draft,
     timerSeconds = timerSeconds,
-    pinnedMessageId = pinnedMessageId,
+    pinnedMessageIds = pinnedIds().toImmutableList(),
     archived = archived,
     mutedUntil = mutedUntil,
     markedUnread = markedUnread,

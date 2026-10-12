@@ -25,6 +25,7 @@ data class ConversationEntity(
     val parentId: String? = null,
     val draft: String = "",
     val timerSeconds: Int = 0,
+    /** Pinned message ids, oldest first, joined by [PIN_SEPARATOR]; the column predates several pins. */
     val pinnedMessageId: String? = null,
     val archived: Boolean = false,
     /** Epoch millis until which the chat is silent; [Long.MAX_VALUE] is forever, 0 is not muted. */
@@ -112,3 +113,8 @@ data class SignalStateEntity(
 
     override fun hashCode() = (kind.hashCode() * 31 + name.hashCode()) * 31 + record.contentHashCode()
 }
+
+/** Message ids are UUIDs or server ids, neither of which contains a comma. */
+const val PIN_SEPARATOR = ","
+
+fun ConversationEntity.pinnedIds(): List<String> = pinnedMessageId?.split(PIN_SEPARATOR)?.filter { it.isNotEmpty() }.orEmpty()

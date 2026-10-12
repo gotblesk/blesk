@@ -192,7 +192,7 @@ internal fun ConversationRoute(
             onCall = if (direct) onCall else null,
             onDraft = { text -> demo.saveDraft(id, text) },
             onForward = onForward,
-            onPin = { messageId -> demo.pinMessage(id, messageId) },
+            onPin = { messageId, pinned -> demo.pinMessage(id, messageId, pinned) },
             onButton = { messageId, button ->
                 val link = button.url
                 val data = button.data
