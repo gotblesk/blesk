@@ -60,6 +60,7 @@ interface ConversationDao {
 }
 
 @Dao
+@Suppress("TooManyFunctions")
 interface MessageDao {
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY sentAt ASC")
     fun observe(conversationId: String): Flow<List<MessageEntity>>
@@ -94,6 +95,10 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE conversationId = :conversationId")
     suspend fun deleteConversation(conversationId: String)
+
+    /** Every message of a chat, so its files can be removed before the rows. */
+    @Query("SELECT * FROM messages WHERE conversationId = :conversationId AND attachment IS NOT NULL")
+    suspend fun withFilesIn(conversationId: String): List<MessageEntity>
 
     /** Full-text search; [match] is an FTS query such as `"свет"*`. Case and Cyrillic are handled by unicode61. */
     @Query(

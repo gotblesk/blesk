@@ -227,6 +227,11 @@ class DemoRepository(
 
     override fun setArchived(conversationId: String, archived: Boolean) = change(conversationId) { it.copy(archived = archived) }
 
+    override fun deleteChat(conversationId: String) {
+        all.update { list -> list.filterNot { it.id == conversationId } }
+        messages.update { it - conversationId }
+    }
+
     override fun mute(conversationId: String, untilMillis: Long) = change(conversationId) { it.copy(mutedUntil = untilMillis) }
 
     override fun markUnread(conversationId: String, unread: Boolean) = change(conversationId) { it.copy(markedUnread = unread) }

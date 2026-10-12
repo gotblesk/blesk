@@ -15,8 +15,9 @@ import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.design.component.rememberNotify
-import app.blesk.feature.chats.ChatInfoScreen
 import app.blesk.feature.chats.ForwardScreen
+import app.blesk.feature.chats.PersonActions
+import app.blesk.feature.chats.PersonProfileScreen
 import app.blesk.feature.chats.R
 import app.blesk.shared.appearance.Appearance
 import kotlinx.collections.immutable.toImmutableList
@@ -24,7 +25,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun ChatInfoRoute(container: AppContainer, id: String, onVerify: () -> Unit, onBack: () -> Unit) {
+internal fun ChatInfoRoute(
+    container: AppContainer,
+    id: String,
+    onVerify: () -> Unit,
+    onOpenMedia: (messageId: String) -> Unit,
+    onCall: ((video: Boolean) -> Unit)?,
+    onChatDeleted: () -> Unit,
+    onBack: () -> Unit,
+) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val conversation by remember(id) { chats.conversation(id) }.collectAsStateWithLifecycle(initialValue = null)
     val keys = chats as? KeyVerification
@@ -37,14 +46,32 @@ internal fun ChatInfoRoute(container: AppContainer, id: String, onVerify: () -> 
     val caption = stringResource(app.blesk.R.string.chat_theme_caption)
     val current = conversation ?: return
     val override = chatThemes[id]
-    ChatInfoScreen(
-        onTheme = { themeSheet = true },
+    val messages by remember(id) { chats.messages(id) }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val context = LocalContext.current
+    val deleted = stringResource(app.blesk.feature.chats.R.string.person_chat_deleted)
+    PersonProfileScreen(
         conversation = current,
         username = chats.contact(id)?.username ?: id,
         verified = keyState.verified,
-        onVerify = if (keys != null) onVerify else null,
-        onTimer = { chats.setTimer(id, it) },
-        onPin = { chats.setChatPinned(id, it) },
+        muted = current.muted(System.currentTimeMillis()),
+        messages = messages.toImmutableList(),
+        actions = PersonActions(
+            onWrite = onBack,
+            onCall = onCall,
+            onMute = { mute -> chats.mute(id, if (mute) Long.MAX_VALUE else 0L) },
+            onPin = { chats.setChatPinned(id, it) },
+            onTimer = { chats.setTimer(id, it) },
+            onVerify = if (keys != null) onVerify else null,
+            onTheme = { themeSheet = true },
+            onDeleteChat = {
+                container.notices.undoable(deleted, hidden = listOf(id)) { chats.deleteChat(id) }
+                onChatDeleted()
+            },
+            onOpenMedia = onOpenMedia,
+            onOpenFile = { file -> openFile(context, file) },
+            onOpenLink = { link -> openLink(context, link) },
+            onPlayVoice = { path -> container.audioPlayer.toggle(path) },
+        ),
         onBack = onBack,
     )
     if (themeSheet) {

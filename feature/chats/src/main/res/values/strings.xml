@@ -290,4 +290,24 @@
         <item quantity="other">Удалено %1$d сообщения</item>
     </plurals>
     <string name="group_left">Выход из группы</string>
+    <string name="person_write">Написать</string>
+    <string name="person_call">Позвонить</string>
+    <string name="person_video">Видео</string>
+    <string name="person_mute">Без звука</string>
+    <string name="person_unmute">Со звуком</string>
+    <string name="person_more">Ещё</string>
+    <string name="person_keys_verified">Ключи сверены</string>
+    <string name="person_keys_verified_hint">Между вами никого нет</string>
+    <string name="person_keys_check">Сверить ключи</string>
+    <string name="person_keys_check_hint">По QR-коду или номеру безопасности</string>
+    <string name="person_tab_media">Медиа</string>
+    <string name="person_tab_files">Файлы</string>
+    <string name="person_tab_links">Ссылки</string>
+    <string name="person_tab_voice">Голосовые</string>
+    <string name="person_nothing_yet">Здесь пока ничего нет</string>
+    <string name="person_open_media">Открыть</string>
+    <string name="person_delete_chat">Удалить чат</string>
+    <string name="person_chat_deleted">Чат удалён</string>
+    <string name="person_size_mb">%1$.1f МБ</string>
+    <string name="person_size_kb">%1$d КБ</string>
 </resources>

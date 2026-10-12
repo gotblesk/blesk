@@ -324,6 +324,14 @@ class ServerChatRepository(
         scope.launch { db.conversations().setArchived(conversationId, archived) }
     }
 
+    override fun deleteChat(conversationId: String) {
+        scope.launch {
+            db.messages().withFilesIn(conversationId).forEach { media.forget(decodeAttachment(it.attachment)) }
+            db.messages().deleteConversation(conversationId)
+            db.conversations().deleteWithChildren(conversationId)
+        }
+    }
+
     override fun mute(conversationId: String, untilMillis: Long) {
         scope.launch { db.conversations().setMuted(conversationId, untilMillis) }
     }

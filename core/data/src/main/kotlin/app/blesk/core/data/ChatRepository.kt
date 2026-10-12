@@ -95,6 +95,9 @@ interface ChatTools {
     /** Shows the chat as unread again, or clears that mark. */
     fun markUnread(conversationId: String, unread: Boolean) = Unit
 
+    /** Removes a one-to-one chat and its messages from this phone only. */
+    fun deleteChat(conversationId: String) = Unit
+
     /** Pinned chats stay on top of the list. */
     fun setChatPinned(conversationId: String, pinned: Boolean) = Unit
 

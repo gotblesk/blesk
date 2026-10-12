@@ -38,6 +38,7 @@ import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
@@ -53,7 +54,6 @@ import app.blesk.feature.chats.ConnectionStatus
 import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
-import app.blesk.feature.settings.youHeaderHeight
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
@@ -94,7 +94,7 @@ internal fun Home(
             Avatar(me?.name?.ifBlank { "?" } ?: "?", size = 24.dp, photo = photo, key = me?.username?.ifBlank { me.name } ?: "")
         },
     )
-    val youCollapseAt = with(LocalDensity.current) { (youHeaderHeight() - YouLensReach).toPx() }
+    val youCollapseAt = with(LocalDensity.current) { (profileHeaderHeight() - YouLensReach).toPx() }
     val headerPhoto = rememberHeaderPhoto(container, profile?.headerVersion ?: 0L)
     val chatsList = rememberLazyListState()
     val roomsList = rememberLazyListState()

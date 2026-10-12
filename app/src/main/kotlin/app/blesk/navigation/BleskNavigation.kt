@@ -316,7 +316,15 @@ fun BleskNavigation(container: AppContainer) {
                     entry<BotsKey> { BotsRoute(container, back) }
                     entry<SafetyKey> { key -> SafetyRoute(container, key.username, back) }
                     entry<ChatInfoKey> { key ->
-                        ChatInfoRoute(container, key.id, onVerify = { backStack.add(SafetyKey(key.id)) }, onBack = back)
+                        ChatInfoRoute(
+                            container = container,
+                            id = key.id,
+                            onVerify = { backStack.add(SafetyKey(key.id)) },
+                            onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
+                            onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
+                            onChatDeleted = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                            onBack = back,
+                        )
                     }
                     entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageIds, onDone = back, onBack = back) }
                     entry<NotificationsKey> { NotificationsRoute(container, back) }

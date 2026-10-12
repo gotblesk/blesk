@@ -42,7 +42,6 @@ import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
-import app.blesk.feature.chats.ChatInfoScreen
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ConnectionStatus
 import app.blesk.feature.chats.ConversationCallbacks
@@ -50,6 +49,8 @@ import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.ForwardScreen
 import app.blesk.feature.chats.NewChatActions
 import app.blesk.feature.chats.NewChatScreen
+import app.blesk.feature.chats.PersonActions
+import app.blesk.feature.chats.PersonProfileScreen
 import app.blesk.feature.chats.SearchHit
 import app.blesk.feature.chats.SearchResults
 import app.blesk.feature.chats.VoiceChannelScreen
@@ -525,13 +526,16 @@ class KeyScreensScreenshotTest(private val name: String) {
     @Test
     fun chatInfo() = capture("26_chat_info") {
         val anya = seed.conversations.first { it.id == DemoSeed.ANYA }.copy(timerSeconds = 86_400, pinned = true)
-        ChatInfoScreen(
+        PersonProfileScreen(
             conversation = anya,
             username = "anya",
             verified = true,
-            onVerify = {},
-            onTimer = {},
-            onPin = {},
+            muted = false,
+            messages = seed.messages.filter { it.conversationId == DemoSeed.ANYA }.toImmutableList(),
+            actions = PersonActions(
+                onWrite = {}, onCall = {}, onMute = {}, onPin = {}, onTimer = {}, onVerify = {}, onTheme = {},
+                onDeleteChat = {}, onOpenMedia = {}, onOpenFile = {}, onOpenLink = {}, onPlayVoice = {},
+            ),
             onBack = {},
         )
     }
