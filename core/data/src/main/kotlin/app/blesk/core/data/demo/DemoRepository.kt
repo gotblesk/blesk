@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -71,14 +72,19 @@ class DemoRepository(
 
     override val blocked: Flow<List<Contact>> = blockedIds.map { blocked -> people.filter { it.id in blocked } }
 
+    override fun accept(username: String) {
+        val id = people.firstOrNull { it.username == username }?.id ?: username
+        change(id) { it.copy(request = false) }
+    }
+
     override fun setBlocked(username: String, blocked: Boolean) {
         val id = people.firstOrNull { it.username == username }?.id ?: username
         blockedIds.update { if (blocked) it + id else it - id }
     }
 
     /** Empty direct chats stay hidden until something is written. */
-    override val conversations: Flow<List<Conversation>> = all.map { list ->
-        list.filter { it.parentId == null && (it.kind != ConversationKind.Direct || it.preview != null) }
+    override val conversations: Flow<List<Conversation>> = combine(all, blockedIds) { list, blocked ->
+        list.filter { it.parentId == null && (it.kind != ConversationKind.Direct || it.preview != null) && it.id !in blocked }
     }
 
     override val typing: StateFlow<Set<String>> = typingState.asStateFlow()

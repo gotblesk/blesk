@@ -156,13 +156,28 @@ class ServerChatRepository(
     override val typing: StateFlow<Set<String>> = typingState.asStateFlow()
 
     override val conversations: Flow<List<Conversation>> =
-        combine(db.conversations().observeAll(), db.groups().observeAll(), spaces.spaces) { list, groupRows, spaceInfo ->
+        combine(
+            db.conversations().observeAll(),
+            db.groups().observeAll(),
+            spaces.spaces,
+            db.contacts().observeAll(),
+        ) { list, groupRows, spaceInfo, people ->
             val states = groupRows.associate { it.id to storageJson.decodeFromString(GroupState.serializer(), it.state) }
-            list.filter { it.previewText != null && it.parentId == null }.map { row ->
+            val byName = people.associateBy { it.username }
+            list.filter { it.previewText != null && it.parentId == null && byName[it.peer]?.blocked != true }.map { row ->
                 val space = spaces.handleOf(row.id)?.let(spaceInfo::get)
-                if (space != null) row.toModel(space) else row.toModel(states[row.id], me)
+                val model = if (space != null) row.toModel(space) else row.toModel(states[row.id], me)
+                val stranger = row.peer != null && byName[row.peer]?.added == false
+                if (stranger) model.copy(request = true) else model
             }
         }
+
+    override fun accept(username: String) {
+        scope.launch { db.contacts().markAdded(username) }
+    }
+
+    /** A stranger whose request you have not accepted: they get no receipts and no typing from you. */
+    private suspend fun isRequest(username: String): Boolean = db.contacts().get(username)?.added == false
 
     override val contacts: Flow<List<Contact>> =
         db.contacts().observeAll().map { list -> list.filter { it.added && !it.blocked }.map { it.toModel() } }
@@ -513,7 +528,7 @@ class ServerChatRepository(
             if (ids.isEmpty()) return@launch
             db.messages().markIncomingRead(ids)
             val direct = groups.groupOf(conversationId) == null && !isSpace(conversationId) && !bots.isBot(conversationId)
-            if (privacy().readReceipts && direct) {
+            if (privacy().readReceipts && direct && !isRequest(conversationId)) {
                 enqueue(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Receipt(ReceiptKind.Read, ids)))
             }
         }
@@ -522,7 +537,7 @@ class ServerChatRepository(
     override fun setTyping(conversationId: String, active: Boolean) {
         if (!privacy().typingIndicator) return
         scope.launch {
-            if (groups.groupOf(conversationId) != null) return@launch
+            if (groups.groupOf(conversationId) != null || isRequest(conversationId)) return@launch
             sendEphemeral(conversationId, Body.Typing(active))
         }
     }
@@ -1004,7 +1019,9 @@ class ServerChatRepository(
         showTyping(sender, false)
         val known = db.messages().get(content.id) != null
         storeIncoming(sender, sender, content, body, author = null)
-        if (!known) enqueue(sender, Content(UUID.randomUUID().toString(), clock(), Body.Receipt(ReceiptKind.Delivered, listOf(content.id))))
+        if (!known && !isRequest(sender)) {
+            enqueue(sender, Content(UUID.randomUUID().toString(), clock(), Body.Receipt(ReceiptKind.Delivered, listOf(content.id))))
+        }
     }
 
     private fun showTyping(sender: String, active: Boolean) {

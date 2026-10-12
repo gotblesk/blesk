@@ -174,6 +174,9 @@ data object LicensesKey : NavKey
 data object BlockedKey : NavKey
 
 @Serializable
+data object RequestsKey : NavKey
+
+@Serializable
 data class LicenseKey(val license: License) : NavKey
 
 @Composable
@@ -233,6 +236,7 @@ fun BleskNavigation(container: AppContainer) {
                                 onNewChat = { backStack.add(NewChatKey) },
                                 onAddRoom = { backStack.add(RoomsAddKey) },
                                 onOpenArchive = { backStack.add(ArchiveKey) },
+                                onOpenRequests = { backStack.add(RequestsKey) },
                                 onAddContact = { backStack.add(NewChatKey) },
                                 contactActions = ContactActions(
                                     onOpen = { contact -> openDirect(contact.username) { backStack.add(ChatInfoKey(it)) } },
@@ -315,6 +319,9 @@ fun BleskNavigation(container: AppContainer) {
                         }
                         entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
                         entry<BlockedKey> { BlockedRoute(container, back) }
+                        entry<RequestsKey> {
+                            RequestsRoute(container, onOpenConversation = { backStack.add(ConversationKey(it)) }, onBack = back)
+                        }
                         entry<PinDisableKey> { PinDisableRoute(container, back) }
                         entry<WipeKey> { key ->
                             val context = LocalContext.current

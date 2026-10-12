@@ -69,6 +69,13 @@
     <string name="chat_online">в сети</string>
     <string name="chat_recently">недавно в сети</string>
     <string name="chat_online_spoken">в сети</string>
+    <string name="requests_title">Запросы</string>
+    <string name="requests_hint">Эти люди написали тебе первыми. Пока ты не примешь запрос, они не видят отметок о прочтении и того, что ты печатаешь.</string>
+    <string name="requests_empty">Новых запросов нет</string>
+    <string name="requests_accept">Принять</string>
+    <string name="requests_delete">Удалить</string>
+    <string name="requests_all">Все запросы списком</string>
+    <string name="requests_as_stack">Стопкой карточек</string>
     <string name="chat_glint">Блик</string>
     <string name="chat_reaction">реакция %1$s: %2$d</string>
     <string name="chat_react">Поставить %1$s</string>
@@ -363,4 +370,10 @@
     <string name="chat_not_e2ee_spoken">без сквозного шифрования</string>
     <string name="chat_saved_status">заметки для себя</string>
     <string name="chat_open_profile">Открыть профиль</string>
+    <plurals name="requests_count">
+        <item quantity="one">%1$d человек ждёт ответа</item>
+        <item quantity="few">%1$d человека ждут ответа</item>
+        <item quantity="many">%1$d человек ждут ответа</item>
+        <item quantity="other">%1$d человека ждут ответа</item>
+    </plurals>
 </resources>

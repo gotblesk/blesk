@@ -96,6 +96,7 @@ internal fun Home(
     onAddRoom: () -> Unit,
     onOpenChannel: (Conversation, RoomChannel) -> Unit,
     onOpenArchive: () -> Unit,
+    onOpenRequests: () -> Unit,
     contactActions: ContactActions,
     onAddContact: () -> Unit,
     settings: SettingsActions,
@@ -242,10 +243,11 @@ internal fun Home(
                     val hidden = container.notices.hidden
                     val list = conversations.filter { it.kind != ConversationKind.Room && !it.archived && it.id !in hidden }
                     val archived = conversations.count { it.archived }
-                    val friends = list.filter { it.kind != ConversationKind.Saved }
+                    val friends = list.filter { it.kind != ConversationKind.Saved && !it.request }
                     // Once the newcomer screen has shown, it stays until the first friend has flown in and stuck.
                     val welcoming = rememberSaveable { mutableStateOf(false) }
-                    val alone = friends.isEmpty() && archived == 0 && !demo
+                    val requests = list.filter { it.request }
+                    val alone = friends.isEmpty() && requests.isEmpty() && archived == 0 && !demo
                     if (alone && !welcoming.value) welcoming.value = true
                     val me = profile
                     if (welcoming.value && me != null) {
@@ -268,7 +270,9 @@ internal fun Home(
                     val markHint: (GestureHint) -> Unit = { hint -> scope.launch { container.settings.markHint(hint) } }
                     Box(Modifier.fillMaxSize()) {
                         ChatList(
-                            conversations = list.toImmutableList(),
+                            conversations = list.filterNot { it.request }.toImmutableList(),
+                            requests = requests.toImmutableList(),
+                            onOpenRequests = onOpenRequests,
                             typing = typing.toImmutableSet(),
                             now = remember(conversations) { Instant.now() },
                             contentPadding = padding,

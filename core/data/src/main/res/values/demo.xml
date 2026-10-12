@@ -3,6 +3,7 @@
 <resources>
     <string name="demo_name_anya">Аня Соколова</string>
     <string name="demo_name_misha">Миша Ковалёв</string>
+    <string name="demo_name_stranger">Олег</string>
     <string name="demo_name_lera">Лера</string>
     <string name="demo_name_dima">Дима Орлов</string>
     <string name="demo_name_katya">Катя</string>
@@ -24,6 +25,9 @@
         <item>anya|Давай в четыре у моста</item>
     </string-array>
 
+    <string-array name="demo_chat_stranger">
+        <item>oleg|Привет! Нашёл тебя по имени. Можно спросить про твой макет для выставки?</item>
+    </string-array>
     <string-array name="demo_chat_misha">
         <item>misha|Скинул тебе файлы по проекту</item>
         <item>me|Вижу, спасибо. Вечером посмотрю</item>

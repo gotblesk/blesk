@@ -107,6 +107,9 @@ interface PeopleControls {
     /** The app came to the front or went away; online status follows it. */
     fun setForeground(foreground: Boolean) = Unit
 
+    /** Accepts a message request: the person becomes a contact and sees read receipts and typing again. */
+    fun accept(username: String) = Unit
+
     /** Deletes your account on the server; false if the server could not be reached. True in the demo, where there is none. */
     suspend fun deleteAccount(): Boolean = true
 }

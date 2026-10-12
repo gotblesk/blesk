@@ -32,6 +32,7 @@ class DemoSeed(
     companion object {
         const val ANYA = "anya"
         const val MISHA = "misha"
+        const val STRANGER = "oleg"
         const val GROUP = "group"
         const val ROOM = "room"
         const val CHANNEL = "channel"
@@ -50,6 +51,7 @@ class DemoSeed(
                 Contact("katya", resources.getString(R.string.demo_name_katya), "katya"),
                 Contact(BOT, resources.getString(R.string.demo_name_bot), "echo_bot"),
                 Contact(CHANNEL, resources.getString(R.string.demo_title_channel), "blesk"),
+                Contact(STRANGER, resources.getString(R.string.demo_name_stranger), "oleg_design"),
             )
             val byId = contacts.associateBy { it.id }
 
@@ -60,6 +62,7 @@ class DemoSeed(
                 Thread(GROUP, R.array.demo_chat_group, 26),
                 Thread(ROOM_GENERAL, R.array.demo_chat_room, 70),
                 Thread(MISHA, R.array.demo_chat_misha, 180),
+                Thread(STRANGER, R.array.demo_chat_stranger, 40),
                 Thread(CHANNEL, R.array.demo_chat_channel, 60 * 26),
                 Thread(BOT, R.array.demo_chat_bot, 60 * 50),
                 Thread(SAVED, R.array.demo_chat_saved, 60 * 6),
@@ -136,6 +139,8 @@ class DemoSeed(
                 ),
                 Conversation(MISHA, ConversationKind.Direct, byId.getValue(MISHA).name, Protection.EndToEnd,
                     preview(MISHA, false), updated(MISHA)),
+                Conversation(STRANGER, ConversationKind.Direct, byId.getValue(STRANGER).name, Protection.EndToEnd,
+                    preview(STRANGER, false), updated(STRANGER), unread = 1, request = true),
                 Conversation(CHANNEL, ConversationKind.Channel, resources.getString(R.string.demo_title_channel), Protection.Open,
                     preview(CHANNEL, false), updated(CHANNEL), memberCount = 1280),
                 Conversation(BOT, ConversationKind.Bot, byId.getValue(BOT).name, Protection.Open,

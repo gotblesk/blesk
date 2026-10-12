@@ -54,6 +54,8 @@ data class Conversation(
     val archived: Boolean = false,
     val mutedUntil: Long = 0,
     val markedUnread: Boolean = false,
+    /** Someone you do not know wrote first: it waits in «Запросы» until you accept, delete or block. */
+    val request: Boolean = false,
 ) {
     fun muted(now: Long): Boolean = mutedUntil > now
 }

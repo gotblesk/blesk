@@ -62,6 +62,8 @@ import app.blesk.feature.chats.Newcomer
 import app.blesk.feature.chats.NewcomerChats
 import app.blesk.feature.chats.PersonActions
 import app.blesk.feature.chats.PersonProfileScreen
+import app.blesk.feature.chats.RequestActions
+import app.blesk.feature.chats.RequestsScreen
 import app.blesk.feature.chats.SearchHit
 import app.blesk.feature.chats.SearchResults
 import app.blesk.feature.chats.VoiceChannelScreen
@@ -185,9 +187,10 @@ class KeyScreensScreenshotTest(private val name: String) {
     fun chatList() = capture("01_chats") {
         HomeFrame("Чаты", 0) { padding ->
             ChatList(
-                conversations = seed.conversations.filter { it.parentId == null && it.kind != ConversationKind.Room }
+                conversations = seed.conversations.filter { it.parentId == null && it.kind != ConversationKind.Room && !it.request }
                     .mapIndexed { i, c -> if (i < 2) c.copy(pinned = true) else c }
                     .toImmutableList(),
+                requests = seed.conversations.filter { it.request }.toImmutableList(),
                 typing = persistentSetOf(DemoSeed.MISHA),
                 now = now,
                 contentPadding = padding,
@@ -337,6 +340,15 @@ class KeyScreensScreenshotTest(private val name: String) {
             }
             InAppNotice(InAppNote(DemoSeed.ANYA, "Аня Соколова", "Ты где? Мы уже у моста"), onOpen = {}, onDismiss = {})
         }
+    }
+
+    @Test
+    fun requests() = capture("01f_requests") {
+        RequestsScreen(
+            requests = seed.conversations.filter { it.request }.toImmutableList(),
+            actions = RequestActions({}, {}, {}, {}),
+            onBack = {},
+        )
     }
 
     @Test

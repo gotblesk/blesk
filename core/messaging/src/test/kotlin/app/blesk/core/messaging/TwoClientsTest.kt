@@ -154,6 +154,8 @@ class TwoClientsTest {
         bob.repo.start()
 
         assertEquals("bob", runBlocking { alice.repo.openDirect("bob") })
+        // They know each other: a stranger's message would wait as a request, without receipts.
+        runBlocking { bob.repo.openDirect("alice") }
         alice.repo.send("bob", "привет")
 
         val received = eventually { bob.messages("alice").firstOrNull() }

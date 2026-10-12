@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ToggleRow
@@ -23,6 +24,8 @@ import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.chats.R
+import app.blesk.feature.chats.RequestActions
+import app.blesk.feature.chats.RequestsScreen
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.launch
@@ -91,4 +94,42 @@ private fun ArchiveOptions(keepArchived: Boolean, onKeepArchived: (Boolean) -> U
             icon = BleskIcons.ArrowDown,
         )
     }
+}
+
+@Composable
+internal fun RequestsRoute(container: AppContainer, onOpenConversation: (String) -> Unit, onBack: () -> Unit) {
+    val chats = container.chats.collectAsStateWithLifecycle().value ?: return
+    val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
+    val requests = conversations.filter { it.request && it.id !in container.notices.hidden }
+    RequestsScreen(
+        requests = requests.toImmutableList(),
+        actions = requestActions(container, chats, onAccepted = onOpenConversation),
+        onBack = onBack,
+    )
+}
+
+/** Accepting opens the chat; deleting can be taken back for a few seconds; blocking is silent. */
+@Composable
+internal fun requestActions(
+    container: AppContainer,
+    chats: ChatRepository,
+    onAccepted: (String) -> Unit = {},
+    onDone: () -> Unit = {},
+): RequestActions {
+    val deleted = stringResource(R.string.person_chat_deleted)
+    return RequestActions(
+        onAccept = { request ->
+            chats.accept(chats.contact(request.id)?.username ?: request.id)
+            onAccepted(request.id)
+        },
+        onDelete = { request ->
+            container.notices.undoable(deleted, hidden = listOf(request.id)) { chats.deleteChat(request.id) }
+            onDone()
+        },
+        onBlock = { request ->
+            chats.setBlocked(chats.contact(request.id)?.username ?: request.id, true)
+            onDone()
+        },
+        onOpen = { onAccepted(it.id) },
+    )
 }

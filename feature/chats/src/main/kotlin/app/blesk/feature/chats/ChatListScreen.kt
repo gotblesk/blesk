@@ -96,6 +96,7 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
@@ -129,6 +130,9 @@ fun ChatList(
     /** Swipe right: read, or back to unread. */
     onSwipeRead: ((Conversation) -> Unit)? = null,
     archivedCount: Int = 0,
+    /** Strangers who wrote first; they gather in one «Запросы» row above the chats. */
+    requests: ImmutableList<Conversation> = persistentListOf(),
+    onOpenRequests: () -> Unit = {},
     /** Direct chats whose person is online right now; they get the dot of light. */
     online: ImmutableSet<String> = persistentSetOf(),
     onOpenArchive: (() -> Unit)? = null,
@@ -184,6 +188,9 @@ fun ChatList(
                         ) { ArchiveRow(archivedCount, onOpenArchive, Modifier) }
                     }
                 }
+            }
+            if (requests.isNotEmpty()) {
+                item(key = "requests") { RequestsRow(requests, onOpenRequests, rowModifier.then(listMotion())) }
             }
             if (pinned.isNotEmpty()) {
                 item(key = "pinned") {

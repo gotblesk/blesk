@@ -141,6 +141,8 @@ class ConversationCallbacks(
     val onReconnect: () -> Unit = {},
     /** Unblocks the other person of a direct chat. */
     val onUnblock: (() -> Unit)? = null,
+    /** For a message request: accept, delete or block instead of answering. */
+    val request: RequestActions? = null,
     /** Opens the profile of an @username mentioned in a message; null where nobody can be opened. */
     val onOpenPerson: ((username: String) -> Unit)? = null,
     /** Opens the camera for one photo; null where it is not offered. */
@@ -378,7 +380,33 @@ fun ConversationScreen(
                 },
                 bottom = {
                     val unblock = callbacks.onUnblock
-                    if (blocked && unblock != null) {
+                    val requestActions = callbacks.request
+                    if (conversation.request && requestActions != null) {
+                        BottomLens {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Button(
+                                    text = stringResource(R.string.requests_delete),
+                                    kind = ButtonKind.Secondary,
+                                    onClick = { requestActions.onDelete(conversation) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Button(
+                                    text = stringResource(R.string.person_block),
+                                    kind = ButtonKind.Secondary,
+                                    onClick = { requestActions.onBlock(conversation) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Button(
+                                    text = stringResource(R.string.requests_accept),
+                                    onClick = { requestActions.onAccept(conversation) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    } else if (blocked && unblock != null) {
                         BottomLens {
                             Button(
                                 text = stringResource(R.string.person_unblock),
