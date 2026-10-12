@@ -59,6 +59,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import app.blesk.core.data.Connection
 import app.blesk.core.data.Transfer
 import app.blesk.core.data.model.BotButton
@@ -103,6 +105,8 @@ import app.blesk.feature.chats.media.MediaController
 import app.blesk.feature.chats.media.RecordMode
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.feature.chats.media.RecordingUi
+import app.blesk.feature.chats.media.RestoreRecording
+import app.blesk.feature.chats.media.pause
 import app.blesk.shared.appearance.ThemeSpec
 import app.blesk.shared.protocol.BotCommand
 import kotlinx.collections.immutable.ImmutableList
@@ -206,6 +210,14 @@ fun ConversationScreen(
     transfers: Map<String, Transfer> = emptyMap(),
 ) {
     val recording = remember { RecordingUi() }
+    // The camera closes with the app: a round video waits on pause, locked, until the person is back.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        if (recorders != null && recording.active && recording.mode == RecordMode.Circle) {
+            recording.locked = true
+            pause(recording, recorders)
+        }
+    }
+    recorders?.let { RestoreRecording(recording, it) }
     LaunchedEffect(recorders?.startMode) {
         if (!recording.active) recorders?.let { recording.mode = it.startMode }
     }

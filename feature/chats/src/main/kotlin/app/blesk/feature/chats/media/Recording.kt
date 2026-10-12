@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -51,6 +52,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.core.data.model.Attachment
@@ -77,6 +79,7 @@ enum class RecordMode { Voice, Circle }
 
 /** The recorders a conversation can use, and where finished recordings go. */
 class Recorders(
+    val conversationId: String,
     val voice: VoiceRecorder,
     val circle: CircleRecorder,
     val onVoice: (Attachment.Voice) -> Unit,
@@ -86,6 +89,8 @@ class Recorders(
     val onModeChange: (RecordMode) -> Unit = {},
     /** «Запись по нажатию»: a tap starts, the next tap on «Отправить» stops, a long press switches the mode. */
     val tapToRecord: Boolean = false,
+    /** A voice note got locked: from here it may go on in the background. */
+    val onLock: () -> Unit = {},
 )
 
 /** Shared between the record button, the recording bar, the lock drop and the circle preview. */
@@ -97,10 +102,24 @@ class RecordingUi {
     var dragX by mutableFloatStateOf(0f)
     var dragY by mutableFloatStateOf(0f)
     var startedAt by mutableStateOf(0L)
+    var paused by mutableStateOf(false)
+    private var pausedAt = 0L
+    private var pausedTotal = 0L
+
+    /** How long has been recorded by [now], pauses left out. */
+    fun elapsed(now: Long): Long = (if (paused) pausedAt else now) - startedAt - pausedTotal
+
+    internal fun markPaused(on: Boolean) {
+        val now = System.currentTimeMillis()
+        if (on) pausedAt = now else pausedTotal += now - pausedAt
+        paused = on
+    }
 
     fun reset() {
         active = false
         locked = false
+        paused = false
+        pausedTotal = 0L
         dragX = 0f
         dragY = 0f
     }
@@ -125,6 +144,7 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
     val cancelPx = with(density) { CancelDistance.toPx() }
     val lockPx = with(density) { LockDistance.toPx() }
     val hint = stringResource(R.string.media_record_hint)
+    val busy = stringResource(R.string.media_record_busy)
     val micDenied = stringResource(R.string.media_permission_mic)
     val cameraDenied = stringResource(R.string.media_permission_camera)
     val permissions =
@@ -149,8 +169,13 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
             permissions.launch(missing)
             return false
         }
+        if (recorders.voice.active.value && recorders.voice.owner != recorders.conversationId) {
+            haptics.refuse()
+            notify(busy)
+            return false
+        }
         val ok = when (ui.mode) {
-            RecordMode.Voice -> recorders.voice.start(scope)
+            RecordMode.Voice -> recorders.voice.start(recorders.conversationId)
             RecordMode.Circle -> {
                 scope.launch {
                     recorders.circle.open(owner)
@@ -173,9 +198,15 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
         haptics.tick()
     }
 
+    fun lock() {
+        ui.locked = true
+        ui.dragY = 0f
+        if (ui.mode == RecordMode.Voice) recorders.onLock()
+    }
+
     // Already on the lock: the recording bar's «Отправить» is the second tap.
     fun startLocked() {
-        if (start()) ui.locked = true
+        if (start()) lock()
     }
 
     val tapToRecord = recorders.tapToRecord
@@ -244,6 +275,12 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
                         }
                     }
                     when (outcome) {
+                        // The finger was lifted by the app going away (a call, the home button), not by the person.
+                        Gesture.Release if !owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) -> {
+                            ui.locked = true
+                            ui.dragY = 0f
+                            pause(ui, recorders)
+                        }
                         Gesture.Release if SystemClock.uptimeMillis() - down.uptimeMillis < MIN_RECORD_MILLIS -> {
                             cancel(ui, recorders, scope)
                             haptics.refuse()
@@ -251,8 +288,7 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
                         }
                         Gesture.Release -> finish(ui, recorders, scope)
                         Gesture.Lock -> {
-                            ui.locked = true
-                            ui.dragY = 0f
+                            lock()
                             haptics.stick()
                         }
                         Gesture.Cancel -> {
@@ -285,6 +321,24 @@ internal fun finish(ui: RecordingUi, recorders: Recorders, scope: kotlinx.corout
     }
 }
 
+internal fun pause(ui: RecordingUi, recorders: Recorders) {
+    if (!ui.active || ui.paused) return
+    when (ui.mode) {
+        RecordMode.Voice -> recorders.voice.pause()
+        RecordMode.Circle -> recorders.circle.pause()
+    }
+    ui.markPaused(true)
+}
+
+internal fun resume(ui: RecordingUi, recorders: Recorders) {
+    if (!ui.active || !ui.paused) return
+    when (ui.mode) {
+        RecordMode.Voice -> recorders.voice.resume()
+        RecordMode.Circle -> recorders.circle.resume()
+    }
+    ui.markPaused(false)
+}
+
 internal fun cancel(ui: RecordingUi, recorders: Recorders, scope: kotlinx.coroutines.CoroutineScope) {
     val mode = ui.mode
     ui.reset()
@@ -294,10 +348,40 @@ internal fun cancel(ui: RecordingUi, recorders: Recorders, scope: kotlinx.corout
     }
 }
 
+/**
+ * A locked voice note left behind when the chat was closed is still recording: coming back
+ * shows it again, locked, as it was.
+ */
+@Composable
+internal fun RestoreRecording(ui: RecordingUi, recorders: Recorders) {
+    val active by recorders.voice.active.collectAsStateWithLifecycle()
+    val paused by recorders.voice.paused.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(active) {
+        if (active && !ui.active && recorders.voice.owner == recorders.conversationId) {
+            ui.mode = RecordMode.Voice
+            ui.active = true
+            ui.locked = true
+            ui.paused = paused
+        }
+    }
+    // A held note cannot outlive its screen: the finger has nothing left to let go of. Nor can a
+    // circle, whose camera belongs to the screen.
+    DisposableEffect(ui) {
+        onDispose {
+            when {
+                !ui.active -> Unit
+                ui.mode == RecordMode.Circle -> recorders.circle.close()
+                !ui.locked -> recorders.voice.cancel()
+            }
+        }
+    }
+}
+
 /** Replaces the text field while recording: a pulsing dot, the time, and how to cancel. */
 @Composable
 internal fun RecordingBar(ui: RecordingUi, recorders: Recorders, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
+    val voiceElapsed by recorders.voice.elapsedMillis.collectAsStateWithLifecycle()
     val phase by rememberLoopPhase(1000)
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     androidx.compose.runtime.LaunchedEffect(ui.active) {
@@ -313,9 +397,12 @@ internal fun RecordingBar(ui: RecordingUi, recorders: Recorders, modifier: Modif
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Canvas(Modifier.size(10.dp)) {
-            drawCircle(danger.copy(alpha = 0.55f + 0.45f * sin(phase * 2f * PI).toFloat()))
+            val pulse = if (ui.paused) 0f else 0.45f * sin(phase * 2f * PI).toFloat()
+            drawCircle(danger.copy(alpha = 0.55f + pulse))
         }
-        Text(formatDuration(now - ui.startedAt), style = Blesk.type.bodyStrong)
+        // A voice note's own clock goes on in the background; a circle is timed here.
+        val elapsed = if (ui.mode == RecordMode.Voice) voiceElapsed else ui.elapsed(now)
+        Text(formatDuration(elapsed), style = Blesk.type.bodyStrong)
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             if (!ui.locked) {
                 Text(
@@ -331,6 +418,11 @@ internal fun RecordingBar(ui: RecordingUi, recorders: Recorders, modifier: Modif
         }
         if (ui.locked) {
             IconButton(BleskIcons.Trash, stringResource(R.string.media_cancel), { cancel(ui, recorders, scope) })
+            if (ui.paused) {
+                IconButton(BleskIcons.Mic, stringResource(R.string.media_record_resume), { resume(ui, recorders) })
+            } else {
+                IconButton(BleskIcons.Pause, stringResource(R.string.media_record_pause), { pause(ui, recorders) })
+            }
             IconButton(BleskIcons.Send, stringResource(R.string.media_stop_send), { finish(ui, recorders, scope) })
         }
     }
@@ -376,7 +468,7 @@ internal fun CircleOverlay(ui: RecordingUi, recorders: Recorders) {
             delay(TICK_MILLIS)
         }
     }
-    val progress = ((now - ui.startedAt).toFloat() / CircleRecorder.MAX_DURATION_MILLIS).coerceIn(0f, 1f)
+    val progress = (ui.elapsed(now).toFloat() / CircleRecorder.MAX_DURATION_MILLIS).coerceIn(0f, 1f)
     val ring = Blesk.colors.light
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
         Box(Modifier.size(280.dp).clip(CircleShape).background(Blesk.colors.surface)) {

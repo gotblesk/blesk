@@ -7,6 +7,7 @@ import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
+import androidx.camera.video.ExperimentalPersistentRecording
 import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Quality
@@ -52,6 +53,7 @@ class CircleRecorder(private val context: Context, private val vault: MediaVault
         capture = videoCapture
     }
 
+    @OptIn(ExperimentalPersistentRecording::class)
     @SuppressLint("MissingPermission")
     fun start(): Boolean {
         val videoCapture = capture ?: return false
@@ -60,10 +62,10 @@ class CircleRecorder(private val context: Context, private val vault: MediaVault
         recording = videoCapture.output
             .prepareRecording(context, FileOutputOptions.Builder(file).setDurationLimitMillis(MAX_DURATION_MILLIS).build())
             .withAudioEnabled()
+            // Survives the camera closing when the app is minimized: the circle waits on pause instead of ending.
+            .asPersistentRecording()
             .start(ContextCompat.getMainExecutor(context)) { event ->
-                if (event is VideoRecordEvent.Finalize) {
-                    done.complete(!event.hasError() || event.error == VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED)
-                }
+                if (event is VideoRecordEvent.Finalize) done.complete(event.error in KEPT)
             }
         output = file
         finished = done
@@ -86,6 +88,14 @@ class CircleRecorder(private val context: Context, private val vault: MediaVault
         return Attachment.Circle(file.path, video.thumbnail, video.durationMillis)
     }
 
+    fun pause() {
+        recording?.pause()
+    }
+
+    fun resume() {
+        recording?.resume()
+    }
+
     fun cancel() {
         recording?.stop()
         recording = null
@@ -103,6 +113,13 @@ class CircleRecorder(private val context: Context, private val vault: MediaVault
 
     companion object {
         const val MAX_DURATION_MILLIS = 60_000L
+
+        /** Endings after which the file holds everything recorded so far. */
+        private val KEPT = setOf(
+            VideoRecordEvent.Finalize.ERROR_NONE,
+            VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED,
+            VideoRecordEvent.Finalize.ERROR_SOURCE_INACTIVE,
+        )
         private const val MIN_DURATION_MILLIS = 700L
     }
 }

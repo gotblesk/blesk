@@ -111,6 +111,9 @@
     <string name="media_record_voice">Запись голосового</string>
     <string name="media_record_circle">Запись кружка</string>
     <string name="media_record_switch">Сменить режим</string>
+    <string name="media_record_busy">Сначала закончи запись в другом чате</string>
+    <string name="media_record_pause">Пауза</string>
+    <string name="media_record_resume">Продолжить запись</string>
     <string name="media_record_start">Записать</string>
     <string name="media_record_hint">Удерживай, чтобы записать. Нажми, чтобы сменить режим</string>
     <string name="media_slide_cancel">Влево — отмена</string>

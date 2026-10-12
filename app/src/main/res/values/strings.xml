@@ -24,6 +24,9 @@
     <string name="notify_online_title">blesk на связи</string>
     <string name="notify_online_text">Соединение с твоим сервером открыто, чтобы приходили сообщения и звонки</string>
     <string name="notify_channel_transfers">Передача файлов</string>
+    <string name="notify_channel_recording">Запись голосовых</string>
+    <string name="notify_recording_title">Идёт запись голосового</string>
+    <string name="notify_recording_text">Вернись в чат, чтобы отправить или удалить</string>
     <string name="notify_transfers_text">%1$s из %2$s</string>
     <plurals name="notify_transfers_title">
         <item quantity="one">Передаётся %1$d файл</item>

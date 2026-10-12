@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.BleskApplication
 import app.blesk.R
+import app.blesk.background.RecordingService
 import app.blesk.core.data.BotController
 import app.blesk.core.data.Connection
 import app.blesk.core.data.GroupController
@@ -215,6 +216,7 @@ internal fun ConversationRoute(
     val tapToRecord by container.settings.tapToRecord.collectAsStateWithLifecycle(initialValue = false)
     val recorders = remember(id, recordCircle, tapToRecord) {
         Recorders(
+            conversationId = id,
             voice = container.voiceRecorder,
             circle = container.circleRecorder,
             onVoice = { demo.sendAttachment(id, it) },
@@ -222,6 +224,7 @@ internal fun ConversationRoute(
             startMode = if (recordCircle) RecordMode.Circle else RecordMode.Voice,
             onModeChange = { mode -> scope.launch { container.settings.setComposer(circle = mode == RecordMode.Circle) } },
             tapToRecord = tapToRecord,
+            onLock = { RecordingService.start(context) },
         )
     }
 
