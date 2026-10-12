@@ -4,6 +4,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -40,6 +41,11 @@ class MainFlowTest {
         compose.onNodeWithText("Выбрать").performClick()
         compose.onNodeWithText("Выбрано 1").assertIsDisplayed()
         compose.onNodeWithContentDescription("Отменить").performClick()
+        compose.onNodeWithContentDescription("Эмодзи").performClick()
+        compose.onNodeWithContentDescription("Найти эмодзи").performTextInput("ржака")
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("смеется до слез").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("смеется до слез").performClick()
+        compose.onNodeWithContentDescription("Клавиатура").performClick()
         compose.onNodeWithContentDescription("Назад").performClick()
 
         compose.onNodeWithContentDescription("Поиск").performClick()

@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -37,6 +38,7 @@ import app.blesk.feature.settings.SettingsList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.launch
 import java.time.Instant
 
 enum class HomeTab { Chats, Rooms, You }
@@ -62,6 +64,8 @@ internal fun Home(
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
     val photo = rememberProfilePhoto(container, profile?.photoVersion ?: 0L)
+    val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
+    val scope = rememberCoroutineScope()
     val tabs = persistentListOf(
         LensTab(stringResource(R.string.tab_chats), BleskIcons.Chats),
         LensTab(stringResource(app.blesk.feature.chats.R.string.rooms_title), BleskIcons.Rooms),
@@ -156,6 +160,8 @@ internal fun Home(
                     actions = settings,
                     demo = demo,
                     scroll = youScroll,
+                    sendByEnter = sendByEnter,
+                    onSendByEnter = { enabled -> scope.launch { container.settings.setSendByEnter(enabled) } },
                 )
             }
         }

@@ -109,6 +109,26 @@ class SettingsStore(context: Context) {
         }
     }
 
+    /** Enter sends instead of starting a new line; Shift+Enter still breaks the line. */
+    val sendByEnter: Flow<Boolean> = store.data.map { it[SEND_BY_ENTER] ?: false }.distinctUntilChanged()
+
+    suspend fun setSendByEnter(enabled: Boolean) {
+        store.edit { it[SEND_BY_ENTER] = enabled }
+    }
+
+    /** Recently picked emoji, newest first. */
+    val recentEmoji: Flow<List<String>> = store.data
+        .map { prefs -> prefs[RECENT_EMOJI]?.split(EMOJI_SEPARATOR)?.filter { it.isNotEmpty() }.orEmpty() }
+        .distinctUntilChanged()
+
+    suspend fun pickEmoji(emoji: String) {
+        store.edit { prefs ->
+            val current = prefs[RECENT_EMOJI]?.split(EMOJI_SEPARATOR).orEmpty()
+            prefs[RECENT_EMOJI] = (listOf(emoji) + (current - emoji)).filter { it.isNotEmpty() }.take(MAX_RECENT_EMOJI)
+                .joinToString(EMOJI_SEPARATOR)
+        }
+    }
+
     val profile: Flow<Profile> = store.data.map { prefs ->
         Profile(
             name = prefs[PROFILE_NAME].orEmpty(),
@@ -185,6 +205,10 @@ class SettingsStore(context: Context) {
         val PROFILE_USERNAME = stringPreferencesKey("profile_username")
         val PROFILE_BIO = stringPreferencesKey("profile_bio")
         val PROFILE_PHOTO = longPreferencesKey("profile_photo")
+        val SEND_BY_ENTER = booleanPreferencesKey("send_by_enter")
+        val RECENT_EMOJI = stringPreferencesKey("recent_emoji")
+        const val EMOJI_SEPARATOR = " "
+        const val MAX_RECENT_EMOJI = 32
         val chatThemesSerializer = MapSerializer(String.serializer(), ThemeSpec.serializer())
     }
 }

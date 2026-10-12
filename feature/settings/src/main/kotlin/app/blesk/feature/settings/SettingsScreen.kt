@@ -25,6 +25,7 @@ import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 
@@ -53,6 +54,8 @@ fun SettingsList(
     modifier: Modifier = Modifier,
     demo: Boolean = serverHost == null,
     scroll: ScrollState = rememberScrollState(),
+    sendByEnter: Boolean = false,
+    onSendByEnter: (Boolean) -> Unit = {},
 ) {
     val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
     Column(
@@ -136,6 +139,13 @@ fun SettingsList(
                 subtitle = stringResource(R.string.settings_storage_hint),
                 icon = BleskIcons.Storage,
                 onClick = actions.onOpenStorage,
+            )
+            ToggleRow(
+                title = stringResource(R.string.settings_send_by_enter),
+                subtitle = stringResource(R.string.settings_send_by_enter_hint),
+                checked = sendByEnter,
+                onCheckedChange = onSendByEnter,
+                icon = BleskIcons.Send,
             )
         }
         SectionHeader(stringResource(R.string.settings_section_connection))

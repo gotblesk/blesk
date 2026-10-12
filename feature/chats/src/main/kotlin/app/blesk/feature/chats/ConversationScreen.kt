@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
@@ -48,12 +50,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -63,6 +74,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.BotButton
@@ -137,6 +149,8 @@ class ConversationCallbacks(
     val onPin: ((messageId: String?) -> Unit)? = null,
     /** A press on an inline button under a bot message. */
     val onButton: (messageId: String, button: BotButton) -> Unit = { _, _ -> },
+    /** Remembers an emoji picked from the panel for its «recent» row. */
+    val onEmojiPicked: (String) -> Unit = {},
 )
 
 @Composable
@@ -156,6 +170,9 @@ fun ConversationScreen(
     reactions: Boolean = conversation.kind != ConversationKind.Bot,
     /** The other person's key changed and has not been checked since. */
     keyChanged: Boolean = false,
+    /** Enter sends the message; Shift+Enter breaks the line. */
+    sendByEnter: Boolean = false,
+    recentEmoji: ImmutableList<String> = persistentListOf(),
     /** What a bot offers when you type "/". */
     commands: ImmutableList<BotCommand> = persistentListOf(),
     /** Marks the chat as part of the demo world. */
@@ -164,6 +181,8 @@ fun ConversationScreen(
     members: ImmutableList<Contact> = persistentListOf(),
     /** Own username, to find messages that mention you; null when unknown. */
     me: String? = null,
+    /** How many messages were unread when the chat was opened, before it was marked read. */
+    unreadAtOpen: Int = conversation.unread,
     underlay: @Composable BoxScope.() -> Unit = {},
 ) {
     val recording = remember { RecordingUi() }
@@ -180,7 +199,7 @@ fun ConversationScreen(
     val byId = remember(messages) { messages.associateBy { it.id } }
     // The divider stays where the chat was left, even after the messages are marked read.
     val unreadFrom = remember(conversation.id) {
-        conversation.unread.takeIf { it > 0 }?.let { messages.getOrNull(messages.size - it) }?.takeUnless { it.isOwn }?.id
+        unreadAtOpen.takeIf { it > 0 }?.let { messages.getOrNull(messages.size - it) }?.takeUnless { it.isOwn }?.id
     }
     val feed = remember(messages, unreadFrom) { buildFeed(messages, ZoneId.systemDefault(), unreadFrom) }
     var mentions by remember(conversation.id) {
@@ -302,6 +321,9 @@ fun ConversationScreen(
                             attachments = conversation.kind != ConversationKind.Bot,
                             commands = commands,
                             members = members,
+                            sendByEnter = sendByEnter,
+                            recentEmoji = recentEmoji,
+                            onEmojiPicked = callbacks.onEmojiPicked,
                             replyTo = replyToId?.let(byId::get),
                             editing = editingId?.let(byId::get),
                             authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
@@ -637,6 +659,9 @@ private fun Composer(
     attachments: Boolean,
     commands: ImmutableList<BotCommand>,
     members: ImmutableList<Contact>,
+    sendByEnter: Boolean,
+    recentEmoji: ImmutableList<String>,
+    onEmojiPicked: (String) -> Unit,
     replyTo: Message?,
     editing: Message?,
     authorName: (Message) -> String,
@@ -645,6 +670,17 @@ private fun Composer(
 ) {
     val hint = stringResource(R.string.chat_input_hint)
     var attachMenu by remember { mutableStateOf(false) }
+    var emojiOpen by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    BackHandler(enabled = emojiOpen) { emojiOpen = false }
+    fun send() {
+        val text = state.text.toString()
+        if (text.isNotBlank()) {
+            onSend(text)
+            state.clearText()
+        }
+    }
     Box {
         BottomLens {
             AnimatedVisibility(visible = replyTo != null || editing != null) {
@@ -752,6 +788,8 @@ private fun Composer(
                         textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
                         cursorBrush = SolidColor(Blesk.colors.accent),
                         lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
+                        keyboardOptions = KeyboardOptions(imeAction = if (sendByEnter) ImeAction.Send else ImeAction.Default),
+                        onKeyboardAction = if (sendByEnter) KeyboardActionHandler { send() } else null,
                         // The padding is inside the field, so the whole 48dp row takes the tap.
                         decorator = { inner ->
                             Box(
@@ -761,24 +799,48 @@ private fun Composer(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .onFocusChanged { if (it.isFocused) emojiOpen = false }
+                            .onPreviewKeyEvent { event ->
+                                val enter = event.key == Key.Enter || event.key == Key.NumPadEnter
+                                if (!sendByEnter || !enter || event.isShiftPressed) return@onPreviewKeyEvent false
+                                if (event.type == KeyEventType.KeyDown) send()
+                                true
+                            }
                             .semantics { contentDescription = hint },
                     )
                 }
+                IconButton(
+                    icon = if (emojiOpen) BleskIcons.Edit else BleskIcons.Smile,
+                    contentDescription = stringResource(if (emojiOpen) R.string.emoji_keyboard else R.string.emoji_open),
+                    onClick = {
+                        if (emojiOpen) {
+                            emojiOpen = false
+                        } else {
+                            attachMenu = false
+                            keyboard?.hide()
+                            focus.clearFocus()
+                            emojiOpen = true
+                        }
+                    },
+                )
                 if (state.text.isBlank() && editing == null && recorders != null) {
                     RecordButton(recording, recorders)
                 } else {
                     IconButton(
                         icon = if (editing != null) BleskIcons.Check else BleskIcons.Send,
                         contentDescription = stringResource(R.string.chat_send),
-                        onClick = {
-                            val text = state.text.toString()
-                            if (text.isNotBlank()) {
-                                onSend(text)
-                                state.clearText()
-                            }
-                        },
+                        onClick = ::send,
                     )
                 }
+            }
+            AnimatedVisibility(visible = emojiOpen) {
+                EmojiPanel(
+                    recent = recentEmoji,
+                    onPick = { emoji ->
+                        state.edit { replace(selection.min, selection.max, emoji) }
+                        onEmojiPicked(emoji)
+                    },
+                )
             }
         }
         if (recording.active && !recording.locked) {
@@ -787,7 +849,6 @@ private fun Composer(
     }
 }
 
-/** Sends "typing" at most every few seconds while text changes, and "stopped" after a pause. */
 /** Saves what is typed a moment after typing stops, and once more when the chat closes. */
 @Composable
 private fun DraftKeeper(state: TextFieldState, onDraft: (String) -> Unit) {
@@ -825,6 +886,7 @@ private fun PinnedBanner(message: Message, onUnpin: (() -> Unit)?) {
     }
 }
 
+/** Sends "typing" at most every few seconds while text changes, and "stopped" after a pause. */
 @Composable
 private fun TypingSignal(state: TextFieldState, onTyping: (Boolean) -> Unit) {
     LaunchedEffect(state) {

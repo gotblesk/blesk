@@ -48,6 +48,7 @@ import app.blesk.shared.protocol.BotCommand
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
@@ -67,7 +68,7 @@ internal fun ConversationRoute(
     val demo = container.chats.collectAsStateWithLifecycle().value ?: return
     val scope = rememberCoroutineScope()
     val conversation by demo.conversation(id).collectAsStateWithLifecycle(initialValue = null)
-    val messages by demo.messages(id).collectAsStateWithLifecycle(initialValue = emptyList())
+    val loaded by demo.messages(id).collectAsStateWithLifecycle(initialValue = null)
     val typing by demo.typing.collectAsStateWithLifecycle()
     val privacy by container.settings.privacy.collectAsStateWithLifecycle(initialValue = Privacy())
     val chatThemes by container.settings.chatThemes.collectAsStateWithLifecycle(initialValue = emptyMap())
@@ -78,7 +79,13 @@ internal fun ConversationRoute(
     var themeSheet by remember { mutableStateOf(false) }
     val override = chatThemes[id]
     val caption = stringResource(R.string.chat_theme_caption)
-    LaunchedEffect(id) { demo.markRead(id) }
+    // Read before marking, so the chat can open on the unread divider.
+    val unreadAtOpen by produceState<Int?>(null, id) {
+        value = demo.conversation(id).first()?.unread ?: 0
+        demo.markRead(id)
+    }
+    val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
+    val recentEmoji by container.settings.recentEmoji.collectAsStateWithLifecycle(initialValue = emptyList())
     val application = LocalContext.current.applicationContext as? BleskApplication
     DisposableEffect(id) {
         container.openConversation = id
@@ -190,11 +197,14 @@ internal fun ConversationRoute(
                     data != null -> bots?.press(id, messageId, data)
                 }
             },
+            onEmojiPicked = { emoji -> scope.launch { container.settings.pickEmoji(emoji) } },
             onBack = onBack,
         )
     }
 
     val current = conversation ?: return
+    val messages = loaded ?: return
+    val unread = unreadAtOpen ?: return
     BleskTheme(appearance = if (override != null) appearance.copy(theme = override) else appearance) {
         Box(Modifier.fillMaxSize()) {
             ConversationScreen(
@@ -217,6 +227,9 @@ internal fun ConversationRoute(
                 demo = demo is DemoRepository,
                 keyChanged = direct && keyState.changed,
                 me = groupController?.me,
+                unreadAtOpen = unread,
+                sendByEnter = sendByEnter,
+                recentEmoji = recentEmoji.toImmutableList(),
                 members = groupState?.members.orEmpty()
                     .filter { it.username != groupController?.me }
                     .map { member -> demo.contact(member.username) ?: Contact(member.username, member.username, member.username) }

@@ -25,6 +25,7 @@ enum class License(val title: String, @param:RawRes val text: Int) {
     Agpl3("GNU AGPL 3.0", R.raw.license_agpl3),
     Apache2("Apache License 2.0", R.raw.license_apache2),
     Ofl("SIL Open Font License 1.1", R.raw.license_ofl),
+    Unicode("Unicode License v3", R.raw.license_unicode),
 }
 
 /** Everything shipped inside the APK. Keep in sync with the dependencies. */
@@ -35,6 +36,8 @@ val ShippedComponents = listOf(
     LicensedComponent("Kotlin, kotlinx.coroutines, kotlinx.serialization", "JetBrains", License.Apache2),
     LicensedComponent("Backdrop", "Kyant", License.Apache2),
     LicensedComponent("ZXing", "ZXing authors", License.Apache2),
+    LicensedComponent("Emoji2 Emoji Picker (data)", "The Android Open Source Project", License.Apache2),
+    LicensedComponent("Unicode CLDR (emoji names)", "Unicode, Inc.", License.Unicode),
 )
 
 @Composable

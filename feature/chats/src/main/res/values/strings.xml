@@ -253,4 +253,18 @@
         <item quantity="many">К упоминаниям, %1$d</item>
         <item quantity="other">К упоминаниям, %1$d</item>
     </plurals>
+    <string name="emoji_open">Эмодзи</string>
+    <string name="emoji_keyboard">Клавиатура</string>
+    <string name="emoji_search">Найти эмодзи</string>
+    <string name="emoji_nothing">Ничего не нашлось</string>
+    <string name="emoji_recent">Недавние</string>
+    <string name="emoji_emotions">Смайлы</string>
+    <string name="emoji_people">Люди</string>
+    <string name="emoji_nature">Природа</string>
+    <string name="emoji_food">Еда</string>
+    <string name="emoji_travel">Места</string>
+    <string name="emoji_activity">Занятия</string>
+    <string name="emoji_objects">Вещи</string>
+    <string name="emoji_symbols">Символы</string>
+    <string name="emoji_flags">Флаги</string>
 </resources>

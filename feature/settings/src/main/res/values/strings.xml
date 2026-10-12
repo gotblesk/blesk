@@ -127,6 +127,8 @@
     <string name="safety_unmark">Снять отметку</string>
     <string name="safety_qr">Код для сканирования: покажи его собеседнику</string>
     <string name="settings_storage_hint">Сколько места занимает blesk</string>
+    <string name="settings_send_by_enter">Отправка по Enter</string>
+    <string name="settings_send_by_enter_hint">Новая строка — Shift+Enter</string>
     <string name="storage_title">Данные и память</string>
     <string name="storage_media">Фото, видео, файлы и голосовые</string>
     <string name="storage_database">Переписка (зашифрованная база)</string>
