@@ -58,6 +58,7 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.motion.BleskMotion
 import app.blesk.core.network.ServerAddress
+import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.chats.groups.NewKind
 import app.blesk.feature.chats.media.MediaViewer
@@ -177,6 +178,9 @@ fun BleskNavigation(container: AppContainer) {
     val demo = mode is AppMode.Demo
     val context = LocalContext.current
     val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
+    val openDirect: (String, (String) -> Unit) -> Unit = { username, then ->
+        scope.launch { container.chats.value?.openDirect(username)?.let(then) }
+    }
 
     val openRequest by container.openRequest.collectAsStateWithLifecycle()
     LaunchedEffect(openRequest) {
@@ -218,6 +222,12 @@ fun BleskNavigation(container: AppContainer) {
                             onNewChat = { backStack.add(NewChatKey) },
                             onAddRoom = { backStack.add(RoomsAddKey) },
                             onOpenArchive = { backStack.add(ArchiveKey) },
+                            onAddContact = { backStack.add(NewChatKey) },
+                            contactActions = ContactActions(
+                                onOpen = { contact -> openDirect(contact.username) { backStack.add(ChatInfoKey(it)) } },
+                                onWrite = { contact -> openDirect(contact.username) { backStack.add(ConversationKey(it)) } },
+                                onInvite = (mode as? AppMode.Server)?.let { server -> { invite(context, server.username) } },
+                            ),
                             onOpenChannel = { room, channel ->
                                 when {
                                     channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))

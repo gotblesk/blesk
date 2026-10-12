@@ -43,11 +43,10 @@ class SettingsActions(
     val onOpenSaved: () -> Unit = {},
 )
 
-/** The «Ты» tab: you, then everything that is set up once and rarely touched. */
+/** The «Ты» tab: your profile and what is yours — saved messages, calls, invites, stickers, bots. */
 @Composable
-fun SettingsList(
+fun YouList(
     serverHost: String?,
-    debugUnlocked: Boolean,
     profile: Profile,
     photo: ImageBitmap?,
     contentPadding: PaddingValues,
@@ -55,14 +54,9 @@ fun SettingsList(
     modifier: Modifier = Modifier,
     demo: Boolean = serverHost == null,
     scroll: ScrollState = rememberScrollState(),
-    sendByEnter: Boolean = false,
-    onSendByEnter: (Boolean) -> Unit = {},
-    vibration: VibrationLevel = VibrationLevel.Normal,
-    onVibration: (VibrationLevel) -> Unit = {},
     header: HeaderStyle = HeaderStyle.Light(0),
     headerPhoto: ImageBitmap? = null,
 ) {
-    val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
     Column(
         modifier
             .fillMaxSize()
@@ -85,9 +79,11 @@ fun SettingsList(
                 share = stringResource(R.string.you_share),
             ),
         )
-        Card(cardPadding) {
+        Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
             ListRow(title = stringResource(R.string.you_saved), icon = BleskIcons.Bookmark, onClick = actions.onOpenSaved)
             ListRow(title = stringResource(R.string.you_calls), icon = BleskIcons.Phone, soon = true)
+            ListRow(title = stringResource(R.string.you_invites), icon = BleskIcons.Invite, soon = true)
+            ListRow(title = stringResource(R.string.you_stickers), icon = BleskIcons.Sticker, soon = true)
             if (serverHost != null) {
                 ListRow(
                     title = stringResource(R.string.settings_bots),
@@ -97,15 +93,31 @@ fun SettingsList(
                     modifier = Modifier.sharedBounds(screenKey("bots")),
                 )
             }
-            ListRow(
-                title = stringResource(R.string.you_security),
-                subtitle = stringResource(R.string.settings_privacy_hint),
-                icon = BleskIcons.Shield,
-                onClick = actions.onOpenPrivacy,
-                modifier = Modifier.sharedBounds(screenKey("privacy")),
-            )
         }
-        SectionHeader(stringResource(R.string.settings_section_app))
+    }
+}
+
+/** The «Настройки» tab: everything that is set up once and rarely touched. */
+@Composable
+fun SettingsList(
+    serverHost: String?,
+    debugUnlocked: Boolean,
+    contentPadding: PaddingValues,
+    actions: SettingsActions,
+    modifier: Modifier = Modifier,
+    scroll: ScrollState = rememberScrollState(),
+    sendByEnter: Boolean = false,
+    onSendByEnter: (Boolean) -> Unit = {},
+    vibration: VibrationLevel = VibrationLevel.Normal,
+    onVibration: (VibrationLevel) -> Unit = {},
+) {
+    val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(scroll)
+            .padding(top = contentPadding.calculateTopPadding() + 4.dp, bottom = contentPadding.calculateBottomPadding() + 24.dp),
+    ) {
         Card(cardPadding) {
             ListRow(
                 title = stringResource(R.string.settings_appearance),
@@ -113,6 +125,13 @@ fun SettingsList(
                 icon = BleskIcons.Appearance,
                 onClick = actions.onOpenAppearance,
                 modifier = Modifier.sharedBounds(screenKey("appearance")),
+            )
+            ListRow(
+                title = stringResource(R.string.settings_privacy),
+                subtitle = stringResource(R.string.settings_privacy_hint),
+                icon = BleskIcons.Shield,
+                onClick = actions.onOpenPrivacy,
+                modifier = Modifier.sharedBounds(screenKey("privacy")),
             )
             ListRow(
                 title = stringResource(R.string.settings_notifications),
@@ -128,6 +147,9 @@ fun SettingsList(
                 onClick = actions.onOpenStorage,
                 modifier = Modifier.sharedBounds(screenKey("storage")),
             )
+        }
+        SectionHeader(stringResource(R.string.settings_section_chats))
+        Card(cardPadding) {
             ToggleRow(
                 title = stringResource(R.string.settings_send_by_enter),
                 subtitle = stringResource(R.string.settings_send_by_enter_hint),

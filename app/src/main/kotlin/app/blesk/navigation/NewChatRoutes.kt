@@ -117,7 +117,7 @@ internal suspend fun find(chats: ChatRepository, text: String, open: (String) ->
     return chats.openDirect(text.removePrefix("@").lowercase())?.also(open) != null
 }
 
-private fun invite(context: Context, username: String) {
+internal fun invite(context: Context, username: String) {
     val text = context.getString(R.string.new_chat_invite_text, profileLink(username))
     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
     context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

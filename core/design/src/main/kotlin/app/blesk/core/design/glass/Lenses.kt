@@ -1,14 +1,17 @@
 package app.blesk.core.design.glass
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -40,7 +43,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -49,11 +55,15 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.blesk.core.design.R
 import app.blesk.core.design.component.Icon
@@ -161,12 +171,36 @@ fun LensTabBar(
         launch { tail.animateTo(selected.toFloat(), spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessLow)) }
     }
     val drop = Blesk.colors.light.copy(alpha = if (Blesk.colors.isDark) 0.16f else 0.55f)
+    // The selected tab widens to hold its label; the rest stay icons no narrower than a touch target,
+    // so five tabs fit a narrow phone. Where even that leaves no room, the label gives way, not the target.
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val labelStyle = Blesk.type.caption
+    var barWidth by remember { mutableIntStateOf(0) }
+    val label = tabs.getOrNull(selected)?.label.orEmpty()
+    val needed = with(density) { measurer.measure(label, labelStyle, maxLines = 1).size.width.toDp() } + LabelChrome
+    val inner = with(density) { barWidth.toDp() } - BarPadding * 2
+    val other = maxOf(Blesk.dimens.touchTarget, (inner - needed) / (tabs.size - 1).coerceAtLeast(1))
+    val wide = inner - other * (tabs.size - 1)
+    val showLabel = barWidth > 0 && wide >= needed - 1.dp
+    val weights = tabs.indices.map { index ->
+        val target = if (index == selected && barWidth > 0) (wide / other).coerceAtLeast(1f) else 1f
+        animateFloatAsState(target, motion.settle(), label = "tabWeight").value
+    }
+    // Keeps the last action while the capsule draws back into the lens, so it can leave in its own shape.
+    var shown by remember { mutableStateOf(action) }
+    if (action != null) shown = action
+    val spring by animateFloatAsState(if (action != null) 1f else 0f, motion.settle(), label = "action") {
+        if (it == 0f) shown = null
+    }
+    // The settle spring overshoots; the capsule may swell past full, but the bar never grows past its edge.
+    val reach = spring.coerceIn(0f, 1f)
     Box(
         modifier
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 18.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 10.dp),
     ) {
-        if (action != null && !motion.reduced) {
+        if (shown != null && !motion.reduced && reach > BRIDGE_FROM) {
             // The bridge sits under both lenses' edges, so it reads as one liquid with them.
             Box(
                 Modifier
@@ -174,26 +208,28 @@ fun LensTabBar(
                     .padding(end = BarHeight / 2)
                     .width(BarHeight + ActionGap)
                     .height(BarHeight)
+                    .graphicsLayer { alpha = (reach - BRIDGE_FROM) / (1f - BRIDGE_FROM) }
                     .lens(BridgeShape, elevation = 0.dp, refract = false),
             )
         }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(end = if (action != null) BarHeight + ActionGap else 0.dp)
+                .padding(end = (BarHeight + ActionGap) * reach)
                 .height(BarHeight)
+                .onSizeChanged { barWidth = it.width }
                 .lens(CircleShape)
-                .padding(6.dp)
+                .padding(BarPadding)
                 .metaballs(color = drop, smoothness = 18.dp) {
-                    tabDrops(lead.value, tail.value, tabs.size, size.width, size.height)
+                    tabDrops(lead.value, tail.value, weights, size.width, size.height)
                 }
                 .selectableGroup(),
         ) {
             tabs.forEachIndexed { index, tab ->
                 val active = index == selected
-                Column(
+                Row(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(weights[index])
                         .fillMaxHeight()
                         .selectable(
                             selected = active,
@@ -205,30 +241,58 @@ fun LensTabBar(
                                 haptics.tick()
                                 onSelect(index)
                             }
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                        }
+                        .semantics { contentDescription = tab.label },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val tint = if (active) Blesk.colors.textPrimary else Blesk.colors.textSecondary
                     val badge = tab.badge
-                    if (badge != null) badge() else Icon(tab.icon, contentDescription = null, tint = tint, size = 22.dp)
-                    Text(tab.label, style = Blesk.type.caption, color = tint, maxLines = 1)
+                    if (badge != null) badge() else Icon(tab.icon, contentDescription = null, tint = tint, size = 24.dp)
+                    AnimatedVisibility(
+                        visible = active && showLabel,
+                        enter = fadeIn(motion.settle()) + expandHorizontally(motion.settle()),
+                        exit = fadeOut(motion.press()) + shrinkHorizontally(motion.settle()),
+                    ) {
+                        Text(
+                            text = tab.label,
+                            style = labelStyle,
+                            color = tint,
+                            maxLines = 1,
+                            modifier = Modifier.padding(start = LabelGap).clearAndSetSemantics { },
+                        )
+                    }
                 }
             }
         }
-        if (action != null) ActionCapsule(action, Modifier.align(Alignment.CenterEnd))
+        shown?.let { current ->
+            ActionCapsule(
+                action = current,
+                enabled = action != null,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .graphicsLayer {
+                        // Drawn back towards the lens: the capsule shrinks and slides into the bar's end.
+                        val scale = SHRUNK + (1f - SHRUNK) * reach
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = reach
+                        translationX = -(1f - reach) * (BarHeight + ActionGap).toPx() / 2f
+                    },
+            )
+        }
     }
 }
 
 /** The icon flows into the next one when the tab changes: the old one shrinks away as the new one swells. */
 @Composable
-private fun ActionCapsule(action: LensAction, modifier: Modifier = Modifier) {
+private fun ActionCapsule(action: LensAction, enabled: Boolean, modifier: Modifier = Modifier) {
     val motion = Blesk.motion
     Box(
         modifier = modifier
             .size(BarHeight)
             .lens(CircleShape)
-            .clickable(role = Role.Button, onClickLabel = action.label, onClick = action.onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClickLabel = action.label, onClick = action.onClick)
             .semantics { contentDescription = action.label },
         contentAlignment = Alignment.Center,
     ) {
@@ -246,7 +310,16 @@ private fun ActionCapsule(action: LensAction, modifier: Modifier = Modifier) {
 }
 
 private val BarHeight = 64.dp
-private val ActionGap = 10.dp
+private val ActionGap = 8.dp
+private val BarPadding = 6.dp
+
+/** Icon, gap and breathing room around the selected tab's label. */
+private val LabelGap = 4.dp
+private val LabelChrome = 24.dp + LabelGap + 12.dp
+private const val SHRUNK = 0.4f
+
+/** The bridge only shows once the capsule is mostly out, so it never hangs off a shrinking capsule. */
+private const val BRIDGE_FROM = 0.7f
 
 /**
  * The neck between the end of the navigation lens and the action capsule: two concave curves
@@ -276,13 +349,25 @@ private val BridgeShape = GenericShape { size, _ ->
 private const val BRIDGE_WAIST = 0.16f
 private const val BRIDGE_ANGLE = 0.75f
 
-private fun tabDrops(lead: Float, tail: Float, count: Int, width: Float, height: Float): List<Blob> {
-    if (count == 0) return emptyList()
-    val slot = width / count
+private fun tabDrops(lead: Float, tail: Float, weights: List<Float>, width: Float, height: Float): List<Blob> {
+    if (weights.isEmpty()) return emptyList()
+    val total = weights.sum()
+    val starts = weights.runningFold(0f) { acc, w -> acc + w }.map { it / total * width }
+
+    // A position between two tabs blends their slots, so the drop widens and narrows as it travels.
+    fun slot(position: Float): Pair<Float, Float> {
+        val clamped = position.coerceIn(0f, weights.lastIndex.toFloat())
+        val from = clamped.toInt()
+        val to = minOf(from + 1, weights.lastIndex)
+        val t = clamped - from
+        fun centre(i: Int) = (starts[i] + starts[i + 1]) / 2f
+        fun span(i: Int) = starts[i + 1] - starts[i]
+        return (centre(from) + (centre(to) - centre(from)) * t) to (span(from) + (span(to) - span(from)) * t)
+    }
     fun drop(position: Float, scale: Float): Blob {
-        val w = slot * scale
+        val (cx, span) = slot(position)
+        val w = span * scale
         val h = height * (0.55f + 0.45f * scale)
-        val cx = slot * (position + 0.5f)
         val cy = height / 2f
         return Blob(Rect(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), h / 2f)
     }

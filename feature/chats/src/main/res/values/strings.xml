@@ -90,6 +90,14 @@
     <string name="media_size_b">%1$s Б</string>
     <string name="media_size_kb">%1$s КБ</string>
     <string name="media_size_mb">%1$s МБ</string>
+    <string name="contacts_title">Контакты</string>
+    <string name="contacts_add">Добавить</string>
+    <string name="contacts_invite">Пригласить друзей</string>
+    <string name="contacts_write">Написать</string>
+    <string name="contacts_open_profile">открыть профиль</string>
+    <string name="contacts_search">Поиск по контактам</string>
+    <string name="contacts_empty">Здесь появятся люди, с которыми ты переписываешься. Нажми «Добавить», чтобы найти человека по @username.</string>
+    <string name="contacts_nothing_found">Среди контактов никого не нашлось</string>
     <string name="contacts_find">Найти людей и каналы</string>
     <string name="contacts_find_action">Найти</string>
     <string name="contacts_not_found">Ничего не нашлось на сервере</string>

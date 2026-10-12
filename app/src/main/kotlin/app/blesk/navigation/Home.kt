@@ -9,11 +9,13 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,18 +53,22 @@ import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.ChatMenuActions
 import app.blesk.feature.chats.ConnectionStatus
+import app.blesk.feature.chats.ContactActions
+import app.blesk.feature.chats.ContactsTab
 import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
+import app.blesk.feature.settings.YouList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.launch
 import java.time.Instant
+import app.blesk.feature.chats.R as ChatsR
 
-enum class HomeTab { Chats, Rooms, You }
+enum class HomeTab { Chats, Contacts, Rooms, Settings, You }
 
-/** The three tabs under the two lenses: chats, rooms and you. */
+/** The five tabs under the two lenses: chats, contacts, rooms, settings and you. */
 @Composable
 internal fun Home(
     container: AppContainer,
@@ -76,6 +82,8 @@ internal fun Home(
     onAddRoom: () -> Unit,
     onOpenChannel: (Conversation, RoomChannel) -> Unit,
     onOpenArchive: () -> Unit,
+    contactActions: ContactActions,
+    onAddContact: () -> Unit,
     settings: SettingsActions,
 ) {
     var menuFor by remember { mutableStateOf<Conversation?>(null) }
@@ -88,7 +96,9 @@ internal fun Home(
     val scope = rememberCoroutineScope()
     val tabs = persistentListOf(
         LensTab(stringResource(R.string.tab_chats), BleskIcons.Chats),
+        LensTab(stringResource(app.blesk.feature.chats.R.string.contacts_title), BleskIcons.People),
         LensTab(stringResource(app.blesk.feature.chats.R.string.rooms_title), BleskIcons.Rooms),
+        LensTab(stringResource(app.blesk.feature.settings.R.string.settings_title), BleskIcons.Settings),
         LensTab(stringResource(app.blesk.feature.settings.R.string.you_title), BleskIcons.Person) {
             val me = profile
             Avatar(me?.name?.ifBlank { "?" } ?: "?", size = 24.dp, photo = photo, key = me?.username?.ifBlank { me.name } ?: "")
@@ -97,11 +107,15 @@ internal fun Home(
     val youCollapseAt = with(LocalDensity.current) { (profileHeaderHeight() - YouLensReach).toPx() }
     val headerPhoto = rememberHeaderPhoto(container, profile?.headerVersion ?: 0L)
     val chatsList = rememberLazyListState()
+    val contactsList = rememberLazyListState()
     val roomsList = rememberLazyListState()
+    val settingsScroll = rememberScrollState()
     val youScroll = rememberScrollState()
     val collapsed = when (tab) {
-        HomeTab.Chats -> chatsList.firstVisibleItemIndex > 0 || chatsList.firstVisibleItemScrollOffset > COLLAPSE_AFTER
-        HomeTab.Rooms -> roomsList.firstVisibleItemIndex > 0 || roomsList.firstVisibleItemScrollOffset > COLLAPSE_AFTER
+        HomeTab.Chats -> chatsList.scrolledPast()
+        HomeTab.Contacts -> contactsList.scrolledPast()
+        HomeTab.Rooms -> roomsList.scrolledPast()
+        HomeTab.Settings -> settingsScroll.value > COLLAPSE_AFTER
         // «Ты» has no title of its own; the lens appears once the avatar has risen into it.
         HomeTab.You -> youScroll.value > youCollapseAt
     }
@@ -110,14 +124,25 @@ internal fun Home(
     var searching by rememberSaveable { mutableStateOf(false) }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     val query = rememberTextFieldState()
-    val inSearch = searching && tab == HomeTab.Chats
+    val contacts by chats.contacts.collectAsStateWithLifecycle(initialValue = emptyList())
+    // The search lens serves chats and contacts; on contacts it only narrows the list below.
+    val searchable = tab == HomeTab.Chats || tab == HomeTab.Contacts
+    val inSearch = searching && searchable
     BackHandler(enabled = inSearch && searchOpen) { searchOpen = false }
+    // A query belongs to the tab it was typed on; switching tabs starts clean.
+    LaunchedEffect(tab) {
+        if (searching && !inSearch) {
+            searching = false
+            searchOpen = false
+            query.clearText()
+        }
+    }
     LensScaffold(
         top = {
             if (inSearch) {
                 SearchLens(
                     state = query,
-                    hint = stringResource(app.blesk.feature.chats.R.string.search_field),
+                    hint = stringResource(if (tab == HomeTab.Contacts) ChatsR.string.contacts_search else ChatsR.string.search_field),
                     closeLabel = stringResource(app.blesk.feature.chats.R.string.search_close),
                     open = searchOpen,
                     onClose = { searchOpen = false },
@@ -146,13 +171,11 @@ internal fun Home(
                     title = tabs[tab.ordinal].label,
                     collapsed = collapsed,
                     actions = {
-                        when (tab) {
-                            HomeTab.Chats ->
-                                IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), {
-                                    searching = true
-                                    searchOpen = true
-                                })
-                            HomeTab.Rooms, HomeTab.You -> Unit
+                        if (searchable) {
+                            IconButton(BleskIcons.Search, stringResource(app.blesk.feature.chats.R.string.search_title), {
+                                searching = true
+                                searchOpen = true
+                            })
                         }
                     },
                 )
@@ -162,17 +185,20 @@ internal fun Home(
         bottom = {
             val action = when (tab) {
                 HomeTab.Chats -> LensAction(BleskIcons.NewChat, stringResource(app.blesk.feature.chats.R.string.new_chat_title), onNewChat)
+                HomeTab.Contacts -> LensAction(BleskIcons.Invite, stringResource(ChatsR.string.contacts_add), onAddContact)
                 HomeTab.Rooms -> if (chats is GroupController) {
                     LensAction(BleskIcons.Plus, stringResource(app.blesk.feature.chats.R.string.rooms_add), onAddRoom)
                 } else {
                     null
                 }
+                // Settings have nothing to create, so the capsule draws back into the lens.
+                HomeTab.Settings -> null
                 HomeTab.You -> LensAction(BleskIcons.Edit, stringResource(R.string.you_edit), settings.onOpenProfile)
             }
             LensTabBar(tabs = tabs, selected = tab.ordinal, onSelect = { onSelectTab(HomeTab.entries[it]) }, action = action)
         },
     ) { padding ->
-        if (inSearch) {
+        if (inSearch && tab == HomeTab.Chats) {
             SearchPanel(container, query, padding, onOpenConversation)
             return@LensScaffold
         }
@@ -213,6 +239,13 @@ internal fun Home(
                         onOpenArchive = onOpenArchive,
                     )
                 }
+                HomeTab.Contacts -> ContactsTab(
+                    contacts = contacts.toImmutableList(),
+                    query = if (inSearch) query.text.toString() else "",
+                    contentPadding = padding,
+                    actions = contactActions,
+                    state = contactsList,
+                )
                 HomeTab.Rooms -> {
                     val rooms = conversations.filter { it.kind == ConversationKind.Room && it.id !in container.notices.hidden }
                     if (rooms.isEmpty()) {
@@ -234,21 +267,27 @@ internal fun Home(
                         onLongPress = { menuFor = it },
                     )
                 }
+                HomeTab.Settings -> SettingsList(
+                    serverHost = serverHost,
+                    debugUnlocked = debugUnlocked,
+                    contentPadding = padding,
+                    actions = settings,
+                    scroll = settingsScroll,
+                    sendByEnter = sendByEnter,
+                    onSendByEnter = { enabled -> scope.launch { container.settings.setSendByEnter(enabled) } },
+                    vibration = vibration,
+                    onVibration = { level -> scope.launch { container.settings.setVibration(level) } },
+                )
                 HomeTab.You -> {
                     val current = profile ?: return@AnimatedContent
-                    SettingsList(
+                    YouList(
                         serverHost = serverHost,
-                        debugUnlocked = debugUnlocked,
                         profile = current,
                         photo = photo,
                         contentPadding = padding,
                         actions = settings,
                         demo = demo,
                         scroll = youScroll,
-                        sendByEnter = sendByEnter,
-                        onSendByEnter = { enabled -> scope.launch { container.settings.setSendByEnter(enabled) } },
-                        vibration = vibration,
-                        onVibration = { level -> scope.launch { container.settings.setVibration(level) } },
                         header = headerStyleOf(current.header),
                         headerPhoto = headerPhoto,
                     )
@@ -279,6 +318,8 @@ internal fun toggleRead(chats: ChatRepository, conversation: Conversation) {
 }
 
 private const val COLLAPSE_AFTER = 24
+
+private fun LazyListState.scrolledPast() = firstVisibleItemIndex > 0 || firstVisibleItemScrollOffset > COLLAPSE_AFTER
 
 private const val TAB_SHIFT_PERCENT = 6
 

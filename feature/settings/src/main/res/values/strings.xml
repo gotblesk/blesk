@@ -77,7 +77,7 @@
     <string name="server_connected">Подключено</string>
     <string name="server_connected_as">Ты — @%1$s</string>
     <string name="server_pinned">Сертификат сервера закреплён по QR-коду</string>
-    <string name="server_change_hint">Чтобы перейти на другой сервер, удали всё в разделе «Ключи и безопасность».</string>
+    <string name="server_change_hint">Чтобы перейти на другой сервер, удали всё в разделе «Настройки → Приватность и безопасность».</string>
     <string name="settings_server_connected">Подключено: %1$s</string>
     <string name="settings_bots">Боты</string>
     <string name="settings_bots_hint">Свои боты для Bot API</string>
@@ -142,7 +142,11 @@
     <string name="storage_hint">Временные файлы — это заготовки при сжатии видео и записи. Их можно удалять без последствий. Переписка и вложения хранятся только на этом телефоне.</string>
     <string name="you_title">Ты</string>
     <string name="you_calls">Звонки</string>
-    <string name="you_security">Ключи и безопасность</string>
+    <string name="you_invites">Приглашения</string>
+    <string name="you_stickers">Стикеры</string>
+    <string name="settings_title">Настройки</string>
+    <string name="settings_privacy">Приватность и безопасность</string>
+    <string name="settings_section_chats">Чаты</string>
     <string name="you_action_edit">Изменить</string>
     <string name="you_qr">QR</string>
     <string name="you_share">Поделиться</string>

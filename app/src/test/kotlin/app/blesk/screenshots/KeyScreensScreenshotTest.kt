@@ -45,6 +45,8 @@ import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ConnectionStatus
+import app.blesk.feature.chats.ContactActions
+import app.blesk.feature.chats.ContactsTab
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.ForwardScreen
@@ -79,6 +81,7 @@ import app.blesk.feature.settings.NotificationsScreen
 import app.blesk.feature.settings.SafetyScreen
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
+import app.blesk.feature.settings.YouList
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
 import app.blesk.shared.protocol.BotCommand
@@ -121,7 +124,9 @@ class KeyScreensScreenshotTest(private val name: String) {
     private val seed by lazy { DemoSeed.from(ApplicationProvider.getApplicationContext<android.content.Context>().resources, now) }
     private val tabs = persistentListOf(
         LensTab("Чаты", BleskIcons.Chats),
+        LensTab("Контакты", BleskIcons.People),
         LensTab("Комнаты", BleskIcons.Rooms),
+        LensTab("Настройки", BleskIcons.Settings),
         LensTab("Ты", BleskIcons.Person) { Avatar("Ева", size = 24.dp) },
     )
 
@@ -145,9 +150,9 @@ class KeyScreensScreenshotTest(private val name: String) {
             top = {
                 Column {
                     // «Ты» opens with its header right under the status bar, without a lens.
-                    if (tab != 2) {
+                    if (tab != YOU) {
                         TopLens(title = title, collapsed = collapsed, actions = {
-                            if (tab == 0) IconButton(BleskIcons.Search, "Поиск", {})
+                            if (tab <= 1) IconButton(BleskIcons.Search, "Поиск", {})
                         })
                     }
                     ConnectionStatus(connection, onRetry = {}, showAfterMillis = 0)
@@ -156,7 +161,9 @@ class KeyScreensScreenshotTest(private val name: String) {
             bottom = {
                 val action = when (tab) {
                     0 -> LensAction(BleskIcons.NewChat, "Новый чат", {})
-                    1 -> LensAction(BleskIcons.Plus, "Создать комнату", {})
+                    1 -> LensAction(BleskIcons.Invite, "Добавить", {})
+                    2 -> LensAction(BleskIcons.Plus, "Создать комнату", {})
+                    3 -> null
                     else -> LensAction(BleskIcons.Edit, "Изменить профиль", {})
                 }
                 LensTabBar(tabs = tabs, selected = tab, onSelect = {}, action = action)
@@ -212,7 +219,7 @@ class KeyScreensScreenshotTest(private val name: String) {
 
     @Test
     fun roomOpen() = capture("09_room_open") {
-        HomeFrame("Комнаты", 1, collapsed = true) { padding ->
+        HomeFrame("Комнаты", 2, collapsed = true) { padding ->
             ChatList(
                 conversations = seed.conversations.filter { it.kind == ConversationKind.Room && it.parentId == null }.toImmutableList(),
                 typing = persistentSetOf(),
@@ -274,14 +281,38 @@ class KeyScreensScreenshotTest(private val name: String) {
 
     @Test
     fun settings() = capture("04_settings") {
-        HomeFrame("Ты", 2) { padding ->
+        HomeFrame("Настройки", 3) { padding ->
             SettingsList(
                 serverHost = null,
                 debugUnlocked = true,
+                contentPadding = padding,
+                actions = SettingsActions({}, {}, {}, {}, {}, {}),
+            )
+        }
+    }
+
+    @Test
+    fun you() = capture("04b_you") {
+        HomeFrame("Ты", YOU) { padding ->
+            YouList(
+                serverHost = "blesk.example",
                 profile = profile,
                 photo = null,
                 contentPadding = padding,
                 actions = SettingsActions({}, {}, {}, {}, {}, {}),
+                demo = false,
+            )
+        }
+    }
+
+    @Test
+    fun contactsTab() = capture("04c_contacts") {
+        HomeFrame("Контакты", 1) { padding ->
+            ContactsTab(
+                contacts = seed.contacts.toImmutableList(),
+                query = "",
+                contentPadding = padding,
+                actions = ContactActions(onOpen = {}, onWrite = {}, onInvite = {}),
             )
         }
     }
@@ -573,6 +604,8 @@ class KeyScreensScreenshotTest(private val name: String) {
     }
 
     companion object {
+        private const val YOU = 4
+
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun themes(): List<Array<Any>> = ThemeSpec.presets.map { arrayOf(it.preset.name.lowercase()) }

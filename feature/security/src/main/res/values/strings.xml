@@ -18,7 +18,7 @@
     <string name="pin_digits_4">4 цифры</string>
     <string name="pin_digits_6">6 цифр</string>
 
-    <string name="privacy_title">Ключи и безопасность</string>
+    <string name="privacy_title">Приватность и безопасность</string>
     <string name="privacy_lock">Блокировка</string>
     <string name="privacy_pin">Код-пароль</string>
     <string name="privacy_pin_hint">Код нужен, чтобы открыть blesk</string>

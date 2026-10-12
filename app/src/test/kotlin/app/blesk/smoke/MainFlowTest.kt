@@ -73,15 +73,15 @@ class MainFlowTest {
         compose.onNodeWithContentDescription("сквозное шифрование", substring = true).assertIsDisplayed()
         compose.onNodeWithContentDescription("Назад").performClick()
 
-        compose.onNodeWithText("Комнаты").performClick()
+        compose.onNodeWithContentDescription("Комнаты").performClick()
         compose.onNodeWithText("Студия").assertIsDisplayed()
 
-        compose.onNodeWithText("Ты").performClick()
+        compose.onNodeWithContentDescription("Настройки").performClick()
         compose.onNodeWithText("Оформление").performClick()
         compose.onNodeWithText("Лаймовая").performClick()
         compose.onNodeWithContentDescription("Назад").performClick()
 
-        compose.onNodeWithText("Ключи и безопасность").performClick()
+        compose.onNodeWithText("Приватность и безопасность").performClick()
         compose.onNodeWithText("Запрет скриншотов").performClick()
         compose.onNodeWithContentDescription("Назад").performClick()
 
