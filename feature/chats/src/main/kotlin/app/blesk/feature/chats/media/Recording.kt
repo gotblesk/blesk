@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -488,5 +489,17 @@ internal fun CircleOverlay(ui: RecordingUi, recorders: Recorders) {
                 style = Stroke(stroke, cap = StrokeCap.Round),
             )
         }
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .offset(y = FlipOffset)
+                .clip(CircleShape)
+                .background(Blesk.colors.surface),
+        ) {
+            IconButton(BleskIcons.Flip, stringResource(R.string.media_circle_flip), { recorders.circle.flip() })
+        }
     }
 }
+
+/** Under the circle, clear of the ring. */
+private val FlipOffset = 196.dp

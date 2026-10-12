@@ -32,7 +32,10 @@ import java.io.File
 class CircleRecorder(private val context: Context, private val vault: MediaVault) {
     private val surface = MutableStateFlow<SurfaceRequest?>(null)
     private var provider: ProcessCameraProvider? = null
+    private var owner: LifecycleOwner? = null
+    private var previewCase: Preview? = null
     private var capture: VideoCapture<Recorder>? = null
+    private var front = true
     private var recording: Recording? = null
     private var output: File? = null
     private var finished: CompletableDeferred<Boolean>? = null
@@ -47,10 +50,29 @@ class CircleRecorder(private val context: Context, private val vault: MediaVault
             .setQualitySelector(QualitySelector.from(Quality.SD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
             .build()
         val videoCapture = VideoCapture.withOutput(recorder)
-        cameraProvider.unbindAll()
-        cameraProvider.bindToLifecycle(owner, CameraSelector.DEFAULT_FRONT_CAMERA, preview, videoCapture)
+        front = true
         provider = cameraProvider
+        this.owner = owner
+        previewCase = preview
         capture = videoCapture
+        bind()
+    }
+
+    /** Front to back and back again, without a break in the recording: it is persistent, so rebinding keeps it going. */
+    fun flip() {
+        if (provider == null) return
+        front = !front
+        bind()
+    }
+
+    private fun bind() {
+        val cameraProvider = provider ?: return
+        val lifecycle = owner ?: return
+        val selector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        val shown = previewCase ?: return
+        val recorded = capture ?: return
+        cameraProvider.unbindAll()
+        runCatching { cameraProvider.bindToLifecycle(lifecycle, selector, shown, recorded) }
     }
 
     @OptIn(ExperimentalPersistentRecording::class)
@@ -107,6 +129,8 @@ class CircleRecorder(private val context: Context, private val vault: MediaVault
         cancel()
         provider?.unbindAll()
         provider = null
+        owner = null
+        previewCase = null
         capture = null
         surface.value = null
     }

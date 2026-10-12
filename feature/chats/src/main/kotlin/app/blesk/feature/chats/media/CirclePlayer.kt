@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -39,20 +40,24 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import java.io.File
 
-/** A round video: the poster until tapped, then it plays inside the circle with a ring of progress. */
+/**
+ * A round video. Once it has arrived it plays by itself without sound, over and over, as long as
+ * it is on screen; a tap starts it again from the beginning with sound and a ring of progress, and
+ * another tap goes back to silence. Without motion, or veiled in a request, it waits for the tap.
+ */
 @OptIn(UnstableApi::class)
 @Composable
 internal fun CirclePlayer(circle: Attachment.Circle, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var playing by remember { mutableStateOf(false) }
+    var sound by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
+    val autoplay = !Blesk.motion.reduced && !LocalVeiledMedia.current
     val ring = Blesk.colors.light
+    val action = stringResource(if (sound) R.string.media_circle_mute else R.string.media_circle_sound)
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .clickable(role = Role.Button, onClickLabel = stringResource(if (playing) R.string.media_pause else R.string.media_play)) {
-                playing = !playing
-            },
+            .clickable(role = Role.Button, onClickLabel = action) { sound = !sound },
         contentAlignment = Alignment.Center,
     ) {
         AsyncImage(
@@ -61,29 +66,34 @@ internal fun CirclePlayer(circle: Attachment.Circle, modifier: Modifier = Modifi
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize().veiled(),
         )
-        if (playing) {
+        if (circle.path.isNotEmpty() && (sound || autoplay)) {
             val player = remember(circle.path) {
                 ExoPlayer.Builder(context).build().apply {
                     setMediaItem(MediaItem.fromUri(circle.path))
                     prepare()
-                    play()
                 }
             }
             DisposableEffect(player) {
                 val listener = object : Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
-                        if (state == Player.STATE_ENDED) playing = false
+                        if (state == Player.STATE_ENDED) sound = false
                     }
                 }
                 player.addListener(listener)
                 onDispose {
                     player.removeListener(listener)
                     player.release()
-                    progress = 0f
                 }
             }
-            LaunchedEffect(player) {
-                while (true) {
+            // Silent playback must not take the audio focus from music or a call.
+            LaunchedEffect(player, sound) {
+                player.setAudioAttributes(AudioAttributes.DEFAULT, sound)
+                player.volume = if (sound) 1f else 0f
+                player.repeatMode = if (sound) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+                player.seekTo(0)
+                player.play()
+                progress = 0f
+                while (sound) {
                     progress = player.currentPosition.toFloat() / circle.durationMillis.coerceAtLeast(1)
                     delay(PROGRESS_TICK_MILLIS)
                 }
@@ -96,17 +106,19 @@ internal fun CirclePlayer(circle: Attachment.Circle, modifier: Modifier = Modifi
                 shutter = {},
                 modifier = Modifier.fillMaxSize(),
             )
-            Canvas(Modifier.fillMaxSize()) {
-                val stroke = 3.dp.toPx()
-                drawArc(
-                    color = ring,
-                    startAngle = -90f,
-                    sweepAngle = 360f * progress.coerceIn(0f, 1f),
-                    useCenter = false,
-                    topLeft = Offset(stroke / 2f, stroke / 2f),
-                    size = Size(size.width - stroke, size.height - stroke),
-                    style = Stroke(stroke, cap = StrokeCap.Round),
-                )
+            if (sound) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val stroke = 3.dp.toPx()
+                    drawArc(
+                        color = ring,
+                        startAngle = -90f,
+                        sweepAngle = 360f * progress.coerceIn(0f, 1f),
+                        useCenter = false,
+                        topLeft = Offset(stroke / 2f, stroke / 2f),
+                        size = Size(size.width - stroke, size.height - stroke),
+                        style = Stroke(stroke, cap = StrokeCap.Round),
+                    )
+                }
             }
         }
     }
