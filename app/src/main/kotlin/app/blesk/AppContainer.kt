@@ -57,6 +57,7 @@ class AppContainer(context: Context) {
     val settings = SettingsStore(context)
     val wallpaper = PrivateImage(context, "wallpaper.jpg", maxSide = 1600)
     val profilePhoto = PrivateImage(context, "avatar.jpg", maxSide = 512)
+    val headerPhoto = PrivateImage(context, "header.jpg", maxSide = 1600)
     val pinVault = PinVault(context)
     val lock = AppLock(pinVault)
     val media = MediaVault(context)

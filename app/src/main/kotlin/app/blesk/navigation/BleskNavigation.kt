@@ -1,5 +1,7 @@
 package app.blesk.navigation
 
+import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
@@ -30,6 +32,7 @@ import app.blesk.AppContainer
 import app.blesk.BuildConfig
 import app.blesk.calls.CallActivity
 import app.blesk.core.data.diagnostics.EventCode
+import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.design.motion.LocalScreenScope
@@ -42,6 +45,8 @@ import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.chats.groups.NewKind
 import app.blesk.feature.chats.media.MediaViewer
 import app.blesk.feature.debug.DebugScreen
+import app.blesk.feature.profile.MyQrScreen
+import app.blesk.feature.profile.profileLink
 import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
 import app.blesk.feature.settings.ConnectOutcome
@@ -53,6 +58,7 @@ import app.blesk.feature.settings.ServerState
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.shared.appearance.Appearance
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -80,6 +86,9 @@ data class MediaKey(val conversationId: String, val messageId: String) : NavKey
 
 @Serializable
 data object ProfileKey : NavKey
+
+@Serializable
+data object MyQrKey : NavKey
 
 @Serializable
 data class NewGroupKey(val kind: NewKind = NewKind.Group) : NavKey
@@ -211,11 +220,24 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenBots = { backStack.add(BotsKey) },
                                     onOpenNotifications = { backStack.add(NotificationsKey) },
                                     onOpenStorage = { backStack.add(StorageKey) },
+                                    onShowQr = { backStack.add(MyQrKey) },
+                                    onShare = { scope.launch { shareProfile(context, container.settings.profile.first().username) } },
+                                    onOpenSaved = {
+                                        scope.launch {
+                                            val chats = container.chats.value ?: return@launch
+                                            chats.conversations.first().firstOrNull { it.kind == ConversationKind.Saved }
+                                                ?.let { backStack.add(ConversationKey(it.id)) }
+                                        }
+                                    },
                                 ),
                             )
                         }
                     }
                     entry<ProfileKey> { ProfileRoute(container, back) }
+                    entry<MyQrKey> {
+                        val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
+                        MyQrScreen(profile?.username.orEmpty(), onBack = back)
+                    }
                     entry<ServerKey> {
                         val server = mode as? AppMode.Server
                         ServerScreen(
@@ -381,3 +403,10 @@ private fun AnimatedContentTransitionScope<*>.screenExit(motion: BleskMotion): C
         .togetherWith(fadeOut(motion.transition()) + scaleOut(motion.transition(), targetScale = if (motion.reduced) 1f else ENTER_SCALE))
 
 private const val ENTER_SCALE = 0.96f
+
+/** Sends a link to your profile through any app the person chooses. */
+private fun shareProfile(context: Context, username: String) {
+    if (username.isBlank()) return
+    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, profileLink(username))
+    context.startActivity(Intent.createChooser(send, context.getString(app.blesk.feature.profile.R.string.my_share_title)))
+}

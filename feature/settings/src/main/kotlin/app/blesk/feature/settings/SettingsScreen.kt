@@ -1,28 +1,21 @@
 package app.blesk.feature.settings
 
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.settings.Profile
 import app.blesk.core.data.settings.VibrationLevel
-import app.blesk.core.design.component.Avatar
-import app.blesk.core.design.component.Capsule
 import app.blesk.core.design.component.Card
-import app.blesk.core.design.component.DemoTag
-import app.blesk.core.design.component.Icon
+import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
@@ -43,6 +36,9 @@ class SettingsActions(
     val onOpenBots: () -> Unit = {},
     val onOpenNotifications: () -> Unit = {},
     val onOpenStorage: () -> Unit = {},
+    val onShowQr: () -> Unit = {},
+    val onShare: () -> Unit = {},
+    val onOpenSaved: () -> Unit = {},
 )
 
 /** The «Ты» tab: you, then everything that is set up once and rarely touched. */
@@ -61,54 +57,34 @@ fun SettingsList(
     onSendByEnter: (Boolean) -> Unit = {},
     vibration: VibrationLevel = VibrationLevel.Normal,
     onVibration: (VibrationLevel) -> Unit = {},
+    header: HeaderStyle = HeaderStyle.Light(0),
+    headerPhoto: ImageBitmap? = null,
 ) {
     val cardPadding = Modifier.padding(horizontal = Blesk.dimens.gutter)
     Column(
         modifier
             .fillMaxSize()
             .verticalScroll(scroll)
-            .padding(contentPadding)
-            .padding(bottom = 24.dp),
+            // The header runs up under the status bar, so only the bottom inset is kept.
+            .padding(bottom = contentPadding.calculateBottomPadding() + 24.dp),
     ) {
-        Capsule(
-            modifier = cardPadding.padding(top = 4.dp).fillMaxWidth(),
-            onClick = actions.onOpenProfile,
-            onClickLabel = stringResource(R.string.settings_profile),
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Avatar(profile.name.ifBlank { "?" }, size = 60.dp, photo = photo, key = profile.username.ifBlank { profile.name })
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = if (profile.isEmpty) stringResource(R.string.settings_profile) else profile.name,
-                            style = Blesk.type.headline,
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        if (demo) DemoTag()
-                    }
-                    Text(
-                        text = if (profile.username.isNotBlank()) {
-                            "@${profile.username}"
-                        } else {
-                            stringResource(R.string.settings_profile_setup)
-                        },
-                        style = Blesk.type.label,
-                        color = Blesk.colors.textSecondary,
-                        maxLines = 1,
-                    )
-                    if (profile.bio.isNotBlank()) {
-                        Text(profile.bio, style = Blesk.type.label, color = Blesk.colors.textTertiary, maxLines = 2)
-                    }
-                }
-                Icon(BleskIcons.Qr, contentDescription = null, tint = Blesk.colors.textSecondary)
-            }
-        }
-        Card(cardPadding.padding(top = Blesk.dimens.sectionGap)) {
+        YouHeader(
+            profile = profile,
+            photo = photo,
+            header = header,
+            headerPhoto = headerPhoto,
+            scroll = { scroll.value },
+            actions = YouHeaderActions(onEdit = actions.onOpenProfile, onQr = actions.onShowQr, onShare = actions.onShare),
+            demo = demo,
+            unnamed = stringResource(R.string.settings_profile),
+            labels = YouHeaderLabels(
+                edit = stringResource(R.string.you_action_edit),
+                qr = stringResource(R.string.you_qr),
+                share = stringResource(R.string.you_share),
+            ),
+        )
+        Card(cardPadding) {
+            ListRow(title = stringResource(R.string.you_saved), icon = BleskIcons.Bookmark, onClick = actions.onOpenSaved)
             ListRow(title = stringResource(R.string.you_calls), icon = BleskIcons.Phone, soon = true)
             if (serverHost != null) {
                 ListRow(

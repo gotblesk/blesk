@@ -22,6 +22,12 @@ internal fun rememberProfilePhoto(container: AppContainer, version: Long): Image
 }
 
 @Composable
+internal fun rememberHeaderPhoto(container: AppContainer, version: Long): ImageBitmap? {
+    val photo by produceState<ImageBitmap?>(null, version) { value = container.headerPhoto.load()?.asImageBitmap() }
+    return photo
+}
+
+@Composable
 internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)

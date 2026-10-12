@@ -16,12 +16,21 @@ data class Privacy(
     val typingIndicator: Boolean = true,
 )
 
-data class Profile(val name: String, val username: String, val bio: String, val photoVersion: Long) {
+data class Profile(
+    val name: String,
+    val username: String,
+    val bio: String,
+    val photoVersion: Long,
+    /** The header: "light:<preset>", "solid:<tone>" or "photo". */
+    val header: String = DEFAULT_HEADER,
+    val headerVersion: Long = 0,
+) {
     val isEmpty: Boolean get() = name.isBlank() && username.isBlank()
 
     companion object {
         const val MAX_NAME = 64
-        const val MAX_BIO = 140
+        const val MAX_BIO = 160
+        const val DEFAULT_HEADER = "light:0"
         const val MAX_USERNAME = 32
 
         /** Usernames are lowercase latin letters, digits and underscores, 3 to 32 characters. */

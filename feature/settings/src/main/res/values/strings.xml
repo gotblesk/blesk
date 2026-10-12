@@ -143,4 +143,8 @@
     <string name="you_title">Ты</string>
     <string name="you_calls">Звонки</string>
     <string name="you_security">Ключи и безопасность</string>
+    <string name="you_action_edit">Изменить</string>
+    <string name="you_qr">QR</string>
+    <string name="you_share">Поделиться</string>
+    <string name="you_saved">Избранное</string>
 </resources>

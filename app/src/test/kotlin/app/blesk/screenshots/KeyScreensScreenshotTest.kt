@@ -142,9 +142,12 @@ class KeyScreensScreenshotTest(private val name: String) {
         LensScaffold(
             top = {
                 Column {
-                    TopLens(title = title, collapsed = collapsed, actions = {
-                        if (tab == 0) IconButton(BleskIcons.Search, "Поиск", {})
-                    })
+                    // «Ты» opens with its header right under the status bar, without a lens.
+                    if (tab != 2) {
+                        TopLens(title = title, collapsed = collapsed, actions = {
+                            if (tab == 0) IconButton(BleskIcons.Search, "Поиск", {})
+                        })
+                    }
                     ConnectionStatus(connection, onRetry = {}, showAfterMillis = 0)
                 }
             },

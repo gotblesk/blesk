@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +35,7 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.Avatar
+import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.glass.LensAction
@@ -51,6 +53,7 @@ import app.blesk.feature.chats.ConnectionStatus
 import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
+import app.blesk.feature.settings.youHeaderHeight
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
@@ -91,13 +94,16 @@ internal fun Home(
             Avatar(me?.name?.ifBlank { "?" } ?: "?", size = 24.dp, photo = photo, key = me?.username?.ifBlank { me.name } ?: "")
         },
     )
+    val youCollapseAt = with(LocalDensity.current) { (youHeaderHeight() - YouLensReach).toPx() }
+    val headerPhoto = rememberHeaderPhoto(container, profile?.headerVersion ?: 0L)
     val chatsList = rememberLazyListState()
     val roomsList = rememberLazyListState()
     val youScroll = rememberScrollState()
     val collapsed = when (tab) {
         HomeTab.Chats -> chatsList.firstVisibleItemIndex > 0 || chatsList.firstVisibleItemScrollOffset > COLLAPSE_AFTER
         HomeTab.Rooms -> roomsList.firstVisibleItemIndex > 0 || roomsList.firstVisibleItemScrollOffset > COLLAPSE_AFTER
-        HomeTab.You -> youScroll.value > COLLAPSE_AFTER
+        // «Ты» has no title of its own; the lens appears once the avatar has risen into it.
+        HomeTab.You -> youScroll.value > youCollapseAt
     }
     val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by chats.typing.collectAsStateWithLifecycle()
@@ -123,6 +129,19 @@ internal fun Home(
                 return@LensScaffold
             }
             Column {
+                if (tab == HomeTab.You) {
+                    val me = profile
+                    if (collapsed && me != null) {
+                        TopLens(
+                            title = me.name.ifBlank { tabs[tab.ordinal].label },
+                            leading = {
+                                Avatar(me.name.ifBlank { "?" }, size = 36.dp, photo = photo, key = me.username.ifBlank { me.name })
+                            },
+                        )
+                    }
+                    ConnectionStatus(connection, chats::reconnect)
+                    return@Column
+                }
                 TopLens(
                     title = tabs[tab.ordinal].label,
                     collapsed = collapsed,
@@ -230,6 +249,8 @@ internal fun Home(
                         onSendByEnter = { enabled -> scope.launch { container.settings.setSendByEnter(enabled) } },
                         vibration = vibration,
                         onVibration = { level -> scope.launch { container.settings.setVibration(level) } },
+                        header = headerStyleOf(current.header),
+                        headerPhoto = headerPhoto,
                     )
                 }
             }
@@ -260,3 +281,15 @@ internal fun toggleRead(chats: ChatRepository, conversation: Conversation) {
 private const val COLLAPSE_AFTER = 24
 
 private const val TAB_SHIFT_PERCENT = 6
+
+private val YouLensReach = 72.dp
+
+/** Reads the stored header choice; anything unknown falls back to the first light. */
+internal fun headerStyleOf(stored: String): HeaderStyle {
+    val (kind, value) = stored.split(':').let { it.first() to it.getOrNull(1)?.toIntOrNull() }
+    return when (kind) {
+        "photo" -> HeaderStyle.Photo
+        "solid" -> HeaderStyle.Solid(value ?: 0)
+        else -> HeaderStyle.Light(value ?: 0)
+    }
+}

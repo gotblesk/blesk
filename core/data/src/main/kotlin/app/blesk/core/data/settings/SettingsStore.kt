@@ -146,6 +146,8 @@ class SettingsStore(context: Context) {
             username = prefs[PROFILE_USERNAME].orEmpty(),
             bio = prefs[PROFILE_BIO].orEmpty(),
             photoVersion = prefs[PROFILE_PHOTO] ?: 0L,
+            header = prefs[PROFILE_HEADER] ?: Profile.DEFAULT_HEADER,
+            headerVersion = prefs[PROFILE_HEADER_PHOTO] ?: 0L,
         )
     }.distinctUntilChanged()
 
@@ -155,6 +157,14 @@ class SettingsStore(context: Context) {
             it[PROFILE_USERNAME] = Profile.normalizeUsername(username)
             it[PROFILE_BIO] = bio.trim().take(Profile.MAX_BIO)
         }
+    }
+
+    suspend fun setProfileHeader(header: String) {
+        store.edit { it[PROFILE_HEADER] = header }
+    }
+
+    suspend fun bumpProfileHeader() {
+        store.edit { it[PROFILE_HEADER_PHOTO] = (it[PROFILE_HEADER_PHOTO] ?: 0L) + 1 }
     }
 
     suspend fun bumpProfilePhoto() {
@@ -216,6 +226,8 @@ class SettingsStore(context: Context) {
         val PROFILE_USERNAME = stringPreferencesKey("profile_username")
         val PROFILE_BIO = stringPreferencesKey("profile_bio")
         val PROFILE_PHOTO = longPreferencesKey("profile_photo")
+        val PROFILE_HEADER = stringPreferencesKey("profile_header")
+        val PROFILE_HEADER_PHOTO = longPreferencesKey("profile_header_photo")
         val SEND_BY_ENTER = booleanPreferencesKey("send_by_enter")
         val VIBRATION = stringPreferencesKey("vibration")
         val RECENT_EMOJI = stringPreferencesKey("recent_emoji")

@@ -15,4 +15,9 @@
     <string name="profile_qr_hint">Покажи его, чтобы тебя нашли. В коде только имя пользователя.</string>
     <string name="profile_qr_description">QR-код профиля @%1$s</string>
     <string name="profile_qr_needs_username">Сначала задай имя пользователя</string>
+    <string name="my_qr_title">Мой код</string>
+    <string name="my_qr_label">QR-код профиля @%1$s</string>
+    <string name="my_qr_hint">Пусть отсканируют его в blesk: «Новый чат» → «Сканер QR»</string>
+    <string name="my_qr_no_name">Сначала задай имя пользователя в профиле, и здесь появится твой код.</string>
+    <string name="my_share_title">Поделиться профилем</string>
 </resources>

@@ -79,6 +79,13 @@ fun Avatar(
     }
 }
 
+/** The colour a monogram avatar of [key] sits on, for shapes that grow out of it. */
+@Composable
+fun rememberAvatarFill(key: String): Color {
+    val dark = Blesk.colors.isDark
+    return remember(key, dark) { hueFor(key, dark) }
+}
+
 /** Same lightness and chroma for everyone, only the hue differs. */
 private fun hueFor(key: String, dark: Boolean): Color {
     val hue = (key.hashCode().toUInt().toLong() % HUE_STEPS) * (360f / HUE_STEPS)
