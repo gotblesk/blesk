@@ -2,8 +2,15 @@ package app.blesk
 
 import android.app.Application
 import app.blesk.background.MessageNotifier
+import app.blesk.background.TransferService
 import app.blesk.calls.CallCoordinator
 import app.blesk.core.data.diagnostics.EventCode
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 class BleskApplication : Application() {
     lateinit var container: AppContainer
@@ -12,6 +19,7 @@ class BleskApplication : Application() {
     internal lateinit var notifier: MessageNotifier
         private set
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
@@ -20,6 +28,13 @@ class BleskApplication : Application() {
         registerActivityLifecycleCallbacks(VisibleActivities { container.visible = it })
         CallCoordinator(this, container).start()
         notifier = MessageNotifier(this, container).also { it.start() }
+        // Files keep moving in the background under a notification while any are on their way.
+        container.scope.launch {
+            container.chats.flatMapLatest { it?.transfers ?: flowOf(emptyMap()) }
+                .map { transfers -> transfers.values.any { !it.failed } }
+                .distinctUntilChanged()
+                .collect { busy -> if (busy) TransferService.start(this@BleskApplication) }
+        }
     }
 }
 

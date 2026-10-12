@@ -23,4 +23,12 @@
     <string name="notify_spoiler">скрытый текст</string>
     <string name="notify_online_title">blesk на связи</string>
     <string name="notify_online_text">Соединение с твоим сервером открыто, чтобы приходили сообщения и звонки</string>
+    <string name="notify_channel_transfers">Передача файлов</string>
+    <string name="notify_transfers_text">%1$s из %2$s</string>
+    <plurals name="notify_transfers_title">
+        <item quantity="one">Передаётся %1$d файл</item>
+        <item quantity="few">Передаётся %1$d файла</item>
+        <item quantity="many">Передаётся %1$d файлов</item>
+        <item quantity="other">Передаётся %1$d файла</item>
+    </plurals>
 </resources>
