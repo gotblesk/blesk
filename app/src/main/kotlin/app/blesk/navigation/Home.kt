@@ -354,6 +354,7 @@ internal fun Home(
                         onOpenChannel = onOpenChannel,
                         state = roomsList,
                         onLongPress = { menuFor = it },
+                        onReorderRooms = chats::reorderPinned,
                     )
                 }
                 HomeTab.Settings -> SettingsList(

@@ -93,6 +93,7 @@ import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.Haptics
 import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -143,6 +144,8 @@ fun ChatList(
     /** The archive row folded into the top lens: pulling the list down opens the archive. */
     archiveFolded: Boolean = false,
     onFoldArchive: ((Boolean) -> Unit)? = null,
+    /** Pinned rooms dragged into a new order; null keeps them where they are. */
+    onReorderRooms: ((List<String>) -> Unit)? = null,
     /** The archive was opened by pulling the list down. */
     onPullArchive: () -> Unit = {},
 ) {
@@ -158,7 +161,14 @@ fun ChatList(
     val pulling = archiveFolded && archivedCount > 0 && onOpenArchive != null
     val pinned = conversations.filter { it.pinned && !it.isRoomCluster() }
         .sortedWith(compareBy<Conversation> { it.pinRank }.thenByDescending { it.kind == ConversationKind.Saved })
-    val rest = conversations.filterNot { it.pinned && !it.isRoomCluster() }
+    val roomDrag = remember { RoomDrag() }
+    val pinnedRooms = conversations.filter { it.pinned && it.isRoomCluster() }.map { it.id }
+    if (roomDrag.lifted == null && roomDrag.order != pinnedRooms) roomDrag.order = pinnedRooms
+    val rest = conversations.filterNot { it.pinned && !it.isRoomCluster() }.let { list ->
+        // While a pinned room is held, the pinned rooms show in the order the finger makes.
+        val byId = list.associateBy { it.id }
+        roomDrag.order.mapNotNull(byId::get) + list.filterNot { it.id in roomDrag.order }
+    }
     val rowModifier = Modifier.padding(horizontal = Blesk.dimens.gutter - 6.dp)
     CompositionLocalProvider(LocalOnline provides online) {
         LazyColumn(
@@ -222,12 +232,21 @@ fun ChatList(
             }
             items(rest, key = { it.id }) { conversation ->
                 if (conversation.isRoomCluster()) {
+                    val draggable = onReorderRooms != null && conversation.id in roomDrag.order
+                    val menu = onLongPress?.let { press -> { press(conversation) } }
                     RoomCluster(
                         room = conversation,
                         initiallyOpen = conversation.id in openRooms,
                         now = now,
                         onOpenChannel = { onOpenChannel(conversation, it) },
-                        modifier = rowModifier.padding(vertical = 6.dp),
+                        onLongPress = menu.takeUnless { draggable },
+                        modifier = rowModifier
+                            .then(if (roomDrag.lifted == conversation.id) Modifier.zIndex(1f) else listMotion())
+                            .let { row ->
+                                if (!draggable || onReorderRooms == null) return@let row
+                                row.roomDrag(conversation.id, roomDrag, state, haptics, onMenu = menu, onDrop = onReorderRooms)
+                            }
+                            .padding(vertical = 6.dp),
                     )
                 } else {
                     SwipeRow(
@@ -811,3 +830,75 @@ internal fun formatTime(at: Instant, now: Instant): String {
 /** Shared keys that carry a chat row into its open chat and back. */
 internal fun chatKey(id: String) = "chat:$id"
 internal fun avatarKey(id: String) = "avatar:$id"
+
+/** A pinned room held by the finger: the order of the pinned rooms and how far the held one has moved. */
+private class RoomDrag {
+    var order by mutableStateOf(emptyList<String>())
+    var lifted by mutableStateOf<String?>(null)
+    var offset by mutableFloatStateOf(0f)
+    var moved = false
+}
+
+/**
+ * Long press lifts a pinned room and it follows the finger, the others making way; releasing it
+ * without moving opens the menu instead, as with pinned chats.
+ */
+private fun Modifier.roomDrag(
+    id: String,
+    drag: RoomDrag,
+    list: LazyListState,
+    haptics: Haptics,
+    onMenu: (() -> Unit)?,
+    onDrop: (List<String>) -> Unit,
+): Modifier = graphicsLayer {
+    if (drag.lifted == id) {
+        translationY = drag.offset
+        scaleX = ROOM_LIFT
+        scaleY = ROOM_LIFT
+    }
+}.pointerInput(id) {
+    fun size(key: String) = list.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }?.size?.toFloat()
+    detectDragGesturesAfterLongPress(
+        onDragStart = {
+            drag.lifted = id
+            drag.offset = 0f
+            drag.moved = false
+            haptics.detach()
+        },
+        onDragEnd = {
+            drag.lifted = null
+            drag.offset = 0f
+            if (drag.moved) onDrop(drag.order) else onMenu?.invoke()
+            haptics.stick()
+        },
+        onDragCancel = {
+            drag.lifted = null
+            drag.offset = 0f
+        },
+    ) { change, amount ->
+        change.consume()
+        drag.offset += amount.y
+        val index = drag.order.indexOf(id)
+        val next = drag.order.getOrNull(index + 1)
+        val previous = drag.order.getOrNull(index - 1)
+        val nextSize = next?.let(::size)
+        val previousSize = previous?.let(::size)
+        // Past half of a neighbour, the held room takes its place and the offset is carried over.
+        when {
+            next != null && nextSize != null && drag.offset > nextSize / 2 -> {
+                drag.order = drag.order.toMutableList().apply { add(index + 1, removeAt(index)) }
+                drag.offset -= nextSize
+                drag.moved = true
+                haptics.tick()
+            }
+            previous != null && previousSize != null && drag.offset < -previousSize / 2 -> {
+                drag.order = drag.order.toMutableList().apply { add(index - 1, removeAt(index)) }
+                drag.offset += previousSize
+                drag.moved = true
+                haptics.tick()
+            }
+        }
+    }
+}
+
+private const val ROOM_LIFT = 1.02f

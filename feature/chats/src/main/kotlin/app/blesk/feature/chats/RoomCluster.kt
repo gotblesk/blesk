@@ -2,6 +2,7 @@ package app.blesk.feature.chats
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -68,6 +69,8 @@ internal fun RoomCluster(
     now: Instant,
     onOpenChannel: (RoomChannel) -> Unit,
     modifier: Modifier = Modifier,
+    /** The room's menu; null where the press is taken by dragging instead. */
+    onLongPress: (() -> Unit)? = null,
 ) {
     var expanded by rememberSaveable(room.id) { mutableStateOf(initiallyOpen) }
     val haptics = rememberHaptics()
@@ -97,10 +100,14 @@ internal fun RoomCluster(
             Box(
                 Modifier
                     .clip(shape)
-                    .clickable(role = Role.Button) {
-                        expanded = !expanded
-                        if (expanded) haptics.detach() else haptics.stick()
-                    }
+                    .combinedClickable(
+                        role = Role.Button,
+                        onLongClick = onLongPress,
+                        onClick = {
+                            expanded = !expanded
+                            if (expanded) haptics.detach() else haptics.stick()
+                        },
+                    )
                     .semantics { stateDescription = stateLabel },
             ) {
                 ConversationSummary(room, typing = false, now = now, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
