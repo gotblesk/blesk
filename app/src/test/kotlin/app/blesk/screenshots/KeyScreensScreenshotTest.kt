@@ -88,6 +88,7 @@ import app.blesk.feature.settings.BotActions
 import app.blesk.feature.settings.BotsScreen
 import app.blesk.feature.settings.ChatUse
 import app.blesk.feature.settings.LicensesScreen
+import app.blesk.feature.settings.MetaballSandbox
 import app.blesk.feature.settings.NotificationsScreen
 import app.blesk.feature.settings.PrivacyPolicyScreen
 import app.blesk.feature.settings.SafetyScreen
@@ -420,6 +421,11 @@ class KeyScreensScreenshotTest(private val name: String) {
             keepMediaDays = 90,
             actions = StorageActions({}, {}, {}, {}),
         )
+    }
+
+    @Test
+    fun sandbox() = capture("07d_sandbox") {
+        MetaballSandbox(onBack = {})
     }
 
     @Test

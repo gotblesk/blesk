@@ -199,4 +199,7 @@
     <string name="about_policy_hint">Что знает о тебе сервер, а что нет</string>
     <string name="about_source">Исходный код</string>
     <string name="about_source_url">https://github.com/gotblesk/blesk</string>
+    <string name="about_wordmark">blesk</string>
+    <string name="sandbox_title">Капли</string>
+    <string name="sandbox_hint">Тяни капли: они слипаются и возвращаются на место</string>
 </resources>

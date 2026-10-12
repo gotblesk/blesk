@@ -59,7 +59,7 @@ internal fun CirclePlayer(circle: Attachment.Circle, modifier: Modifier = Modifi
             model = File(circle.poster),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().veiled(),
         )
         if (playing) {
             val player = remember(circle.path) {

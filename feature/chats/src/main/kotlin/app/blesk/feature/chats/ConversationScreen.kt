@@ -96,6 +96,7 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.CircleOverlay
 import app.blesk.feature.chats.media.LocalMediaController
+import app.blesk.feature.chats.media.LocalVeiledMedia
 import app.blesk.feature.chats.media.MediaController
 import app.blesk.feature.chats.media.RecordMode
 import app.blesk.feature.chats.media.Recorders
@@ -320,7 +321,7 @@ fun ConversationScreen(
         )
     }
 
-    CompositionLocalProvider(LocalMediaController provides media) {
+    CompositionLocalProvider(LocalMediaController provides media, LocalVeiledMedia provides conversation.request) {
         Box(modifier.sharedBounds(chatKey(conversation.id)).fillMaxSize()) {
             // Behind the message menu the chat dims and blurs (blur draws from Android 12).
             val behindMenu by animateDpAsState(if (menuFor != null && !Blesk.motion.reduced) MENU_BLUR else 0.dp, label = "blur")

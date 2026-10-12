@@ -1,5 +1,6 @@
 package app.blesk.feature.chats.media
 
+import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,7 +25,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -65,6 +68,27 @@ class MediaController(
 }
 
 val LocalMediaController = staticCompositionLocalOf { MediaController.Inert }
+
+/** In a message request, pictures stay blurred until it is accepted: nobody can push an image at you. */
+val LocalVeiledMedia = staticCompositionLocalOf { false }
+
+/** Blurs a picture in a request; before Android 12, where blur does not draw, a scrim covers it instead. */
+@Composable
+internal fun Modifier.veiled(): Modifier {
+    if (!LocalVeiledMedia.current) return this
+    val scrim = Blesk.colors.surfaceStrong
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        blur(VeilBlur)
+    } else {
+        drawWithContent {
+            drawContent()
+            drawRect(scrim.copy(alpha = VEIL_SCRIM))
+        }
+    }
+}
+
+private val VeilBlur = 28.dp
+private const val VEIL_SCRIM = 0.9f
 
 /** True when the attachment fills the bubble edge to edge rather than sitting above text. */
 internal fun Attachment.isVisual() = this is Attachment.Photo || this is Attachment.Video
@@ -116,6 +140,7 @@ private fun Picture(path: String, ratio: Float, description: String, onClick: ()
             .width(260.dp)
             .aspectRatio(ratio.coerceIn(MIN_RATIO, MAX_RATIO))
             .clip(RoundedCornerShape(16.dp))
+            .veiled()
             .clickable(role = Role.Image, onClick = onClick),
     )
 }

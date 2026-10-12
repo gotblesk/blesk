@@ -76,6 +76,7 @@ import app.blesk.feature.settings.ConnectOutcome
 import app.blesk.feature.settings.License
 import app.blesk.feature.settings.LicenseTextScreen
 import app.blesk.feature.settings.LicensesScreen
+import app.blesk.feature.settings.MetaballSandbox
 import app.blesk.feature.settings.PrivacyPolicyScreen
 import app.blesk.feature.settings.ServerScreen
 import app.blesk.feature.settings.ServerState
@@ -173,6 +174,9 @@ data object LicensesKey : NavKey
 
 @Serializable
 data object PolicyKey : NavKey
+
+@Serializable
+data object SandboxKey : NavKey
 
 @Serializable
 data object BlockedKey : NavKey
@@ -371,6 +375,7 @@ fun BleskNavigation(container: AppContainer) {
                             )
                         }
                         entry<PolicyKey> { PrivacyPolicyScreen(onBack = back) }
+                        entry<SandboxKey> { MetaballSandbox(onBack = back) }
                         entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
                         entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
                         entry<ConversationKey> { key ->
@@ -476,6 +481,7 @@ fun BleskNavigation(container: AppContainer) {
                                     debugUnlocked = debugUnlocked,
                                     onOpenLicenses = { backStack.add(LicensesKey) },
                                     onOpenPolicy = { backStack.add(PolicyKey) },
+                                    onOpenSandbox = { backStack.add(SandboxKey) },
                                     onUnlockDebug = {
                                         scope.launch { container.settings.setDebugUnlocked(true) }
                                         container.eventLog.record(EventCode.DebugUnlocked)

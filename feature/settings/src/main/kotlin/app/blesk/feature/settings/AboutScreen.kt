@@ -1,5 +1,6 @@
 package app.blesk.feature.settings
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -7,9 +8,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -33,13 +37,25 @@ fun AboutScreen(
     onOpenLicenses: () -> Unit,
     onOpenPolicy: () -> Unit,
     onBack: () -> Unit,
+    onOpenSandbox: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val uriHandler = LocalUriHandler.current
     val source = stringResource(R.string.about_source_url)
     var taps by remember { mutableIntStateOf(0) }
     val remaining = DEBUG_UNLOCK_TAPS - taps
+    val play = stringResource(R.string.sandbox_title)
     ScrollScreen(title = stringResource(R.string.about_title), onBack = onBack, modifier = modifier) {
+        // The wordmark hides the metaball sandbox behind a long press; TalkBack offers it as an action.
+        Text(
+            text = stringResource(R.string.about_wordmark),
+            style = Blesk.type.display,
+            modifier = Modifier
+                .padding(horizontal = Blesk.dimens.gutter + 4.dp)
+                .padding(top = 8.dp, bottom = 12.dp)
+                .pointerInput(Unit) { detectTapGestures(onLongPress = { onOpenSandbox() }) }
+                .semantics { customActions = listOf(CustomAccessibilityAction(play) { onOpenSandbox(); true }) },
+        )
         Text(
             text = stringResource(R.string.about_tagline),
             color = Blesk.colors.textSecondary,
