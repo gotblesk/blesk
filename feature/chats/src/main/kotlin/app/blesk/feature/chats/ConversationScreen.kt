@@ -206,6 +206,14 @@ fun ConversationScreen(
     val pinned = conversation.pinnedMessageId?.let(byId::get)
     // The protection note, and possibly the pinned banner and key warning, come before the feed.
     val leading = 1 + (if (pinned != null) 1 else 0) + (if (keyChanged) 1 else 0)
+    // The way down is offered once the newest message is more than a screen away.
+    val farFromEnd by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
+            info.totalItemsCount - 1 - last.index > info.visibleItemsInfo.size
+        }
+    }
     var seen by remember(conversation.id) { mutableIntStateOf(messages.size) }
     var opened by remember(conversation.id) { mutableStateOf(false) }
     LaunchedEffect(messages.size, typing) {
@@ -419,7 +427,7 @@ fun ConversationScreen(
                     }
                     val scope = rememberCoroutineScope()
                     JumpButtons(
-                        showDown = !atBottom,
+                        showDown = farFromEnd,
                         unseen = (messages.size - seen).coerceAtLeast(0),
                         mentions = mentions.size,
                         onDown = { scope.launch { listState.animateScrollToItem(leading + feed.size) } },

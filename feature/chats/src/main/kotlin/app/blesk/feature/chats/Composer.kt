@@ -1,7 +1,13 @@
 package app.blesk.feature.chats
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -274,14 +280,25 @@ internal fun Composer(
                         }
                     },
                 )
-                if (state.text.isBlank() && editing == null && recorders != null) {
-                    RecordButton(recording, recorders)
-                } else {
-                    IconButton(
-                        icon = if (editing != null) BleskIcons.Check else BleskIcons.Send,
-                        contentDescription = stringResource(R.string.chat_send),
-                        onClick = ::send,
-                    )
+                val motion = Blesk.motion
+                // «Отправить» and the record button flow into each other rather than swap.
+                AnimatedContent(
+                    targetState = state.text.isBlank() && editing == null && recorders != null,
+                    transitionSpec = {
+                        (scaleIn(motion.settle(), initialScale = 0.4f) + fadeIn(motion.press()))
+                            .togetherWith(scaleOut(motion.press(), targetScale = 0.4f) + fadeOut(motion.press()))
+                    },
+                    label = "send",
+                ) { record ->
+                    if (record && recorders != null) {
+                        RecordButton(recording, recorders)
+                    } else {
+                        IconButton(
+                            icon = if (editing != null) BleskIcons.Check else BleskIcons.Send,
+                            contentDescription = stringResource(R.string.chat_send),
+                            onClick = ::send,
+                        )
+                    }
                 }
             }
             EmojiRoom(open = emojiOpen) { height ->

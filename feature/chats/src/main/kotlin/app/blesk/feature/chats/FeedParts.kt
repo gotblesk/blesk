@@ -1,5 +1,10 @@
 package app.blesk.feature.chats
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -88,7 +93,13 @@ internal fun JumpButtons(
         if (mentions > 0) {
             JumpButton(BleskIcons.At, pluralStringResource(R.plurals.chat_jump_mentions, mentions, mentions), mentions, onMention)
         }
-        if (showDown) {
+        val motion = Blesk.motion
+        // The button comes up out of the bottom lens and goes back into it.
+        AnimatedVisibility(
+            visible = showDown,
+            enter = slideInVertically(motion.settle()) { it } + fadeIn(motion.press()),
+            exit = slideOutVertically(motion.transition()) { it } + fadeOut(motion.press()),
+        ) {
             val label = if (unseen > 0) {
                 pluralStringResource(R.plurals.chat_jump_new, unseen, unseen)
             } else {
