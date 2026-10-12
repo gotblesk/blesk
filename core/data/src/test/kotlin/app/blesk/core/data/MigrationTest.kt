@@ -6,6 +6,8 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.data.db.BleskDatabase
+import app.blesk.core.data.db.ConversationEntity
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -32,12 +34,37 @@ class MigrationTest {
                 BleskDatabase.MIGRATION_3_4,
                 BleskDatabase.MIGRATION_4_5,
                 BleskDatabase.MIGRATION_5_6,
+                BleskDatabase.MIGRATION_6_7,
             )
             .allowMainThreadQueries()
             .build()
         runBlocking {
             assertEquals("привет", room.conversations().get("bob")?.previewText)
             assertEquals(null, room.groups().get("missing"))
+        }
+        room.close()
+    }
+
+    @Test
+    fun `pinned chats keep their order and only chats with sound return from the archive`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val room = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java).allowMainThreadQueries().build()
+        val dao = room.conversations()
+        runBlocking {
+            listOf("a", "b", "c").forEachIndexed { i, id ->
+                dao.upsert(ConversationEntity(id, "Direct", id, "EndToEnd", id, updatedAt = i.toLong()))
+                dao.setPinned(id, true, dao.lastPinRank() + 1)
+            }
+            dao.reorderPinned(listOf("c", "a", "b"))
+            assertEquals(listOf("c", "a", "b"), dao.observeAll().first().map { it.id })
+
+            dao.upsert(ConversationEntity("loud", "Direct", "loud", "EndToEnd", "loud", updatedAt = 0, archived = true))
+            val quiet = ConversationEntity("quiet", "Direct", "quiet", "EndToEnd", "quiet", 0, archived = true)
+            dao.upsert(quiet.copy(mutedUntil = Long.MAX_VALUE))
+            dao.returnFromArchive("loud", now = 1)
+            dao.returnFromArchive("quiet", now = 1)
+            assertEquals(false, dao.get("loud")?.archived)
+            assertEquals(true, dao.get("quiet")?.archived)
         }
         room.close()
     }

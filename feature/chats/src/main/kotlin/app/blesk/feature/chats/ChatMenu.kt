@@ -75,22 +75,23 @@ fun ChatMenu(conversation: Conversation, now: Long, actions: ChatMenuActions, on
                     MuteChoices(now) { until -> act { actions.onMute(until) } }
                     return@Card
                 }
+                ListRow(
+                    title = stringResource(if (conversation.pinned) R.string.chats_unpin else R.string.chats_pin),
+                    icon = BleskIcons.Pin,
+                    showChevron = false,
+                    onClick = {
+                        if (!conversation.pinned) haptics.stick()
+                        act { actions.onPin(!conversation.pinned) }
+                    },
+                )
+                ListRow(
+                    title = stringResource(if (conversation.archived) R.string.chats_from_archive else R.string.chats_to_archive),
+                    icon = BleskIcons.Archive,
+                    showChevron = false,
+                    onClick = { act { actions.onArchive(!conversation.archived) } },
+                )
+                // Notes to yourself never ring, so there is nothing to silence.
                 if (conversation.kind != ConversationKind.Saved) {
-                    ListRow(
-                        title = stringResource(if (conversation.pinned) R.string.chats_unpin else R.string.chats_pin),
-                        icon = BleskIcons.Pin,
-                        showChevron = false,
-                        onClick = {
-                            if (!conversation.pinned) haptics.stick()
-                            act { actions.onPin(!conversation.pinned) }
-                        },
-                    )
-                    ListRow(
-                        title = stringResource(if (conversation.archived) R.string.chats_from_archive else R.string.chats_to_archive),
-                        icon = BleskIcons.Archive,
-                        showChevron = false,
-                        onClick = { act { actions.onArchive(!conversation.archived) } },
-                    )
                     if (conversation.muted(now)) {
                         ListRow(
                             title = stringResource(R.string.chats_unmute),

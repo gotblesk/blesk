@@ -4,13 +4,14 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 @Suppress("TooManyFunctions") // one query per column the list can change
 interface ConversationDao {
-    @Query("SELECT * FROM conversations ORDER BY pinned DESC, updatedAt DESC")
+    @Query("SELECT * FROM conversations ORDER BY pinned DESC, CASE WHEN pinned = 1 THEN pinRank ELSE 0 END ASC, updatedAt DESC")
     fun observeAll(): Flow<List<ConversationEntity>>
 
     @Query("SELECT * FROM conversations WHERE id = :id")
@@ -40,8 +41,23 @@ interface ConversationDao {
     @Query("UPDATE conversations SET markedUnread = :unread WHERE id = :id")
     suspend fun setMarkedUnread(id: String, unread: Boolean)
 
-    @Query("UPDATE conversations SET pinned = :pinned WHERE id = :id")
-    suspend fun setPinned(id: String, pinned: Boolean)
+    @Query("UPDATE conversations SET pinned = :pinned, pinRank = :rank WHERE id = :id")
+    suspend fun setPinned(id: String, pinned: Boolean, rank: Int)
+
+    @Query("SELECT COALESCE(MAX(pinRank), -1) FROM conversations WHERE pinned = 1")
+    suspend fun lastPinRank(): Int
+
+    @Query("UPDATE conversations SET pinRank = :rank WHERE id = :id")
+    suspend fun setPinRank(id: String, rank: Int)
+
+    @Transaction
+    suspend fun reorderPinned(ids: List<String>) {
+        ids.forEachIndexed { rank, id -> setPinRank(id, rank) }
+    }
+
+    /** A new message brings a chat with sound back from the archive; a muted one stays there. */
+    @Query("UPDATE conversations SET archived = 0 WHERE id = :id AND archived = 1 AND mutedUntil <= :now")
+    suspend fun returnFromArchive(id: String, now: Long)
 
     @Query("UPDATE conversations SET pinnedMessageId = :messageId WHERE id = :id")
     suspend fun pinMessage(id: String, messageId: String?)

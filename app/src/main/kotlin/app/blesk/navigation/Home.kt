@@ -32,6 +32,7 @@ import app.blesk.R
 import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.Connection
 import app.blesk.core.data.GroupController
+import app.blesk.core.data.MAX_PINNED
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannel
@@ -41,6 +42,7 @@ import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.profileHeaderHeight
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
@@ -49,6 +51,7 @@ import app.blesk.core.design.glass.SearchLens
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.ChatMenuActions
@@ -93,7 +96,9 @@ internal fun Home(
     val connection by remember(chats) { chats.connection }.collectAsStateWithLifecycle(initialValue = Connection.Online)
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
     val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
+    val archiveFolded by container.settings.archiveFolded.collectAsStateWithLifecycle(initialValue = false)
     val scope = rememberCoroutineScope()
+    val onPinLimit = rememberPinLimit()
     val tabs = persistentListOf(
         LensTab(stringResource(R.string.tab_chats), BleskIcons.Chats),
         LensTab(stringResource(app.blesk.feature.chats.R.string.contacts_title), BleskIcons.People),
@@ -237,6 +242,10 @@ internal fun Home(
                         onSwipeRead = { toggleRead(chats, it) },
                         archivedCount = archived,
                         onOpenArchive = onOpenArchive,
+                        onReorderPinned = chats::reorderPinned,
+                        onSwipeUnpin = { chats.setChatPinned(it.id, false) },
+                        archiveFolded = archiveFolded,
+                        onFoldArchive = { folded -> scope.launch { container.settings.setArchiveFolded(folded) } },
                     )
                 }
                 HomeTab.Contacts -> ContactsTab(
@@ -299,18 +308,39 @@ internal fun Home(
         ChatMenu(
             conversation = conversation,
             now = System.currentTimeMillis(),
-            actions = chatMenuActions(chats, conversation),
+            actions = chatMenuActions(chats, conversation, conversations, onPinLimit),
             onDismiss = { menuFor = null },
         )
     }
 }
 
-internal fun chatMenuActions(chats: ChatRepository, conversation: Conversation) = ChatMenuActions(
-    onPin = { chats.setChatPinned(conversation.id, it) },
+/** The menu's actions; pinning past [MAX_PINNED] in the same list is refused with [onPinLimit]. */
+internal fun chatMenuActions(
+    chats: ChatRepository,
+    conversation: Conversation,
+    all: List<Conversation>,
+    onPinLimit: () -> Unit,
+) = ChatMenuActions(
+    onPin = { pin ->
+        val pinnedHere = all.count { it.pinned && it.archived == conversation.archived && it.kind != ConversationKind.Room }
+        if (pin && pinnedHere >= MAX_PINNED) onPinLimit() else chats.setChatPinned(conversation.id, pin)
+    },
     onArchive = { chats.setArchived(conversation.id, it) },
     onMute = { chats.mute(conversation.id, it) },
     onMarkUnread = { unread -> if (unread) chats.markUnread(conversation.id, true) else chats.markRead(conversation.id) },
 )
+
+/** Says the pinned list is full, with the refusing buzz. */
+@Composable
+internal fun rememberPinLimit(): () -> Unit {
+    val notify = rememberNotify()
+    val haptics = rememberHaptics()
+    val text = stringResource(ChatsR.string.chats_pin_limit)
+    return {
+        haptics.refuse()
+        notify(text)
+    }
+}
 
 /** Read becomes unread and back, as the swipe and the menu both offer. */
 internal fun toggleRead(chats: ChatRepository, conversation: Conversation) {

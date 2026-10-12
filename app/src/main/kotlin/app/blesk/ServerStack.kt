@@ -34,7 +34,12 @@ internal class ServerStack(
     /** Creates the account; runs off the main thread. */
     suspend fun register(username: String): RegisterResult = accounts.register(api, username)
 
-    fun repository(username: String, privacy: StateFlow<Privacy>, profile: StateFlow<Pair<String, String>>) =
+    fun repository(
+        username: String,
+        privacy: StateFlow<Privacy>,
+        profile: StateFlow<Pair<String, String>>,
+        keepArchived: StateFlow<Boolean>,
+    ) =
         ServerChatRepository(
             db = database,
             api = api,
@@ -52,6 +57,7 @@ internal class ServerStack(
             log = container.eventLog,
             savedTitle = context.getString(R.string.demo_saved_title),
             network = container.network,
+            keepArchived = { keepArchived.value },
         ).also { repository -> store.onIdentityChanged = repository::onKeyChanged }
 
     companion object {

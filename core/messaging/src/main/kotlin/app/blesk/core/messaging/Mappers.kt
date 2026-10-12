@@ -82,6 +82,7 @@ internal fun ConversationEntity.toModel(state: GroupState? = null) = Conversatio
     updatedAt = Instant.ofEpochMilli(updatedAt),
     unread = unread,
     pinned = pinned,
+    pinRank = pinRank,
     memberCount = state?.members?.size ?: 0,
     channels = state?.channels?.map { channel ->
         RoomChannel(

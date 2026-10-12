@@ -119,6 +119,20 @@ class SettingsStore(context: Context) {
         store.edit { it[SEND_BY_ENTER] = enabled }
     }
 
+    /** «Не возвращать из архива»: a new message leaves an archived chat in the archive. */
+    val keepArchived: Flow<Boolean> = store.data.map { it[KEEP_ARCHIVED] ?: false }.distinctUntilChanged()
+
+    suspend fun setKeepArchived(enabled: Boolean) {
+        store.edit { it[KEEP_ARCHIVED] = enabled }
+    }
+
+    /** The archive row folded into the top lens; pulling the list down opens it. */
+    val archiveFolded: Flow<Boolean> = store.data.map { it[ARCHIVE_FOLDED] ?: false }.distinctUntilChanged()
+
+    suspend fun setArchiveFolded(folded: Boolean) {
+        store.edit { it[ARCHIVE_FOLDED] = folded }
+    }
+
     val vibration: Flow<VibrationLevel> = store.data
         .map { prefs -> VibrationLevel.entries.firstOrNull { it.name == prefs[VIBRATION] } ?: VibrationLevel.Normal }
         .distinctUntilChanged()
@@ -229,6 +243,8 @@ class SettingsStore(context: Context) {
         val PROFILE_HEADER = stringPreferencesKey("profile_header")
         val PROFILE_HEADER_PHOTO = longPreferencesKey("profile_header_photo")
         val SEND_BY_ENTER = booleanPreferencesKey("send_by_enter")
+        val KEEP_ARCHIVED = booleanPreferencesKey("keep_archived")
+        val ARCHIVE_FOLDED = booleanPreferencesKey("archive_folded")
         val VIBRATION = stringPreferencesKey("vibration")
         val RECENT_EMOJI = stringPreferencesKey("recent_emoji")
         const val EMOJI_SEPARATOR = " "

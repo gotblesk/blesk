@@ -12,6 +12,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -36,9 +37,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -46,8 +50,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
@@ -60,7 +71,9 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Markup
@@ -114,13 +127,30 @@ fun ChatList(
     onSwipeRead: ((Conversation) -> Unit)? = null,
     archivedCount: Int = 0,
     onOpenArchive: (() -> Unit)? = null,
+    /** Pinned chats dragged into a new order; null keeps the order fixed. */
+    onReorderPinned: ((List<String>) -> Unit)? = null,
+    /** Swipe left on a pinned chat unpins it. */
+    onSwipeUnpin: ((Conversation) -> Unit)? = null,
+    /** The archive row folded into the top lens: pulling the list down opens the archive. */
+    archiveFolded: Boolean = false,
+    onFoldArchive: ((Boolean) -> Unit)? = null,
 ) {
-    val pinned = conversations.filter { it.pinned && !it.isRoomCluster() }.sortedByDescending { it.kind == ConversationKind.Saved }
+    val haptics = rememberHaptics()
+    val threshold = with(LocalDensity.current) { PullThreshold.toPx() }
+    val pull = remember { PullToArchive() }
+    pull.threshold = threshold
+    pull.onCross = haptics::tick
+    pull.onOpen = { onOpenArchive?.invoke() }
+    val pulling = archiveFolded && archivedCount > 0 && onOpenArchive != null
+    val pinned = conversations.filter { it.pinned && !it.isRoomCluster() }
+        .sortedWith(compareBy<Conversation> { it.pinRank }.thenByDescending { it.kind == ConversationKind.Saved })
     val rest = conversations.filterNot { it.pinned && !it.isRoomCluster() }
     val rowModifier = Modifier.padding(horizontal = Blesk.dimens.gutter - 6.dp)
     LazyColumn(
         state = state,
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .then(if (pulling) Modifier.nestedScroll(pull) else Modifier),
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding() + 4.dp,
             bottom = contentPadding.calculateBottomPadding() + 16.dp,
@@ -129,19 +159,46 @@ fun ChatList(
     ) {
         header?.invoke(this)
         if (archivedCount > 0 && onOpenArchive != null) {
-            item(key = "archive") { ArchiveRow(archivedCount, onOpenArchive, rowModifier.then(listMotion())) }
+            if (archiveFolded) {
+                item(key = "archive-pull") { ArchivePull(pull, rowModifier) }
+            } else {
+                item(key = "archive") {
+                    SwipeRow(
+                        conversation = null,
+                        onArchive = onFoldArchive?.let { fold -> { fold(true) } },
+                        onRead = null,
+                        leftIcon = BleskIcons.ArrowUp,
+                        leftLabel = stringResource(R.string.chats_archive_fold),
+                        modifier = rowModifier.then(listMotion()),
+                    ) { ArchiveRow(archivedCount, onOpenArchive, Modifier) }
+                }
+            }
         }
         if (pinned.isNotEmpty()) {
             item(key = "pinned") {
-                PinnedCluster(pinned.toImmutableList(), rowModifier.then(listMotion()).padding(bottom = 8.dp)) { conversation ->
-                    ConversationRow(
+                PinnedCluster(
+                    pinned = pinned.toImmutableList(),
+                    onReorder = onReorderPinned,
+                    onMenu = onLongPress,
+                    modifier = rowModifier.then(listMotion()).padding(bottom = 8.dp),
+                ) { conversation, menuInGesture ->
+                    SwipeRow(
                         conversation = conversation,
-                        typing = conversation.id in typing,
-                        now = now,
-                        onClick = { onOpenConversation(conversation.id) },
-                        onLongClick = onLongPress?.let { press -> { press(conversation) } },
-                        onCapsule = true,
-                    )
+                        onArchive = onSwipeUnpin?.let { swipe -> { swipe(conversation) } },
+                        onRead = null,
+                        leftIcon = BleskIcons.Pin,
+                        leftLabel = stringResource(R.string.chats_unpin),
+                    ) {
+                        ConversationRow(
+                            conversation = conversation,
+                            typing = conversation.id in typing,
+                            now = now,
+                            onClick = { onOpenConversation(conversation.id) },
+                            // While the order can change, the long press lifts the capsule and the menu opens on release.
+                            onLongClick = if (menuInGesture) null else onLongPress?.let { press -> { press(conversation) } },
+                            onCapsule = true,
+                        )
+                    }
                 }
             }
         }
@@ -202,15 +259,17 @@ private fun ArchiveRow(count: Int, onOpen: () -> Unit, modifier: Modifier) {
 }
 
 /**
- * A row that follows the finger sideways: far enough to the left archives it, to the right
- * toggles read. TalkBack gets the same as named actions.
+ * A row that follows the finger sideways: far enough to the left archives it (or does
+ * [leftLabel]), to the right toggles read. TalkBack gets the same as named actions.
  */
 @Composable
 private fun SwipeRow(
-    conversation: Conversation,
+    conversation: Conversation?,
     onArchive: (() -> Unit)?,
     onRead: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    leftIcon: ImageVector = BleskIcons.Archive,
+    leftLabel: String? = null,
     content: @Composable () -> Unit,
 ) {
     if (onArchive == null && onRead == null) {
@@ -221,9 +280,9 @@ private fun SwipeRow(
     val scope = rememberCoroutineScope()
     val haptics = rememberHaptics()
     val threshold = with(LocalDensity.current) { SwipeThreshold.toPx() }
-    val unread = conversation.unread > 0 || conversation.markedUnread
-    val archiveLabel = stringResource(
-        if (conversation.archived) R.string.chats_from_archive else R.string.chats_to_archive,
+    val unread = conversation != null && (conversation.unread > 0 || conversation.markedUnread)
+    val archiveLabel = leftLabel ?: stringResource(
+        if (conversation?.archived == true) R.string.chats_from_archive else R.string.chats_to_archive,
     )
     val readLabel = stringResource(if (unread) R.string.chats_mark_read else R.string.chats_mark_unread)
     Box(
@@ -247,7 +306,7 @@ private fun SwipeRow(
                 horizontalArrangement = if (offset.value > 0) Arrangement.Start else Arrangement.End,
             ) {
                 Icon(
-                    icon = if (offset.value > 0) BleskIcons.Check else BleskIcons.Archive,
+                    icon = if (offset.value > 0) BleskIcons.Check else leftIcon,
                     contentDescription = null,
                     tint = Blesk.colors.textSecondary.copy(alpha = progress),
                     modifier = Modifier.padding(horizontal = 24.dp),
@@ -283,50 +342,270 @@ private fun SwipeRow(
 }
 
 private val SwipeThreshold = 96.dp
+private val PullThreshold = 88.dp
 
-private fun Conversation.isRoomCluster() = kind == ConversationKind.Room && channels.isNotEmpty()
+/** Resistance of the list when it is pulled past its top, so the pull feels heavier than a scroll. */
+private const val PULL_RESISTANCE = 0.5f
 
-/** Pinned chats: each on a capsule, all of them stuck together into one drop. */
-@Composable
-private fun PinnedCluster(
-    pinned: ImmutableList<Conversation>,
-    modifier: Modifier = Modifier,
-    row: @Composable (Conversation) -> Unit,
-) {
-    val rects = remember { PinnedGeometry() }
-    val radius = with(LocalDensity.current) { Blesk.dimens.capsuleRadius.toPx() }
-    Layout(
-        modifier = modifier
-            .fillMaxWidth()
-            .metaballs(color = Blesk.colors.surface, smoothness = 16.dp) { rects.blobs(radius) },
-        content = { pinned.forEach { key(it.id) { row(it) } } },
-    ) { measurables, constraints ->
-        val loose = Constraints(minWidth = constraints.maxWidth, maxWidth = constraints.maxWidth)
-        val placeables = measurables.map { it.measure(loose) }
-        val gap = PinnedGap.roundToPx()
-        val height = placeables.sumOf { it.height } + gap * (placeables.size - 1).coerceAtLeast(0)
-        var y = 0
-        rects.rows = placeables.map { placeable ->
-            Rect(0f, y.toFloat(), constraints.maxWidth.toFloat(), (y + placeable.height).toFloat()).also { y += placeable.height + gap }
-        }
-        layout(constraints.maxWidth, height) {
-            var top = 0
-            placeables.forEach {
-                it.place(0, top)
-                top += it.height + gap
-            }
-        }
+/**
+ * Pulling the list down past its top while the archive is folded: the pull is taken from the
+ * overscroll, and letting go past [threshold] opens the archive.
+ */
+@Stable
+private class PullToArchive : NestedScrollConnection {
+    var pull by mutableFloatStateOf(0f)
+    var threshold = 1f
+    var onCross: () -> Unit = {}
+    var onOpen: () -> Unit = {}
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (pull <= 0f || available.y >= 0f || source != NestedScrollSource.UserInput) return Offset.Zero
+        val used = maxOf(available.y, -pull)
+        pull += used
+        return Offset(0f, used)
+    }
+
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        if (available.y <= 0f || source != NestedScrollSource.UserInput) return Offset.Zero
+        val before = pull
+        pull += available.y * PULL_RESISTANCE
+        if (before < threshold && pull >= threshold) onCross()
+        return Offset(0f, available.y)
+    }
+
+    override suspend fun onPreFling(available: Velocity): Velocity {
+        if (pull <= 0f) return Velocity.Zero
+        val open = pull >= threshold
+        pull = 0f
+        if (open) onOpen()
+        return available
     }
 }
 
-/** Where the pinned capsules are, written during layout and read while drawing. */
-private class PinnedGeometry {
-    var rows: List<Rect> = emptyList()
+/** The folded archive showing through as the list is pulled down; it fills with light once letting go opens it. */
+@Composable
+private fun ArchivePull(pull: PullToArchive, modifier: Modifier) {
+    val density = LocalDensity.current
+    val progress = (pull.pull / pull.threshold).coerceIn(0f, 1f)
+    val height = with(density) { pull.pull.toDp() }
+    if (height <= 0.dp) return
+    val ready = progress >= 1f
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
+            .background(if (ready) Blesk.colors.light.copy(alpha = PULL_READY_ALPHA) else Blesk.colors.surface.copy(alpha = progress))
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(BleskIcons.Archive, contentDescription = null, tint = Blesk.colors.textSecondary.copy(alpha = progress))
+        Text(
+            text = stringResource(if (ready) R.string.chats_archive_release else R.string.chats_archive_pull),
+            style = Blesk.type.label,
+            color = Blesk.colors.textSecondary.copy(alpha = progress),
+            maxLines = 1,
+        )
+    }
+}
 
-    fun blobs(radius: Float) = rows.map { Blob(it, radius) }
+private const val PULL_READY_ALPHA = 0.35f
+
+private fun Conversation.isRoomCluster() = kind == ConversationKind.Room && channels.isNotEmpty()
+
+/**
+ * Pinned chats: each on a capsule, all of them stuck together into one drop. With [onReorder],
+ * a long press lifts a capsule out of the drop and it follows the finger; the others make way,
+ * and releasing it without moving opens the menu instead.
+ */
+@Composable
+private fun PinnedCluster(
+    pinned: ImmutableList<Conversation>,
+    onReorder: ((List<String>) -> Unit)?,
+    onMenu: ((Conversation) -> Unit)?,
+    modifier: Modifier = Modifier,
+    row: @Composable (Conversation, menuInGesture: Boolean) -> Unit,
+) {
+    val ids = pinned.map { it.id }
+    val drag = remember { PinnedDrag() }
+    if (drag.lifted == null && drag.order != ids) drag.order = ids
+    val byId = pinned.associateBy { it.id }
+    val density = LocalDensity.current
+    val radius = with(density) { Blesk.dimens.capsuleRadius.toPx() }
+    val gap = with(density) { PinnedGap.toPx() }
+    val lift = Blesk.colors.light.copy(alpha = if (Blesk.colors.isDark) LIFT_DARK else LIFT_LIGHT)
+    Layout(
+        modifier = modifier
+            .fillMaxWidth()
+            .metaballs(color = Blesk.colors.surface, smoothness = 16.dp) { drag.blobs(radius) },
+        content = {
+            drag.order.forEach { id ->
+                val conversation = byId[id] ?: return@forEach
+                key(id) {
+                    PinnedSlot(conversation, drag, lift, onReorder, onMenu) { menuInGesture -> row(conversation, menuInGesture) }
+                }
+            }
+        },
+    ) { measurables, constraints ->
+        val loose = Constraints(minWidth = constraints.maxWidth, maxWidth = constraints.maxWidth)
+        val placeables = measurables.map { it.measure(loose) }
+        val rowHeight = placeables.maxOfOrNull { it.height } ?: 0
+        drag.step = rowHeight + gap
+        drag.width = constraints.maxWidth.toFloat()
+        drag.rowHeight = rowHeight.toFloat()
+        val height = (rowHeight * placeables.size + gap * (placeables.size - 1).coerceAtLeast(0)).roundToInt()
+        layout(constraints.maxWidth, height) { placeables.forEach { it.place(0, 0) } }
+    }
+}
+
+@Composable
+private fun PinnedSlot(
+    conversation: Conversation,
+    drag: PinnedDrag,
+    lift: Color,
+    onReorder: ((List<String>) -> Unit)?,
+    onMenu: ((Conversation) -> Unit)?,
+    content: @Composable (menuInGesture: Boolean) -> Unit,
+) {
+    val id = conversation.id
+    val motion = Blesk.motion
+    val haptics = rememberHaptics()
+    val scope = rememberCoroutineScope()
+    val index = drag.order.indexOf(id)
+    val target = index * drag.step
+    val y = remember { Animatable(Float.NaN) }
+    LaunchedEffect(target, drag.step) {
+        if (drag.step == 0f) return@LaunchedEffect
+        if (y.value.isNaN() || motion.reduced || drag.lifted == id) y.snapTo(target) else y.animateTo(target, motion.settle())
+    }
+    val lifted = drag.lifted == id
+    val raise by animateFloatAsState(if (lifted) 1f else 0f, motion.settle(), label = "lift")
+    val shape = RoundedCornerShape(Blesk.dimens.capsuleRadius)
+    val moveUp = stringResource(R.string.chats_move_up)
+    val moveDown = stringResource(R.string.chats_move_down)
+    val menuLabel = stringResource(R.string.chats_menu)
+    val reorderable = onReorder != null && drag.order.size > 1
+    Box(
+        Modifier
+            .zIndex(if (lifted || raise > 0f) 1f else 0f)
+            .offset {
+                val shown = when {
+                    lifted -> target + drag.offset
+                    y.value.isNaN() -> target
+                    else -> y.value
+                }
+                drag.place(id, shown)
+                IntOffset(0, shown.roundToInt())
+            }
+            .graphicsLayer {
+                val scale = 1f + LIFT_SCALE * raise
+                scaleX = scale
+                scaleY = scale
+            }
+            .drawBehind {
+                if (raise > 0f) drawRoundRect(lift.copy(alpha = lift.alpha * raise), cornerRadius = CornerRadius(size.height / 2f))
+            }
+            .clip(shape)
+            .then(
+                if (!reorderable) {
+                    Modifier
+                } else {
+                    Modifier
+                        .semantics {
+                            customActions = listOfNotNull(
+                                CustomAccessibilityAction(menuLabel) { onMenu?.invoke(conversation); onMenu != null },
+                                CustomAccessibilityAction(moveUp) { drag.move(id, -1, onReorder) }.takeIf { index > 0 },
+                                CustomAccessibilityAction(moveDown) { drag.move(id, 1, onReorder) }.takeIf { index < drag.order.lastIndex },
+                            )
+                        }
+                        .pointerInput(id) {
+                            var travelled = 0f
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    travelled = 0f
+                                    drag.offset = 0f
+                                    drag.lifted = id
+                                    haptics.detach()
+                                },
+                                onDragEnd = {
+                                    val landing = drag.order.indexOf(id) * drag.step + drag.offset
+                                    drag.lifted = null
+                                    scope.launch {
+                                        y.snapTo(landing)
+                                        y.animateTo(drag.order.indexOf(id) * drag.step, motion.settle())
+                                    }
+                                    if (travelled < viewConfiguration.touchSlop) {
+                                        onMenu?.invoke(conversation)
+                                    } else {
+                                        haptics.stick()
+                                        onReorder?.invoke(drag.order)
+                                    }
+                                },
+                                onDragCancel = { drag.lifted = null },
+                            ) { change, amount ->
+                                change.consume()
+                                travelled += abs(amount.y) + abs(amount.x)
+                                drag.offset += amount.y
+                                if (drag.swap(id)) haptics.tick()
+                            }
+                        }
+                },
+            ),
+    ) { content(reorderable) }
+}
+
+/** Where the pinned capsules are and which one is lifted; read while drawing the drop. */
+@Stable
+private class PinnedDrag {
+    var order by mutableStateOf(emptyList<String>())
+    var lifted by mutableStateOf<String?>(null)
+
+    /** How far the lifted capsule is from its slot, following the finger. */
+    var offset by mutableFloatStateOf(0f)
+    var step by mutableFloatStateOf(0f)
+    var width = 0f
+    var rowHeight = 0f
+    private val tops = HashMap<String, Float>()
+
+    fun place(id: String, top: Float) {
+        tops[id] = top
+    }
+
+    /** The lifted capsule stays out of the drop, so it reads as pulled off the cluster. */
+    fun blobs(radius: Float) = order.filter { it != lifted }.mapNotNull { id ->
+        tops[id]?.let { top -> Blob(Rect(0f, top, width, top + rowHeight), radius) }
+    }
+
+    /** Swaps the lifted capsule with a neighbour once it is dragged past half of it. */
+    fun swap(id: String): Boolean {
+        val index = order.indexOf(id)
+        val half = step / 2f
+        val next = when {
+            offset > half && index < order.lastIndex -> index + 1
+            offset < -half && index > 0 -> index - 1
+            else -> return false
+        }
+        order = order.toMutableList().apply { add(next, removeAt(index)) }
+        offset -= (next - index) * step
+        return true
+    }
+
+    /** One step up or down, for TalkBack. */
+    fun move(id: String, by: Int, onReorder: ((List<String>) -> Unit)?): Boolean {
+        val index = order.indexOf(id)
+        val next = index + by
+        if (next !in order.indices || onReorder == null) return false
+        order = order.toMutableList().apply { add(next, removeAt(index)) }
+        onReorder(order)
+        return true
+    }
 }
 
 private val PinnedGap = 4.dp
+private const val LIFT_SCALE = 0.03f
+private const val LIFT_LIGHT = 0.7f
+private const val LIFT_DARK = 0.2f
 
 /** A chat row on the background; a capsule rises under the finger while it is pressed. */
 @Composable

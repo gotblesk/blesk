@@ -177,6 +177,15 @@
     <string name="chat_key_changed">Ключ безопасности собеседника изменился. Нажми, чтобы проверить.</string>
     <string name="chats_pin">Закрепить чат</string>
     <string name="chats_unpin">Открепить чат</string>
+    <string name="chats_archive_fold">Свернуть архив</string>
+    <string name="chats_archive_pull">Потяни, чтобы открыть архив</string>
+    <string name="chats_archive_release">Отпусти — откроется архив</string>
+    <string name="chats_archive_unfold">Показывать архив в списке</string>
+    <string name="chats_keep_archived">Не возвращать из архива</string>
+    <string name="chats_keep_archived_hint">Чаты со звуком остаются в архиве, даже когда приходят новые сообщения. Чаты без звука остаются там всегда.</string>
+    <string name="chats_move_up">Поднять выше</string>
+    <string name="chats_move_down">Опустить ниже</string>
+    <string name="chats_pin_limit">Закрепить можно до 10 чатов</string>
     <string name="chats_pinned">закреплён</string>
     <string name="chats_draft">Черновик: %1$s</string>
     <string name="chat_forward">Переслать</string>

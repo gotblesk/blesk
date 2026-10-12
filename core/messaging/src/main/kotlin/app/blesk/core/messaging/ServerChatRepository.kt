@@ -108,6 +108,8 @@ class ServerChatRepository(
     private val savedTitle: String = "",
     /** Whether the phone has any network; the connection status tells it apart from a silent server. */
     private val network: Flow<Boolean> = flowOf(true),
+    /** «Не возвращать из архива»: archived chats stay there whatever arrives. */
+    private val keepArchived: () -> Boolean = { false },
 ) : ChatRepository,
     GroupController,
     SpaceController,
@@ -120,7 +122,10 @@ class ServerChatRepository(
     override val incoming: SharedFlow<IncomingNote> = incomingFlow.asSharedFlow()
     private val spaces = SpaceEngine(db, api, media, me, labels)
     private val bots =
-        BotEngine(db, api, me, clock) { bot, title, text -> incomingFlow.tryEmit(IncomingNote(bot, title, null, text)) }
+        BotEngine(db, api, me, clock) { bot, title, text ->
+            scope.launch { returnFromArchive(bot) }
+            incomingFlow.tryEmit(IncomingNote(bot, title, null, text))
+        }
     private val groups = GroupEngine(
         db = db,
         crypto = groupCrypto,
@@ -352,6 +357,7 @@ class ServerChatRepository(
                 peer = null,
                 updatedAt = clock(),
                 pinned = true,
+                pinRank = 0,
                 previewText = "",
             ),
         )
@@ -362,7 +368,18 @@ class ServerChatRepository(
     }
 
     override fun setChatPinned(conversationId: String, pinned: Boolean) {
-        scope.launch { db.conversations().setPinned(conversationId, pinned) }
+        scope.launch {
+            val rank = if (pinned) db.conversations().lastPinRank() + 1 else 0
+            db.conversations().setPinned(conversationId, pinned, rank)
+        }
+    }
+
+    override fun reorderPinned(ids: List<String>) {
+        scope.launch { db.conversations().reorderPinned(ids) }
+    }
+
+    private suspend fun returnFromArchive(conversationId: String) {
+        if (!keepArchived()) db.conversations().returnFromArchive(conversationId, clock())
     }
 
     override fun pinMessage(conversationId: String, messageId: String?) {
@@ -843,6 +860,7 @@ class ServerChatRepository(
         )
         if (inserted == -1L) return
         db.conversations().incrementUnread(conversation)
+        returnFromArchive(conversation)
         val preview = body.text.ifEmpty { labels(placeholder) }
         setPreview(conversation, author, preview, content.sentAtMillis)
         val row = db.conversations().get(conversation)

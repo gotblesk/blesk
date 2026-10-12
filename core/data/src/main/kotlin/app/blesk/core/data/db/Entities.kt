@@ -17,6 +17,8 @@ data class ConversationEntity(
     val updatedAt: Long,
     val unread: Int = 0,
     val pinned: Boolean = false,
+    /** Place among pinned chats, smallest first; meaningless when not pinned. */
+    val pinRank: Int = 0,
     val previewAuthor: String? = null,
     val previewText: String? = null,
     /** For a room channel: the room's conversation id. */

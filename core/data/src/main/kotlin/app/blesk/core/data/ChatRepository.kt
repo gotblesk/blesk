@@ -81,6 +81,9 @@ interface ChatRepository : ChatTools {
     fun setTyping(conversationId: String, active: Boolean) = Unit
 }
 
+/** How many chats can be pinned at once; the list stays a list, not a second list on top. */
+const val MAX_PINNED = 10
+
 /** Things you do to a chat besides writing in it. */
 interface ChatTools {
     /** Keeps what you typed but did not send. */
@@ -98,8 +101,11 @@ interface ChatTools {
     /** Removes a one-to-one chat and its messages from this phone only. */
     fun deleteChat(conversationId: String) = Unit
 
-    /** Pinned chats stay on top of the list. */
+    /** Pinned chats stay on top of the list, newly pinned ones last; at most [MAX_PINNED]. */
     fun setChatPinned(conversationId: String, pinned: Boolean) = Unit
+
+    /** Puts the pinned chats in the order of [ids]. */
+    fun reorderPinned(ids: List<String>) = Unit
 
     /** One pinned message per chat, shown above the messages; null unpins. Kept on this phone. */
     fun pinMessage(conversationId: String, messageId: String?) = Unit

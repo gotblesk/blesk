@@ -221,8 +221,18 @@ class DemoRepository(
     override fun saveDraft(conversationId: String, text: String) = change(conversationId) { it.copy(draft = text) }
 
     override fun setChatPinned(conversationId: String, pinned: Boolean) {
-        change(conversationId) { it.copy(pinned = pinned) }
+        val rank = if (pinned) (all.value.filter { it.pinned }.maxOfOrNull { it.pinRank } ?: -1) + 1 else 0
+        change(conversationId) { it.copy(pinned = pinned, pinRank = rank) }
         all.update { it.sortedWith(conversationOrder) }
+    }
+
+    override fun reorderPinned(ids: List<String>) {
+        all.update { list ->
+            list.map { conversation ->
+                val rank = ids.indexOf(conversation.id)
+                if (rank >= 0) conversation.copy(pinRank = rank) else conversation
+            }.sortedWith(conversationOrder)
+        }
     }
 
     override fun setArchived(conversationId: String, archived: Boolean) = change(conversationId) { it.copy(archived = archived) }
@@ -315,8 +325,9 @@ class DemoRepository(
         private const val FORWARDED = "forwarded"
 
         val conversationOrder: Comparator<Conversation> =
-            compareByDescending<Conversation> { it.kind == ConversationKind.Saved }
-                .thenByDescending { it.pinned }
+            compareByDescending<Conversation> { it.pinned }
+                .thenBy { if (it.pinned) it.pinRank else 0 }
+                .thenByDescending { it.pinned && it.kind == ConversationKind.Saved }
                 .thenByDescending { it.updatedAt }
     }
 }

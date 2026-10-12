@@ -36,6 +36,8 @@ data class Conversation(
     val updatedAt: Instant,
     val unread: Int = 0,
     val pinned: Boolean = false,
+    /** Place among pinned chats, smallest first. */
+    val pinRank: Int = 0,
     val memberCount: Int = 0,
     val channels: ImmutableList<RoomChannel> = persistentListOf(),
     /** For a room channel: the room it belongs to. Channels are not listed on their own. */

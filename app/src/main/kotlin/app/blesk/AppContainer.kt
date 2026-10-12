@@ -76,6 +76,7 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val chatsState = MutableStateFlow<ChatRepository?>(null)
     private val privacy = settings.privacy.stateIn(scope, SharingStarted.Eagerly, Privacy())
+    private val keepArchived = settings.keepArchived.stateIn(scope, SharingStarted.Eagerly, false)
     private val profile = settings.profile
         .map { it.name to it.bio }
         .stateIn(scope, SharingStarted.Eagerly, "" to "")
@@ -106,7 +107,9 @@ class AppContainer(context: Context) {
                 AppMode.Demo -> show(demo, http = null)
                 is AppMode.Server -> {
                     val stack = ServerStack.from(appContext, this@AppContainer, mode)
-                    val repository = withContext(Dispatchers.IO) { stack.repository(mode.username, privacy, profile) }
+                    val repository = withContext(Dispatchers.IO) {
+                        stack.repository(mode.username, privacy, profile, keepArchived)
+                    }
                     repository.start()
                     show(repository, http = stack.api::okHttpClient)
                 }
@@ -122,7 +125,7 @@ class AppContainer(context: Context) {
         val mode = AppMode.Server(address.url, address.pin, username)
         settings.setServer(mode)
         eventLog.record(EventCode.ServerRegistered)
-        val repository = withContext(Dispatchers.IO) { stack.repository(username, privacy, profile) }
+        val repository = withContext(Dispatchers.IO) { stack.repository(username, privacy, profile, keepArchived) }
         repository.start()
         show(repository, http = stack.api::okHttpClient)
         return result
