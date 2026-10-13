@@ -92,6 +92,9 @@ class AppContainer(context: Context) {
     val phrase = PhraseVault(context)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
     val notices = Notices(scope)
+
+    /** «Индикатор кадров» from the debug screen; lives as long as the app does, like the journal. */
+    val frameMeter = MutableStateFlow(false)
     val network: StateFlow<Boolean> by lazy { networkAvailable(context.applicationContext, scope) }
 
     @androidx.annotation.OptIn(UnstableApi::class)

@@ -1,8 +1,12 @@
 package app.blesk.core.design.motion
 
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -26,7 +30,17 @@ fun Modifier.sharedBounds(key: String): Modifier {
     val screen = LocalScreenScope.current ?: return this
     if (Blesk.motion.reduced) return this
     val config = remember(screen) { FollowsGesture(screen) }
-    return with(shared) { this@sharedBounds.sharedBounds(rememberSharedContentState(key, config), screen) }
+    // The cross-fade of shared bounds runs whenever both ends exist, even while they are held in
+    // place; during the back gesture it would make the leaving screen see-through.
+    val seeking = screen.transition.isSeeking
+    return with(shared) {
+        this@sharedBounds.sharedBounds(
+            rememberSharedContentState(key, config),
+            screen,
+            enter = if (seeking) EnterTransition.None else fadeIn(),
+            exit = if (seeking) ExitTransition.None else fadeOut(),
+        )
+    }
 }
 
 /** One element that flows from its place on one screen to its place on the next, like an avatar. */
@@ -41,8 +55,9 @@ fun Modifier.sharedElement(key: String): Modifier {
 }
 
 /**
- * Shared elements sit still while a back gesture is being dragged: the screen itself shrinks
- * towards its edge, and the avatar and the rest fly to their places only once the gesture is done.
+ * Shared elements sit still for the whole back gesture, which Navigation Compose drives by
+ * seeking until the screen is gone: the screen only shrinks under the finger, nothing flies.
+ * Every other way back (the button, a tap on «назад») lets them flow into place.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 private class FollowsGesture(private val screen: AnimatedVisibilityScope) : SharedTransitionScope.SharedContentConfig {

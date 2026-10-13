@@ -7,10 +7,12 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +27,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -159,7 +160,19 @@ internal fun Composer(
             state.clearText()
         }
     }
-    Box {
+    val motion = Blesk.motion
+    // The lock and its bridge live in the composer's own layer, above the lens: the bottom slot grows
+    // by their room, so the messages move up instead of being covered.
+    Column {
+        AnimatedVisibility(
+            visible = recording.active && !recording.locked,
+            enter = expandVertically(motion.settle()) + fadeIn(motion.press()),
+            exit = shrinkVertically(motion.settle()) + fadeOut(motion.press()),
+        ) {
+            Box(Modifier.fillMaxWidth().height(LockRoom)) {
+                LockDrop(recording, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp))
+            }
+        }
         BottomLens {
             AnimatedVisibility(visible = replyTo != null || editing != null) {
                 Row(
@@ -314,11 +327,10 @@ internal fun Composer(
                 }
             }
         }
-        if (recording.active && !recording.locked) {
-            LockDrop(recording, Modifier.align(Alignment.TopEnd).padding(end = 16.dp).offset(y = (-150).dp))
-        }
     }
 }
+
+private val LockRoom = 150.dp
 
 /** Saves what is typed a moment after typing stops, and once more when the chat closes. */
 

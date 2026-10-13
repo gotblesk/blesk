@@ -30,6 +30,7 @@ import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import kotlinx.collections.immutable.ImmutableList
@@ -55,6 +56,8 @@ fun DebugScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenMotion: () -> Unit = {},
+    frameMeter: Boolean = false,
+    onFrameMeter: (Boolean) -> Unit = {},
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -69,6 +72,12 @@ fun DebugScreen(
                 subtitle = stringResource(R.string.motion_open_hint),
                 icon = BleskIcons.Spark,
                 onClick = onOpenMotion,
+            )
+            ToggleRow(
+                title = stringResource(R.string.frame_meter),
+                subtitle = stringResource(R.string.frame_meter_hint),
+                checked = frameMeter,
+                onCheckedChange = onFrameMeter,
             )
         }
         Text(

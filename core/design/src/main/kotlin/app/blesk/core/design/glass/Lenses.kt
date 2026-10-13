@@ -51,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.graphicsLayer
@@ -219,7 +220,10 @@ fun LensTabBar(
                     .padding(end = BarHeight / 2)
                     .width(BarHeight + ActionGap)
                     .height(BarHeight)
-                    .graphicsLayer { alpha = (reach - BRIDGE_FROM) / (1f - BRIDGE_FROM) }
+                    .graphicsLayer {
+                        alpha = (reach - BRIDGE_FROM) / (1f - BRIDGE_FROM)
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    }
                     .lens(BridgeShape, elevation = 0.dp, refract = false),
             )
         }
@@ -292,6 +296,10 @@ fun LensTabBar(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .graphicsLayer {
+                        // Fading without an offscreen layer: such a layer is a rectangle the size of the capsule
+                        // and would cut its shadow into a square. The shadow fades and goes with the capsule.
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                        shape = CircleShape
                         // Drawn back towards the lens: the capsule shrinks and slides into the bar's end.
                         val scale = SHRUNK + (1f - SHRUNK) * reach
                         scaleX = scale

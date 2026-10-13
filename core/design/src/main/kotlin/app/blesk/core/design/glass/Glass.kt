@@ -32,6 +32,7 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.Shadow
 
 private val LocalBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
@@ -136,7 +137,8 @@ fun Modifier.lens(shape: Shape, elevation: Dp = 18.dp, refract: Boolean = true):
                 lens(refractionHeight = 14.dp.toPx() * strength, refractionAmount = 28.dp.toPx() * strength)
             }
         },
-        highlight = null,
+        // The rim catches the light, so a lens reads as glass even over an empty background.
+        highlight = if (mode == GlassMode.Refraction) ({ Highlight.Default.copy(alpha = RIM_ALPHA * strength) }) else null,
         shadow = { Shadow(radius = elevation, offset = DpOffset(0.dp, elevation / 4), color = shadowColor) },
         onDrawSurface = { drawRect(tint) },
     )
@@ -179,3 +181,5 @@ fun PaddingValues.bottomOnly(extra: Dp = 0.dp): PaddingValues =
 /** Only the top of these paddings, plus [extra]: for something that hangs just under the top lens. */
 fun PaddingValues.topOnly(extra: Dp = 0.dp): PaddingValues =
     ExtendedPadding(this, 0.dp, extra, 0.dp, 0.dp, keepTop = true, keepBottom = false)
+
+private const val RIM_ALPHA = 0.6f

@@ -554,32 +554,30 @@ private fun MessageEntry(
                             MediaContent(message, attachment)
                         }
                     }
-                    message.link?.let { LinkCard(it, Modifier.padding(top = 2.dp, bottom = 6.dp)) }
                     val stamp: @Composable () -> Unit = {
                         Stamp(
                             time, message.status.takeIf { own }, edited,
                             modifier = Modifier.padding(horizontal = if (attachment?.isVisual() == true) 8.dp else 0.dp),
                         )
                     }
+                    // The preview of a link always comes after the words, and the time after the preview.
+                    val link = message.link
                     if (message.text.isNotEmpty()) {
                         val inset = if (attachment?.isVisual() == true) Modifier.padding(horizontal = 10.dp, vertical = 6.dp) else Modifier
-                        TextWithStamp(
-                            modifier = inset,
-                            text = { onLayout ->
-                                FormattedText(
-                                    markup = markup,
-                                    revealed = revealed,
-                                    onReveal = { revealed = it },
-                                    modifier = Modifier,
-                                    maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_LINES,
-                                    onMention = actions.onMention,
-                                ) { layout ->
-                                    if (!expanded) cut = layout.hasVisualOverflow
-                                    onLayout(layout)
-                                }
-                            },
-                            stamp = stamp,
-                        )
+                        val body: @Composable (onLayout: (TextLayoutResult) -> Unit) -> Unit = { onLayout ->
+                            FormattedText(
+                                markup = markup,
+                                revealed = revealed,
+                                onReveal = { revealed = it },
+                                modifier = Modifier,
+                                maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_LINES,
+                                onMention = actions.onMention,
+                            ) { layout ->
+                                if (!expanded) cut = layout.hasVisualOverflow
+                                onLayout(layout)
+                            }
+                        }
+                        if (link == null) TextWithStamp(modifier = inset, text = body, stamp = stamp) else Box(inset) { body {} }
                         if (cut && !expanded) {
                             Text(
                                 text = readMore,
@@ -591,7 +589,9 @@ private fun MessageEntry(
                                     .clickable { expanded = true },
                             )
                         }
-                    } else {
+                    }
+                    if (link != null) LinkCard(link, Modifier.padding(top = 6.dp, bottom = 2.dp))
+                    if (message.text.isEmpty() || link != null) {
                         Box(Modifier.align(Alignment.End).padding(top = 2.dp)) { stamp() }
                     }
                 }

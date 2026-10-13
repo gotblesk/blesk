@@ -1,0 +1,5 @@
+# Compiled ahead of time at install, so the first animations after an update do not stutter.
+# All of blesk runs on the paths a person meets in the first minutes (list, chat, lenses,
+# transitions), so the whole package is listed rather than a guess at the hot half of it.
+HSPLapp/blesk/**->**(**)**
+Lapp/blesk/**;

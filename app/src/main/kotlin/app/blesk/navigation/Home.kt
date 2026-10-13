@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -259,12 +258,12 @@ internal fun Home(
         AnimatedContent(
             targetState = tab,
             transitionSpec = {
-                // Tabs are one level: a dissolve with a small shift towards the tab, never a whole screen sliding in.
+                // Tabs are one level: the old tab fades out completely, then the new one appears with a small
+                // shift from the side of its tab. Two tabs are never on screen at once, so no text overlaps.
                 val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
                 val shift = if (motion.reduced) 0 else TAB_SHIFT_PERCENT
-                val enter = fadeIn(motion.transition()) + slideInHorizontally(motion.transition()) { it * shift * direction / 100 }
-                val exit = fadeOut(motion.transition()) + slideOutHorizontally(motion.transition()) { -it * shift * direction / 100 }
-                enter.togetherWith(exit)
+                val enter = fadeIn(motion.tabIn()) + slideInHorizontally(motion.tabIn()) { it * shift * direction / 100 }
+                enter.togetherWith(fadeOut(motion.tabOut()))
             },
             label = "tab",
         ) { shown ->

@@ -49,6 +49,7 @@ class SettingsActions(
     val onDeleteAccount: (() -> Unit)? = null,
     val onOpenUpdate: () -> Unit = {},
     val onOpenPhrase: () -> Unit = {},
+    val onOpenDevices: () -> Unit = {},
 )
 
 /** The «Ты» tab: your profile and what is yours — saved messages, calls, invites, stickers, bots. */
@@ -116,15 +117,22 @@ fun YouList(
             ListRow(title = stringResource(R.string.you_calls), icon = BleskIcons.Phone, soon = true)
             ListRow(title = stringResource(R.string.you_invites), icon = BleskIcons.Invite, soon = true)
             ListRow(title = stringResource(R.string.you_stickers), icon = BleskIcons.Sticker, onClick = actions.onOpenStickers)
-            if (serverHost != null) {
-                ListRow(
-                    title = stringResource(R.string.settings_bots),
-                    subtitle = stringResource(R.string.settings_bots_hint),
-                    icon = BleskIcons.Bot,
-                    onClick = actions.onOpenBots,
-                    modifier = Modifier.sharedBounds(screenKey("bots")),
-                )
-            }
+            val notify = rememberNotify()
+            val needsServer = stringResource(R.string.needs_server)
+            ListRow(
+                title = stringResource(R.string.you_bots),
+                subtitle = if (serverHost != null) stringResource(R.string.settings_bots_hint) else needsServer,
+                icon = BleskIcons.Bot,
+                // Bots live on a server: in the demo the row says so instead of opening an empty screen.
+                onClick = if (serverHost != null) actions.onOpenBots else ({ notify(needsServer) }),
+                modifier = Modifier.sharedBounds(screenKey("bots")),
+            )
+            ListRow(
+                title = stringResource(R.string.you_devices),
+                icon = BleskIcons.Phone,
+                onClick = actions.onOpenDevices,
+                modifier = Modifier.sharedBounds(screenKey("devices")),
+            )
         }
     }
 }

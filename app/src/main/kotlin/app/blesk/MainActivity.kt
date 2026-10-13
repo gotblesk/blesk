@@ -45,6 +45,7 @@ import app.blesk.core.design.component.NoticeHost
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskThemeWithWave
 import app.blesk.core.motion.LocalHapticLevel
+import app.blesk.debug.FrameMeter
 import app.blesk.feature.chats.media.LocalPictureInPicture
 import app.blesk.feature.chats.media.PictureInPicture
 import app.blesk.navigation.BleskNavigation
@@ -99,6 +100,8 @@ class MainActivity : ComponentActivity() {
                     Box(Modifier.fillMaxSize()) {
                         IncognitoKeyboard(privacy.incognitoKeyboard) { BleskNavigation(container) }
                         NoticeHost(container.notices, Modifier.align(Alignment.BottomCenter))
+                        val frameMeter by container.frameMeter.collectAsStateWithLifecycle()
+                        if (frameMeter) FrameMeter(window, Modifier.align(Alignment.TopCenter))
                         if (container.lock.locked) LockRoute(container, biometric = privacy.biometric, wipeAfterTen = privacy.wipeAfterTen)
                     }
                 }

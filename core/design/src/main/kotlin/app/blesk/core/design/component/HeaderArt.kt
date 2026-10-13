@@ -60,9 +60,9 @@ sealed interface HeaderStyle {
  * colour fades into the background so there is never a hard border.
  */
 @Composable
-fun HeaderArt(style: HeaderStyle, photo: ImageBitmap?, modifier: Modifier = Modifier) {
+fun HeaderArt(style: HeaderStyle, photo: ImageBitmap?, modifier: Modifier = Modifier, hue: Float? = null) {
     Box(modifier.clearAndSetSemantics { }) {
-        HeaderFill(style, photo)
+        HeaderFill(style, photo, hue)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Box(
                 Modifier
@@ -78,7 +78,7 @@ fun HeaderArt(style: HeaderStyle, photo: ImageBitmap?, modifier: Modifier = Modi
                             blendMode = BlendMode.DstIn,
                         )
                     },
-            ) { HeaderFill(style, photo) }
+            ) { HeaderFill(style, photo, hue) }
         }
         val background = Blesk.colors.background
         Box(
@@ -152,7 +152,7 @@ fun chatBackdropKey(style: HeaderStyle?): String = when (style) {
 }
 
 @Composable
-private fun BoxScope.HeaderFill(style: HeaderStyle, photo: ImageBitmap?) {
+private fun BoxScope.HeaderFill(style: HeaderStyle, photo: ImageBitmap?, hue: Float?) {
     when {
         style is HeaderStyle.Photo && photo != null -> Image(
             photo,
@@ -162,7 +162,7 @@ private fun BoxScope.HeaderFill(style: HeaderStyle, photo: ImageBitmap?) {
             modifier = Modifier.matchParentSize(),
         )
         style is HeaderStyle.Solid -> SolidFill(style.tone)
-        else -> LightFill((style as? HeaderStyle.Light)?.preset ?: 0)
+        else -> LightFill((style as? HeaderStyle.Light)?.preset ?: 0, hue = hue)
     }
 }
 
@@ -188,15 +188,23 @@ fun rememberTone(tone: Int): Color {
  * differently; with animations off or in battery saver the light stands still.
  */
 @Composable
-private fun BoxScope.LightFill(preset: Int, onBackground: Boolean = false) {
+private fun BoxScope.LightFill(preset: Int, onBackground: Boolean = false, hue: Float? = null) {
     val colors = Blesk.colors
     val pools = LightPresets[preset.mod(LightPresets.size)]
     val moving = !Blesk.motion.still
     val phase by rememberLoopPhase(LIGHT_PERIOD_MILLIS)
+    // A person's own header glows in their hue, the one of their avatar; elsewhere the light is the theme's.
+    val tinted = remember(colors, hue) {
+        hue?.let {
+            val base = Oklch.from(colors.background)
+            val depthL = if (colors.isDark) base.l + HUE_DEPTH_LIFT else base.l - HUE_DEPTH_LIFT
+            Oklch(depthL.coerceIn(0f, 1f), HUE_DEPTH_CHROMA, it).toColor() to headerLight(it, colors.isDark)
+        }
+    }
     // Behind a chat the light lies on the plain background and is gentler, so bubbles stay readable on it.
-    val depth = if (onBackground) colors.background else colors.surfaceStrong
+    val depth = tinted?.first ?: if (onBackground) colors.background else colors.surfaceStrong
     val dim = if (onBackground) BACKDROP_DIM else 1f
-    val light = colors.light
+    val light = tinted?.second ?: colors.light
     Box(
         Modifier
             .matchParentSize()
@@ -224,6 +232,10 @@ private fun BoxScope.LightFill(preset: Int, onBackground: Boolean = false) {
     )
 }
 
+/** The light of a header drawn in [hue]: the colour its pools glow with. */
+fun headerLight(hue: Float, dark: Boolean): Color =
+    Oklch(if (dark) HUE_LIGHT_DARK_L else HUE_LIGHT_L, HUE_LIGHT_CHROMA, hue).toColor()
+
 private class Pool(val x: Float, val y: Float, val radius: Float, val strength: Float)
 
 private val LightPresets = listOf(
@@ -243,3 +255,8 @@ private const val TONE_LIFT = 0.12f
 private const val TONE_CHROMA = 0.07f
 private const val PHOTO_SCRIM = 0.55f
 private const val BACKDROP_DIM = 0.6f
+private const val HUE_DEPTH_LIFT = 0.08f
+private const val HUE_DEPTH_CHROMA = 0.05f
+private const val HUE_LIGHT_L = 0.9f
+private const val HUE_LIGHT_DARK_L = 0.72f
+private const val HUE_LIGHT_CHROMA = 0.12f

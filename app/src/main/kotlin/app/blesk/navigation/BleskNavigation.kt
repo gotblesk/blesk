@@ -3,23 +3,9 @@ package app.blesk.navigation
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.EnterExitState
-import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.core.animateDp
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -33,22 +19,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
-import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import androidx.navigation3.ui.NavDisplay
-import androidx.navigationevent.NavigationEvent
 import app.blesk.AppContainer
 import app.blesk.BuildConfig
 import app.blesk.calls.CallActivity
@@ -58,14 +37,11 @@ import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.design.component.rememberNotify
-import app.blesk.core.design.motion.LocalScreenScope
 import app.blesk.core.design.motion.LocalSharedScope
 import app.blesk.core.design.motion.screenKey
 import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.messaging.RegisterResult
-import app.blesk.core.motion.BleskMotion
-import app.blesk.core.motion.Durations
 import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ServerAddress
 import app.blesk.feature.chats.ContactActions
@@ -264,8 +240,8 @@ fun BleskNavigation(container: AppContainer) {
                 NavDisplay(
                     sharedTransitionScope = this@SharedTransitionLayout,
                     transitionSpec = { screenEnter(motion) },
-                    popTransitionSpec = { screenExit(motion) },
-                    predictivePopTransitionSpec = { edge -> screenBackGesture(motion, towardsLeft = edge == NavigationEvent.EDGE_LEFT) },
+                    popTransitionSpec = { screenBack(motion, edge = null) },
+                    predictivePopTransitionSpec = { edge -> screenBack(motion, edge) },
                     entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), screenDecorator),
                     backStack = backStack,
                     onBack = back,
@@ -325,6 +301,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenStorage = { backStack.add(StorageKey) },
                                     onOpenUpdate = { backStack.add(UpdateKey) },
                                     onOpenPhrase = { backStack.add(PhraseKey()) },
+                                    onOpenDevices = { backStack.add(DevicesKey) },
                                     onShowQr = { backStack.add(MyQrKey) },
                                     onDeleteAccount = if (demo) null else ({ backStack.add(WipeKey(WipeKind.DeleteAccount)) }),
                                     onShare = {
@@ -516,6 +493,7 @@ fun BleskNavigation(container: AppContainer) {
                             }, onBack = back)
                         }
                         entry<MediaKey> { key -> MediaRoute(container, key, onBack = back) }
+                        entry<DevicesKey> { DevicesRoute(container, back) }
                         entry<MotionKey> { MotionRoute(container, onOpenChat = { backStack.add(ConversationKey(it)) }, onBack = back) }
                         entry<PhraseKey> { key -> PhraseRoute(container, key, onBack = back) }
                         entry<StickersKey> { StickersRoute(container, onOpen = { backStack.add(StickerSetKey(it)) }, onBack = back) }
@@ -564,6 +542,7 @@ fun BleskNavigation(container: AppContainer) {
                             val entries by container.eventLog.entries.collectAsStateWithLifecycle()
                             var crashVersion by remember { mutableIntStateOf(0) }
                             val crash = remember(crashVersion) { container.crashStore.read() }
+                            val frameMeter by container.frameMeter.collectAsStateWithLifecycle()
                             DebugScreen(
                                 entries = entries.toImmutableList(),
                                 crash = crash,
@@ -577,6 +556,8 @@ fun BleskNavigation(container: AppContainer) {
                                 onClearJournal = container.eventLog::clear,
                                 onBack = back,
                                 onOpenMotion = { backStack.add(MotionKey) },
+                                frameMeter = frameMeter,
+                                onFrameMeter = { on -> container.frameMeter.value = on },
                             )
                         }
                     },
@@ -605,84 +586,6 @@ private suspend fun connect(container: AppContainer, raw: String, username: Stri
         RegisterResult.Unreachable -> ConnectOutcome.Unreachable
     }
 }
-
-/**
- * Every screen knows its enter and exit, so a chat row and its chat can be one shared element,
- * and a screen leaving by the back gesture rounds its corners as it shrinks, like a card being
- * put back, instead of turning into a sharp rectangle.
- */
-@Composable
-private fun Screen(content: @Composable () -> Unit) {
-    val scope = LocalNavAnimatedContentScope.current
-    val corner by scope.transition.animateDp(label = "corner") { if (it == EnterExitState.Visible) 0.dp else SCREEN_CORNER }
-    // The screen being returned to starts a little dim and clears as the gesture goes on.
-    val dim by scope.transition.animateFloat(label = "dim") { if (it == EnterExitState.PreEnter) UNDER_DIM else 0f }
-    val background = Blesk.colors.background
-    CompositionLocalProvider(LocalScreenScope provides scope) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(corner))
-                // Every screen is opaque on its own: two screens never show through each other.
-                .background(background)
-                .drawWithContent {
-                    drawContent()
-                    if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
-                },
-        ) { content() }
-    }
-}
-
-/** Deeper screens come out of where they were opened from; everything dissolves rather than slides in whole. */
-private fun AnimatedContentTransitionScope<*>.screenEnter(motion: BleskMotion): ContentTransform =
-    (fadeIn(motion.transition()) + scaleIn(motion.transition(), initialScale = if (motion.reduced) 1f else ENTER_SCALE))
-        .togetherWith(fadeOut(motion.transition()))
-
-/** Going back, the leaving screen stays on top while it shrinks into place, so the bars below never draw over it. */
-private fun AnimatedContentTransitionScope<*>.screenExit(motion: BleskMotion, towardsLeft: Boolean? = null): ContentTransform =
-    ContentTransform(
-        targetContentEnter = fadeIn(motion.transition()),
-        initialContentExit = fadeOut(motion.transition()) + scaleOut(
-            motion.transition(),
-            targetScale = if (motion.reduced) 1f else EXIT_SCALE,
-            // With no element to return into, the screen shrinks towards the edge the swipe comes from.
-            transformOrigin = when (towardsLeft) {
-                true -> TransformOrigin(0f, 0.5f)
-                false -> TransformOrigin(1f, 0.5f)
-                null -> TransformOrigin.Center
-            },
-        ),
-        targetContentZIndex = -1f,
-    )
-
-/**
- * The back gesture, frame by frame under the finger. Both screens stay opaque the whole way: the
- * leaving one only shrinks with rounded corners towards the edge the swipe comes from, the one
- * below is already there, dimmed, and clears as the gesture goes on (see [Screen]). The leaving
- * screen fades only at the very end, once the gesture has been let go past the point of return.
- */
-private fun AnimatedContentTransitionScope<*>.screenBackGesture(motion: BleskMotion, towardsLeft: Boolean): ContentTransform =
-    ContentTransform(
-        targetContentEnter = EnterTransition.None,
-        initialContentExit = fadeOut(
-            keyframes {
-                durationMillis = Durations.TRANSITION
-                1f at (Durations.TRANSITION * GESTURE_OPAQUE).toInt()
-                0f at Durations.TRANSITION
-            },
-        ) + scaleOut(
-            motion.transition(),
-            targetScale = if (motion.reduced) 1f else EXIT_SCALE,
-            transformOrigin = if (towardsLeft) TransformOrigin(0f, 0.5f) else TransformOrigin(1f, 0.5f),
-        ),
-        targetContentZIndex = -1f,
-    )
-
-private const val GESTURE_OPAQUE = 0.9f
-private val SCREEN_CORNER = 28.dp
-private const val ENTER_SCALE = 0.96f
-private const val EXIT_SCALE = 0.9f
-private const val UNDER_DIM = 0.25f
 
 /** Sends a link to your profile through any app the person chooses. */
 private fun shareProfile(context: Context, username: String, key: String?) {

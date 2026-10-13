@@ -16,6 +16,7 @@ composeBom = "2026.09.00"
 activity = "1.13.0"
 coreKtx = "1.19.1"
 lifecycle = "2.11.0"
+profileinstaller = "1.4.1"
 datastore = "1.2.1"
 navigation3 = "1.2.0"
 junit = "4.13.2"
@@ -60,6 +61,7 @@ androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx"
 # The version AudioSwitch was published against; newer ones moved its constants.
 androidx-annotation-legacy = { module = "androidx.annotation:annotation", version = "1.3.0" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
+androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }

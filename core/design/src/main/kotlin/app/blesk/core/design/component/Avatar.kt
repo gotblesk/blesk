@@ -136,28 +136,35 @@ private const val TRIO_SHARE = 0.5f
 private const val BRIDGE_SHARE = 0.3f
 private val RIM = 1.5.dp
 
-/** The «в сети» dot: 8 dp of the theme's light, ringed with the background so it reads on any avatar. */
+/**
+ * The «в сети» dot: 8 dp of the theme's light, filled, ringed with the background so it reads on
+ * any avatar. In pale themes the light itself is almost white and would look like an empty ring,
+ * so the dot takes the light's hue at a depth that stands out from the background.
+ */
 @Composable
 private fun Modifier.onlineDot(size: Dp): Modifier {
     val colors = Blesk.colors
-    // The light itself, not a contrast-corrected grey: in the pale theme a grey dot would read as «away».
-    val dot = colors.light
+    val dot = remember(colors) {
+        val light = Oklch.from(colors.light)
+        val lightness = if (colors.isDark) maxOf(light.l, DOT_DARK_L) else DOT_LIGHT_L
+        Oklch(lightness, maxOf(light.c, DOT_CHROMA), light.h).toColor()
+    }
     val ring = colors.background
-    val edge = if (colors.isDark) colors.background else colors.textPrimary
     return drawWithContent {
         drawContent()
         val r = OnlineDot.toPx() / 2f
         // On the rim at about half past four, where a dot sits naturally on a round face.
         val center = Offset(this.size.width * DOT_AT, this.size.height * DOT_AT)
         drawCircle(ring, r + DotRing.toPx(), center)
-        drawCircle(edge, r + DotEdge.toPx(), center)
         drawCircle(dot, r, center)
     }.let { if (size < MIN_DOTTED) this else it }
 }
 
 private val OnlineDot = 8.dp
 private val DotRing = 2.5.dp
-private val DotEdge = 1.dp
+private const val DOT_DARK_L = 0.8f
+private const val DOT_LIGHT_L = 0.62f
+private const val DOT_CHROMA = 0.14f
 private val MIN_DOTTED = 20.dp
 private const val DOT_AT = 0.85f
 
@@ -185,6 +192,9 @@ fun rememberAvatarInk(key: String): Color {
 /** Same lightness and chroma for everyone, only the hue differs. */
 private fun hueFor(key: String, dark: Boolean): Color =
     Oklch(if (dark) 0.47f else 0.86f, if (dark) 0.085f else 0.06f, hueOf(key)).toColor()
+
+/** The hue, in degrees, that belongs to [key]: the one its monogram avatar is drawn in. */
+fun avatarHue(key: String): Float = hueOf(key)
 
 private fun hueOf(key: String) = (key.hashCode().toUInt().toLong() % HUE_STEPS) * (360f / HUE_STEPS)
 

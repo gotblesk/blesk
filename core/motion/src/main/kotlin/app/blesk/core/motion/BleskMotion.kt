@@ -6,6 +6,7 @@ import android.provider.Settings
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -41,6 +42,10 @@ object Durations {
     /** The system keyboard coming up and going down; panels in its place move the same. */
     const val KEYBOARD_SHOW = 275
     const val KEYBOARD_HIDE = 340
+
+    /** Changing tabs: the old one is gone completely before the new one appears, so text never overlaps. */
+    const val TAB_OUT = 90
+    const val TAB_IN = 150
 }
 
 /** The one curve for movement that is not a spring: a viscous start and a soft stop. */
@@ -83,6 +88,12 @@ class BleskMotion(val reduced: Boolean, val still: Boolean = reduced) {
     /** A panel taking the keyboard's place: up as the keyboard comes up, down as it goes. */
     fun <T> keyboard(opening: Boolean): FiniteAnimationSpec<T> =
         if (reduced) snap() else tween(if (opening) Durations.KEYBOARD_SHOW else Durations.KEYBOARD_HIDE, easing = KeyboardEasing)
+
+    /** The tab being left fades out first; [tabIn] begins only when it is gone. */
+    fun <T> tabOut(): FiniteAnimationSpec<T> = tween(Durations.TAB_OUT, easing = LinearEasing)
+
+    fun <T> tabIn(): FiniteAnimationSpec<T> =
+        tween(if (reduced) Durations.DISSOLVE else Durations.TAB_IN, delayMillis = Durations.TAB_OUT, easing = Viscous)
 
     fun <T> signature(): FiniteAnimationSpec<T> = tween(if (reduced) Durations.DISSOLVE else Durations.SIGNATURE, easing = Viscous)
 
