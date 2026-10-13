@@ -261,6 +261,20 @@ class KeyScreensScreenshotTest(private val name: String) {
     }
 
     @Test
+    fun roomClosed() = capture("09a_room_closed") {
+        HomeFrame("Комнаты", 2, collapsed = true) { padding ->
+            ChatList(
+                conversations = seed.conversations.filter { it.kind == ConversationKind.Room && it.parentId == null }.toImmutableList(),
+                typing = persistentSetOf(),
+                now = now,
+                contentPadding = padding,
+                onOpenConversation = {},
+                onOpenChannel = { _, _ -> },
+            )
+        }
+    }
+
+    @Test
     fun roomOpen() = capture("09_room_open") {
         HomeFrame("Комнаты", 2, collapsed = true) { padding ->
             ChatList(

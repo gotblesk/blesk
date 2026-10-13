@@ -23,9 +23,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -52,10 +57,12 @@ import app.blesk.core.motion.rememberHaptics
 import java.time.Instant
 
 private val ChannelGap = 10.dp
-private val ClusterTail = 16.dp
-private val DropHeight = 22.dp
-private val DropWidth = 40.dp
-private const val AVATAR_INSET = 1.9f
+private val DropHeight = 30.dp
+private val DropWidth = 56.dp
+
+/** Room for the closed channel capsules hanging under the room. */
+private val ClusterTail = DropHeight + 14.dp
+private const val AVATAR_INSET = 1.4f
 
 /**
  * A room in the list: its channels hang under it as a cluster of drops stuck together. A tap
@@ -76,6 +83,8 @@ internal fun RoomCluster(
     val haptics = rememberHaptics()
     val progress by animateFloatAsState(if (expanded) 1f else 0f, Blesk.motion.stretch(), label = "room")
     val geometry = remember { ClusterGeometry() }
+    val hash = rememberVectorPainter(BleskIcons.Hash)
+    val voice = rememberVectorPainter(BleskIcons.Voice)
     val colors = Blesk.colors
     val density = LocalDensity.current
     val shape = RoundedCornerShape(Blesk.dimens.capsuleRadius)
@@ -93,7 +102,10 @@ internal fun RoomCluster(
             }
             .drawWithContent {
                 drawContent()
-                if (progress < 1f) drawSpeakingDots(room, geometry, 1f - progress, colors.light, colors.textTertiary)
+                if (progress < 1f) {
+                    drawClosedChannels(room, geometry, 1f - progress, ClosedInk(hash, voice, colors.textSecondary, colors.accent))
+                    drawSpeakingDots(room, geometry, 1f - progress, colors.light, colors.textTertiary)
+                }
             }
             .semantics { if (speakingNames.isNotEmpty()) contentDescription = "$speakingNames, $speakingLabel" },
         content = {
@@ -152,17 +164,23 @@ private class ClusterGeometry {
     var rows: List<Float> = emptyList()
     var gap = 0f
 
-    fun collapsedDrop(index: Int, dropWidth: Float, dropHeight: Float): Rect {
-        val left = dropWidth * AVATAR_INSET + index * (dropWidth * 0.82f)
-        val top = header - dropHeight * 0.3f
+    /** How many closed capsules fit in a row; the rest wait in the last one. */
+    var fits = Int.MAX_VALUE
+
+    fun collapsedDrop(index: Int, dropWidth: Float, dropHeight: Float, gap: Float = dropWidth * GAP_SHARE, hang: Float = 0f): Rect {
+        val slot = index.coerceAtMost(fits - 1)
+        val left = dropWidth * AVATAR_INSET + slot * (dropWidth + gap)
+        val top = header + hang
         return Rect(left, top, left + dropWidth, top + dropHeight)
     }
 
     fun blobs(progress: Float, radius: Float, dropWidth: Float, dropHeight: Float): List<Blob> {
         val head = Blob(Rect(0f, 0f, width, header), radius)
         var y = header + gap
+        fits = ((width - dropWidth * AVATAR_INSET) / (dropWidth * (1f + GAP_SHARE))).toInt().coerceAtLeast(1)
         val drops = rows.mapIndexed { index, rowHeight ->
-            val collapsed = Blob(collapsedDrop(index, dropWidth, dropHeight), dropHeight / 2f)
+            val closed = collapsedDrop(index, dropWidth, dropHeight, hang = dropHeight * HANG_SHARE)
+            val collapsed = Blob(closed, dropHeight / 2f)
             val open = Blob(Rect(0f, y, width, y + rowHeight), radius)
             y += rowHeight + gap
             lerp(collapsed, open, progress)
@@ -176,7 +194,7 @@ private fun DrawScope.drawSpeakingDots(room: Conversation, geometry: ClusterGeom
     val index = room.channels.indexOfFirst { it.kind == RoomChannelKind.Voice && it.participants.isNotEmpty() }
     if (index < 0) return
     val channel = room.channels[index]
-    val drop = geometry.collapsedDrop(index, DropWidth.toPx(), DropHeight.toPx())
+    val drop = geometry.collapsedDrop(index, DropWidth.toPx(), DropHeight.toPx(), hang = DropHeight.toPx() * HANG_SHARE)
     val r = 2.5.dp.toPx()
     val step = 7.dp.toPx()
     val people = channel.participants.take(3)
@@ -184,6 +202,30 @@ private fun DrawScope.drawSpeakingDots(room: Conversation, geometry: ClusterGeom
     people.forEachIndexed { i, person ->
         val color = if (person.id in channel.speaking) lit else idle
         drawCircle(color.copy(alpha = color.alpha * alpha), r, Offset(startX + i * step, drop.center.y))
+    }
+}
+
+/** What the closed capsules are drawn with. */
+private class ClosedInk(val hash: Painter, val voice: Painter, val icon: Color, val unread: Color)
+
+/**
+ * Each closed channel capsule shows what it is: «#» for a text channel, a dot of light when it has
+ * unread messages; a voice channel shows its people as dots (see [drawSpeakingDots]) or its icon.
+ */
+private fun DrawScope.drawClosedChannels(room: Conversation, geometry: ClusterGeometry, alpha: Float, ink: ClosedInk) {
+    val iconSize = 16.dp.toPx()
+    room.channels.forEachIndexed { index, channel ->
+        if (index >= geometry.fits) return
+        val drop = geometry.collapsedDrop(index, DropWidth.toPx(), DropHeight.toPx(), hang = DropHeight.toPx() * HANG_SHARE)
+        val talking = channel.kind == RoomChannelKind.Voice && channel.participants.isNotEmpty()
+        if (talking) return@forEachIndexed
+        val painter = if (channel.kind == RoomChannelKind.Voice) ink.voice else ink.hash
+        translate(drop.center.x - iconSize / 2f, drop.center.y - iconSize / 2f) {
+            with(painter) { draw(Size(iconSize, iconSize), alpha = alpha, colorFilter = ColorFilter.tint(ink.icon)) }
+        }
+        if (channel.unread > 0) {
+            drawCircle(ink.unread.copy(alpha = alpha), 3.dp.toPx(), Offset(drop.right - 9.dp.toPx(), drop.top + 8.dp.toPx()))
+        }
     }
 }
 
@@ -219,3 +261,9 @@ private fun ChannelRow(channel: RoomChannel, onClick: () -> Unit, modifier: Modi
         if (channel.unread > 0) UnreadBadge(channel.unread)
     }
 }
+
+/** Between two closed capsules: narrow enough for the metaball to pull a neck across. */
+private const val GAP_SHARE = 0.16f
+
+/** The closed capsules hang this far under the room, by their height, so a neck joins them to it. */
+private const val HANG_SHARE = 0.18f
