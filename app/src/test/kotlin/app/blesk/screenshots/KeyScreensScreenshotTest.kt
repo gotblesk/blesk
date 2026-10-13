@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import app.blesk.InAppNote
+import app.blesk.calls.CallCapsuleLook
 import app.blesk.core.calls.CallMember
 import app.blesk.core.calls.MediaState
 import app.blesk.core.crypto.phrase.RecoveryPhrase
@@ -41,10 +43,12 @@ import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.ChatBackdrop
 import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.IconButton
+import app.blesk.core.design.glass.LensAccessories
 import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
 import app.blesk.core.design.glass.LensTabBar
+import app.blesk.core.design.glass.LocalLensAccessories
 import app.blesk.core.design.glass.SearchLens
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
@@ -257,6 +261,26 @@ class KeyScreensScreenshotTest(private val name: String) {
                 onOpenConversation = {},
                 onOpenChannel = { _, _ -> },
             )
+        }
+    }
+
+    @Test
+    fun callInProgress() = capture("36_call_capsule") {
+        val capsule = LensAccessories(
+            top = { CallCapsuleLook("Аня Соколова", "anya", "04:12", micOn = true, level = 0.4f, onOpen = {}, onMic = {}, onEnd = {}) },
+        )
+        CompositionLocalProvider(LocalLensAccessories provides capsule) {
+            HomeFrame("Чаты", 0) { padding ->
+                ChatList(
+                    conversations = seed.conversations.filter { it.parentId == null && it.kind != ConversationKind.Room && !it.request }
+                        .toImmutableList(),
+                    typing = persistentSetOf(),
+                    now = now,
+                    contentPadding = padding,
+                    onOpenConversation = {},
+                    onOpenChannel = { _, _ -> },
+                )
+            }
         }
     }
 

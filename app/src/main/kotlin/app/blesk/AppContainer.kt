@@ -5,6 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import app.blesk.background.networkAvailable
 import app.blesk.core.calls.CallManager
 import app.blesk.core.calls.CallMedia
+import app.blesk.core.calls.MediaState
 import app.blesk.core.crypto.PinVault
 import app.blesk.core.crypto.phrase.PhraseKeys
 import app.blesk.core.crypto.phrase.PhraseVault
@@ -92,6 +93,12 @@ class AppContainer(context: Context) {
     val phrase = PhraseVault(context)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
     val notices = Notices(scope)
+
+    /**
+     * The demo call's microphone, camera and speaker. The demo has no media to ask, and both the
+     * call screen and the capsule of a call in progress switch them.
+     */
+    val demoCallMedia = MutableStateFlow(MediaState())
 
     /** «Индикатор кадров» from the debug screen; lives as long as the app does, like the journal. */
     val frameMeter = MutableStateFlow(false)

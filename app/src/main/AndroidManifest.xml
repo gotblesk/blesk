@@ -67,6 +67,7 @@
         <activity
             android:name=".calls.CallActivity"
             android:exported="false"
+            android:supportsPictureInPicture="true"
             android:launchMode="singleTask"
             android:taskAffinity="app.blesk.call"
             android:excludeFromRecents="true"

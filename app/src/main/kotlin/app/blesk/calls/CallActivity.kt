@@ -2,12 +2,14 @@ package app.blesk.calls
 
 import android.Manifest
 import android.app.KeyguardManager
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,7 +25,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -109,6 +110,15 @@ class CallActivity : ComponentActivity() {
         }
     }
 
+    /** A video call goes into a corner window when you leave the app, so the faces stay in view. */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        val session = container.calls.value?.session?.value ?: return
+        if (session.video && session.phase == CallPhase.Active) {
+            runCatching { enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(CORNER_W, CORNER_H)).build()) }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handle(intent)
@@ -131,9 +141,10 @@ class CallActivity : ComponentActivity() {
         current ?: return
         val livekit = manager.media as? CallMedia
         // The demo has no room to talk through, so its microphone, speaker and camera are switches of its own.
-        var demoMedia by remember(current.id) {
-            mutableStateOf(MediaState(micOn = true, cameraOn = current.video, speakerOn = current.video))
+        LaunchedEffect(current.id) {
+            container.demoCallMedia.value = MediaState(micOn = true, cameraOn = current.video, speakerOn = current.video)
         }
+        val demoMedia by container.demoCallMedia.collectAsStateWithLifecycle()
         val offline = getString(R.string.call_needs_server)
         CallScreen(
             session = current,
@@ -148,7 +159,7 @@ class CallActivity : ComponentActivity() {
                 hangUp = manager::hangUp,
                 toggleMic = {
                     if (manager.demo) {
-                        demoMedia = demoMedia.copy(micOn = !demoMedia.micOn)
+                        container.demoCallMedia.value = demoMedia.copy(micOn = !demoMedia.micOn)
                     } else {
                         scope.launch { livekit?.setMic(!media.micOn) }
                     }
@@ -156,14 +167,14 @@ class CallActivity : ComponentActivity() {
                 toggleCamera = {
                     when {
                         !granted(Manifest.permission.CAMERA) -> permissions.launch(arrayOf(Manifest.permission.CAMERA))
-                        manager.demo -> demoMedia = demoMedia.copy(cameraOn = !demoMedia.cameraOn)
+                        manager.demo -> container.demoCallMedia.value = demoMedia.copy(cameraOn = !demoMedia.cameraOn)
                         else -> scope.launch { livekit?.setCamera(!media.cameraOn) }
                     }
                 },
                 flipCamera = { if (manager.demo) container.circleRecorder.flip() else livekit?.flipCamera() },
                 toggleSpeaker = {
                     if (manager.demo) {
-                        demoMedia = demoMedia.copy(speakerOn = !demoMedia.speakerOn)
+                        container.demoCallMedia.value = demoMedia.copy(speakerOn = !demoMedia.speakerOn)
                     } else {
                         livekit?.setSpeaker(!media.speakerOn)
                     }
@@ -293,3 +304,6 @@ class CallActivity : ComponentActivity() {
                 .putExtra(EXTRA_TITLE, title)
     }
 }
+
+private const val CORNER_W = 9
+private const val CORNER_H = 16

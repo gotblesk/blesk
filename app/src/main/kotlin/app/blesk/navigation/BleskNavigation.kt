@@ -31,12 +31,15 @@ import androidx.navigation3.ui.NavDisplay
 import app.blesk.AppContainer
 import app.blesk.BuildConfig
 import app.blesk.calls.CallActivity
+import app.blesk.calls.CallCapsule
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.design.component.rememberNotify
+import app.blesk.core.design.glass.LensAccessories
+import app.blesk.core.design.glass.LocalLensAccessories
 import app.blesk.core.design.motion.LocalSharedScope
 import app.blesk.core.design.motion.screenKey
 import app.blesk.core.design.motion.sharedBounds
@@ -231,7 +234,8 @@ fun BleskNavigation(container: AppContainer) {
 
     val motion = Blesk.motion
     SharedTransitionLayout {
-        CompositionLocalProvider(LocalSharedScope provides this) {
+        val accessories = remember(container) { LensAccessories(top = { CallCapsule(container) }) }
+        CompositionLocalProvider(LocalSharedScope provides this, LocalLensAccessories provides accessories) {
             // The in-app notice floats over every screen, under the status bar.
             Box(Modifier.fillMaxSize()) {
                 val screenDecorator = remember {

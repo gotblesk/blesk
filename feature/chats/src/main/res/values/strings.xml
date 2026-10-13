@@ -59,6 +59,7 @@
     <string name="hint_double_tap">Коснись сообщения дважды, чтобы поставить реакцию</string>
     <string name="hint_record_lock">Удерживай запись и сдвинь палец вверх, чтобы записывать без рук</string>
     <string name="hint_pinned_drag">Зажми закреплённый чат и тяни, чтобы поменять порядок</string>
+    <string name="hint_call_capsule">Звонок продолжается. Вернуться — нажми на капсулу сверху</string>
     <string name="hint_archive_pull">Потяни список вниз, чтобы открыть свёрнутый архив</string>
     <string name="person_block">Заблокировать</string>
     <string name="person_block_hint">Сообщения и звонки от этого человека перестанут приходить. Человек об этом не узнает.</string>

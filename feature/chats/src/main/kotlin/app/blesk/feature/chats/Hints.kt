@@ -13,5 +13,6 @@ fun hintText(hint: GestureHint): String = stringResource(
         GestureHint.RecordLock -> R.string.hint_record_lock
         GestureHint.PinnedDrag -> R.string.hint_pinned_drag
         GestureHint.ArchivePull -> R.string.hint_archive_pull
+        GestureHint.CallCapsule -> R.string.hint_call_capsule
     },
 )

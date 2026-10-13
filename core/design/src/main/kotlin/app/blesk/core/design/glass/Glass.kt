@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +57,20 @@ fun glassModeFor(sdk: Int = Build.VERSION.SDK_INT, strength: Float): GlassMode =
 }
 
 /**
+ * What hangs on the lenses of every screen, whatever the screen: a call in progress under the top
+ * lens, the music player on the bottom one. Each screen's lenses grow by them, so the content
+ * moves aside rather than slipping under.
+ */
+@Immutable
+class LensAccessories(val top: @Composable () -> Unit = {}, val bottom: @Composable () -> Unit = {}) {
+    companion object {
+        val None = LensAccessories()
+    }
+}
+
+val LocalLensAccessories = staticCompositionLocalOf { LensAccessories.None }
+
+/**
  * A screen with the only two pieces of glass in blesk: the top lens and the bottom lens.
  * [content] is drawn once into a backdrop layer that the lenses refract, and receives
  * padding equal to the lenses so nothing important hides under them.
@@ -74,18 +90,34 @@ fun LensScaffold(
 ) {
     val backdrop = rememberLayerBackdrop()
     val padding = remember { LensPadding() }
+    val accessories = LocalLensAccessories.current
     Layout(
         contents = listOf(
             {
                 Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
                     Box(Modifier.fillMaxSize().background(background))
                     underlay()
-                    content(padding)
+                    // A scaffold inside another one (a sheet, a pane) does not repeat what hangs on the outer lenses.
+                    CompositionLocalProvider(LocalLensAccessories provides LensAccessories.None) { content(padding) }
                     StatusBarScrim(background)
                 }
             },
-            { CompositionLocalProvider(LocalBackdrop provides backdrop) { Box(Modifier.fillMaxWidth()) { top() } } },
-            { CompositionLocalProvider(LocalBackdrop provides backdrop) { Box(Modifier.fillMaxWidth()) { bottom() } } },
+            {
+                CompositionLocalProvider(LocalBackdrop provides backdrop) {
+                    Column(Modifier.fillMaxWidth()) {
+                        top()
+                        accessories.top()
+                    }
+                }
+            },
+            {
+                CompositionLocalProvider(LocalBackdrop provides backdrop) {
+                    Column(Modifier.fillMaxWidth()) {
+                        accessories.bottom()
+                        bottom()
+                    }
+                }
+            },
         ),
         modifier = modifier.fillMaxSize().background(background),
     ) { (contentSlot, topSlot, bottomSlot), constraints ->

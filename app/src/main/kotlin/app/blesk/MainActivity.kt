@@ -35,6 +35,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.blesk.background.KeepAliveService
+import app.blesk.calls.CallEndedNotice
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.LockDelay
 import app.blesk.core.data.settings.Privacy
@@ -102,6 +103,7 @@ class MainActivity : ComponentActivity() {
                         NoticeHost(container.notices, Modifier.align(Alignment.BottomCenter))
                         val frameMeter by container.frameMeter.collectAsStateWithLifecycle()
                         if (frameMeter) FrameMeter(window, Modifier.align(Alignment.TopCenter))
+                        CallEndedNotice(container)
                         if (container.lock.locked) LockRoute(container, biometric = privacy.biometric, wipeAfterTen = privacy.wipeAfterTen)
                     }
                 }
