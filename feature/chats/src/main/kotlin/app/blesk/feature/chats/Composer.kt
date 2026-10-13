@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -247,83 +248,47 @@ internal fun Composer(
                         }
                     }
             }
-            if (recording.active && recorders != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RecordingBar(recording, recorders, Modifier.weight(1f))
-                    if (!recording.locked) RecordButton(recording, recorders)
-                }
-                return@BottomLens
-            }
+            val recordingNow = recording.active && recorders != null
+            // One row for both states: the record button under the finger must stay the same node when
+            // the recording starts, or the press it is following is lost and the recording never ends.
             Row(verticalAlignment = Alignment.Bottom) {
-                if (attachments) {
-                    AttachToggle(open = panel == ComposerPanel.Attach) {
-                        if (panel == ComposerPanel.Attach) close(forKeyboard = false) else open(ComposerPanel.Attach)
-                    }
-                }
-                Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 4.dp), contentAlignment = Alignment.CenterStart) {
-                    if (state.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
-                    BasicTextField(
+                if (recordingNow && recorders != null) {
+                    RecordingBar(recording, recorders, Modifier.weight(1f).align(Alignment.CenterVertically))
+                } else {
+                    EditorRow(
+                        attachments = attachments,
+                        panel = panel,
+                        hint = hint,
                         state = state,
-                        textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
-                        cursorBrush = SolidColor(Blesk.colors.accent),
-                        lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
-                        keyboardOptions = KeyboardOptions(imeAction = if (sendByEnter) ImeAction.Send else ImeAction.Default),
-                        onKeyboardAction = if (sendByEnter) KeyboardActionHandler { send() } else null,
-                        // The padding is inside the field, so the whole 48dp row takes the tap.
-                        decorator = { inner ->
-                            Box(
-                                modifier = Modifier.heightIn(min = 48.dp).padding(vertical = 12.dp),
-                                contentAlignment = Alignment.CenterStart,
-                            ) { inner() }
+                        sendByEnter = sendByEnter,
+                        field = field,
+                        onToggleAttach = {
+                            if (panel == ComposerPanel.Attach) close(forKeyboard = false) else open(ComposerPanel.Attach)
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(field)
-                            .onFocusChanged { if (it.isFocused && panel != ComposerPanel.None) close(forKeyboard = true) }
-                            .onPreviewKeyEvent { event ->
-                                val enter = event.key == Key.Enter || event.key == Key.NumPadEnter
-                                if (!sendByEnter || !enter || event.isShiftPressed) return@onPreviewKeyEvent false
-                                if (event.type == KeyEventType.KeyDown) send()
-                                true
+                        onFieldFocused = { if (panel != ComposerPanel.None) close(forKeyboard = true) },
+                        onSend = ::send,
+                        onToggleEmoji = {
+                            if (panel == ComposerPanel.Emoji) {
+                                close(forKeyboard = true)
+                                field.requestFocus()
+                                keyboard?.show()
+                            } else {
+                                open(ComposerPanel.Emoji)
                             }
-                            .semantics { contentDescription = hint },
+                        },
                     )
                 }
-                val emojiOpen = panel == ComposerPanel.Emoji
-                IconButton(
-                    icon = if (emojiOpen) BleskIcons.Edit else BleskIcons.Smile,
-                    contentDescription = stringResource(if (emojiOpen) R.string.emoji_keyboard else R.string.emoji_open),
-                    onClick = {
-                        if (emojiOpen) {
-                            close(forKeyboard = true)
-                            field.requestFocus()
-                            keyboard?.show()
-                        } else {
-                            open(ComposerPanel.Emoji)
-                        }
-                    },
-                )
-                val motion = Blesk.motion
-                // «Отправить» and the record button flow into each other rather than swap.
-                AnimatedContent(
-                    targetState = state.text.isBlank() && editing == null && recorders != null,
-                    transitionSpec = {
-                        (scaleIn(motion.settle(), initialScale = 0.4f) + fadeIn(motion.press()))
-                            .togetherWith(scaleOut(motion.press(), targetScale = 0.4f) + fadeOut(motion.press()))
-                    },
-                    label = "send",
-                ) { record ->
-                    if (record && recorders != null) {
-                        RecordButton(recording, recorders)
-                    } else {
-                        IconButton(
-                            icon = if (editing != null) BleskIcons.Check else BleskIcons.Send,
-                            contentDescription = stringResource(R.string.chat_send),
-                            onClick = ::send,
-                        )
-                    }
+                if (!(recordingNow && recording.locked)) {
+                    SendOrRecord(
+                        record = state.text.isBlank() && editing == null && recorders != null,
+                        editing = editing != null,
+                        recording = recording,
+                        recorders = recorders,
+                        onSend = ::send,
+                    )
                 }
             }
+            if (recordingNow) return@BottomLens
             PanelRoom(panel = panel, toKeyboard = toKeyboard) { shown, height ->
                 when (shown) {
                     ComposerPanel.Emoji -> EmojiPanel(
@@ -356,6 +321,83 @@ internal fun Composer(
 }
 
 /** Saves what is typed a moment after typing stops, and once more when the chat closes. */
+
+/** The field with its side buttons: attachments on the left, emoji on the right. */
+@Composable
+private fun RowScope.EditorRow(
+    attachments: Boolean,
+    panel: ComposerPanel,
+    hint: String,
+    state: TextFieldState,
+    sendByEnter: Boolean,
+    field: FocusRequester,
+    onToggleAttach: () -> Unit,
+    onFieldFocused: () -> Unit,
+    onSend: () -> Unit,
+    onToggleEmoji: () -> Unit,
+) {
+    if (attachments) AttachToggle(open = panel == ComposerPanel.Attach, onClick = onToggleAttach)
+    Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 4.dp), contentAlignment = Alignment.CenterStart) {
+        if (state.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
+        BasicTextField(
+            state = state,
+            textStyle = Blesk.type.body.copy(color = Blesk.colors.textPrimary),
+            cursorBrush = SolidColor(Blesk.colors.accent),
+            lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
+            keyboardOptions = KeyboardOptions(imeAction = if (sendByEnter) ImeAction.Send else ImeAction.Default),
+            onKeyboardAction = if (sendByEnter) KeyboardActionHandler { onSend() } else null,
+            // The padding is inside the field, so the whole 48dp row takes the tap.
+            decorator = { inner ->
+                Box(
+                    modifier = Modifier.heightIn(min = 48.dp).padding(vertical = 12.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) { inner() }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(field)
+                .onFocusChanged { if (it.isFocused) onFieldFocused() }
+                .onPreviewKeyEvent { event ->
+                    val enter = event.key == Key.Enter || event.key == Key.NumPadEnter
+                    if (!sendByEnter || !enter || event.isShiftPressed) return@onPreviewKeyEvent false
+                    if (event.type == KeyEventType.KeyDown) onSend()
+                    true
+                }
+                .semantics { contentDescription = hint },
+        )
+    }
+    val emojiOpen = panel == ComposerPanel.Emoji
+    IconButton(
+        icon = if (emojiOpen) BleskIcons.Edit else BleskIcons.Smile,
+        contentDescription = stringResource(if (emojiOpen) R.string.emoji_keyboard else R.string.emoji_open),
+        onClick = onToggleEmoji,
+    )
+}
+
+/** «Отправить» and the record button flow into each other rather than swap. */
+@Composable
+private fun SendOrRecord(record: Boolean, editing: Boolean, recording: RecordingUi, recorders: Recorders?, onSend: () -> Unit) {
+    val motion = Blesk.motion
+    AnimatedContent(
+        targetState = record,
+        transitionSpec = {
+            (scaleIn(motion.settle(), initialScale = 0.4f) + fadeIn(motion.press()))
+                .togetherWith(scaleOut(motion.press(), targetScale = 0.4f) + fadeOut(motion.press()))
+        },
+        label = "send",
+    ) { showRecord ->
+        if (showRecord && recorders != null) {
+            RecordButton(recording, recorders)
+        } else {
+            IconButton(
+                icon = if (editing) BleskIcons.Check else BleskIcons.Send,
+                contentDescription = stringResource(R.string.chat_send),
+                onClick = onSend,
+            )
+        }
+    }
+}
+
 @Composable
 internal fun DraftKeeper(state: TextFieldState, onDraft: (String) -> Unit) {
     val save by rememberUpdatedState(onDraft)

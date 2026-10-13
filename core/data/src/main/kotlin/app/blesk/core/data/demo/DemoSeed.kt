@@ -29,6 +29,7 @@ class DemoSeed(
     val echoBotAuthorId: String,
     val directContactIds: Set<String>,
     val bot: DemoBot = DemoBot(),
+    val community: DemoCommunityTexts = DemoCommunityTexts(),
 ) {
     companion object {
         const val ANYA = "anya"
@@ -173,6 +174,11 @@ class DemoSeed(
                         BotCommand("start", resources.getString(R.string.demo_bot_command_start)),
                         BotCommand("help", resources.getString(R.string.demo_bot_command_help)),
                     ),
+                ),
+                community = DemoCommunityTexts(
+                    textChannel = resources.getString(R.string.demo_channel_general),
+                    voiceChannel = resources.getString(R.string.demo_channel_voice),
+                    greeting = resources.getString(R.string.demo_group_greeting),
                 ),
             )
         }

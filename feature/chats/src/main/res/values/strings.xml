@@ -125,8 +125,13 @@
     <string name="media_cancel">Отменить запись</string>
     <string name="media_preparing">Готовим видео…</string>
     <string name="media_failed">Не получилось прикрепить</string>
-    <string name="media_permission_mic">Чтобы записать голосовое, разреши доступ к микрофону</string>
-    <string name="media_permission_camera">Чтобы записать кружок, разреши доступ к камере и микрофону</string>
+    <string name="media_permission_mic">Микрофон нужен, чтобы записать голосовое</string>
+    <string name="media_permission_camera">Камера и микрофон нужны, чтобы записать кружок</string>
+    <string name="media_permission_title">Нужен доступ</string>
+    <string name="media_permission_mic_denied">Без микрофона голосовое не записать. Открой настройки, раздел «Разрешения», и разреши микрофон.</string>
+    <string name="media_permission_camera_denied">Без камеры и микрофона кружок не записать. Открой настройки, раздел «Разрешения», и разреши оба.</string>
+    <string name="media_permission_settings">Открыть настройки</string>
+    <string name="media_permission_later">Не сейчас</string>
     <string name="media_size_b">%1$s Б</string>
     <string name="media_size_kb">%1$s КБ</string>
     <string name="media_size_mb">%1$s МБ</string>

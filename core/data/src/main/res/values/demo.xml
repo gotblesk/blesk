@@ -78,6 +78,7 @@
         <item>Повтори</item>
         <item>Что ты умеешь?</item>
     </string-array>
+    <string name="demo_group_greeting">Привет всем! Хорошо, что теперь есть где собираться</string>
     <string name="demo_bot_pressed">Нажата кнопка «%1$s». Так бот узнаёт, что выбрано.</string>
     <string name="demo_bot_command_start">начать сначала</string>
     <string name="demo_bot_command_help">что умеет бот</string>

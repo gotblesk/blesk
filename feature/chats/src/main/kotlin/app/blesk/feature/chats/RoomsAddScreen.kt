@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 
 /** Create a room, or come in with an invite link. */
 @Composable
-fun RoomsAddScreen(onCreate: () -> Unit, onJoin: suspend (String) -> Boolean, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun RoomsAddScreen(onCreate: () -> Unit, onJoin: suspend (String) -> Boolean?, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val link = rememberTextFieldState()
     var outcome by remember { mutableStateOf<Boolean?>(null) }

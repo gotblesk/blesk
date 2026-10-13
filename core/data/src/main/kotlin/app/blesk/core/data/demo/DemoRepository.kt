@@ -5,6 +5,8 @@ import app.blesk.core.data.BotController
 import app.blesk.core.data.BotResult
 import app.blesk.core.data.BotWithToken
 import app.blesk.core.data.ChatRepository
+import app.blesk.core.data.GroupController
+import app.blesk.core.data.SpaceController
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.Attachment
@@ -47,17 +49,36 @@ import java.util.concurrent.atomic.AtomicLong
  * The offline world of demo mode. Everything lives in memory and is rebuilt on start, so the
  * demo never writes anything that could be mistaken for real correspondence.
  */
-class DemoRepository(
+class DemoRepository private constructor(
     seed: DemoSeed,
     /** Short preview of a message that has only an attachment, e.g. "Голосовое". */
     private val attachmentLabels: (Attachment?) -> String,
     private val scope: CoroutineScope,
     private val log: EventLog,
-    private val clock: () -> Instant = Instant::now,
-) : ChatRepository, BotController, BotAccounts {
+    private val clock: () -> Instant,
+    world: DemoWorld,
+    communities: DemoCommunities,
+) : ChatRepository, BotController, BotAccounts, GroupController by communities, SpaceController by communities {
+    constructor(
+        seed: DemoSeed,
+        attachmentLabels: (Attachment?) -> String,
+        scope: CoroutineScope,
+        log: EventLog,
+        clock: () -> Instant = Instant::now,
+    ) : this(seed, attachmentLabels, scope, log, clock, DemoWorld(seed))
+
+    private constructor(
+        seed: DemoSeed,
+        attachmentLabels: (Attachment?) -> String,
+        scope: CoroutineScope,
+        log: EventLog,
+        clock: () -> Instant,
+        world: DemoWorld,
+    ) : this(seed, attachmentLabels, scope, log, clock, world, DemoCommunities(world, seed.contacts, seed.community, scope, clock))
+
     private val contactsById: Map<String, Contact> = seed.contacts.associateBy { it.id }
-    private val messages = MutableStateFlow(seed.messages.groupBy { it.conversationId })
-    private val all = MutableStateFlow(seed.conversations)
+    private val messages = world.messages
+    private val all = world.conversations
     private val typingState = MutableStateFlow<Set<String>>(emptySet())
     private val ids = AtomicLong()
     private val echoBotId = seed.echoBotConversationId
@@ -117,7 +138,8 @@ class DemoRepository(
 
     override fun messages(conversationId: String): Flow<List<Message>> = messages.map { it[conversationId].orEmpty() }
 
-    override fun contact(id: String): Contact? = contactsById[id]
+    /** Group members are named by username, chat authors by id; the demo people answer to both. */
+    override fun contact(id: String): Contact? = contactsById[id] ?: people.firstOrNull { it.username == id }
 
     override suspend fun openDirect(username: String, link: String?): String? {
         val contactId = contactsById.values.firstOrNull { it.username == username || it.id == username }?.id ?: return null

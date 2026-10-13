@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -28,6 +29,8 @@ import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.EmojiPanel
 import app.blesk.feature.chats.StickerShelf
+import app.blesk.feature.chats.media.RecordMode
+import app.blesk.feature.chats.media.RecordPermissionSheet
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.feature.chats.stickers.StickerMakerScreen
 import app.blesk.feature.chats.stickers.StickerSetActions
@@ -113,6 +116,14 @@ class StickerScreenshotTest(private val name: String) {
 
     @Test
     fun attachPanelInChat() = capture("46_chat_attach_panel") { chatWith(ComposerPanel.Attach) }
+
+    @Test
+    fun recordPermission() = capture("47_record_permission") {
+        Box(Modifier.fillMaxSize()) {
+            chatWith(ComposerPanel.None)
+            RecordPermissionSheet(RecordMode.Circle, onDismiss = {})
+        }
+    }
 
     @Composable
     private fun chatWith(panel: ComposerPanel) {

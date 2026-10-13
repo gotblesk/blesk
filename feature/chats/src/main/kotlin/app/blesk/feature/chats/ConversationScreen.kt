@@ -107,6 +107,7 @@ import app.blesk.feature.chats.media.LocalTransfers
 import app.blesk.feature.chats.media.LocalVeiledMedia
 import app.blesk.feature.chats.media.MediaController
 import app.blesk.feature.chats.media.RecordMode
+import app.blesk.feature.chats.media.RecordPermissionSheet
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.feature.chats.media.RecordingUi
 import app.blesk.feature.chats.media.RestoreRecording
@@ -644,6 +645,7 @@ fun ConversationScreen(
             if (recording.active && recording.mode == RecordMode.Circle && recorders != null) {
                 CircleOverlay(recording, recorders)
             }
+            recording.denied?.let { mode -> RecordPermissionSheet(mode, onDismiss = { recording.denied = null }) }
             menuFor?.let { message ->
                 MessageMenu(
                     message = message,

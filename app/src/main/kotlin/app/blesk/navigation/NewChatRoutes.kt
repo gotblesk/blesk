@@ -71,9 +71,19 @@ internal fun NewChatRoute(
 @Composable
 internal fun RoomsAddRoute(container: AppContainer, onCreate: () -> Unit, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
+    val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = AppMode.Demo)
+    val notify = rememberNotify()
+    val needsServer = stringResource(app.blesk.R.string.call_needs_server)
     RoomsAddScreen(
         onCreate = onCreate,
-        onJoin = { link -> InviteLink.parse(link) != null && (chats as? GroupController)?.join(link) == true },
+        onJoin = { link ->
+            when {
+                InviteLink.parse(link) == null -> false
+                // An invite asks the group's admin on their server; the demo has nobody to ask.
+                mode == AppMode.Demo -> null.also { notify(needsServer) }
+                else -> (chats as? GroupController)?.join(link) == true
+            }
+        },
         onBack = onBack,
     )
 }

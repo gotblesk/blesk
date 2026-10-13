@@ -104,6 +104,9 @@ class RecordingUi {
     var dragY by mutableFloatStateOf(0f)
     var startedAt by mutableStateOf(0L)
     var paused by mutableStateOf(false)
+
+    /** The recording that was refused its permission; the screen shows how to grant it in the settings. */
+    var denied by mutableStateOf<RecordMode?>(null)
     private var pausedAt = 0L
     private var pausedTotal = 0L
 
@@ -146,13 +149,13 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
     val lockPx = with(density) { LockDistance.toPx() }
     val hint = stringResource(R.string.media_record_hint)
     val busy = stringResource(R.string.media_record_busy)
-    val micDenied = stringResource(R.string.media_permission_mic)
-    val cameraDenied = stringResource(R.string.media_permission_camera)
+    val micWhy = stringResource(R.string.media_permission_mic)
+    val cameraWhy = stringResource(R.string.media_permission_camera)
     val permissions =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
             if (granted.values.any { !it }) {
                 haptics.warn()
-                notify(if (ui.mode == RecordMode.Voice) micDenied else cameraDenied)
+                ui.denied = ui.mode
             }
         }
     fun needed(): Array<String> {
@@ -167,6 +170,8 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
     fun start(): Boolean {
         val missing = needed()
         if (missing.isNotEmpty()) {
+            // The system dialog cannot say why; the line under it does.
+            notify(if (ui.mode == RecordMode.Voice) micWhy else cameraWhy)
             permissions.launch(missing)
             return false
         }
