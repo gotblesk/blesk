@@ -135,6 +135,10 @@ object BleskIcons {
         "M4.5 11V9.5A2.5 2.5 0 0 1 7 7h12.5M17 4.5L19.5 7 17 9.5M19.5 13v1.5A2.5 2.5 0 0 1 17 17H4.5" +
             "M7 19.5L4.5 17 7 14.5M11.5 11l1-.5v4",
     )
+    val Light by icon(
+        "M15.5 12a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0zM12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2" +
+            "M6 6l1.4 1.4M16.6 16.6L18 18M6 18l1.4-1.4M16.6 7.4L18 6",
+    )
     val PictureInPicture by icon("M20 11V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5M14 14h6v5h-6z")
 
     private fun icon(pathData: String) = lazy {

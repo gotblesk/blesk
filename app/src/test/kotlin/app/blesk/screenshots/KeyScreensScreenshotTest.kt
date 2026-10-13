@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -88,6 +91,7 @@ import app.blesk.feature.chats.groups.SpaceActions
 import app.blesk.feature.chats.groups.SpaceInfoScreen
 import app.blesk.feature.chats.media.LibraryActions
 import app.blesk.feature.chats.media.LibrarySong
+import app.blesk.feature.chats.media.MediaController
 import app.blesk.feature.chats.media.MiniPlayer
 import app.blesk.feature.chats.media.MiniPlayerActions
 import app.blesk.feature.chats.media.MusicLibrary
@@ -752,12 +756,24 @@ class KeyScreensScreenshotTest(private val name: String) {
             base.copy(id = "m3", authorId = "me", text = "Смотри, какой свет", attachment = Attachment.Photo(picture.path, 400, 300)),
             base.copy(id = "m4", authorId = "me", text = "", attachment = Attachment.Circle("c", picture.path, 9_000)),
         )
+        // The voice note mid-way at 1,5×: the lit edge, its glint and the speed capsule.
+        val playing = app.blesk.core.media.Playback(path = "v", playing = true, positionMillis = 5_600)
+        val controller = MediaController(
+            playback = remember { mutableStateOf(playing) },
+            onPlay = {},
+            onSeekVoice = { _, _, _ -> },
+            onCycleSpeed = {},
+            onOpenMedia = { _, _ -> },
+            onOpenFile = {},
+            voiceSpeed = remember { mutableFloatStateOf(1.5f) },
+        )
         ConversationScreen(
             conversation = seed.conversations.first { it.id == DemoSeed.ANYA },
             messages = messages.toImmutableList(),
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
             callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            media = controller,
         )
     }
 

@@ -2,7 +2,6 @@ package app.blesk.feature.chats.media
 
 import android.graphics.BitmapFactory
 import android.os.Build
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,9 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -76,6 +72,9 @@ class MediaController(
     val onCancelTransfer: (Message) -> Unit = {},
     /** Starts a stopped download again from where it was. */
     val onRetryTransfer: (Message) -> Unit = {},
+    /** The one speed of voice notes and round videos, and how to pick another. */
+    val voiceSpeed: State<Float> = mutableStateOf(1f),
+    val onSetSpeed: (Float) -> Unit = {},
 ) {
     companion object {
         val Inert = MediaController(mutableStateOf(Playback()), {}, { _, _, _ -> }, {}, { _, _ -> }, {})
@@ -296,75 +295,20 @@ private fun VoiceNote(voice: Attachment.Voice, controller: MediaController, onTo
     val active = playback.path == voice.path
     val playing = active && playback.playing
     val progress = if (active) (playback.positionMillis.toFloat() / voice.durationMillis.coerceAtLeast(1)).coerceIn(0f, 1f) else 0f
-    val bars = remember(voice.waveform) { Waveform.decode(voice.waveform) }
+    val bars = remember(voice.waveform) { Waveform.decode(voice.waveform).toFloatArray() }
     val description = stringResource(R.string.media_voice, formatDuration(voice.durationMillis))
-    val lit = Blesk.colors.textPrimary
-    val dim = Blesk.colors.textTertiary
-    Row(
-        modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = description },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(Blesk.colors.accent)
-                .clickable(
-                    role = Role.Button,
-                    onClickLabel = stringResource(if (playing) R.string.media_pause else R.string.media_play),
-                ) { onToggle() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(if (playing) BleskIcons.Pause else BleskIcons.Play, contentDescription = null, tint = Blesk.colors.onAccent, size = 20.dp)
-        }
-        Column {
-            Canvas(
-                Modifier
-                    .width(150.dp)
-                    .height(28.dp)
-                    .pointerInput(voice.path) {
-                        detectTapGestures { controller.onSeekVoice(voice.path, it.x / size.width, voice.durationMillis) }
-                    },
-            ) {
-                val step = size.width / bars.size
-                val bar = step * 0.55f
-                bars.forEachIndexed { i, value ->
-                    val h = (value * size.height).coerceAtLeast(bar)
-                    drawRoundRect(
-                        color = if (i.toFloat() / bars.size < progress) lit else dim,
-                        topLeft = Offset(i * step, (size.height - h) / 2f),
-                        size = Size(bar, h),
-                        cornerRadius = CornerRadius(bar / 2f),
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = formatDuration(if (active) playback.positionMillis else voice.durationMillis),
-                    style = Blesk.type.caption,
-                    color = Blesk.colors.textSecondary,
-                )
-                if (active) {
-                    val speed = formatSpeed(playback.speed)
-                    Text(
-                        text = speed,
-                        style = Blesk.type.caption,
-                        color = Blesk.colors.textPrimary,
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(Blesk.colors.textPrimary.copy(alpha = BADGE_ALPHA))
-                            .clickable(
-                                role = Role.Button,
-                                onClickLabel = stringResource(R.string.media_speed, speed),
-                                onClick = controller.onCycleSpeed,
-                            )
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                    )
-                }
-            }
-        }
-    }
+    WaveCapsule(
+        bars = bars,
+        progress = progress,
+        playing = playing,
+        time = formatDuration(if (active) playback.positionMillis else voice.durationMillis),
+        speed = controller.voiceSpeed.value.takeIf { active },
+        onToggle = onToggle,
+        onSeek = { fraction -> controller.onSeekVoice(voice.path, fraction, voice.durationMillis) },
+        onCycleSpeed = controller.onCycleSpeed,
+        onPickSpeed = controller.onSetSpeed,
+        modifier = Modifier.semantics { contentDescription = description },
+    )
 }
 
 @Composable
@@ -382,8 +326,6 @@ internal fun formatDuration(millis: Long): String {
     val seconds = (millis / 1000).coerceAtLeast(0)
     return String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60)
 }
-
-private fun formatSpeed(speed: Float) = if (speed == speed.toInt().toFloat()) "${speed.toInt()}x" else "${speed}x"
 
 @Composable
 internal fun formatSize(bytes: Long): String = when {

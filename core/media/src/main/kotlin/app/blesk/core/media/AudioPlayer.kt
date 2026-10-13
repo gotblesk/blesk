@@ -11,6 +11,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.RenderersFactory
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
@@ -72,11 +73,13 @@ data class Track(
 @OptIn(UnstableApi::class)
 class AudioPlayer(context: Context, private val scope: CoroutineScope) {
     private val meter = LoudnessMeter()
-    private val exo = ExoPlayer.Builder(context, renderers(context, meter))
+    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val speedState = MutableStateFlow(prefs.getFloat(KEY_SPEED, 1f).takeIf { it in SPEEDS } ?: 1f)
+    private val exo = ExoPlayer.Builder(context, meter.renderers(context))
         .setHandleAudioBecomingNoisy(true)
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
         .build()
-    private val state = MutableStateFlow(Playback())
+    private val state = MutableStateFlow(Playback(speed = speedState.value))
     private val tracks = HashMap<String, Track>()
     private var queue: List<Track> = emptyList()
     private var ticker: Job? = null
@@ -91,6 +94,12 @@ class AudioPlayer(context: Context, private val scope: CoroutineScope) {
 
     /** How loud the playing sound is right now, 0 to 1, measured from the track itself. */
     val level: StateFlow<Float> = meter.level
+
+    /**
+     * The speed of voice notes and round videos: one for both, kept until it is changed. Songs
+     * always play as recorded. The pitch stays where it was at any speed.
+     */
+    val voiceSpeed: StateFlow<Float> = speedState.asStateFlow()
 
     init {
         exo.addListener(object : Player.Listener {
@@ -110,6 +119,7 @@ class AudioPlayer(context: Context, private val scope: CoroutineScope) {
                     durationMillis = track.durationMillis,
                     index = exo.currentMediaItemIndex,
                 )
+                applySpeed()
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -194,15 +204,25 @@ class AudioPlayer(context: Context, private val scope: CoroutineScope) {
         state.value = state.value.copy(positionMillis = exo.currentPosition)
     }
 
-    /** Cycles 1x, 1.5x, 2x. */
-    fun cycleSpeed() {
-        val next = when (state.value.speed) {
+    /** 1× → 1,5× → 2× → 1×; any other speed goes back to 1×. */
+    fun cycleSpeed() = setSpeed(
+        when (speedState.value) {
             1f -> 1.5f
             1.5f -> 2f
             else -> 1f
-        }
-        exo.playbackParameters = PlaybackParameters(next)
-        state.value = state.value.copy(speed = next)
+        },
+    )
+
+    fun setSpeed(speed: Float) {
+        speedState.value = speed
+        prefs.edit().putFloat(KEY_SPEED, speed).apply()
+        applySpeed()
+    }
+
+    private fun applySpeed() {
+        val speed = if (state.value.track?.music == true) 1f else speedState.value
+        exo.playbackParameters = PlaybackParameters(speed)
+        state.value = state.value.copy(speed = speed)
     }
 
     fun stop() {
@@ -211,7 +231,7 @@ class AudioPlayer(context: Context, private val scope: CoroutineScope) {
         exo.clearMediaItems()
         queue = emptyList()
         meter.quiet()
-        state.value = Playback(speed = state.value.speed, repeat = state.value.repeat, shuffle = state.value.shuffle)
+        state.value = Playback(speed = speedState.value, repeat = state.value.repeat, shuffle = state.value.shuffle)
     }
 
     private fun load(list: List<Track>, index: Int, positionMillis: Long, play: Boolean) {
@@ -219,7 +239,6 @@ class AudioPlayer(context: Context, private val scope: CoroutineScope) {
         tracks.clear()
         list.forEach { tracks[it.path] = it }
         exo.setMediaItems(list.map(::itemOf), index, positionMillis)
-        exo.playbackParameters = PlaybackParameters(state.value.speed)
         exo.prepare()
         if (play) exo.play() else exo.pause()
         val track = list[index]
@@ -232,6 +251,7 @@ class AudioPlayer(context: Context, private val scope: CoroutineScope) {
             queue = list,
             index = index,
         )
+        applySpeed()
     }
 
     private fun itemOf(track: Track) = MediaItem.Builder()
@@ -252,23 +272,18 @@ class AudioPlayer(context: Context, private val scope: CoroutineScope) {
 
     private class Held(val queue: List<Track>, val index: Int, val positionMillis: Long, val playing: Boolean)
 
-    private companion object {
-        const val TICK_MILLIS = 60L
+    companion object {
+        /** Every speed voice notes and round videos can play at. */
+        val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
 
-        fun repeatOf(mode: Int) = when (mode) {
+        private const val TICK_MILLIS = 60L
+        private const val PREFS = "player"
+        private const val KEY_SPEED = "voice_speed"
+
+        private fun repeatOf(mode: Int) = when (mode) {
             Player.REPEAT_MODE_ALL -> Repeat.All
             Player.REPEAT_MODE_ONE -> Repeat.One
             else -> Repeat.Off
-        }
-
-        /** Audio goes through the meter on its way out, so the light can pulse with the music itself. */
-        fun renderers(context: Context, meter: LoudnessMeter) = object : DefaultRenderersFactory(context) {
-            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
-                DefaultAudioSink.Builder(context)
-                    .setEnableFloatOutput(false)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf(TeeAudioProcessor(meter)))
-                    .build()
         }
     }
 }
@@ -279,7 +294,7 @@ class AudioPlayer(context: Context, private val scope: CoroutineScope) {
  * is involved.
  */
 @OptIn(UnstableApi::class)
-private class LoudnessMeter : TeeAudioProcessor.AudioBufferSink {
+class LoudnessMeter : TeeAudioProcessor.AudioBufferSink {
     private val mutable = MutableStateFlow(0f)
     val level: StateFlow<Float> = mutable.asStateFlow()
     private var encoding = C.ENCODING_INVALID
@@ -310,6 +325,16 @@ private class LoudnessMeter : TeeAudioProcessor.AudioBufferSink {
 
     fun quiet() {
         mutable.value = 0f
+    }
+
+    /** Renderers whose sound goes through this meter on its way out, so the light can pulse with it. */
+    fun renderers(context: Context): RenderersFactory = object : DefaultRenderersFactory(context) {
+        override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+            DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(false)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setAudioProcessors(arrayOf(TeeAudioProcessor(this@LoudnessMeter)))
+                .build()
     }
 
     private companion object {

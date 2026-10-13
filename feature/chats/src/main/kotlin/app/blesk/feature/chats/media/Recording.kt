@@ -3,6 +3,8 @@ package app.blesk.feature.chats.media
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.SystemClock
+import android.view.WindowManager
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
@@ -13,13 +15,16 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -51,6 +56,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -59,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
+import app.blesk.core.design.component.Slider
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.icon.BleskIcons
@@ -74,6 +81,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.PI
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 enum class RecordMode { Voice, Circle }
@@ -466,7 +474,11 @@ internal fun LockDrop(ui: RecordingUi, modifier: Modifier = Modifier) {
 /** The camera inside the circle while a round video is being recorded, with a ring for the time left. */
 @Composable
 internal fun CircleOverlay(ui: RecordingUi, recorders: Recorders) {
-    val request by recorders.circle.preview.collectAsStateWithLifecycle()
+    val camera = recorders.circle
+    val request by camera.preview.collectAsStateWithLifecycle()
+    val front by camera.front.collectAsStateWithLifecycle()
+    val light by camera.light.collectAsStateWithLifecycle()
+    val torchLevels by camera.torchLevels.collectAsStateWithLifecycle()
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     androidx.compose.runtime.LaunchedEffect(ui.active) {
         while (ui.active) {
@@ -474,9 +486,13 @@ internal fun CircleOverlay(ui: RecordingUi, recorders: Recorders) {
             delay(TICK_MILLIS)
         }
     }
+    val glow = light && front
+    if (glow) FullBrightness()
     val progress = (ui.elapsed(now).toFloat() / CircleRecorder.MAX_DURATION_MILLIS).coerceIn(0f, 1f)
     val ring = Blesk.colors.light
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
+    // The front camera has no torch: the screen itself, warm white and as bright as it goes, lights the face.
+    val backdrop = if (glow) WarmWhite else Color.Black.copy(alpha = 0.55f)
+    Box(Modifier.fillMaxSize().background(backdrop), contentAlignment = Alignment.Center) {
         Box(Modifier.size(280.dp).clip(CircleShape).background(Blesk.colors.surface)) {
             request?.let {
                 CameraXViewfinder(surfaceRequest = it, implementationMode = ImplementationMode.EMBEDDED, modifier = Modifier.fillMaxSize())
@@ -494,17 +510,77 @@ internal fun CircleOverlay(ui: RecordingUi, recorders: Recorders) {
                 style = Stroke(stroke, cap = StrokeCap.Round),
             )
         }
-        Box(
-            Modifier
-                .align(Alignment.Center)
-                .offset(y = FlipOffset)
-                .clip(CircleShape)
-                .background(Blesk.colors.surface),
+        // The lower half of the screen, so the controls hang from the circle however many there are.
+        Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f).padding(top = ControlsTop),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            IconButton(BleskIcons.Flip, stringResource(R.string.media_circle_flip), { recorders.circle.flip() })
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.clip(CircleShape).background(Blesk.colors.surface)) {
+                    IconButton(BleskIcons.Flip, stringResource(R.string.media_circle_flip), { camera.flip() })
+                }
+                LightToggle(light, onToggle = { camera.setLight(!light) })
+            }
+            if (light && !front && torchLevels > 1) TorchStrength(torchLevels, camera::setTorchLevel)
         }
     }
 }
 
+/** «Свет» on a capsule: off until turned on, then remembered for the next circle. */
+@Composable
+private fun LightToggle(on: Boolean, onToggle: () -> Unit) {
+    val haptics = rememberHaptics()
+    val action = stringResource(if (on) R.string.media_light_off else R.string.media_light_on)
+    Row(
+        Modifier
+            .clip(CircleShape)
+            .background(if (on) Blesk.colors.accent else Blesk.colors.surface)
+            .semantics { stateDescription = action }
+            .toggleable(value = on, role = Role.Switch) {
+                haptics.toggle(!on)
+                onToggle()
+            }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        val tint = if (on) Blesk.colors.onAccent else Blesk.colors.textPrimary
+        Icon(BleskIcons.Light, contentDescription = null, tint = tint, size = 20.dp)
+        Text(stringResource(R.string.media_light), style = Blesk.type.bodyStrong, color = tint)
+    }
+}
+
+/** How bright the back camera's torch shines, where the phone lets it be set. */
+@Composable
+private fun TorchStrength(levels: Int, onLevel: (Int) -> Unit) {
+    var value by remember { mutableFloatStateOf(1f) }
+    Box(Modifier.width(TorchWidth).clip(CircleShape).background(Blesk.colors.surface)) {
+        Slider(
+            title = stringResource(R.string.media_light_strength),
+            value = value,
+            onValueChange = {
+                value = it
+                onLevel((it * levels).roundToInt().coerceIn(1, levels))
+            },
+        )
+    }
+}
+
+/** Turns the screen up to full while shown and gives the brightness back afterwards. */
+@Composable
+private fun FullBrightness() {
+    val window = LocalActivity.current?.window ?: return
+    DisposableEffect(window) {
+        val before = window.attributes.screenBrightness
+        window.attributes = window.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL }
+        onDispose { window.attributes = window.attributes.apply { screenBrightness = before } }
+    }
+}
+
+/** Light for a face: white with a little warmth, kinder to skin than a cold screen. */
+private val WarmWhite = Color(0xFFFFF3E2)
+private val TorchWidth = 280.dp
+
 /** Under the circle, clear of the ring. */
-private val FlipOffset = 196.dp
+private val ControlsTop = 168.dp

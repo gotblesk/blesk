@@ -104,6 +104,14 @@
     <string name="media_play">Воспроизвести</string>
     <string name="media_pause">Пауза</string>
     <string name="media_speed">Скорость %1$s</string>
+    <string name="media_speed_all">Все скорости</string>
+    <string name="media_circle_open">Открыть кружок со звуком</string>
+    <string name="media_circle_close">Вернуть кружок на место</string>
+    <string name="media_circle_seek">Перемотка по краю кружка</string>
+    <string name="media_light">Свет</string>
+    <string name="media_light_on">Включить свет</string>
+    <string name="media_light_off">Выключить свет</string>
+    <string name="media_light_strength">Яркость фонарика</string>
     <string name="media_voice">Голосовое, %1$s</string>
     <string name="media_circle">Кружок, %1$s</string>
     <string name="media_photo">Фото</string>
