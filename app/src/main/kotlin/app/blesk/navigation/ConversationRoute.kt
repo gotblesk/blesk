@@ -204,6 +204,7 @@ internal fun ConversationRoute(
     }
     val playback = container.audioPlayer.playback.collectAsStateWithLifecycle()
     val voiceSpeed = container.audioPlayer.voiceSpeed.collectAsStateWithLifecycle()
+    val voiceLevel = container.audioPlayer.level.collectAsStateWithLifecycle()
     val shown by rememberUpdatedState(loaded.orEmpty())
     val voiceTitle = stringResource(app.blesk.R.string.player_voice)
     val mediaController = remember(id) {
@@ -214,6 +215,7 @@ internal fun ConversationRoute(
             onCycleSpeed = container.audioPlayer::cycleSpeed,
             voiceSpeed = voiceSpeed,
             onSetSpeed = container.audioPlayer::setSpeed,
+            voiceLevel = voiceLevel,
             onOpenMedia = { message, index -> onOpenMedia(message.id, index) },
             onOpenFile = { file -> openFile(context, file) },
             onCancelTransfer = { message -> demo.cancelTransfer(id, message.id) },

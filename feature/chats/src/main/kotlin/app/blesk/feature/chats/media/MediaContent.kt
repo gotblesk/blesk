@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -75,6 +76,8 @@ class MediaController(
     /** The one speed of voice notes and round videos, and how to pick another. */
     val voiceSpeed: State<Float> = mutableStateOf(1f),
     val onSetSpeed: (Float) -> Unit = {},
+    /** How loud the voice note playing now is at this moment, 0 to 1: its bubble breathes with it. */
+    val voiceLevel: State<Float> = mutableFloatStateOf(0f),
 ) {
     companion object {
         val Inert = MediaController(mutableStateOf(Playback()), {}, { _, _, _ -> }, {}, { _, _ -> }, {})
@@ -297,7 +300,7 @@ private fun VoiceNote(voice: Attachment.Voice, controller: MediaController, onTo
     val progress = if (active) (playback.positionMillis.toFloat() / voice.durationMillis.coerceAtLeast(1)).coerceIn(0f, 1f) else 0f
     val bars = remember(voice.waveform) { Waveform.decode(voice.waveform).toFloatArray() }
     val description = stringResource(R.string.media_voice, formatDuration(voice.durationMillis))
-    WaveCapsule(
+    VoiceWave(
         bars = bars,
         progress = progress,
         playing = playing,

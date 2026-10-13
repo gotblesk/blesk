@@ -42,6 +42,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -52,6 +53,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -120,8 +122,10 @@ import app.blesk.core.design.metaball.lerp
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.OnOwnBubble
+import app.blesk.core.motion.Durations
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.LocalArrival
+import app.blesk.feature.chats.media.LocalMediaController
 import app.blesk.feature.chats.media.MediaContent
 import app.blesk.feature.chats.media.StickerSize
 import app.blesk.feature.chats.media.StickerView
@@ -129,6 +133,7 @@ import app.blesk.feature.chats.media.isVisual
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -144,6 +149,10 @@ private val ReplySwipe = 64.dp
 private val ReplyDrop = 32.dp
 private const val REPLY_DROP_FROM = 0.4f
 private const val NECK_SHARE = 0.55f
+
+/** How far a playing voice note's bubble swells at its loudest: felt more than seen. */
+private val BreathReach = 2.dp
+private const val BREATH_MILLIS = 90
 
 /** Callbacks a message can trigger. */
 internal class MessageActions(
@@ -182,13 +191,22 @@ internal fun MessageColumn(
     val density = LocalDensity.current
     val radius = with(density) { BubbleRadius.toPx() }
     val color = if (own) Blesk.colors.bubbleOwn else Blesk.colors.surface
+    val breath = rememberVoiceBreath(messages)
+    val breathReach = with(density) { BreathReach.toPx() }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .onPlaced { parts.root = it }
             .metaballs(color = color, smoothness = 14.dp) {
-                parts.blobs(radius, 5.dp.toPx(), 28.dp.toPx(), own) { id -> growth[id]?.value ?: 1f }
+                parts.blobs(
+                    radius = radius,
+                    thread = 5.dp.toPx(),
+                    dots = 28.dp.toPx(),
+                    own = own,
+                    growth = { id -> growth[id]?.value ?: 1f },
+                    swell = { id -> if (id == breath.id) breath.level.value * breathReach else 0f },
+                )
             },
         horizontalAlignment = if (own) Alignment.End else Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -265,6 +283,37 @@ private fun SelectableRow(selecting: Boolean, selected: Boolean, own: Boolean, o
     }
 }
 
+/** Which bubble of a column holds the voice note playing now, and how loud it is, smoothed. */
+private class VoiceBreath(val idState: State<String?>, val level: State<Float>) {
+    val id: String? get() = idState.value
+}
+
+/**
+ * While a voice note plays, its bubble swells by a hair with the loudness of the moment, like a
+ * circle or an avatar in a call; on pause the edge is still. Only the column holding it listens.
+ */
+@Composable
+private fun rememberVoiceBreath(messages: List<Message>): VoiceBreath {
+    val media = LocalMediaController.current
+    val reduced = Blesk.motion.reduced
+    val id = remember(messages, media) {
+        derivedStateOf {
+            val playback = media.playback.value
+            if (!playback.playing || reduced) return@derivedStateOf null
+            messages.firstOrNull { (it.attachment as? Attachment.Voice)?.path == playback.path }?.id
+        }
+    }
+    val level = remember { Animatable(0f) }
+    LaunchedEffect(id.value, media) {
+        if (id.value == null) {
+            level.animateTo(0f, tween(Durations.PRESS))
+            return@LaunchedEffect
+        }
+        snapshotFlow { media.voiceLevel.value }.collectLatest { level.animateTo(it.coerceIn(0f, 1f), tween(BREATH_MILLIS)) }
+    }
+    return remember(id, level) { VoiceBreath(id, level.asState()) }
+}
+
 /** Positions of the drops inside one column, collected while placing. */
 private class PartRegistry {
     var root: LayoutCoordinates? = null
@@ -320,7 +369,14 @@ private class PartRegistry {
     /** How far a reply pull goes before the neck breaks, in pixels. */
     var replyReach = 1f
 
-    fun blobs(radius: Float, thread: Float, dots: Float, own: Boolean, growth: (String) -> Float): List<Blob> {
+    fun blobs(
+        radius: Float,
+        thread: Float,
+        dots: Float,
+        own: Boolean,
+        growth: (String) -> Float,
+        swell: (String) -> Float,
+    ): List<Blob> {
         val result = ArrayList<Blob>()
         val settled = ArrayList<Rect>()
         coordinates.keys.filter { it.startsWith("bubble:") }.forEach { key ->
@@ -346,7 +402,8 @@ private class PartRegistry {
                 val seed = Blob(dot, dots / 2f)
                 result += lerp(seed, full, g)
             } else {
-                result += full
+                val grown = swell(id)
+                result += if (grown > 0f) Blob(bubble.inflate(grown), radius + grown) else full
                 settled += bubble
             }
             rect("quote:$id")?.let { quote ->
