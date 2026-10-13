@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,7 @@ fun IconButton(
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    tint: Color = Blesk.colors.textPrimary,
 ) {
     Box(
         modifier = modifier
@@ -60,6 +62,6 @@ fun IconButton(
             .padding(12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = contentDescription)
+        Icon(icon, contentDescription = contentDescription, tint = tint)
     }
 }

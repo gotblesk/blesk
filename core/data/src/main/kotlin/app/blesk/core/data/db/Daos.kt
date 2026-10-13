@@ -118,6 +118,10 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE attachment IS NOT NULL")
     suspend fun withFiles(): List<MessageEntity>
 
+    /** Messages that may carry a song; the attachment is decoded to be sure. */
+    @Query("SELECT * FROM messages WHERE attachment LIKE '%music%' ORDER BY sentAt DESC")
+    fun observeMusic(): Flow<List<MessageEntity>>
+
     /** Every message of a chat, so its files can be removed before the rows. */
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId AND attachment IS NOT NULL")
     suspend fun withFilesIn(conversationId: String): List<MessageEntity>

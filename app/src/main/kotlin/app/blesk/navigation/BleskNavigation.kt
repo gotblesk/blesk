@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -19,8 +20,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
@@ -234,14 +237,20 @@ fun BleskNavigation(container: AppContainer) {
 
     val motion = Blesk.motion
     SharedTransitionLayout {
-        val accessories = remember(container) { LensAccessories(top = { CallCapsule(container) }) }
+        var playerOpen by rememberSaveable { mutableStateOf(false) }
+        val accessories = remember(container) {
+            LensAccessories(top = { CallCapsule(container) }, bottom = { MusicCapsule(container, onExpand = { playerOpen = true }) })
+        }
         CompositionLocalProvider(LocalSharedScope provides this, LocalLensAccessories provides accessories) {
             // The in-app notice floats over every screen, under the status bar.
             Box(Modifier.fillMaxSize()) {
                 val screenDecorator = remember {
                     NavEntryDecorator<Any>(decorate = { entry -> Screen { entry.Content() } })
                 }
+                // The screen under the open player is dimmed and softly blurred.
+                val blur by animateDpAsState(if (playerOpen) PlayerBlur else 0.dp, motion.settle(), label = "playerBlur")
                 NavDisplay(
+                    modifier = Modifier.blur(blur),
                     sharedTransitionScope = this@SharedTransitionLayout,
                     transitionSpec = { screenEnter(motion) },
                     popTransitionSpec = { screenBack(motion, edge = null) },
@@ -306,6 +315,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenUpdate = { backStack.add(UpdateKey) },
                                     onOpenPhrase = { backStack.add(PhraseKey()) },
                                     onOpenDevices = { backStack.add(DevicesKey) },
+                                    onOpenMusic = { backStack.add(MusicKey) },
                                     onShowQr = { backStack.add(MyQrKey) },
                                     onDeleteAccount = if (demo) null else ({ backStack.add(WipeKey(WipeKind.DeleteAccount)) }),
                                     onShare = {
@@ -507,6 +517,7 @@ fun BleskNavigation(container: AppContainer) {
                         }
                         entry<MediaKey> { key -> MediaRoute(container, key, onBack = back) }
                         entry<DevicesKey> { DevicesRoute(container, back) }
+                        entry<MusicKey> { MusicRoute(container, back) }
                         entry<MotionKey> { MotionRoute(container, onOpenChat = { backStack.add(ConversationKey(it)) }, onBack = back) }
                         entry<PhraseKey> { key -> PhraseRoute(container, key, onBack = back) }
                         entry<StickersKey> { StickersRoute(container, onOpen = { backStack.add(StickerSetKey(it)) }, onBack = back) }
@@ -585,6 +596,15 @@ fun BleskNavigation(container: AppContainer) {
                     onDismiss = { container.inAppNote.value = null },
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
+                PlayerOverlay(
+                    container = container,
+                    open = playerOpen,
+                    onClose = { playerOpen = false },
+                    onShare = { chat, message ->
+                        playerOpen = false
+                        backStack.add(ForwardKey(chat, listOf(message)))
+                    },
+                )
             }
         }
     }
@@ -601,6 +621,8 @@ private suspend fun connect(container: AppContainer, raw: String, username: Stri
 }
 
 /** Sends a link to your profile through any app the person chooses. */
+private val PlayerBlur = 18.dp
+
 private fun shareProfile(context: Context, username: String, key: String?) {
     if (username.isBlank()) return
     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, profileLink(username, key))

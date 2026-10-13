@@ -255,6 +255,9 @@ class ServerChatRepository(
     override fun messages(conversationId: String): Flow<List<Message>> =
         db.messages().observe(conversationId).map { list -> list.map { it.toModel(me) } }
 
+    override val music: Flow<List<Message>>
+        get() = db.messages().observeMusic().map { list -> list.map { it.toModel(me) }.filter { it.attachment is Attachment.Music } }
+
     override fun contact(id: String): Contact? = contactCache.value[id]
 
     /** Full-text search over the decrypted database on this phone; every word is matched as a prefix. */

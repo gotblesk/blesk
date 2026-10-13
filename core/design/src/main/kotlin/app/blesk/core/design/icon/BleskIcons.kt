@@ -124,6 +124,17 @@ object BleskIcons {
     val Flip by icon("M5 10a7 7 0 0 1 12.6-3.6M19 14a7 7 0 0 1-12.6 3.6M17.8 3.5v3h-3M6.2 20.5v-3h3")
     val Expand by icon("M4.5 9V4.5H9M19.5 9V4.5H15M4.5 15v4.5H9M19.5 15v4.5H15")
     val Shrink by icon("M9 4.5V9H4.5M15 4.5V9h4.5M9 19.5V15H4.5M15 19.5V15h4.5")
+    val Shuffle by icon(
+        "M4 7h3.5c4 0 5 10 9 10H20M4 17h3.5c1.6 0 2.7-1.6 3.6-3.6M13.4 9.6C14.3 8.2 15.2 7 16.5 7H20" +
+            "M17.5 4.5L20 7l-2.5 2.5M17.5 14.5L20 17l-2.5 2.5",
+    )
+    val SkipBack by icon("M6.5 5.5v13M18 5.5v13l-9-6.5 9-6.5z")
+    val SkipForward by icon("M17.5 5.5v13M6 5.5v13l9-6.5-9-6.5z")
+    val Repeat by icon("M4.5 11V9.5A2.5 2.5 0 0 1 7 7h12.5M17 4.5L19.5 7 17 9.5M19.5 13v1.5A2.5 2.5 0 0 1 17 17H4.5M7 19.5L4.5 17 7 14.5")
+    val RepeatOne by icon(
+        "M4.5 11V9.5A2.5 2.5 0 0 1 7 7h12.5M17 4.5L19.5 7 17 9.5M19.5 13v1.5A2.5 2.5 0 0 1 17 17H4.5" +
+            "M7 19.5L4.5 17 7 14.5M11.5 11l1-.5v4",
+    )
     val PictureInPicture by icon("M20 11V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5M14 14h6v5h-6z")
 
     private fun icon(pathData: String) = lazy {

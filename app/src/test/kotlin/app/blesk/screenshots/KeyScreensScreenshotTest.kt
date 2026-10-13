@@ -56,6 +56,7 @@ import app.blesk.core.design.icon.LivingIcon
 import app.blesk.core.design.spark.KeyMerge
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.media.Playback
+import app.blesk.core.media.Track
 import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
@@ -85,7 +86,13 @@ import app.blesk.feature.chats.groups.GroupInfoScreen
 import app.blesk.feature.chats.groups.NewGroupScreen
 import app.blesk.feature.chats.groups.SpaceActions
 import app.blesk.feature.chats.groups.SpaceInfoScreen
+import app.blesk.feature.chats.media.LibraryActions
+import app.blesk.feature.chats.media.LibrarySong
 import app.blesk.feature.chats.media.MiniPlayer
+import app.blesk.feature.chats.media.MiniPlayerActions
+import app.blesk.feature.chats.media.MusicLibrary
+import app.blesk.feature.chats.media.PlayerActions
+import app.blesk.feature.chats.media.PlayerSheet
 import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.debug.HapticDemo
 import app.blesk.feature.debug.MotionDemo
@@ -622,10 +629,44 @@ class KeyScreensScreenshotTest(private val name: String) {
                     positionMillis = 61_000,
                     durationMillis = 225_000,
                 ),
-                onToggle = {},
-                onStop = {},
+                actions = MiniPlayerActions(onToggle = {}, onStop = {}),
             )
         }
+    }
+
+    @Test
+    fun player() = capture("37_player") {
+        val tracks = listOf(
+            Track("song.mp3", "Звезда по имени Солнце", "Кино", 225_000, music = true, from = "Аня Соколова"),
+            Track("next.mp3", "Группа крови", "Кино", 286_000, music = true, from = "Аня Соколова"),
+        )
+        PlayerSheet(
+            playback = Playback(
+                path = "song.mp3",
+                playing = true,
+                title = tracks[0].title,
+                artist = tracks[0].artist,
+                positionMillis = 61_000,
+                durationMillis = 225_000,
+                queue = tracks,
+            ),
+            level = { 0.3f },
+            output = "телефон",
+            actions = PlayerActions({}, {}, {}, {}, {}, {}, {}, keepOffline = {}, keptOffline = true, share = {}),
+            library = {},
+            onClose = {},
+        )
+    }
+
+    @Test
+    fun library() = capture("38_library") {
+        val base = seed.messages.first { it.conversationId == DemoSeed.ANYA }
+        val songs = listOf(
+            Attachment.Music("a.flac", "a.flac", "Звезда по имени Солнце", "Кино", 225_000, 28_600_000, "audio/flac"),
+            Attachment.Music("b.mp3", "b.mp3", "Группа крови", "Кино", 286_000, 9_200_000, "audio/mpeg"),
+            Attachment.Music("c.mp3", "c.mp3", "Восьмиклассница", "Кино", 189_000, 7_100_000, "audio/mpeg"),
+        ).mapIndexed { i, song -> LibrarySong(base.copy(id = "m$i", attachment = song), song, "Аня Соколова", kept = i == 0) }
+        MusicLibrary(songs.toImmutableList(), playingPath = "a.flac", actions = LibraryActions({ _, _, _ -> }, {}))
     }
 
     /** The bar at rest with motion on: the action capsule's bridge only shows when bridges are allowed. */

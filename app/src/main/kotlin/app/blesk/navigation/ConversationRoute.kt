@@ -208,7 +208,7 @@ internal fun ConversationRoute(
     val mediaController = remember(id) {
         MediaController(
             playback = playback,
-            onPlay = { message -> playFrom(container.audioPlayer, message, shown, voiceTitle) },
+            onPlay = { message -> playFrom(container.audioPlayer, message, shown, voiceTitle, from = conversation?.title.orEmpty()) },
             onSeekVoice = container.audioPlayer::seek,
             onCycleSpeed = container.audioPlayer::cycleSpeed,
             onOpenMedia = { message, index -> onOpenMedia(message.id, index) },

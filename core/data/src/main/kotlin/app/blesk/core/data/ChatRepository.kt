@@ -47,6 +47,9 @@ interface ChatRepository : ChatTools, PeopleControls, TransferControls {
 
     fun messages(conversationId: String): Flow<List<Message>>
 
+    /** Every song sent in any chat, newest first: the music library. */
+    val music: Flow<List<Message>>
+
     /** A cached contact name for message authors; null when unknown. */
     fun contact(id: String): Contact?
 

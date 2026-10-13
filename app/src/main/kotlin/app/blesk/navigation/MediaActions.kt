@@ -50,19 +50,18 @@ internal fun openLink(context: Context, url: String) {
  * Plays [message]'s voice note or song. Voice notes after it in the chat follow on their own; the
  * system player shows [voiceTitle] for them, never who sent them.
  */
-internal fun playFrom(player: AudioPlayer, message: Message, messages: List<Message>, voiceTitle: String) {
-    fun trackOf(attachment: Attachment?): Track? = when (attachment) {
+internal fun playFrom(player: AudioPlayer, message: Message, messages: List<Message>, voiceTitle: String, from: String = "") {
+    fun trackOf(item: Message): Track? = when (val attachment = item.attachment) {
         is Attachment.Voice -> attachment.path.takeIf { it.isNotEmpty() }
-            ?.let { Track(it, voiceTitle, durationMillis = attachment.durationMillis) }
-        is Attachment.Music -> attachment.path.takeIf { it.isNotEmpty() }
-            ?.let { Track(it, attachment.title, attachment.artist, attachment.durationMillis) }
+            ?.let { Track(it, voiceTitle, durationMillis = attachment.durationMillis, from = from) }
+        is Attachment.Music -> attachment.path.takeIf { it.isNotEmpty() }?.let { trackOf(item, attachment, from) }
         else -> null
     }
-    val track = trackOf(message.attachment) ?: return
-    val next = if (message.attachment is Attachment.Voice) {
-        messages.dropWhile { it.id != message.id }.drop(1).mapNotNull { (it.attachment as? Attachment.Voice)?.let(::trackOf) }
-    } else {
-        emptyList()
-    }
+    val track = trackOf(message) ?: return
+    // Voice notes play on into the ones after them; a song is followed by the other songs of the chat.
+    val music = message.attachment is Attachment.Music
+    val next = messages.dropWhile { it.id != message.id }.drop(1)
+        .filter { if (music) it.attachment is Attachment.Music else it.attachment is Attachment.Voice }
+        .mapNotNull(::trackOf)
     player.toggle(track, next)
 }

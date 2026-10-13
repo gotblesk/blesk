@@ -86,6 +86,7 @@
     <string name="settings_bots">Боты</string>
     <string name="you_bots">Мои боты</string>
     <string name="you_devices">Устройства</string>
+    <string name="you_music">Музыка</string>
     <string name="needs_server">Работает после подключения к серверу</string>
     <string name="devices_this">Это устройство</string>
     <string name="devices_model">Телефон</string>

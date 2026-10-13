@@ -77,7 +77,6 @@ import app.blesk.feature.chats.ContactsTab
 import app.blesk.feature.chats.Newcomer
 import app.blesk.feature.chats.NewcomerChats
 import app.blesk.feature.chats.hintText
-import app.blesk.feature.chats.media.MiniPlayer
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.feature.settings.YouList
@@ -128,7 +127,6 @@ internal fun Home(
     val archiveFolded by container.settings.archiveFolded.collectAsStateWithLifecycle(initialValue = false)
     val proxied by NetworkProxy.current.collectAsStateWithLifecycle()
     val update by container.updater.available.collectAsStateWithLifecycle()
-    val playback by container.audioPlayer.playback.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val onPinLimit = rememberPinLimit()
     val tabs = persistentListOf(
@@ -240,14 +238,7 @@ internal fun Home(
                 HomeTab.Settings -> null
                 HomeTab.You -> LensAction(BleskIcons.Edit, stringResource(R.string.you_edit), settings.onOpenProfile)
             }
-            Column {
-                MiniPlayer(
-                    playback = playback,
-                    onToggle = { playback.path?.let(container.audioPlayer::toggle) },
-                    onStop = container.audioPlayer::stop,
-                )
-                LensTabBar(tabs = tabs, selected = tab.ordinal, onSelect = { onSelectTab(HomeTab.entries[it]) }, action = action)
-            }
+            LensTabBar(tabs = tabs, selected = tab.ordinal, onSelect = { onSelectTab(HomeTab.entries[it]) }, action = action)
         },
     ) { padding ->
         if (inSearch && tab == HomeTab.Chats) {

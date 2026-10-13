@@ -138,6 +138,9 @@ class DemoRepository private constructor(
 
     override fun messages(conversationId: String): Flow<List<Message>> = messages.map { it[conversationId].orEmpty() }
 
+    override val music: Flow<List<Message>> =
+        messages.map { all -> all.values.flatten().filter { it.attachment is Attachment.Music }.sortedByDescending { it.sentAt } }
+
     /** Group members are named by username, chat authors by id; the demo people answer to both. */
     override fun contact(id: String): Contact? = contactsById[id] ?: people.firstOrNull { it.username == id }
 
