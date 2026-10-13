@@ -40,6 +40,11 @@ class SocketHub {
 
     fun isOnline(accountId: Long): Boolean = !connections[accountId].isNullOrEmpty()
 
+    /** Closes every socket of the account, when its phone has been replaced by another. */
+    fun disconnect(accountId: Long) {
+        connections.remove(accountId)?.forEach { it.outbox.close() }
+    }
+
     fun push(accountId: Long, frame: ServerFrame) {
         connections[accountId]?.forEach { it.offer(frame) }
     }

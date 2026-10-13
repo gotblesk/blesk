@@ -49,6 +49,30 @@ class AccountRepository(private val database: Database) {
         }
     }
 
+    /** False when another account already has this hash, which for 256-bit tokens means a mistake, not a clash. */
+    suspend fun setRecovery(id: Long, hash: ByteArray): Boolean = database.transaction { connection ->
+        connection.queryOne("SELECT id FROM accounts WHERE recovery_hash = ? AND id <> ?", hash, id) { true } == null &&
+            connection.update("UPDATE accounts SET recovery_hash = ? WHERE id = ?", hash, id) == 1
+    }
+
+    /**
+     * Moves the account found by [hash] to a new phone's identity key. Everything bound to the old
+     * phone goes: its prekeys, its sessions and the messages waiting for it, which it alone could read.
+     */
+    suspend fun recover(hash: ByteArray, identityKey: ByteArray, registrationId: Int): Account? =
+        database.transaction { connection ->
+            val id = connection.queryOne("SELECT id FROM accounts WHERE recovery_hash = ?", hash) { it.getLong("id") }
+                ?: return@transaction null
+            connection.update("UPDATE accounts SET identity_key = ?, registration_id = ? WHERE id = ?", identityKey, registrationId, id)
+            listOf("signed_prekeys", "kyber_last_resort_keys", "one_time_prekeys", "kyber_prekeys", "auth_tokens").forEach { table ->
+                connection.update("DELETE FROM $table WHERE account_id = ?", id)
+            }
+            connection.update("DELETE FROM queued_messages WHERE recipient_id = ?", id)
+            connection.queryOne("SELECT username, discoverable FROM accounts WHERE id = ?", id) { row ->
+                Account(id, row.getString("username"), identityKey, registrationId, row.getBoolean("discoverable"))
+            }
+        }
+
     /** Removes the account; its keys, tokens and waiting messages go with it through the foreign keys. */
     suspend fun delete(id: Long) {
         database.transaction { connection -> connection.update("DELETE FROM accounts WHERE id = ?", id) }

@@ -25,6 +25,12 @@ object Api {
     /** The signed-in account itself; DELETE removes it with its keys and waiting messages. */
     const val ACCOUNT = "/v1/account"
 
+    /** The hash of the token that proves the recovery phrase is known. */
+    const val RECOVERY = "/v1/account/recovery"
+
+    /** Opens the account on a new phone with the token from the recovery phrase. */
+    const val RECOVER = "/v1/account/recover"
+
     /** Query parameter of a lookup made from someone's link or QR code; see [linkKey]. */
     const val LINK = "link"
 
@@ -44,6 +50,9 @@ object Api {
 
     /** Signed by the identity key to log in. */
     fun authProof(nonce: String) = "blesk-auth:$nonce".encodeToByteArray()
+
+    /** Signed by the new phone's identity key when it takes the account over with the recovery phrase. */
+    fun recoveryProof(token: String) = "blesk-recover:$token".encodeToByteArray()
 
     /** Max size of an encrypted attachment sent in one request. */
     const val MAX_ATTACHMENT_BYTES = 210L * 1024 * 1024
@@ -103,6 +112,22 @@ data class RegisterRequest(
 
 @Serializable
 data class AccountInfo(val username: String, val identityKey: String)
+
+/** SHA-256 of the confirmation token, in Base64; the token itself never leaves the phone except to recover. */
+@Serializable
+data class RecoveryHash(val hash: String)
+
+/**
+ * A new phone taking the account over: the confirmation token from the phrase, and the phone's own
+ * identity key with [signature] of [Api.recoveryProof] by it.
+ */
+@Serializable
+data class RecoverRequest(
+    val token: String,
+    val identityKey: String,
+    val registrationId: Int,
+    val signature: String,
+)
 
 @Serializable
 data class ChallengeRequest(val username: String)

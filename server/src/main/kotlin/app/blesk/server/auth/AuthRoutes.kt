@@ -16,6 +16,8 @@ import app.blesk.shared.protocol.Bots
 import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.ChallengeRequest
 import app.blesk.shared.protocol.Discovery
+import app.blesk.shared.protocol.RecoverRequest
+import app.blesk.shared.protocol.RecoveryHash
 import app.blesk.shared.protocol.RegisterRequest
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
@@ -27,6 +29,7 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
+import java.security.MessageDigest
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
@@ -50,7 +53,26 @@ fun Route.registrationRoutes(services: Services) {
         ensure(created) { ApiException(HttpStatusCode.Conflict, ErrorCodes.USERNAME_TAKEN) }
         call.respond(HttpStatusCode.Created, AccountInfo(request.username, request.identityKey))
     }
+
+    post(Api.RECOVER) {
+        val request = call.receiveJson<RecoverRequest>()
+        val authFailed = { ApiException(HttpStatusCode.Unauthorized, ErrorCodes.AUTH_FAILED) }
+        val token = request.token.decodeBase64(ErrorCodes.AUTH_FAILED)
+        ensure(token.size == RECOVERY_TOKEN_BYTES, authFailed)
+        val keyBytes = request.identityKey.decodeBase64(ErrorCodes.INVALID_KEY)
+        val identityKey = Signatures.identityKey(keyBytes).orFail { badRequest(ErrorCodes.INVALID_KEY) }
+        val signature = request.signature.decodeBase64(ErrorCodes.INVALID_SIGNATURE)
+        ensure(Signatures.verify(identityKey, Api.recoveryProof(request.token), signature)) { badRequest(ErrorCodes.INVALID_SIGNATURE) }
+        val account = services.accounts.recover(sha256(token), keyBytes, request.registrationId).orFail(authFailed)
+        // The old phone loses its connection now and its tokens are gone: it learns it was replaced.
+        services.hub.disconnect(account.id)
+        call.respond(AccountInfo(account.username, request.identityKey))
+    }
 }
+
+private const val RECOVERY_TOKEN_BYTES = 32
+
+private fun sha256(bytes: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(bytes)
 
 fun Route.loginRoutes(services: Services) {
     post(Api.CHALLENGE) {
@@ -93,6 +115,14 @@ fun Route.accountLookupRoutes(services: Services) {
 
     delete(Api.ACCOUNT) {
         services.accounts.delete(call.account.id)
+        call.respond(HttpStatusCode.NoContent)
+    }
+
+    put(Api.RECOVERY) {
+        val request = call.receiveJson<RecoveryHash>()
+        val hash = request.hash.decodeBase64(ErrorCodes.BAD_REQUEST)
+        ensure(hash.size == RECOVERY_TOKEN_BYTES) { badRequest(ErrorCodes.BAD_REQUEST) }
+        ensure(services.accounts.setRecovery(call.account.id, hash)) { ApiException(HttpStatusCode.Conflict, ErrorCodes.BAD_REQUEST) }
         call.respond(HttpStatusCode.NoContent)
     }
 
