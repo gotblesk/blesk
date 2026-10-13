@@ -14,6 +14,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -96,10 +97,13 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.LockDrop
 import app.blesk.feature.chats.media.RecordButton
+import app.blesk.feature.chats.media.RecordDraft
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.feature.chats.media.RecordingBar
 import app.blesk.feature.chats.media.RecordingUi
 import app.blesk.feature.chats.media.StickerView
+import app.blesk.feature.chats.media.VoicePreview
+import app.blesk.feature.chats.media.rememberRecordHints
 import app.blesk.shared.protocol.BotCommand
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.delay
@@ -161,6 +165,9 @@ internal fun Composer(
         }
     }
     val motion = Blesk.motion
+    val hints = rememberRecordHints()
+    // Each recording made counts towards the gesture hint going away.
+    LaunchedEffect(recording.active) { if (recording.active) hints.recorded() }
     // The lock and its bridge live in the composer's own layer, above the lens: the bottom slot grows
     // by their room, so the messages move up instead of being covered.
     Column {
@@ -170,6 +177,19 @@ internal fun Composer(
             exit = shrinkVertically(motion.settle()) + fadeOut(motion.press()),
         ) {
             Box(Modifier.fillMaxWidth().height(LockRoom)) {
+                if (hints.showing) {
+                    Text(
+                        text = stringResource(R.string.media_record_gestures),
+                        style = Blesk.type.label,
+                        color = Blesk.colors.textSecondary,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = Blesk.dimens.gutter, end = 88.dp, bottom = 12.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Blesk.colors.surface)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
                 LockDrop(recording, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp))
             }
         }
@@ -192,6 +212,14 @@ internal fun Composer(
                     )
                     IconButton(BleskIcons.Close, stringResource(R.string.chat_cancel), onCancel)
                 }
+            }
+            if (recording.exporting) {
+                Text(
+                    text = stringResource(R.string.media_record_preparing),
+                    style = Blesk.type.label,
+                    color = Blesk.colors.textSecondary,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                )
             }
             if (busy) {
                 Text(
@@ -260,6 +288,11 @@ internal fun Composer(
                             Text("@${person.username}", style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)
                         }
                     }
+            }
+            val voiceDraft = recording.draft as? RecordDraft.Voice
+            if (voiceDraft != null && recorders != null && !recording.active) {
+                VoicePreview(voiceDraft, recording, recorders)
+                return@BottomLens
             }
             val recordingNow = recording.active && recorders != null
             // One row for both states: the record button under the finger must stay the same node when

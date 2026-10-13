@@ -9,6 +9,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.viewfinder.core.ImplementationMode
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
@@ -38,9 +41,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -57,9 +62,12 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.core.data.model.Attachment
@@ -67,6 +75,7 @@ import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.Slider
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.blockTaps
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
@@ -74,12 +83,18 @@ import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.motion.rememberLoopPhase
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.media.CircleRecorder
+import app.blesk.core.media.MediaTrimmer
+import app.blesk.core.media.Piece
 import app.blesk.core.media.VoiceRecorder
+import app.blesk.core.media.Waveform
+import app.blesk.core.motion.Viscous
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.R
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -100,7 +115,19 @@ class Recorders(
     val tapToRecord: Boolean = false,
     /** A voice note got locked: from here it may go on in the background. */
     val onLock: () -> Unit = {},
+    /** Joins and trims recordings before they are sent; without it a recording goes as it was made. */
+    val trimmer: MediaTrimmer? = null,
 )
+
+/** A recording stopped with «Стоп», waiting to be listened to, trimmed and sent. */
+sealed interface RecordDraft {
+    /** A voice note; recorded on with «Дописать», it is several pieces played one after another. */
+    data class Voice(val pieces: List<Attachment.Voice>) : RecordDraft {
+        val durationMillis: Long get() = pieces.sumOf { it.durationMillis }
+    }
+
+    data class Circle(val circle: Attachment.Circle) : RecordDraft
+}
 
 /** Shared between the record button, the recording bar, the lock drop and the circle preview. */
 @Stable
@@ -115,6 +142,12 @@ class RecordingUi {
 
     /** The recording that was refused its permission; the screen shows how to grant it in the settings. */
     var denied by mutableStateOf<RecordMode?>(null)
+
+    /** What «Стоп» left to listen to before sending. */
+    var draft by mutableStateOf<RecordDraft?>(null)
+
+    /** A trimmed or joined recording is being put together before it goes. */
+    var exporting by mutableStateOf(false)
     private var pausedAt = 0L
     private var pausedTotal = 0L
 
@@ -188,21 +221,8 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
             notify(busy)
             return false
         }
-        val ok = when (ui.mode) {
-            RecordMode.Voice -> recorders.voice.start(recorders.conversationId)
-            RecordMode.Circle -> {
-                scope.launch {
-                    recorders.circle.open(owner)
-                    recorders.circle.start()
-                }
-                true
-            }
-        }
-        if (ok) {
-            ui.active = true
-            ui.startedAt = System.currentTimeMillis()
-            haptics.tick()
-        }
+        val ok = begin(ui, recorders, owner, scope)
+        if (ok) haptics.tick()
         return ok
     }
 
@@ -223,6 +243,14 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
         if (start()) lock()
     }
 
+    // Held, the button flows out within a tenth of a second into a capsule twice its size under the
+    // finger, filled, with a halo of light around it that breathes with the voice.
+    val holding = ui.active && !ui.locked
+    val grow by animateFloatAsState(if (holding) HOLD_SCALE else 1f, tween(GROW_MILLIS, easing = Viscous), label = "recordGrow")
+    val loudness by recorders.voice.loudness.collectAsStateWithLifecycle()
+    val breath by animateFloatAsState(if (holding) loudness else 0f, tween(BREATH_MILLIS), label = "recordBreath")
+    val fill = Blesk.colors.accent
+    val halo = Blesk.colors.light
     val tapToRecord = recorders.tapToRecord
     val label =
         stringResource(if (ui.mode == RecordMode.Voice) R.string.media_record_voice else R.string.media_record_circle)
@@ -231,6 +259,19 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
     Box(
         modifier = Modifier
             .size(48.dp)
+            .zIndex(1f)
+            .graphicsLayer {
+                scaleX = grow
+                scaleY = grow
+            }
+            .drawBehind {
+                val shown = ((grow - 1f) / (HOLD_SCALE - 1f)).coerceIn(0f, 1f)
+                if (shown <= 0f) return@drawBehind
+                val radius = size.minDimension / 2f * (HALO_REST + HALO_SWING * breath)
+                val glow = Brush.radialGradient(listOf(halo.copy(alpha = HALO_ALPHA * shown), halo.copy(alpha = 0f)), radius = radius)
+                drawCircle(glow, radius)
+                drawCircle(fill.copy(alpha = shown))
+            }
             .clip(CircleShape)
             .semantics {
                 contentDescription = label
@@ -314,8 +355,38 @@ internal fun RecordButton(ui: RecordingUi, recorders: Recorders) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(if (ui.mode == RecordMode.Voice) BleskIcons.Mic else BleskIcons.Camera, contentDescription = null)
+        Icon(
+            if (ui.mode == RecordMode.Voice) BleskIcons.Mic else BleskIcons.Camera,
+            contentDescription = null,
+            tint = if (holding) Blesk.colors.onAccent else Blesk.colors.textPrimary,
+        )
     }
+}
+
+private const val HOLD_SCALE = 2f
+private const val GROW_MILLIS = 100
+private const val BREATH_MILLIS = 90
+private const val HALO_REST = 1.25f
+private const val HALO_SWING = 0.45f
+private const val HALO_ALPHA = 0.55f
+
+/** Starts recording in the current mode, permissions already granted. */
+internal fun begin(ui: RecordingUi, recorders: Recorders, owner: LifecycleOwner, scope: CoroutineScope): Boolean {
+    val ok = when (ui.mode) {
+        RecordMode.Voice -> recorders.voice.start(recorders.conversationId)
+        RecordMode.Circle -> {
+            scope.launch {
+                recorders.circle.open(owner)
+                recorders.circle.start()
+            }
+            true
+        }
+    }
+    if (ok) {
+        ui.active = true
+        ui.startedAt = System.currentTimeMillis()
+    }
+    return ok
 }
 
 private const val HOLD_MILLIS = 220L
@@ -323,17 +394,128 @@ private const val MIN_RECORD_MILLIS = 500L
 
 private enum class Gesture { Release, Lock, Cancel }
 
-internal fun finish(ui: RecordingUi, recorders: Recorders, scope: kotlinx.coroutines.CoroutineScope) {
+/** «Отправить» while recording, or letting go without the lock: it goes at once, joined with what «Дописать» added to. */
+internal fun finish(ui: RecordingUi, recorders: Recorders, scope: CoroutineScope) {
     val mode = ui.mode
+    val before = (ui.draft as? RecordDraft.Voice)?.pieces.orEmpty()
     ui.reset()
+    ui.draft = null
     when (mode) {
-        RecordMode.Voice -> recorders.voice.finish()?.let(recorders.onVoice)
+        RecordMode.Voice -> sendVoice(before + listOfNotNull(recorders.voice.finish()), 0f..1f, ui, recorders, scope)
         RecordMode.Circle -> scope.launch {
             recorders.circle.finish()?.let(recorders.onCircle)
             recorders.circle.close()
         }
     }
 }
+
+/** «Стоп»: the recording waits to be listened to, trimmed, recorded on and sent. */
+internal fun stop(ui: RecordingUi, recorders: Recorders, scope: CoroutineScope) {
+    val mode = ui.mode
+    val before = (ui.draft as? RecordDraft.Voice)?.pieces.orEmpty()
+    ui.reset()
+    when (mode) {
+        RecordMode.Voice -> {
+            val pieces = before + listOfNotNull(recorders.voice.finish())
+            ui.draft = if (pieces.isEmpty()) null else RecordDraft.Voice(pieces)
+        }
+        RecordMode.Circle -> scope.launch {
+            val circle = recorders.circle.finish()
+            recorders.circle.close()
+            ui.draft = circle?.let { RecordDraft.Circle(it) }
+        }
+    }
+}
+
+/**
+ * [pieces] as one voice note, kept within [range] (shares of the whole). A single untouched
+ * piece goes as it is; anything joined or trimmed is put together first.
+ */
+internal fun sendVoice(
+    pieces: List<Attachment.Voice>,
+    range: ClosedFloatingPointRange<Float>,
+    ui: RecordingUi,
+    recorders: Recorders,
+    scope: CoroutineScope,
+) {
+    if (pieces.isEmpty()) return
+    val whole = range.start <= 0f && range.endInclusive >= 1f
+    val trimmer = recorders.trimmer
+    if (pieces.size == 1 && whole) return recorders.onVoice(pieces.single())
+    if (trimmer == null) return pieces.forEach(recorders.onVoice)
+    val total = pieces.sumOf { it.durationMillis }
+    val from = (range.start * total).toLong()
+    val to = (range.endInclusive * total).toLong()
+    ui.exporting = true
+    scope.launch {
+        val file = trimmer.joinAudio(pieces.map { Piece(it.path, it.durationMillis) }, from, to)
+        ui.exporting = false
+        if (file != null) {
+            val bars = sliceBars(draftBars(pieces), range)
+            recorders.onVoice(Attachment.Voice(file.path, to - from, Waveform.encode(bars.toList())))
+            pieces.forEach { File(it.path).delete() }
+        }
+    }
+}
+
+/** The round video kept within [range]; untouched, it goes as it was recorded. */
+internal fun sendCircle(
+    circle: Attachment.Circle,
+    range: ClosedFloatingPointRange<Float>,
+    ui: RecordingUi,
+    recorders: Recorders,
+    scope: CoroutineScope,
+) {
+    val trimmer = recorders.trimmer
+    if ((range.start <= 0f && range.endInclusive >= 1f) || trimmer == null) return recorders.onCircle(circle)
+    val from = (range.start * circle.durationMillis).toLong()
+    val to = (range.endInclusive * circle.durationMillis).toLong()
+    ui.exporting = true
+    scope.launch {
+        val file = trimmer.clipVideo(circle.path, from, to)
+        ui.exporting = false
+        if (file != null) {
+            recorders.onCircle(circle.copy(path = file.path, durationMillis = to - from))
+            File(circle.path).delete()
+        }
+    }
+}
+
+/** «Удалить» in the preview: the recording and its files are gone. */
+internal fun discard(ui: RecordingUi) {
+    when (val draft = ui.draft) {
+        is RecordDraft.Voice -> draft.pieces.forEach { File(it.path).delete() }
+        is RecordDraft.Circle -> {
+            File(draft.circle.path).delete()
+            File(draft.circle.poster).delete()
+        }
+        null -> Unit
+    }
+    ui.draft = null
+}
+
+/** The loudness of [pieces] played one after another, each taking room by how long it is. */
+internal fun draftBars(pieces: List<Attachment.Voice>): FloatArray {
+    val total = pieces.sumOf { it.durationMillis }.coerceAtLeast(1)
+    val bars = ArrayList<Float>()
+    pieces.forEach { piece ->
+        val own = Waveform.decode(piece.waveform)
+        val count = (DRAFT_BARS * piece.durationMillis / total).toInt().coerceAtLeast(1)
+        repeat(count) { i -> bars += own.getOrElse(i * own.size / count) { 0f } }
+    }
+    return bars.toFloatArray()
+}
+
+/** The bars within [range], spread back to the usual number. */
+internal fun sliceBars(bars: FloatArray, range: ClosedFloatingPointRange<Float>): FloatArray {
+    if (bars.isEmpty()) return bars
+    val from = (range.start * bars.size).toInt().coerceIn(0, bars.lastIndex)
+    val to = (range.endInclusive * bars.size).toInt().coerceIn(from + 1, bars.size)
+    val kept = bars.copyOfRange(from, to)
+    return FloatArray(DRAFT_BARS) { i -> kept[i * kept.size / DRAFT_BARS] }
+}
+
+private const val DRAFT_BARS = 64
 
 internal fun pause(ui: RecordingUi, recorders: Recorders) {
     if (!ui.active || ui.paused) return
@@ -353,7 +535,7 @@ internal fun resume(ui: RecordingUi, recorders: Recorders) {
     ui.markPaused(false)
 }
 
-internal fun cancel(ui: RecordingUi, recorders: Recorders, scope: kotlinx.coroutines.CoroutineScope) {
+internal fun cancel(ui: RecordingUi, recorders: Recorders, scope: CoroutineScope) {
     val mode = ui.mode
     ui.reset()
     when (mode) {
@@ -418,30 +600,44 @@ internal fun RecordingBar(ui: RecordingUi, recorders: Recorders, modifier: Modif
         val elapsed = if (ui.mode == RecordMode.Voice) voiceElapsed else ui.elapsed(now)
         Text(formatDuration(elapsed), style = Blesk.type.bodyStrong)
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            if (!ui.locked) {
-                Text(
-                    text = stringResource(R.string.media_slide_cancel),
-                    style = Blesk.type.label,
-                    color = Blesk.colors.textSecondary,
-                    modifier = Modifier.graphicsLayer {
-                        translationX = ui.dragX / 2f
-                        alpha = 1f + ui.dragX / CANCEL_FADE
-                    },
-                )
-            }
+            if (!ui.locked) SlideToCancel(phase, Modifier.graphicsLayer {
+                translationX = ui.dragX / 2f
+                alpha = 1f + ui.dragX / CANCEL_FADE
+            })
         }
         if (ui.locked) {
             IconButton(BleskIcons.Trash, stringResource(R.string.media_cancel), { cancel(ui, recorders, scope) })
-            if (ui.paused) {
-                IconButton(BleskIcons.Mic, stringResource(R.string.media_record_resume), { resume(ui, recorders) })
-            } else {
-                IconButton(BleskIcons.Pause, stringResource(R.string.media_record_pause), { pause(ui, recorders) })
-            }
-            IconButton(BleskIcons.Send, stringResource(R.string.media_stop_send), { finish(ui, recorders, scope) })
+            // Set aside by the app going away, a recording waits to be picked up again.
+            if (ui.paused) IconButton(BleskIcons.Mic, stringResource(R.string.media_record_resume), { resume(ui, recorders) })
+            IconButton(BleskIcons.Stop, stringResource(R.string.media_stop), { stop(ui, recorders, scope) })
+            SendCapsule(onSend = { finish(ui, recorders, scope) }, modifier = Modifier.padding(end = 6.dp))
         }
     }
 }
 
+/** «‹‹ влево — отмена», the arrows running to the left so the way is plain. */
+@Composable
+private fun SlideToCancel(phase: Float, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        val tint = Blesk.colors.textSecondary
+        Row(horizontalArrangement = Arrangement.spacedBy((-6).dp)) {
+            repeat(ARROWS) { i ->
+                // Each arrow lights up in turn, from the right, as if running left.
+                val lit = ((phase * ARROWS).toInt() % ARROWS) == ARROWS - 1 - i
+                Icon(
+                    BleskIcons.Back,
+                    contentDescription = null,
+                    size = 16.dp,
+                    tint = if (lit) Blesk.colors.textPrimary else tint.copy(alpha = ARROW_DIM),
+                )
+            }
+        }
+        Text(stringResource(R.string.media_slide_cancel_arrows), style = Blesk.type.label, color = tint, maxLines = 1)
+    }
+}
+
+private const val ARROWS = 3
+private const val ARROW_DIM = 0.45f
 private const val TICK_MILLIS = 200L
 private const val CANCEL_FADE = 300f
 
@@ -467,18 +663,34 @@ internal fun LockDrop(ui: RecordingUi, modifier: Modifier = Modifier) {
             }
             .semantics { contentDescription = hint },
     ) {
-        Icon(BleskIcons.Lock, contentDescription = null, size = 18.dp, modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp))
+        Column(
+            Modifier.align(Alignment.TopCenter).padding(top = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Icon(BleskIcons.Lock, contentDescription = null, size = 18.dp)
+            Icon(BleskIcons.ArrowUp, contentDescription = null, size = 14.dp, tint = Blesk.colors.textSecondary)
+        }
     }
 }
 
 /** The camera inside the circle while a round video is being recorded, with a ring for the time left. */
 @Composable
 internal fun CircleOverlay(ui: RecordingUi, recorders: Recorders) {
+    val draft = ui.draft as? RecordDraft.Circle
+    if (draft != null && !ui.active) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = PREVIEW_DIM)).blockTaps(), contentAlignment = Alignment.Center) {
+            CirclePreview(draft, ui, recorders)
+        }
+        return
+    }
     val camera = recorders.circle
     val request by camera.preview.collectAsStateWithLifecycle()
     val front by camera.front.collectAsStateWithLifecycle()
     val light by camera.light.collectAsStateWithLifecycle()
     val torchLevels by camera.torchLevels.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val hints = rememberRecordHints()
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     androidx.compose.runtime.LaunchedEffect(ui.active) {
         while (ui.active) {
@@ -523,6 +735,30 @@ internal fun CircleOverlay(ui: RecordingUi, recorders: Recorders) {
                 LightToggle(light, onToggle = { camera.setLight(!light) })
             }
             if (light && !front && torchLevels > 1) TorchStrength(torchLevels, camera::setTorchLevel)
+            if (ui.locked) {
+                // Locked, the circle has its own «Удалить», «Стоп» and «Отправить» right here, by the circle.
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.clip(CircleShape).background(Blesk.colors.surface)) {
+                        IconButton(BleskIcons.Trash, stringResource(R.string.media_cancel), { cancel(ui, recorders, scope) })
+                    }
+                    Box(Modifier.clip(CircleShape).background(Blesk.colors.surface)) {
+                        IconButton(BleskIcons.Stop, stringResource(R.string.media_stop), { stop(ui, recorders, scope) })
+                    }
+                    SendCapsule(onSend = { finish(ui, recorders, scope) }, label = true)
+                }
+            } else if (hints.showing) {
+                Text(
+                    text = stringResource(R.string.media_record_gestures),
+                    style = Blesk.type.label,
+                    color = Blesk.colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(horizontal = Blesk.dimens.gutter)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Blesk.colors.surface)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
         }
     }
 }
@@ -581,6 +817,8 @@ private fun FullBrightness() {
 /** Light for a face: white with a little warmth, kinder to skin than a cold screen. */
 private val WarmWhite = Color(0xFFFFF3E2)
 private val TorchWidth = 280.dp
+
+private const val PREVIEW_DIM = 0.7f
 
 /** Under the circle, clear of the ring. */
 private val ControlsTop = 168.dp

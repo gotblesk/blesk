@@ -239,6 +239,7 @@ internal fun ConversationRoute(
             onModeChange = { mode -> scope.launch { container.settings.setComposer(circle = mode == RecordMode.Circle) } },
             tapToRecord = tapToRecord,
             onLock = { RecordingService.start(context) },
+            trimmer = container.trimmer,
         )
     }
 

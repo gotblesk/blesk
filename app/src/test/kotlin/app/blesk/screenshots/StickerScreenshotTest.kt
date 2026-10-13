@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.test.core.app.ApplicationProvider
 import app.blesk.core.data.demo.DemoSeed
@@ -23,15 +24,18 @@ import app.blesk.core.media.CircleRecorder
 import app.blesk.core.media.MediaVault
 import app.blesk.core.media.StickerMaker
 import app.blesk.core.media.VoiceRecorder
+import app.blesk.core.media.Waveform
 import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.chats.ComposerPanel
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.EmojiPanel
 import app.blesk.feature.chats.StickerShelf
+import app.blesk.feature.chats.media.RecordDraft
 import app.blesk.feature.chats.media.RecordMode
 import app.blesk.feature.chats.media.RecordPermissionSheet
 import app.blesk.feature.chats.media.Recorders
+import app.blesk.feature.chats.media.RecordingUi
 import app.blesk.feature.chats.stickers.StickerMakerScreen
 import app.blesk.feature.chats.stickers.StickerSetActions
 import app.blesk.feature.chats.stickers.StickerSetScreen
@@ -125,8 +129,25 @@ class StickerScreenshotTest(private val name: String) {
         }
     }
 
+    @Test
+    fun recordingHeld() = capture("48_recording_held") {
+        chatWith(ComposerPanel.None, RecordingUi().apply { active = true; startedAt = System.currentTimeMillis() })
+    }
+
+    @Test
+    fun recordingLocked() = capture("49_recording_locked") {
+        chatWith(ComposerPanel.None, RecordingUi().apply { active = true; locked = true; startedAt = System.currentTimeMillis() })
+    }
+
+    @Test
+    fun voicePreview() = capture("50_voice_preview") {
+        val wave = Waveform.encode(List(48) { i -> ((kotlin.math.sin(i / 3.0) + 1) / 2).toFloat() })
+        val draft = RecordDraft.Voice(listOf(Attachment.Voice("a", 9_000, wave), Attachment.Voice("b", 5_000, wave)))
+        chatWith(ComposerPanel.None, RecordingUi().apply { this.draft = draft })
+    }
+
     @Composable
-    private fun chatWith(panel: ComposerPanel) {
+    private fun chatWith(panel: ComposerPanel, recording: RecordingUi = remember { RecordingUi() }) {
         ConversationScreen(
             conversation = seed.conversations.first { it.id == DemoSeed.ANYA },
             messages = seed.messages.filter { it.conversationId == DemoSeed.ANYA }.toImmutableList(),
@@ -138,6 +159,7 @@ class StickerScreenshotTest(private val name: String) {
             },
             stickers = StickerShelf(library, {}, {}, {}),
             initialPanel = panel,
+            recording = recording,
         )
     }
 

@@ -30,6 +30,7 @@ import app.blesk.core.data.stickers.StickerStore
 import app.blesk.core.design.component.Notices
 import app.blesk.core.media.AudioPlayer
 import app.blesk.core.media.CircleRecorder
+import app.blesk.core.media.MediaTrimmer
 import app.blesk.core.media.MediaVault
 import app.blesk.core.media.StickerMaker
 import app.blesk.core.media.VideoCompressor
@@ -114,6 +115,9 @@ class AppContainer(context: Context) {
 
     @androidx.annotation.OptIn(UnstableApi::class)
     val videoCompressor = VideoCompressor(context)
+
+    /** Trims and joins recordings before they are sent. */
+    val trimmer = MediaTrimmer(context, media)
     val demo: DemoRepository by lazy {
         DemoRepository(DemoSeed.from(context.resources, Instant.now()), context.resources::attachmentLabel, scope, eventLog)
     }

@@ -121,6 +121,7 @@ import app.blesk.feature.chats.media.LocalMediaController
 import app.blesk.feature.chats.media.LocalTransfers
 import app.blesk.feature.chats.media.LocalVeiledMedia
 import app.blesk.feature.chats.media.MediaController
+import app.blesk.feature.chats.media.RecordDraft
 import app.blesk.feature.chats.media.RecordMode
 import app.blesk.feature.chats.media.RecordPermissionSheet
 import app.blesk.feature.chats.media.Recorders
@@ -238,11 +239,12 @@ fun ConversationScreen(
     unreadAtOpen: Int = conversation.unread,
     /** Opens at this message, from search, and lets light pass over it once. */
     focusMessageId: String? = null,
+    /** What the record button, the recording bar and the previews share; given from outside only to show a state. */
+    recording: RecordingUi = remember { RecordingUi() },
     underlay: @Composable BoxScope.() -> Unit = {},
     /** Files on their way in this chat, by message id. */
     transfers: Map<String, Transfer> = emptyMap(),
 ) {
-    val recording = remember { RecordingUi() }
     // The camera closes with the app: a round video waits on pause, locked, until the person is back.
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         if (recorders != null && recording.active && recording.mode == RecordMode.Circle) {
@@ -683,7 +685,8 @@ fun ConversationScreen(
                     )
                 }
             }
-            if (recording.active && recording.mode == RecordMode.Circle && recorders != null) {
+            val circleShown = (recording.active && recording.mode == RecordMode.Circle) || recording.draft is RecordDraft.Circle
+            if (circleShown && recorders != null) {
                 CircleOverlay(recording, recorders)
             }
             recording.denied?.let { mode -> RecordPermissionSheet(mode, onDismiss = { recording.denied = null }) }

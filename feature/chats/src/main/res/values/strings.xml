@@ -137,6 +137,15 @@
     <string name="media_lock_hint">Вверх — без рук</string>
     <string name="media_stop_send">Отправить запись</string>
     <string name="media_cancel">Отменить запись</string>
+    <string name="media_send">Отправить</string>
+    <string name="media_stop">Стоп</string>
+    <string name="media_delete_recording">Удалить запись</string>
+    <string name="media_record_more">Дописать</string>
+    <string name="media_circle_retake">Переснять</string>
+    <string name="media_trim">Обрезка: потяни края, чтобы отрезать начало или конец</string>
+    <string name="media_slide_cancel_arrows">влево — отмена</string>
+    <string name="media_record_gestures">Отпусти — отправить · влево — отмена · вверх — закрепить</string>
+    <string name="media_record_preparing">Готовлю запись…</string>
     <string name="media_preparing">Готовим видео…</string>
     <string name="media_failed">Не получилось прикрепить</string>
     <string name="media_permission_mic">Микрофон нужен, чтобы записать голосовое</string>
