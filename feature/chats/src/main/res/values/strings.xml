@@ -45,7 +45,11 @@
     <string name="chat_reply">Ответить</string>
     <string name="chat_copy">Копировать</string>
     <string name="chat_edit">Изменить</string>
-    <string name="chat_delete">Удалить у всех</string>
+    <string name="chat_delete">Удалить</string>
+    <string name="chat_show_quoted">Показать сообщение</string>
+    <string name="chat_quoted_gone">Этого сообщения уже нет</string>
+    <string name="chat_delete_for_me">Удалить у меня</string>
+    <string name="chat_delete_for_all">Удалить у всех</string>
     <string name="chat_close">Закрыть</string>
     <string name="chat_replying_to">Ответ: %1$s</string>
     <string name="chat_editing">Изменение сообщения</string>
@@ -64,6 +68,7 @@
     <string name="person_block">Заблокировать</string>
     <string name="person_block_hint">Сообщения и звонки от этого человека перестанут приходить. Человек об этом не узнает.</string>
     <string name="person_unblock">Разблокировать</string>
+    <string name="person_blocked">Заблокировано</string>
     <string name="person_unblock_hint">Сообщения и звонки снова будут приходить</string>
     <string name="blocked_title">Заблокированные</string>
     <string name="blocked_empty">Здесь пусто. Заблокировать человека можно в его профиле.</string>
@@ -444,6 +449,12 @@
     <string name="connection_retry">Повторить</string>
     <string name="archive_empty_title">Архив пуст</string>
     <string name="archive_empty_text">Смахни чат влево, и он уйдёт сюда.</string>
+    <plurals name="chat_delete_title">
+        <item quantity="one">Удалить %d сообщение?</item>
+        <item quantity="few">Удалить %d сообщения?</item>
+        <item quantity="many">Удалить %d сообщений?</item>
+        <item quantity="other">Удалить %d сообщения?</item>
+    </plurals>
     <plurals name="chat_deleted">
         <item quantity="one">Удалено %1$d сообщение</item>
         <item quantity="few">Удалено %1$d сообщения</item>
@@ -468,6 +479,10 @@
     <string name="person_nothing_yet">Здесь пока ничего нет</string>
     <string name="person_open_media">Открыть</string>
     <string name="person_delete_chat">Удалить чат</string>
+    <string name="person_delete_chat_title">Удалить чат?</string>
+    <string name="person_delete_chat_both">Удалить у меня и у: %1$s</string>
+    <string name="person_block_title">Заблокировать: %1$s?</string>
+    <string name="person_block_explained">%1$s не сможет писать и звонить тебе и не узнает об этом.</string>
     <string name="person_chat_deleted">Чат удалён</string>
     <string name="person_size_mb">%1$.1f МБ</string>
     <string name="person_size_kb">%1$d КБ</string>
@@ -549,4 +564,14 @@
         <item quantity="many">%d стикеров</item>
         <item quantity="other">%d стикера</item>
     </plurals>
+    <string name="channel_in_room">Канал комнаты «%1$s»</string>
+    <string name="channel_room_row">Комната «%1$s»</string>
+    <string name="channel_notify">Уведомления канала</string>
+    <string name="channel_notify_all">Всё</string>
+    <string name="channel_notify_mentions">Упоминания</string>
+    <string name="channel_notify_nothing">Ничего</string>
+    <string name="channel_tab_pinned">Закреплённые</string>
+    <string name="channel_tab_members">Участники</string>
+    <string name="channel_pinned_empty">Закреплённых сообщений нет</string>
+    <string name="channel_pinned_attachment">Вложение</string>
 </resources>

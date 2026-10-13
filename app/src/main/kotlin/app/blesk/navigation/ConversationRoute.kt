@@ -82,6 +82,8 @@ internal fun ConversationRoute(
     focusMessageId: String? = null,
     onOpenMedia: (messageId: String, index: Int) -> Unit,
     onOpenGroup: (groupId: String) -> Unit,
+    /** A room channel's header: the channel's own info, with the room one step further. */
+    onOpenChannel: (id: String) -> Unit,
     onOpenSpace: (handle: String) -> Unit,
     onCall: (video: Boolean) -> Unit,
     onVerify: () -> Unit,
@@ -283,7 +285,7 @@ internal fun ConversationRoute(
             onSend = { text, replyTo -> demo.send(id, text, replyTo) },
             onOpenPerson = { username -> scope.launch { demo.openDirect(username)?.let(onOpenPerson) } },
             onEdit = { messageId, text -> demo.edit(id, messageId, text) },
-            onDelete = { messageId -> demo.delete(id, messageId) },
+            onDelete = { messageId, forEveryone -> demo.delete(id, messageId, forEveryone) },
             onReact = { messageId, symbol -> demo.toggleReaction(id, messageId, symbol) },
             onApplyTheme = { spec -> scope.launch { container.settings.updateAppearance { it.copy(theme = spec) } } },
             onOpenChatTheme = { themeSheet = true },
@@ -304,6 +306,7 @@ internal fun ConversationRoute(
             onOpenInfo = when {
                 isSpace -> ({ onOpenSpace(id.removePrefix(SPACE_PREFIX).substringBefore(':')) })
                 direct -> onVerify
+                channel != null -> ({ onOpenChannel(id) })
                 groupState != null -> ({ onOpenGroup(groupId) })
                 else -> null
             },

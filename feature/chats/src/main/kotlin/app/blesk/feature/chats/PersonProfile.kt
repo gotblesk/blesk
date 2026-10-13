@@ -2,8 +2,6 @@ package app.blesk.feature.chats
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -39,6 +37,8 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.design.component.ActionCluster
 import app.blesk.core.design.component.Card
+import app.blesk.core.design.component.Choice
+import app.blesk.core.design.component.ChoiceSheet
 import app.blesk.core.design.component.ClusterAction
 import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.ListRow
@@ -48,6 +48,7 @@ import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
+import app.blesk.core.design.component.dismissOnTap
 import app.blesk.core.design.component.glint
 import app.blesk.core.design.component.nameIntoLens
 import app.blesk.core.design.component.profileHeaderHeight
@@ -71,7 +72,8 @@ class PersonActions(
     /** Null in the demo, where there are no keys to check. */
     val onVerify: (() -> Unit)?,
     val onTheme: (() -> Unit)?,
-    val onDeleteChat: (() -> Unit)?,
+    /** «у меня», or with forBoth «у меня и у собеседника». */
+    val onDeleteChat: ((forBoth: Boolean) -> Unit)?,
     val onOpenMedia: (messageId: String) -> Unit,
     val onOpenFile: (Attachment.File) -> Unit,
     val onOpenLink: (String) -> Unit,
@@ -105,6 +107,8 @@ fun PersonProfileScreen(
     val photo = rememberPhotoFile(conversation.photo)
     val scroll = rememberScrollState()
     var more by remember { mutableStateOf(false) }
+    var deletingChat by remember { mutableStateOf(false) }
+    var confirmingBlock by remember { mutableStateOf(false) }
     val headerPx = with(LocalDensity.current) { profileHeaderHeight().toPx() }
     val preset = conversation.id.hashCode().mod(HeaderStyle.Light.PRESETS)
     LensScaffold(
@@ -200,19 +204,38 @@ fun PersonProfileScreen(
                             subtitle = stringResource(if (actions.blocked) R.string.person_unblock_hint else R.string.person_block_hint),
                             icon = BleskIcons.Shield,
                             showChevron = false,
-                            onClick = { block(!actions.blocked) },
+                            // Blocking asks first, unblocking does not: nothing is lost by it.
+                            onClick = { if (actions.blocked) block(false) else confirmingBlock = true },
                         )
                     }
-                    actions.onDeleteChat?.let { delete ->
+                    if (actions.onDeleteChat != null) {
                         ListRow(
                             title = stringResource(R.string.person_delete_chat),
                             icon = BleskIcons.Trash,
                             showChevron = false,
-                            onClick = delete,
+                            onClick = { deletingChat = true },
                         )
                     }
                 }
             }
+        }
+        actions.onDeleteChat?.takeIf { deletingChat }?.let { delete ->
+            ChoiceSheet(
+                title = stringResource(R.string.person_delete_chat_title),
+                choices = listOf(
+                    Choice(stringResource(R.string.chat_delete_for_me), danger = true) { delete(false) },
+                    Choice(stringResource(R.string.person_delete_chat_both, conversation.title), danger = true) { delete(true) },
+                ),
+                onDismiss = { deletingChat = false },
+            )
+        }
+        actions.onBlock?.takeIf { confirmingBlock }?.let { block ->
+            ChoiceSheet(
+                title = stringResource(R.string.person_block_title, conversation.title),
+                text = stringResource(R.string.person_block_explained, conversation.title),
+                choices = listOf(Choice(stringResource(R.string.person_block), danger = true) { block(true) }),
+                onDismiss = { confirmingBlock = false },
+            )
         }
         if (more) {
             MoreSheet(
@@ -267,7 +290,7 @@ private fun MoreSheet(pinned: Boolean, onPin: () -> Unit, onTheme: (() -> Unit)?
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.35f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+            .dismissOnTap(onDismiss),
     ) {
         Card(
             Modifier

@@ -32,6 +32,7 @@ class ClusterAction(val icon: ImageVector, val label: String, val onClick: () ->
  * Capsules stuck together into one drop. The one under the finger shrinks and comes away from
  * the others before its action runs.
  */
+@Suppress("ClickWithoutResponse")
 @Composable
 fun ActionCluster(actions: List<ClusterAction>, modifier: Modifier = Modifier) {
     val presses = actions.map { remember { MutableInteractionSource() } }
@@ -63,7 +64,13 @@ fun ActionCluster(actions: List<ClusterAction>, modifier: Modifier = Modifier) {
                     .weight(1f)
                     .heightIn(min = 64.dp)
                     .clip(RoundedCornerShape(32.dp))
-                    .clickable(interactionSource = presses[index], indication = null, role = Role.Button, onClick = action.onClick)
+                    // Its own response: the capsule under the finger shrinks and comes away from the drop.
+                    .clickable(
+                        interactionSource = presses[index],
+                        indication = null,
+                        role = Role.Button,
+                        onClick = action.onClick,
+                    )
                     .padding(vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),

@@ -123,6 +123,7 @@ class SettingsStore(context: Context) {
             prefs[NOTIFY] = next.enabled
             prefs[NOTIFY_PREVIEW] = next.preview.name
             prefs[ALWAYS_ONLINE] = next.alwaysOnline
+            prefs[MENTIONS_ONLY] = next.mentionsOnly
         }
     }
 
@@ -299,6 +300,7 @@ class SettingsStore(context: Context) {
         preview = this[NOTIFY_PREVIEW]?.let { name -> NotificationPreview.entries.firstOrNull { it.name == name } }
             ?: NotificationPreview.NameOnly,
         alwaysOnline = this[ALWAYS_ONLINE] ?: false,
+        mentionsOnly = this[MENTIONS_ONLY].orEmpty(),
     )
 
     private fun Preferences.privacy() = Privacy(
@@ -361,6 +363,7 @@ class SettingsStore(context: Context) {
         val SAVE_MEDIA = booleanPreferencesKey("save_media")
         val NOTIFY = booleanPreferencesKey("notify")
         val NOTIFY_PREVIEW = stringPreferencesKey("notify_preview")
+        val MENTIONS_ONLY = stringSetPreferencesKey("mentions_only")
         val ALWAYS_ONLINE = booleanPreferencesKey("always_online")
         val PROFILE_NAME = stringPreferencesKey("profile_name")
         val PROFILE_USERNAME = stringPreferencesKey("profile_username")

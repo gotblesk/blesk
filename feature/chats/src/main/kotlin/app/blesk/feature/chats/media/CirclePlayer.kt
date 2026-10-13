@@ -6,7 +6,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,6 +55,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import app.blesk.core.data.model.Attachment
+import app.blesk.core.design.component.dismissOnTap
 import app.blesk.core.design.fire.breathing
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.media.LoudnessMeter
@@ -166,12 +166,7 @@ private fun OpenCircle(circle: Attachment.Circle, onClose: () -> Unit) {
             Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = SCRIM * (1f - drop.value / (dropLimit * 2f)).coerceIn(0f, 1f)))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClickLabel = closeLabel,
-                    onClick = onClose,
-                ),
+                .dismissOnTap(onClose, closeLabel),
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {

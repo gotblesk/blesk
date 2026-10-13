@@ -22,6 +22,7 @@ rootProject.name = "blesk"
 
 include(":app")
 include(":shared")
+include(":detekt-rules")
 include(":server")
 include(":core:design")
 include(":core:motion")

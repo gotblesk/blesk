@@ -68,8 +68,11 @@ interface ChatRepository : ChatTools, PeopleControls, TransferControls {
 
     fun edit(conversationId: String, messageId: String, text: String)
 
-    /** Deletes for everyone. Only your own messages can be deleted. */
-    fun delete(conversationId: String, messageId: String)
+    /**
+     * Deletes a message on this phone, and with [forEveryone] on the other phones too. Any message
+     * can go «у меня»; only your own (or, in a group, an admin's choice) «у всех».
+     */
+    fun delete(conversationId: String, messageId: String, forEveryone: Boolean = true)
 
     fun markRead(conversationId: String)
 
@@ -154,8 +157,8 @@ interface ChatTools {
     /** Shows the chat as unread again, or clears that mark. */
     fun markUnread(conversationId: String, unread: Boolean) = Unit
 
-    /** Removes a one-to-one chat and its messages from this phone only. */
-    fun deleteChat(conversationId: String) = Unit
+    /** Removes a one-to-one chat and its messages from this phone, and with [forBoth] from the other person's too. */
+    fun deleteChat(conversationId: String, forBoth: Boolean = false) = Unit
 
     /** Pinned chats stay on top of the list, newly pinned ones last; at most [MAX_PINNED]. */
     fun setChatPinned(conversationId: String, pinned: Boolean) = Unit

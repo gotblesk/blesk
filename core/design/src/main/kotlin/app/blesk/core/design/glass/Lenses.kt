@@ -159,6 +159,8 @@ data class LensAction(val icon: ImageVector, val label: String, val onClick: () 
  * The bottom lens as navigation. The selection is a drop of light: on a switch it stretches
  * from the old tab to the new one, then comes away on the spot.
  */
+// The tabs answer the finger with the drop flowing to them, not with the common press response.
+@Suppress("ClickWithoutResponse")
 @Composable
 fun LensTabBar(
     tabs: ImmutableList<LensTab>,

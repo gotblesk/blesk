@@ -107,7 +107,7 @@ class StickerScreenshotTest(private val name: String) {
             ),
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
         )
     }
 
@@ -132,7 +132,7 @@ class StickerScreenshotTest(private val name: String) {
             messages = seed.messages.filter { it.conversationId == DemoSeed.ANYA }.toImmutableList(),
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
             recorders = MediaVault(context).let { vault ->
                 Recorders("anya", VoiceRecorder(context, vault), CircleRecorder(context, vault), onVoice = {}, onCircle = {})
             },

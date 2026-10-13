@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +68,8 @@ import app.blesk.core.design.component.StateMessage
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.component.avatarHue
+import app.blesk.core.design.component.blockTaps
+import app.blesk.core.design.component.dismissOnTap
 import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -122,7 +123,7 @@ fun PlayerSheet(
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = SCRIM))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+            .dismissOnTap(onClose),
     ) {
         Column(
             Modifier
@@ -133,7 +134,7 @@ fun PlayerSheet(
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(topStart = SheetCorner, topEnd = SheetCorner))
                 .background(Blesk.colors.background)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .blockTaps()
                 .windowInsetsPadding(WindowInsets.navigationBars),
         ) {
             Column(Modifier.fillMaxWidth().dragToDismiss(onClose), horizontalAlignment = Alignment.CenterHorizontally) {

@@ -79,3 +79,8 @@ formatting:
     active: true
   PropertyName:
     active: false
+
+blesk:
+  active: true
+  ClickWithoutResponse:
+    active: true

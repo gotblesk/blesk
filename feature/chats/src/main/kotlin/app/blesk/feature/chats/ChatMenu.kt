@@ -3,8 +3,6 @@ package app.blesk.feature.chats
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -43,6 +41,8 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.blockTaps
+import app.blesk.core.design.component.dismissOnTap
 import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -166,7 +166,7 @@ private fun LiftedRow(anchor: Rect, onDismiss: () -> Unit, menu: @Composable () 
             .fillMaxSize()
             .onGloballyPositioned { origin = it.positionInWindow() }
             .drawBehind { drawRect(Color.Black.copy(alpha = LIFT_SCRIM * rise.value.coerceIn(0f, 1f))) }
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+            .dismissOnTap(onDismiss),
     ) {
         Layout(
             content = {
@@ -181,7 +181,7 @@ private fun LiftedRow(anchor: Rect, onDismiss: () -> Unit, menu: @Composable () 
                             clip = true
                         }
                         .background(surface)
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                        .blockTaps(),
                 ) { row() }
                 Box(
                     Modifier
@@ -190,7 +190,7 @@ private fun LiftedRow(anchor: Rect, onDismiss: () -> Unit, menu: @Composable () 
                             scaleY = MENU_FROM + (1f - MENU_FROM) * rise.value
                             transformOrigin = TransformOrigin(0.5f, 0f)
                         }
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                        .blockTaps(),
                 ) { menu() }
             },
         ) { measurables, constraints ->
@@ -222,7 +222,7 @@ internal fun MenuSheet(title: String, onDismiss: () -> Unit, content: @Composabl
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = SCRIM))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+            .dismissOnTap(onDismiss),
     ) {
         Column(
             Modifier
@@ -230,7 +230,7 @@ internal fun MenuSheet(title: String, onDismiss: () -> Unit, content: @Composabl
                 .dragToDismiss(onDismiss)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(Blesk.dimens.gutter)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                .blockTaps(),
         ) {
             Text(
                 text = title,

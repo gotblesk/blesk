@@ -13,4 +13,5 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.backdrop)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.activity.compose)
 }

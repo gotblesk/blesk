@@ -71,6 +71,7 @@ import app.blesk.core.media.Track
 import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
+import app.blesk.feature.chats.ArchiveActions
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.ChatMenuActions
@@ -94,6 +95,10 @@ import app.blesk.feature.chats.RequestsScreen
 import app.blesk.feature.chats.SearchHit
 import app.blesk.feature.chats.SearchResults
 import app.blesk.feature.chats.VoiceChannelScreen
+import app.blesk.feature.chats.groups.ChannelInfoActions
+import app.blesk.feature.chats.groups.ChannelInfoScreen
+import app.blesk.feature.chats.groups.ChannelMember
+import app.blesk.feature.chats.groups.ChannelNotify
 import app.blesk.feature.chats.groups.GroupActions
 import app.blesk.feature.chats.groups.GroupInfoExtras
 import app.blesk.feature.chats.groups.GroupInfoScreen
@@ -305,6 +310,20 @@ class KeyScreensScreenshotTest(private val name: String) {
     }
 
     @Test
+    fun channelInfo() = capture("41_channel_info") {
+        ChannelInfoScreen(
+            title = "общий",
+            room = "Студия",
+            notify = ChannelNotify.Mentions,
+            messages = persistentListOf(),
+            pinned = persistentListOf(),
+            members = persistentListOf(ChannelMember("anya", "Аня Соколова"), ChannelMember("misha", "Миша")),
+            actions = ChannelInfoActions({}, {}, {}, {}, {}, ArchiveActions({}, {}, {}, {})),
+            onBack = {},
+        )
+    }
+
+    @Test
     fun serverSilent() = capture("01_chats_unreachable") {
         HomeFrame("Чаты", 0, collapsed = false, connection = Connection.Unreachable) { padding ->
             ChatList(
@@ -390,7 +409,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             messages = seed.messages.filter { it.conversationId == conversation.id }.toImmutableList(),
             typing = true,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
         )
     }
 
@@ -417,7 +436,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             messages = messages.toImmutableList(),
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
         )
     }
 
@@ -645,7 +664,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             ),
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
             focusMessageId = "link",
         )
     }
@@ -664,7 +683,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             ),
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
             transfers = mapOf("album/0" to Transfer(13_000_000, 48_000_000), "album/4" to Transfer(0, -1, failed = true)),
         )
     }
@@ -679,7 +698,7 @@ class KeyScreensScreenshotTest(private val name: String) {
                 messages = persistentListOf(base.copy(id = "song", authorId = DemoSeed.ANYA, text = "", attachment = song)),
                 typing = false,
                 authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-                callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+                callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
                 modifier = Modifier.weight(1f),
             )
             MiniPlayer(
@@ -787,7 +806,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             messages = seed.messages.filter { it.conversationId == conversation.id }.toImmutableList(),
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
             underlay = { ChatBackdrop(HeaderStyle.Light(2), null) },
             hintsSeen = emptySet(),
         )
@@ -830,7 +849,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             messages = messages.toImmutableList(),
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
             media = controller,
         )
     }
@@ -1005,7 +1024,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             messages = messages.toImmutableList(),
             typing = false,
             authorName = { "Эхо" },
-            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
             commands = persistentListOf(BotCommand("start", "начать сначала")),
         )
     }

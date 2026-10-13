@@ -56,6 +56,12 @@ internal class MessageNotifier(private val context: Context, private val contain
         manager.cancel(conversationId, ID)
     }
 
+    /** Whether [text] names you with @username; the text itself never leaves this check. */
+    private suspend fun mentions(text: String): Boolean {
+        val me = container.settings.profile.first().username
+        return me.isNotBlank() && Regex("(^|[^\\w])@" + Regex.escape(me) + "\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)
+    }
+
     @android.annotation.SuppressLint("MissingPermission")
     private suspend fun show(note: IncomingNote) {
         val settings = container.settings.notifications.first()
@@ -63,6 +69,7 @@ internal class MessageNotifier(private val context: Context, private val contain
         if (container.visible && container.openConversation == note.conversationId) return
         val conversation = container.chats.value?.conversation(note.conversationId)?.first()
         if (conversation?.muted(System.currentTimeMillis()) == true) return
+        if (note.conversationId in settings.mentionsOnly && !mentions(note.text)) return
         val generic = context.getString(R.string.notify_new_message)
         val text = Markup.parse(note.text).masked(context.getString(R.string.notify_spoiler))
         // With the app lock on, nothing about who wrote or what shows outside the app.

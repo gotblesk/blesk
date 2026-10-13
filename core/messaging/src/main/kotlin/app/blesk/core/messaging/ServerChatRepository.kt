@@ -143,6 +143,7 @@ class ServerChatRepository(
     private val incomingFlow = MutableSharedFlow<IncomingNote>(extraBufferCapacity = SIGNAL_BUFFER)
     override val incoming: SharedFlow<IncomingNote> = incomingFlow.asSharedFlow()
     private val spaces = SpaceEngine(db, api, media, me, labels)
+    private val changes = MessageChanges(db, media, labels)
     private val transferState = Transfers()
     override val transfers: StateFlow<Map<String, Transfer>> = transferState.progress
     private val downloads = Downloads(db, api, media, transferState, scope, autoDownload)
@@ -515,11 +516,11 @@ class ServerChatRepository(
         scope.launch { db.conversations().setArchived(conversationId, archived) }
     }
 
-    override fun deleteChat(conversationId: String) {
+    override fun deleteChat(conversationId: String, forBoth: Boolean) {
         scope.launch {
-            db.messages().withFilesIn(conversationId).forEach { media.forget(decodeAttachment(it.attachment)) }
-            db.messages().deleteConversation(conversationId)
-            db.conversations().deleteWithChildren(conversationId)
+            val direct = groups.groupOf(conversationId) == null && !isSpace(conversationId) && !bots.isBot(conversationId)
+            if (forBoth && direct) dispatch(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.ClearChat))
+            changes.clear(conversationId)
         }
     }
 
@@ -625,7 +626,14 @@ class ServerChatRepository(
         }
     }
 
-    override fun delete(conversationId: String, messageId: String) {
+    override fun delete(conversationId: String, messageId: String, forEveryone: Boolean) {
+        if (!forEveryone) {
+            scope.launch {
+                db.messages().delete(messageId)
+                refreshPreview(conversationId)
+            }
+            return
+        }
         if (spaces.handleOf(conversationId) != null) {
             scope.launch { runCatching { spaces.delete(messageId) } }
             return
@@ -982,18 +990,7 @@ class ServerChatRepository(
                 if (body.kind == ReceiptKind.Read) SendStatus.Read else SendStatus.Delivered,
             )
             is Body.Typing -> showTyping(sender, body.active)
-            is Body.Reaction -> db.messages().get(body.target)?.let { message ->
-                val entries = applyReaction(decodeReactions(message.reactions), sender, body.symbol, body.remove)
-                db.messages().upsert(message.copy(reactions = encodeReactions(entries)))
-            }
-            is Body.Edit -> db.messages().get(body.target)?.takeIf { it.authorId == sender }?.let {
-                db.messages().upsert(it.copy(text = body.text, edited = true))
-                refreshPreview(sender)
-            }
-            is Body.Delete -> db.messages().get(body.target)?.takeIf { it.authorId == sender }?.let {
-                db.messages().delete(it.id)
-                refreshPreview(sender)
-            }
+            is Body.Reaction, is Body.Edit, is Body.Delete, is Body.ClearChat -> changes.apply(sender, body)
             is Body.GroupUpdate -> groups.onUpdate(sender, body.state)
             is Body.SenderKey -> groups.onSenderKey(sender, body)
             is Body.JoinRequest -> groups.onJoinRequest(sender, body)
@@ -1015,7 +1012,8 @@ class ServerChatRepository(
             is Body.CallOffer -> allowed(sender, privacy.calls)
             // Joining a new group needs permission; updates of a group you are in only need you not to block the admin.
             is Body.GroupUpdate -> allowed(sender, if (groups.state(body.state.id) == null) privacy.groups else Audience.Everyone)
-            is Body.Text, is Body.Reaction, is Body.Edit, is Body.Delete, is Body.Typing, is Body.Timer -> allowed(sender, privacy.write)
+            is Body.Text, is Body.Reaction, is Body.Edit, is Body.Delete, is Body.ClearChat, is Body.Typing, is Body.Timer ->
+                allowed(sender, privacy.write)
             else -> allowed(sender, Audience.Everyone)
         }
     }
@@ -1156,11 +1154,7 @@ class ServerChatRepository(
         row?.parentId?.let { db.conversations().setPreview(it, author, text, at) }
     }
 
-    private suspend fun refreshPreview(conversationId: String) {
-        val last = db.messages().last(conversationId)
-        val text = last?.let { it.text.ifEmpty { labels(decodeAttachment(it.attachment)) } }
-        db.conversations().setPreview(conversationId, null, text ?: "", last?.sentAt ?: 0)
-    }
+    private suspend fun refreshPreview(conversationId: String) = changes.refreshPreview(conversationId)
 
     /** Statuses only move forward, except an explicit failure. */
     private suspend fun advanceStatus(ids: List<String>, status: SendStatus, force: Boolean = false) {

@@ -6,7 +6,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +43,8 @@ import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.blockTaps
+import app.blesk.core.design.component.dismissOnTap
 import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.component.rememberCopy
 import app.blesk.core.design.icon.BleskIcons
@@ -85,12 +86,7 @@ internal fun MessageMenu(
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.35f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClickLabel = closeLabel,
-                onClick = onDismiss,
-            ),
+            .dismissOnTap(onDismiss, closeLabel),
     ) {
         Column(
             modifier = Modifier
@@ -98,7 +94,7 @@ internal fun MessageMenu(
                 .dragToDismiss(onDismiss)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(Blesk.dimens.gutter)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                .blockTaps(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             LiftedMessage(message, Modifier.flowIn(order = 0).align(if (message.isOwn) Alignment.End else Alignment.Start))
@@ -205,13 +201,14 @@ internal fun MessageMenu(
                         showChevron = false,
                         onClick = { act(onEdit) },
                     )
-                    ListRow(
-                        title = stringResource(R.string.chat_delete),
-                        icon = BleskIcons.Trash,
-                        showChevron = false,
-                        onClick = { act(onDelete) },
-                    )
                 }
+                // Anything can go «у меня»; the sheet that follows offers «у всех» for your own.
+                ListRow(
+                    title = stringResource(R.string.chat_delete),
+                    icon = BleskIcons.Trash,
+                    showChevron = false,
+                    onClick = { act(onDelete) },
+                )
             }
         }
     }

@@ -55,6 +55,7 @@ internal fun ChatInfoRoute(
     val messages by remember(id) { chats.messages(id) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val context = LocalContext.current
     val deleted = stringResource(app.blesk.feature.chats.R.string.person_chat_deleted)
+    val blockedText = stringResource(app.blesk.feature.chats.R.string.person_blocked)
     val username = chats.contact(id)?.username ?: id
     val blocked by remember(chats) { chats.blocked }.collectAsStateWithLifecycle(initialValue = emptyList())
     val all by remember(chats) { chats.conversations }.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -79,15 +80,23 @@ internal fun ChatInfoRoute(
             onTimer = { chats.setTimer(id, it) },
             onVerify = if (keys != null) onVerify else null,
             onTheme = { themeSheet = true },
-            onDeleteChat = {
-                container.notices.undoable(deleted, hidden = listOf(id)) { chats.deleteChat(id) }
+            onDeleteChat = { forBoth ->
+                container.notices.undoable(deleted, hidden = listOf(id)) { chats.deleteChat(id, forBoth) }
                 onChatDeleted()
             },
             onOpenMedia = onOpenMedia,
             onOpenFile = { file -> openFile(context, file) },
             onOpenLink = { link -> openLink(context, link) },
             onPlayVoice = { path -> container.audioPlayer.toggle(path) },
-            onBlock = if (current.kind == ConversationKind.Direct) ({ block -> chats.setBlocked(username, block) }) else null,
+            onBlock = if (current.kind == ConversationKind.Direct) {
+                { block ->
+                    chats.setBlocked(username, block)
+                    // Blocked at once, so the chat shows it; «Отменить» takes it back within five seconds.
+                    if (block) container.notices.undoable(blockedText, restore = { chats.setBlocked(username, false) }) {}
+                }
+            } else {
+                null
+            },
             blocked = blocked.any { it.username == username },
             onOpenConversation = onOpenConversation,
         ),

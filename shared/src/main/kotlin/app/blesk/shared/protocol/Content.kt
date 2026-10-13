@@ -96,6 +96,11 @@ sealed interface Body {
     @SerialName("delete")
     data class Delete(val target: String) : Body
 
+    /** The sender deleted the one-to-one chat for both: the receiver's copy of it goes too. */
+    @Serializable
+    @SerialName("clear_chat")
+    data object ClearChat : Body
+
     /** The new state of a group, sent one-to-one to every member by an admin. */
     @Serializable
     @SerialName("group_update")

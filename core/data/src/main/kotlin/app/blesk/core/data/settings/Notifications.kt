@@ -8,6 +8,8 @@ data class NotificationSettings(
     val preview: NotificationPreview = NotificationPreview.NameOnly,
     /** Keeps the connection open with a permanent notification, so messages and calls arrive with the app closed. */
     val alwaysOnline: Boolean = false,
+    /** Chats, such as room channels, that notify only when someone writes your @username. */
+    val mentionsOnly: Set<String> = emptySet(),
 )
 
 /** Where a message came from; each kind has its own notification channel. */

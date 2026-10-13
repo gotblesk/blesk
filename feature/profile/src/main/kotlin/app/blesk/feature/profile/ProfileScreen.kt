@@ -2,13 +2,13 @@ package app.blesk.feature.profile
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -50,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -246,9 +246,9 @@ fun ProfileScreen(
 }
 
 /**
- * Text edited where it is shown: the same type and colour as on the profile, centred, with only
- * a hairline under it to say it can be changed, lit while typing. A counter or a [hint] shows
- * under it while it has the focus.
+ * Text edited where it is shown: the same type and colour as on the profile, centred, with no
+ * lines under it. While typing, a soft capsule shows behind the field; a counter or a [hint]
+ * shows under it.
  */
 @Composable
 private fun InPlaceField(
@@ -264,7 +264,8 @@ private fun InPlaceField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val line = if (focused) Blesk.colors.accent else Blesk.colors.hairline
+    val capsule by animateFloatAsState(if (focused) 1f else 0f, Blesk.motion.settle(), label = "fieldCapsule")
+    val fill = Blesk.colors.surfaceStrong
     Column(
         modifier.fillMaxWidth().padding(horizontal = Blesk.dimens.gutter * 2),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -283,12 +284,15 @@ private fun InPlaceField(
                 .onFocusChanged { focused = it.isFocused }
                 .semantics { contentDescription = placeholder },
             decorator = { inner ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (state.text.isEmpty()) Text(placeholder, style = style, color = Blesk.colors.textTertiary)
-                        inner()
-                    }
-                    Box(Modifier.padding(top = 4.dp).width(UnderlineWidth).height(1.dp).background(line, CircleShape))
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(FieldRadius))
+                        .drawBehind { if (capsule > 0f) drawRect(fill.copy(alpha = fill.alpha * capsule)) }
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (state.text.isEmpty()) Text(placeholder, style = style, color = Blesk.colors.textTertiary)
+                    inner()
                 }
             },
         )
@@ -359,7 +363,7 @@ private fun SaveCapsule(visible: Boolean, onSave: () -> Unit) {
 }
 
 private val SaveRoom = 88.dp
-private val UnderlineWidth = 48.dp
+private val FieldRadius = 20.dp
 private const val BIO_LINES = 4
 
 /** The six «Свет» compositions, the flat tones and your photo, each a small sample of the header. */

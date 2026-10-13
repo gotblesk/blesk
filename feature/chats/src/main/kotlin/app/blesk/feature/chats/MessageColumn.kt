@@ -145,6 +145,10 @@ import kotlin.math.roundToInt
 private val BubbleRadius = 20.dp
 internal val BubbleShape = RoundedCornerShape(BubbleRadius)
 private val QuoteGap = 12.dp
+private val QuoteRadius = 16.dp
+
+/** How far the quote's tap area reaches past the quote itself, above and below. */
+private val QuoteTapMargin = 9.dp
 private val ReplySwipe = 64.dp
 private val ReplyDrop = 32.dp
 private const val REPLY_DROP_FROM = 0.4f
@@ -167,6 +171,8 @@ internal class MessageActions(
     val onDoubleTap: ((Message) -> Unit)? = null,
     /** A press on an @username in the text; null where people cannot be opened. */
     val onMention: ((String) -> Unit)? = null,
+    /** A press on a reply's quote: the id of the message it quotes. */
+    val onQuote: (String) -> Unit = {},
 )
 
 /**
@@ -445,6 +451,7 @@ private fun MessageEntry(
 ) {
     val replyLabel = stringResource(R.string.chat_reply)
     val menuLabel = stringResource(R.string.chat_copy)
+    val showQuoted = stringResource(R.string.chat_show_quoted)
     val time = timeFormat.format(message.sentAt.atZone(ZoneId.systemDefault()))
     val status = if (own) stringResource(statusLabel(message.status)) else null
     val edited = if (message.edited) stringResource(R.string.chat_edited) else null
@@ -498,17 +505,26 @@ private fun MessageEntry(
                 },
         ) {
             if (quote != null) {
-                Text(
-                    text = quote,
-                    style = Blesk.type.label,
-                    color = Blesk.colors.textSecondary,
-                    maxLines = 1,
-                    modifier = Modifier
-                        .padding(bottom = QuoteGap)
-                        .widthIn(max = 220.dp)
-                        .onPlaced { parts.put("quote:${message.id}", it) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
+                // The tap area is a full touch target; the drop stays the size of the quote inside it.
+                Box(
+                    Modifier
+                        .padding(bottom = QuoteGap - QuoteTapMargin)
+                        .heightIn(min = Blesk.dimens.touchTarget)
+                        .clip(RoundedCornerShape(QuoteRadius))
+                        .clickable(role = Role.Button, onClickLabel = showQuoted) { message.replyToId?.let(actions.onQuote) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = quote,
+                        style = Blesk.type.label,
+                        color = Blesk.colors.textSecondary,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .widthIn(max = 220.dp)
+                            .onPlaced { parts.put("quote:${message.id}", it) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
             }
             val attachment = message.attachment
             val circle = attachment is Attachment.Circle

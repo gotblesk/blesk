@@ -2,9 +2,9 @@ import com.android.build.api.dsl.CommonExtension
 import io.gitlab.arturbosch.detekt.extensions.DetektExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
-import org.gradle.api.tasks.testing.Test
 import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -61,5 +61,7 @@ internal fun Project.configureDetekt() {
         source.setFrom("src/main/kotlin", "src/test/kotlin", "src/main/java")
     }
     dependencies.add("detektPlugins", libs.findLibrary("detekt-formatting").get())
+    // blesk's own rules, such as a tap target that does not answer the finger.
+    dependencies.add("detektPlugins", dependencies.project(mapOf("path" to ":detekt-rules")))
 }
 

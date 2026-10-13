@@ -1,7 +1,11 @@
 package app.blesk.core.design.component
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -9,9 +13,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -55,10 +62,16 @@ fun IconButton(
     modifier: Modifier = Modifier,
     tint: Color = Blesk.colors.textPrimary,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    // A capsule shows behind the icon for a moment, so a bare icon still reads as pressed.
+    val capsule by animateFloatAsState(if (pressed) 1f else 0f, Blesk.motion.press(), label = "iconCapsule")
+    val fill = Blesk.colors.surfaceStrong
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .clickable(role = Role.Button, onClickLabel = null, onClick = onClick)
+            .drawBehind { if (capsule > 0f) drawRect(fill.copy(alpha = fill.alpha * capsule)) }
+            .clickable(interactionSource = interaction, indication = LocalIndication.current, role = Role.Button, onClick = onClick)
             .padding(12.dp),
         contentAlignment = Alignment.Center,
     ) {

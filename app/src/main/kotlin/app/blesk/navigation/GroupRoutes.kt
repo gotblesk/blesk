@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -15,8 +16,13 @@ import app.blesk.calls.CallActivity
 import app.blesk.core.data.GroupController
 import app.blesk.core.data.SpaceController
 import app.blesk.core.data.SpaceResult
+import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.feature.chats.ArchiveActions
+import app.blesk.feature.chats.groups.ChannelInfoActions
+import app.blesk.feature.chats.groups.ChannelInfoScreen
+import app.blesk.feature.chats.groups.ChannelMember
+import app.blesk.feature.chats.groups.ChannelNotify
 import app.blesk.feature.chats.groups.GroupActions
 import app.blesk.feature.chats.groups.GroupInfoExtras
 import app.blesk.feature.chats.groups.GroupInfoScreen
@@ -219,5 +225,69 @@ internal fun GroupInfoRoute(
     )
     if (themeSheet) {
         ConversationThemeSheet(container, conversationIds, sendTo = groupId, onDismiss = { themeSheet = false })
+    }
+}
+
+/** A room's channel, opened from its header; [id] is the channel's conversation, `room:channel`. */
+@Composable
+internal fun ChannelInfoRoute(
+    container: AppContainer,
+    id: String,
+    onOpenRoom: (groupId: String) -> Unit,
+    onOpenMessage: (messageId: String) -> Unit,
+    onOpenPerson: (username: String) -> Unit,
+    onOpenMedia: (conversationId: String, messageId: String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val chats = container.chats.collectAsStateWithLifecycle().value ?: return
+    val groups = chats as? GroupController ?: return
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val groupId = id.substringBefore(':')
+    val state by remember(groupId) { groups.group(groupId) }.collectAsStateWithLifecycle(initialValue = null)
+    val conversation by remember(id) { chats.conversation(id) }.collectAsStateWithLifecycle(initialValue = null)
+    val messages by remember(id) { chats.messages(id) }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val notifications by container.settings.notifications.collectAsStateWithLifecycle(initialValue = NotificationSettings())
+    var themeSheet by remember { mutableStateOf(false) }
+    val room = state ?: return
+    val channel = room.channels.firstOrNull { it.id == id.substringAfter(':', "") } ?: return
+    val notify = when {
+        conversation?.muted(System.currentTimeMillis()) == true -> ChannelNotify.Nothing
+        id in notifications.mentionsOnly -> ChannelNotify.Mentions
+        else -> ChannelNotify.All
+    }
+    val pinnedIds = conversation?.pinnedMessageIds.orEmpty()
+    ChannelInfoScreen(
+        title = channel.title,
+        room = room.title,
+        notify = notify,
+        messages = messages.toImmutableList(),
+        pinned = messages.filter { it.id in pinnedIds }.toImmutableList(),
+        members = room.members.map { ChannelMember(it.username, chats.contact(it.username)?.name ?: it.username) }.toImmutableList(),
+        actions = ChannelInfoActions(
+            onNotify = { choice ->
+                chats.mute(id, if (choice == ChannelNotify.Nothing) Long.MAX_VALUE else 0L)
+                scope.launch {
+                    container.settings.updateNotifications { settings ->
+                        val rest = settings.mentionsOnly - id
+                        settings.copy(mentionsOnly = if (choice == ChannelNotify.Mentions) rest + id else rest)
+                    }
+                }
+            },
+            onOpenRoom = { onOpenRoom(groupId) },
+            onOpenMessage = onOpenMessage,
+            onOpenPerson = onOpenPerson,
+            onTheme = { themeSheet = true },
+            archive = ArchiveActions(
+                onOpenMedia = { messageId -> onOpenMedia(id, messageId) },
+                onOpenFile = { file -> openFile(context, file) },
+                onOpenLink = { link -> openLink(context, link) },
+                onPlayVoice = { path -> container.audioPlayer.toggle(path) },
+            ),
+        ),
+        onBack = onBack,
+    )
+    if (themeSheet) {
+        ConversationThemeSheet(container, listOf(id), sendTo = id, onDismiss = { themeSheet = false })
     }
 }

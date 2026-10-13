@@ -1,7 +1,14 @@
 package app.blesk.feature.chats
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
@@ -35,6 +42,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,8 +50,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
@@ -78,6 +91,8 @@ import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Capsule
+import app.blesk.core.design.component.Choice
+import app.blesk.core.design.component.ChoiceSheet
 import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.component.GroupAvatar
 import app.blesk.core.design.component.HintCapsule
@@ -130,7 +145,8 @@ import kotlin.math.sin
 class ConversationCallbacks(
     val onSend: (text: String, replyToId: String?) -> Unit,
     val onEdit: (messageId: String, text: String) -> Unit,
-    val onDelete: (messageId: String) -> Unit,
+    /** «Удалить у меня», or with [forEveryone] «Удалить у всех». */
+    val onDelete: (messageId: String, forEveryone: Boolean) -> Unit,
     val onReact: (messageId: String, symbol: String) -> Unit,
     val onApplyTheme: (ThemeSpec) -> Unit,
     val onOpenChatTheme: () -> Unit,
@@ -253,9 +269,20 @@ fun ConversationScreen(
     val resources = LocalContext.current.resources
 
     // Deleting waits out «Отменить»; until then the screen that owns the list hides the messages.
-    fun deleteWithUndo(ids: List<String>) {
+    fun deleteWithUndo(ids: List<String>, forEveryone: Boolean) {
         val text = resources.getQuantityString(R.plurals.chat_deleted, ids.size, ids.size)
-        if (notices == null) ids.forEach(callbacks.onDelete) else notices.undoable(text, hidden = ids) { ids.forEach(callbacks.onDelete) }
+        val delete = { ids.forEach { callbacks.onDelete(it, forEveryone) } }
+        if (notices == null) delete() else notices.undoable(text, hidden = ids) { delete() }
+    }
+    // Deleting asks how, on a sheet whose choices are the confirmation: «у меня», or «у всех» for your own.
+    var deleting by remember(conversation.id) { mutableStateOf<List<Message>?>(null) }
+    val motion = Blesk.motion
+    // «Разрыв» and «срастание»: the heavy buzz as the chat is shut, the sticking one as it opens again.
+    var wasBlocked by remember(conversation.id) { mutableStateOf(blocked) }
+    LaunchedEffect(blocked) {
+        if (blocked == wasBlocked) return@LaunchedEffect
+        if (blocked) haptics.heavy() else haptics.stick()
+        wasBlocked = blocked
     }
     val byId = remember(messages) { messages.associateBy { it.id } }
     // The divider stays where the chat was left, even after the messages are marked read.
@@ -295,6 +322,19 @@ fun ConversationScreen(
     var opened by remember(conversation.id) { mutableStateOf(false) }
     var flashId by remember(conversation.id) { mutableStateOf<String?>(null) }
     val pinScope = rememberCoroutineScope()
+    val quotedGone = stringResource(R.string.chat_quoted_gone)
+
+    // A pinned message or a reply's quote: the chat scrolls to the message and a glint passes over it.
+    fun showMessage(id: String) {
+        val index = feed.indexOfFirst { it is FeedEntry.Run && it.messages.any { m -> m.id == id } }
+        if (index < 0) {
+            notices?.show(quotedGone)
+            return
+        }
+        pinScope.launch { listState.showAtTop(listIndexOf(index), animated = true) }
+        flashId = null
+        flashId = id
+    }
     LaunchedEffect(messages.size, typing) {
         // Counted from the data, not the layout: on the first frame the list is not measured yet.
         val divider = feed.indexOf(FeedEntry.Unread)
@@ -320,6 +360,8 @@ fun ConversationScreen(
         if (lastOwnStatus == SendStatus.Failed) haptics.refuse()
     }
 
+    // The actions are kept for the chat; the quote jump reads the feed as it is now.
+    val quoteJump = rememberUpdatedState<(String) -> Unit> { showMessage(it) }
     val actions = remember(conversation.id) {
         val react: (Message, String) -> Unit = { message, symbol ->
             haptics.stick()
@@ -338,6 +380,7 @@ fun ConversationScreen(
             onReact = react,
             onApplyTheme = callbacks.onApplyTheme,
             onButton = { message, button -> callbacks.onButton(message.id, button) },
+            onQuote = { id -> quoteJump.value(id) },
             onDoubleTap = if (reactions) {
                 { message ->
                     react(message, doubleTapReaction)
@@ -386,33 +429,20 @@ fun ConversationScreen(
                                     selection = emptySet()
                                 }
                             },
-                            onDelete = if (picked.all { it.isOwn } && conversation.kind != ConversationKind.Bot) {
-                                {
-                                    deleteWithUndo(picked.map { it.id })
-                                    selection = emptySet()
-                                }
-                            } else {
-                                null
-                            },
+                            onDelete = { deleting = picked },
                         )
                     } else {
                         Column {
                             ChatHeader(
                                 conversation, typing, callbacks.onBack, callbacks.onOpenChatTheme, callbacks.onOpenInfo,
                                 callbacks.onCall, demo, presence,
+                                blocked = blocked,
                             )
                             ConnectionStatus(connection, callbacks.onReconnect)
                             if (pinned.isNotEmpty()) {
                                 PinnedCapsule(
                                     pinned = pinned.toImmutableList(),
-                                    onShow = { message ->
-                                        val index = feed.indexOfFirst { it is FeedEntry.Run && it.messages.any { m -> m.id == message.id } }
-                                        if (index >= 0) {
-                                            pinScope.launch { listState.showAtTop(listIndexOf(index), animated = true) }
-                                            flashId = null
-                                            flashId = message.id
-                                        }
-                                    },
+                                    onShow = { message -> showMessage(message.id) },
                                     onUnpin = callbacks.onPin?.let { pin -> { message -> pin(message.id, false) } },
                                 )
                             }
@@ -447,15 +477,6 @@ fun ConversationScreen(
                                 )
                             }
                         }
-                    } else if (blocked && unblock != null) {
-                        BottomLens {
-                            Button(
-                                text = stringResource(R.string.person_unblock),
-                                kind = ButtonKind.Secondary,
-                                onClick = unblock,
-                                modifier = Modifier.fillMaxWidth().padding(6.dp),
-                            )
-                        }
                     } else if (readOnly) {
                         BottomLens {
                             Text(
@@ -471,45 +492,65 @@ fun ConversationScreen(
                             )
                         }
                     } else {
-                        TypingSignal(input, callbacks.onTyping)
-                        Composer(
-                            state = input,
-                            recording = recording,
-                            recorders = recorders,
-                            busy = busy,
-                            onPickMedia = callbacks.onPickMedia,
-                            onPickFile = callbacks.onPickFile,
-                            attachments = conversation.kind != ConversationKind.Bot,
-                            onTakePhoto = callbacks.onTakePhoto,
-                            onPickMusic = callbacks.onPickMusic,
-                            commands = commands,
-                            members = members,
-                            online = connection.canSend,
-                            sendByEnter = sendByEnter,
-                            recentEmoji = recentEmoji,
-                            onEmojiPicked = callbacks.onEmojiPicked,
-                            stickers = stickers,
-                            initialPanel = initialPanel,
-                            replyTo = replyToId?.let(byId::get),
-                            editing = editingId?.let(byId::get),
-                            authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
-                            onCancel = {
-                                if (editingId != null) input.clearText()
-                                replyToId = null
-                                editingId = null
+                        // Blocking draws the composer in and «Разблокировать» flows out in its place; unblocking, back.
+                        AnimatedContent(
+                            targetState = blocked && unblock != null,
+                            transitionSpec = {
+                                val enter = fadeIn(motion.settle()) + scaleIn(motion.stretch(), initialScale = SWAP_FROM)
+                                enter.togetherWith(fadeOut(motion.press()) + scaleOut(motion.press(), targetScale = SWAP_FROM))
                             },
-                            onSend = { text ->
-                                val editing = editingId
-                                if (editing != null) {
-                                    callbacks.onEdit(editing, text)
-                                } else {
-                                    callbacks.onSend(text, replyToId)
-                                    haptics.detach()
+                            label = "blockSwap",
+                        ) { shut ->
+                            if (shut && unblock != null) {
+                                BottomLens {
+                                    Button(
+                                        text = stringResource(R.string.person_unblock),
+                                        onClick = unblock,
+                                        modifier = Modifier.fillMaxWidth().padding(6.dp),
+                                    )
                                 }
-                                replyToId = null
-                                editingId = null
-                            },
-                        )
+                                return@AnimatedContent
+                            }
+                            TypingSignal(input, callbacks.onTyping)
+                            Composer(
+                                state = input,
+                                recording = recording,
+                                recorders = recorders,
+                                busy = busy,
+                                onPickMedia = callbacks.onPickMedia,
+                                onPickFile = callbacks.onPickFile,
+                                attachments = conversation.kind != ConversationKind.Bot,
+                                onTakePhoto = callbacks.onTakePhoto,
+                                onPickMusic = callbacks.onPickMusic,
+                                commands = commands,
+                                members = members,
+                                online = connection.canSend,
+                                sendByEnter = sendByEnter,
+                                recentEmoji = recentEmoji,
+                                onEmojiPicked = callbacks.onEmojiPicked,
+                                stickers = stickers,
+                                initialPanel = initialPanel,
+                                replyTo = replyToId?.let(byId::get),
+                                editing = editingId?.let(byId::get),
+                                authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
+                                onCancel = {
+                                    if (editingId != null) input.clearText()
+                                    replyToId = null
+                                    editingId = null
+                                },
+                                onSend = { text ->
+                                    val editing = editingId
+                                    if (editing != null) {
+                                        callbacks.onEdit(editing, text)
+                                    } else {
+                                        callbacks.onSend(text, replyToId)
+                                        haptics.detach()
+                                    }
+                                    replyToId = null
+                                    editingId = null
+                                },
+                            )
+                        }
                     }
                 },
             ) { padding ->
@@ -656,7 +697,7 @@ fun ConversationScreen(
                         replyToId = null
                         input.setTextAndPlaceCursorAtEnd(message.text)
                     },
-                    onDelete = { deleteWithUndo(listOf(message.id)) },
+                    onDelete = { deleting = listOf(message) },
                     editable = conversation.kind != ConversationKind.Bot,
                     onForward = callbacks.onForward?.let { forward -> { forward(listOf(message.id)) } },
                     onSelect = { selection = setOf(message.id) },
@@ -673,8 +714,34 @@ fun ConversationScreen(
                     },
                 )
             }
+            deleting?.let { picked ->
+                DeleteSheet(
+                    picked = picked,
+                    everyoneAllowed = picked.all { it.isOwn } && conversation.kind != ConversationKind.Bot,
+                    onDelete = { forEveryone ->
+                        deleteWithUndo(picked.map { it.id }, forEveryone)
+                        selection = emptySet()
+                    },
+                    onDismiss = { deleting = null },
+                )
+            }
         }
     }
+}
+
+/** «Удалить у меня» for any message; «Удалить у всех» too when every picked message is yours. */
+@Composable
+private fun DeleteSheet(picked: List<Message>, everyoneAllowed: Boolean, onDelete: (forEveryone: Boolean) -> Unit, onDismiss: () -> Unit) {
+    val forMe = stringResource(R.string.chat_delete_for_me)
+    val forAll = stringResource(R.string.chat_delete_for_all)
+    ChoiceSheet(
+        title = pluralStringResource(R.plurals.chat_delete_title, picked.size, picked.size),
+        choices = buildList {
+            add(Choice(forMe, danger = true) { onDelete(false) })
+            if (everyoneAllowed) add(Choice(forAll, danger = true) { onDelete(true) })
+        },
+        onDismiss = onDismiss,
+    )
 }
 
 private fun quoteOf(message: Message, you: String, authorName: (String) -> String?): String {
@@ -697,6 +764,7 @@ private fun ChatHeader(
     onCall: ((Boolean) -> Unit)?,
     demo: Boolean,
     presence: Presence?,
+    blocked: Boolean = false,
 ) {
     val protected = conversation.protection == Protection.EndToEnd
     val now = Instant.now()
@@ -736,12 +804,15 @@ private fun ChatHeader(
                         size = 36.dp,
                     )
                 } else {
+                    // Blocked, the face loses its colour and glint and turns matte; unblocked, both come back.
+                    val matte by animateFloatAsState(if (blocked) 1f else 0f, Blesk.motion.transition(), label = "blockedFace")
                     Avatar(
                         name = conversation.title,
                         key = conversation.id,
                         size = 36.dp,
-                        modifier = Modifier.sharedElement(avatarKey(conversation.id)),
-                        protected = protected && conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
+                        modifier = Modifier.sharedElement(avatarKey(conversation.id)).matte { matte },
+                        protected = !blocked && protected && conversation.kind != ConversationKind.Channel &&
+                            conversation.kind != ConversationKind.Bot,
                         photoFile = conversation.photo,
                     )
                 }
@@ -914,3 +985,24 @@ private suspend fun LazyListState.showAtTop(index: Int, animated: Boolean) {
     // Towards the newer messages, which in this list are the lower indices.
     if (animated) animateScrollBy(-lift) else scrollBy(-lift)
 }
+
+/** Draws the content without colour and a little faded, by [amount] from 0 to 1. */
+private fun Modifier.matte(amount: () -> Float): Modifier = drawWithContent {
+    val a = amount()
+    if (a <= 0f) {
+        drawContent()
+        return@drawWithContent
+    }
+    val paint = Paint().apply {
+        colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(1f - a) })
+        alpha = 1f - MATTE_FADE * a
+    }
+    drawIntoCanvas { canvas ->
+        canvas.saveLayer(Rect(Offset.Zero, size), paint)
+        drawContent()
+        canvas.restore()
+    }
+}
+
+private const val MATTE_FADE = 0.35f
+private const val SWAP_FROM = 0.6f

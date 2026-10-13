@@ -280,9 +280,9 @@ class DemoRepository private constructor(
         refreshPreview(conversationId)
     }
 
-    override fun delete(conversationId: String, messageId: String) {
+    override fun delete(conversationId: String, messageId: String, forEveryone: Boolean) {
         messages.update { map ->
-            val list = map[conversationId].orEmpty().filterNot { it.id == messageId && it.isOwn }
+            val list = map[conversationId].orEmpty().filterNot { it.id == messageId && (it.isOwn || !forEveryone) }
             map + (conversationId to list)
         }
         refreshPreview(conversationId)
@@ -307,7 +307,7 @@ class DemoRepository private constructor(
 
     override fun setArchived(conversationId: String, archived: Boolean) = change(conversationId) { it.copy(archived = archived) }
 
-    override fun deleteChat(conversationId: String) {
+    override fun deleteChat(conversationId: String, forBoth: Boolean) {
         all.update { list -> list.filterNot { it.id == conversationId } }
         messages.update { it - conversationId }
     }

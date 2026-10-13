@@ -2,8 +2,6 @@ package app.blesk.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -14,7 +12,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +24,8 @@ import app.blesk.AppContainer
 import app.blesk.R
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.blockTaps
+import app.blesk.core.design.component.dismissOnTap
 import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -49,7 +48,7 @@ internal fun ChatThemeSheet(
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.35f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+            .dismissOnTap(onDismiss),
     ) {
         Column(
             Modifier
@@ -59,7 +58,7 @@ internal fun ChatThemeSheet(
                 .padding(Blesk.dimens.gutter)
                 .clip(RoundedCornerShape(Blesk.dimens.cardRadius))
                 .background(Blesk.colors.surface)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .blockTaps()
                 .padding(vertical = 16.dp),
         ) {
             Text(

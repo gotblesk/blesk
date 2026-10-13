@@ -126,6 +126,9 @@ data object ScanKey : NavKey
 data class GroupInfoKey(val groupId: String) : NavKey
 
 @Serializable
+data class ChannelInfoKey(val id: String) : NavKey
+
+@Serializable
 data class SpaceInfoKey(val handle: String) : NavKey
 
 @Serializable
@@ -434,6 +437,7 @@ fun BleskNavigation(container: AppContainer) {
                                 appearance = appearance,
                                 onOpenMedia = { messageId, index -> backStack.add(MediaKey(key.id, messageId, index)) },
                                 onOpenGroup = { backStack.add(GroupInfoKey(it)) },
+                                onOpenChannel = { backStack.add(ChannelInfoKey(it)) },
                                 onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
                                 onVerify = { backStack.add(ChatInfoKey(key.id)) },
                                 onForward = { messageIds -> backStack.add(ForwardKey(key.id, messageIds)) },
@@ -473,6 +477,17 @@ fun BleskNavigation(container: AppContainer) {
                                 while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
                                 backStack.add(ConversationKey(id))
                             }, onBack = back)
+                        }
+                        entry<ChannelInfoKey> { key ->
+                            ChannelInfoRoute(
+                                container,
+                                key.id,
+                                onOpenRoom = { backStack.add(GroupInfoKey(it)) },
+                                onOpenMessage = { message -> backStack.add(ConversationKey(key.id, message)) },
+                                onOpenPerson = { username -> openDirect(username) { backStack.add(ChatInfoKey(it)) } },
+                                onOpenMedia = { chat, message -> backStack.add(MediaKey(chat, message)) },
+                                onBack = back,
+                            )
                         }
                         entry<GroupInfoKey> { key ->
                             GroupInfoRoute(
