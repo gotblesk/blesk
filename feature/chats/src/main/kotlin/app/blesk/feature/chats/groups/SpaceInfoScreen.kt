@@ -78,6 +78,7 @@ fun SpaceInfoScreen(
     onRetryMembers: () -> Unit = {},
     messages: ImmutableList<Message> = persistentListOf(),
     archive: ArchiveActions = ArchiveActions({}, {}, {}, {}),
+    onTheme: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val owner = space.role == SpaceRole.Owner
@@ -159,6 +160,7 @@ fun SpaceInfoScreen(
         }
 
         Card(pad.padding(top = Blesk.dimens.sectionGap)) {
+            onTheme?.let { ListRow(title = stringResource(R.string.chat_theme), icon = BleskIcons.Appearance, onClick = it) }
             if (owner) {
                 ListRow(
                     title = stringResource(R.string.space_delete),

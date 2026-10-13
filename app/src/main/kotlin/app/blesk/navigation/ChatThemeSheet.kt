@@ -13,13 +13,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.blesk.AppContainer
 import app.blesk.R
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
@@ -27,7 +31,9 @@ import app.blesk.core.design.component.dragToDismiss
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.settings.ThemePicker
+import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
+import kotlinx.coroutines.launch
 
 /** Theme of a single chat: pick one of the themes, fall back to the app theme, or share it. */
 @Composable
@@ -79,4 +85,27 @@ internal fun ChatThemeSheet(
             )
         }
     }
+}
+
+/**
+ * «Оформление чата» opened from an info screen: the theme is kept for every conversation in
+ * [ids] (a room and each of its channels look the same), and is sent into [sendTo] when shared.
+ */
+@Composable
+internal fun ConversationThemeSheet(container: AppContainer, ids: List<String>, sendTo: String?, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val appearance by container.settings.appearance.collectAsStateWithLifecycle(initialValue = Appearance())
+    val chatThemes by container.settings.chatThemes.collectAsStateWithLifecycle(initialValue = emptyMap())
+    val caption = stringResource(R.string.chat_theme_caption)
+    val override = ids.firstNotNullOfOrNull { chatThemes[it] }
+    ChatThemeSheet(
+        current = override ?: appearance.theme,
+        overridden = override != null,
+        onSelect = { spec -> scope.launch { ids.forEach { container.settings.setChatTheme(it, spec) } } },
+        onSend = {
+            sendTo?.let { container.chats.value?.sendTheme(it, override ?: appearance.theme, caption) }
+            onDismiss()
+        },
+        onDismiss = onDismiss,
+    )
 }

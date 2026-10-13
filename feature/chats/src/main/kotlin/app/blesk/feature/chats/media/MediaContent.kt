@@ -267,7 +267,10 @@ private fun FileRow(file: Attachment.File, transfer: Transfer?, onOpen: () -> Un
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(Modifier.size(44.dp).background(Blesk.colors.background, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(44.dp).background(Blesk.colors.textPrimary.copy(alpha = BADGE_ALPHA), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
             Icon(BleskIcons.Document, contentDescription = null)
         }
         Column(Modifier.widthIn(max = 200.dp)) {
@@ -350,7 +353,7 @@ private fun VoiceNote(voice: Attachment.Voice, controller: MediaController, onTo
                         color = Blesk.colors.textPrimary,
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(Blesk.colors.background)
+                            .background(Blesk.colors.textPrimary.copy(alpha = BADGE_ALPHA))
                             .clickable(
                                 role = Role.Button,
                                 onClickLabel = stringResource(R.string.media_speed, speed),
@@ -451,11 +454,13 @@ private fun MusicRow(music: Attachment.Music, controller: MediaController, onTog
             Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(Blesk.colors.background)
+                .background(Blesk.colors.textPrimary.copy(alpha = BADGE_ALPHA))
                 .clickable(enabled = music.path.isNotEmpty(), role = Role.Button, onClickLabel = label, onClick = onToggle),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(if (playing) BleskIcons.Pause else BleskIcons.Music, contentDescription = null)
+            // A veil of the text colour rather than the background: inside your own bubble the text is
+            // light, and a light icon on a background-coloured circle would leave the circle blank.
+            Icon(if (playing) BleskIcons.Pause else BleskIcons.Play, contentDescription = null)
         }
         Column(Modifier.weight(1f, fill = false)) {
             Text(music.title, style = Blesk.type.bodyStrong, maxLines = 1)
@@ -485,3 +490,5 @@ private fun MusicRow(music: Attachment.Music, controller: MediaController, onTog
         }
     }
 }
+
+private const val BADGE_ALPHA = 0.12f

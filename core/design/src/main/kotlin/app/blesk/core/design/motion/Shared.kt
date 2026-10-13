@@ -5,6 +5,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
@@ -12,6 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.Durations
+import app.blesk.core.motion.Viscous
 
 /** The scope shared elements travel in, set once around the navigation. */
 val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
@@ -37,8 +40,9 @@ fun Modifier.sharedBounds(key: String): Modifier {
         this@sharedBounds.sharedBounds(
             rememberSharedContentState(key, config),
             screen,
-            enter = if (seeking) EnterTransition.None else fadeIn(),
-            exit = if (seeking) ExitTransition.None else fadeOut(),
+            enter = if (seeking) EnterTransition.None else fadeIn(SharedTween()),
+            exit = if (seeking) ExitTransition.None else fadeOut(SharedTween()),
+            boundsTransform = { _, _ -> SharedTween() },
         )
     }
 }
@@ -51,7 +55,9 @@ fun Modifier.sharedElement(key: String): Modifier {
     val screen = LocalScreenScope.current ?: return this
     if (Blesk.motion.reduced) return this
     val config = remember(screen) { FollowsGesture(screen) }
-    return with(shared) { this@sharedElement.sharedElement(rememberSharedContentState(key, config), screen) }
+    return with(shared) {
+        this@sharedElement.sharedElement(rememberSharedContentState(key, config), screen, boundsTransform = { _, _ -> SharedTween() })
+    }
 }
 
 /**
@@ -63,6 +69,13 @@ fun Modifier.sharedElement(key: String): Modifier {
 private class FollowsGesture(private val screen: AnimatedVisibilityScope) : SharedTransitionScope.SharedContentConfig {
     override val SharedTransitionScope.SharedContentState.isEnabled: Boolean get() = !screen.transition.isSeeking
 }
+
+/**
+ * Shared elements move exactly as long as the screen change they belong to: a longer spring would
+ * stretch the transition the back gesture seeks through, and the screen would fade too early.
+ */
+@Suppress("FunctionName")
+private fun <T> SharedTween() = tween<T>(Durations.TRANSITION, easing = Viscous)
 
 /** The shared key that ties a settings row to the screen it opens. */
 fun screenKey(name: String) = "screen:$name"

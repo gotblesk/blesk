@@ -21,6 +21,8 @@ import androidx.compose.ui.util.lerp
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import kotlin.math.PI
+import kotlin.math.sin
 
 /** A third of the screen, as tall as a profile header is. */
 @Composable
@@ -78,7 +80,9 @@ fun ProfileHero(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .size(width = AvatarSize + NeckRim * 2, height = AvatarSize + NeckRim + NeckReach)
-                    .graphicsLayer { alpha = NECK_ALPHA }
+                    // Only in motion: at rest the avatar simply sits on the edge; while the page scrolls and
+                    // the avatar flows up into the lens the neck draws out, and it is gone again once inside.
+                    .graphicsLayer { alpha = if (reduced) 0f else NECK_ALPHA * sin(PI.toFloat() * progress()) }
                     .metaballs(neck, smoothness = NeckSmoothness) {
                         val w = size.width
                         val ring = AvatarSize.toPx() / 2f + NeckRim.toPx()

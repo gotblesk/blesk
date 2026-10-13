@@ -94,6 +94,8 @@ class GroupInfoExtras(
     val onCall: () -> Unit = {},
     val onOpenPerson: (username: String) -> Unit = {},
     val archive: ArchiveActions = ArchiveActions({}, {}, {}, {}),
+    /** «Оформление чата»; the header of the chat opens this screen, so the theme lives under «Ещё». */
+    val onTheme: (() -> Unit)? = null,
 )
 
 private enum class GroupTab(@param:StringRes val label: Int) {
@@ -216,6 +218,7 @@ fun GroupInfoScreen(
             run = ::run,
             timerSeconds = timerSeconds,
             onTimer = onTimer,
+            onTheme = extras.onTheme,
         )
     }
 }
@@ -232,6 +235,7 @@ private fun GroupSheets(
     run: (suspend () -> Unit) -> Unit,
     timerSeconds: Int,
     onTimer: ((Int) -> Unit)?,
+    onTheme: (() -> Unit)?,
 ) {
     val close = { onSheet(null) }
     when (sheet) {
@@ -247,6 +251,16 @@ private fun GroupSheets(
                 }
                 if (onTimer != null) {
                     ListRow(title = stringResource(R.string.info_timer), icon = BleskIcons.Timer, onClick = { onSheet(Sheet.Timer) })
+                }
+                onTheme?.let { theme ->
+                    ListRow(
+                        title = stringResource(R.string.chat_theme),
+                        icon = BleskIcons.Appearance,
+                        onClick = {
+                            close()
+                            theme()
+                        },
+                    )
                 }
                 ListRow(
                     title = stringResource(if (state.kind == GroupKind.Room) R.string.room_leave else R.string.group_leave_full),

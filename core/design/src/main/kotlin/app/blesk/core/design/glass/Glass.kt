@@ -5,8 +5,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
@@ -15,8 +19,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.Layout
@@ -74,6 +81,7 @@ fun LensScaffold(
                     Box(Modifier.fillMaxSize().background(background))
                     underlay()
                     content(padding)
+                    StatusBarScrim(background)
                 }
             },
             { CompositionLocalProvider(LocalBackdrop provides backdrop) { Box(Modifier.fillMaxWidth()) { top() } } },
@@ -97,6 +105,36 @@ fun LensScaffold(
     }
 }
 
+/**
+ * A soft veil of the background under the status bar: text scrolling up never reads over the
+ * clock and the icons, and fades out a little below them instead of stopping at a hard edge.
+ */
+@Composable
+private fun BoxScope.StatusBarScrim(background: Color) {
+    val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    if (top == 0.dp) return
+    Box(
+        Modifier
+            .align(Alignment.TopCenter)
+            .fillMaxWidth()
+            .height(top + ScrimFade)
+            .drawBehind {
+                val solid = top.toPx() / size.height
+                drawRect(
+                    Brush.verticalGradient(
+                        0f to background.copy(alpha = SCRIM_ALPHA),
+                        solid to background.copy(alpha = SCRIM_ALPHA * SCRIM_EDGE),
+                        1f to background.copy(alpha = 0f),
+                    ),
+                )
+            },
+    )
+}
+
+private val ScrimFade = 16.dp
+private const val SCRIM_ALPHA = 0.92f
+private const val SCRIM_EDGE = 0.7f
+
 /** Lens heights as padding whose values are read during layout, so a change never recomposes. */
 @Stable
 private class LensPadding : PaddingValues {
@@ -117,7 +155,7 @@ private class LensPadding : PaddingValues {
  * blur on 12, matte below and when the glass strength is set to zero.
  */
 @Composable
-fun Modifier.lens(shape: Shape, elevation: Dp = 18.dp, refract: Boolean = true): Modifier {
+fun Modifier.lens(shape: Shape, elevation: Dp = 18.dp, refract: Boolean = true, rim: Boolean = true): Modifier {
     val backdrop = LocalBackdrop.current
     val strength = Blesk.appearance.glassStrength
     val colors = Blesk.colors
@@ -138,8 +176,12 @@ fun Modifier.lens(shape: Shape, elevation: Dp = 18.dp, refract: Boolean = true):
             }
         },
         // The rim catches the light, so a lens reads as glass even over an empty background.
-        highlight = if (mode == GlassMode.Refraction) ({ Highlight.Default.copy(alpha = RIM_ALPHA * strength) }) else null,
-        shadow = { Shadow(radius = elevation, offset = DpOffset(0.dp, elevation / 4), color = shadowColor) },
+        highlight = if (rim && mode == GlassMode.Refraction) ({ Highlight.Default.copy(alpha = RIM_ALPHA * strength) }) else null,
+        shadow = if (elevation > 0.dp) {
+            { Shadow(radius = elevation, offset = DpOffset(0.dp, elevation / 4), color = shadowColor) }
+        } else {
+            null
+        },
         onDrawSurface = { drawRect(tint) },
     )
 }

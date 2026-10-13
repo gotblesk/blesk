@@ -49,11 +49,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
@@ -212,21 +210,6 @@ fun LensTabBar(
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 10.dp, vertical = 10.dp),
     ) {
-        if (shown != null && !motion.reduced && reach > BRIDGE_FROM) {
-            // The bridge sits under both lenses' edges, so it reads as one liquid with them.
-            Box(
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = BarHeight / 2)
-                    .width(BarHeight + ActionGap)
-                    .height(BarHeight)
-                    .graphicsLayer {
-                        alpha = (reach - BRIDGE_FROM) / (1f - BRIDGE_FROM)
-                        compositingStrategy = CompositingStrategy.ModulateAlpha
-                    }
-                    .lens(BridgeShape, elevation = 0.dp, refract = false),
-            )
-        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -309,6 +292,22 @@ fun LensTabBar(
                     },
             )
         }
+        if (shown != null && !motion.reduced && reach > BRIDGE_FROM) {
+            // The neck lies over both lenses' ends and covers the arcs of their rims where they face each
+            // other, so the three read as one liquid; it has no rim or shadow of its own to leave a seam.
+            Box(
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = BarHeight / 2)
+                    .width(BarHeight + ActionGap)
+                    .height(BarHeight)
+                    .graphicsLayer {
+                        alpha = (reach - BRIDGE_FROM) / (1f - BRIDGE_FROM)
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    }
+                    .lens(BridgeShape, elevation = 0.dp, refract = false, rim = false),
+            )
+        }
     }
 }
 
@@ -370,11 +369,7 @@ private val BridgeShape = GenericShape { size, _ ->
         cubicTo(size.width - dx - tx, cy + dy - ty, dx + tx, cy + dy - ty, dx, cy + dy)
         close()
     }
-    val circles = Path().apply {
-        addOval(Rect(Offset(0f, cy), radius))
-        addOval(Rect(Offset(size.width, cy), radius))
-    }
-    addPath(Path.combine(PathOperation.Difference, neck, circles))
+    addPath(neck)
 }
 
 private const val BRIDGE_ANGLE = 0.55f

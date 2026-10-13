@@ -93,7 +93,9 @@ internal fun SpaceInfoRoute(
         combine(ids.map { chats.messages(it) }) { lists -> lists.toList().flatten().sortedBy { it.sentAt } }
     }.collectAsStateWithLifecycle(initialValue = emptyList())
     val current = space ?: return
+    var themeSheet by remember { mutableStateOf(false) }
     SpaceInfoScreen(
+        onTheme = { themeSheet = true },
         messages = messages.toImmutableList(),
         archive = ArchiveActions(
             onOpenMedia = { id -> messages.firstOrNull { it.id == id }?.let { onOpenMedia(it.conversationId, id) } },
@@ -129,6 +131,7 @@ internal fun SpaceInfoRoute(
         ),
         onBack = onBack,
     )
+    if (themeSheet) ConversationThemeSheet(container, ids, sendTo = null, onDismiss = { themeSheet = false })
 }
 
 private const val SPACE_PREFIX = "space:"
@@ -163,8 +166,10 @@ internal fun GroupInfoRoute(
         val now = Instant.now()
         presence.filterValues { it.isOnline(now) }.keys.map { chats.contact(it)?.username ?: it }.toImmutableSet()
     }
+    var themeSheet by remember { mutableStateOf(false) }
     val current = state ?: return
     val extras = GroupInfoExtras(
+        onTheme = { themeSheet = true },
         messages = messages.toImmutableList(),
         online = online,
         muted = conversation?.muted(System.currentTimeMillis()) == true,
@@ -212,4 +217,7 @@ internal fun GroupInfoRoute(
         ),
         onBack = onBack,
     )
+    if (themeSheet) {
+        ConversationThemeSheet(container, conversationIds, sendTo = groupId, onDismiss = { themeSheet = false })
+    }
 }

@@ -42,6 +42,7 @@ import app.blesk.core.design.motion.LocalScreenScope
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.BleskMotion
 import app.blesk.core.motion.Durations
+import app.blesk.core.motion.Viscous
 import kotlin.math.roundToInt
 
 /**
@@ -56,9 +57,16 @@ import kotlin.math.roundToInt
 internal fun Screen(content: @Composable () -> Unit) {
     val scope = LocalNavAnimatedContentScope.current
     val transition = scope.transition
-    val corner = transition.animateDp(label = "corner") { if (it == EnterExitState.Visible) 0.dp else SCREEN_CORNER }
+    // Every animation of a screen change lasts exactly as long as the change itself: the back gesture
+    // seeks through the whole transition by the share of its longest animation, so one longer spring
+    // would make the leaving screen fade halfway through the gesture.
+    val corner = transition.animateDp(transitionSpec = { screenTween() }, label = "corner") {
+        if (it == EnterExitState.Visible) 0.dp else SCREEN_CORNER
+    }
     // The screen being returned to starts a little dim and clears as the gesture goes on.
-    val dim = transition.animateFloat(label = "dim") { if (it == EnterExitState.PreEnter) UNDER_DIM else 0f }
+    val dim = transition.animateFloat(transitionSpec = { screenTween() }, label = "dim") {
+        if (it == EnterExitState.PreEnter) UNDER_DIM else 0f
+    }
     val moving = remember(transition) { { transition.currentState != transition.targetState } }
     val layer = rememberGraphicsLayer()
     var still by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -132,6 +140,8 @@ internal fun AnimatedContentTransitionScope<*>.screenBack(motion: BleskMotion, e
         targetContentZIndex = -1f,
     )
 }
+
+private fun <T> screenTween() = tween<T>(Durations.TRANSITION, easing = Viscous)
 
 private const val OPAQUE_UNTIL = 0.9f
 private val SCREEN_CORNER = 28.dp
