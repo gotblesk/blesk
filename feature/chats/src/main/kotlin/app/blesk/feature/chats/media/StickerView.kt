@@ -42,7 +42,7 @@ fun StickerView(
     replay: Int = 0,
 ) {
     val context = LocalContext.current
-    val still = Blesk.motion.reduced || remember { context.powerSaving() }
+    val still = Blesk.motion.reduced || !Blesk.motion.autoplay || remember { context.powerSaving() }
     val described = if (description != null) Modifier.semantics { contentDescription = description } else Modifier
     Box(modifier.then(described)) {
         if (path.isEmpty()) return@Box

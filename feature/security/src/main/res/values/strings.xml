@@ -23,7 +23,13 @@
 
     <string name="pin_new_title">Придумай код</string>
     <string name="pin_repeat_title">Повтори код</string>
-    <string name="pin_mismatch">Коды не совпали, попробуй ещё раз</string>
+    <string name="pin_mismatch">Коды не совпали</string>
+    <string name="pin_cancel">Отмена</string>
+    <string name="pin_saving">Сохраняю…</string>
+    <string name="pin_biometric_offer">Разблокировать отпечатком?</string>
+    <string name="pin_biometric_offer_hint">Код останется на случай, если отпечаток не сработает</string>
+    <string name="pin_biometric_on">Включить</string>
+    <string name="pin_biometric_later">Не сейчас</string>
     <string name="pin_current_title">Текущий код</string>
     <string name="pin_digits_4">4 цифры</string>
     <string name="pin_digits_6">6 цифр</string>

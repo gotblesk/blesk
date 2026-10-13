@@ -79,7 +79,7 @@ import kotlin.math.hypot
 internal fun CirclePlayer(circle: Attachment.Circle, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var open by remember { mutableStateOf(false) }
-    val autoplay = !Blesk.motion.reduced && !LocalVeiledMedia.current && !open
+    val autoplay = Blesk.motion.autoplay && !Blesk.motion.reduced && !LocalVeiledMedia.current && !open
     val action = stringResource(R.string.media_circle_open)
     Box(
         modifier = modifier

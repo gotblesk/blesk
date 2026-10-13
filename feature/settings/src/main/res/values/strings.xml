@@ -263,4 +263,27 @@
     </plurals>
     <string name="you_phrase_reminder">Запиши фразу восстановления</string>
     <string name="you_phrase_reminder_hint">Без неё аккаунт не вернуть, если с телефоном что-то случится</string>
+    <string name="settings_economy">Экономный режим</string>
+    <string name="settings_economy_hint">Меньше света и движения, когда заряд на исходе</string>
+    <string name="economy_title">Экономный режим</string>
+    <string name="economy_off">Выкл</string>
+    <string name="economy_auto">Авто</string>
+    <string name="economy_always">Всегда</string>
+    <string name="economy_mode_hint_off">Приложение выглядит как обычно.</string>
+    <string name="economy_mode_hint_auto">Включается сам, когда заряд ниже порога или включено энергосбережение телефона. Выключается на зарядке.</string>
+    <string name="economy_mode_hint_always">Включён всегда. Сообщения и звонки приходят как обычно.</string>
+    <string name="economy_active">Сейчас включён · заряд %1$d %%</string>
+    <string name="economy_threshold">Порог заряда</string>
+    <string name="economy_threshold_value">%1$d %%</string>
+    <string name="economy_what">Что упрощается</string>
+    <string name="economy_matte">Матовое стекло</string>
+    <string name="economy_still_light">Свет замирает, блики гаснут</string>
+    <string name="economy_simple_motion">Короткие и простые анимации</string>
+    <string name="economy_tap_to_play">Кружки, стикеры и видео — по нажатию</string>
+    <string name="economy_wifi_only">Медиа скачиваются сами только по Wi‑Fi</string>
+    <string name="economy_60hz">Частота экрана 60 Гц</string>
+    <string name="economy_offer_toggle">Предлагать при низком заряде</string>
+    <string name="economy_offer_toggle_hint">Один раз за разряд, когда заряд ниже порога</string>
+    <string name="economy_system">Системное энергосбережение</string>
+    <string name="economy_system_hint">Включить его может только сам телефон: откроются его настройки</string>
 </resources>

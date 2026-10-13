@@ -1,19 +1,26 @@
 package app.blesk.core.design.component
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -39,11 +47,15 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.blesk.core.design.glass.lens
+import app.blesk.core.design.glass.tabDrops
+import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.launch
 
 /**
  * A matte slider. [track] paints the groove, so a hue slider can show the hues it picks from.
@@ -145,37 +157,87 @@ fun Slider(
     }
 }
 
-/** A choice of a few options shown as matte pills. */
+/**
+ * A choice of a few options as matte pills — the one segmented control of the app. The
+ * selection is a drop that flows to the new option like the navigation bar's: it stretches into
+ * a bridge from the old option, comes away and settles, with a tick.
+ */
 @Composable
 fun Segmented(options: ImmutableList<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val haptics = rememberHaptics()
-    Row(
-        modifier
-            .padding(horizontal = Blesk.dimens.gutter, vertical = 6.dp)
-            .clip(CircleShape)
-            .background(Blesk.colors.surfaceStrong)
-            .padding(4.dp),
-    ) {
-        options.forEachIndexed { index, label ->
-            val active = index == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = Blesk.dimens.touchTarget)
-                    .clip(CircleShape)
-                    .background(if (active) Blesk.colors.surface else Color.Transparent)
-                    .selectable(selected = active, role = Role.RadioButton) {
-                        if (!active) haptics.tick()
-                        onSelect(index)
+    val motion = Blesk.motion
+    val lead = remember { Animatable(selected.toFloat()) }
+    val tail = remember { Animatable(selected.toFloat()) }
+    LaunchedEffect(selected) {
+        if (motion.reduced) {
+            lead.snapTo(selected.toFloat())
+            tail.snapTo(selected.toFloat())
+            return@LaunchedEffect
+        }
+        launch { lead.animateTo(selected.toFloat(), motion.select()) }
+        launch { tail.animateTo(selected.toFloat(), motion.stretch()) }
+    }
+    // Options share the row; when they do not fit, the row keeps their natural widths and scrolls sideways.
+    val measurer = rememberTextMeasurer()
+    val style = Blesk.type.label
+    val density = LocalDensity.current
+    val natural = remember(options, style, density) {
+        options.map { measurer.measure(it, style, maxLines = 1).size.width + with(density) { OptionPadding.toPx() * 2 } }
+    }
+    BoxWithConstraints(modifier.padding(horizontal = Blesk.dimens.gutter, vertical = 6.dp)) {
+        val inner = constraints.maxWidth - with(density) { (TrackPadding * 2).toPx() }
+        val fits = natural.sum() <= inner
+        // Equal pills when the widest label allows it; otherwise each takes what its label needs.
+        val weights = if ((natural.maxOrNull() ?: 0f) * natural.size <= inner) natural.map { 1f } else natural
+        val rowWidth = with(density) { (if (fits) inner else natural.sum()).toDp() + TrackPadding * 2 }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(CircleShape)
+                .background(Blesk.colors.surfaceStrong)
+                .let { if (fits) it else it.horizontalScroll(rememberScrollState()) },
+        ) {
+            Row(
+                Modifier
+                    .width(rowWidth)
+                    .padding(TrackPadding)
+                    .metaballs(color = Blesk.colors.surface, smoothness = SegmentSmoothness) {
+                        tabDrops(lead.value, tail.value, weights, size.width, size.height, SegmentSmoothness.toPx() / 4f)
                     }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center,
+                    .selectableGroup(),
             ) {
-                Text(label, style = Blesk.type.label, color = if (active) Blesk.colors.textPrimary else Blesk.colors.textSecondary)
+                options.forEachIndexed { index, label ->
+                    val active = index == selected
+                    Box(
+                        modifier = Modifier
+                            .weight(weights[index])
+                            .heightIn(min = Blesk.dimens.touchTarget)
+                            .clip(CircleShape)
+                            .selectable(selected = active, role = Role.RadioButton) {
+                                if (!active) {
+                                    haptics.tick()
+                                    onSelect(index)
+                                }
+                            }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            label,
+                            style = style,
+                            maxLines = 1,
+                            color = if (active) Blesk.colors.textPrimary else Blesk.colors.textSecondary,
+                        )
+                    }
+                }
             }
         }
     }
 }
+
+private val OptionPadding = 12.dp
+private val TrackPadding = 4.dp
+private val SegmentSmoothness = 14.dp
 
 private const val STEPS = 10
 private const val SWELL = 0.35f

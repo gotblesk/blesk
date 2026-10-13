@@ -18,6 +18,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -25,6 +27,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
@@ -45,8 +48,12 @@ import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.NoticeHost
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskThemeWithWave
+import app.blesk.core.motion.BleskMotion
+import app.blesk.core.motion.Durations
 import app.blesk.core.motion.LocalHapticLevel
+import app.blesk.core.motion.rememberSystemMotion
 import app.blesk.debug.FrameMeter
+import app.blesk.economy.EconomyWindow
 import app.blesk.feature.chats.media.LocalPictureInPicture
 import app.blesk.feature.chats.media.PictureInPicture
 import app.blesk.navigation.BleskNavigation
@@ -94,7 +101,27 @@ class MainActivity : ComponentActivity() {
                 LocalNotices provides container.notices,
                 LocalPictureInPicture provides pictureInPicture,
             ) {
-                BleskThemeWithWave(appearance = appearance) {
+                val economy by container.economy.effects.collectAsStateWithLifecycle()
+                EconomyWindow(window, economy.cap60Hz)
+                // «Свет приглушается»: glints fade out over 400 ms when the economy mode comes on, and back.
+                val glint by animateFloatAsState(
+                    targetValue = if (economy.stillLight) 0f else appearance.glintStrength,
+                    animationSpec = tween(Durations.DIM),
+                    label = "economyGlint",
+                )
+                val system = rememberSystemMotion()
+                val motion = remember(system, economy) {
+                    BleskMotion(
+                        reduced = system.reduced || economy.simpleMotion,
+                        still = system.still || economy.stillLight || economy.simpleMotion,
+                        autoplay = !economy.tapToPlay,
+                    )
+                }
+                val shown = appearance.copy(
+                    glassStrength = if (economy.matteGlass) 0f else appearance.glassStrength,
+                    glintStrength = glint,
+                )
+                BleskThemeWithWave(appearance = shown, motion = motion) {
                     // The window under every screen is the theme's own background: no dark bands in a back gesture.
                     val windowBackground = Blesk.colors.background
                     LaunchedEffect(windowBackground) { window.setBackgroundDrawable(ColorDrawable(windowBackground.toArgb())) }

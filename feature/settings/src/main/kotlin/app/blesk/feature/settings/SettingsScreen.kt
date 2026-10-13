@@ -41,6 +41,7 @@ class SettingsActions(
     val onOpenBots: () -> Unit = {},
     val onOpenNotifications: () -> Unit = {},
     val onOpenStorage: () -> Unit = {},
+    val onOpenEconomy: () -> Unit = {},
     val onShowQr: () -> Unit = {},
     val onShare: () -> Unit = {},
     val onOpenSaved: () -> Unit = {},
@@ -200,6 +201,12 @@ fun SettingsList(
                 icon = BleskIcons.Storage,
                 onClick = actions.onOpenStorage,
                 modifier = Modifier.sharedBounds(screenKey("storage")),
+            )
+            ListRow(
+                title = stringResource(R.string.settings_economy),
+                subtitle = stringResource(R.string.settings_economy_hint),
+                icon = BleskIcons.Battery,
+                onClick = actions.onOpenEconomy,
             )
         }
         SectionHeader(stringResource(R.string.settings_section_chats))

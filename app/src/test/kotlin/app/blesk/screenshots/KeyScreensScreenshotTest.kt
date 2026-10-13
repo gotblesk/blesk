@@ -44,6 +44,8 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.RoomChannelKind
+import app.blesk.core.data.settings.Economy
+import app.blesk.core.data.settings.EconomyMode
 import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.Profile
@@ -127,6 +129,7 @@ import app.blesk.feature.settings.BotActions
 import app.blesk.feature.settings.BotsScreen
 import app.blesk.feature.settings.ChatUse
 import app.blesk.feature.settings.ConnectOutcome
+import app.blesk.feature.settings.EconomyScreen
 import app.blesk.feature.settings.LicensesScreen
 import app.blesk.feature.settings.MetaballSandbox
 import app.blesk.feature.settings.NotificationsScreen
@@ -287,6 +290,18 @@ class KeyScreensScreenshotTest(private val name: String) {
                 anchor = places[conversation.id],
             )
         }
+    }
+
+    @Test
+    fun economy() = capture("40_economy") {
+        EconomyScreen(
+            economy = Economy(mode = EconomyMode.Auto),
+            active = true,
+            level = 18,
+            onChange = {},
+            onOpenSystemSaver = {},
+            onBack = {},
+        )
     }
 
     @Test

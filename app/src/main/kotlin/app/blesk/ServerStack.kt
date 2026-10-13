@@ -67,7 +67,11 @@ internal class ServerStack(
             network = container.network,
             keepArchived = { keepArchived.value },
             linkPreview = LinkPreviews()::forText,
-            autoDownload = { kind -> container.autoDownload.value.allows(kind, context.isMetered()) },
+            autoDownload = { kind ->
+                val metered = context.isMetered()
+                // The economy mode keeps automatic downloads to Wi-Fi; a tap still downloads anything.
+                container.autoDownload.value.allows(kind, metered) && !(metered && container.economy.effects.value.wifiOnlyMedia)
+            },
         ).also { repository -> store.onIdentityChanged = repository::onKeyChanged }
 
     companion object {

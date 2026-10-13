@@ -50,6 +50,7 @@ import app.blesk.core.data.settings.OfflineKey
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.design.component.ChatBackdrop
 import app.blesk.core.design.component.rememberNotify
+import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
@@ -341,7 +342,9 @@ internal fun ConversationRoute(
     val current = conversation ?: return
     val messages = (loaded ?: return).filter { it.id !in container.notices.hidden }
     val unread = unreadAtOpen ?: return
-    BleskTheme(appearance = if (override != null) appearance.copy(theme = override) else appearance) {
+    // The chat's own theme on top of what the app shows now, economy included.
+    val showing = Blesk.appearance
+    BleskTheme(appearance = if (override != null) showing.copy(theme = override) else showing, motion = Blesk.motion) {
         Box(Modifier.fillMaxSize()) {
             ConversationScreen(
                 conversation = current,

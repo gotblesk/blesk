@@ -19,14 +19,14 @@ import kotlinx.coroutines.flow.first
 val LocalScreenMoving = staticCompositionLocalOf<() -> Boolean> { { false } }
 
 /**
- * A 0..1 phase that loops forever, or stays at zero when animations are off. Nothing loops
- * when the system asks for reduced motion, and the loop holds still while its screen moves, so
- * a screen in a transition is only transformed, never redrawn.
+ * A 0..1 phase that loops forever, or stays at zero when the light must stand still: nothing
+ * loops with reduced motion, power saving or the economy mode. The loop also holds still while
+ * its screen moves, so a screen in a transition is only transformed, never redrawn.
  */
 @Composable
 fun rememberLoopPhase(durationMillis: Int): State<Float> {
     val phase = remember { mutableFloatStateOf(0f) }
-    if (Blesk.motion.reduced) return phase
+    if (Blesk.motion.still) return phase
     val moving = LocalScreenMoving.current
     LaunchedEffect(durationMillis, moving) {
         val periodNanos = durationMillis * NANOS_PER_MILLI

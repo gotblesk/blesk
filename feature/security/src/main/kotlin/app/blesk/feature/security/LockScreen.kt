@@ -104,6 +104,10 @@ fun PinEntry(
                     if (lock) {
                         haptics.detach()
                         open.animateTo(1f, motion.signature())
+                    } else {
+                        // A step of setting a code: the next step starts with empty slots.
+                        entered = ""
+                        password.clearText()
                     }
                     onOpened()
                 }

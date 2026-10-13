@@ -43,4 +43,9 @@
     <string name="call_capsule_open">Вернуться к звонку</string>
     <string name="call_capsule_connecting">Соединение…</string>
     <string name="call_ended_after">Звонок завершён · %1$s</string>
+    <string name="economy_offer">Заряд %1$d %%. Включить экономный режим?</string>
+    <string name="economy_offer_on">Включить</string>
+    <string name="economy_offer_later">Не сейчас</string>
+    <string name="economy_announce">Экономный режим включён · заряд %1$d %%</string>
+    <string name="economy_announce_settings">Настроить</string>
 </resources>

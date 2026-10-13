@@ -49,6 +49,7 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ServerAddress
+import app.blesk.economy.EconomyNotices
 import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.chats.groups.NewKind
@@ -141,6 +142,9 @@ data class ForwardKey(val from: String, val messageIds: List<String>) : NavKey
 
 @Serializable
 data object NotificationsKey : NavKey
+
+@Serializable
+data object EconomyKey : NavKey
 
 @Serializable
 data object StorageKey : NavKey
@@ -316,6 +320,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenServer = { backStack.add(ServerKey) },
                                     onOpenBots = { backStack.add(BotsKey) },
                                     onOpenNotifications = { backStack.add(NotificationsKey) },
+                                    onOpenEconomy = { backStack.add(EconomyKey) },
                                     onOpenStorage = { backStack.add(StorageKey) },
                                     onOpenUpdate = { backStack.add(UpdateKey) },
                                     onOpenPhrase = { backStack.add(PhraseKey()) },
@@ -496,6 +501,7 @@ fun BleskNavigation(container: AppContainer) {
                             )
                         }
                         entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageIds, onDone = back, onBack = back) }
+                        entry<EconomyKey> { EconomyRoute(container, back) }
                         entry<NotificationsKey> {
                             Box(Modifier.sharedBounds(screenKey("notifications"))) { NotificationsRoute(container, back) }
                         }
@@ -591,6 +597,7 @@ fun BleskNavigation(container: AppContainer) {
                         }
                     },
                 )
+                EconomyNotices(container.economy, onSettings = { backStack.add(EconomyKey) })
                 val note by container.inAppNote.collectAsStateWithLifecycle()
                 InAppNotice(
                     note = note,

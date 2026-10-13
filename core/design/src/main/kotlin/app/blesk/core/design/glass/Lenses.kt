@@ -376,7 +376,12 @@ private const val BRIDGE_ANGLE = 0.55f
 private const val BRIDGE_PULL = 1.6f
 private val DropSmoothness = 18.dp
 
-private fun tabDrops(lead: Float, tail: Float, weights: List<Float>, width: Float, height: Float, inset: Float): List<Blob> {
+/**
+ * The selection drop of a row of options: [lead] runs ahead to the new option and [tail] follows,
+ * so the drop stretches into a bridge between them and settles in place. Positions are option
+ * indices, fractional on the way.
+ */
+internal fun tabDrops(lead: Float, tail: Float, weights: List<Float>, width: Float, height: Float, inset: Float): List<Blob> {
     if (weights.isEmpty()) return emptyList()
     val total = weights.sum()
     val starts = weights.runningFold(0f) { acc, w -> acc + w }.map { it / total * width }

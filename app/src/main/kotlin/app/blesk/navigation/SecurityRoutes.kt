@@ -21,6 +21,7 @@ import app.blesk.core.crypto.Biometrics
 import app.blesk.core.crypto.PinVault
 import app.blesk.core.data.settings.Privacy
 import app.blesk.feature.chats.BlockedScreen
+import app.blesk.feature.security.BiometricOffer
 import app.blesk.feature.security.PinAttempt
 import app.blesk.feature.security.PinEntry
 import app.blesk.feature.security.PinSetup
@@ -29,6 +30,7 @@ import app.blesk.feature.security.PrivacyScreen
 import app.blesk.feature.security.WipeKind
 import app.blesk.feature.security.WipeScreen
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import app.blesk.feature.security.R as SecurityR
 
@@ -82,14 +84,30 @@ internal fun PinChangeRoute(container: AppContainer, requireCurrent: Boolean, on
         )
     } else {
         val scope = rememberCoroutineScope()
+        val context = LocalContext.current
+        var offerBiometric by rememberSaveable { mutableStateOf(false) }
+        if (offerBiometric) {
+            BiometricOffer(
+                onEnable = {
+                    scope.launch {
+                        container.settings.updatePrivacy { it.copy(biometric = true) }
+                        onDone()
+                    }
+                },
+                onSkip = onDone,
+            )
+            return
+        }
         PinSetup(
             minPassword = PinVault.MIN_PASSWORD,
-            onDone = { pin ->
+            onSave = { pin -> container.pinVault.set(pin) },
+            onDone = {
                 scope.launch {
-                    container.pinVault.set(pin)
-                    onDone()
+                    val biometric = container.settings.privacy.first().biometric
+                    if (!biometric && Biometrics.available(context)) offerBiometric = true else onDone()
                 }
             },
+            onCancel = onDone,
         )
     }
 }
@@ -134,6 +152,8 @@ internal fun LockRoute(container: AppContainer, biometric: Boolean, wipeAfterTen
         promptBiometric()
         onDispose { }
     }
+    // No way back past the lock: «назад» leaves blesk instead of reaching the screens under it.
+    BackHandler(enabled = !forgot) { activity?.moveTaskToBack(true) }
     if (forgot) {
         BackHandler { forgot = false }
         WipeScreen(kind = WipeKind.ForgotCode, onWipe = { wipeEverything(context, container) }, onBack = { forgot = false })

@@ -33,6 +33,9 @@ object Durations {
     /** What every movement turns into when the system asks for no animations. */
     const val DISSOLVE = 90
 
+    /** The light dimming or coming back as the economy mode turns on or off. */
+    const val DIM = 400
+
     /** Followers trail the element under the finger by this much. */
     const val FOLLOW_DELAY = 25
 
@@ -63,7 +66,12 @@ val KeyboardEasing: Easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
  * stops moving: transitions still run, because they explain what happened.
  */
 @Immutable
-class BleskMotion(val reduced: Boolean, val still: Boolean = reduced) {
+class BleskMotion(
+    val reduced: Boolean,
+    val still: Boolean = reduced,
+    /** Round videos and stickers start by themselves; off in the economy mode, where they wait for a tap. */
+    val autoplay: Boolean = true,
+) {
 
     /** Something coming to rest where it belongs. */
     fun <T> settle(): FiniteAnimationSpec<T> =

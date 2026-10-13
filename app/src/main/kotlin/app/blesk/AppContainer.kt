@@ -20,6 +20,7 @@ import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.AutoDownload
+import app.blesk.core.data.settings.EconomyStore
 import app.blesk.core.data.settings.KeptOffline
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.PrivateImage
@@ -41,6 +42,7 @@ import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ProxyConfig
 import app.blesk.core.network.ProxyKind
 import app.blesk.core.network.ServerAddress
+import app.blesk.economy.EconomyMonitor
 import app.blesk.feature.profile.ProfileDraft
 import app.blesk.update.Updater
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -94,6 +96,8 @@ class AppContainer(context: Context) {
     val phrase = PhraseVault(context)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
     val notices = Notices(scope)
+
+    val economy by lazy { EconomyMonitor(context, scope, EconomyStore(context)) }
 
     /**
      * The demo call's microphone, camera and speaker. The demo has no media to ask, and both the
