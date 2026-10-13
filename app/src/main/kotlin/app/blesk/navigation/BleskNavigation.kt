@@ -6,14 +6,17 @@ import android.os.Build
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,6 +65,7 @@ import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.motion.BleskMotion
+import app.blesk.core.motion.Durations
 import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ServerAddress
 import app.blesk.feature.chats.ContactActions
@@ -261,7 +265,7 @@ fun BleskNavigation(container: AppContainer) {
                     sharedTransitionScope = this@SharedTransitionLayout,
                     transitionSpec = { screenEnter(motion) },
                     popTransitionSpec = { screenExit(motion) },
-                    predictivePopTransitionSpec = { edge -> screenExit(motion, towardsLeft = edge == NavigationEvent.EDGE_LEFT) },
+                    predictivePopTransitionSpec = { edge -> screenBackGesture(motion, towardsLeft = edge == NavigationEvent.EDGE_LEFT) },
                     entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), screenDecorator),
                     backStack = backStack,
                     onBack = back,
@@ -613,11 +617,14 @@ private fun Screen(content: @Composable () -> Unit) {
     val corner by scope.transition.animateDp(label = "corner") { if (it == EnterExitState.Visible) 0.dp else SCREEN_CORNER }
     // The screen being returned to starts a little dim and clears as the gesture goes on.
     val dim by scope.transition.animateFloat(label = "dim") { if (it == EnterExitState.PreEnter) UNDER_DIM else 0f }
+    val background = Blesk.colors.background
     CompositionLocalProvider(LocalScreenScope provides scope) {
         Box(
             Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(corner))
+                // Every screen is opaque on its own: two screens never show through each other.
+                .background(background)
                 .drawWithContent {
                     drawContent()
                     if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
@@ -648,6 +655,30 @@ private fun AnimatedContentTransitionScope<*>.screenExit(motion: BleskMotion, to
         targetContentZIndex = -1f,
     )
 
+/**
+ * The back gesture, frame by frame under the finger. Both screens stay opaque the whole way: the
+ * leaving one only shrinks with rounded corners towards the edge the swipe comes from, the one
+ * below is already there, dimmed, and clears as the gesture goes on (see [Screen]). The leaving
+ * screen fades only at the very end, once the gesture has been let go past the point of return.
+ */
+private fun AnimatedContentTransitionScope<*>.screenBackGesture(motion: BleskMotion, towardsLeft: Boolean): ContentTransform =
+    ContentTransform(
+        targetContentEnter = EnterTransition.None,
+        initialContentExit = fadeOut(
+            keyframes {
+                durationMillis = Durations.TRANSITION
+                1f at (Durations.TRANSITION * GESTURE_OPAQUE).toInt()
+                0f at Durations.TRANSITION
+            },
+        ) + scaleOut(
+            motion.transition(),
+            targetScale = if (motion.reduced) 1f else EXIT_SCALE,
+            transformOrigin = if (towardsLeft) TransformOrigin(0f, 0.5f) else TransformOrigin(1f, 0.5f),
+        ),
+        targetContentZIndex = -1f,
+    )
+
+private const val GESTURE_OPAQUE = 0.9f
 private val SCREEN_CORNER = 28.dp
 private const val ENTER_SCALE = 0.96f
 private const val EXIT_SCALE = 0.9f

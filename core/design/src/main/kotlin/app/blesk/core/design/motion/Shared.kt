@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import app.blesk.core.design.theme.Blesk
@@ -24,7 +25,8 @@ fun Modifier.sharedBounds(key: String): Modifier {
     val shared = LocalSharedScope.current ?: return this
     val screen = LocalScreenScope.current ?: return this
     if (Blesk.motion.reduced) return this
-    return with(shared) { this@sharedBounds.sharedBounds(rememberSharedContentState(key), screen) }
+    val config = remember(screen) { FollowsGesture(screen) }
+    return with(shared) { this@sharedBounds.sharedBounds(rememberSharedContentState(key, config), screen) }
 }
 
 /** One element that flows from its place on one screen to its place on the next, like an avatar. */
@@ -34,7 +36,17 @@ fun Modifier.sharedElement(key: String): Modifier {
     val shared = LocalSharedScope.current ?: return this
     val screen = LocalScreenScope.current ?: return this
     if (Blesk.motion.reduced) return this
-    return with(shared) { this@sharedElement.sharedElement(rememberSharedContentState(key), screen) }
+    val config = remember(screen) { FollowsGesture(screen) }
+    return with(shared) { this@sharedElement.sharedElement(rememberSharedContentState(key, config), screen) }
+}
+
+/**
+ * Shared elements sit still while a back gesture is being dragged: the screen itself shrinks
+ * towards its edge, and the avatar and the rest fly to their places only once the gesture is done.
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+private class FollowsGesture(private val screen: AnimatedVisibilityScope) : SharedTransitionScope.SharedContentConfig {
+    override val SharedTransitionScope.SharedContentState.isEnabled: Boolean get() = !screen.transition.isSeeking
 }
 
 /** The shared key that ties a settings row to the screen it opens. */

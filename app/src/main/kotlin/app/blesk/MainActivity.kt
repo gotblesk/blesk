@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -26,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.Lifecycle
@@ -40,6 +42,7 @@ import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.IncognitoKeyboard
 import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.NoticeHost
+import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskThemeWithWave
 import app.blesk.core.motion.LocalHapticLevel
 import app.blesk.feature.chats.media.LocalPictureInPicture
@@ -90,6 +93,9 @@ class MainActivity : ComponentActivity() {
                 LocalPictureInPicture provides pictureInPicture,
             ) {
                 BleskThemeWithWave(appearance = appearance) {
+                    // The window under every screen is the theme's own background: no dark bands in a back gesture.
+                    val windowBackground = Blesk.colors.background
+                    LaunchedEffect(windowBackground) { window.setBackgroundDrawable(ColorDrawable(windowBackground.toArgb())) }
                     Box(Modifier.fillMaxSize()) {
                         IncognitoKeyboard(privacy.incognitoKeyboard) { BleskNavigation(container) }
                         NoticeHost(container.notices, Modifier.align(Alignment.BottomCenter))
