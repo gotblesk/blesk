@@ -588,6 +588,20 @@ class KeyScreensScreenshotTest(private val name: String) {
         }
     }
 
+    /** The bar at rest with motion on: the action capsule's bridge only shows when bridges are allowed. */
+    @Test
+    fun navigationBridge() {
+        captureRoboImage("build/screenshots/34_navbar_bridge_$name.png") {
+            BleskTheme(appearance = Appearance(theme = theme), motion = BleskMotion(reduced = false)) {
+                LensScaffold(
+                    bottom = {
+                        LensTabBar(tabs = tabs, selected = 2, onSelect = {}, action = LensAction(BleskIcons.NewChat, "Новый чат") {})
+                    },
+                ) { }
+            }
+        }
+    }
+
     @Test
     fun motionShowcase() = capture("33_motion_showcase") {
         MotionShowcase(

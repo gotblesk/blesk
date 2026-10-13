@@ -231,8 +231,10 @@ fun LensTabBar(
                 .onSizeChanged { barWidth = it.width }
                 .lens(CircleShape)
                 .padding(BarPadding)
-                .metaballs(color = drop, smoothness = 18.dp) {
-                    tabDrops(lead.value, tail.value, weights, size.width, size.height)
+                .metaballs(color = drop, smoothness = DropSmoothness) {
+                    // The smoothing swells the drop by about a quarter of itself; the drop is cut down by
+                    // as much, so its visible edge keeps the bar's padding from the lens and is never clipped.
+                    tabDrops(lead.value, tail.value, weights, size.width, size.height, inset = DropSmoothness.toPx() / 4f)
                 }
                 .selectableGroup(),
         ) {
@@ -340,21 +342,24 @@ private const val SHRUNK = 0.4f
 private const val BRIDGE_FROM = 0.7f
 
 /**
- * The neck between the end of the navigation lens and the action capsule: two concave curves
- * between the circles, with the circles themselves cut out so no glass is drawn twice.
- * The box spans from the centre of the bar's rounded end to the centre of the capsule.
+ * The neck between the end of the navigation lens and the action capsule, in the middle of their
+ * height. Each edge leaves one circle along its tangent and enters the other along its tangent, so
+ * the glass runs on without a lip above or below; the circles themselves are cut out so no glass
+ * is drawn twice. The box spans from the centre of the bar's rounded end to the centre of the capsule.
  */
 private val BridgeShape = GenericShape { size, _ ->
     val radius = size.height / 2f
     val cy = size.height / 2f
-    val waist = size.height * BRIDGE_WAIST
     val dx = radius * cos(BRIDGE_ANGLE)
     val dy = radius * sin(BRIDGE_ANGLE)
+    // Along the circles' tangents at the meeting points, far enough to dip to a narrow waist.
+    val tx = sin(BRIDGE_ANGLE) * BRIDGE_PULL * (size.width / 2f - dx)
+    val ty = cos(BRIDGE_ANGLE) * BRIDGE_PULL * (size.width / 2f - dx)
     val neck = Path().apply {
         moveTo(dx, cy - dy)
-        quadraticTo(size.width / 2f, cy - waist, size.width - dx, cy - dy)
+        cubicTo(dx + tx, cy - dy + ty, size.width - dx - tx, cy - dy + ty, size.width - dx, cy - dy)
         lineTo(size.width - dx, cy + dy)
-        quadraticTo(size.width / 2f, cy + waist, dx, cy + dy)
+        cubicTo(size.width - dx - tx, cy + dy - ty, dx + tx, cy + dy - ty, dx, cy + dy)
         close()
     }
     val circles = Path().apply {
@@ -364,10 +369,11 @@ private val BridgeShape = GenericShape { size, _ ->
     addPath(Path.combine(PathOperation.Difference, neck, circles))
 }
 
-private const val BRIDGE_WAIST = 0.16f
-private const val BRIDGE_ANGLE = 0.75f
+private const val BRIDGE_ANGLE = 0.55f
+private const val BRIDGE_PULL = 1.6f
+private val DropSmoothness = 18.dp
 
-private fun tabDrops(lead: Float, tail: Float, weights: List<Float>, width: Float, height: Float): List<Blob> {
+private fun tabDrops(lead: Float, tail: Float, weights: List<Float>, width: Float, height: Float, inset: Float): List<Blob> {
     if (weights.isEmpty()) return emptyList()
     val total = weights.sum()
     val starts = weights.runningFold(0f) { acc, w -> acc + w }.map { it / total * width }
@@ -384,10 +390,11 @@ private fun tabDrops(lead: Float, tail: Float, weights: List<Float>, width: Floa
     }
     fun drop(position: Float, scale: Float): Blob {
         val (cx, span) = slot(position)
-        val w = span * scale
-        val h = height * (0.55f + 0.45f * scale)
+        val h = (height - inset * 2f) * (0.55f + 0.45f * scale)
+        val w = ((span - inset * 2f) * scale).coerceAtLeast(h)
         val cy = height / 2f
-        return Blob(Rect(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), h / 2f)
+        val left = (cx - w / 2f).coerceIn(inset, width - inset - w)
+        return Blob(Rect(left, cy - h / 2f, left + w, cy + h / 2f), h / 2f)
     }
     val stretch = abs(lead - tail).coerceAtMost(1f)
     return listOf(drop(lead, 1f - 0.15f * stretch), drop(tail, 0.75f - 0.25f * stretch))
