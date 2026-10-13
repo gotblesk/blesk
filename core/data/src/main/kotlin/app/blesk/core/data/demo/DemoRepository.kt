@@ -74,7 +74,7 @@ class DemoRepository private constructor(
         log: EventLog,
         clock: () -> Instant,
         world: DemoWorld,
-    ) : this(seed, attachmentLabels, scope, log, clock, world, DemoCommunities(world, seed.contacts, seed.community, scope, clock))
+    ) : this(seed, attachmentLabels, scope, log, clock, world, DemoCommunities(seed, world, seed.contacts, seed.community, scope, clock))
 
     private val contactsById: Map<String, Contact> = seed.contacts.associateBy { it.id }
     private val messages = world.messages

@@ -163,8 +163,8 @@ private fun Modifier.onlineDot(size: Dp): Modifier {
 private val OnlineDot = 8.dp
 private val DotRing = 2.5.dp
 private const val DOT_DARK_L = 0.8f
-private const val DOT_LIGHT_L = 0.62f
-private const val DOT_CHROMA = 0.14f
+private const val DOT_LIGHT_L = 0.72f
+private const val DOT_CHROMA = 0.16f
 private val MIN_DOTTED = 20.dp
 private const val DOT_AT = 0.85f
 

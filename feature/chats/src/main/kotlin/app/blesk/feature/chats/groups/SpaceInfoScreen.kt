@@ -9,15 +9,18 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.blesk.core.data.model.Message
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
@@ -35,6 +38,9 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.feature.chats.Archive
+import app.blesk.feature.chats.ArchiveActions
+import app.blesk.feature.chats.ArchiveKind
 import app.blesk.feature.chats.EncryptionRow
 import app.blesk.feature.chats.R
 import app.blesk.shared.protocol.SpaceInfo
@@ -42,6 +48,8 @@ import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import app.blesk.core.design.R as DesignR
 
@@ -68,6 +76,8 @@ fun SpaceInfoScreen(
     modifier: Modifier = Modifier,
     membersFailed: Boolean = false,
     onRetryMembers: () -> Unit = {},
+    messages: ImmutableList<Message> = persistentListOf(),
+    archive: ArchiveActions = ArchiveActions({}, {}, {}, {}),
 ) {
     val scope = rememberCoroutineScope()
     val owner = space.role == SpaceRole.Owner
@@ -78,19 +88,24 @@ fun SpaceInfoScreen(
     val pad = Modifier.padding(horizontal = Blesk.dimens.gutter)
 
     ScrollScreen(title = space.title, onBack = onBack, modifier = modifier) {
-        Column(pad.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("@${space.handle}", style = Blesk.type.bodyStrong)
-                NotEncryptedTag()
-            }
-            Text(
-                text = pluralStringResource(R.plurals.space_members, space.members, space.members),
-                style = Blesk.type.label,
-                color = Blesk.colors.textSecondary,
-            )
-            Text(stringResource(R.string.space_open_note), style = Blesk.type.label, color = Blesk.colors.textSecondary)
-        }
+        InfoHero(
+            title = space.title,
+            lines = listOf(
+                "@${space.handle}",
+                pluralStringResource(
+                    if (space.kind == SpaceKind.Channel) R.plurals.chats_subscribers else R.plurals.space_members,
+                    space.members,
+                    space.members,
+                ),
+            ),
+            avatar = { Avatar(space.title, size = HeroAvatar, key = space.handle) },
+            tag = { NotEncryptedTag() },
+        )
         EncryptionRow(protected = false)
+        var tab by rememberSaveable { mutableIntStateOf(0) }
+        val kinds = listOf(ArchiveKind.Media, ArchiveKind.Files, ArchiveKind.Links)
+        InfoTabs(kinds.map { stringResource(it.label) }.toImmutableList(), tab) { tab = it }
+        Archive(kind = kinds[tab], messages = messages, actions = archive)
 
         if (admin) {
             val title = rememberTextFieldState(space.title)
@@ -154,7 +169,7 @@ fun SpaceInfoScreen(
                 )
             } else {
                 ListRow(
-                    title = stringResource(R.string.group_leave),
+                    title = stringResource(if (space.kind == SpaceKind.Channel) R.string.channel_unsubscribe else R.string.room_leave),
                     icon = BleskIcons.Back,
                     showChevron = false,
                     onClick = { run { actions.leave() } },
@@ -244,3 +259,5 @@ private fun SpaceChannels(space: SpaceInfo, admin: Boolean, actions: SpaceAction
         modifier = Modifier.padding(horizontal = Blesk.dimens.gutter),
     )
 }
+
+private val HeroAvatar = 88.dp

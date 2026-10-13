@@ -49,14 +49,16 @@ internal class DemoWorld(seed: DemoSeed) {
  * only, with the demo people as members, so everything a server would do can be tried offline.
  */
 internal class DemoCommunities(
+    seeded: DemoSeed,
     private val world: DemoWorld,
     private val people: List<Contact>,
     private val texts: DemoCommunityTexts,
     private val scope: CoroutineScope,
     private val clock: () -> Instant,
 ) : GroupController, SpaceController {
-    private val groups = MutableStateFlow<Map<String, GroupState>>(emptyMap())
-    private val spaces = MutableStateFlow<Map<String, SpaceInfo>>(emptyMap())
+    // The seeded group, room and channel are known from the start; their rows already are in the list.
+    private val groups = MutableStateFlow(seeded.groups.associateBy { it.id })
+    private val spaces = MutableStateFlow(seeded.spaces.associateBy { it.handle })
 
     override val me: String = ME
 

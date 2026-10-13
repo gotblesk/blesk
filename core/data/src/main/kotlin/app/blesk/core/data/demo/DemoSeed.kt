@@ -13,7 +13,16 @@ import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.shared.protocol.BotCommand
+import app.blesk.shared.protocol.GroupChannel
+import app.blesk.shared.protocol.GroupChannelKind
+import app.blesk.shared.protocol.GroupKind
+import app.blesk.shared.protocol.GroupMember
+import app.blesk.shared.protocol.GroupRole
+import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.LinkPreview
+import app.blesk.shared.protocol.SpaceInfo
+import app.blesk.shared.protocol.SpaceKind
+import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -30,6 +39,9 @@ class DemoSeed(
     val directContactIds: Set<String>,
     val bot: DemoBot = DemoBot(),
     val community: DemoCommunityTexts = DemoCommunityTexts(),
+    /** The demo's group and room as a server would describe them: members, roles, channels. */
+    val groups: List<GroupState> = emptyList(),
+    val spaces: List<SpaceInfo> = emptyList(),
 ) {
     companion object {
         const val ANYA = "anya"
@@ -37,12 +49,52 @@ class DemoSeed(
         const val STRANGER = "oleg"
         const val GROUP = "group"
         const val ROOM = "room"
-        const val CHANNEL = "channel"
+        const val CHANNEL = "space:blesk"
+
+        /** Who writes the posts of the demo channel. */
+        const val CHANNEL_AUTHOR = "channel"
         const val BOT = "bot"
         const val SAVED = "saved"
-        const val ROOM_GENERAL = "room-general"
-        const val ROOM_DESIGN = "room-design"
+        const val ROOM_GENERAL = "room:general"
+        const val ROOM_DESIGN = "room:design"
         const val ROOM_VOICE = "room-voice"
+
+        private const val CHANNEL_SUBSCRIBERS = 1280
+
+        /** The demo's group and room as a server would describe them: who is in, with which role, which channels. */
+        private fun demoGroups(resources: Resources, roomTitle: String, generalTitle: String, designTitle: String) = listOf(
+            GroupState(
+                id = GROUP, kind = GroupKind.Group, title = resources.getString(R.string.demo_title_group), version = 1, epoch = 0,
+                members = listOf(
+                    GroupMember("orlov", GroupRole.Owner),
+                    GroupMember(ME, GroupRole.Admin),
+                    GroupMember("lera", GroupRole.Member),
+                    GroupMember("katya", GroupRole.Member),
+                ),
+            ),
+            GroupState(
+                id = ROOM, kind = GroupKind.Room, title = roomTitle, version = 1, epoch = 0,
+                members = listOf(GroupMember(ME, GroupRole.Owner), GroupMember("orlov", GroupRole.Admin)) +
+                    listOf("katya", "lera", "anya", "misha.k").map { GroupMember(it, GroupRole.Member) },
+                channels = listOf(
+                    GroupChannel(ROOM_GENERAL.substringAfter(':'), generalTitle),
+                    GroupChannel(ROOM_DESIGN.substringAfter(':'), designTitle),
+                    GroupChannel(ROOM_VOICE, resources.getString(R.string.demo_channel_voice), GroupChannelKind.Voice),
+                ),
+            ),
+        )
+
+        private fun demoSpaces(resources: Resources) = listOf(
+            SpaceInfo(
+                handle = CHANNEL.removePrefix(DemoCommunities.SPACE_PREFIX),
+                kind = SpaceKind.Channel,
+                title = resources.getString(R.string.demo_title_channel),
+                about = resources.getString(R.string.demo_channel_about),
+                members = CHANNEL_SUBSCRIBERS,
+                channels = emptyList(),
+                role = SpaceRole.Member,
+            ),
+        )
 
         fun from(resources: Resources, now: Instant): DemoSeed {
             val contacts = listOf(
@@ -52,7 +104,7 @@ class DemoSeed(
                 Contact("dima", resources.getString(R.string.demo_name_dima), "orlov"),
                 Contact("katya", resources.getString(R.string.demo_name_katya), "katya"),
                 Contact(BOT, resources.getString(R.string.demo_name_bot), "echo_bot"),
-                Contact(CHANNEL, resources.getString(R.string.demo_title_channel), "blesk"),
+                Contact(CHANNEL_AUTHOR, resources.getString(R.string.demo_title_channel), "blesk"),
                 Contact(STRANGER, resources.getString(R.string.demo_name_stranger), "oleg_design"),
             )
             val byId = contacts.associateBy { it.id }
@@ -150,7 +202,7 @@ class DemoSeed(
                 Conversation(STRANGER, ConversationKind.Direct, byId.getValue(STRANGER).name, Protection.EndToEnd,
                     preview(STRANGER, false), updated(STRANGER), unread = 1, request = true),
                 Conversation(CHANNEL, ConversationKind.Channel, resources.getString(R.string.demo_title_channel), Protection.Open,
-                    preview(CHANNEL, false), updated(CHANNEL), memberCount = 1280),
+                    preview(CHANNEL, false), updated(CHANNEL), memberCount = CHANNEL_SUBSCRIBERS),
                 Conversation(BOT, ConversationKind.Bot, byId.getValue(BOT).name, Protection.Open,
                     preview(BOT, false), updated(BOT)),
                 Conversation(ROOM_GENERAL, ConversationKind.Room, generalTitle, Protection.EndToEnd,
@@ -175,6 +227,8 @@ class DemoSeed(
                         BotCommand("help", resources.getString(R.string.demo_bot_command_help)),
                     ),
                 ),
+                groups = demoGroups(resources, roomTitle, generalTitle, designTitle),
+                spaces = demoSpaces(resources),
                 community = DemoCommunityTexts(
                     textChannel = resources.getString(R.string.demo_channel_general),
                     voiceChannel = resources.getString(R.string.demo_channel_voice),

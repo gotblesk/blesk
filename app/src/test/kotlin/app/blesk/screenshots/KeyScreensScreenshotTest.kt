@@ -76,6 +76,7 @@ import app.blesk.feature.chats.SearchHit
 import app.blesk.feature.chats.SearchResults
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.chats.groups.GroupActions
+import app.blesk.feature.chats.groups.GroupInfoExtras
 import app.blesk.feature.chats.groups.GroupInfoScreen
 import app.blesk.feature.chats.groups.NewGroupScreen
 import app.blesk.feature.chats.groups.SpaceActions
@@ -712,6 +713,32 @@ class KeyScreensScreenshotTest(private val name: String) {
             nameOf = { mapOf("eva" to "Ева", "lera" to "Лера", "anya" to "Аня")[it] ?: it },
             actions = GroupActions({}, {}, {}, { _, _ -> }, { _, _, _ -> }, {}, {}, {}),
             onBack = {},
+        )
+    }
+
+    @Test
+    fun groupMembers() = capture("17b_group_members") {
+        val state = GroupState(
+            id = "w",
+            kind = GroupKind.Group,
+            title = "Выходные",
+            version = 1,
+            epoch = 0,
+            members = listOf(
+                GroupMember("orlov", GroupRole.Owner),
+                GroupMember("eva", GroupRole.Admin),
+                GroupMember("lera", GroupRole.Member),
+                GroupMember("katya", GroupRole.Member),
+            ),
+        )
+        GroupInfoScreen(
+            state = state,
+            me = "eva",
+            contacts = persistentListOf(),
+            nameOf = { mapOf("eva" to "Ева", "lera" to "Лера", "katya" to "Катя", "orlov" to "Дима Орлов")[it] ?: it },
+            actions = GroupActions({}, {}, {}, { _, _ -> }, { _, _, _ -> }, {}, {}, {}),
+            onBack = {},
+            extras = GroupInfoExtras(online = persistentSetOf("lera")),
         )
     }
 

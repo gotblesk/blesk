@@ -4,13 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
@@ -31,11 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -46,7 +39,6 @@ import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
-import app.blesk.core.data.model.visuals
 import app.blesk.core.design.component.ActionCluster
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ClusterAction
@@ -56,7 +48,6 @@ import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ProfileHero
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
-import app.blesk.core.design.component.StateMessage
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.component.glint
@@ -64,17 +55,12 @@ import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.component.rememberPhotoFile
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
-import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.condense
-import app.blesk.feature.chats.media.mediaKey
-import coil3.compose.AsyncImage
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import java.io.File
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import app.blesk.core.design.R as DesignR
 
 /** What can be done from someone's profile. Null actions are not offered here. */
@@ -264,103 +250,21 @@ private fun KeysRow(verified: Boolean, onVerify: () -> Unit) {
     }
 }
 
-private enum class SharedTab { Media, Files, Links, Voice }
-
 /** What the two of you have sent each other, one kind at a time. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SharedContent(messages: ImmutableList<Message>, actions: PersonActions) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    val kinds = ArchiveKind.entries
     Segmented(
-        options = persistentListOf(
-            stringResource(R.string.person_tab_media),
-            stringResource(R.string.person_tab_files),
-            stringResource(R.string.person_tab_links),
-            stringResource(R.string.person_tab_voice),
-        ),
+        options = kinds.map { stringResource(it.label) }.toImmutableList(),
         selected = tab,
         onSelect = { tab = it },
     )
-    val newest = messages.asReversed()
-    val gutter = Modifier.padding(horizontal = Blesk.dimens.gutter)
-    when (SharedTab.entries[tab]) {
-        SharedTab.Media -> {
-            val media = newest.filter { it.attachment?.visuals.orEmpty().isNotEmpty() }
-            if (media.isEmpty()) return Empty()
-            FlowRow(
-                gutter.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                media.take(MAX_SHOWN).forEach { message ->
-                    // An album shows its first picture here; the viewer pages through the rest.
-                    val path = when (val a = message.attachment?.visuals?.firstOrNull()) {
-                        is Attachment.Photo -> a.path
-                        is Attachment.Video -> a.thumbnail
-                        else -> return@forEach
-                    }
-                    val label = stringResource(R.string.person_open_media)
-                    AsyncImage(
-                        model = File(path),
-                        contentDescription = label,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth(THIRD)
-                            .aspectRatio(1f)
-                            .sharedElement(mediaKey(message.id, 0))
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Blesk.colors.surface)
-                            .clickable(role = Role.Button) { actions.onOpenMedia(message.id) },
-                    )
-                }
-            }
-        }
-        SharedTab.Files -> {
-            val files = newest.mapNotNull { it.attachment as? Attachment.File }
-            if (files.isEmpty()) return Empty()
-            Card(gutter.padding(top = 8.dp)) {
-                files.take(MAX_SHOWN).forEach { file ->
-                    ListRow(
-                        title = file.name,
-                        subtitle = sizeLabel(file.sizeBytes),
-                        icon = BleskIcons.Document,
-                        showChevron = false,
-                        onClick = { actions.onOpenFile(file) },
-                    )
-                }
-            }
-        }
-        SharedTab.Links -> {
-            val links = newest.flatMap { message -> LINK.findAll(message.text).map { it.value }.toList() }.distinct()
-            if (links.isEmpty()) return Empty()
-            Card(gutter.padding(top = 8.dp)) {
-                links.take(MAX_SHOWN).forEach { link ->
-                    ListRow(title = link, icon = BleskIcons.Forward, showChevron = false, onClick = { actions.onOpenLink(link) })
-                }
-            }
-        }
-        SharedTab.Voice -> {
-            val voices = newest.filter { it.attachment is Attachment.Voice }
-            if (voices.isEmpty()) return Empty()
-            Card(gutter.padding(top = 8.dp)) {
-                voices.take(MAX_SHOWN).forEach { message ->
-                    val voice = message.attachment as Attachment.Voice
-                    ListRow(
-                        title = dateFormat.format(message.sentAt.atZone(ZoneId.systemDefault())),
-                        subtitle = durationLabel(voice.durationMillis),
-                        icon = BleskIcons.Play,
-                        showChevron = false,
-                        onClick = { actions.onPlayVoice(voice.path) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun Empty() {
-    StateMessage(stringResource(R.string.person_nothing_yet))
+    Archive(
+        kind = kinds[tab],
+        messages = messages,
+        actions = ArchiveActions(actions.onOpenMedia, actions.onOpenFile, actions.onOpenLink, actions.onPlayVoice),
+    )
 }
 
 @Composable
@@ -394,21 +298,4 @@ private fun MoreSheet(pinned: Boolean, onPin: () -> Unit, onTheme: (() -> Unit)?
     }
 }
 
-@Composable
-private fun sizeLabel(bytes: Long): String = when {
-    bytes >= MEGABYTE -> stringResource(R.string.person_size_mb, bytes / MEGABYTE.toFloat())
-    else -> stringResource(R.string.person_size_kb, (bytes / KILOBYTE).coerceAtLeast(1))
-}
-
-private fun durationLabel(millis: Long): String {
-    val seconds = millis / 1000
-    return "%d:%02d".format(seconds / 60, seconds % 60)
-}
-
-private val LINK = Regex("https?://[^\\s]+")
-private val dateFormat = DateTimeFormatter.ofPattern("d MMMM, HH:mm", Locale.forLanguageTag("ru"))
-private const val MAX_SHOWN = 60
-private const val THIRD = 0.32f
-private const val MEGABYTE = 1_048_576L
-private const val KILOBYTE = 1_024L
 private const val LENS_REACH_PX = 72f

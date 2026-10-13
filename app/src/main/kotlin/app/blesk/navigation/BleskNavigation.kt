@@ -451,9 +451,14 @@ fun BleskNavigation(container: AppContainer) {
                             }, onBack = back)
                         }
                         entry<GroupInfoKey> { key ->
-                            GroupInfoRoute(container, key.groupId, onLeft = {
-                                while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-                            }, onBack = back)
+                            GroupInfoRoute(
+                                container,
+                                key.groupId,
+                                onLeft = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                                onBack = back,
+                                onOpenPerson = { username -> openDirect(username) { backStack.add(ChatInfoKey(it)) } },
+                                onOpenMedia = { chat, message -> backStack.add(MediaKey(chat, message)) },
+                            )
                         }
                         entry<BotsKey> {
                             Box(Modifier.sharedBounds(screenKey("bots"))) { BotsRoute(container, back) }
@@ -488,9 +493,13 @@ fun BleskNavigation(container: AppContainer) {
                             )
                         }
                         entry<SpaceInfoKey> { key ->
-                            SpaceInfoRoute(container, key.handle, onLeft = {
-                                while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-                            }, onBack = back)
+                            SpaceInfoRoute(
+                                container,
+                                key.handle,
+                                onLeft = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                                onBack = back,
+                                onOpenMedia = { chat, message -> backStack.add(MediaKey(chat, message)) },
+                            )
                         }
                         entry<MediaKey> { key -> MediaRoute(container, key, onBack = back) }
                         entry<DevicesKey> { DevicesRoute(container, back) }

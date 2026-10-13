@@ -298,7 +298,7 @@ internal fun ConversationRoute(
             onOpenInfo = when {
                 isSpace -> ({ onOpenSpace(id.removePrefix(SPACE_PREFIX).substringBefore(':')) })
                 direct -> onVerify
-                groupController != null && id.length > MAX_USERNAME_LENGTH -> ({ onOpenGroup(groupId) })
+                groupState != null -> ({ onOpenGroup(groupId) })
                 else -> null
             },
             onCall = if (direct) onCall else null,
@@ -446,6 +446,5 @@ private fun sizeOf(context: Context, uri: Uri): Long = runCatching {
 private const val SPACE_PREFIX = "space:"
 
 /** Group ids are UUIDs; usernames are at most 32 characters. */
-private const val MAX_USERNAME_LENGTH = 32
 
 /** Keeps text readable over any photo without hiding it. */

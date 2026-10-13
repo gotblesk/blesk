@@ -7,24 +7,33 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.calls.CallActivity
 import app.blesk.core.data.GroupController
 import app.blesk.core.data.SpaceController
 import app.blesk.core.data.SpaceResult
+import app.blesk.core.design.component.rememberNotify
+import app.blesk.feature.chats.ArchiveActions
 import app.blesk.feature.chats.groups.GroupActions
+import app.blesk.feature.chats.groups.GroupInfoExtras
 import app.blesk.feature.chats.groups.GroupInfoScreen
 import app.blesk.feature.chats.groups.NewGroupScreen
 import app.blesk.feature.chats.groups.NewKind
 import app.blesk.feature.chats.groups.SpaceActions
 import app.blesk.feature.chats.groups.SpaceInfoScreen
+import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 @Composable
 internal fun NewGroupRoute(container: AppContainer, kind: NewKind, onCreated: (String) -> Unit, onBack: () -> Unit) {
@@ -55,7 +64,13 @@ internal fun NewGroupRoute(container: AppContainer, kind: NewKind, onCreated: (S
 }
 
 @Composable
-internal fun SpaceInfoRoute(container: AppContainer, handle: String, onLeft: () -> Unit, onBack: () -> Unit) {
+internal fun SpaceInfoRoute(
+    container: AppContainer,
+    handle: String,
+    onLeft: () -> Unit,
+    onBack: () -> Unit,
+    onOpenMedia: (conversationId: String, messageId: String) -> Unit = { _, _ -> },
+) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val spaces = chats as? SpaceController ?: return
     val me = (chats as? GroupController)?.me.orEmpty()
@@ -70,8 +85,22 @@ internal fun SpaceInfoRoute(container: AppContainer, handle: String, onLeft: () 
         membersFailed = loaded == null
         value = loaded
     }
+    val context = LocalContext.current
+    val ids = remember(space) {
+        listOf(SPACE_PREFIX + handle) + space?.channels.orEmpty().map { "$SPACE_PREFIX$handle:${it.id}" }
+    }
+    val messages by remember(ids) {
+        combine(ids.map { chats.messages(it) }) { lists -> lists.toList().flatten().sortedBy { it.sentAt } }
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
     val current = space ?: return
     SpaceInfoScreen(
+        messages = messages.toImmutableList(),
+        archive = ArchiveActions(
+            onOpenMedia = { id -> messages.firstOrNull { it.id == id }?.let { onOpenMedia(it.conversationId, id) } },
+            onOpenFile = { file -> openFile(context, file) },
+            onOpenLink = { link -> openLink(context, link) },
+            onPlayVoice = { path -> container.audioPlayer.toggle(path) },
+        ),
         space = current,
         me = me,
         members = members?.toImmutableList(),
@@ -105,15 +134,60 @@ internal fun SpaceInfoRoute(container: AppContainer, handle: String, onLeft: () 
 private const val SPACE_PREFIX = "space:"
 
 @Composable
-internal fun GroupInfoRoute(container: AppContainer, groupId: String, onLeft: () -> Unit, onBack: () -> Unit) {
+internal fun GroupInfoRoute(
+    container: AppContainer,
+    groupId: String,
+    onLeft: () -> Unit,
+    onBack: () -> Unit,
+    onOpenPerson: (username: String) -> Unit = {},
+    onOpenMedia: (conversationId: String, messageId: String) -> Unit = { _, _ -> },
+) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val groups = chats as? GroupController ?: return
     val state by remember(groupId) { groups.group(groupId) }.collectAsStateWithLifecycle(initialValue = null)
     val contacts by chats.contacts.collectAsStateWithLifecycle(initialValue = emptyList())
     val conversation by remember(groupId) { chats.conversation(groupId) }.collectAsStateWithLifecycle(initialValue = null)
     val leftText = stringResource(app.blesk.feature.chats.R.string.group_left)
+    val context = LocalContext.current
+    val notify = rememberNotify()
+    val callsLater = stringResource(app.blesk.feature.chats.R.string.group_calls_later)
+    // A room keeps its messages in its text channels; the archive gathers them all.
+    val conversationIds = remember(state) {
+        listOf(groupId) + state?.channels.orEmpty().filter { it.kind == GroupChannelKind.Text }.map { "$groupId:${it.id}" }
+    }
+    val messages by remember(conversationIds) {
+        combine(conversationIds.map { chats.messages(it) }) { lists -> lists.toList().flatten().sortedBy { it.sentAt } }
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val presence by chats.presence.collectAsStateWithLifecycle()
+    val online = remember(presence) {
+        val now = Instant.now()
+        presence.filterValues { it.isOnline(now) }.keys.map { chats.contact(it)?.username ?: it }.toImmutableSet()
+    }
     val current = state ?: return
+    val extras = GroupInfoExtras(
+        messages = messages.toImmutableList(),
+        online = online,
+        muted = conversation?.muted(System.currentTimeMillis()) == true,
+        onMute = { mute -> chats.mute(groupId, if (mute) Long.MAX_VALUE else 0L) },
+        onCall = {
+            // A room talks in its voice channels; a group has no call of its own yet.
+            val voice = current.channels.firstOrNull { it.kind == GroupChannelKind.Voice }
+            if (voice != null) {
+                context.startActivity(CallActivity.voice(context, groupId, voice.id, voice.id, "${current.title} · ${voice.title}"))
+            } else {
+                notify(callsLater)
+            }
+        },
+        onOpenPerson = onOpenPerson,
+        archive = ArchiveActions(
+            onOpenMedia = { id -> messages.firstOrNull { it.id == id }?.let { onOpenMedia(it.conversationId, id) } },
+            onOpenFile = { file -> openFile(context, file) },
+            onOpenLink = { link -> openLink(context, link) },
+            onPlayVoice = { path -> container.audioPlayer.toggle(path) },
+        ),
+    )
     GroupInfoScreen(
+        extras = extras,
         timerSeconds = conversation?.timerSeconds ?: 0,
         onTimer = { chats.setTimer(groupId, it) },
         state = current,
