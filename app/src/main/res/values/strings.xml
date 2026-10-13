@@ -35,4 +35,5 @@
         <item quantity="other">Передаётся %1$d файла</item>
     </plurals>
     <string name="player_voice">Голосовое сообщение</string>
+    <string name="call_needs_server">Работает после подключения к серверу</string>
 </resources>

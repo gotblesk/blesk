@@ -45,6 +45,10 @@
     <string name="anim_sweep_note">Белый блик проходит по шапке один раз</string>
     <string name="anim_wipe">15. «Удалить всё»</string>
     <string name="anim_wipe_note">Блики гаснут один за другим</string>
+    <string name="anim_beacon">16. Входящий звонок — «маяк»</string>
+    <string name="anim_beacon_note">Свет медленно обходит край аватара</string>
+    <string name="anim_breath">17. Голос говорящего</string>
+    <string name="anim_breath_note">Край аватара едва заметно дышит громкостью; в тишине неподвижен</string>
     <string name="anim_fire">18. «Огонь»</string>
     <string name="anim_fire_note">Спектральная вспышка по краю: звонок соединился, ключи сверены</string>
     <string name="anim_read_more">«Читать дальше»</string>

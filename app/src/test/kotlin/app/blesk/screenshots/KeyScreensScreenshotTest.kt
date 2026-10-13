@@ -1,5 +1,6 @@
 package app.blesk.screenshots
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -763,6 +764,23 @@ class KeyScreensScreenshotTest(private val name: String) {
             room = null,
             nameOf = { it },
             actions = callActions,
+        )
+    }
+
+    /** The demo walks through a real call: name, timer, the whole cluster, your camera in the corner. */
+    @Test
+    fun demoVideoCall() = capture("20b_call_demo_video") {
+        CallScreen(
+            session = CallSession(
+                "d", "anya", "Аня Соколова", incoming = false, video = true, phase = CallPhase.Active, startedAtMillis = 0,
+            ),
+            media = MediaState(micOn = true, cameraOn = true, speakerOn = true),
+            room = null,
+            nameOf = { it },
+            actions = CallActions({}, {}, {}, {}, {}, {}, {}, toggleShare = {}),
+            demo = true,
+            demoPreview = { Box(Modifier.fillMaxSize().background(Color(0xFF6B7A8A))) },
+            clock = { 83_000L },
         )
     }
 

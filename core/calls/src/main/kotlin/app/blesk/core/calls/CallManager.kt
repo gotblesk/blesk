@@ -64,7 +64,11 @@ class CallManager(
         mutable.value = CallSession(id, username, nameOf(username), incoming = false, video = video, phase = CallPhase.Calling)
         val signals = signaling
         if (signals == null) {
+            // Nobody on the other end: the demo walks through the same steps a real call takes.
             scope.launch {
+                delay(DEMO_RING_MILLIS)
+                mutable.value = mutable.value?.takeIf { it.id == id && it.phase == CallPhase.Calling }?.copy(phase = CallPhase.Connecting)
+                    ?: return@launch
                 delay(DEMO_CONNECT_MILLIS)
                 activate(id)
             }
@@ -230,6 +234,7 @@ class CallManager(
         const val STALE_OFFER_MILLIS = 60_000L
         const val ALONE_MILLIS = 30_000L
         const val ENDED_SHOWN_MILLIS = 1_800L
-        const val DEMO_CONNECT_MILLIS = 1_500L
+        const val DEMO_RING_MILLIS = 1_800L
+        const val DEMO_CONNECT_MILLIS = 900L
     }
 }

@@ -10,8 +10,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
@@ -19,8 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import app.blesk.AppContainer
 import app.blesk.core.data.demo.DemoSeed
+import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Switch
 import app.blesk.core.design.component.glint
+import app.blesk.core.design.fire.beacon
+import app.blesk.core.design.fire.breathing
 import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.fire.lightSweep
 import app.blesk.core.design.spark.KeyMerge
@@ -88,6 +95,12 @@ internal fun MotionRoute(container: AppContainer, onOpenChat: (String) -> Unit, 
         MotionDemo(stringResource(DebugR.string.anim_wipe), stringResource(DebugR.string.anim_wipe_note)) { replay ->
             FadingGlints(replay)
         },
+        MotionDemo(stringResource(DebugR.string.anim_beacon), stringResource(DebugR.string.anim_beacon_note)) { replay ->
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Avatar("Аня Соколова", size = 72.dp, modifier = Modifier.beacon(active = replay % 2 == 1))
+            }
+        },
+        MotionDemo(stringResource(DebugR.string.anim_breath), stringResource(DebugR.string.anim_breath_note)) { replay -> Breath(replay) },
         MotionDemo(stringResource(DebugR.string.anim_fire), stringResource(DebugR.string.anim_fire_note)) { replay ->
             Capsule(Modifier.flashOn(key = replay, shape = CircleShape))
         },
@@ -125,6 +138,23 @@ private fun Capsule(modifier: Modifier = Modifier) {
     )
 }
 
+/** A voice that rises and falls for a few seconds, and the avatar's edge breathing with it. */
+@Composable
+private fun Breath(replay: Int) {
+    var level by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(replay) {
+        if (replay == 0) return@LaunchedEffect
+        VOICE.forEach { loud ->
+            level = loud
+            delay(VOICE_STEP_MILLIS)
+        }
+        level = 0f
+    }
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Avatar("Лера", size = 72.dp, modifier = Modifier.breathing(level))
+    }
+}
+
 /** «Удалить всё»: the glints go out one after another. */
 @Composable
 private fun FadingGlints(replay: Int) {
@@ -151,5 +181,7 @@ private fun FadingGlints(replay: Int) {
 }
 
 private val CapsuleHeight = 48.dp
+private val VOICE = listOf(0.3f, 0.8f, 0.5f, 1f, 0.2f, 0.7f, 0.9f, 0.4f, 0f, 0.6f, 1f, 0.3f)
+private const val VOICE_STEP_MILLIS = 220L
 private const val GLINTS = 4
 private const val THEME_HOLD_MILLIS = 1_800L

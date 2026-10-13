@@ -33,6 +33,8 @@ data class CallMember(
     val micOn: Boolean,
     val camera: VideoTrack?,
     val screen: VideoTrack?,
+    /** How loud they are right now, 0 to 1, as the room last reported it. */
+    val level: Float = 0f,
 )
 
 data class MediaState(
@@ -177,6 +179,7 @@ class CallMedia(private val context: Context, private val scope: CoroutineScope)
         micOn = participant.getTrackPublication(Track.Source.MICROPHONE)?.muted == false,
         camera = participant.videoOf(Track.Source.CAMERA),
         screen = participant.videoOf(Track.Source.SCREEN_SHARE),
+        level = participant.audioLevel.coerceIn(0f, 1f),
     )
 
     private fun Participant.videoOf(source: Track.Source): VideoTrack? =

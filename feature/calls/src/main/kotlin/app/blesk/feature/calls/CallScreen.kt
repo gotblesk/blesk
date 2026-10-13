@@ -47,9 +47,14 @@ import app.blesk.core.data.calls.CallOutcome
 import app.blesk.core.data.calls.CallPhase
 import app.blesk.core.data.calls.CallSession
 import app.blesk.core.design.component.Avatar
+import app.blesk.core.design.component.ChatBackdrop
+import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.glint
+import app.blesk.core.design.fire.beacon
+import app.blesk.core.design.fire.breathing
+import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.glass.BottomLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -79,7 +84,7 @@ fun CallScreen(
     actions: CallActions,
     modifier: Modifier = Modifier,
     demo: Boolean = false,
-    /** The demo shows the phone's own camera here. */
+    /** In the demo, the phone's own camera, shown in the corner as in a real video call. */
     demoPreview: @Composable BoxScope.() -> Unit = {},
     clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -96,22 +101,43 @@ fun CallScreen(
     val sharedScreen = remote.firstNotNullOfOrNull { it.screen }
     val stage = sharedScreen ?: if (!session.voiceChannel) remote.firstNotNullOfOrNull { it.camera } else null
     Box(modifier.fillMaxSize().background(Blesk.colors.background)) {
+        // The light of the person's own header style behind them, never a blank screen.
+        if (stage == null) {
+            val preset = Math.floorMod(session.conversationId.hashCode(), HeaderStyle.Light.PRESETS)
+            ChatBackdrop(HeaderStyle.Light(preset), photo = null, modifier = Modifier.fillMaxSize())
+        }
         when {
-            demo && session.phase == CallPhase.Active && session.video -> Box(Modifier.fillMaxSize(), content = demoPreview)
             room != null && stage != null -> VideoView(room, stage, Modifier.fillMaxSize(), fill = stage != sharedScreen)
             session.voiceChannel -> VoiceGrid(media.members, nameOf, Modifier.align(Alignment.Center))
-            else -> Who(session, Modifier.align(Alignment.Center))
+            else -> Who(session, remote.firstOrNull()?.level ?: 0f, Modifier.align(Alignment.Center)) {
+                Status(session, media, demo, clock)
+                Encrypted()
+            }
         }
-        Column(
-            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            if (stage != null || session.voiceChannel) Text(session.title, style = Blesk.type.headline)
-            Status(session, media, demo, clock)
-            if (!demo) Encrypted()
+        // Over a picture or a grid the name and the time go to the top; face to face they sit under the avatar.
+        if (stage != null || session.voiceChannel) {
+            Column(
+                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(session.title, style = Blesk.type.headline)
+                Status(session, media, demo, clock)
+                Encrypted()
+            }
         }
         val ownCamera = local?.camera
-        if (room != null && ownCamera != null && stage != null) {
+        val demoCamera = demo && session.video && media.cameraOn
+        if (demoCamera && session.phase != CallPhase.Ended) {
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(16.dp)
+                    .size(width = 108.dp, height = 156.dp)
+                    .clip(RoundedCornerShape(20.dp)),
+                content = demoPreview,
+            )
+        } else if (room != null && ownCamera != null && stage != null) {
             VideoView(
                 room = room,
                 track = ownCamera,
@@ -124,16 +150,25 @@ fun CallScreen(
                     .clip(RoundedCornerShape(20.dp)),
             )
         }
-        Controls(session, media, actions, demo, Modifier.align(Alignment.BottomCenter))
+        Controls(session, media, actions, Modifier.align(Alignment.BottomCenter))
     }
 }
 
 @Composable
-private fun Who(session: CallSession, modifier: Modifier) {
+private fun Who(session: CallSession, level: Float, modifier: Modifier, details: @Composable () -> Unit) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Avatar(session.title, size = 120.dp)
+        // The beam goes round while it rings; once the call connects, fire runs round the edge.
+        Avatar(
+            session.title,
+            size = 120.dp,
+            modifier = Modifier
+                .beacon(active = session.phase in Ringing)
+                .flashOn(key = session.phase == CallPhase.Active, shape = CircleShape)
+                .breathing(level),
+        )
         Spacer(Modifier.height(20.dp))
         Text(session.title, style = Blesk.type.headline, textAlign = TextAlign.Center)
+        details()
     }
 }
 
@@ -152,9 +187,9 @@ private fun Status(session: CallSession, media: MediaState, demo: Boolean, clock
         CallPhase.Connecting -> stringResource(R.string.call_connecting)
         CallPhase.Active -> when {
             media.reconnecting -> stringResource(R.string.call_reconnecting)
-            demo -> stringResource(R.string.call_demo)
-            session.voiceChannel && !media.othersJoined -> stringResource(R.string.call_alone)
-            !session.voiceChannel && !media.othersJoined -> stringResource(R.string.call_waiting)
+            // The demo has nobody to wait for: it counts the call like any other.
+            !demo && session.voiceChannel && !media.othersJoined -> stringResource(R.string.call_alone)
+            !demo && !session.voiceChannel && !media.othersJoined -> stringResource(R.string.call_waiting)
             else -> duration(now - (session.startedAtMillis ?: now))
         }
         CallPhase.Ended -> stringResource(
@@ -220,7 +255,9 @@ private fun VoiceGrid(members: List<CallMember>, nameOf: (String) -> String, mod
                     Avatar(
                         name = name,
                         size = 72.dp,
-                        modifier = Modifier.border(2.dp, if (member.speaking) Blesk.colors.light else Color.Transparent, CircleShape),
+                        modifier = Modifier
+                            .breathing(member.level)
+                            .border(2.dp, if (member.speaking) Blesk.colors.light else Color.Transparent, CircleShape),
                     )
                     if (!member.micOn) {
                         Box(Modifier.clip(CircleShape).background(Blesk.colors.surfaceStrong).padding(4.dp)) {
@@ -235,7 +272,7 @@ private fun VoiceGrid(members: List<CallMember>, nameOf: (String) -> String, mod
 }
 
 @Composable
-private fun Controls(session: CallSession, media: MediaState, actions: CallActions, demo: Boolean, modifier: Modifier) {
+private fun Controls(session: CallSession, media: MediaState, actions: CallActions, modifier: Modifier) {
     BottomLens(modifier) {
         if (session.phase == CallPhase.Ringing) {
             Row(
@@ -260,7 +297,7 @@ private fun Controls(session: CallSession, media: MediaState, actions: CallActio
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (live && !demo) {
+            if (live) {
                 RoundButton(
                     if (media.micOn) BleskIcons.Mic else BleskIcons.MicOff,
                     stringResource(if (media.micOn) R.string.call_mic_off else R.string.call_mic_on),
@@ -343,3 +380,6 @@ private fun duration(millis: Long): String {
 }
 
 private const val TICK_MILLIS = 1_000L
+
+/** The phases before anyone talks, while the beam goes round. */
+private val Ringing = setOf(CallPhase.Calling, CallPhase.Ringing, CallPhase.Connecting)

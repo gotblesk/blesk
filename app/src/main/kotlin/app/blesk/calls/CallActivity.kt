@@ -23,6 +23,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -129,9 +130,14 @@ class CallActivity : ComponentActivity() {
         }
         current ?: return
         val livekit = manager.media as? CallMedia
+        // The demo has no room to talk through, so its microphone, speaker and camera are switches of its own.
+        var demoMedia by remember(current.id) {
+            mutableStateOf(MediaState(micOn = true, cameraOn = current.video, speakerOn = current.video))
+        }
+        val offline = getString(R.string.call_needs_server)
         CallScreen(
             session = current,
-            media = media,
+            media = if (manager.demo) demoMedia else media,
             room = livekit?.currentRoom,
             nameOf = { id -> container.chats.value?.contact(id)?.name ?: id },
             demo = manager.demo,
@@ -140,17 +146,34 @@ class CallActivity : ComponentActivity() {
                 accept = { request(answer(this)) },
                 decline = manager::decline,
                 hangUp = manager::hangUp,
-                toggleMic = { scope.launch { livekit?.setMic(!media.micOn) } },
-                toggleCamera = {
-                    if (granted(Manifest.permission.CAMERA)) {
-                        scope.launch { livekit?.setCamera(!media.cameraOn) }
+                toggleMic = {
+                    if (manager.demo) {
+                        demoMedia = demoMedia.copy(micOn = !demoMedia.micOn)
                     } else {
-                        permissions.launch(arrayOf(Manifest.permission.CAMERA))
+                        scope.launch { livekit?.setMic(!media.micOn) }
                     }
                 },
-                flipCamera = { livekit?.flipCamera() },
-                toggleSpeaker = { livekit?.setSpeaker(!media.speakerOn) },
-                toggleShare = if (manager.demo || livekit == null) null else ({ toggleShare(livekit, media) }),
+                toggleCamera = {
+                    when {
+                        !granted(Manifest.permission.CAMERA) -> permissions.launch(arrayOf(Manifest.permission.CAMERA))
+                        manager.demo -> demoMedia = demoMedia.copy(cameraOn = !demoMedia.cameraOn)
+                        else -> scope.launch { livekit?.setCamera(!media.cameraOn) }
+                    }
+                },
+                flipCamera = { if (manager.demo) container.circleRecorder.flip() else livekit?.flipCamera() },
+                toggleSpeaker = {
+                    if (manager.demo) {
+                        demoMedia = demoMedia.copy(speakerOn = !demoMedia.speakerOn)
+                    } else {
+                        livekit?.setSpeaker(!media.speakerOn)
+                    }
+                },
+                // Sharing the screen needs someone to share it with; the demo says so instead of doing nothing.
+                toggleShare = when {
+                    manager.demo -> ({ container.notices.show(offline) })
+                    livekit == null -> null
+                    else -> ({ toggleShare(livekit, media) })
+                },
             ),
         )
     }
