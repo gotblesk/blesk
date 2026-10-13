@@ -103,6 +103,19 @@ class Haptics(private val view: View, private val level: HapticLevel) {
         view.performHapticFeedback(constant)
     }
 
+    /**
+     * «Маяк»: an incoming call, in the rhythm of the light going round the caller's avatar — a slow
+     * swell and a soft fall, twice.
+     */
+    fun beacon() = play(
+        listOf(
+            Primitive(VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, 0.6f),
+            Primitive(VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, 0.4f),
+            Primitive(VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, 0.6f, delay = BEACON_GAP_MILLIS),
+            Primitive(VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, 0.4f),
+        ),
+    ) { HapticFeedbackConstants.LONG_PRESS }
+
     /** A short low fall at the end of a call. */
     fun callEnded() = play(listOf(Primitive(VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, 0.6f))) {
         HapticFeedbackConstants.CLOCK_TICK
@@ -154,3 +167,5 @@ fun rememberHaptics(): Haptics {
     val level = LocalHapticLevel.current
     return remember(view, level) { Haptics(view, level) }
 }
+
+private const val BEACON_GAP_MILLIS = 250

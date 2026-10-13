@@ -37,10 +37,17 @@ object Durations {
 
     /** Between items that come out one after another, like capsules leaving a lens. */
     const val STAGGER = 45
+
+    /** The system keyboard coming up and going down; panels in its place move the same. */
+    const val KEYBOARD_SHOW = 275
+    const val KEYBOARD_HIDE = 340
 }
 
 /** The one curve for movement that is not a spring: a viscous start and a soft stop. */
 val Viscous: Easing = CubicBezierEasing(0.45f, 0f, 0.15f, 1f)
+
+/** Android's own curve for the keyboard, so a panel that takes its place moves as if it were one. */
+val KeyboardEasing: Easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 /**
  * Motion of the whole app. Springs damp between 0.75 and 0.85, so nothing overshoots by more
@@ -72,6 +79,10 @@ class BleskMotion(val reduced: Boolean, val still: Boolean = reduced) {
     /** The [index]-th of several things appearing one after another. */
     fun <T> staggered(index: Int): FiniteAnimationSpec<T> =
         if (reduced) snap() else tween(Durations.TRANSITION, delayMillis = index * Durations.STAGGER, easing = Viscous)
+
+    /** A panel taking the keyboard's place: up as the keyboard comes up, down as it goes. */
+    fun <T> keyboard(opening: Boolean): FiniteAnimationSpec<T> =
+        if (reduced) snap() else tween(if (opening) Durations.KEYBOARD_SHOW else Durations.KEYBOARD_HIDE, easing = KeyboardEasing)
 
     fun <T> signature(): FiniteAnimationSpec<T> = tween(if (reduced) Durations.DISSOLVE else Durations.SIGNATURE, easing = Viscous)
 

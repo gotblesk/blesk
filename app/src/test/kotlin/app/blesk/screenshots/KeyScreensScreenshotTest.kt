@@ -48,12 +48,15 @@ import app.blesk.core.design.glass.SearchLens
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.icon.LivingIcon
+import app.blesk.core.design.spark.KeyMerge
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.media.Playback
 import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
 import app.blesk.feature.chats.ChatList
+import app.blesk.feature.chats.ChatMotion
+import app.blesk.feature.chats.ChatMotionDemo
 import app.blesk.feature.chats.ConnectionStatus
 import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.ContactsTab
@@ -78,6 +81,9 @@ import app.blesk.feature.chats.groups.SpaceActions
 import app.blesk.feature.chats.groups.SpaceInfoScreen
 import app.blesk.feature.chats.media.MiniPlayer
 import app.blesk.feature.debug.DebugScreen
+import app.blesk.feature.debug.HapticDemo
+import app.blesk.feature.debug.MotionDemo
+import app.blesk.feature.debug.MotionShowcase
 import app.blesk.feature.profile.ProfileActions
 import app.blesk.feature.profile.ProfileScreen
 import app.blesk.feature.profile.QrCode
@@ -580,6 +586,18 @@ class KeyScreensScreenshotTest(private val name: String) {
                 onStop = {},
             )
         }
+    }
+
+    @Test
+    fun motionShowcase() = capture("33_motion_showcase") {
+        MotionShowcase(
+            animations = persistentListOf(
+                MotionDemo("1. Отправка — «отрыв»", "Капсула отрывается от поля") { replay -> ChatMotionDemo(ChatMotion.Send, replay) },
+                MotionDemo("13. Сверка ключей", "Формы сливаются и вспыхивают") { replay -> KeyMerge(matched = true, replay = replay) },
+            ),
+            haptics = persistentListOf(HapticDemo("Тик", "Вкладка, порог жеста") {}, HapticDemo("Успех", "Ключи сверены") {}),
+            onBack = {},
+        )
     }
 
     @Test

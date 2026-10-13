@@ -54,6 +54,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Before the first frame: the keyboard and the lenses animate only in an edge-to-edge window.
+        enableEdgeToEdge()
         val container = (application as BleskApplication).container
         lifecycle.addObserver(
             LifecycleEventObserver { _, event ->

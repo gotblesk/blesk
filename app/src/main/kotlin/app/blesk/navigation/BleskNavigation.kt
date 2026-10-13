@@ -512,6 +512,7 @@ fun BleskNavigation(container: AppContainer) {
                             }, onBack = back)
                         }
                         entry<MediaKey> { key -> MediaRoute(container, key, onBack = back) }
+                        entry<MotionKey> { MotionRoute(container, onOpenChat = { backStack.add(ConversationKey(it)) }, onBack = back) }
                         entry<PhraseKey> { key -> PhraseRoute(container, key, onBack = back) }
                         entry<StickersKey> { StickersRoute(container, onOpen = { backStack.add(StickerSetKey(it)) }, onBack = back) }
                         entry<StickerSetKey> { key -> StickerSetRoute(container, key.setId, onMake = { backStack.add(it) }, onBack = back) }
@@ -571,6 +572,7 @@ fun BleskNavigation(container: AppContainer) {
                                 },
                                 onClearJournal = container.eventLog::clear,
                                 onBack = back,
+                                onOpenMotion = { backStack.add(MotionKey) },
                             )
                         }
                     },

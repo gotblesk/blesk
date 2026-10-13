@@ -18,12 +18,17 @@ import app.blesk.core.data.stickers.Sticker
 import app.blesk.core.data.stickers.StickerLibrary
 import app.blesk.core.data.stickers.StickerSet
 import app.blesk.core.design.theme.BleskTheme
+import app.blesk.core.media.CircleRecorder
+import app.blesk.core.media.MediaVault
 import app.blesk.core.media.StickerMaker
+import app.blesk.core.media.VoiceRecorder
 import app.blesk.core.motion.BleskMotion
+import app.blesk.feature.chats.ComposerPanel
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
 import app.blesk.feature.chats.EmojiPanel
 import app.blesk.feature.chats.StickerShelf
+import app.blesk.feature.chats.media.Recorders
 import app.blesk.feature.chats.stickers.StickerMakerScreen
 import app.blesk.feature.chats.stickers.StickerSetActions
 import app.blesk.feature.chats.stickers.StickerSetScreen
@@ -33,6 +38,7 @@ import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
@@ -99,6 +105,28 @@ class StickerScreenshotTest(private val name: String) {
             typing = false,
             authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
             callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+        )
+    }
+
+    @Test
+    fun emojiPanelInChat() = capture("45_chat_emoji_panel") { chatWith(ComposerPanel.Emoji) }
+
+    @Test
+    fun attachPanelInChat() = capture("46_chat_attach_panel") { chatWith(ComposerPanel.Attach) }
+
+    @Composable
+    private fun chatWith(panel: ComposerPanel) {
+        ConversationScreen(
+            conversation = seed.conversations.first { it.id == DemoSeed.ANYA },
+            messages = seed.messages.filter { it.conversationId == DemoSeed.ANYA }.toImmutableList(),
+            typing = false,
+            authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
+            callbacks = ConversationCallbacks({ _, _ -> }, { _, _ -> }, {}, { _, _ -> }, {}, {}, {}, {}, {}),
+            recorders = MediaVault(context).let { vault ->
+                Recorders("anya", VoiceRecorder(context, vault), CircleRecorder(context, vault), onVoice = {}, onCircle = {})
+            },
+            stickers = StickerShelf(library, {}, {}, {}),
+            initialPanel = panel,
         )
     }
 

@@ -26,6 +26,7 @@ import app.blesk.core.data.diagnostics.LogEntry
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Card
+import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Text
@@ -53,6 +54,7 @@ fun DebugScreen(
     onClearJournal: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenMotion: () -> Unit = {},
 ) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -61,6 +63,14 @@ fun DebugScreen(
     val pad = Modifier.padding(horizontal = Blesk.dimens.gutter)
 
     ScrollScreen(title = stringResource(R.string.debug_title), onBack = onBack, modifier = modifier) {
+        Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(bottom = 12.dp)) {
+            ListRow(
+                title = stringResource(R.string.motion_title),
+                subtitle = stringResource(R.string.motion_open_hint),
+                icon = BleskIcons.Spark,
+                onClick = onOpenMotion,
+            )
+        }
         Text(
             text = stringResource(R.string.debug_privacy),
             style = Blesk.type.label,

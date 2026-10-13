@@ -3,11 +3,12 @@ package app.blesk.feature.chats
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -27,7 +29,6 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -46,7 +47,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -89,7 +89,10 @@ import app.blesk.core.design.component.rememberCopy
 import app.blesk.core.design.glass.BottomLens
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.TopLens
+import app.blesk.core.design.glass.bottomOnly
+import app.blesk.core.design.glass.extended
 import app.blesk.core.design.glass.lens
+import app.blesk.core.design.glass.topOnly
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
@@ -195,6 +198,8 @@ fun ConversationScreen(
     stickers: StickerShelf? = null,
     /** Messages whose files are kept for watching without the internet. */
     keptOffline: ImmutableSet<String> = persistentSetOf(),
+    /** What is open under the field when the chat opens: nothing, except for a preview. */
+    initialPanel: ComposerPanel = ComposerPanel.None,
     /** What a bot offers when you type "/". */
     commands: ImmutableList<BotCommand> = persistentListOf(),
     /** Marks the chat as part of the demo world. */
@@ -265,23 +270,24 @@ fun ConversationScreen(
     val showAuthors = conversation.kind == ConversationKind.Group || conversation.kind == ConversationKind.Room
     val you = stringResource(R.string.chat_you)
 
+    // The list grows from the bottom (reverseLayout): item 0 is the newest, sitting on the composer,
+    // so whatever lifts the composer lifts the messages in the same layout pass.
     val atBottom by remember {
         derivedStateOf {
-            val info = listState.layoutInfo
-            val last = info.visibleItemsInfo.lastOrNull()
             // One item of slack: a message that has just arrived must not count as scrolled away.
-            last == null || last.index >= info.totalItemsCount - 2
+            (listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0) <= 1
         }
     }
     val pinned = conversation.pinnedMessageIds.mapNotNull(byId::get)
-    // The protection note, and possibly the key warning, come before the feed.
-    val leading = 1 + (if (keyChanged) 1 else 0)
+    // Below the feed, nearest the composer: the typing dots.
+    val below = if (typing) 1 else 0
+    fun listIndexOf(feedIndex: Int) = below + feed.size - 1 - feedIndex
+    fun feedIndexOf(listIndex: Int) = feed.size - 1 - (listIndex - below)
     // The way down is offered once the newest message is more than a screen away.
     val farFromEnd by remember {
         derivedStateOf {
-            val info = listState.layoutInfo
-            val last = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
-            info.totalItemsCount - 1 - last.index > info.visibleItemsInfo.size
+            val visible = listState.layoutInfo.visibleItemsInfo
+            (visible.firstOrNull()?.index ?: 0) > visible.size
         }
     }
     var seen by remember(conversation.id) { mutableIntStateOf(messages.size) }
@@ -290,18 +296,17 @@ fun ConversationScreen(
     val pinScope = rememberCoroutineScope()
     LaunchedEffect(messages.size, typing) {
         // Counted from the data, not the layout: on the first frame the list is not measured yet.
-        val total = leading + feed.size + if (typing) 1 else 0
         val divider = feed.indexOf(FeedEntry.Unread)
         val focus = focusMessageId?.let { id -> feed.indexOfFirst { it is FeedEntry.Run && it.messages.any { m -> m.id == id } } } ?: -1
         when {
             !opened && focus >= 0 -> {
-                listState.scrollToItem(focus + leading)
+                listState.showAtTop(listIndexOf(focus), animated = false)
                 flashId = focusMessageId
             }
-            !opened && divider >= 0 -> listState.scrollToItem(divider + leading)
-            !opened -> listState.scrollToItem(total - 1)
+            !opened && divider >= 0 -> listState.showAtTop(listIndexOf(divider), animated = false)
+            !opened -> listState.scrollToItem(0)
             atBottom || messages.lastOrNull()?.isOwn == true -> {
-                listState.animateScrollToItem(total - 1)
+                listState.animateScrollToItem(0)
                 seen = messages.size
             }
         }
@@ -402,7 +407,7 @@ fun ConversationScreen(
                                     onShow = { message ->
                                         val index = feed.indexOfFirst { it is FeedEntry.Run && it.messages.any { m -> m.id == message.id } }
                                         if (index >= 0) {
-                                            pinScope.launch { listState.animateScrollToItem(index + leading) }
+                                            pinScope.launch { listState.showAtTop(listIndexOf(index), animated = true) }
                                             flashId = null
                                             flashId = message.id
                                         }
@@ -483,6 +488,7 @@ fun ConversationScreen(
                             recentEmoji = recentEmoji,
                             onEmojiPicked = callbacks.onEmojiPicked,
                             stickers = stickers,
+                            initialPanel = initialPanel,
                             replyTo = replyToId?.let(byId::get),
                             editing = editingId?.let(byId::get),
                             authorName = { if (it.isOwn) you else authorName(it.authorId).orEmpty() },
@@ -506,40 +512,23 @@ fun ConversationScreen(
                     }
                 },
             ) { padding ->
-                // The composer rises with the keyboard frame by frame; the newest messages rise with it.
-                val bottomPx = with(LocalDensity.current) { padding.calculateBottomPadding().toPx() }
-                val lastBottom = remember { floatArrayOf(bottomPx) }
-                val following = atBottom
-                SideEffect {
-                    val delta = bottomPx - lastBottom[0]
-                    lastBottom[0] = bottomPx
-                    if (delta > 0f && following) listState.dispatchRawDelta(delta)
-                }
                 Box(Modifier.fillMaxSize()) {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
+                        reverseLayout = true,
+                        // Read while laid out: the composer and the keyboard move the list without composing it again.
+                        contentPadding = padding.extended(
                             start = Blesk.dimens.gutter,
                             end = Blesk.dimens.gutter,
-                            top = padding.calculateTopPadding() + 8.dp,
-                            bottom = padding.calculateBottomPadding() + 12.dp,
+                            top = 8.dp,
+                            bottom = 12.dp,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
                     ) {
-                        item(key = "note") { ProtectionNote(conversation.protection) }
-                        if (keyChanged) item(key = "key") { KeyWarning(callbacks.onOpenInfo) }
-                        if (messages.isEmpty()) {
-                            item(key = "empty") {
-                                Text(
-                                    text = stringResource(R.string.chat_empty),
-                                    color = Blesk.colors.textSecondary,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
-                                )
-                            }
-                        }
-                        items(feed, key = { it.key }) { entry ->
+                        // Built from the bottom up: the newest first, the protection note last, at the top.
+                        if (typing) item(key = "typing") { TypingDots() }
+                        items(feed.asReversed(), key = { it.key }) { entry ->
                             val group = when (entry) {
                                 is FeedEntry.Day -> return@items DayDivider(entry.date)
                                 FeedEntry.Unread -> return@items UnreadDivider()
@@ -584,13 +573,25 @@ fun ConversationScreen(
                                 }
                             }
                         }
-                        if (typing) item(key = "typing") { TypingDots() }
+                        if (messages.isEmpty()) {
+                            item(key = "empty") {
+                                Text(
+                                    text = stringResource(R.string.chat_empty),
+                                    color = Blesk.colors.textSecondary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+                                )
+                            }
+                        }
+                        if (keyChanged) item(key = "key") { KeyWarning(callbacks.onOpenInfo) }
+                        item(key = "note") { ProtectionNote(conversation.protection) }
                     }
                     val shownDay by remember(feed) {
                         derivedStateOf {
-                            val visible = listState.layoutInfo.visibleItemsInfo
-                            val first = visible.firstOrNull { it.index >= leading } ?: return@derivedStateOf null
-                            feed.getOrNull(first.index - leading)?.let { entry ->
+                            // The topmost message on screen: in a list built from the bottom, the highest index.
+                            val top = listState.layoutInfo.visibleItemsInfo.lastOrNull { feedIndexOf(it.index) in feed.indices }
+                                ?: return@derivedStateOf null
+                            feed.getOrNull(feedIndexOf(top.index))?.let { entry ->
                                 when (entry) {
                                     is FeedEntry.Day -> entry.date
                                     is FeedEntry.Run -> entry.messages.first().sentAt.atZone(ZoneId.systemDefault()).toLocalDate()
@@ -614,28 +615,29 @@ fun ConversationScreen(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .padding(horizontal = Blesk.dimens.gutter)
-                            .padding(bottom = padding.calculateBottomPadding() + 12.dp),
+                            .padding(padding.bottomOnly(12.dp)),
                     )
                     ScrollDate(
                         date = shownDay,
                         scrolling = listState.isScrollInProgress,
-                        modifier = Modifier.align(Alignment.TopCenter).padding(top = padding.calculateTopPadding() + 8.dp),
+                        modifier = Modifier.align(Alignment.TopCenter).padding(padding.topOnly(8.dp)),
                     )
                     val scope = rememberCoroutineScope()
                     JumpButtons(
                         showDown = farFromEnd,
                         unseen = (messages.size - seen).coerceAtLeast(0),
                         mentions = mentions.size,
-                        onDown = { scope.launch { listState.animateScrollToItem(leading + feed.size) } },
+                        onDown = { scope.launch { listState.animateScrollToItem(0) } },
                         onMention = {
                             val target = mentions.first()
                             mentions = mentions.drop(1)
                             val index = feed.indexOfFirst { it is FeedEntry.Run && it.messages.any { message -> message.id == target } }
-                            if (index >= 0) scope.launch { listState.animateScrollToItem(index + leading) }
+                            if (index >= 0) scope.launch { listState.showAtTop(listIndexOf(index), animated = true) }
                         },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(end = Blesk.dimens.gutter, bottom = padding.calculateBottomPadding() + 12.dp),
+                            .padding(end = Blesk.dimens.gutter)
+                            .padding(padding.bottomOnly(12.dp)),
                     )
                 }
             }
@@ -820,7 +822,7 @@ private fun ProtectionNote(protection: Protection) {
 
 /** Three dots bobbing in a capsule; the incoming message later grows out of the same spot. */
 @Composable
-private fun TypingDots() {
+internal fun TypingDots() {
     val phase by rememberLoopPhase(1100)
     val reduced = Blesk.motion.reduced
     val label = stringResource(R.string.chats_typing)
@@ -896,3 +898,17 @@ private val ColumnAvatar = 28.dp
 /** What «Сохранить для просмотра без интернета» is for: video, audio and files. */
 private fun Attachment.keepsOffline(): Boolean =
     this is Attachment.Video || this is Attachment.Music || this is Attachment.Voice || this is Attachment.File
+
+/**
+ * Brings [index] to the top of the screen rather than the bottom, where a list built from the
+ * bottom would put it: an unread divider or a found message is read downwards from there.
+ */
+private suspend fun LazyListState.showAtTop(index: Int, animated: Boolean) {
+    if (animated) animateScrollToItem(index) else scrollToItem(index)
+    val info = layoutInfo
+    val room = info.viewportSize.height - info.beforeContentPadding - info.afterContentPadding
+    val size = info.visibleItemsInfo.firstOrNull { it.index == index }?.size ?: return
+    val lift = (room - size).coerceAtLeast(0).toFloat()
+    // Towards the newer messages, which in this list are the lower indices.
+    if (animated) animateScrollBy(-lift) else scrollBy(-lift)
+}

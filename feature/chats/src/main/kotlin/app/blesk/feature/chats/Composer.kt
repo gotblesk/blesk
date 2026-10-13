@@ -3,6 +3,8 @@ package app.blesk.feature.chats
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -11,9 +13,9 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -24,11 +26,9 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -52,6 +52,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -62,6 +64,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -73,6 +76,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Contact
@@ -99,6 +103,9 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.roundToInt
 
 @Composable
 internal fun Composer(
@@ -118,6 +125,7 @@ internal fun Composer(
     recentEmoji: ImmutableList<String>,
     onEmojiPicked: (String) -> Unit,
     stickers: StickerShelf?,
+    initialPanel: ComposerPanel = ComposerPanel.None,
     replyTo: Message?,
     editing: Message?,
     authorName: (Message) -> String,
@@ -125,11 +133,24 @@ internal fun Composer(
     onSend: (String) -> Unit,
 ) {
     val hint = stringResource(R.string.chat_input_hint)
-    var attachMenu by remember { mutableStateOf(false) }
-    var emojiOpen by remember { mutableStateOf(false) }
+    // One room under the field for the keyboard, the emoji and the attachments: only one at a time,
+    // and switching between them keeps the field where it is.
+    var panel by remember { mutableStateOf(initialPanel) }
+    var toKeyboard by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
-    BackHandler(enabled = emojiOpen) { emojiOpen = false }
+    val field = remember { FocusRequester() }
+    fun open(next: ComposerPanel) {
+        keyboard?.hide()
+        focus.clearFocus()
+        toKeyboard = false
+        panel = next
+    }
+    fun close(forKeyboard: Boolean) {
+        toKeyboard = forKeyboard
+        panel = ComposerPanel.None
+    }
+    BackHandler(enabled = panel != ComposerPanel.None) { close(forKeyboard = false) }
     fun send() {
         val text = state.text.toString()
         if (text.isNotBlank()) {
@@ -157,17 +178,6 @@ internal fun Composer(
                     )
                     IconButton(BleskIcons.Close, stringResource(R.string.chat_cancel), onCancel)
                 }
-            }
-            AnimatedVisibility(visible = attachMenu && !recording.active) {
-                AttachMenu(
-                    choices = listOfNotNull(
-                        onTakePhoto?.let { AttachChoice(BleskIcons.Camera, stringResource(R.string.media_camera), it) },
-                        AttachChoice(BleskIcons.Image, stringResource(R.string.media_photo_video), onPickMedia),
-                        AttachChoice(BleskIcons.Document, stringResource(R.string.media_file), onPickFile),
-                        onPickMusic?.let { AttachChoice(BleskIcons.Music, stringResource(R.string.media_music), it) },
-                    ),
-                    onChosen = { attachMenu = false },
-                )
             }
             if (busy) {
                 Text(
@@ -245,7 +255,11 @@ internal fun Composer(
                 return@BottomLens
             }
             Row(verticalAlignment = Alignment.Bottom) {
-                if (attachments) AttachToggle(open = attachMenu) { attachMenu = !attachMenu }
+                if (attachments) {
+                    AttachToggle(open = panel == ComposerPanel.Attach) {
+                        if (panel == ComposerPanel.Attach) close(forKeyboard = false) else open(ComposerPanel.Attach)
+                    }
+                }
                 Box(Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 4.dp), contentAlignment = Alignment.CenterStart) {
                     if (state.text.isEmpty()) Text(hint, color = Blesk.colors.textTertiary)
                     BasicTextField(
@@ -264,7 +278,8 @@ internal fun Composer(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .onFocusChanged { if (it.isFocused) emojiOpen = false }
+                            .focusRequester(field)
+                            .onFocusChanged { if (it.isFocused && panel != ComposerPanel.None) close(forKeyboard = true) }
                             .onPreviewKeyEvent { event ->
                                 val enter = event.key == Key.Enter || event.key == Key.NumPadEnter
                                 if (!sendByEnter || !enter || event.isShiftPressed) return@onPreviewKeyEvent false
@@ -274,17 +289,17 @@ internal fun Composer(
                             .semantics { contentDescription = hint },
                     )
                 }
+                val emojiOpen = panel == ComposerPanel.Emoji
                 IconButton(
                     icon = if (emojiOpen) BleskIcons.Edit else BleskIcons.Smile,
                     contentDescription = stringResource(if (emojiOpen) R.string.emoji_keyboard else R.string.emoji_open),
                     onClick = {
                         if (emojiOpen) {
-                            emojiOpen = false
+                            close(forKeyboard = true)
+                            field.requestFocus()
+                            keyboard?.show()
                         } else {
-                            attachMenu = false
-                            keyboard?.hide()
-                            focus.clearFocus()
-                            emojiOpen = true
+                            open(ComposerPanel.Emoji)
                         }
                     },
                 )
@@ -309,16 +324,29 @@ internal fun Composer(
                     }
                 }
             }
-            EmojiRoom(open = emojiOpen) { height ->
-                EmojiPanel(
-                    recent = recentEmoji,
-                    onPick = { emoji ->
-                        state.edit { replace(selection.min, selection.max, emoji) }
-                        onEmojiPicked(emoji)
-                    },
-                    height = height,
-                    stickers = stickers.takeIf { editing == null },
-                )
+            PanelRoom(panel = panel, toKeyboard = toKeyboard) { shown, height ->
+                when (shown) {
+                    ComposerPanel.Emoji -> EmojiPanel(
+                        recent = recentEmoji,
+                        onPick = { emoji ->
+                            state.edit { replace(selection.min, selection.max, emoji) }
+                            onEmojiPicked(emoji)
+                        },
+                        height = height,
+                        stickers = stickers.takeIf { editing == null },
+                    )
+                    ComposerPanel.Attach -> AttachPanel(
+                        choices = listOfNotNull(
+                            onTakePhoto?.let { AttachChoice(BleskIcons.Camera, stringResource(R.string.media_camera), it) },
+                            AttachChoice(BleskIcons.Image, stringResource(R.string.media_photo_video), onPickMedia),
+                            AttachChoice(BleskIcons.Document, stringResource(R.string.media_file), onPickFile),
+                            onPickMusic?.let { AttachChoice(BleskIcons.Music, stringResource(R.string.media_music), it) },
+                        ),
+                        onChosen = { close(forKeyboard = false) },
+                        modifier = Modifier.height(height),
+                    )
+                    ComposerPanel.None -> Unit
+                }
             }
         }
         if (recording.active && !recording.locked) {
@@ -342,45 +370,71 @@ internal fun DraftKeeper(state: TextFieldState, onDraft: (String) -> Unit) {
     DisposableEffect(state) { onDispose { save(state.text.toString()) } }
 }
 
+/** What sits in the keyboard's place under the field. */
+enum class ComposerPanel { None, Emoji, Attach }
+
 /**
- * Room for the emoji panel exactly as tall as the last keyboard. While the keyboard slides away
- * the room grows by as much as the keyboard shrinks, and the other way round, so the composer
- * and the messages never jump when switching between the two. After the panel closes for the
- * keyboard the room is held until the keyboard is all the way up.
+ * Room for a panel exactly as tall as the last keyboard, sized while laid out, never by composing:
+ * - from the keyboard to a panel, the room grows by as much as the keyboard shrinks, so the field
+ *   stays where it is;
+ * - with no keyboard up, the panel comes up and goes down on the keyboard's own curve;
+ * - from a panel to the keyboard ([toKeyboard]), the room is held until the keyboard is all the way up.
+ * Panels switch inside the same room, so emoji ↔ attachments never moves the field either.
  */
 @Composable
-private fun EmojiRoom(open: Boolean, panel: @Composable (Dp) -> Unit) {
+private fun PanelRoom(panel: ComposerPanel, toKeyboard: Boolean, content: @Composable (ComposerPanel, Dp) -> Unit) {
     val density = LocalDensity.current
-    val ime = WindowInsets.ime.getBottom(density)
-    val navigation = WindowInsets.navigationBars.getBottom(density)
-    var keyboard by rememberSaveable { mutableIntStateOf(0) }
-    if (ime > keyboard) keyboard = ime
-    val full = if (keyboard > 0) keyboard else with(density) { DefaultPanel.roundToPx() + navigation }
-    var holding by remember { mutableStateOf(false) }
-    var wasOpen by remember { mutableStateOf(open) }
-    if (wasOpen && !open) holding = true
-    wasOpen = open
-    LaunchedEffect(holding) {
-        if (!holding) return@LaunchedEffect
-        delay(HOLD_MAX_MILLIS)
-        holding = false
+    val ime = WindowInsets.ime
+    val navigation = WindowInsets.navigationBars
+    val motion = Blesk.motion
+    var keyboardPx by rememberSaveable { mutableIntStateOf(0) }
+    val reveal = remember { Animatable(if (panel == ComposerPanel.None) 0f else 1f) }
+    var shown by remember { mutableStateOf(panel) }
+    if (panel != ComposerPanel.None) shown = panel
+    LaunchedEffect(panel) {
+        when {
+            panel != ComposerPanel.None -> {
+                // Taking over from the keyboard needs no motion of its own: the keyboard going down is the motion.
+                if (ime.getBottom(density) > 0 || reveal.value > 0f) {
+                    reveal.snapTo(1f)
+                } else {
+                    reveal.animateTo(1f, motion.keyboard(opening = true))
+                }
+            }
+            toKeyboard -> {
+                withTimeoutOrNull(HOLD_MAX_MILLIS) {
+                    snapshotFlow { ime.getBottom(density) }.first { it >= keyboardPx - with(density) { HOLD_SLACK.roundToPx() } }
+                }
+                reveal.snapTo(0f)
+            }
+            else -> reveal.animateTo(0f, motion.keyboard(opening = false))
+        }
+        if (panel == ComposerPanel.None) shown = ComposerPanel.None
     }
-    if (holding && ime >= full - with(density) { 8.dp.roundToPx() }) holding = false
-    val room = if (open || holding) (full - maxOf(ime, navigation)).coerceAtLeast(0) else 0
-    if (room == 0 && !open) return
-    val panelHeight = with(density) { (full - navigation).toDp() }
+    if (shown == ComposerPanel.None) return
+    val navigationPx = navigation.getBottom(density)
+    val full = if (keyboardPx > 0) keyboardPx else with(density) { DefaultPanel.roundToPx() } + navigationPx
+    val panelHeight = with(density) { (full - navigationPx).toDp() }
     Box(
         Modifier
             .fillMaxWidth()
-            .height(with(density) { room.toDp() })
-            .clipToBounds(),
-        contentAlignment = Alignment.TopCenter,
+            .clipToBounds()
+            .layout { measurable, constraints ->
+                val imePx = ime.getBottom(this)
+                if (imePx > keyboardPx) keyboardPx = imePx
+                val navPx = navigation.getBottom(this)
+                val whole = if (keyboardPx > 0) keyboardPx else DefaultPanel.roundToPx() + navPx
+                val room = (whole * reveal.value - maxOf(imePx, navPx)).roundToInt().coerceAtLeast(0)
+                val placeable = measurable.measure(Constraints.fixed(constraints.maxWidth, (whole - navPx).coerceAtLeast(0)))
+                layout(constraints.maxWidth, room) { placeable.place(0, 0) }
+            },
     ) {
-        if (open) Box(Modifier.requiredHeight(panelHeight)) { panel(panelHeight) }
+        Crossfade(targetState = shown, animationSpec = motion.press(), label = "panel") { kind -> content(kind, panelHeight) }
     }
 }
 
 private val DefaultPanel = 300.dp
+private val HOLD_SLACK = 8.dp
 private const val HOLD_MAX_MILLIS = 700L
 
 /** Sends "typing" at most every few seconds while text changes, and "stopped" after a pause. */
@@ -427,36 +481,45 @@ private fun AttachToggle(open: Boolean, onClick: () -> Unit) {
     )
 }
 
-/** The attachment choices flow out of the lens one after another, as capsules. */
+/**
+ * The attachment choices in the keyboard's place: big capsules that flow out one after another,
+ * two by two, so each is easy to hit with a thumb.
+ */
 @Composable
-private fun AttachMenu(choices: List<AttachChoice>, onChosen: () -> Unit) {
+private fun AttachPanel(choices: List<AttachChoice>, onChosen: () -> Unit, modifier: Modifier = Modifier) {
     val motion = Blesk.motion
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Column(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        choices.forEachIndexed { index, choice ->
-            val shown = remember { MutableTransitionState(motion.reduced).apply { targetState = true } }
-            AnimatedVisibility(
-                visibleState = shown,
-                enter = scaleIn(motion.staggered(index), initialScale = 0.5f) + fadeIn(motion.staggered(index)),
-            ) {
-                Button(
-                    text = choice.label,
-                    icon = choice.icon,
-                    kind = ButtonKind.Secondary,
-                    onClick = {
-                        onChosen()
-                        choice.onClick()
-                    },
-                )
+        choices.chunked(2).forEachIndexed { row, pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                pair.forEachIndexed { column, choice ->
+                    val index = row * 2 + column
+                    val shown = remember { MutableTransitionState(motion.reduced).apply { targetState = true } }
+                    AnimatedVisibility(
+                        visibleState = shown,
+                        enter = scaleIn(motion.staggered(index), initialScale = 0.5f) + fadeIn(motion.staggered(index)),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Button(
+                            text = choice.label,
+                            icon = choice.icon,
+                            kind = ButtonKind.Secondary,
+                            onClick = {
+                                onChosen()
+                                choice.onClick()
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = AttachCapsule),
+                        )
+                    }
+                }
             }
         }
     }
 }
+
+private val AttachCapsule = 64.dp
 
 /** A lone emoji in the field brings up the stickers that stand for it; a tap sends one instead of the emoji. */
 @Composable
