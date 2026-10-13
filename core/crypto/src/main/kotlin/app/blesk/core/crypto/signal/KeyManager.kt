@@ -4,6 +4,7 @@ import app.blesk.core.data.db.SignalStateEntity
 import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.KeyUpload
 import app.blesk.shared.protocol.OneTimeKey
+import app.blesk.shared.protocol.RecoverRequest
 import app.blesk.shared.protocol.RegisterRequest
 import app.blesk.shared.protocol.SignedKey
 import org.signal.libsignal.protocol.IdentityKeyPair
@@ -34,13 +35,26 @@ class KeyManager(
 
     fun identityPublicKey(): String = b64(store.identityKeyPair.publicKey.serialize())
 
-    fun registration(username: String): RegisterRequest {
+    fun registration(username: String, recoveryHash: ByteArray? = null): RegisterRequest {
         val identity = store.identityKeyPair
         return RegisterRequest(
             username = username,
             identityKey = b64(identity.publicKey.serialize()),
             registrationId = store.localRegistrationId,
             signature = b64(identity.privateKey.calculateSignature(Api.registrationProof(username))),
+            recoveryHash = recoveryHash?.let(::b64),
+        )
+    }
+
+    /** This phone's claim on an account it recovers with the phrase's [token]. */
+    fun recovery(token: ByteArray): RecoverRequest {
+        val identity = store.identityKeyPair
+        val encoded = b64(token)
+        return RecoverRequest(
+            token = encoded,
+            identityKey = b64(identity.publicKey.serialize()),
+            registrationId = store.localRegistrationId,
+            signature = b64(identity.privateKey.calculateSignature(Api.recoveryProof(encoded))),
         )
     }
 

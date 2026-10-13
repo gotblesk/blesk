@@ -3,6 +3,7 @@ package app.blesk
 import android.content.Context
 import android.net.ConnectivityManager
 import app.blesk.core.crypto.DatabaseKey
+import app.blesk.core.crypto.phrase.PhraseKeys
 import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
@@ -14,6 +15,7 @@ import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.messaging.AccountManager
 import app.blesk.core.messaging.OwnProfile
+import app.blesk.core.messaging.RecoverResult
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.messaging.ServerChatRepository
 import app.blesk.core.network.BleskApi
@@ -34,8 +36,11 @@ internal class ServerStack(
     val accounts: AccountManager by lazy { AccountManager(store, keys) }
     val api = BleskApi(address)
 
-    /** Creates the account; runs off the main thread. */
-    suspend fun register(username: String): RegisterResult = accounts.register(api, username)
+    /** Creates the account bound to [phrase]; runs off the main thread. */
+    suspend fun register(username: String, phrase: PhraseKeys): RegisterResult = accounts.register(api, username, phrase)
+
+    /** Takes over the account of [phrase] on this phone; runs off the main thread. */
+    suspend fun recover(phrase: PhraseKeys): RecoverResult = accounts.recover(api, phrase)
 
     fun repository(
         username: String,

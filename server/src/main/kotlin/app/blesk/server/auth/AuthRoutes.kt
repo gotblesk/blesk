@@ -49,7 +49,9 @@ fun Route.registrationRoutes(services: Services) {
         ensure(Signatures.verify(identityKey, Api.registrationProof(request.username), signature)) {
             badRequest(ErrorCodes.INVALID_SIGNATURE)
         }
-        val created = services.accounts.create(request.username, keyBytes, request.registrationId, services.now())
+        val recoveryHash = request.recoveryHash?.decodeBase64(ErrorCodes.BAD_REQUEST)
+        ensure(recoveryHash == null || recoveryHash.size == RECOVERY_TOKEN_BYTES) { badRequest(ErrorCodes.BAD_REQUEST) }
+        val created = services.accounts.create(request.username, keyBytes, request.registrationId, services.now(), recoveryHash)
         ensure(created) { ApiException(HttpStatusCode.Conflict, ErrorCodes.USERNAME_TAKEN) }
         call.respond(HttpStatusCode.Created, AccountInfo(request.username, request.identityKey))
     }

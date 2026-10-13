@@ -6,6 +6,9 @@ import app.blesk.background.networkAvailable
 import app.blesk.core.calls.CallManager
 import app.blesk.core.calls.CallMedia
 import app.blesk.core.crypto.PinVault
+import app.blesk.core.crypto.phrase.PhraseKeys
+import app.blesk.core.crypto.phrase.PhraseVault
+import app.blesk.core.crypto.phrase.RecoveryPhrase
 import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.calls.CallSignaling
 import app.blesk.core.data.demo.DemoRepository
@@ -30,6 +33,7 @@ import app.blesk.core.media.StickerMaker
 import app.blesk.core.media.VideoCompressor
 import app.blesk.core.media.VoiceRecorder
 import app.blesk.core.messaging.OwnProfile
+import app.blesk.core.messaging.RecoverResult
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.network.BleskApi
 import app.blesk.core.network.NetworkProxy
@@ -85,6 +89,7 @@ class AppContainer(context: Context) {
     val stickers by lazy { StickerStore(context) }
     val stickerMaker = StickerMaker(context)
     val keptOffline = KeptOffline(context)
+    val phrase = PhraseVault(context)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
     val notices = Notices(scope)
     val network: StateFlow<Boolean> by lazy { networkAvailable(context.applicationContext, scope) }
@@ -177,18 +182,41 @@ class AppContainer(context: Context) {
         repository.clearMedia(null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(days.toLong()), keep)
     }
 
-    /** Creates an account on [address] and switches the app to it. */
+    /**
+     * Creates an account on [address] with a new recovery phrase and switches the app to it. The
+     * phrase is kept sealed on this phone until the person has written it down.
+     */
     suspend fun connect(address: ServerAddress, username: String): RegisterResult {
         val stack = ServerStack(appContext, this, address)
-        val result = withContext(Dispatchers.IO) { stack.register(username) }
+        val entropy = RecoveryPhrase.newEntropy()
+        val result = withContext(Dispatchers.IO) { stack.register(username, PhraseKeys(entropy)) }
         if (result != RegisterResult.Ok) return result
+        withContext(Dispatchers.IO) { phrase.save(entropy) }
+        open(stack, address, username)
+        return result
+    }
+
+    /** Opens the account of [words] on [address]; the phone that had it is signed out. */
+    suspend fun recover(address: ServerAddress, words: List<String>): RecoverResult {
+        val entropy = RecoveryPhrase.entropyOf(words) ?: return RecoverResult.Unknown
+        val stack = ServerStack(appContext, this, address)
+        val result = withContext(Dispatchers.IO) { stack.recover(PhraseKeys(entropy)) }
+        if (result !is RecoverResult.Ok) return result
+        withContext(Dispatchers.IO) {
+            phrase.save(entropy)
+            phrase.markChecked()
+        }
+        open(stack, address, result.username)
+        return result
+    }
+
+    private suspend fun open(stack: ServerStack, address: ServerAddress, username: String) {
         val mode = AppMode.Server(address.url, address.pin, username)
         settings.setServer(mode)
         eventLog.record(EventCode.ServerRegistered)
         val repository = withContext(Dispatchers.IO) { stack.repository(username, privacy, profile, keepArchived) }
         repository.start()
         show(repository, stack.api)
-        return result
     }
 
     /** The server of the current world; null in the demo. */

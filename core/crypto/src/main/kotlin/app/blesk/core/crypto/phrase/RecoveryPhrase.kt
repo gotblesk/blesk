@@ -6,7 +6,8 @@ import java.security.SecureRandom
 /**
  * The twelve words that are the account. 128 random bits and a 4-bit checksum of their SHA-256
  * make 132 bits, cut into twelve 11-bit numbers, each a word of a 2048-word list: the scheme of
- * BIP-39, with Russian nouns of three to seven letters, easy to write down and to type.
+ * BIP-39, with Russian nouns of three to eight letters whose first four letters are all different, so four
+ * typed letters always name one word.
  */
 object RecoveryPhrase {
     const val WORDS = 12
@@ -14,6 +15,7 @@ object RecoveryPhrase {
     private const val BITS_PER_WORD = 11
     private const val CHECKSUM_BITS = 4
     private const val LIST_SIZE = 2048
+    private const val PREFIX = 4
 
     /** The word list, in its fixed order: a word's place in it is its number. */
     val wordList: List<String> by lazy {
@@ -24,10 +26,20 @@ object RecoveryPhrase {
     }
 
     private val numberOf: Map<String, Int> by lazy { wordList.withIndex().associate { (index, word) -> word to index } }
+    private val numberOfPrefix: Map<String, Int> by lazy {
+        wordList.withIndex().associate { (index, word) -> word.take(PREFIX) to index }
+    }
 
-    /** A new phrase from the system's secure random source. */
-    fun generate(random: SecureRandom = SecureRandom()): List<String> =
-        wordsOf(ByteArray(ENTROPY_BYTES).also(random::nextBytes))
+    /** The word's number; its first four letters are enough, as no two words share them. */
+    private fun numberOfTyped(typed: String): Int? {
+        val word = normalize(typed)
+        return numberOf[word] ?: word.takeIf { it.length >= PREFIX }?.let { numberOfPrefix[it.take(PREFIX)] }
+    }
+
+    /** The 128 random bits of a new phrase, from the system's secure random source. */
+    fun newEntropy(random: SecureRandom = SecureRandom()): ByteArray = ByteArray(ENTROPY_BYTES).also(random::nextBytes)
+
+    fun generate(random: SecureRandom = SecureRandom()): List<String> = wordsOf(newEntropy(random))
 
     fun wordsOf(entropy: ByteArray): List<String> {
         require(entropy.size == ENTROPY_BYTES)
@@ -38,7 +50,7 @@ object RecoveryPhrase {
     /** The 128 bits behind [words], or null for an unknown word, a wrong count or a checksum that does not match. */
     fun entropyOf(words: List<String>): ByteArray? {
         if (words.size != WORDS) return null
-        val numbers = words.map { numberOf[normalize(it)] ?: return null }
+        val numbers = words.map { numberOfTyped(it) ?: return null }
         val bits = numbers.flatMap { number -> (BITS_PER_WORD - 1 downTo 0).map { number shr it and 1 } }
         val entropy = ByteArray(ENTROPY_BYTES) { index ->
             bits.subList(index * Byte.SIZE_BITS, (index + 1) * Byte.SIZE_BITS).fold(0) { acc, bit -> acc shl 1 or bit }.toByte()
@@ -47,7 +59,10 @@ object RecoveryPhrase {
         return if (bits.takeLast(CHECKSUM_BITS) == expected) entropy else null
     }
 
-    fun isWord(word: String): Boolean = normalize(word) in numberOf
+    fun isWord(word: String): Boolean = numberOfTyped(word) != null
+
+    /** The full word for what was typed, which may be just its first four letters. */
+    fun complete(typed: String): String? = numberOfTyped(typed)?.let(wordList::get)
 
     /** Words starting with what was typed, for the suggestions while entering the phrase. */
     fun suggestions(prefix: String, limit: Int = 4): List<String> {

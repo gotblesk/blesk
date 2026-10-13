@@ -13,10 +13,10 @@ import java.security.SecureRandom
 
 class RecoveryPhraseTest {
     @Test
-    fun theListHasTwoThousandFortyEightShortDistinctNouns() {
+    fun fourLettersAlwaysNameOneWord() {
         val words = RecoveryPhrase.wordList
-        assertEquals(2048, words.toSet().size)
-        assertTrue(words.all { it.length in 3..7 && it.all { c -> c in 'а'..'я' } })
+        assertEquals(2048, words.map { it.take(4) }.toSet().size)
+        assertTrue(words.all { it.length in 3..8 && it.all { c -> c in 'а'..'я' } })
     }
 
     @Test
@@ -33,6 +33,7 @@ class RecoveryPhraseTest {
     fun typingDoesNotHaveToBeExact() {
         val words = RecoveryPhrase.wordsOf(ByteArray(16) { it.toByte() })
         assertNotNull(RecoveryPhrase.entropyOf(words.map { "  ${it.uppercase()} " }))
+        assertNotNull(RecoveryPhrase.entropyOf(words.map { it.take(4) }))
     }
 
     @Test

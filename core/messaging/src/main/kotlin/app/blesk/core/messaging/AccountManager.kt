@@ -1,5 +1,6 @@
 package app.blesk.core.messaging
 
+import app.blesk.core.crypto.phrase.PhraseKeys
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.SignalStore
 import app.blesk.core.data.db.SignalStateEntity
@@ -16,6 +17,15 @@ sealed interface RegisterResult {
     data object Unreachable : RegisterResult
 }
 
+/** How opening an account with its phrase went. */
+sealed interface RecoverResult {
+    data class Ok(val username: String) : RecoverResult
+
+    /** The words are a valid phrase, but no account on this server has it. */
+    data object Unknown : RecoverResult
+    data object Unreachable : RecoverResult
+}
+
 /**
  * The account on a server: created with a username and this device's identity key (no phone
  * number), signed in by signing a fresh challenge. The session token lives in the encrypted
@@ -23,12 +33,13 @@ sealed interface RegisterResult {
  */
 class AccountManager(private val store: SignalStore, private val keys: KeyManager) {
 
-    suspend fun register(api: BleskApi, username: String): RegisterResult {
+    /** [phrase] binds the recovery phrase to the account as it is created; only the hash of its token goes. */
+    suspend fun register(api: BleskApi, username: String, phrase: PhraseKeys? = null): RegisterResult {
         if (!Usernames.isValid(username)) return RegisterResult.NameInvalid
         return try {
             api.info()
             keys.ensureIdentity()
-            api.register(keys.registration(username))
+            api.register(keys.registration(username, phrase?.confirmationHash))
             signIn(api, username)
             api.uploadKeys(keys.initialUpload())
             RegisterResult.Ok
@@ -41,6 +52,23 @@ class AccountManager(private val store: SignalStore, private val keys: KeyManage
         } catch (_: java.io.IOException) {
             RegisterResult.Unreachable
         }
+    }
+
+    /**
+     * Takes over the account of [phrase] with this phone's fresh identity key; the phone that held
+     * it before is signed out by the server.
+     */
+    suspend fun recover(api: BleskApi, phrase: PhraseKeys): RecoverResult = try {
+        api.info()
+        keys.ensureIdentity()
+        val account = api.recover(keys.recovery(phrase.confirmation))
+        signIn(api, account.username)
+        api.uploadKeys(keys.initialUpload())
+        RecoverResult.Ok(account.username)
+    } catch (e: ApiException) {
+        if (e.code == "auth_failed") RecoverResult.Unknown else RecoverResult.Unreachable
+    } catch (_: java.io.IOException) {
+        RecoverResult.Unreachable
     }
 
     /** Signs in with the identity key and remembers the token. */

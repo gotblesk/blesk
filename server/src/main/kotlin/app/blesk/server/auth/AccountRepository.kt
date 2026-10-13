@@ -19,18 +19,25 @@ class Account(
 
 class AccountRepository(private val database: Database) {
     /** False when the username is already taken. */
-    suspend fun create(username: String, identityKey: ByteArray, registrationId: Int, now: Instant): Boolean =
+    suspend fun create(
+        username: String,
+        identityKey: ByteArray,
+        registrationId: Int,
+        now: Instant,
+        recoveryHash: ByteArray? = null,
+    ): Boolean =
         database.transaction { connection ->
             connection.update(
                 """
-                INSERT INTO accounts (username, identity_key, registration_id, created_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT (username) DO NOTHING
+                INSERT INTO accounts (username, identity_key, registration_id, created_at, recovery_hash)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
                 """.trimIndent(),
                 username,
                 identityKey,
                 registrationId,
                 now,
+                recoveryHash,
             ) == 1
         }
 

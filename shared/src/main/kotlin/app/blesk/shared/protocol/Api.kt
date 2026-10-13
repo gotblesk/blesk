@@ -108,6 +108,8 @@ data class RegisterRequest(
     val registrationId: Int,
     /** Signature of [Api.registrationProof] by the identity key. */
     val signature: String,
+    /** Base64 SHA-256 of the recovery phrase's confirmation token, stored with the account from the start. */
+    val recoveryHash: String? = null,
 )
 
 @Serializable

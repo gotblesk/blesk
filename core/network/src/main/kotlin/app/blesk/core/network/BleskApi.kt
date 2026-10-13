@@ -23,6 +23,8 @@ import app.blesk.shared.protocol.NewPost
 import app.blesk.shared.protocol.OutgoingMessage
 import app.blesk.shared.protocol.Post
 import app.blesk.shared.protocol.PreKeyBundleDto
+import app.blesk.shared.protocol.RecoverRequest
+import app.blesk.shared.protocol.RecoveryHash
 import app.blesk.shared.protocol.RegisterRequest
 import app.blesk.shared.protocol.RoleChange
 import app.blesk.shared.protocol.SendResult
@@ -168,6 +170,14 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
             auth()
             link?.let { parameter(Api.LINK, it) }
         }
+    }
+
+    /** Takes over the account the phrase belongs to; the answer names it. */
+    suspend fun recover(request: RecoverRequest): AccountInfo = call { client.post(url(Api.RECOVER)) { jsonBody(request) } }
+
+    suspend fun setRecovery(hash: String) {
+        val response = client.put(url(Api.RECOVERY)) { auth(); jsonBody(RecoveryHash(hash)) }
+        if (!response.status.isSuccess()) throw response.error()
     }
 
     suspend fun deleteAccount() {
