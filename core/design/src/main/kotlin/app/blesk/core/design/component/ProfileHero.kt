@@ -1,23 +1,43 @@
 package app.blesk.core.design.component
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import app.blesk.core.design.R
+import app.blesk.core.design.glass.TopLens
+import app.blesk.core.design.glass.lens
+import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
@@ -27,6 +47,49 @@ import kotlin.math.sin
 /** A third of the screen, as tall as a profile header is. */
 @Composable
 fun profileHeaderHeight(): Dp = (LocalConfiguration.current.screenHeightDp / 3).dp
+
+/** How far before the end of the header the top lens gathers, the avatar having risen into it. */
+val ProfileLensReach = 72.dp
+
+/**
+ * The big name under a profile's avatar flows into the top lens: it fades over the last stretch
+ * before the lens gathers and is gone once the lens holds the name, so the two are never seen at
+ * once. Read while drawing, so scrolling does not compose the name again.
+ */
+@Composable
+fun Modifier.nameIntoLens(scroll: () -> Int): Modifier {
+    val header = profileHeaderHeight()
+    return graphicsLayer {
+        val gatherAt = header.toPx() - ProfileLensReach.toPx()
+        val fade = NameFade.toPx()
+        alpha = 1f - ((scroll() - (gatherAt - fade)) / fade).coerceIn(0f, 1f)
+    }
+}
+
+private val NameFade = 40.dp
+
+/**
+ * The top of a profile page: over the header only a glass «назад»; once the avatar has flowed
+ * up ([scroll] past the header, less [ProfileLensReach]), the whole glass lens with [title],
+ * coming in as the big name goes. [actions] sit in the lens once it has gathered.
+ */
+@Composable
+fun ProfileTopLens(title: String, scroll: () -> Int, onBack: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
+    val gatherAt = with(LocalDensity.current) { (profileHeaderHeight() - ProfileLensReach).toPx() }
+    val gathered by remember(gatherAt) { derivedStateOf { scroll() > gatherAt } }
+    Box {
+        AnimatedVisibility(visible = gathered, enter = fadeIn(Blesk.motion.press()), exit = fadeOut(Blesk.motion.press())) {
+            TopLens(title = title, onBack = onBack, actions = actions)
+        }
+        if (!gathered) {
+            Box(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Box(Modifier.lens(CircleShape)) {
+                    IconButton(BleskIcons.Back, stringResource(R.string.design_back), onBack)
+                }
+            }
+        }
+    }
+}
 
 /**
  * The top of a profile, yours or someone's: a header a third of the screen tall that melts into
@@ -44,6 +107,9 @@ fun ProfileHero(
     scroll: () -> Int,
     modifier: Modifier = Modifier,
     protected: Boolean = true,
+    /** While the profile is being edited, a tap on the avatar picks a new photo. */
+    onAvatarClick: (() -> Unit)? = null,
+    avatarClickLabel: String? = null,
 ) {
     val height = profileHeaderHeight()
     val heightPx = with(LocalDensity.current) { height.toPx() }
@@ -93,15 +159,36 @@ fun ProfileHero(
                         )
                     },
             )
-            Avatar(
-                name, size = AvatarSize, photo = photo, protected = protected, key = key,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = NeckRim),
-            )
+            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = NeckRim)) {
+                Avatar(
+                    name, size = AvatarSize, photo = photo, protected = protected, key = key,
+                    modifier = if (onAvatarClick == null) {
+                        Modifier
+                    } else {
+                        Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = avatarClickLabel, onClick = onAvatarClick)
+                    },
+                )
+                if (onAvatarClick != null) {
+                    Icon(
+                        icon = BleskIcons.Camera,
+                        contentDescription = null,
+                        tint = Blesk.colors.onAccent,
+                        size = 16.dp,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(BadgeSize)
+                            .clip(CircleShape)
+                            .background(Blesk.colors.accent)
+                            .padding(6.dp),
+                    )
+                }
+            }
         }
     }
 }
 
 private val AvatarSize = 96.dp
+private val BadgeSize = 28.dp
 private val ScrollBlur = 16.dp
 private val NeckRim = 2.dp
 private val NeckReach = 40.dp

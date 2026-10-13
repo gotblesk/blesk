@@ -62,6 +62,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -144,6 +146,8 @@ fun ChatList(
     /** The archive row folded into the top lens: pulling the list down opens the archive. */
     archiveFolded: Boolean = false,
     onFoldArchive: ((Boolean) -> Unit)? = null,
+    /** Where the rows are, for the long-press menu to lift the pressed one in place. */
+    places: ChatRowPlaces? = null,
     /** Pinned rooms dragged into a new order; null keeps them where they are. */
     onReorderRooms: ((List<String>) -> Unit)? = null,
     /** The archive was opened by pulling the list down. */
@@ -170,7 +174,7 @@ fun ChatList(
         roomDrag.order.mapNotNull(byId::get) + list.filterNot { it.id in roomDrag.order }
     }
     val rowModifier = Modifier.padding(horizontal = Blesk.dimens.gutter - 6.dp)
-    CompositionLocalProvider(LocalOnline provides online) {
+    CompositionLocalProvider(LocalOnline provides online, LocalChatRowPlaces provides places) {
         LazyColumn(
             state = state,
             modifier = modifier
@@ -603,6 +607,7 @@ private fun ConversationRow(
 ) {
     val protected = conversation.protection == Protection.EndToEnd
     val haptics = rememberHaptics()
+    val places = LocalChatRowPlaces.current
     val encryptedLabel = stringResource(R.string.chats_encrypted)
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -613,6 +618,7 @@ private fun ConversationRow(
         modifier = modifier
             .sharedBounds(chatKey(conversation.id))
             .fillMaxWidth()
+            .let { row -> if (places == null) row else row.onGloballyPositioned { places.put(conversation.id, it.boundsInWindow()) } }
             .clip(shape)
             .drawBehind { if (press > 0f) drawRect(capsule.copy(alpha = capsule.alpha * press)) }
             .combinedClickable(

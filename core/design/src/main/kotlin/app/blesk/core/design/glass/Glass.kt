@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import app.blesk.core.design.motion.LocalScreenMoving
 import app.blesk.core.design.theme.Blesk
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -184,7 +185,8 @@ private class LensPadding : PaddingValues {
 
 /**
  * Turns a capsule into a lens over the [LensScaffold] content: refraction on Android 13+,
- * blur on 12, matte below and when the glass strength is set to zero.
+ * blur on 12, matte below and when the glass strength is set to zero. While its screen moves
+ * in a transition the lens is matte too: live glass would be redrawn on every frame of the move.
  */
 @Composable
 fun Modifier.lens(shape: Shape, elevation: Dp = 18.dp, refract: Boolean = true, rim: Boolean = true): Modifier {
@@ -192,7 +194,9 @@ fun Modifier.lens(shape: Shape, elevation: Dp = 18.dp, refract: Boolean = true, 
     val strength = Blesk.appearance.glassStrength
     val colors = Blesk.colors
     val mode = glassModeFor(strength = strength)
-    if (backdrop == null || mode == GlassMode.Matte) {
+    // Read here on purpose: the lens is composed again only when its screen starts and stops moving.
+    val moving = LocalScreenMoving.current()
+    if (backdrop == null || mode == GlassMode.Matte || moving) {
         return this.clip(shape).background(colors.surface)
     }
     val tint = colors.glassTint.copy(alpha = colors.glassTint.alpha * (1f - 0.45f * strength))

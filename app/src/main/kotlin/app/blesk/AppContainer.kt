@@ -41,6 +41,7 @@ import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ProxyConfig
 import app.blesk.core.network.ProxyKind
 import app.blesk.core.network.ServerAddress
+import app.blesk.feature.profile.ProfileDraft
 import app.blesk.update.Updater
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -102,6 +103,9 @@ class AppContainer(context: Context) {
 
     /** «Индикатор кадров» from the debug screen; lives as long as the app does, like the journal. */
     val frameMeter = MutableStateFlow(false)
+
+    /** Profile changes left without saving, kept for the five seconds of their «Отменить». */
+    val profileDraft = MutableStateFlow<ProfileDraft?>(null)
     val network: StateFlow<Boolean> by lazy { networkAvailable(context.applicationContext, scope) }
 
     @androidx.annotation.OptIn(UnstableApi::class)

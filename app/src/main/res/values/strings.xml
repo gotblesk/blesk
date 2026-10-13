@@ -38,6 +38,8 @@
     <string name="call_needs_server">Работает после подключения к серверу</string>
     <string name="frame_meter_reading">%1$d к/с · пропущено %2$d</string>
     <string name="frame_meter_rest">покой · пропущено %1$d</string>
+    <string name="frame_meter_hertz">%1$d Гц</string>
+    <string name="frame_meter_saving">энергосбережение</string>
     <string name="call_capsule_open">Вернуться к звонку</string>
     <string name="call_capsule_connecting">Соединение…</string>
     <string name="call_ended_after">Звонок завершён · %1$s</string>

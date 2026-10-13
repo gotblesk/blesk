@@ -2,7 +2,7 @@
 <resources>
     <string name="debug_title">Отладка</string>
     <string name="frame_meter">Индикатор кадров</string>
-    <string name="frame_meter_hint">Капсула поверх приложения: сколько кадров в секунду и сколько пропущено. Пришли снимок там, где дёргается</string>
+    <string name="frame_meter_hint">Капсула поверх приложения: частота экрана, сколько кадров в секунду и сколько пропущено, и включено ли энергосбережение. Пришли снимок там, где дёргается</string>
     <string name="debug_privacy">В журнале нет текста сообщений, ключей и контактов. Он хранится только в памяти телефона.</string>
     <string name="debug_crash">Последний сбой</string>
     <string name="debug_no_crash">Сбоев не было</string>

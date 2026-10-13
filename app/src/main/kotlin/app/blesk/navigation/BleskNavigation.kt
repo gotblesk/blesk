@@ -43,7 +43,6 @@ import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.glass.LensAccessories
 import app.blesk.core.design.glass.LocalLensAccessories
-import app.blesk.core.design.motion.LocalSharedScope
 import app.blesk.core.design.motion.screenKey
 import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.theme.Blesk
@@ -235,17 +234,23 @@ fun BleskNavigation(container: AppContainer) {
         container.eventLog.record(EventCode.ScreenOpened, backStack.size.toLong())
     }
 
+    // Which way the stack went last, read by each screen while it moves: deeper or back.
+    val direction = remember { StackDirection(backStack.size) }
+    direction.update(backStack.size)
+
     val motion = Blesk.motion
     SharedTransitionLayout {
         var playerOpen by rememberSaveable { mutableStateOf(false) }
         val accessories = remember(container) {
             LensAccessories(top = { CallCapsule(container) }, bottom = { MusicCapsule(container, onExpand = { playerOpen = true }) })
         }
-        CompositionLocalProvider(LocalSharedScope provides this, LocalLensAccessories provides accessories) {
+        // In v1.0 screens only stack: nothing flows from one screen into the next, so shared
+        // elements are left out (LocalSharedScope stays empty) until the flows come back in P1.
+        CompositionLocalProvider(LocalLensAccessories provides accessories) {
             // The in-app notice floats over every screen, under the status bar.
             Box(Modifier.fillMaxSize()) {
                 val screenDecorator = remember {
-                    NavEntryDecorator<Any>(decorate = { entry -> Screen { entry.Content() } })
+                    NavEntryDecorator<Any>(decorate = { entry -> Screen(forward = { direction.forward }) { entry.Content() } })
                 }
                 // The screen under the open player is dimmed and softly blurred.
                 val blur by animateDpAsState(if (playerOpen) PlayerBlur else 0.dp, motion.settle(), label = "playerBlur")
@@ -253,8 +258,8 @@ fun BleskNavigation(container: AppContainer) {
                     modifier = Modifier.blur(blur),
                     sharedTransitionScope = this@SharedTransitionLayout,
                     transitionSpec = { screenEnter(motion) },
-                    popTransitionSpec = { screenBack(motion, edge = null) },
-                    predictivePopTransitionSpec = { edge -> screenBack(motion, edge) },
+                    popTransitionSpec = { screenBack(motion) },
+                    predictivePopTransitionSpec = { screenBack(motion) },
                     entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), screenDecorator),
                     backStack = backStack,
                     onBack = back,
@@ -335,7 +340,7 @@ fun BleskNavigation(container: AppContainer) {
                                 ),
                             )
                         }
-                        entry<ProfileKey> { ProfileRoute(container, back) }
+                        entry<ProfileKey> { ProfileRoute(container, back, onReopen = { backStack.add(ProfileKey) }) }
                         entry<MyQrKey> {
                             val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
                             val linkKey by produceState<String?>(null) { value = container.chats.value?.linkKey() }
@@ -637,5 +642,17 @@ private suspend fun checkProxy(container: AppContainer, setting: ProxySetting): 
         api != null -> api.checkThrough(config)?.let { ProxyCheck.Works(it) } ?: ProxyCheck.Silent
         NetworkProxy.reachable(config) -> ProxyCheck.Works(null)
         else -> ProxyCheck.Silent
+    }
+}
+
+/** Remembers whether the back stack last grew (a screen opened deeper) or shrank (a screen closed). */
+private class StackDirection(private var depth: Int) {
+    var forward = true
+        private set
+
+    fun update(now: Int) {
+        if (now == depth) return
+        forward = now > depth
+        depth = now
     }
 }

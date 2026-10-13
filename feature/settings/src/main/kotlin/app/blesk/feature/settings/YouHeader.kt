@@ -21,6 +21,7 @@ import app.blesk.core.design.component.DemoTag
 import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.ProfileHero
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.nameIntoLens
 import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -63,7 +64,7 @@ fun YouHeader(
                 style = condense(Blesk.type.title, scroll() / heroPx),
                 maxLines = 2,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.semantics { heading() },
+                modifier = Modifier.nameIntoLens(scroll).semantics { heading() },
             )
             if (demo) DemoTag()
         }

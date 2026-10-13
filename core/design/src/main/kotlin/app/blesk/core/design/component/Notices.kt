@@ -47,7 +47,7 @@ import kotlinx.coroutines.launch
 /** One short notice: a line of text, and for an undoable action the action itself. */
 class Notice internal constructor(val text: String, internal val undoable: Undoable?)
 
-internal class Undoable(val hidden: Collection<String>, val commit: () -> Unit)
+internal class Undoable(val hidden: Collection<String>, val commit: () -> Unit, val restore: () -> Unit)
 
 /**
  * Short notices over the bottom lens: «Скопировано», errors, and «Отменить». Only one is shown
@@ -70,10 +70,13 @@ class Notices(private val scope: CoroutineScope) {
 
     fun show(text: String) = post(Notice(text, null), SHORT_MILLIS)
 
-    /** Announces [commit] with «Отменить»; [hidden] keeps the affected item out of sight meanwhile. */
-    fun undoable(text: String, hidden: Collection<String> = emptyList(), commit: () -> Unit) {
+    /**
+     * Announces [commit] with «Отменить»; [hidden] keeps the affected item out of sight meanwhile.
+     * [restore] runs if «Отменить» is pressed, for what has to be brought back, not just kept.
+     */
+    fun undoable(text: String, hidden: Collection<String> = emptyList(), restore: () -> Unit = {}, commit: () -> Unit) {
         this.hidden.addAll(hidden)
-        post(Notice(text, Undoable(hidden, commit)), UNDO_MILLIS)
+        post(Notice(text, Undoable(hidden, commit, restore)), UNDO_MILLIS)
     }
 
     fun undo() {
@@ -81,6 +84,7 @@ class Notices(private val scope: CoroutineScope) {
         timer?.cancel()
         notice.undoable?.hidden?.let(hidden::removeAll)
         current = null
+        notice.undoable?.restore?.invoke()
     }
 
     private fun post(notice: Notice, millis: Long) {

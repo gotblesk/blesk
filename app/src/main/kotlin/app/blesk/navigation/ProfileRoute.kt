@@ -13,8 +13,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.headerPhotoKey
 import app.blesk.feature.profile.AvatarCrop
 import app.blesk.feature.profile.ProfileActions
@@ -34,7 +36,7 @@ internal fun rememberHeaderPhoto(container: AppContainer, version: Long): ImageB
 }
 
 @Composable
-internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit) {
+internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit, onReopen: () -> Unit) {
     val scope = rememberCoroutineScope()
     val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
     val current = profile ?: return
@@ -66,8 +68,13 @@ internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit) {
         )
         return
     }
+    val notices = LocalNotices.current
+    val unsaved = stringResource(app.blesk.feature.profile.R.string.profile_unsaved)
+    // A draft brought back by «Отменить» is taken once; the next opening starts from the saved profile.
+    val restored = remember { container.profileDraft.value.also { container.profileDraft.value = null } }
     ProfileScreen(
         profile = current,
+        restored = restored,
         photo = photo,
         headerPhoto = headerPhoto,
         actions = ProfileActions(
@@ -90,6 +97,16 @@ internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit) {
                 pickHeader.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
             onBack = onBack,
+            onLeaveUnsaved = { draft ->
+                onBack()
+                notices?.undoable(
+                    unsaved,
+                    restore = {
+                        container.profileDraft.value = draft
+                        onReopen()
+                    },
+                ) {}
+            },
         ),
     )
 }

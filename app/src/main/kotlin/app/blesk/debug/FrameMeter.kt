@@ -2,6 +2,7 @@ package app.blesk.debug
 
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.view.FrameMetrics
 import android.view.Window
 import androidx.compose.foundation.background
@@ -26,14 +27,17 @@ import kotlin.math.roundToInt
 /**
  * «Индикатор кадров»: how many frames the window really drew in the last half second and how
  * many refreshes were missed since it was turned on. It counts frames the system reports as
- * drawn, so a still screen shows rest rather than a made-up number.
+ * drawn, so a still screen shows rest rather than a made-up number. Beside it, the rate the
+ * screen refreshes at right now (phones drop from 120 to 60 Hz on their own) and whether power
+ * saving is on, which cuts smoothness by itself.
  */
 @Composable
 internal fun FrameMeter(window: Window, modifier: Modifier = Modifier) {
-    var reading by remember { mutableStateOf(Reading(fps = 0, dropped = 0)) }
+    var reading by remember { mutableStateOf(Reading(fps = 0, dropped = 0, hertz = 0, saving = false)) }
     DisposableEffect(window) {
-        val refresh = window.decorView.display?.refreshRate?.takeIf { it > 0f } ?: DEFAULT_REFRESH
-        val budget = (NANOS_PER_SECOND / refresh).toLong()
+        val power = window.context.getSystemService(PowerManager::class.java)
+        fun refresh() = window.decorView.display?.refreshRate?.takeIf { it > 0f } ?: DEFAULT_REFRESH
+        var budget = (NANOS_PER_SECOND / refresh()).toLong()
         var frames = 0
         var dropped = 0
         var since = System.nanoTime()
@@ -46,7 +50,14 @@ internal fun FrameMeter(window: Window, modifier: Modifier = Modifier) {
             if (now - since >= WINDOW_NANOS) {
                 val fps = (frames * NANOS_PER_SECOND / (now - since)).roundToInt()
                 // The capsule itself redraws twice a second; that is rest, not movement.
-                reading = Reading(fps = if (frames <= OWN_FRAMES) 0 else fps, dropped = dropped)
+                val hertz = refresh()
+                reading = Reading(
+                    fps = if (frames <= OWN_FRAMES) 0 else fps,
+                    dropped = dropped,
+                    hertz = hertz.roundToInt(),
+                    saving = power?.isPowerSaveMode == true,
+                )
+                budget = (NANOS_PER_SECOND / hertz).toLong()
                 frames = 0
                 since = now
             }
@@ -54,11 +65,14 @@ internal fun FrameMeter(window: Window, modifier: Modifier = Modifier) {
         window.addOnFrameMetricsAvailableListener(listener, Handler(Looper.getMainLooper()))
         onDispose { window.removeOnFrameMetricsAvailableListener(listener) }
     }
-    val text = if (reading.fps == 0) {
+    val frames = if (reading.fps == 0) {
         stringResource(R.string.frame_meter_rest, reading.dropped)
     } else {
         stringResource(R.string.frame_meter_reading, reading.fps, reading.dropped)
     }
+    val screen = if (reading.hertz > 0) stringResource(R.string.frame_meter_hertz, reading.hertz) + " · " else ""
+    val saving = if (reading.saving) " · " + stringResource(R.string.frame_meter_saving) else ""
+    val text = screen + frames + saving
     Text(
         text = text,
         style = Blesk.type.caption.copy(fontFamily = FontFamily.Monospace),
@@ -71,7 +85,7 @@ internal fun FrameMeter(window: Window, modifier: Modifier = Modifier) {
     )
 }
 
-private class Reading(val fps: Int, val dropped: Int)
+private class Reading(val fps: Int, val dropped: Int, val hertz: Int, val saving: Boolean)
 
 private const val DEFAULT_REFRESH = 60f
 private const val NANOS_PER_SECOND = 1_000_000_000f

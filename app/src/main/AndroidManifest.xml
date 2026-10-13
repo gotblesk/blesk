@@ -25,7 +25,7 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application
-        android:enableOnBackInvokedCallback="true"
+        android:enableOnBackInvokedCallback="false"
         android:name=".BleskApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

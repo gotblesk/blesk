@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,7 +24,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -43,17 +41,18 @@ import app.blesk.core.design.component.ActionCluster
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ClusterAction
 import app.blesk.core.design.component.HeaderStyle
-import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ProfileHero
+import app.blesk.core.design.component.ProfileTopLens
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.component.glint
+import app.blesk.core.design.component.nameIntoLens
 import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.component.rememberPhotoFile
-import app.blesk.core.design.glass.TopLens
+import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.condense
@@ -61,7 +60,6 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import java.io.File
-import app.blesk.core.design.R as DesignR
 
 /** What can be done from someone's profile. Null actions are not offered here. */
 class PersonActions(
@@ -109,13 +107,15 @@ fun PersonProfileScreen(
     var more by remember { mutableStateOf(false) }
     val headerPx = with(LocalDensity.current) { profileHeaderHeight().toPx() }
     val preset = conversation.id.hashCode().mod(HeaderStyle.Light.PRESETS)
-    Box(modifier.fillMaxSize().background(Blesk.colors.background)) {
+    LensScaffold(
+        modifier = modifier,
+        top = { ProfileTopLens(conversation.title, { scroll.value }, onBack) },
+    ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(scroll)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(bottom = 24.dp),
+                .padding(bottom = padding.calculateBottomPadding() + 24.dp),
         ) {
             ProfileHero(
                 name = conversation.title,
@@ -132,6 +132,9 @@ fun PersonProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 10.dp, start = Blesk.dimens.gutter, end = Blesk.dimens.gutter)
+                    // The big name flows into the lens: it is gone by the time the lens holds the name,
+                    // never both at once over the status bar.
+                    .nameIntoLens { scroll.value }
                     .semantics { heading() },
             )
             Text(
@@ -211,16 +214,6 @@ fun PersonProfileScreen(
                 }
             }
         }
-        // The lens gathers above the page once the avatar has gone up into it.
-        if (scroll.value > headerPx - LENS_REACH_PX * LocalDensity.current.density) {
-            TopLens(title = conversation.title, onBack = onBack)
-        } else {
-            Box(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(10.dp)) {
-                Box(Modifier.clip(RoundedCornerShape(24.dp)).background(Blesk.colors.background.copy(alpha = 0.6f))) {
-                    IconButton(BleskIcons.Back, stringResource(DesignR.string.design_back), onBack)
-                }
-            }
-        }
         if (more) {
             MoreSheet(
                 pinned = conversation.pinned,
@@ -297,5 +290,3 @@ private fun MoreSheet(pinned: Boolean, onPin: () -> Unit, onTheme: (() -> Unit)?
         }
     }
 }
-
-private const val LENS_REACH_PX = 72f

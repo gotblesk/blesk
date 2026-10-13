@@ -8,10 +8,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
@@ -34,6 +39,7 @@ import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.LogEntry
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.BotButton
+import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.core.data.model.Reaction
@@ -64,8 +70,11 @@ import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
 import app.blesk.feature.chats.ChatList
+import app.blesk.feature.chats.ChatMenu
+import app.blesk.feature.chats.ChatMenuActions
 import app.blesk.feature.chats.ChatMotion
 import app.blesk.feature.chats.ChatMotionDemo
+import app.blesk.feature.chats.ChatRowPlaces
 import app.blesk.feature.chats.ConnectionStatus
 import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.ContactsTab
@@ -242,6 +251,40 @@ class KeyScreensScreenshotTest(private val name: String) {
                 onOpenConversation = {},
                 onOpenChannel = { _, _ -> },
                 online = persistentSetOf(DemoSeed.ANYA, DemoSeed.MISHA),
+            )
+        }
+    }
+
+    @Test
+    fun chatMenu() = capture("39_chat_menu") {
+        val places = remember { ChatRowPlaces() }
+        val conversations = seed.conversations.filter { it.parentId == null && it.kind != ConversationKind.Room && !it.request }
+        var pressed by remember { mutableStateOf<Conversation?>(null) }
+        // The menu opens once the rows have been placed, as after a real long press.
+        LaunchedEffect(Unit) {
+            withFrameNanos { }
+            pressed = conversations[2]
+        }
+        Box(Modifier.blur(if (pressed != null) 12.dp else 0.dp)) {
+            HomeFrame("Чаты", 0) { padding ->
+                ChatList(
+                    conversations = conversations.toImmutableList(),
+                    typing = persistentSetOf(),
+                    now = now,
+                    contentPadding = padding,
+                    onOpenConversation = {},
+                    onOpenChannel = { _, _ -> },
+                    places = places,
+                )
+            }
+        }
+        pressed?.let { conversation ->
+            ChatMenu(
+                conversation = conversation,
+                now = now.toEpochMilli(),
+                actions = ChatMenuActions({}, {}, {}, {}),
+                onDismiss = {},
+                anchor = places[conversation.id],
             )
         }
     }

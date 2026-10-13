@@ -2,6 +2,7 @@ package app.blesk.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -29,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -53,6 +55,7 @@ import app.blesk.core.design.component.HintCapsule
 import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.LocalHeaderFocus
+import app.blesk.core.design.component.ProfileLensReach
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.headerFocusOf
 import app.blesk.core.design.component.profileHeaderHeight
@@ -71,6 +74,7 @@ import app.blesk.core.network.NetworkProxy
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.ChatMenuActions
+import app.blesk.feature.chats.ChatRowPlaces
 import app.blesk.feature.chats.ConnectionStatus
 import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.ContactsTab
@@ -112,6 +116,9 @@ internal fun Home(
     settings: SettingsActions,
 ) {
     var menuFor by remember { mutableStateOf<Conversation?>(null) }
+    val rowPlaces = remember { ChatRowPlaces() }
+    // Under a chat's menu the list is darkened and softly blurred; the lifted row stays sharp.
+    val menuBlur by animateDpAsState(if (menuFor != null) MenuBlur else 0.dp, Blesk.motion.settle(), label = "menuBlur")
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
     val photo = rememberProfilePhoto(container, profile?.photoVersion ?: 0L)
@@ -143,7 +150,7 @@ internal fun Home(
             }
         },
     )
-    val youCollapseAt = with(LocalDensity.current) { (profileHeaderHeight() - YouLensReach).toPx() }
+    val youCollapseAt = with(LocalDensity.current) { (profileHeaderHeight() - ProfileLensReach).toPx() }
     val headerPhoto = rememberHeaderPhoto(container, profile?.headerVersion ?: 0L)
     val chatsList = rememberLazyListState()
     val contactsList = rememberLazyListState()
@@ -179,6 +186,7 @@ internal fun Home(
         }
     }
     LensScaffold(
+        modifier = Modifier.blur(menuBlur),
         top = {
             if (inSearch) {
                 SearchLens(
@@ -300,6 +308,7 @@ internal fun Home(
                             onOpenChannel = onOpenChannel,
                             state = chatsList,
                             onLongPress = { menuFor = it },
+                            places = rowPlaces,
                             onSwipeArchive = { chats.setArchived(it.id, true) },
                             onSwipeRead = { toggleRead(chats, it) },
                             archivedCount = archived,
@@ -410,6 +419,7 @@ internal fun Home(
             now = System.currentTimeMillis(),
             actions = chatMenuActions(chats, conversation, conversations, onPinLimit),
             onDismiss = { menuFor = null },
+            anchor = rowPlaces[conversation.id],
         )
     }
 }
@@ -453,8 +463,6 @@ private fun LazyListState.scrolledPast() = firstVisibleItemIndex > 0 || firstVis
 
 private const val TAB_SHIFT_PERCENT = 6
 
-private val YouLensReach = 72.dp
-
 /** Reads the stored header choice; anything unknown falls back to the first light. */
 internal fun headerStyleOf(stored: String): HeaderStyle {
     val (kind, value) = stored.split(':').let { it.first() to it.getOrNull(1)?.toIntOrNull() }
@@ -477,3 +485,5 @@ private fun PhraseBanner(onOpen: () -> Unit) {
         )
     }
 }
+
+private val MenuBlur = 12.dp

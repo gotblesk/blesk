@@ -1,5 +1,6 @@
 package app.blesk.navigation
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -8,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,6 +24,7 @@ import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatMenu
+import app.blesk.feature.chats.ChatRowPlaces
 import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.RequestActions
@@ -37,12 +40,18 @@ internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) 
     val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by chats.typing.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<Conversation?>(null) }
+    val rowPlaces = remember { ChatRowPlaces() }
+    // Under a chat's menu the list is darkened and softly blurred; the lifted row stays sharp.
+    val menuBlur by animateDpAsState(if (menuFor != null) MenuBlur else 0.dp, Blesk.motion.settle(), label = "menuBlur")
     val archived = conversations.filter { it.archived }
     val keepArchived by container.settings.keepArchived.collectAsStateWithLifecycle(initialValue = false)
     val folded by container.settings.archiveFolded.collectAsStateWithLifecycle(initialValue = false)
     val scope = rememberCoroutineScope()
     val onPinLimit = rememberPinLimit()
-    LensScaffold(top = { TopLens(title = stringResource(R.string.chats_archive), onBack = onBack) }) { padding ->
+    LensScaffold(
+        modifier = Modifier.blur(menuBlur),
+        top = { TopLens(title = stringResource(R.string.chats_archive), onBack = onBack) },
+    ) { padding ->
         if (archived.isEmpty()) {
             EmptyChats(padding, title = stringResource(R.string.archive_empty_title), text = stringResource(R.string.archive_empty_text))
             return@LensScaffold
@@ -55,6 +64,7 @@ internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) 
             onOpenConversation = onOpenConversation,
             onOpenChannel = { _, _ -> },
             onLongPress = { menuFor = it },
+            places = rowPlaces,
             onSwipeArchive = { chats.setArchived(it.id, false) },
             onSwipeRead = { toggleRead(chats, it) },
             onReorderPinned = chats::reorderPinned,
@@ -73,7 +83,7 @@ internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) 
     }
     menuFor?.let { conversation ->
         val actions = chatMenuActions(chats, conversation, conversations, onPinLimit)
-        ChatMenu(conversation, System.currentTimeMillis(), actions, onDismiss = { menuFor = null })
+        ChatMenu(conversation, System.currentTimeMillis(), actions, onDismiss = { menuFor = null }, anchor = rowPlaces[conversation.id])
     }
 }
 
@@ -133,3 +143,5 @@ internal fun requestActions(
         onOpen = { onAccepted(it.id) },
     )
 }
+
+private val MenuBlur = 12.dp
