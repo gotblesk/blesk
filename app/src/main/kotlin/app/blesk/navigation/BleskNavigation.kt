@@ -320,6 +320,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenNotifications = { backStack.add(NotificationsKey) },
                                     onOpenStorage = { backStack.add(StorageKey) },
                                     onOpenUpdate = { backStack.add(UpdateKey) },
+                                    onOpenPhrase = { backStack.add(PhraseKey()) },
                                     onShowQr = { backStack.add(MyQrKey) },
                                     onDeleteAccount = if (demo) null else ({ backStack.add(WipeKey(WipeKind.DeleteAccount)) }),
                                     onShare = {
@@ -351,7 +352,12 @@ fun BleskNavigation(container: AppContainer) {
                                 val proxy by container.settings.proxy.collectAsStateWithLifecycle(ProxySetting())
                                 ServerScreen(
                                     connected = server?.let { ServerState(it.url, it.username, it.pin != null) },
-                                    onConnect = { raw, username -> connect(container, raw, username) },
+                                    onConnect = { raw, username ->
+                                        connect(container, raw, username).also { outcome ->
+                                            // A new account starts with its phrase: written down now, or put off on purpose.
+                                            if (outcome == ConnectOutcome.Ok) backStack.add(PhraseKey(afterRegistration = true))
+                                        }
+                                    },
                                     onBack = back,
                                     proxy = ProxyControls(
                                         setting = proxy,
@@ -371,6 +377,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onWipe = { backStack.add(WipeKey()) },
                                     onBack = back,
                                     onOpenBlocked = { backStack.add(BlockedKey) },
+                                    onOpenPhrase = { backStack.add(PhraseKey()) },
                                 )
                             }
                         }
@@ -505,6 +512,7 @@ fun BleskNavigation(container: AppContainer) {
                             }, onBack = back)
                         }
                         entry<MediaKey> { key -> MediaRoute(container, key, onBack = back) }
+                        entry<PhraseKey> { key -> PhraseRoute(container, key, onBack = back) }
                         entry<StickersKey> { StickersRoute(container, onOpen = { backStack.add(StickerSetKey(it)) }, onBack = back) }
                         entry<StickerSetKey> { key -> StickerSetRoute(container, key.setId, onMake = { backStack.add(it) }, onBack = back) }
                         entry<StickerMakeKey> { key -> StickerMakeRoute(container, key, onBack = back) }

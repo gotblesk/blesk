@@ -109,6 +109,9 @@ dependencies {
     implementation(libs.androidx.core.telecom)
     implementation(libs.camerax.compose)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.credentials)
+    // Credential Manager reaches an old Fragment through Biometric; the activity-result APIs need 1.3 or later.
+    implementation(libs.androidx.fragment)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

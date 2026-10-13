@@ -30,6 +30,8 @@ class PrivacyActions(
     val onBack: () -> Unit,
     /** People you blocked; null in the demo. */
     val onOpenBlocked: (() -> Unit)? = null,
+    /** The recovery phrase; null without an account that has one. */
+    val onOpenPhrase: (() -> Unit)? = null,
 )
 
 @Composable
@@ -164,7 +166,12 @@ fun PrivacyScreen(
 
         SectionHeader(stringResource(R.string.privacy_keys))
         Card(pad) {
-            ListRow(title = stringResource(R.string.privacy_phrase), icon = BleskIcons.Lock, soon = true)
+            ListRow(
+                title = stringResource(R.string.privacy_phrase),
+                icon = BleskIcons.Lock,
+                soon = actions.onOpenPhrase == null,
+                onClick = actions.onOpenPhrase,
+            )
         }
 
         Card(pad.padding(top = Blesk.dimens.sectionGap)) {

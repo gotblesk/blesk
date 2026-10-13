@@ -13,6 +13,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.blesk.InAppNote
 import app.blesk.core.calls.CallMember
 import app.blesk.core.calls.MediaState
+import app.blesk.core.crypto.phrase.RecoveryPhrase
 import app.blesk.core.data.BotResult
 import app.blesk.core.data.Connection
 import app.blesk.core.data.KeyState
@@ -80,6 +81,8 @@ import app.blesk.feature.debug.DebugScreen
 import app.blesk.feature.profile.ProfileActions
 import app.blesk.feature.profile.ProfileScreen
 import app.blesk.feature.profile.QrCode
+import app.blesk.feature.security.PhraseActions
+import app.blesk.feature.security.PhraseScreen
 import app.blesk.feature.security.PinAttempt
 import app.blesk.feature.security.PinEntry
 import app.blesk.feature.security.PrivacyActions
@@ -577,6 +580,14 @@ class KeyScreensScreenshotTest(private val name: String) {
                 onStop = {},
             )
         }
+    }
+
+    @Test
+    fun phrase() = capture("32_phrase") {
+        PhraseScreen(
+            words = RecoveryPhrase.wordsOf(ByteArray(16) { (it * 37).toByte() }),
+            actions = PhraseActions(onCopy = {}, onPasswordManager = {}, onChecked = {}, onLater = {}, onBack = null),
+        )
     }
 
     @Test

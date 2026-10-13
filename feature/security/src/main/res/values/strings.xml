@@ -84,4 +84,26 @@
     <string name="privacy_who_sees_photo">Видеть моё фото</string>
     <string name="privacy_save_media">Сохранение в галерею</string>
     <string name="privacy_save_media_hint">Кнопка в просмотре фото и видео. Сохранённое увидят другие приложения</string>
+    <string name="phrase_title">Фраза восстановления</string>
+    <string name="phrase_intro">Эти 12 слов — и есть твой аккаунт. Запиши их на бумаге по порядку и храни отдельно от телефона. Без фразы на новом телефоне аккаунт не вернуть, и никто не сможет помочь.</string>
+    <string name="phrase_word">Слово %1$d: %2$s</string>
+    <string name="phrase_written">Записано — проверить</string>
+    <string name="phrase_check_again">Проверить ещё раз</string>
+    <string name="phrase_password_manager">Сохранить в менеджер паролей</string>
+    <string name="phrase_password_manager_hint">Тогда фраза будет храниться и у провайдера менеджера паролей.</string>
+    <string name="phrase_copy">Скопировать</string>
+    <string name="phrase_copy_hint">Буфер обмена очистится через минуту.</string>
+    <string name="phrase_later">Позже</string>
+    <string name="phrase_later_hint">Напомним в «Ты». Пока фраза не записана, потерять телефон — значит потерять аккаунт.</string>
+    <string name="phrase_check_intro">Выбери слова под этими номерами.</string>
+    <string name="phrase_check_number">Слово № %1$d</string>
+    <string name="phrase_check_wrong">Не то слово. Посмотри на записанную фразу ещё раз.</string>
+    <string name="phrase_check_done">Проверить</string>
+    <string name="phrase_check_back">Посмотреть фразу</string>
+    <string name="phrase_key">Ключ от аккаунта</string>
+    <string name="phrase_done">Фраза проверена. Храни её отдельно от телефона — по ней аккаунт откроется на любом другом.</string>
+    <string name="phrase_finish">Готово</string>
+    <string name="phrase_unlock">Введи код-пароль, чтобы увидеть фразу</string>
+    <string name="phrase_copied">Фраза скопирована. Через минуту буфер очистится</string>
+    <string name="phrase_saved_to_manager">Фраза сохранена в менеджере паролей</string>
 </resources>

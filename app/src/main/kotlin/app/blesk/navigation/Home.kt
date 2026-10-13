@@ -48,9 +48,11 @@ import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.settings.GestureHint
 import app.blesk.core.data.settings.VibrationLevel
 import app.blesk.core.design.component.Avatar
+import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.HintCapsule
 import app.blesk.core.design.component.IconButton
+import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.LocalHeaderFocus
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.headerFocusOf
@@ -116,6 +118,7 @@ internal fun Home(
     val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
     val photo = rememberProfilePhoto(container, profile?.photoVersion ?: 0L)
     val connection by remember(chats) { chats.connection }.collectAsStateWithLifecycle(initialValue = Connection.Online)
+    val phrase by container.phrase.status.collectAsStateWithLifecycle()
     val sendByEnter by container.settings.sendByEnter.collectAsStateWithLifecycle(initialValue = false)
     val tapToRecord by container.settings.tapToRecord.collectAsStateWithLifecycle(initialValue = false)
     val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
@@ -320,6 +323,11 @@ internal fun Home(
                             archiveFolded = archiveFolded,
                             onFoldArchive = { folded -> scope.launch { container.settings.setArchiveFolded(folded) } },
                             onPullArchive = { markHint(GestureHint.ArchivePull) },
+                            header = if (phrase.overdue(System.currentTimeMillis())) {
+                                { item(key = "phrase") { PhraseBanner(settings.onOpenPhrase) } }
+                            } else {
+                                null
+                            },
                         )
                         HintCapsule(
                             text = listHint?.let { hintText(it) },
@@ -399,6 +407,7 @@ internal fun Home(
                             header = headerStyleOf(current.header),
                             headerPhoto = headerPhoto,
                             update = update?.title,
+                            phraseUnchecked = phrase.unchecked,
                         )
                     }
                 }
@@ -463,5 +472,18 @@ internal fun headerStyleOf(stored: String): HeaderStyle {
         "photo" -> HeaderStyle.Photo
         "solid" -> HeaderStyle.Solid(value ?: 0)
         else -> HeaderStyle.Light(value ?: 0)
+    }
+}
+
+/** A day after «Позже», over the chats until the phrase is written down. */
+@Composable
+private fun PhraseBanner(onOpen: () -> Unit) {
+    Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(bottom = 8.dp)) {
+        ListRow(
+            title = stringResource(SettingsR.string.you_phrase_reminder),
+            subtitle = stringResource(SettingsR.string.you_phrase_reminder_hint),
+            icon = BleskIcons.Lock,
+            onClick = onOpen,
+        )
     }
 }

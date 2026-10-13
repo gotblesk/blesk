@@ -248,4 +248,6 @@
         <item quantity="many">%d файлов</item>
         <item quantity="other">%d файла</item>
     </plurals>
+    <string name="you_phrase_reminder">Запиши фразу восстановления</string>
+    <string name="you_phrase_reminder_hint">Без неё аккаунт не вернуть, если с телефоном что-то случится</string>
 </resources>

@@ -43,6 +43,7 @@ internal fun PrivacyRoute(
     onWipe: () -> Unit,
     onBack: () -> Unit,
     onOpenBlocked: () -> Unit = {},
+    onOpenPhrase: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -64,6 +65,7 @@ internal fun PrivacyRoute(
             onWipe = onWipe,
             onBack = onBack,
             onOpenBlocked = onOpenBlocked,
+            onOpenPhrase = onOpenPhrase.takeIf { container.phrase.exists },
         ),
     )
 }

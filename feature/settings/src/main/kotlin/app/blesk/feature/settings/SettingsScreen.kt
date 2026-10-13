@@ -48,6 +48,7 @@ class SettingsActions(
     /** Deleting the account; null in the demo. */
     val onDeleteAccount: (() -> Unit)? = null,
     val onOpenUpdate: () -> Unit = {},
+    val onOpenPhrase: () -> Unit = {},
 )
 
 /** The «Ты» tab: your profile and what is yours — saved messages, calls, invites, stickers, bots. */
@@ -65,6 +66,8 @@ fun YouList(
     headerPhoto: ImageBitmap? = null,
     /** The title of a newer build, when there is one. */
     update: String? = null,
+    /** The recovery phrase was made but not written down yet. */
+    phraseUnchecked: Boolean = false,
 ) {
     Column(
         modifier
@@ -88,6 +91,16 @@ fun YouList(
                 share = stringResource(R.string.you_share),
             ),
         )
+        if (phraseUnchecked) {
+            Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(bottom = 12.dp)) {
+                ListRow(
+                    title = stringResource(R.string.you_phrase_reminder),
+                    subtitle = stringResource(R.string.you_phrase_reminder_hint),
+                    icon = BleskIcons.Lock,
+                    onClick = actions.onOpenPhrase,
+                )
+            }
+        }
         if (update != null) {
             Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(bottom = 12.dp)) {
                 ListRow(

@@ -353,6 +353,8 @@ class TwoClientsTest {
     }
 
     private companion object {
-        const val TIMEOUT = 20_000L
+        // Only a ceiling: a passing check returns at once. The full build runs the server tests and the
+        // Kyber key generation of several clients side by side, where 20 seconds was sometimes not enough.
+        const val TIMEOUT = 60_000L
     }
 }
