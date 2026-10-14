@@ -165,6 +165,8 @@ import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupMember
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
+import app.blesk.shared.protocol.Right
+import app.blesk.shared.protocol.RoomRole
 import app.blesk.shared.protocol.SpaceChannel
 import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
@@ -914,6 +916,49 @@ class KeyScreensScreenshotTest(private val name: String) {
             actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {}),
             onBack = {},
             extras = GroupInfoExtras(online = persistentSetOf("lera")),
+        )
+    }
+
+    @Test
+    fun roomJustMade() = capture("17c_room_edit") {
+        val state = GroupState(
+            id = "r",
+            kind = GroupKind.Room,
+            title = "Книжный клуб",
+            version = 1,
+            epoch = 0,
+            members = listOf(GroupMember("eva", GroupRole.Owner), GroupMember("lera", GroupRole.Member, roles = listOf("mods"))),
+            channels = listOf(GroupChannel("general", "общее"), GroupChannel("voice", "голосовой", GroupChannelKind.Voice)),
+            roles = listOf(RoomRole("mods", "Модераторы", hue = 3, rights = setOf(Right.Timeout))),
+        )
+        GroupInfoScreen(
+            state = state,
+            me = "eva",
+            contacts = persistentListOf(),
+            nameOf = { mapOf("eva" to "Ева", "lera" to "Лера")[it] ?: it },
+            actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {}),
+            onBack = {},
+            extras = GroupInfoExtras(startEditing = true),
+        )
+    }
+
+    @Test
+    fun channelOwner() = capture("18b_channel") {
+        SpaceInfoScreen(
+            space = SpaceInfo(
+                handle = "light_news",
+                kind = SpaceKind.Channel,
+                title = "Новости света",
+                about = "Короткие заметки о свете и цвете",
+                members = 1248,
+                channels = emptyList(),
+                role = SpaceRole.Owner,
+            ),
+            me = "eva",
+            members = persistentListOf(SpaceMember("eva", SpaceRole.Owner)),
+            nameOf = { it },
+            actions = SpaceActions({ _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {}),
+            onBack = {},
         )
     }
 

@@ -3,11 +3,13 @@ package app.blesk.feature.chats.groups
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -137,7 +139,10 @@ internal fun HueDot(hue: Int, modifier: Modifier = Modifier, size: Dp = 8.dp) {
 /** Eight dots, and «Свет» first when [allowLight]; the chosen one ringed. Null is «Свет». */
 @Composable
 internal fun HuePicker(selected: Int?, onSelect: (Int?) -> Unit, allowLight: Boolean, modifier: Modifier = Modifier) {
-    Row(modifier.padding(horizontal = Blesk.dimens.gutter, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(
+        modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Blesk.dimens.gutter, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         val options = (if (allowLight) listOf<Int?>(null) else emptyList()) + (0 until COMMUNITY_HUES).toList()
         options.forEach { hue ->
             val label = if (hue == null) stringResource(R.string.manage_hue_light) else stringResource(R.string.manage_hue, hue + 1)
