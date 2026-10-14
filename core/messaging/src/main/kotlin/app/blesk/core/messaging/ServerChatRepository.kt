@@ -57,6 +57,7 @@ import app.blesk.shared.protocol.EnvelopeType
 import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
+import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.InviteLink
@@ -64,6 +65,7 @@ import app.blesk.shared.protocol.LinkPreview
 import app.blesk.shared.protocol.OutgoingMessage
 import app.blesk.shared.protocol.Post
 import app.blesk.shared.protocol.ReceiptKind
+import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.RoleChange
 import app.blesk.shared.protocol.ServerFrame
 import app.blesk.shared.protocol.SpaceInfo
@@ -642,7 +644,7 @@ class ServerChatRepository(
         }
         scope.launch {
             val message = db.messages().get(messageId) ?: return@launch
-            val moderator = groups.groupOf(conversationId)?.isAdmin(me) == true
+            val moderator = groups.groupOf(conversationId)?.let { GroupPolicy.can(it, me, Right.DeleteOthers) } == true
             if (message.authorId != me && !moderator) return@launch
             db.messages().delete(messageId)
             refreshPreview(conversationId)
@@ -1050,7 +1052,7 @@ class ServerChatRepository(
                 refreshPreview(conversation)
             }
             is Body.Delete -> db.messages().get(body.target)?.takeIf {
-                it.conversationId == conversation && (it.authorId == sender || state.isAdmin(sender))
+                it.conversationId == conversation && (it.authorId == sender || GroupPolicy.can(state, sender, Right.DeleteOthers))
             }?.let {
                 db.messages().delete(it.id)
                 refreshPreview(conversation)

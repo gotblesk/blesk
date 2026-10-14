@@ -13,7 +13,7 @@ import app.blesk.AppContainer
 import app.blesk.core.data.KeyState
 import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.SafetyCode
-import app.blesk.feature.profile.QrCode
+import app.blesk.core.design.component.QrCode
 import app.blesk.feature.settings.SafetyScreen
 import kotlinx.coroutines.launch
 

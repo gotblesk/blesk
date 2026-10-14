@@ -5,6 +5,9 @@ import android.content.Context
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -13,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -20,7 +24,10 @@ import app.blesk.AppContainer
 import app.blesk.core.crypto.Biometrics
 import app.blesk.core.crypto.PinVault
 import app.blesk.core.data.settings.Privacy
+import app.blesk.core.design.component.blockTaps
+import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.BlockedScreen
+import app.blesk.feature.chats.groups.IdentityGate
 import app.blesk.feature.security.BiometricOffer
 import app.blesk.feature.security.PinAttempt
 import app.blesk.feature.security.PinEntry
@@ -193,4 +200,39 @@ internal fun BlockedRoute(container: AppContainer, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val blocked by remember(chats) { chats.blocked }.collectAsStateWithLifecycle(initialValue = emptyList())
     BlockedScreen(people = blocked.toImmutableList(), onUnblock = { chats.setBlocked(it.username, false) }, onBack = onBack)
+}
+
+/**
+ * Proof that it is the owner of the phone before something that cannot be undone: the app's
+ * code, or a fingerprint when it is allowed. Null when no code is set, as then there is nothing
+ * to ask for. Wrong codes count against the same limit as on the lock screen.
+ */
+@Composable
+internal fun rememberIdentityGate(container: AppContainer): IdentityGate? {
+    if (!container.pinVault.isSet) return null
+    val privacy by container.settings.privacy.collectAsStateWithLifecycle(initialValue = Privacy())
+    val biometric = privacy.biometric
+    return remember(biometric) {
+        { onPassed, onCancel ->
+            val activity = LocalActivity.current
+            val context = LocalContext.current
+            val title = stringResource(SecurityR.string.lock_biometric_prompt)
+            val cancel = stringResource(SecurityR.string.lock_biometric_cancel)
+            val canUseBiometric = biometric && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Biometrics.available(context)
+            BackHandler(onBack = onCancel)
+            Box(Modifier.fillMaxSize().background(Blesk.colors.background).blockTaps()) {
+                PinEntry(
+                    title = stringResource(app.blesk.feature.chats.R.string.manage_confirm_title),
+                    length = container.pinVault.length,
+                    check = { pin -> container.pinVault.check(pin).toAttempt() },
+                    onOpened = onPassed,
+                    onBiometric = if (canUseBiometric && activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        { Biometrics.prompt(activity, title, cancel, onPassed) }
+                    } else {
+                        null
+                    },
+                )
+            }
+        }
+    }
 }

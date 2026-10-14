@@ -123,7 +123,7 @@ data object RoomsAddKey : NavKey
 data object ScanKey : NavKey
 
 @Serializable
-data class GroupInfoKey(val groupId: String) : NavKey
+data class GroupInfoKey(val groupId: String, val editing: Boolean = false) : NavKey
 
 @Serializable
 data class ChannelInfoKey(val id: String) : NavKey
@@ -473,9 +473,11 @@ fun BleskNavigation(container: AppContainer) {
                             }, onBack = back)
                         }
                         entry<NewGroupKey> { key ->
-                            NewGroupRoute(container, key.kind, onCreated = { id ->
+                            NewGroupRoute(container, key.kind, onCreated = { id, room ->
                                 while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
                                 backStack.add(ConversationKey(id))
+                                // The owner of a new room starts in its details, to add channels and call people in.
+                                if (room) backStack.add(GroupInfoKey(id, editing = true))
                             }, onBack = back)
                         }
                         entry<ChannelInfoKey> { key ->
@@ -493,6 +495,7 @@ fun BleskNavigation(container: AppContainer) {
                             GroupInfoRoute(
                                 container,
                                 key.groupId,
+                                editing = key.editing,
                                 onLeft = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
                                 onBack = back,
                                 onOpenPerson = { username -> openDirect(username) { backStack.add(ChatInfoKey(it)) } },

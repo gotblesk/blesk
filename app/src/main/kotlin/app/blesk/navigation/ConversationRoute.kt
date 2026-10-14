@@ -61,6 +61,7 @@ import app.blesk.feature.chats.media.RecordMode
 import app.blesk.feature.chats.media.Recorders
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.protocol.BotCommand
+import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.persistentSetOf
@@ -142,8 +143,7 @@ internal fun ConversationRoute(
     }.collectAsStateWithLifecycle(initialValue = null)
     val readOnly = when {
         isSpace -> space?.kind == SpaceKind.Channel && space?.role != SpaceRole.Owner && space?.role != SpaceRole.Admin
-        channel != null -> channel.adminsOnly && groupState?.isAdmin(groupController?.me.orEmpty()) != true
-        else -> null
+        else -> groupState?.let { !GroupPolicy.canWrite(it, groupController?.me.orEmpty(), id) }
     }
     var busy by remember { mutableStateOf(false) }
     val failed = stringResource(app.blesk.feature.chats.R.string.media_failed)

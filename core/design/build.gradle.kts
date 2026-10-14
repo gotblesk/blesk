@@ -12,6 +12,7 @@ dependencies {
     api(project(":core:motion"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.backdrop)
+    implementation(libs.zxing.core)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
 }

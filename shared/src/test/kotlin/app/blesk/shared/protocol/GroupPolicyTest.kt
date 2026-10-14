@@ -30,7 +30,8 @@ class GroupPolicyTest {
 
     @Test
     fun ownerEditsAndTheJournalRemembers() {
-        val next = applied(GroupPolicy.apply(room, "owner", GroupChange.Describe(title = "Клуб 2", description = "о книгах"), NOW))
+        val change = GroupChange.Describe(title = "Клуб 2", description = "о книгах")
+        val next = applied(GroupPolicy.apply(room, "owner", change, NOW))
         assertEquals("Клуб 2", next.title)
         assertEquals(room.version + 1, next.version)
         assertEquals(LogAction.Edited, next.log.single().action)
@@ -59,6 +60,12 @@ class GroupPolicyTest {
         val next = applied(GroupPolicy.apply(room, "owner", GroupChange.TransferOwnership("anya"), NOW))
         assertEquals(GroupRole.Owner, next.roleOf("anya"))
         assertEquals(GroupRole.Admin, next.roleOf("owner"))
+    }
+
+    @Test
+    fun onlyTheOwnerDissolves() {
+        assertNull(GroupPolicy.apply(room, "admin", GroupChange.Dissolve, NOW))
+        assertEquals(listOf("owner"), GroupPolicy.apply(room, "owner", GroupChange.Dissolve, NOW)?.members?.map { it.username })
     }
 
     @Test

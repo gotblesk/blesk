@@ -18,6 +18,7 @@ import app.blesk.shared.protocol.GroupMember
 import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
+import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.TextSafety
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -86,20 +87,7 @@ internal class GroupEngine(
         state.copy(members = state.members + fresh.map { GroupMember(it, GroupRole.Member) })
     }
 
-    suspend fun remove(groupId: String, username: String): Boolean {
-        val before = state(groupId) ?: return false
-        if (before.roleOf(username) == GroupRole.Owner) return false
-        val changed = change(groupId) { state ->
-            state.copy(
-                members = state.members.filter { it.username != username },
-                epoch = state.epoch + 1,
-                voiceKey = state.voiceKey?.let { newVoiceKey() },
-            )
-        }
-        // The removed person learns they are out, but gets nothing newer than that.
-        if (changed) state(groupId)?.let { outbox.direct(username, update(it.copy(invite = null, voiceKey = null))) }
-        return changed
-    }
+    suspend fun remove(groupId: String, username: String) = change(groupId, GroupChange.Remove(username))
 
     suspend fun setRole(groupId: String, username: String, role: GroupRole): Boolean {
         val state = state(groupId) ?: return false
@@ -125,7 +113,16 @@ internal class GroupEngine(
         val rotated = if (next.epoch != state.epoch) next.copy(voiceKey = next.voiceKey?.let { newVoiceKey() }) else next
         apply(rotated)
         broadcast(rotated, (state.members + rotated.members).map { it.username }.distinct())
-        if (change is GroupChange.Ban) outbox.direct(change.username, update(rotated.copy(invite = null, voiceKey = null, invites = emptyList())))
+        val gone = rotated.copy(invite = null, voiceKey = null, invites = emptyList())
+        when (change) {
+            is GroupChange.Ban -> outbox.direct(change.username, update(gone))
+            is GroupChange.Remove -> outbox.direct(change.username, update(gone))
+            GroupChange.Dissolve -> {
+                state.members.filter { it.username != me }.forEach { outbox.direct(it.username, update(gone)) }
+                forget(groupId)
+            }
+            else -> Unit
+        }
         return true
     }
 
@@ -168,22 +165,23 @@ internal class GroupEngine(
         return content.takeIf { state.roleOf(sender) != null }
     }
 
-    fun canPost(state: GroupState, conversationId: String, username: String): Boolean {
-        if (state.roleOf(username) == null) return false
-        val channelId = conversationId.substringAfter(CHANNEL_SEPARATOR, "")
-        val channel = state.channels.firstOrNull { it.id == channelId }
-        return channel == null || !channel.adminsOnly || state.isAdmin(username)
-    }
+    fun canPost(state: GroupState, conversationId: String, username: String): Boolean =
+        state.roleOf(username) != null && GroupPolicy.canWrite(state, username, conversationId)
 
     // Incoming control messages
 
     suspend fun onUpdate(sender: String, incoming: GroupState) {
         val current = state(incoming.id)
-        val trusted = if (current == null) incoming.isAdmin(sender) else current.isAdmin(sender) && incoming.version > current.version
+        val trusted = if (current == null) {
+            incoming.isAdmin(sender)
+        } else {
+            GroupPolicy.manages(current, sender) && incoming.version > current.version
+        }
         if (!trusted) return
         // Only the owner may hand the group over; an admin's state that moves ownership is not taken.
         val owner = incoming.members.firstOrNull { it.role == GroupRole.Owner }?.username
-        if (current != null && owner != current.members.firstOrNull { it.role == GroupRole.Owner }?.username && current.roleOf(sender) != GroupRole.Owner) return
+        val previous = current?.members?.firstOrNull { it.role == GroupRole.Owner }?.username
+        if (current != null && owner != previous && current.roleOf(sender) != GroupRole.Owner) return
         if (incoming.roleOf(me) == null) {
             forget(incoming.id)
             return
@@ -209,7 +207,7 @@ internal class GroupEngine(
 
     suspend fun onJoinRequest(sender: String, request: Body.JoinRequest) {
         val state = state(request.groupId) ?: return
-        if (!state.isAdmin(me) || state.roleOf(sender) != null || sender in state.banned) return
+        if (!GroupPolicy.can(state, me, Right.Invite) || state.roleOf(sender) != null || sender in state.banned) return
         val invite = state.invites.firstOrNull { it.code == request.code }
         when {
             invite != null && invite.usable(clock()) -> change(request.groupId) { s ->
@@ -249,7 +247,7 @@ internal class GroupEngine(
 
     private suspend fun change(groupId: String, transform: (GroupState) -> GroupState): Boolean {
         val state = state(groupId) ?: return false
-        if (!state.isAdmin(me)) return false
+        if (!GroupPolicy.manages(state, me)) return false
         val next = transform(state)
         if (next == state) return true
         val versioned = next.copy(version = state.version + 1)
@@ -292,9 +290,10 @@ internal class GroupEngine(
                 .copy(title = state.title),
         )
         if (state.kind != GroupKind.Room) return
-        val textIds = state.channels.filter { it.kind == GroupChannelKind.Text }.map { channelConversation(state.id, it.id) }
+        val visible = state.channels.filter { it.kind == GroupChannelKind.Text && GroupPolicy.sees(state, me, it) }
+        val textIds = visible.map { channelConversation(state.id, it.id) }
         db.conversations().children(state.id).filter { it.id !in textIds }.forEach { db.conversations().deleteWithChildren(it.id) }
-        state.channels.filter { it.kind == GroupChannelKind.Text }.forEach { channel ->
+        visible.forEach { channel ->
             val id = channelConversation(state.id, channel.id)
             val row = db.conversations().get(id)
             val fresh = ConversationEntity(

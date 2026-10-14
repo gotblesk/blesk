@@ -12,34 +12,80 @@ import java.util.Base64
  */
 @Serializable
 enum class Right {
-    @SerialName("write") Write,
-    @SerialName("media") Media,
-    @SerialName("stickers") Stickers,
-    @SerialName("links") Links,
-    @SerialName("polls") Polls,
-    @SerialName("invite") Invite,
-    @SerialName("pin") Pin,
-    @SerialName("edit_info") EditInfo,
-    @SerialName("delete_others") DeleteOthers,
-    @SerialName("ban") Ban,
-    @SerialName("calls") Calls,
-    @SerialName("add_admins") AddAdmins,
-    @SerialName("channels") Channels,
-    @SerialName("roles") Roles,
-    @SerialName("journal") Journal,
-    @SerialName("timeout") Timeout,
-    @SerialName("assign_roles") AssignRoles,
-    @SerialName("mention_all") MentionAll,
-    @SerialName("connect") Connect,
-    @SerialName("speak") Speak,
-    @SerialName("screen") Screen,
-    @SerialName("mute_others") MuteOthers,
-    @SerialName("move") Move,
+    @SerialName("write")
+    Write,
+
+    @SerialName("media")
+    Media,
+
+    @SerialName("stickers")
+    Stickers,
+
+    @SerialName("links")
+    Links,
+
+    @SerialName("polls")
+    Polls,
+
+    @SerialName("invite")
+    Invite,
+
+    @SerialName("pin")
+    Pin,
+
+    @SerialName("edit_info")
+    EditInfo,
+
+    @SerialName("delete_others")
+    DeleteOthers,
+
+    @SerialName("ban")
+    Ban,
+
+    @SerialName("calls")
+    Calls,
+
+    @SerialName("add_admins")
+    AddAdmins,
+
+    @SerialName("channels")
+    Channels,
+
+    @SerialName("roles")
+    Roles,
+
+    @SerialName("journal")
+    Journal,
+
+    @SerialName("timeout")
+    Timeout,
+
+    @SerialName("assign_roles")
+    AssignRoles,
+
+    @SerialName("mention_all")
+    MentionAll,
+
+    @SerialName("connect")
+    Connect,
+
+    @SerialName("speak")
+    Speak,
+
+    @SerialName("screen")
+    Screen,
+
+    @SerialName("mute_others")
+    MuteOthers,
+
+    @SerialName("move")
+    Move,
     ;
 
     companion object {
         val MEMBER_DEFAULT = setOf(Write, Media, Stickers, Links, Polls, Invite, Pin, Connect, Speak, Screen)
-        val ADMIN_ALL = setOf(EditInfo, DeleteOthers, Ban, Invite, Pin, Calls, AddAdmins, Channels, Roles, Journal, Timeout, AssignRoles)
+        val ADMIN_ALL =
+            setOf(EditInfo, DeleteOthers, Ban, Invite, Pin, Calls, AddAdmins, Channels, Roles, Journal, Timeout, AssignRoles)
     }
 }
 
@@ -80,17 +126,38 @@ data class LogEntry(val at: Long, val actor: String, val action: LogAction, val 
 
 @Serializable
 enum class LogAction {
-    @SerialName("edited") Edited,
-    @SerialName("rights") Rights,
-    @SerialName("admin") Admin,
-    @SerialName("removed") Removed,
-    @SerialName("banned") Banned,
-    @SerialName("unbanned") Unbanned,
-    @SerialName("invite") Invite,
-    @SerialName("revoked") Revoked,
-    @SerialName("owner") Owner,
-    @SerialName("channel") Channel,
-    @SerialName("role") Role,
+    @SerialName("edited")
+    Edited,
+
+    @SerialName("rights")
+    Rights,
+
+    @SerialName("admin")
+    Admin,
+
+    @SerialName("removed")
+    Removed,
+
+    @SerialName("banned")
+    Banned,
+
+    @SerialName("unbanned")
+    Unbanned,
+
+    @SerialName("invite")
+    Invite,
+
+    @SerialName("revoked")
+    Revoked,
+
+    @SerialName("owner")
+    Owner,
+
+    @SerialName("channel")
+    Channel,
+
+    @SerialName("role")
+    Role,
 }
 
 /** One change of a group or room, made by an owner or an admin. */
@@ -100,11 +167,15 @@ sealed interface GroupChange {
 
     /** Makes [username] an admin with [rights], or a plain member again with null. */
     data class Admin(val username: String, val rights: Set<Right>?) : GroupChange
+    data class Remove(val username: String) : GroupChange
     data class Ban(val username: String) : GroupChange
     data class Unban(val username: String) : GroupChange
     data class NewInvite(val invite: GroupInvite) : GroupChange
     data class Revoke(val code: String) : GroupChange
     data class TransferOwnership(val username: String) : GroupChange
+
+    /** The owner deletes the group for everyone: the last state lists only them, so every other phone lets it go. */
+    data object Dissolve : GroupChange
     data class RenameChannel(val id: String, val title: String, val description: String = "") : GroupChange
     data class MoveChannel(val id: String, val to: Int) : GroupChange
     data class HideChannel(val id: String, val fromRoles: Set<String>) : GroupChange
@@ -134,6 +205,20 @@ object GroupPolicy {
             GroupRole.Member -> right in state.memberRights || state.roles.any { it.id in member.roles && right in it.rights }
         }
     }
+
+    /** Owners, admins, and members whose roles let them change something: their states are taken by others. */
+    fun manages(state: GroupState, username: String): Boolean =
+        state.isAdmin(username) || MANAGING.any { can(state, username, it) }
+
+    /** Whether [username] may write in [conversationId]: the group itself or one of its channels, `group:channel`. */
+    fun canWrite(state: GroupState, username: String, conversationId: String): Boolean {
+        if (!can(state, username, Right.Write)) return false
+        val channel = state.channels.firstOrNull { it.id == conversationId.substringAfter(':', "") } ?: return true
+        return sees(state, username, channel) && (!channel.adminsOnly || state.isAdmin(username))
+    }
+
+    private val MANAGING =
+        setOf(Right.EditInfo, Right.Channels, Right.Roles, Right.Ban, Right.AssignRoles, Right.AddAdmins)
 
     /** Lower is higher: the owner 0, admins 1, then the room's roles in order, then everyone else. */
     fun rank(state: GroupState, username: String): Int {
@@ -166,6 +251,10 @@ object GroupPolicy {
                 state.copy(memberRights = change.rights).logged(now, actor, LogAction.Rights)
             }
             is GroupChange.Admin -> admin(state, actor, change, now)
+            is GroupChange.Remove -> if (!allowed(Right.Ban) || rank(state, change.username) <= rank(state, actor)) null else {
+                state.copy(members = state.members.filterNot { it.username == change.username }, epoch = state.epoch + 1)
+                    .logged(now, actor, LogAction.Removed, change.username)
+            }
             is GroupChange.Ban -> if (!allowed(Right.Ban) || rank(state, change.username) <= rank(state, actor)) null else {
                 state.copy(
                     members = state.members.filterNot { it.username == change.username },
@@ -183,6 +272,12 @@ object GroupPolicy {
                 invites = state.invites.map { if (it.code == change.code) it.copy(revoked = true) else it },
             ).logged(now, actor, LogAction.Revoked, change.code)
             is GroupChange.TransferOwnership -> transfer(state, actor, change.username, now)
+            GroupChange.Dissolve -> if (!owner) null else state.copy(
+                members = state.members.filter { it.username == actor },
+                invites = emptyList(),
+                invite = null,
+                epoch = state.epoch + 1,
+            )
             else -> rooms(state, actor, change, now)
         }
         return next?.copy(version = state.version + 1)
@@ -192,7 +287,11 @@ object GroupPolicy {
         if (!can(state, actor, Right.AddAdmins)) return null
         val target = state.members.firstOrNull { it.username == change.username } ?: return null
         if (target.role == GroupRole.Owner) return null
-        val actorRights = if (state.roleOf(actor) == GroupRole.Owner) Right.entries.toSet() else state.members.first { it.username == actor }.rights ?: Right.ADMIN_ALL
+        val actorRights = if (state.roleOf(actor) == GroupRole.Owner) {
+            Right.entries.toSet()
+        } else {
+            state.members.first { it.username == actor }.rights ?: Right.ADMIN_ALL
+        }
         // An admin cannot hand out rights they do not have.
         if (change.rights != null && !actorRights.containsAll(change.rights)) return null
         val updated = if (change.rights == null) {
@@ -229,7 +328,11 @@ object GroupPolicy {
                     )
                 },
             ).logged(now, actor, LogAction.Channel, change.id)
-            is GroupChange.MoveChannel -> if (!channels) null else state.copy(channels = state.channels.moved(change.id, change.to) { it.id })
+            is GroupChange.MoveChannel -> if (!channels) {
+                null
+            } else {
+                state.copy(channels = state.channels.moved(change.id, change.to, GroupChannel::id))
+            }
             is GroupChange.HideChannel -> if (!channels) null else state.copy(
                 channels = state.channels.map { if (it.id == change.id) it.copy(hiddenFrom = change.fromRoles) else it },
             ).logged(now, actor, LogAction.Channel, change.id)
@@ -239,7 +342,7 @@ object GroupPolicy {
                 state.copy(roles = if (exists) state.roles.map { if (it.id == role.id) role else it } else state.roles + role)
                     .logged(now, actor, LogAction.Role, role.title)
             }
-            is GroupChange.MoveRole -> if (!roles) null else state.copy(roles = state.roles.moved(change.id, change.to) { it.id })
+            is GroupChange.MoveRole -> if (!roles) null else state.copy(roles = state.roles.moved(change.id, change.to, RoomRole::id))
             is GroupChange.DeleteRole -> if (!roles) null else state.copy(
                 roles = state.roles.filterNot { it.id == change.id },
                 members = state.members.map { it.copy(roles = it.roles - change.id) },
@@ -257,7 +360,11 @@ object GroupPolicy {
         if (roleRank <= own || rank(state, change.username) <= own) return null
         return state.copy(
             members = state.members.map {
-                if (it.username != change.username) it else it.copy(roles = if (change.on) (it.roles + change.roleId).distinct() else it.roles - change.roleId)
+                when {
+                    it.username != change.username -> it
+                    change.on -> it.copy(roles = (it.roles + change.roleId).distinct())
+                    else -> it.copy(roles = it.roles - change.roleId)
+                }
             },
         ).logged(now, actor, LogAction.Role, change.username)
     }

@@ -54,6 +54,7 @@ import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.ChatBackdrop
 import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.IconButton
+import app.blesk.core.design.component.QrCode
 import app.blesk.core.design.glass.LensAccessories
 import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
@@ -119,7 +120,6 @@ import app.blesk.feature.debug.MotionDemo
 import app.blesk.feature.debug.MotionShowcase
 import app.blesk.feature.profile.ProfileActions
 import app.blesk.feature.profile.ProfileScreen
-import app.blesk.feature.profile.QrCode
 import app.blesk.feature.security.PhraseActions
 import app.blesk.feature.security.PhraseScreen
 import app.blesk.feature.security.PinAttempt
@@ -886,7 +886,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             me = "eva",
             contacts = persistentListOf(),
             nameOf = { mapOf("eva" to "Ева", "lera" to "Лера", "anya" to "Аня")[it] ?: it },
-            actions = GroupActions({}, {}, {}, { _, _ -> }, { _, _, _ -> }, {}, {}, {}),
+            actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {}),
             onBack = {},
         )
     }
@@ -911,7 +911,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             me = "eva",
             contacts = persistentListOf(),
             nameOf = { mapOf("eva" to "Ева", "lera" to "Лера", "katya" to "Катя", "orlov" to "Дима Орлов")[it] ?: it },
-            actions = GroupActions({}, {}, {}, { _, _ -> }, { _, _, _ -> }, {}, {}, {}),
+            actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {}),
             onBack = {},
             extras = GroupInfoExtras(online = persistentSetOf("lera")),
         )

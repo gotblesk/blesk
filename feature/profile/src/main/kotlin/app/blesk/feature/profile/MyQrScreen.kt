@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.blesk.core.design.component.QrCode
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.theme.Blesk

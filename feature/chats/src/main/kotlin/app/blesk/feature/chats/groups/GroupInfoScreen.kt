@@ -1,15 +1,10 @@
 package app.blesk.feature.chats.groups
 
-import android.content.ClipData
 import androidx.annotation.StringRes
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
@@ -21,37 +16,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Contact
 import app.blesk.core.data.model.Message
 import app.blesk.core.design.component.ActionCluster
-import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ClusterAction
 import app.blesk.core.design.component.GroupAvatar
-import app.blesk.core.design.component.Icon
-import app.blesk.core.design.component.IconButton
 import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ScrollScreen
-import app.blesk.core.design.component.SectionHeader
-import app.blesk.core.design.component.Segmented
-import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
-import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.component.rememberNotify
+import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
-import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.Archive
 import app.blesk.feature.chats.ArchiveActions
 import app.blesk.feature.chats.ArchiveKind
@@ -59,12 +43,12 @@ import app.blesk.feature.chats.EncryptionRow
 import app.blesk.feature.chats.MenuSheet
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.TimerSection
+import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
-import app.blesk.shared.protocol.GroupMember
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
-import app.blesk.shared.protocol.InviteLink
+import app.blesk.shared.protocol.Right
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -74,13 +58,11 @@ import kotlinx.coroutines.launch
 
 /** Everything an admin can do to a group; members only see and leave. */
 class GroupActions(
-    val rename: suspend (String) -> Unit,
     val addMembers: suspend (List<String>) -> Unit,
-    val removeMember: suspend (String) -> Unit,
-    val setRole: suspend (String, GroupRole) -> Unit,
     val addChannel: suspend (String, GroupChannelKind, Boolean) -> Unit,
     val removeChannel: suspend (String) -> Unit,
-    val setInvite: suspend (Boolean) -> Unit,
+    /** Any change checked by the group's rules; false when it was not allowed. */
+    val change: suspend (GroupChange) -> Boolean,
     val leave: suspend () -> Unit,
 )
 
@@ -96,6 +78,15 @@ class GroupInfoExtras(
     val archive: ArchiveActions = ArchiveActions({}, {}, {}, {}),
     /** «Оформление чата»; the header of the chat opens this screen, so the theme lives under «Ещё». */
     val onTheme: (() -> Unit)? = null,
+    /** The link that carries an invite code. */
+    val inviteLink: (code: String) -> String = { it },
+    /** The code or a fingerprint before handing over or deleting; null when the app has no lock. */
+    val gate: IdentityGate? = null,
+    /** The group is gone: deleted for everyone. */
+    val onGone: () -> Unit = {},
+    /** Opens in edit mode, as a room does right after it is made. */
+    val startEditing: Boolean = false,
+    val now: Long = System.currentTimeMillis(),
 )
 
 private enum class GroupTab(@param:StringRes val label: Int) {
@@ -108,12 +99,13 @@ private enum class GroupTab(@param:StringRes val label: Int) {
     Voice(R.string.person_tab_voice),
 }
 
-private enum class Sheet { Invite, More, Edit, Add, Timer }
+private enum class Sheet { More, Add, Timer }
 
 /**
  * About a group or a closed room, by a tap on its header: who is in it and who of them is
  * online, the action cluster, then tabs — for a group its members and what was sent in it, for
- * a room its channels, members, roles and media. What only admins can do hides behind «Ещё».
+ * a room its channels, members, roles and media. Like a profile, those who may change it press
+ * «Изменить» and change it in place; below, «Управление» holds the rest.
  */
 @Composable
 fun GroupInfoScreen(
@@ -130,13 +122,25 @@ fun GroupInfoScreen(
 ) {
     val scope = rememberCoroutineScope()
     val notify = rememberNotify()
-    val admin = state.isAdmin(me)
-    val owner = state.roleOf(me) == GroupRole.Owner
     val room = state.kind == GroupKind.Room
     fun run(block: suspend () -> Unit) {
         scope.launch { block() }
     }
+    val env = ManageEnv(
+        state = state,
+        me = me,
+        nameOf = nameOf,
+        change = actions.change,
+        run = ::run,
+        inviteLink = extras.inviteLink,
+        gate = extras.gate,
+        onOpenPerson = extras.onOpenPerson,
+        onGone = extras.onGone,
+    )
     var sheet by remember { mutableStateOf<Sheet?>(null) }
+    var page by rememberSaveable { mutableStateOf<ManagePage?>(null) }
+    var editing by rememberSaveable { mutableStateOf(extras.startEditing && env.can(Right.EditInfo)) }
+    var saves by remember { mutableIntStateOf(0) }
     var searching by remember { mutableStateOf(false) }
     val query = rememberTextFieldState()
     val tabs = if (room) {
@@ -148,33 +152,64 @@ fun GroupInfoScreen(
     val others = state.members.filter { it.username != me }
     val onlineCount = state.members.count { it.username in extras.online }
     val adminsOnlyInvite = stringResource(R.string.group_invite_admins)
+    val draft = rememberEditDraft(state)
 
     Box(modifier) {
-        ScrollScreen(title = state.title, onBack = onBack) {
-            InfoHero(
-                title = state.title,
-                lines = listOf(
-                    pluralStringResource(R.plurals.chats_members, state.members.size, state.members.size) +
-                        if (onlineCount > 0) " · " + pluralStringResource(R.plurals.group_online, onlineCount, onlineCount) else "",
-                ),
-                avatar = { GroupAvatar(others.map { nameOf(it.username) to it.username }, size = HeroAvatar) },
-            )
+        ScrollScreen(
+            title = state.title,
+            onBack = onBack,
+            bottom = {
+                SaveCapsule(visible = editing, dirty = draft.dirty(state)) {
+                    val change = draft.toChange()
+                    run {
+                        if (actions.change(change)) saves++
+                    }
+                    editing = false
+                }
+            },
+        ) {
+            Box(Modifier.flashOn(saves, RoundedCornerShape(28.dp))) {
+                if (editing) {
+                    EditHero(draft, hint = if (room && extras.startEditing) stringResource(R.string.manage_edit_hint_room) else null)
+                } else {
+                    InfoHero(
+                        title = state.title,
+                        lines = listOf(
+                            pluralStringResource(R.plurals.chats_members, state.members.size, state.members.size) +
+                                if (onlineCount > 0) " · " + pluralStringResource(R.plurals.group_online, onlineCount, onlineCount) else "",
+                            state.description,
+                        ),
+                        avatar = { GroupAvatar(others.map { nameOf(it.username) to it.username }, size = HeroAvatar) },
+                        tag = { state.hue?.let { HueDot(it, size = 10.dp) } },
+                    )
+                }
+            }
             ActionCluster(
-                listOf(
-                    ClusterAction(BleskIcons.Phone, stringResource(R.string.chat_call), extras.onCall),
-                    ClusterAction(
-                        if (extras.muted) BleskIcons.Bell else BleskIcons.BellOff,
-                        stringResource(if (extras.muted) R.string.person_unmute else R.string.person_mute),
-                    ) { extras.onMute(!extras.muted) },
-                    ClusterAction(BleskIcons.Search, stringResource(R.string.search_title)) {
-                        searching = !searching
-                        if (!searching) query.clearText()
-                    },
-                    ClusterAction(BleskIcons.Invite, stringResource(R.string.group_invite_short)) {
-                        if (admin) sheet = Sheet.Invite else notify(adminsOnlyInvite)
-                    },
-                    ClusterAction(BleskIcons.More, stringResource(R.string.group_more)) { sheet = Sheet.More },
-                ),
+                buildList {
+                    add(ClusterAction(BleskIcons.Phone, stringResource(R.string.chat_call), extras.onCall))
+                    add(
+                        ClusterAction(
+                            if (extras.muted) BleskIcons.Bell else BleskIcons.BellOff,
+                            stringResource(if (extras.muted) R.string.person_unmute else R.string.person_mute),
+                        ) { extras.onMute(!extras.muted) },
+                    )
+                    if (env.can(Right.EditInfo)) {
+                        add(ClusterAction(BleskIcons.Edit, stringResource(R.string.group_edit)) { editing = !editing })
+                    } else {
+                        add(
+                            ClusterAction(BleskIcons.Search, stringResource(R.string.search_title)) {
+                                searching = !searching
+                                if (!searching) query.clearText()
+                            },
+                        )
+                    }
+                    add(
+                        ClusterAction(BleskIcons.Invite, stringResource(R.string.group_invite_short)) {
+                            if (env.can(Right.Invite)) page = ManagePage.Invites else notify(adminsOnlyInvite)
+                        },
+                    )
+                    add(ClusterAction(BleskIcons.More, stringResource(R.string.group_more)) { sheet = Sheet.More })
+                },
                 Modifier.padding(horizontal = Blesk.dimens.gutter, vertical = 8.dp),
             )
             EncryptionRow(protected = true)
@@ -182,9 +217,9 @@ fun GroupInfoScreen(
             InfoTabs(tabs.map { stringResource(it.label) }.toImmutableList(), tab.coerceAtMost(tabs.lastIndex)) { tab = it }
             val needle = query.text.toString().trim()
             when (val shown = tabs[tab.coerceAtMost(tabs.lastIndex)]) {
-                GroupTab.Channels -> ChannelsSection(state, admin, actions, ::run)
-                GroupTab.Members -> MembersSection(state, me, needle, nameOf, extras, actions, ::run)
-                GroupTab.Roles -> RolesSection(state)
+                GroupTab.Channels -> ChannelsSection(env, actions)
+                GroupTab.Members -> MemberList(env, needle, extras.online)
+                GroupTab.Roles -> RolesSection(env) { page = ManagePage.Roles }
                 else -> Archive(
                     kind = when (shown) {
                         GroupTab.Files -> ArchiveKind.Files
@@ -197,6 +232,7 @@ fun GroupInfoScreen(
                     query = needle,
                 )
             }
+            ManageSection(env, extras.now) { page = it }
             Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = Blesk.dimens.sectionGap)) {
                 ListRow(
                     title = stringResource(if (room) R.string.room_leave else R.string.group_leave_full),
@@ -210,16 +246,14 @@ fun GroupInfoScreen(
         GroupSheets(
             sheet = sheet,
             onSheet = { sheet = it },
-            state = state,
-            me = me,
-            admin = admin,
+            env = env,
             contacts = contacts,
             actions = actions,
-            run = ::run,
             timerSeconds = timerSeconds,
             onTimer = onTimer,
             onTheme = extras.onTheme,
         )
+        page?.let { ManageScreen(it, env, extras.now, onBack = { page = null }) }
     }
 }
 
@@ -227,26 +261,20 @@ fun GroupInfoScreen(
 private fun GroupSheets(
     sheet: Sheet?,
     onSheet: (Sheet?) -> Unit,
-    state: GroupState,
-    me: String,
-    admin: Boolean,
+    env: ManageEnv,
     contacts: ImmutableList<Contact>,
     actions: GroupActions,
-    run: (suspend () -> Unit) -> Unit,
     timerSeconds: Int,
     onTimer: ((Int) -> Unit)?,
     onTheme: (() -> Unit)?,
 ) {
     val close = { onSheet(null) }
+    val state = env.state
     when (sheet) {
         null -> Unit
-        Sheet.Invite -> MenuSheet(title = stringResource(R.string.group_invite), onDismiss = close) {
-            InviteSection(state, me, onToggle = { run { actions.setInvite(it) } })
-        }
         Sheet.More -> MenuSheet(title = state.title, onDismiss = close) {
             Card {
-                if (admin) {
-                    ListRow(title = stringResource(R.string.group_edit), icon = BleskIcons.Edit, onClick = { onSheet(Sheet.Edit) })
+                if (env.can(Right.Invite)) {
                     ListRow(title = stringResource(R.string.group_add_members), icon = BleskIcons.Invite, onClick = { onSheet(Sheet.Add) })
                 }
                 if (onTimer != null) {
@@ -268,25 +296,15 @@ private fun GroupSheets(
                     showChevron = false,
                     onClick = {
                         close()
-                        run { actions.leave() }
+                        env.run { actions.leave() }
                     },
                 )
             }
         }
-        Sheet.Edit -> MenuSheet(title = stringResource(R.string.group_edit), onDismiss = close) {
-            val title = rememberTextFieldState(state.title)
-            TextInput(label = stringResource(R.string.group_name), state = title)
-            Button(
-                text = stringResource(R.string.group_save),
-                onClick = {
-                    run { actions.rename(title.text.toString()) }
-                    close()
-                },
-                modifier = Modifier.fillMaxWidth().padding(Blesk.dimens.gutter),
-            )
-        }
         Sheet.Add -> MenuSheet(title = stringResource(R.string.group_add_members), onDismiss = close) {
-            val candidates = contacts.filter { contact -> state.members.none { it.username == contact.username } }.toImmutableList()
+            val candidates = contacts
+                .filter { contact -> state.members.none { it.username == contact.username } && contact.username !in state.banned }
+                .toImmutableList()
             if (candidates.isEmpty()) {
                 Text(
                     stringResource(R.string.group_everyone_here),
@@ -301,7 +319,7 @@ private fun GroupSheets(
                 text = stringResource(R.string.group_add),
                 onClick = {
                     val chosen = picked.toList()
-                    if (chosen.isNotEmpty()) run { actions.addMembers(chosen) }
+                    if (chosen.isNotEmpty()) env.run { actions.addMembers(chosen) }
                     close()
                 },
                 modifier = Modifier.fillMaxWidth().padding(Blesk.dimens.gutter),
@@ -313,214 +331,48 @@ private fun GroupSheets(
     }
 }
 
+/** Owner and admins, then the room's roles in order with their hue and how many hold them. */
 @Composable
-private fun MembersSection(
-    state: GroupState,
-    me: String,
-    needle: String,
-    nameOf: (String) -> String,
-    extras: GroupInfoExtras,
-    actions: GroupActions,
-    run: (suspend () -> Unit) -> Unit,
-) {
-    val owner = state.roleOf(me) == GroupRole.Owner
-    val you = stringResource(R.string.group_you)
-    fun found(username: String) = needle.isEmpty() || nameOf(username).contains(needle, true) || username.contains(needle, true)
-
-    // Admins manage plain members; only the owner manages admins, and nobody manages the owner.
-    fun manageable(member: GroupMember) =
-        state.isAdmin(me) && member.username != me && member.role != GroupRole.Owner && (owner || member.role == GroupRole.Member)
+private fun RolesSection(env: ManageEnv, onManage: () -> Unit) {
+    val state = env.state
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
-        state.members.filter { found(it.username) }.sortedBy { it.role.ordinal }.forEach { member ->
-            val mine = member.username == me
-            MemberRow(
-                name = if (mine) "${nameOf(me)} · $you" else nameOf(member.username),
-                username = member.username,
-                role = member.role,
-                online = member.username in extras.online,
-                onOpen = if (mine) null else ({ extras.onOpenPerson(member.username) }),
-                manage = MemberManage(
-                    canPromote = owner,
-                    onSetRole = { role -> run { actions.setRole(member.username, role) } },
-                    onRemove = { run { actions.removeMember(member.username) } },
-                ).takeIf { manageable(member) },
-            )
-        }
-    }
-}
-
-/** What an admin may do to a member, offered on a long press. */
-private class MemberManage(val canPromote: Boolean, val onSetRole: (GroupRole) -> Unit, val onRemove: () -> Unit)
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun MemberRow(name: String, username: String, role: GroupRole, online: Boolean, onOpen: (() -> Unit)?, manage: MemberManage?) {
-    var open by remember { mutableStateOf(false) }
-    val haptics = rememberHaptics()
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    enabled = onOpen != null || manage != null,
-                    role = Role.Button,
-                    onLongClickLabel = manage?.let { stringResource(R.string.group_manage) },
-                    onLongClick = manage?.let {
-                        {
-                            haptics.menu()
-                            open = !open
-                        }
-                    },
-                    onClick = { onOpen?.invoke() },
-                )
-                .padding(horizontal = Blesk.dimens.gutter, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Avatar(name, size = 40.dp, key = username, online = online)
-            Column(Modifier.weight(1f)) {
-                Text(name, style = Blesk.type.bodyStrong, maxLines = 1)
-                Text("@$username", style = Blesk.type.label, color = Blesk.colors.textSecondary, maxLines = 1)
-            }
-            when (role) {
-                GroupRole.Owner -> Tag(stringResource(R.string.group_role_owner))
-                GroupRole.Admin -> Tag(stringResource(R.string.group_role_admin))
-                GroupRole.Member -> Unit
-            }
-        }
-        if (open && manage != null) {
-            Row(
-                modifier = Modifier.padding(horizontal = Blesk.dimens.gutter).padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (manage.canPromote) {
-                    val promote = role == GroupRole.Member
-                    Button(
-                        text = stringResource(if (promote) R.string.group_make_admin else R.string.group_make_member),
-                        kind = ButtonKind.Secondary,
-                        onClick = {
-                            open = false
-                            manage.onSetRole(if (promote) GroupRole.Admin else GroupRole.Member)
-                        },
-                    )
-                }
-                Button(
-                    text = stringResource(R.string.group_remove),
-                    kind = ButtonKind.Secondary,
-                    onClick = {
-                        open = false
-                        manage.onRemove()
-                    },
-                )
-            }
-        }
-    }
-}
-
-/** Who can do what in a room, and how many hold each role. */
-@Composable
-private fun RolesSection(state: GroupState) {
-    Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
-        listOf(
-            Triple(GroupRole.Owner, R.string.role_owner, R.string.role_owner_rights),
-            Triple(GroupRole.Admin, R.string.role_admins, R.string.role_admin_rights),
-            Triple(GroupRole.Member, R.string.role_members, R.string.role_member_rights),
-        ).forEach { (role, title, rights) ->
-            val count = state.members.count { it.role == role }
-            ListRow(
-                title = "${stringResource(title)} · $count",
-                subtitle = stringResource(rights),
-                icon = BleskIcons.Shield,
-                showChevron = false,
-            )
-        }
-    }
-}
-
-@Composable
-private fun InviteSection(state: GroupState, me: String, onToggle: (Boolean) -> Unit) {
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
-    var copied by remember { mutableStateOf(false) }
-    SectionHeader(stringResource(R.string.group_invite))
-    Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
-        ToggleRow(
-            title = stringResource(R.string.group_invite),
-            subtitle = stringResource(R.string.group_invite_hint),
-            checked = state.invite != null,
-            onCheckedChange = onToggle,
+        ListRow(
+            title = "${stringResource(R.string.role_owner)} · 1",
+            subtitle = stringResource(R.string.role_owner_rights),
+            icon = BleskIcons.Shield,
+            showChevron = false,
         )
-        state.invite?.let { code ->
-            val link = InviteLink.format(state.id, me, code)
-            Text(
-                text = link,
-                style = Blesk.type.caption,
-                color = Blesk.colors.textSecondary,
-                modifier = Modifier.padding(horizontal = Blesk.dimens.gutter),
-            )
-            Button(
-                text = stringResource(if (copied) R.string.group_invite_copied else R.string.group_invite_copy),
-                icon = BleskIcons.Copy,
-                kind = ButtonKind.Secondary,
-                onClick = {
-                    scope.launch {
-                        clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("blesk", link)))
-                        copied = true
-                    }
-                },
-                modifier = Modifier.padding(Blesk.dimens.gutter),
+        ListRow(
+            title = "${stringResource(R.string.role_admins)} · ${state.members.count { it.role == GroupRole.Admin }}",
+            subtitle = stringResource(R.string.role_admin_rights),
+            icon = BleskIcons.Shield,
+            showChevron = false,
+        )
+        state.roles.forEach { role ->
+            val count = state.members.count { role.id in it.roles }
+            ListRow(
+                title = role.title,
+                subtitle = pluralStringResource(R.plurals.manage_role_members, count, count),
+                showChevron = false,
+                trailing = { HueDot(role.hue, size = 12.dp) },
             )
         }
+        ListRow(
+            title = "${stringResource(R.string.role_members)} · ${state.members.count { it.role == GroupRole.Member }}",
+            subtitle = stringResource(R.string.role_member_rights),
+            icon = BleskIcons.People,
+            showChevron = false,
+        )
     }
-}
-
-@Composable
-private fun ChannelsSection(state: GroupState, admin: Boolean, actions: GroupActions, run: (suspend () -> Unit) -> Unit) {
-    Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
-        state.channels.forEach { channel ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Blesk.dimens.gutter, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(
-                    icon = if (channel.kind == GroupChannelKind.Voice) BleskIcons.Voice else BleskIcons.Hash,
-                    contentDescription = null,
-                    tint = Blesk.colors.textSecondary,
-                    size = 20.dp,
-                )
-                Text(channel.title, style = Blesk.type.bodyStrong, modifier = Modifier.weight(1f))
-                if (channel.adminsOnly) Tag(stringResource(R.string.group_role_admin))
-                if (admin) {
-                    IconButton(BleskIcons.Trash, stringResource(R.string.group_channel_delete, channel.title), {
-                        run { actions.removeChannel(channel.id) }
-                    })
-                }
-            }
-        }
+    if (env.can(Right.Roles)) {
+        Button(
+            text = stringResource(R.string.manage_roles),
+            icon = BleskIcons.Edit,
+            kind = ButtonKind.Secondary,
+            onClick = onManage,
+            modifier = Modifier.padding(Blesk.dimens.gutter),
+        )
     }
-    if (!admin) return
-    val title = rememberTextFieldState()
-    var voice by remember { mutableStateOf(false) }
-    var adminsOnly by remember { mutableStateOf(false) }
-    SectionHeader(stringResource(R.string.group_channel_add))
-    TextInput(label = stringResource(R.string.group_channel_name), state = title)
-    Segmented(
-        options = persistentListOf(stringResource(R.string.group_channel_text), stringResource(R.string.group_channel_voice)),
-        selected = if (voice) 1 else 0,
-        onSelect = { voice = it == 1 },
-    )
-    ToggleRow(title = stringResource(R.string.group_channel_admins_only), checked = adminsOnly, onCheckedChange = { adminsOnly = it })
-    Button(
-        text = stringResource(R.string.group_channel_add),
-        kind = ButtonKind.Secondary,
-        onClick = {
-            val name = title.text.toString().trim()
-            val kind = if (voice) GroupChannelKind.Voice else GroupChannelKind.Text
-            if (name.isNotEmpty()) run { actions.addChannel(name, kind, adminsOnly) }
-        },
-        modifier = Modifier.padding(horizontal = Blesk.dimens.gutter),
-    )
 }
 
 private val HeroAvatar = 88.dp

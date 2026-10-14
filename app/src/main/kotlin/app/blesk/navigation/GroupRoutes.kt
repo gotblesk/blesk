@@ -32,6 +32,7 @@ import app.blesk.feature.chats.groups.SpaceActions
 import app.blesk.feature.chats.groups.SpaceInfoScreen
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
+import app.blesk.shared.protocol.InviteLink
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
@@ -41,8 +42,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.Instant
 
+/** [onCreated] gets the new conversation and whether it is a closed room, whose details open first. */
 @Composable
-internal fun NewGroupRoute(container: AppContainer, kind: NewKind, onCreated: (String) -> Unit, onBack: () -> Unit) {
+internal fun NewGroupRoute(container: AppContainer, kind: NewKind, onCreated: (String, Boolean) -> Unit, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val groups = chats as? GroupController ?: return
     val spaces = chats as? SpaceController
@@ -53,13 +55,13 @@ internal fun NewGroupRoute(container: AppContainer, kind: NewKind, onCreated: (S
             when (spec.kind) {
                 NewKind.Group, NewKind.Room -> {
                     val kind = if (spec.kind == NewKind.Room) GroupKind.Room else GroupKind.Group
-                    onCreated(groups.createGroup(kind, spec.title, spec.members))
+                    onCreated(groups.createGroup(kind, spec.title, spec.members), kind == GroupKind.Room)
                     SpaceResult.Ok
                 }
                 NewKind.Channel, NewKind.OpenRoom -> {
                     val kind = if (spec.kind == NewKind.Channel) SpaceKind.Channel else SpaceKind.Room
                     val (result, id) = spaces?.createSpace(kind, spec.handle, spec.title, spec.about) ?: (SpaceResult.Failed to null)
-                    id?.let(onCreated)
+                    id?.let { onCreated(it, false) }
                     result
                 }
             }
@@ -147,6 +149,7 @@ internal fun GroupInfoRoute(
     container: AppContainer,
     groupId: String,
     onLeft: () -> Unit,
+    editing: Boolean = false,
     onBack: () -> Unit,
     onOpenPerson: (username: String) -> Unit = {},
     onOpenMedia: (conversationId: String, messageId: String) -> Unit = { _, _ -> },
@@ -173,8 +176,13 @@ internal fun GroupInfoRoute(
         presence.filterValues { it.isOnline(now) }.keys.map { chats.contact(it)?.username ?: it }.toImmutableSet()
     }
     var themeSheet by remember { mutableStateOf(false) }
+    val gate = rememberIdentityGate(container)
     val current = state ?: return
     val extras = GroupInfoExtras(
+        inviteLink = { code -> InviteLink.format(groupId, groups.me, code) },
+        gate = gate,
+        onGone = onLeft,
+        startEditing = editing,
         onTheme = { themeSheet = true },
         messages = messages.toImmutableList(),
         online = online,
@@ -206,13 +214,10 @@ internal fun GroupInfoRoute(
         contacts = contacts.toImmutableList(),
         nameOf = { username -> chats.contact(username)?.name ?: username },
         actions = GroupActions(
-            rename = { groups.rename(groupId, it) },
             addMembers = { groups.addMembers(groupId, it) },
-            removeMember = { groups.removeMember(groupId, it) },
-            setRole = { username, role -> groups.setRole(groupId, username, role) },
             addChannel = { title, kind, adminsOnly -> groups.addChannel(groupId, title, kind, adminsOnly) },
             removeChannel = { groups.removeChannel(groupId, it) },
-            setInvite = { groups.setInvite(groupId, it) },
+            change = { groups.change(groupId, it) },
             // The group leaves the list at once; the leaving itself waits out «Отменить».
             leave = {
                 container.notices.undoable(leftText, hidden = listOf(groupId)) {

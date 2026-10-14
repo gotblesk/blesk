@@ -106,10 +106,7 @@ internal class DemoCommunities(
         state.copy(members = state.members + fresh)
     }
 
-    override suspend fun removeMember(groupId: String, username: String) = change(groupId) { state ->
-        val left = state.members.filterNot { it.username == username && it.role != GroupRole.Owner }
-        state.copy(members = left, epoch = state.epoch + 1)
-    }
+    override suspend fun removeMember(groupId: String, username: String) = change(groupId, GroupChange.Remove(username))
 
     override suspend fun setRole(groupId: String, username: String, role: GroupRole) = change(groupId) { state ->
         state.copy(members = state.members.map { if (it.username == username && it.role != GroupRole.Owner) it.copy(role = role) else it })
@@ -126,7 +123,7 @@ internal class DemoCommunities(
     override suspend fun change(groupId: String, change: GroupChange): Boolean {
         val state = groups.value[groupId] ?: return false
         val next = GroupPolicy.apply(state, me, change, clock().toEpochMilli()) ?: return false
-        apply(next)
+        if (change == GroupChange.Dissolve) leave(groupId) else apply(next)
         return true
     }
 
@@ -222,7 +219,7 @@ internal class DemoCommunities(
 
     private fun change(groupId: String, transform: (GroupState) -> GroupState): Boolean {
         val state = groups.value[groupId] ?: return false
-        if (!state.isAdmin(me)) return false
+        if (!GroupPolicy.manages(state, me)) return false
         val next = transform(state)
         apply(next.copy(version = state.version + 1))
         return true
@@ -232,7 +229,8 @@ internal class DemoCommunities(
     private fun apply(state: GroupState) {
         groups.update { it + (state.id to state) }
         val others = state.members.filter { it.username != me }.mapNotNull { person(it.username) }
-        val textChannels = state.channels.filter { it.kind == GroupChannelKind.Text }
+        val shown = state.channels.filter { GroupPolicy.sees(state, me, it) }
+        val textChannels = shown.filter { it.kind == GroupChannelKind.Text }
         val root = Conversation(
             id = state.id,
             kind = if (state.kind == GroupKind.Room) ConversationKind.Room else ConversationKind.Group,
@@ -242,7 +240,7 @@ internal class DemoCommunities(
             updatedAt = clock(),
             memberCount = state.members.size,
             faces = others.take(FACES).toImmutableList(),
-            channels = state.channels.map { channel ->
+            channels = shown.map { channel ->
                 val voice = channel.kind == GroupChannelKind.Voice
                 RoomChannel(
                     id = if (voice) channel.id else "${state.id}$SEPARATOR${channel.id}",
