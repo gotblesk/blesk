@@ -10,10 +10,12 @@ import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.Calls
 import app.blesk.shared.protocol.Content
 import app.blesk.shared.protocol.EnvelopeType
+import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannel
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupMember
+import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.TextSafety
@@ -116,6 +118,17 @@ internal class GroupEngine(
         if (remaining.none { it.kind == GroupChannelKind.Text }) state else state.copy(channels = remaining)
     }
 
+    /** A change checked by [GroupPolicy]; a ban tells the banned person they are out, as a removal does. */
+    suspend fun change(groupId: String, change: GroupChange): Boolean {
+        val state = state(groupId) ?: return false
+        val next = GroupPolicy.apply(state, me, change, clock()) ?: return false
+        val rotated = if (next.epoch != state.epoch) next.copy(voiceKey = next.voiceKey?.let { newVoiceKey() }) else next
+        apply(rotated)
+        broadcast(rotated, (state.members + rotated.members).map { it.username }.distinct())
+        if (change is GroupChange.Ban) outbox.direct(change.username, update(rotated.copy(invite = null, voiceKey = null, invites = emptyList())))
+        return true
+    }
+
     /** Turns the invite link on (new code) or off. Returns the code. */
     suspend fun setInvite(groupId: String, enabled: Boolean): String? {
         var code: String? = null
@@ -168,6 +181,9 @@ internal class GroupEngine(
         val current = state(incoming.id)
         val trusted = if (current == null) incoming.isAdmin(sender) else current.isAdmin(sender) && incoming.version > current.version
         if (!trusted) return
+        // Only the owner may hand the group over; an admin's state that moves ownership is not taken.
+        val owner = incoming.members.firstOrNull { it.role == GroupRole.Owner }?.username
+        if (current != null && owner != current.members.firstOrNull { it.role == GroupRole.Owner }?.username && current.roleOf(sender) != GroupRole.Owner) return
         if (incoming.roleOf(me) == null) {
             forget(incoming.id)
             return
@@ -176,7 +192,11 @@ internal class GroupEngine(
         apply(
             incoming.copy(
                 title = TextSafety.clean(incoming.title),
-                channels = incoming.channels.map { it.copy(title = TextSafety.clean(it.title)) },
+                description = TextSafety.clean(incoming.description, multiline = true).take(GroupPolicy.MAX_DESCRIPTION),
+                channels = incoming.channels.map {
+                    it.copy(title = TextSafety.clean(it.title), description = TextSafety.clean(it.description, multiline = true))
+                },
+                roles = incoming.roles.map { it.copy(title = TextSafety.clean(it.title)) },
             ),
         )
     }
@@ -189,9 +209,17 @@ internal class GroupEngine(
 
     suspend fun onJoinRequest(sender: String, request: Body.JoinRequest) {
         val state = state(request.groupId) ?: return
-        val code = state.invite ?: return
-        if (!state.isAdmin(me) || request.code != code || state.roleOf(sender) != null) return
-        addMembers(request.groupId, listOf(sender))
+        if (!state.isAdmin(me) || state.roleOf(sender) != null || sender in state.banned) return
+        val invite = state.invites.firstOrNull { it.code == request.code }
+        when {
+            invite != null && invite.usable(clock()) -> change(request.groupId) { s ->
+                s.copy(
+                    members = s.members + GroupMember(sender, GroupRole.Member),
+                    invites = s.invites.map { if (it.code == invite.code) it.copy(joined = it.joined + sender) else it },
+                )
+            }
+            invite == null && state.invite != null && request.code == state.invite -> addMembers(request.groupId, listOf(sender))
+        }
     }
 
     suspend fun onLeave(sender: String, groupId: String) {

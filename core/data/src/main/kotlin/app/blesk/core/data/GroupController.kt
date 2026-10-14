@@ -1,5 +1,6 @@
 package app.blesk.core.data
 
+import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupRole
@@ -26,6 +27,9 @@ interface GroupController {
     suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean): Boolean
 
     suspend fun removeChannel(groupId: String, channelId: String): Boolean
+
+    /** Any change an owner or admin may make, checked by [app.blesk.shared.protocol.GroupPolicy]; false when not allowed. */
+    suspend fun change(groupId: String, change: GroupChange): Boolean
 
     /** Returns the invite link when turned on. */
     suspend fun setInvite(groupId: String, enabled: Boolean): String?

@@ -13,10 +13,12 @@ import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.model.SendStatus
+import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannel
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupMember
+import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.InviteLink
@@ -119,6 +121,13 @@ internal class DemoCommunities(
 
     override suspend fun removeChannel(groupId: String, channelId: String) = change(groupId) { state ->
         state.copy(channels = state.channels.filterNot { it.id == channelId })
+    }
+
+    override suspend fun change(groupId: String, change: GroupChange): Boolean {
+        val state = groups.value[groupId] ?: return false
+        val next = GroupPolicy.apply(state, me, change, clock().toEpochMilli()) ?: return false
+        apply(next)
+        return true
     }
 
     override suspend fun setInvite(groupId: String, enabled: Boolean): String? {

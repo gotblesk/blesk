@@ -223,6 +223,18 @@ data class GroupState(
     val invite: String? = null,
     /** Base64 media key for voice channels; replaced with every new epoch. */
     val voiceKey: String? = null,
+    val description: String = "",
+    /** Header hue, one of the palette's; null for the default light. */
+    val hue: Int? = null,
+    /** What every member may do; admins and the owner may do more. */
+    val memberRights: Set<Right> = Right.MEMBER_DEFAULT,
+    /** Room roles, highest first. */
+    val roles: List<RoomRole> = emptyList(),
+    val invites: List<GroupInvite> = emptyList(),
+    /** Removed for good: they cannot come back by an invite. */
+    val banned: List<String> = emptyList(),
+    /** What admins did, newest last; seen by those with [Right.Journal]. */
+    val log: List<LogEntry> = emptyList(),
 ) {
     fun roleOf(username: String): GroupRole? = members.firstOrNull { it.username == username }?.role
 
@@ -251,7 +263,14 @@ enum class GroupRole {
 }
 
 @Serializable
-data class GroupMember(val username: String, val role: GroupRole)
+data class GroupMember(
+    val username: String,
+    val role: GroupRole,
+    /** An admin's rights; null gives an admin all of [Right.ADMIN_ALL]. */
+    val rights: Set<Right>? = null,
+    /** Ids of the room roles this member has. */
+    val roles: List<String> = emptyList(),
+)
 
 @Serializable
 enum class GroupChannelKind {
@@ -269,6 +288,9 @@ data class GroupChannel(
     val kind: GroupChannelKind = GroupChannelKind.Text,
     /** Only admins may write here (announcements). */
     val adminsOnly: Boolean = false,
+    val description: String = "",
+    /** Room role ids (or [GroupPolicy.EVERYONE]) this channel is hidden from. */
+    val hiddenFrom: Set<String> = emptySet(),
 )
 
 /** `blesk://join?g=<group>&a=<admin>&c=<code>` — handed to people you want to invite. */

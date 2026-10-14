@@ -54,6 +54,7 @@ import app.blesk.shared.protocol.Content
 import app.blesk.shared.protocol.CreateSpace
 import app.blesk.shared.protocol.Envelope
 import app.blesk.shared.protocol.EnvelopeType
+import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupRole
@@ -721,6 +722,8 @@ class ServerChatRepository(
         groups.addChannel(groupId, TextSafety.clean(title), kind, adminsOnly).also { flush() }
 
     override suspend fun removeChannel(groupId: String, channelId: String) = groups.removeChannel(groupId, channelId).also { flush() }
+
+    override suspend fun change(groupId: String, change: GroupChange) = groups.change(groupId, change).also { flush() }
 
     override suspend fun setInvite(groupId: String, enabled: Boolean): String? {
         val code = groups.setInvite(groupId, enabled)
