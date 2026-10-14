@@ -78,6 +78,10 @@ internal fun RoomCluster(
     modifier: Modifier = Modifier,
     /** The room's menu; null where the press is taken by dragging instead. */
     onLongPress: (() -> Unit)? = null,
+    /** «+ Канал» after the channels, for those who may make one. */
+    onAddChannel: (() -> Unit)? = null,
+    /** A channel's menu: «Изменить», «Права», «Удалить». */
+    onChannelMenu: ((RoomChannel) -> Unit)? = null,
 ) {
     var expanded by rememberSaveable(room.id) { mutableStateOf(initiallyOpen) }
     val haptics = rememberHaptics()
@@ -124,15 +128,18 @@ internal fun RoomCluster(
             ) {
                 ConversationSummary(room, typing = false, now = now, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
             }
+            val rowsShown = Modifier
+                .graphicsLayer { alpha = ((progress - 0.35f) / 0.65f).coerceIn(0f, 1f) }
+                .let { if (expanded) it else it.clearAndSetSemantics { } }
             room.channels.forEach { channel ->
                 ChannelRow(
                     channel = channel,
                     onClick = { onOpenChannel(channel) },
-                    modifier = Modifier
-                        .graphicsLayer { alpha = ((progress - 0.35f) / 0.65f).coerceIn(0f, 1f) }
-                        .let { if (expanded) it else it.clearAndSetSemantics { } },
+                    onLongClick = onChannelMenu?.let { menu -> { menu(channel) } },
+                    modifier = rowsShown,
                 )
             }
+            if (onAddChannel != null) AddChannelRow(onAddChannel, rowsShown)
         },
     ) { measurables, constraints ->
         val loose = Constraints(minWidth = constraints.maxWidth, maxWidth = constraints.maxWidth)
@@ -229,8 +236,27 @@ private fun DrawScope.drawClosedChannels(room: Conversation, geometry: ClusterGe
     }
 }
 
+/** «+ Канал»: one more drop of the cluster, for those who may make a channel. */
 @Composable
-private fun ChannelRow(channel: RoomChannel, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun AddChannelRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(icon = BleskIcons.Plus, contentDescription = null, tint = Blesk.colors.textSecondary, size = 20.dp)
+        Text(stringResource(R.string.channel_add_capsule), style = Blesk.type.bodyStrong, color = Blesk.colors.textSecondary)
+    }
+}
+
+@Composable
+private fun ChannelRow(channel: RoomChannel, onClick: () -> Unit, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null) {
+    val haptics = rememberHaptics()
     val description = when (channel.kind) {
         RoomChannelKind.Text -> stringResource(R.string.chats_text_channel, channel.title)
         RoomChannelKind.Voice -> stringResource(R.string.chats_voice_channel, channel.title)
@@ -240,7 +266,17 @@ private fun ChannelRow(channel: RoomChannel, onClick: () -> Unit, modifier: Modi
             .fillMaxWidth()
             .heightIn(min = 52.dp)
             .clip(RoundedCornerShape(Blesk.dimens.capsuleRadius))
-            .clickable(role = Role.Button, onClick = onClick)
+            .combinedClickable(
+                role = Role.Button,
+                onClick = onClick,
+                onLongClickLabel = onLongClick?.let { stringResource(R.string.channel_menu_edit) },
+                onLongClick = onLongClick?.let {
+                    {
+                        haptics.menu()
+                        it()
+                    }
+                },
+            )
             .semantics(mergeDescendants = true) { contentDescription = description }
             .padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

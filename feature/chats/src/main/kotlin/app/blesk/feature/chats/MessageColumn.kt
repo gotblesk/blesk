@@ -111,6 +111,7 @@ import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.design.color.ContrastLevel
 import app.blesk.core.design.color.ensureContrast
 import app.blesk.core.design.component.Icon
+import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.glint
 import app.blesk.core.design.component.rememberAvatarInk
@@ -190,6 +191,8 @@ internal fun MessageColumn(
     selection: Set<String> = emptySet(),
     /** A message a search led to; light passes over it once. */
     flashId: String? = null,
+    /** «владелец» or «админ» beside the author's name in a group. */
+    badge: String? = null,
 ) {
     val own = messages.first().isOwn
     val parts = remember { PartRegistry() }
@@ -218,12 +221,14 @@ internal fun MessageColumn(
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         if (author != null) {
-            Text(
-                text = author,
-                style = Blesk.type.label,
-                color = rememberAvatarInk(messages.first().authorId),
+            Row(
                 modifier = Modifier.padding(start = 14.dp, bottom = 2.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(text = author, style = Blesk.type.label, color = rememberAvatarInk(messages.first().authorId))
+                if (badge != null) Tag(badge)
+            }
         }
         messages.forEach { message ->
             val grow = growth.getOrPut(message.id) { Animatable(if (message.id in fresh) 0f else 1f) }

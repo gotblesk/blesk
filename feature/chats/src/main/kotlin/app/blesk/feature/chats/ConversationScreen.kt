@@ -198,6 +198,8 @@ fun ConversationScreen(
     authorName: (String) -> String?,
     callbacks: ConversationCallbacks,
     modifier: Modifier = Modifier,
+    /** The small capsule beside an author in a group: «владелец», «админ», or nothing. */
+    authorBadge: (String) -> String? = { null },
     recorders: Recorders? = null,
     media: MediaController = MediaController.Inert,
     busy: Boolean = false,
@@ -595,6 +597,7 @@ fun ConversationScreen(
                                     modifier = columnModifier,
                                     messages = group,
                                     author = author,
+                                    badge = author?.let { authorBadge(group.first().authorId) },
                                     fresh = remember(group) { group.map { it.id }.filterNot { it in initialIds }.toSet() },
                                     quoteText = { id -> byId[id]?.let { quoted -> quoteOf(quoted, you, authorName) } },
                                     actions = actions,

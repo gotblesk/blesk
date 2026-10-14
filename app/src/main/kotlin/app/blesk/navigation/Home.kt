@@ -79,13 +79,21 @@ import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.ContactsTab
 import app.blesk.feature.chats.Newcomer
 import app.blesk.feature.chats.NewcomerChats
+import app.blesk.feature.chats.RoomChannelHandlers
+import app.blesk.feature.chats.groups.ChannelTarget
+import app.blesk.feature.chats.groups.GroupActions
+import app.blesk.feature.chats.groups.RoomChannelSheets
 import app.blesk.feature.chats.hintText
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.feature.settings.YouList
+import app.blesk.shared.protocol.GroupPolicy
+import app.blesk.shared.protocol.Right
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -108,6 +116,7 @@ internal fun Home(
     onNewChat: () -> Unit,
     onAddRoom: () -> Unit,
     onOpenChannel: (Conversation, RoomChannel) -> Unit,
+    onOpenRoom: (String) -> Unit,
     onOpenArchive: () -> Unit,
     onOpenRequests: () -> Unit,
     contactActions: ContactActions,
@@ -361,6 +370,16 @@ internal fun Home(
                         )
                         return@AnimatedContent
                     }
+                    val groups = chats as? GroupController
+                    val roomIds = rooms.map { it.id }
+                    val roomStates by remember(roomIds, groups) {
+                        if (groups == null || roomIds.isEmpty()) {
+                            flowOf(emptyMap())
+                        } else {
+                            combine(roomIds.map(groups::group)) { states -> states.filterNotNull().associateBy { it.id } }
+                        }
+                    }.collectAsStateWithLifecycle(initialValue = emptyMap())
+                    var channelTarget by remember { mutableStateOf<Pair<String, ChannelTarget>?>(null) }
                     ChatList(
                         conversations = rooms.toImmutableList(),
                         typing = typing.toImmutableSet(),
@@ -369,9 +388,34 @@ internal fun Home(
                         onOpenConversation = onOpenConversation,
                         onOpenChannel = onOpenChannel,
                         state = roomsList,
-                        onLongPress = { menuFor = it },
+                        // A closed room's long press opens its details; open rooms keep the menu.
+                        onLongPress = { room -> if (room.id in roomStates) onOpenRoom(room.id) else menuFor = room },
                         onReorderRooms = chats::reorderPinned,
+                        roomChannels = groups?.let { controller ->
+                            RoomChannelHandlers(
+                                manages = { id -> roomStates[id]?.let { GroupPolicy.can(it, controller.me, Right.Channels) } == true },
+                                onAdd = { id -> channelTarget = id to ChannelTarget.Add },
+                                onMenu = { id, channel -> channelTarget = id to ChannelTarget.Menu(channel.id.substringAfter(':')) },
+                            )
+                        },
                     )
+                    val (roomId, target) = channelTarget ?: return@AnimatedContent
+                    val state = roomStates[roomId] ?: return@AnimatedContent
+                    if (groups != null) {
+                        RoomChannelSheets(
+                            state = state,
+                            me = groups.me,
+                            actions = GroupActions(
+                                addMembers = { groups.addMembers(roomId, it) },
+                                addChannel = { title, kind, adminsOnly -> groups.addChannel(roomId, title, kind, adminsOnly) },
+                                removeChannel = { groups.removeChannel(roomId, it) },
+                                change = { groups.change(roomId, it) },
+                                leave = { groups.leave(roomId) },
+                            ),
+                            target = target,
+                            onTarget = { next -> channelTarget = next?.let { roomId to it } },
+                        )
+                    }
                 }
                 HomeTab.Settings -> SettingsList(
                     serverHost = serverHost,

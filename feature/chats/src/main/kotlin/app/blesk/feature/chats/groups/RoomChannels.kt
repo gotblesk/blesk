@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,10 +44,23 @@ import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannel
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupPolicy
+import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.Right
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.launch
 
-private enum class ChannelSheet { Menu, Edit, Rights, Delete }
+/** What is open over a room's channels: the menu of one, one of its sheets, or «+ Канал». */
+sealed interface ChannelTarget {
+    data object Add : ChannelTarget
+
+    data class Menu(val channelId: String) : ChannelTarget
+
+    data class Edit(val channelId: String) : ChannelTarget
+
+    data class Rights(val channelId: String) : ChannelTarget
+
+    data class Delete(val channelId: String) : ChannelTarget
+}
 
 /**
  * The room's channels in order. Whoever may manage channels taps or long-presses one for
@@ -57,8 +71,7 @@ private enum class ChannelSheet { Menu, Edit, Rights, Delete }
 internal fun ChannelsSection(env: ManageEnv, actions: GroupActions) {
     val manage = env.can(Right.Channels)
     val haptics = rememberHaptics()
-    var open by remember { mutableStateOf<Pair<GroupChannel, ChannelSheet>?>(null) }
-    var adding by remember { mutableStateOf(false) }
+    var target by remember { mutableStateOf<ChannelTarget?>(null) }
     val visible = env.state.channels.filter { GroupPolicy.sees(env.state, env.me, it) }
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
         visible.forEach { channel ->
@@ -71,9 +84,9 @@ internal fun ChannelsSection(env: ManageEnv, actions: GroupActions) {
                         role = Role.Button,
                         onLongClick = {
                             haptics.menu()
-                            open = channel to ChannelSheet.Menu
+                            target = ChannelTarget.Menu(channel.id)
                         },
-                        onClick = { open = channel to ChannelSheet.Menu },
+                        onClick = { target = ChannelTarget.Menu(channel.id) },
                     )
                     .padding(horizontal = Blesk.dimens.gutter, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -102,32 +115,69 @@ internal fun ChannelsSection(env: ManageEnv, actions: GroupActions) {
         Button(
             text = stringResource(R.string.channel_add_capsule),
             kind = ButtonKind.Secondary,
-            onClick = { adding = true },
+            onClick = { target = ChannelTarget.Add },
             modifier = Modifier.padding(Blesk.dimens.gutter),
         )
     }
-    if (adding) NewChannelSheet(env, actions, onClose = { adding = false })
-    open?.let { (channel, sheet) ->
-        val close = { open = null }
-        when (sheet) {
-            ChannelSheet.Menu -> {
-                val index = env.state.channels.indexOfFirst { it.id == channel.id }
-                ChoiceSheet(
-                    title = channel.title,
-                    choices = buildList {
-                        add(Choice(stringResource(R.string.channel_menu_edit)) { open = channel to ChannelSheet.Edit })
-                        add(Choice(stringResource(R.string.channel_menu_rights)) { open = channel to ChannelSheet.Rights })
-                        fun move(to: Int) = env.run { env.change(GroupChange.MoveChannel(channel.id, to)) }
-                        if (index > 0) add(Choice(stringResource(R.string.channel_menu_up)) { move(index - 1) })
-                        if (index < env.state.channels.lastIndex) {
-                            add(Choice(stringResource(R.string.channel_menu_down)) { move(index + 1) })
-                        }
-                        add(Choice(stringResource(R.string.channel_menu_delete), danger = true) { open = channel to ChannelSheet.Delete })
-                    },
-                    onDismiss = close,
-                )
-            }
-            ChannelSheet.Edit -> MenuSheet(title = stringResource(R.string.channel_menu_edit), onDismiss = close) {
+    ChannelSheets(env, actions, target) { target = it }
+}
+
+/**
+ * The menu and sheets for a room's channels, wherever they were asked for: the room's details or
+ * the room's cluster in the list. Shown only to those who may manage channels.
+ */
+@Composable
+fun RoomChannelSheets(
+    state: GroupState,
+    me: String,
+    actions: GroupActions,
+    target: ChannelTarget?,
+    onTarget: (ChannelTarget?) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val env = ManageEnv(
+        state = state,
+        me = me,
+        nameOf = { it },
+        change = actions.change,
+        run = { block -> scope.launch { block() } },
+        inviteLink = { it },
+        gate = null,
+        onOpenPerson = {},
+        onGone = {},
+    )
+    if (!env.can(Right.Channels)) return
+    ChannelSheets(env, actions, target, onTarget)
+}
+
+@Composable
+private fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: ChannelTarget?, onTarget: (ChannelTarget?) -> Unit) {
+    val close = { onTarget(null) }
+    fun channel(id: String) = env.state.channels.firstOrNull { it.id == id }
+    when (target) {
+        null -> Unit
+        ChannelTarget.Add -> NewChannelSheet(env, actions, onClose = close)
+        is ChannelTarget.Menu -> {
+            val channel = channel(target.channelId) ?: return
+            val index = env.state.channels.indexOf(channel)
+            ChoiceSheet(
+                title = channel.title,
+                choices = buildList {
+                    add(Choice(stringResource(R.string.channel_menu_edit)) { onTarget(ChannelTarget.Edit(channel.id)) })
+                    add(Choice(stringResource(R.string.channel_menu_rights)) { onTarget(ChannelTarget.Rights(channel.id)) })
+                    fun move(to: Int) = env.run { env.change(GroupChange.MoveChannel(channel.id, to)) }
+                    if (index > 0) add(Choice(stringResource(R.string.channel_menu_up)) { move(index - 1) })
+                    if (index < env.state.channels.lastIndex) {
+                        add(Choice(stringResource(R.string.channel_menu_down)) { move(index + 1) })
+                    }
+                    add(Choice(stringResource(R.string.channel_menu_delete), danger = true) { onTarget(ChannelTarget.Delete(channel.id)) })
+                },
+                onDismiss = close,
+            )
+        }
+        is ChannelTarget.Edit -> {
+            val channel = channel(target.channelId) ?: return
+            MenuSheet(title = stringResource(R.string.channel_menu_edit), onDismiss = close) {
                 val title = rememberTextFieldState(channel.title)
                 val description = rememberTextFieldState(channel.description)
                 TextInput(label = stringResource(R.string.group_channel_name), state = title)
@@ -141,10 +191,14 @@ internal fun ChannelsSection(env: ManageEnv, actions: GroupActions) {
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 )
             }
-            ChannelSheet.Rights -> MenuSheet(title = channel.title, onDismiss = close) {
-                ChannelRights(env, channel)
-            }
-            ChannelSheet.Delete -> MenuSheet(title = channel.title, onDismiss = close) {
+        }
+        is ChannelTarget.Rights -> {
+            val channel = channel(target.channelId) ?: return
+            MenuSheet(title = channel.title, onDismiss = close) { ChannelRights(env, channel) }
+        }
+        is ChannelTarget.Delete -> {
+            val channel = channel(target.channelId) ?: return
+            MenuSheet(title = channel.title, onDismiss = close) {
                 Text(
                     stringResource(R.string.channel_delete_hint),
                     color = Blesk.colors.textSecondary,

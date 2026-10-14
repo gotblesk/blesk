@@ -18,6 +18,7 @@ import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.model.SendStatus
 import app.blesk.shared.protocol.GroupChannelKind
+import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.LinkPreview
 import app.blesk.shared.protocol.SpaceInfo
@@ -95,7 +96,7 @@ internal fun ConversationEntity.toModel(state: GroupState? = null, me: String = 
     memberCount = state?.members?.size ?: 0,
     faces = state?.members.orEmpty().filter { it.username != me }.take(FACES)
         .map { Contact(it.username, it.username, it.username) }.toImmutableList(),
-    channels = state?.channels?.map { channel ->
+    channels = state?.channels?.filter { GroupPolicy.sees(state, me, it) }?.map { channel ->
         RoomChannel(
             id = if (channel.kind == GroupChannelKind.Text) "${id}${GroupEngine.CHANNEL_SEPARATOR}${channel.id}" else channel.id,
             title = channel.title,

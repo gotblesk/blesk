@@ -152,6 +152,8 @@ fun ChatList(
     onReorderRooms: ((List<String>) -> Unit)? = null,
     /** The archive was opened by pulling the list down. */
     onPullArchive: () -> Unit = {},
+    /** Rooms whose channels you may manage get «+ Канал» and a menu on each channel. */
+    roomChannels: RoomChannelHandlers? = null,
 ) {
     val haptics = rememberHaptics()
     val threshold = with(LocalDensity.current) { PullThreshold.toPx() }
@@ -244,6 +246,10 @@ fun ChatList(
                         now = now,
                         onOpenChannel = { onOpenChannel(conversation, it) },
                         onLongPress = menu.takeUnless { draggable },
+                        onAddChannel = roomChannels?.takeIf { it.manages(conversation.id) }?.let { { it.onAdd(conversation.id) } },
+                        onChannelMenu = roomChannels?.takeIf { it.manages(conversation.id) }?.let { handlers ->
+                            { channel -> handlers.onMenu(conversation.id, channel) }
+                        },
                         modifier = rowModifier
                             .then(if (roomDrag.lifted == conversation.id) Modifier.zIndex(1f) else listMotion())
                             .let { row ->
@@ -398,6 +404,13 @@ private fun ArchivePull(pull: PullToArchive, modifier: Modifier) {
 }
 
 private const val PULL_READY_ALPHA = 0.35f
+
+/** What a room's cluster does for those who may manage its channels. */
+class RoomChannelHandlers(
+    val manages: (roomId: String) -> Boolean,
+    val onAdd: (roomId: String) -> Unit,
+    val onMenu: (roomId: String, channel: RoomChannel) -> Unit,
+)
 
 private fun Conversation.isRoomCluster() = kind == ConversationKind.Room && channels.isNotEmpty()
 

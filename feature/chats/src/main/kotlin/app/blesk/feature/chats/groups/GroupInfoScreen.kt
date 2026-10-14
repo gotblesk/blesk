@@ -87,6 +87,11 @@ class GroupInfoExtras(
     /** Opens in edit mode, as a room does right after it is made. */
     val startEditing: Boolean = false,
     val now: Long = System.currentTimeMillis(),
+    val pinned: Boolean = false,
+    val archived: Boolean = false,
+    /** «Закрепить» and «В архив» under «Ещё»; a room's long press in the list opens these details instead of a menu. */
+    val onPin: ((Boolean) -> Unit)? = null,
+    val onArchive: ((Boolean) -> Unit)? = null,
 )
 
 private enum class GroupTab(@param:StringRes val label: Int) {
@@ -252,6 +257,7 @@ fun GroupInfoScreen(
             timerSeconds = timerSeconds,
             onTimer = onTimer,
             onTheme = extras.onTheme,
+            extras = extras,
         )
         page?.let { ManageScreen(it, env, extras.now, onBack = { page = null }) }
     }
@@ -267,6 +273,7 @@ private fun GroupSheets(
     timerSeconds: Int,
     onTimer: ((Int) -> Unit)?,
     onTheme: (() -> Unit)?,
+    extras: GroupInfoExtras,
 ) {
     val close = { onSheet(null) }
     val state = env.state
@@ -279,6 +286,28 @@ private fun GroupSheets(
                 }
                 if (onTimer != null) {
                     ListRow(title = stringResource(R.string.info_timer), icon = BleskIcons.Timer, onClick = { onSheet(Sheet.Timer) })
+                }
+                extras.onPin?.let { pin ->
+                    ListRow(
+                        title = stringResource(if (extras.pinned) R.string.chats_unpin else R.string.chats_pin),
+                        icon = BleskIcons.Pin,
+                        showChevron = false,
+                        onClick = {
+                            close()
+                            pin(!extras.pinned)
+                        },
+                    )
+                }
+                extras.onArchive?.let { archive ->
+                    ListRow(
+                        title = stringResource(if (extras.archived) R.string.chats_from_archive else R.string.chats_to_archive),
+                        icon = BleskIcons.Archive,
+                        showChevron = false,
+                        onClick = {
+                            close()
+                            archive(!extras.archived)
+                        },
+                    )
                 }
                 onTheme?.let { theme ->
                     ListRow(

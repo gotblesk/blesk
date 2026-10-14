@@ -62,6 +62,7 @@ import app.blesk.feature.chats.media.Recorders
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.protocol.BotCommand
 import app.blesk.shared.protocol.GroupPolicy
+import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.persistentSetOf
@@ -347,6 +348,8 @@ internal fun ConversationRoute(
     val messages = (loaded ?: return).filter { it.id !in container.notices.hidden }
     val unread = unreadAtOpen ?: return
     // The chat's own theme on top of what the app shows now, economy included.
+    val ownerBadge = stringResource(app.blesk.feature.chats.R.string.group_role_owner)
+    val adminBadge = stringResource(app.blesk.feature.chats.R.string.group_role_admin)
     val showing = Blesk.appearance
     BleskTheme(appearance = if (override != null) showing.copy(theme = override) else showing, motion = Blesk.motion) {
         Box(Modifier.fillMaxSize()) {
@@ -360,6 +363,13 @@ internal fun ConversationRoute(
                 },
                 typing = id in typing,
                 authorName = { authorId -> demo.contact(authorId)?.name },
+                authorBadge = { authorId ->
+                    when (groupState?.roleOf(demo.contact(authorId)?.username ?: authorId)) {
+                        GroupRole.Owner -> ownerBadge
+                        GroupRole.Admin -> adminBadge
+                        else -> null
+                    }
+                },
                 callbacks = callbacks,
                 recorders = if (isBot) null else recorders,
                 commands = commands.toImmutableList(),

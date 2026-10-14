@@ -302,6 +302,7 @@ fun BleskNavigation(container: AppContainer) {
                                         }
                                     },
                                 ),
+                                onOpenRoom = { backStack.add(GroupInfoKey(it)) },
                                 onOpenChannel = { room, channel ->
                                     when {
                                         channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
