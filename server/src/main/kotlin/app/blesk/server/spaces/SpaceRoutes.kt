@@ -19,6 +19,7 @@ import app.blesk.shared.protocol.SpaceChannel
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceRole
 import app.blesk.shared.protocol.Spaces
+import app.blesk.shared.protocol.TextSafety
 import app.blesk.shared.protocol.UpdateSpace
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -202,16 +203,17 @@ internal suspend fun Services.pushToMembers(spaceId: Long, frame: ServerFrame) {
 /** Moderators act only on people strictly below them: an admin cannot touch another admin or the owner. */
 private fun outranks(caller: SpaceRole, target: SpaceRole) = caller.ordinal < target.ordinal
 
+/** Cleaned as on the phone; a title of nothing but invisible characters is no title. */
 private fun validTitle(title: String): String {
-    val trimmed = title.trim()
-    ensure(trimmed.isNotEmpty() && trimmed.length <= Spaces.MAX_TITLE) { badRequest(message = "title") }
-    return trimmed
+    val cleaned = TextSafety.clean(title)
+    ensure(TextSafety.hasVisible(cleaned) && TextSafety.visibleLength(cleaned) <= Spaces.MAX_TITLE) { badRequest(message = "title") }
+    return cleaned
 }
 
 private fun validAbout(about: String): String {
-    val trimmed = about.trim()
-    ensure(trimmed.length <= Spaces.MAX_ABOUT) { badRequest(message = "about") }
-    return trimmed
+    val cleaned = TextSafety.clean(about, multiline = true)
+    ensure(TextSafety.visibleLength(cleaned) <= Spaces.MAX_ABOUT) { badRequest(message = "about") }
+    return cleaned
 }
 
 private fun ApplicationCall.intParameter(name: String, default: Int): Int {

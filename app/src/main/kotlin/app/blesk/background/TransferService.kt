@@ -86,7 +86,7 @@ class TransferService : Service() {
         val open = PendingIntent.getActivity(this, 0, MainActivity.open(this, null), PendingIntent.FLAG_IMMUTABLE)
         val count = active.size.coerceAtLeast(1)
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle(resources.getQuantityString(R.plurals.notify_transfers_title, count, count))
             .setContentText(text)
             .setProgress(PERCENT, percent, total <= 0)

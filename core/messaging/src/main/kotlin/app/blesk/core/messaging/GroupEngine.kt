@@ -16,6 +16,7 @@ import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupMember
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
+import app.blesk.shared.protocol.TextSafety
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -171,7 +172,13 @@ internal class GroupEngine(
             forget(incoming.id)
             return
         }
-        apply(incoming)
+        // Titles come from another phone: cleaned here as if typed on this one.
+        apply(
+            incoming.copy(
+                title = TextSafety.clean(incoming.title),
+                channels = incoming.channels.map { it.copy(title = TextSafety.clean(it.title)) },
+            ),
+        )
     }
 
     suspend fun onSenderKey(sender: String, key: Body.SenderKey) {

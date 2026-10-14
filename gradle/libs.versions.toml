@@ -30,6 +30,7 @@ media3 = "1.11.1"
 camerax = "1.6.2"
 livekit = "2.29.0"
 core-telecom = "1.0.1"
+splashscreen = "1.2.0"
 coil = "3.6.3"
 lottie = "6.7.1"
 credentials = "1.5.0"
@@ -87,6 +88,7 @@ media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref 
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 livekit-android = { module = "io.livekit:livekit-android", version.ref = "livekit" }
 androidx-core-telecom = { module = "androidx.core:core-telecom", version.ref = "core-telecom" }
+androidx-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 camerax-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }
 camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
 camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }

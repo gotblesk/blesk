@@ -60,7 +60,7 @@ class RecordingService : Service() {
     private fun notification(): Notification {
         val open = PendingIntent.getActivity(this, 0, MainActivity.open(this, null), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle(getString(R.string.notify_recording_title))
             .setContentText(getString(R.string.notify_recording_text))
             .setOngoing(true)

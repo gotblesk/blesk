@@ -94,6 +94,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.splashscreen)
     implementation(project(":core:design"))
     implementation(project(":core:data"))
     implementation(project(":feature:chats"))

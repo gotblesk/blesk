@@ -54,7 +54,7 @@ internal class CallNotifications(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         return NotificationCompat.Builder(context, INCOMING)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notify)
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, decline, answer).setIsVideo(session.video))
             .setContentIntent(screen)
             .setFullScreenIntent(screen, true)
@@ -75,7 +75,7 @@ internal class CallNotifications(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         return NotificationCompat.Builder(context, ONGOING)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notify)
             .setStyle(NotificationCompat.CallStyle.forOngoingCall(person, hangUp).setIsVideo(session.video))
             .setContentIntent(activity(CallActivity.screen(context), REQUEST_SCREEN))
             .setCategory(NotificationCompat.CATEGORY_CALL)

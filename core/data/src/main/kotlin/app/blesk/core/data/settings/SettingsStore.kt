@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
+import app.blesk.shared.protocol.TextSafety
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -264,9 +265,9 @@ class SettingsStore(context: Context) {
 
     suspend fun updateProfile(name: String, username: String, bio: String, links: List<String> = emptyList()) {
         store.edit {
-            it[PROFILE_NAME] = name.trim().take(Profile.MAX_NAME)
+            it[PROFILE_NAME] = TextSafety.clean(name).take(Profile.MAX_NAME)
             it[PROFILE_USERNAME] = Profile.normalizeUsername(username)
-            it[PROFILE_BIO] = bio.trim().take(Profile.MAX_BIO)
+            it[PROFILE_BIO] = TextSafety.clean(bio, multiline = true).take(Profile.MAX_BIO)
             it[PROFILE_LINKS] = Profile.cleanLinks(links).joinToString("\n")
         }
     }

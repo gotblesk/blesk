@@ -28,6 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import app.blesk.core.design.color.Oklch
+import app.blesk.core.design.fire.dithered
 import app.blesk.core.design.motion.rememberLoopPhase
 import app.blesk.core.design.theme.Blesk
 import kotlin.math.PI
@@ -61,7 +62,7 @@ sealed interface HeaderStyle {
  */
 @Composable
 fun HeaderArt(style: HeaderStyle, photo: ImageBitmap?, modifier: Modifier = Modifier, hue: Float? = null) {
-    Box(modifier.clearAndSetSemantics { }) {
+    Box(modifier.clearAndSetSemantics { }.dithered()) {
         HeaderFill(style, photo, hue)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Box(
@@ -98,7 +99,7 @@ fun HeaderArt(style: HeaderStyle, photo: ImageBitmap?, modifier: Modifier = Modi
 @Composable
 fun ChatBackdrop(style: HeaderStyle?, photo: ImageBitmap?, modifier: Modifier = Modifier) {
     if (style == null) return
-    Box(modifier.fillMaxSize().clearAndSetSemantics { }) {
+    Box(modifier.fillMaxSize().clearAndSetSemantics { }.dithered()) {
         when {
             style is HeaderStyle.Photo && photo != null -> {
                 Image(photo, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())

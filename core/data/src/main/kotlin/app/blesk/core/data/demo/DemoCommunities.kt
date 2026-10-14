@@ -26,6 +26,7 @@ import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
 import app.blesk.shared.protocol.Spaces
+import app.blesk.shared.protocol.TextSafety
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
@@ -74,7 +75,7 @@ internal class DemoCommunities(
         val state = GroupState(
             id = id,
             kind = kind,
-            title = title.trim().take(MAX_TITLE),
+            title = TextSafety.clean(title).take(MAX_TITLE),
             version = 1,
             epoch = 0,
             members = listOf(GroupMember(me, GroupRole.Owner)) +
@@ -94,7 +95,9 @@ internal class DemoCommunities(
         return id
     }
 
-    override suspend fun rename(groupId: String, title: String) = change(groupId) { it.copy(title = title.trim().take(MAX_TITLE)) }
+    override suspend fun rename(groupId: String, title: String) = change(groupId) {
+        it.copy(title = TextSafety.clean(title).take(MAX_TITLE))
+    }
 
     override suspend fun addMembers(groupId: String, usernames: List<String>) = change(groupId) { state ->
         val fresh = usernames.distinct().filter { state.roleOf(it) == null }.map { GroupMember(it, GroupRole.Member) }
@@ -111,7 +114,7 @@ internal class DemoCommunities(
     }
 
     override suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) = change(groupId) {
-        it.copy(channels = it.channels + GroupChannel(shortId(), title.trim().take(MAX_TITLE), kind, adminsOnly))
+        it.copy(channels = it.channels + GroupChannel(shortId(), TextSafety.clean(title).take(MAX_TITLE), kind, adminsOnly))
     }
 
     override suspend fun removeChannel(groupId: String, channelId: String) = change(groupId) { state ->

@@ -69,6 +69,7 @@ import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceRole
 import app.blesk.shared.protocol.Spaces
+import app.blesk.shared.protocol.TextSafety
 import app.blesk.shared.protocol.UpdateSpace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -702,12 +703,12 @@ class ServerChatRepository(
     }
 
     override suspend fun createGroup(kind: GroupKind, title: String, members: List<String>): String {
-        val id = groups.create(kind, title, members)
+        val id = groups.create(kind, TextSafety.clean(title), members)
         flush()
         return id
     }
 
-    override suspend fun rename(groupId: String, title: String) = groups.rename(groupId, title).also { flush() }
+    override suspend fun rename(groupId: String, title: String) = groups.rename(groupId, TextSafety.clean(title)).also { flush() }
 
     override suspend fun addMembers(groupId: String, usernames: List<String>) = groups.addMembers(groupId, usernames).also { flush() }
 
@@ -717,7 +718,7 @@ class ServerChatRepository(
         groups.setRole(groupId, username, role).also { flush() }
 
     override suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) =
-        groups.addChannel(groupId, title, kind, adminsOnly).also { flush() }
+        groups.addChannel(groupId, TextSafety.clean(title), kind, adminsOnly).also { flush() }
 
     override suspend fun removeChannel(groupId: String, channelId: String) = groups.removeChannel(groupId, channelId).also { flush() }
 

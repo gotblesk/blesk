@@ -30,7 +30,7 @@ class KeepAliveService : Service() {
         }
         val open = PendingIntent.getActivity(this, 0, MainActivity.open(this, null), PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle(getString(R.string.notify_online_title))
             .setContentText(getString(R.string.notify_online_text))
             .setContentIntent(open)

@@ -11,6 +11,7 @@ import app.blesk.shared.protocol.AttachmentPointer
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.Content
 import app.blesk.shared.protocol.OutgoingMessage
+import app.blesk.shared.protocol.TextSafety
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -59,13 +60,14 @@ internal class ProfileExchange(
         }
         if (body.photo == null || photo != null) base.photo?.let { media.forget(Attachment.Photo(it, 0, 0)) }
         val updated = base.copy(
-            name = body.name.take(MAX_NAME),
-            bio = body.bio.take(MAX_BIO),
+            name = TextSafety.clean(body.name).take(MAX_NAME),
+            bio = TextSafety.clean(body.bio, multiline = true).take(MAX_BIO),
             links = links.joinToString("\n"),
             photo = if (body.photo == null) null else photo?.path ?: base.photo,
         )
         db.contacts().upsert(updated)
-        db.conversations().get(sender)?.let { db.conversations().upsert(it.copy(title = body.name.ifBlank { sender })) }
+        val shown = updated.name.takeIf(TextSafety::hasVisible) ?: sender
+        db.conversations().get(sender)?.let { db.conversations().upsert(it.copy(title = shown)) }
     }
 
     private fun body(own: OwnProfile, photo: AttachmentPointer?) = Body.Profile(own.name, own.bio, own.links, photo)

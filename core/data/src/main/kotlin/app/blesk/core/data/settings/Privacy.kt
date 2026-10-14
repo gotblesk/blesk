@@ -1,5 +1,7 @@
 package app.blesk.core.data.settings
 
+import app.blesk.shared.protocol.Usernames
+
 /** How long the app may stay in the background before it asks for the PIN again. */
 enum class LockDelay(val millis: Long) {
     Immediately(0),
@@ -71,11 +73,10 @@ data class Profile(
         const val DEFAULT_HEADER = "light:0"
         const val MAX_USERNAME = 32
 
-        /** Usernames are lowercase latin letters, digits and underscores, 3 to 32 characters. */
-        fun normalizeUsername(raw: String): String =
-            raw.trim().removePrefix("@").lowercase().filter { it in 'a'..'z' || it in '0'..'9' || it == '_' }.take(MAX_USERNAME)
+        /** The rules are [Usernames]', the same as the server's. */
+        fun normalizeUsername(raw: String): String = Usernames.normalize(raw)
 
-        fun isValidUsername(username: String): Boolean = username.length >= 3 && username == normalizeUsername(username)
+        fun isValidUsername(username: String): Boolean = Usernames.isValid(username)
     }
 }
 

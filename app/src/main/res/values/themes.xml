@@ -7,4 +7,11 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
+
+    <!-- The system splash: the star on the theme's background, then the app's own window. -->
+    <style name="Theme.Blesk.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/window_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_star</item>
+        <item name="postSplashScreenTheme">@style/Theme.Blesk</item>
+    </style>
 </resources>
