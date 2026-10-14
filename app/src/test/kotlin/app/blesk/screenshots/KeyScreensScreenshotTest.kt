@@ -290,9 +290,12 @@ class KeyScreensScreenshotTest(private val name: String) {
             ChatMenu(
                 conversation = conversation,
                 now = now.toEpochMilli(),
-                actions = ChatMenuActions({}, {}, {}, {}),
+                actions = ChatMenuActions({}, {}, {}, {}, onDelete = {}),
                 onDismiss = {},
                 anchor = places[conversation.id],
+                messages = seed.messages.filter { it.conversationId == conversation.id }.toImmutableList(),
+                authorName = { id -> seed.contacts.firstOrNull { it.id == id }?.name },
+                onOpen = {},
             )
         }
     }

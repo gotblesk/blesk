@@ -5,7 +5,7 @@
     <string name="profile_setup">Заполни профиль</string>
     <string name="profile_name">Имя</string>
     <string name="profile_username">Имя пользователя</string>
-    <string name="profile_username_hint">Латиница, цифры и _ — от 3 символов. Номер телефона не нужен.</string>
+    <string name="profile_username_hint">строчная латиница, цифры, точка и _, от 3 до 32, с буквы</string>
     <string name="profile_bio">О себе</string>
     <string name="profile_photo">Выбрать фото</string>
     <string name="profile_photo_remove">Убрать фото</string>
@@ -35,4 +35,11 @@
     <string name="profile_crop_cancel">Отмена</string>
     <string name="profile_crop_done">Готово</string>
     <string name="profile_link">Ссылка %1$d</string>
+    <string name="profile_done">Готово</string>
+    <string name="profile_header_change">Сменить шапку</string>
+    <string name="profile_edit_hint">Нажми на любое поле, чтобы изменить</string>
+    <string name="profile_username_free">свободно</string>
+    <string name="profile_username_taken">занято</string>
+    <string name="profile_username_checking">проверяю…</string>
+    <string name="profile_username_fixed">Имя пользователя пока нельзя сменить</string>
 </resources>

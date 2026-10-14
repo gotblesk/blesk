@@ -16,11 +16,13 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
+import app.blesk.core.data.settings.AppMode
 import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.headerPhotoKey
 import app.blesk.feature.profile.AvatarCrop
 import app.blesk.feature.profile.ProfileActions
 import app.blesk.feature.profile.ProfileScreen
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -39,6 +41,7 @@ internal fun rememberHeaderPhoto(container: AppContainer, version: Long): ImageB
 internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit, onReopen: () -> Unit) {
     val scope = rememberCoroutineScope()
     val profile by container.settings.profile.collectAsStateWithLifecycle(initialValue = null)
+    val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = AppMode.Demo)
     val current = profile ?: return
     val photo = rememberProfilePhoto(container, current.photoVersion)
     val headerPhoto = rememberHeaderPhoto(container, current.headerVersion)
@@ -97,6 +100,16 @@ internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit, onReopen:
                 pickHeader.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
             onBack = onBack,
+            checkUsername = { name ->
+                val api = container.api
+                if (mode is AppMode.Server && api != null) {
+                    runCatching { api.usernameAvailable(name) }.getOrNull()
+                } else {
+                    // The demo knows only its own people.
+                    container.chats.value?.contacts?.first()?.none { it.username == name } ?: true
+                }
+            },
+            usernameEditable = mode !is AppMode.Server,
             onLeaveUnsaved = { draft ->
                 onBack()
                 notices?.undoable(

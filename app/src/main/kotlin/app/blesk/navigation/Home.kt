@@ -72,7 +72,6 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.core.network.NetworkProxy
 import app.blesk.feature.chats.ChatList
-import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.ChatMenuActions
 import app.blesk.feature.chats.ChatRowPlaces
 import app.blesk.feature.chats.ConnectionStatus
@@ -414,12 +413,15 @@ internal fun Home(
         }
     }
     menuFor?.let { conversation ->
-        ChatMenu(
+        ConversationMenu(
+            container = container,
+            chats = chats,
             conversation = conversation,
-            now = System.currentTimeMillis(),
-            actions = chatMenuActions(chats, conversation, conversations, onPinLimit),
-            onDismiss = { menuFor = null },
+            all = conversations,
             anchor = rowPlaces[conversation.id],
+            onPinLimit = onPinLimit,
+            onOpen = onOpenConversation,
+            onDismiss = { menuFor = null },
         )
     }
 }
@@ -430,6 +432,7 @@ internal fun chatMenuActions(
     conversation: Conversation,
     all: List<Conversation>,
     onPinLimit: () -> Unit,
+    onDelete: ((forBoth: Boolean) -> Unit)? = null,
 ) = ChatMenuActions(
     onPin = { pin ->
         val pinnedHere = all.count { it.pinned && it.archived == conversation.archived && it.kind != ConversationKind.Room }
@@ -438,6 +441,7 @@ internal fun chatMenuActions(
     onArchive = { chats.setArchived(conversation.id, it) },
     onMute = { chats.mute(conversation.id, it) },
     onMarkUnread = { unread -> if (unread) chats.markUnread(conversation.id, true) else chats.markRead(conversation.id) },
+    onDelete = onDelete,
 )
 
 /** Says the pinned list is full, with the refusing buzz. */

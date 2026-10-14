@@ -39,6 +39,7 @@ import app.blesk.shared.protocol.UploadStart
 import app.blesk.shared.protocol.UploadStarted
 import app.blesk.shared.protocol.UploadState
 import app.blesk.shared.protocol.UserToBot
+import app.blesk.shared.protocol.UsernameCheck
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
@@ -160,6 +161,10 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
         expect { client.post(url("${Bots.userPath(username)}/updates")) { auth(); jsonBody(update) } }
 
     suspend fun callToken(room: String): CallToken = call { client.post(url(Calls.TOKEN)) { auth(); jsonBody(CallTokenRequest(room)) } }
+
+    /** Whether [name] is free on this server; asked as it is typed. */
+    suspend fun usernameAvailable(name: String): Boolean =
+        call<UsernameCheck> { client.get(url("${Api.USERNAMES}/$name")) }.available
 
     suspend fun register(request: RegisterRequest): AccountInfo = call {
         client.post(url(Api.ACCOUNTS)) { jsonBody(request) }

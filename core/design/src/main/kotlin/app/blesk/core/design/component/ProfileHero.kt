@@ -71,21 +71,40 @@ private val NameFade = 40.dp
 /**
  * The top of a profile page: over the header only a glass «назад»; once the avatar has flowed
  * up ([scroll] past the header, less [ProfileLensReach]), the whole glass lens with [title],
- * coming in as the big name goes. [actions] sit in the lens once it has gathered.
+ * coming in as the big name goes. [actions] sit in the lens once it has gathered. With [done],
+ * the way out is that word on a capsule — «Готово» while editing — instead of the arrow.
  */
 @Composable
-fun ProfileTopLens(title: String, scroll: () -> Int, onBack: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
+fun ProfileTopLens(
+    title: String,
+    scroll: () -> Int,
+    onBack: () -> Unit,
+    done: String? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+) {
     val gatherAt = with(LocalDensity.current) { (profileHeaderHeight() - ProfileLensReach).toPx() }
     val gathered by remember(gatherAt) { derivedStateOf { scroll() > gatherAt } }
+    val way: @Composable () -> Unit = {
+        if (done != null) {
+            Text(
+                text = done,
+                style = Blesk.type.bodyStrong,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable(role = Role.Button, onClick = onBack)
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+            )
+        } else {
+            IconButton(BleskIcons.Back, stringResource(R.string.design_back), onBack)
+        }
+    }
     Box {
         AnimatedVisibility(visible = gathered, enter = fadeIn(Blesk.motion.press()), exit = fadeOut(Blesk.motion.press())) {
-            TopLens(title = title, onBack = onBack, actions = actions)
+            TopLens(title = title, onBack = if (done == null) onBack else null, leading = { if (done != null) way() }, actions = actions)
         }
         if (!gathered) {
             Box(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Box(Modifier.lens(CircleShape)) {
-                    IconButton(BleskIcons.Back, stringResource(R.string.design_back), onBack)
-                }
+                Box(Modifier.lens(CircleShape)) { way() }
             }
         }
     }

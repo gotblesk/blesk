@@ -23,7 +23,6 @@ import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.ChatList
-import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.ChatRowPlaces
 import app.blesk.feature.chats.EmptyChats
 import app.blesk.feature.chats.R
@@ -82,8 +81,16 @@ internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) 
         )
     }
     menuFor?.let { conversation ->
-        val actions = chatMenuActions(chats, conversation, conversations, onPinLimit)
-        ChatMenu(conversation, System.currentTimeMillis(), actions, onDismiss = { menuFor = null }, anchor = rowPlaces[conversation.id])
+        ConversationMenu(
+            container = container,
+            chats = chats,
+            conversation = conversation,
+            all = conversations,
+            anchor = rowPlaces[conversation.id],
+            onPinLimit = onPinLimit,
+            onOpen = onOpenConversation,
+            onDismiss = { menuFor = null },
+        )
     }
 }
 

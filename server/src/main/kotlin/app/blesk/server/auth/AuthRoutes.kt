@@ -21,6 +21,7 @@ import app.blesk.shared.protocol.RecoveryHash
 import app.blesk.shared.protocol.RegisterRequest
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
+import app.blesk.shared.protocol.UsernameCheck
 import app.blesk.shared.protocol.Usernames
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
@@ -38,6 +39,13 @@ private val ChallengeLifetime = 2.minutes.toJavaDuration()
 private val TokenLifetime = 30.days.toJavaDuration()
 
 fun Route.registrationRoutes(services: Services) {
+    // Asked while a name is typed, before there is an account; limited with registration itself.
+    get("${Api.USERNAMES}/{name}") {
+        val name = call.parameters["name"].orEmpty()
+        val free = Usernames.isValid(name) && !name.endsWith(Bots.SUFFIX) && services.accounts.find(name) == null
+        call.respond(UsernameCheck(free))
+    }
+
     post(Api.ACCOUNTS) {
         val request = call.receiveJson<RegisterRequest>()
         ensure(Usernames.isValid(request.username)) { badRequest(ErrorCodes.INVALID_USERNAME) }

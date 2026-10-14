@@ -5,6 +5,7 @@ import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.Discovery
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.ServerInfo
+import app.blesk.shared.protocol.UsernameCheck
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
@@ -41,6 +42,16 @@ class AccountsTest {
         val response = harness.registerRaw(alice.username, IdentityKeyPair.generate())
         assertEquals(HttpStatusCode.Conflict, response.status)
         assertEquals("username_taken", response.body<ErrorBody>().code)
+    }
+
+    @Test
+    fun `tells whether a username is free`() = serverTest { harness ->
+        val alice = harness.register()
+        suspend fun free(name: String) = harness.client.get("${Api.USERNAMES}/$name").body<UsernameCheck>().available
+        assertEquals(false, free(alice.username))
+        assertEquals(true, free(randomUsername()))
+        assertEquals(false, free("blesk"))
+        assertEquals(false, free("Egor"))
     }
 
     @Test

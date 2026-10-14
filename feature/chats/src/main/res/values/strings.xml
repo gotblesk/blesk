@@ -583,4 +583,12 @@
     <string name="channel_tab_members">Участники</string>
     <string name="channel_pinned_empty">Закреплённых сообщений нет</string>
     <string name="channel_pinned_attachment">Вложение</string>
+    <string name="mini_chat_open">Открыть чат</string>
+    <string name="chats_pin_short">Закрепить</string>
+    <string name="chats_unpin_short">Открепить</string>
+    <string name="chats_from_archive_short">Из архива</string>
+    <string name="chats_unmute_short">Со звуком</string>
+    <string name="chats_read_short">Прочитано</string>
+    <string name="chats_unread_short">Непрочитано</string>
+    <string name="chats_delete_short">Удалить</string>
 </resources>

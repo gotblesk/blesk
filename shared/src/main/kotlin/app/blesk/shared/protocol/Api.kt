@@ -12,6 +12,9 @@ object Api {
     const val DEVICE_ID = 1
 
     const val ACCOUNTS = "/v1/accounts"
+
+    /** `GET /v1/usernames/{name}`: whether a name may be taken, asked while it is typed. */
+    const val USERNAMES = "/v1/usernames"
     const val CHALLENGE = "/v1/auth/challenge"
     const val TOKEN = "/v1/auth/token"
     const val KEYS = "/v1/keys"
@@ -119,6 +122,10 @@ data class ServerInfo(
     /** Whether a LiveKit server is set up next to this one. */
     val calls: Boolean = false,
 )
+
+/** The answer to «is this @username free?»: invalid and reserved names are not free either. */
+@Serializable
+data class UsernameCheck(val available: Boolean)
 
 @Serializable
 data class RegisterRequest(

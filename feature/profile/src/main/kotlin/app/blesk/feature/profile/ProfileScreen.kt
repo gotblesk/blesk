@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -40,6 +41,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -82,11 +85,15 @@ import app.blesk.core.design.component.chatBackdropOf
 import app.blesk.core.design.component.headerFocusOf
 import app.blesk.core.design.component.headerPhotoKey
 import app.blesk.core.design.component.nameIntoLens
+import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.fire.flashOn
+import app.blesk.core.design.fire.lightSweep
 import app.blesk.core.design.glass.LensScaffold
+import app.blesk.core.design.glass.lens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
+import kotlinx.coroutines.delay
 
 /** What the edit leaves behind when saved. */
 data class ProfileDraft(
@@ -105,14 +112,22 @@ class ProfileActions(
     val onBack: () -> Unit,
     /** Leaving with changes: no question asked, the changes go with an «Отменить» that brings them back. */
     val onLeaveUnsaved: (ProfileDraft) -> Unit = { onBack() },
+    /** Whether a @username is free: true, false, or null when it cannot be asked (no connection). */
+    val checkUsername: suspend (String) -> Boolean? = { null },
+    /** False with a server, where a @username cannot be changed yet: it is shown, not edited. */
+    val usernameEditable: Boolean = true,
 )
 
+/** What is said under @username while it is typed. */
+private enum class NameState { Yours, Checking, Free, Taken, Invalid, Unknown }
+
 /**
- * Your profile in edit mode: the very page of «Ты», not a form. The header, the avatar, the name,
- * @username, «о себе» and the links are changed where they stand, in the profile's own type;
- * a tap on the avatar picks a photo, «Шапка» opens the header choices under the cluster. Once
- * something changed, «Сохранить» rises from the bottom. [restored] is a draft brought back by
- * «Отменить» after leaving without saving.
+ * Your profile in edit mode: the very page of «Ты», not a form. So that it is plain what can be
+ * changed, light runs once over everything editable as the mode opens; the name, @username and
+ * «о себе» sit in soft capsules with their label above and a small pencil; the header has
+ * «Сменить шапку», the avatar a camera; the first time a hint says to tap any field. «Готово» at
+ * the top left saves and leaves; once something changed, «Сохранить» also rises from the bottom.
+ * [restored] is a draft brought back by «Отменить» after leaving without saving.
  */
 @Composable
 fun ProfileScreen(
@@ -151,10 +166,28 @@ fun ProfileScreen(
 
     fun leave() = if (dirty) actions.onLeaveUnsaved(draft) else actions.onBack()
 
+    // «Готово» keeps what was changed; «назад» leaves without saving, with «Отменить» to come back.
+    fun done() {
+        if (dirty) save()
+        actions.onBack()
+    }
+
+    // The light runs over the editable places once, as the mode opens.
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val hints = rememberEditHint()
+    val nameState = rememberNameState(draft.username, profile.username, actions.checkUsername)
     BackHandler(enabled = dirty) { leave() }
     LensScaffold(
         modifier = modifier,
-        top = { ProfileTopLens(stringResource(R.string.profile_title), { scroll.value }, onBack = ::leave) },
+        top = {
+            ProfileTopLens(
+                title = stringResource(R.string.profile_title),
+                scroll = { scroll.value },
+                onBack = ::done,
+                done = stringResource(R.string.profile_done),
+            )
+        },
         bottom = { SaveCapsule(visible = dirty, onSave = ::save) },
     ) { padding ->
         Column(
@@ -166,58 +199,87 @@ fun ProfileScreen(
         ) {
             val focusHint = stringResource(R.string.profile_header_focus)
             CompositionLocalProvider(LocalHeaderFocus provides headerFocusOf(header)) {
-                ProfileHero(
-                    name = draft.name.ifBlank { "?" },
-                    key = profile.username.ifBlank { profile.name },
-                    photo = photo,
-                    header = style,
-                    headerPhoto = headerPhoto,
-                    scroll = { scroll.value },
-                    onAvatarClick = actions.onPickPhoto,
-                    avatarClickLabel = stringResource(R.string.profile_photo_change),
-                    modifier = Modifier
-                        .flashOn(saves, RoundedCornerShape(0.dp))
-                        .let { hero ->
-                            if (style != HeaderStyle.Photo) return@let hero
-                            // Tapping the photo picks the place that stays in view.
-                            hero.semantics { contentDescription = focusHint }.pointerInput(Unit) {
-                                detectTapGestures { at ->
-                                    header = headerPhotoKey(at.x / size.width * 2 - 1, at.y / size.height * 2 - 1)
+                Box {
+                    ProfileHero(
+                        name = draft.name.ifBlank { "?" },
+                        key = profile.username.ifBlank { profile.name },
+                        photo = photo,
+                        header = style,
+                        headerPhoto = headerPhoto,
+                        scroll = { scroll.value },
+                        onAvatarClick = actions.onPickPhoto,
+                        avatarClickLabel = stringResource(R.string.profile_photo_change),
+                        modifier = Modifier
+                            .flashOn(saves, RoundedCornerShape(0.dp))
+                            .let { hero ->
+                                if (style != HeaderStyle.Photo) return@let hero
+                                // Tapping the photo picks the place that stays in view.
+                                hero.semantics { contentDescription = focusHint }.pointerInput(Unit) {
+                                    detectTapGestures { at ->
+                                        header = headerPhotoKey(at.x / size.width * 2 - 1, at.y / size.height * 2 - 1)
+                                    }
                                 }
-                            }
-                        },
+                            },
+                    )
+                    HeaderCapsule(
+                        onClick = { choosingHeader = !choosingHeader },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = profileHeaderHeight() - HeaderCapsuleLift, end = Blesk.dimens.gutter)
+                            .lightSweep(shown, CircleShape),
+                    )
+                }
+            }
+            if (hints.showing) {
+                Text(
+                    text = stringResource(R.string.profile_edit_hint),
+                    style = Blesk.type.label,
+                    color = Blesk.colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = Blesk.dimens.gutter, vertical = 4.dp),
                 )
             }
             InPlaceField(
+                label = stringResource(R.string.profile_name),
                 state = name,
                 placeholder = stringResource(R.string.profile_name),
                 style = Blesk.type.title,
                 limit = Profile.MAX_NAME,
+                sweep = shown,
+                onFocus = hints::seen,
                 modifier = Modifier.padding(top = 10.dp).nameIntoLens { scroll.value },
             )
             InPlaceField(
+                label = stringResource(R.string.profile_username),
                 state = username,
                 placeholder = stringResource(R.string.profile_username),
                 style = Blesk.type.label,
                 color = Blesk.colors.textSecondary,
                 prefix = "@",
-                hint = stringResource(R.string.profile_username_hint),
+                note = usernameNote(nameState, actions.usernameEditable),
+                noteAlways = true,
+                editable = actions.usernameEditable,
+                sweep = shown,
+                onFocus = hints::seen,
+                modifier = Modifier.padding(top = FieldGap),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, autoCorrectEnabled = false),
             )
             InPlaceField(
+                label = stringResource(R.string.profile_bio),
                 state = bio,
                 placeholder = stringResource(R.string.profile_bio),
                 style = Blesk.type.body,
                 color = Blesk.colors.textSecondary,
                 limit = Profile.MAX_BIO,
                 singleLine = false,
-                modifier = Modifier.padding(top = 6.dp),
+                sweep = shown,
+                onFocus = hints::seen,
+                modifier = Modifier.padding(top = FieldGap),
             )
             val removeLabel = stringResource(R.string.profile_photo_remove)
             ActionCluster(
                 buildList {
-                    add(ClusterAction(BleskIcons.Camera, stringResource(R.string.profile_header_photo), actions.onPickPhoto))
-                    add(ClusterAction(BleskIcons.Image, stringResource(R.string.profile_header)) { choosingHeader = !choosingHeader })
+                    add(ClusterAction(BleskIcons.Camera, stringResource(R.string.profile_photo_change), actions.onPickPhoto))
                     if (photo != null) add(ClusterAction(BleskIcons.Trash, removeLabel, actions.onRemovePhoto))
                 },
                 Modifier.padding(horizontal = Blesk.dimens.gutter, vertical = 16.dp),
@@ -246,12 +308,14 @@ fun ProfileScreen(
 }
 
 /**
- * Text edited where it is shown: the same type and colour as on the profile, centred, with no
- * lines under it. While typing, a soft capsule shows behind the field; a counter or a [hint]
- * shows under it.
+ * Text edited where it is shown: the same type and colour as on the profile, centred, in a soft
+ * capsule with its [label] above and a small pencil at the end, so it reads as editable; no lines
+ * under it. The capsule fills in while typing. A counter shows under it then, or [note] — always,
+ * with [noteAlways]. Not [editable], it is shown the same, without the pencil.
  */
 @Composable
 private fun InPlaceField(
+    label: String,
     state: TextFieldState,
     placeholder: String,
     style: TextStyle,
@@ -259,19 +323,26 @@ private fun InPlaceField(
     color: Color = Blesk.colors.textPrimary,
     prefix: String = "",
     limit: Int? = null,
-    hint: String? = null,
+    note: String? = null,
+    noteAlways: Boolean = false,
+    editable: Boolean = true,
+    sweep: Boolean = false,
     singleLine: Boolean = true,
+    onFocus: () -> Unit = {},
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val capsule by animateFloatAsState(if (focused) 1f else 0f, Blesk.motion.settle(), label = "fieldCapsule")
+    val capsule by animateFloatAsState(if (focused) 1f else REST_FILL, Blesk.motion.settle(), label = "fieldCapsule")
     val fill = Blesk.colors.surfaceStrong
+    val shape = RoundedCornerShape(FieldRadius)
     Column(
         modifier.fillMaxWidth().padding(horizontal = Blesk.dimens.gutter * 2),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Text(label, style = Blesk.type.caption, color = Blesk.colors.textTertiary, modifier = Modifier.padding(bottom = 2.dp))
         BasicTextField(
             state = state,
+            readOnly = !editable,
             textStyle = style.copy(color = color, textAlign = TextAlign.Center),
             cursorBrush = SolidColor(Blesk.colors.accent),
             lineLimits = if (singleLine) TextFieldLineLimits.SingleLine else TextFieldLineLimits.MultiLine(maxHeightInLines = BIO_LINES),
@@ -281,34 +352,120 @@ private fun InPlaceField(
             keyboardOptions = keyboardOptions,
             modifier = Modifier
                 .fillMaxWidth()
-                .onFocusChanged { focused = it.isFocused }
-                .semantics { contentDescription = placeholder },
+                .onFocusChanged {
+                    focused = it.isFocused && editable
+                    if (it.isFocused) onFocus()
+                }
+                .semantics { contentDescription = label },
             decorator = { inner ->
-                Box(
+                Row(
                     Modifier
-                        .clip(RoundedCornerShape(FieldRadius))
-                        .drawBehind { if (capsule > 0f) drawRect(fill.copy(alpha = fill.alpha * capsule)) }
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center,
+                        .clip(shape)
+                        .drawBehind { drawRect(fill.copy(alpha = fill.alpha * capsule)) }
+                        .lightSweep(sweep && editable, shape)
+                        .padding(start = 14.dp, end = if (editable) 8.dp else 14.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (state.text.isEmpty()) Text(placeholder, style = style, color = Blesk.colors.textTertiary)
-                    inner()
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        if (state.text.isEmpty()) Text(placeholder, style = style, color = Blesk.colors.textTertiary)
+                        inner()
+                    }
+                    if (editable) Icon(BleskIcons.Edit, contentDescription = null, tint = Blesk.colors.textTertiary, size = 14.dp)
                 }
             },
         )
-        if (focused) {
-            val note = hint ?: limit?.let { stringResource(R.string.profile_counter, state.text.length, it) }
-            if (note != null) {
-                Text(
-                    text = note,
-                    style = Blesk.type.caption,
-                    color = Blesk.colors.textTertiary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+        val shownNote = when {
+            note != null && (noteAlways || focused) -> note
+            focused -> limit?.let { stringResource(R.string.profile_counter, state.text.length, it) }
+            else -> null
+        }
+        if (shownNote != null) {
+            Text(
+                text = shownNote,
+                style = Blesk.type.caption,
+                color = Blesk.colors.textTertiary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+/** «Сменить шапку» on the header itself. */
+@Composable
+private fun HeaderCapsule(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .clip(CircleShape)
+            .lens(CircleShape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(BleskIcons.Image, contentDescription = null, size = 16.dp)
+        Text(stringResource(R.string.profile_header_change), style = Blesk.type.label)
+    }
+}
+
+/**
+ * Whether the typed @username is free, asked a moment after typing stops. Your own name is yours;
+ * one breaking the rules is not asked about at all.
+ */
+@Composable
+private fun rememberNameState(typed: String, own: String, check: suspend (String) -> Boolean?): NameState {
+    var state by remember { mutableStateOf(NameState.Yours) }
+    LaunchedEffect(typed) {
+        state = when {
+            typed == own -> NameState.Yours
+            !Profile.isValidUsername(typed) -> NameState.Invalid
+            else -> {
+                state = NameState.Checking
+                delay(CHECK_PAUSE_MILLIS)
+                when (check(typed)) {
+                    true -> NameState.Free
+                    false -> NameState.Taken
+                    null -> NameState.Unknown
+                }
             }
         }
     }
+    return state
+}
+
+@Composable
+private fun usernameNote(state: NameState, editable: Boolean): String {
+    if (!editable) return stringResource(R.string.profile_username_fixed)
+    val rules = stringResource(R.string.profile_username_hint)
+    val verdict = when (state) {
+        NameState.Yours, NameState.Unknown, NameState.Invalid -> null
+        NameState.Checking -> stringResource(R.string.profile_username_checking)
+        NameState.Free -> stringResource(R.string.profile_username_free)
+        NameState.Taken -> stringResource(R.string.profile_username_taken)
+    }
+    return listOfNotNull(verdict, rules).joinToString(" · ")
+}
+
+/** «Нажми на любое поле, чтобы изменить» until the first field is tapped. */
+private class EditHint(private val prefs: android.content.SharedPreferences) {
+    var showing by mutableStateOf(!prefs.getBoolean(KEY, false))
+        private set
+
+    fun seen() {
+        if (!showing) return
+        showing = false
+        prefs.edit().putBoolean(KEY, true).apply()
+    }
+
+    private companion object {
+        const val KEY = "edit_hint_seen"
+    }
+}
+
+@Composable
+private fun rememberEditHint(): EditHint {
+    val context = LocalContext.current
+    return remember(context) { EditHint(context.getSharedPreferences(HINT_PREFS, android.content.Context.MODE_PRIVATE)) }
 }
 
 /** Up to three links, like on the profile; one more empty row appears once the last is filled. */
@@ -364,6 +521,11 @@ private fun SaveCapsule(visible: Boolean, onSave: () -> Unit) {
 
 private val SaveRoom = 88.dp
 private val FieldRadius = 20.dp
+private val FieldGap = 10.dp
+private val HeaderCapsuleLift = 52.dp
+private const val REST_FILL = 0.3f
+private const val CHECK_PAUSE_MILLIS = 400L
+private const val HINT_PREFS = "profile"
 private const val BIO_LINES = 4
 
 /** The six «Свет» compositions, the flat tones and your photo, each a small sample of the header. */
