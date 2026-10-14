@@ -749,7 +749,7 @@ private fun KindTag(conversation: Conversation) {
 @Composable
 private fun previewText(conversation: Conversation): String {
     val preview = conversation.preview ?: return when (conversation.kind) {
-        ConversationKind.Channel -> pluralStringResource(R.plurals.chats_subscribers, conversation.memberCount, conversation.memberCount)
+        ConversationKind.Channel -> subscribersLine(conversation.memberCount)
         ConversationKind.Direct, ConversationKind.Bot -> ""
         else -> pluralStringResource(R.plurals.chats_members, conversation.memberCount, conversation.memberCount)
     }

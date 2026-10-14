@@ -171,4 +171,25 @@
     <string name="right_mute_others_hint">В голосовых каналах</string>
     <string name="right_move">Перемещать</string>
     <string name="right_move_hint">Переводить людей между голосовыми каналами</string>
+
+    <plurals name="count_subscribers_word">
+        <item quantity="one">подписчик</item>
+        <item quantity="few">подписчика</item>
+        <item quantity="many">подписчиков</item>
+        <item quantity="other">подписчика</item>
+    </plurals>
+    <plurals name="count_members_word">
+        <item quantity="one">участник</item>
+        <item quantity="few">участника</item>
+        <item quantity="many">участников</item>
+        <item quantity="other">участника</item>
+    </plurals>
+    <string name="count_thousands">%1$s тыс.</string>
+    <string name="count_millions">%1$s млн</string>
+    <string name="count_subscribers_short">%1$s подписчиков</string>
+    <string name="milestone_title">Каналу %1$s</string>
+    <string name="milestone_save">Сохранить картинкой</string>
+    <string name="milestone_saved">Карточка в галерее</string>
+    <string name="milestone_failed">Не получилось сохранить</string>
+    <string name="milestone_brand">blesk</string>
 </resources>

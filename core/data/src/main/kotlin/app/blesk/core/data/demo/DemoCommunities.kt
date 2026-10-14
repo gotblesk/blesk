@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.util.Random
 import java.util.UUID
 
 /** The conversations and messages of the demo, shared by the chats and the groups that live in them. */
@@ -64,6 +65,7 @@ internal class DemoCommunities(
     private val spaces = MutableStateFlow(seeded.spaces.associateBy { it.handle })
 
     override val me: String = ME
+    private val random = Random()
 
     override fun group(id: String): Flow<GroupState?> = groups.map { it[id] }
 
@@ -169,6 +171,7 @@ internal class DemoCommunities(
             role = SpaceRole.Owner,
         )
         remember(info)
+        if (kind == SpaceKind.Channel) trickle(handle)
         return SpaceResult.Ok to SPACE_PREFIX + handle
     }
 
@@ -214,6 +217,20 @@ internal class DemoCommunities(
 
     private fun handleOf(conversationId: String): String? =
         conversationId.takeIf { it.startsWith(SPACE_PREFIX) }?.removePrefix(SPACE_PREFIX)?.substringBefore(SEPARATOR)
+
+    /**
+     * A channel made in the demo gathers subscribers on its own: quickly up to the first round
+     * number, so its owner sees the counter roll and the fire, then a few now and then.
+     */
+    private fun trickle(handle: String) = scope.launch {
+        while (true) {
+            val before = spaces.value[handle] ?: return@launch
+            val early = before.members < FAST_UNTIL
+            delay(if (early) FAST_MILLIS else SLOW_MILLIS)
+            val info = spaces.value[handle] ?: return@launch
+            remember(info.copy(members = info.members + 1 + random.nextInt(if (early) FAST_STEP else 2)))
+        }
+    }
 
     private fun person(username: String): Contact? = people.firstOrNull { it.username == username || it.id == username }
 
@@ -332,6 +349,10 @@ internal class DemoCommunities(
         private const val SHORT_ID = 8
         private const val INVITE_LENGTH = 16
         private const val GREETING_MILLIS = 1500L
+        private const val FAST_UNTIL = 120
+        private const val FAST_STEP = 7
+        private const val FAST_MILLIS = 900L
+        private const val SLOW_MILLIS = 20_000L
     }
 }
 

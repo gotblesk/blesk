@@ -1,6 +1,7 @@
 package app.blesk.feature.chats.groups
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Message
@@ -36,6 +37,7 @@ import app.blesk.core.design.component.StateMessage
 import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.Archive
@@ -79,6 +81,8 @@ fun SpaceInfoScreen(
     messages: ImmutableList<Message> = persistentListOf(),
     archive: ArchiveActions = ArchiveActions({}, {}, {}, {}),
     onTheme: (() -> Unit)? = null,
+    /** Keeps a milestone card in the gallery; true when it got there. */
+    onSaveCard: (suspend (ImageBitmap) -> Boolean)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val owner = space.role == SpaceRole.Owner
@@ -87,21 +91,35 @@ fun SpaceInfoScreen(
         scope.launch { block() }
     }
     val pad = Modifier.padding(horizontal = Blesk.dimens.gutter)
+    var milestone by remember { mutableStateOf<Int?>(null) }
+    val notify = rememberNotify()
+    val saved = stringResource(R.string.milestone_saved)
+    val failed = stringResource(R.string.milestone_failed)
+    milestone?.let { reached ->
+        MilestoneCard(
+            title = space.title,
+            milestone = reached,
+            onSave = onSaveCard?.let { save -> { image -> notify(if (save(image)) saved else failed) } },
+            onDismiss = { milestone = null },
+        )
+    }
 
     ScrollScreen(title = space.title, onBack = onBack, modifier = modifier) {
         InfoHero(
             title = space.title,
-            lines = listOf(
-                "@${space.handle}",
-                pluralStringResource(
-                    if (space.kind == SpaceKind.Channel) R.plurals.chats_subscribers else R.plurals.space_members,
-                    space.members,
-                    space.members,
-                ),
-            ),
+            lines = listOf("@${space.handle}"),
             avatar = { Avatar(space.title, size = HeroAvatar, key = space.handle) },
             tag = { NotEncryptedTag() },
         )
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            SubscriberCapsule(
+                count = space.members,
+                members = space.kind != SpaceKind.Channel,
+                admin = admin,
+                onMilestone = { reached -> if (space.kind == SpaceKind.Channel) milestone = reached },
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+        }
         EncryptionRow(protected = false)
         var tab by rememberSaveable { mutableIntStateOf(0) }
         val kinds = listOf(ArchiveKind.Media, ArchiveKind.Files, ArchiveKind.Links)

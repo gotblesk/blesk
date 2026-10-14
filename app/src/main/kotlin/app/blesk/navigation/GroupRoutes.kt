@@ -1,5 +1,10 @@
 package app.blesk.navigation
 
+import android.content.ContentValues
+import android.content.Context
+import android.graphics.Bitmap
+import android.os.Build
+import android.provider.MediaStore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -8,6 +13,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,8 +45,10 @@ import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 
 /** [onCreated] gets the new conversation and whether it is a closed room, whose details open first. */
@@ -104,6 +113,7 @@ internal fun SpaceInfoRoute(
     var themeSheet by remember { mutableStateOf(false) }
     SpaceInfoScreen(
         onTheme = { themeSheet = true },
+        onSaveCard = { image -> saveCardToGallery(context, image) },
         messages = messages.toImmutableList(),
         archive = ArchiveActions(
             onOpenMedia = { id -> messages.firstOrNull { it.id == id }?.let { onOpenMedia(it.conversationId, id) } },
@@ -300,3 +310,20 @@ internal fun ChannelInfoRoute(
         ConversationThemeSheet(container, listOf(id), sendTo = id, onDismiss = { themeSheet = false })
     }
 }
+
+/** A milestone card into the gallery, under «Pictures/blesk», as a PNG. */
+private suspend fun saveCardToGallery(context: Context, image: ImageBitmap): Boolean = withContext(Dispatchers.IO) {
+    val values = ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, "blesk_${System.currentTimeMillis()}.png")
+        put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/blesk")
+    }
+    runCatching {
+        val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@runCatching false
+        context.contentResolver.openOutputStream(uri)?.use { output ->
+            image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, output)
+        } == true
+    }.getOrDefault(false)
+}
+
+private const val PNG_QUALITY = 100
