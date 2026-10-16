@@ -70,11 +70,11 @@ QR-код можно показать ещё раз в любой момент: 
 
 ## Техническое приложение
 
-**Резервные копии** (`scripts/backup.sh`, `restore.sh`, `restore-drill.sh`, общая часть — `backup-lib.sh`): restic 0.17 в контейнере, репозиторий `s3:<BACKUP_S3_ENDPOINT>/<BACKUP_S3_BUCKET>/blesk`, шифрование restic (AES-256-CTR + Poly1305, ключ из `BACKUP_PASSWORD` через scrypt). В снимке: `pg_dump --format=custom`, том `minio-data`, `.env`, `certs`. Хост снимков всегда `blesk`, поэтому новый сервер видит снимки старого. Таймер `blesk-backup.timer` — 03:30 по Москве; хранение 7/4/6 (дни, недели, месяцы); по воскресеньям `restic check --read-data-subset=10%`. Настройки — `deploy/backup.env` (права 600, вне git), пишет его `deploy.sh` из переменных `BACKUP_*`. `BLESK_RESTORE=latest` при запуске `deploy.sh` восстанавливает сервер из копии; поверх существующих данных — только с `BLESK_RESTORE_FORCE=1`.
+**Резервные копии** (`scripts/backup.sh`, `restore.sh`, `restore-drill.sh`, общая часть — `backup-lib.sh`): restic 0.17 в контейнере, репозиторий `s3:<BACKUP_S3_ENDPOINT>/<BACKUP_S3_BUCKET>/blesk`, шифрование restic (AES-256-CTR + Poly1305, ключ из `BACKUP_PASSWORD` через scrypt). В снимке: `pg_dump --format=custom`, том `attachments`, `.env`, `certs`. Хост снимков всегда `blesk`, поэтому новый сервер видит снимки старого. Таймер `blesk-backup.timer` — 03:30 по Москве; хранение 7/4/6 (дни, недели, месяцы); по воскресеньям `restic check --read-data-subset=10%`. Настройки — `deploy/backup.env` (права 600, вне git), пишет его `deploy.sh` из переменных `BACKUP_*`. `BLESK_RESTORE=latest` при запуске `deploy.sh` восстанавливает сервер из копии; поверх существующих данных — только с `BLESK_RESTORE_FORCE=1`.
 
 **Защита хоста** (`deploy.sh`): ufw открывает только SSH, 80, 443 и порты LiveKit; fail2ban; автоматические обновления безопасности; при `BLESK_SSH_KEYS_ONLY=1` (так запускает GitHub) — вход по SSH только по ключу, если у root уже есть ключ.
 
-**Состав** (`deploy/docker-compose.yml`): PostgreSQL, MinIO, сервер blesk (Kotlin, Ktor), LiveKit, Caddy. Наружу открыты порты **80** и **443** (TCP, а для HTTP/3 ещё 443/UDP) и порты медиа LiveKit: **7881/TCP** и **50000–50100/UDP**. Порт 80 нужен для выпуска сертификата и перенаправления на HTTPS. `deploy.sh` открывает все эти порты в ufw, если он включён.
+**Состав** (`deploy/docker-compose.yml`): PostgreSQL, сервер blesk (Kotlin, Ktor), LiveKit, Caddy. Наружу открыты порты **80** и **443** (TCP, а для HTTP/3 ещё 443/UDP) и порты медиа LiveKit: **7881/TCP** и **50000–50100/UDP**. Порт 80 нужен для выпуска сертификата и перенаправления на HTTPS. `deploy.sh` открывает все эти порты в ufw, если он включён.
 
 **Звонки.** Сигнализация LiveKit идёт через Caddy: `wss://<хост>/livekit` проксируется на `livekit:7880` без префикса. Ключ и секрет LiveKit `deploy.sh` создаёт один раз и хранит в `deploy/.env` (`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`), в контейнер они попадают через `LIVEKIT_KEYS`; в `deploy/livekit.yaml` секретов нет. Сервер blesk выдаёт токен LiveKit (JWT HS256, 6 часов, одна комната, identity — имя пользователя). Медиа шифруется на клиентах ключом из Signal-сообщения или состояния группы. Журнал LiveKit — только предупреждения, чтобы в нём не было имён и комнат.
 
@@ -145,7 +145,7 @@ QR-код можно показать ещё раз в любой момент: 
 |---|---|
 | `BLESK_PORT` | порт HTTP, по умолчанию 8080 |
 | `BLESK_DB_URL`, `BLESK_DB_USER`, `BLESK_DB_PASSWORD` | подключение к PostgreSQL (JDBC) |
-| `BLESK_STORAGE` | `minio` (по умолчанию) или `fs` |
+| `BLESK_STORAGE` | `minio` (по умолчанию) или `fs`; `deploy/` ставит `fs` |
 | `BLESK_MINIO_ENDPOINT`, `BLESK_MINIO_ACCESS_KEY`, `BLESK_MINIO_SECRET_KEY`, `BLESK_MINIO_BUCKET` | MinIO; бакет создаётся сам |
 | `BLESK_FS_DIR` | папка для вложений при `fs` |
 | `BLESK_TRUST_PROXY` | `true` за Caddy: адрес клиента берётся из `X-Forwarded-For` |
@@ -158,6 +158,6 @@ QR-код можно показать ещё раз в любой момент: 
 
 **Переменные `deploy.sh`:** `BLESK_BRANCH` (по умолчанию `master`), `BLESK_DOMAIN`, `BLESK_PUBLIC_IP`, `BLESK_DIR` (по умолчанию `/opt/blesk`). Пример: `curl ... | sudo BLESK_DOMAIN=chat.example.ru bash`.
 
-**MinIO.** Официальных образов MinIO на Docker Hub больше нет. Поэтому по умолчанию используется `cgr.dev/chainguard/minio`: его собирают из исходников MinIO. Другой образ можно указать в `MINIO_IMAGE` в `deploy/.env`.
+**Вложения.** В `deploy/` вложения лежат файлами в томе `attachments` (`BLESK_STORAGE=fs`): они зашифрованы на устройствах, серверу достаточно хранить байты. MinIO остаётся для своих установок (`BLESK_STORAGE=minio`). Образы Docker Hub сначала берутся через `mirror.gcr.io` (`/etc/docker/daemon.json`, если его ещё нет).
 
 **Сборка без Docker:** `./gradlew :server:installDist`, затем `server/build/install/blesk-server/bin/blesk-server`. Тесты: `./gradlew :server:test`. Они поднимают настоящий PostgreSQL через embedded-postgres.

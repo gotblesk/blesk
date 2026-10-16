@@ -40,6 +40,13 @@ install_packages() {
         say "Устанавливаю Docker"
         curl -fsSL https://get.docker.com | sh
     fi
+    # Docker Hub refuses some regions from time to time; Google's mirror of it is tried first and
+    # Docker falls back to the Hub itself when the mirror lacks an image.
+    if [[ ! -f /etc/docker/daemon.json ]]; then
+        install -d /etc/docker
+        printf '{\n  "registry-mirrors": ["https://mirror.gcr.io"]\n}\n' >/etc/docker/daemon.json
+        systemctl restart docker >/dev/null 2>&1 || true
+    fi
     systemctl enable --now docker >/dev/null 2>&1 || true
 }
 
@@ -106,9 +113,6 @@ configure() {
         umask 077
         cat >"$ENV_FILE" <<EOF
 POSTGRES_PASSWORD=$(openssl rand -hex 24)
-MINIO_ROOT_USER=blesk
-MINIO_ROOT_PASSWORD=$(openssl rand -hex 24)
-MINIO_IMAGE=cgr.dev/chainguard/minio:latest
 BLESK_DOMAIN=${BLESK_DOMAIN-$(ask_domain)}
 BLESK_PUBLIC_IP=
 BLESK_CADDYFILE=Caddyfile.domain

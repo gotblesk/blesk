@@ -17,17 +17,6 @@ services:
       timeout: 5s
       retries: 30
 
-  minio:
-    image: ${MINIO_IMAGE:-cgr.dev/chainguard/minio:latest}
-    restart: unless-stopped
-    command: ["server", "/data"]
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?run scripts/deploy.sh to create .env}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?run scripts/deploy.sh to create .env}
-      MINIO_BROWSER: "off"
-    volumes:
-      - minio-data:/data
-
   server:
     build:
       context: ..
@@ -37,24 +26,21 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_started
     environment:
       BLESK_PORT: "8080"
       BLESK_DB_URL: jdbc:postgresql://postgres:5432/blesk
       BLESK_DB_USER: blesk
       BLESK_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      BLESK_STORAGE: minio
-      BLESK_MINIO_ENDPOINT: http://minio:9000
-      BLESK_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      BLESK_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-      BLESK_MINIO_BUCKET: blesk-attachments
+      # Attachments are end-to-end encrypted blobs, so plain files on the server's disk are enough.
+      BLESK_STORAGE: fs
+      BLESK_FS_DIR: /srv/blesk-attachments
       BLESK_TRUST_PROXY: "true"
       LIVEKIT_PUBLIC_URL: ${LIVEKIT_PUBLIC_URL:-}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
     volumes:
       - server-tmp:/var/lib/blesk
+      - attachments:/srv/blesk-attachments
     expose:
       - "8080"
 
@@ -94,7 +80,7 @@ services:
 
 volumes:
   postgres-data:
-  minio-data:
+  attachments:
   server-tmp:
   caddy-data:
   caddy-config:

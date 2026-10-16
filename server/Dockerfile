@@ -15,11 +15,12 @@ RUN --mount=type=cache,target=/root/.gradle \
 
 FROM eclipse-temurin:21-jre-noble
 RUN groupadd --system blesk && useradd --system --gid blesk --home-dir /opt/blesk-server blesk \
-    && mkdir -p /var/lib/blesk && chown blesk:blesk /var/lib/blesk
+    && mkdir -p /var/lib/blesk /srv/blesk-attachments \
+    && chown blesk:blesk /var/lib/blesk /srv/blesk-attachments
 COPY --from=build /src/server/build/install/blesk-server /opt/blesk-server
 USER blesk
 ENV BLESK_PORT=8080 \
-    BLESK_FS_DIR=/var/lib/blesk/attachments \
+    BLESK_FS_DIR=/srv/blesk-attachments \
     JAVA_OPTS="-XX:MaxRAMPercentage=50 -Djava.io.tmpdir=/var/lib/blesk"
 EXPOSE 8080
 ENTRYPOINT ["/opt/blesk-server/bin/blesk-server"]

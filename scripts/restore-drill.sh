@@ -42,12 +42,11 @@ BLESK_RESTORE_FORCE=1 BLESK_BACKUP_STATE="${BLESK_BACKUP_STATE:-$(mktemp -d)}" b
 sql() { compose exec -T postgres psql -U blesk -d blesk -tAc "$1"; }
 accounts=$(sql 'select count(*) from accounts')
 attachments=$(sql 'select count(*) from attachments')
-objects=$(docker run --rm --quiet -v "${COMPOSE_PROJECT}_minio-data:/data:ro" alpine:3.22 \
-    sh -c 'find /data/blesk-attachments -type f -name xl.meta 2>/dev/null | wc -l')
+objects=$(docker run --rm --quiet -v "${COMPOSE_PROJECT}_attachments:/data:ro" alpine:3.22 \
+    sh -c 'find /data -type f ! -name "*.part" | wc -l')
 
 if [[ ${BLESK_DRILL_SERVER:-1} == 1 ]]; then
     log "starting the server on the restored data"
-    compose up -d --build --wait minio
     compose up -d --build server
     answered=""
     for _ in $(seq 1 90); do

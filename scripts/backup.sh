@@ -4,7 +4,7 @@
 #
 #   sudo /opt/blesk/scripts/backup.sh
 #
-# What goes in: a consistent PostgreSQL dump (taken while the server runs), the MinIO data
+# What goes in: a consistent PostgreSQL dump (taken while the server runs), the attachment files
 # (attachments, already encrypted on the phones), deploy/.env (passwords) and deploy/certs (the
 # certificate the apps pin). Kept: 7 daily, 4 weekly and 6 monthly snapshots. On Sundays a tenth of
 # the stored data is read back and checked. The journal records sizes and ids only.
@@ -26,8 +26,8 @@ compose exec -T postgres pg_dump -U blesk -d blesk --format=custom >"$stage/bles
 install -m 600 "$DEPLOY_DIR/.env" "$stage/env"
 [[ -d "$DEPLOY_DIR/certs" ]] && cp -a "$DEPLOY_DIR/certs" "$stage/certs"
 
-minio=$(volume_path minio-data)
-[[ -n "$minio" && -d "$minio" ]] || fail "no MinIO volume"
+attachments=$(volume_path attachments)
+[[ -n "$attachments" && -d "$attachments" ]] || fail "no attachments volume"
 
 if ! restic -- cat config >/dev/null 2>&1; then
     log "creating the backup repository"
@@ -36,7 +36,7 @@ fi
 
 log "uploading"
 # A fixed host name, so a new server finds the snapshots of the old one.
-restic -v "$stage:/blesk/state:ro" -v "$minio:/blesk/minio:ro" -- \
+restic -v "$stage:/blesk/state:ro" -v "$attachments:/blesk/attachments:ro" -- \
     backup /blesk --host blesk --tag blesk --quiet --json | tail -n 1 >"$BACKUP_STATE/last.json"
 
 restic -- forget --host blesk --tag blesk --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune --quiet

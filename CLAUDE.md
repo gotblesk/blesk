@@ -42,4 +42,4 @@
 - `:feature:*` — экраны (chats, calls, settings, security, profile, debug).
 - `:app` — навигация (Navigation 3), `AppContainer`, звонки (`calls`: активность, сервис, уведомления, core-telecom), фон (`background`: уведомления, «всегда на связи»).
 - `:third-party:audioswitch` — исходники форка AudioSwitch, нужного LiveKit (на Maven его нет), подставляются вместо JitPack.
-- `:server` — Ktor + PostgreSQL + Flyway, MinIO, LiveKit-токены, Bot API; `deploy/` и `scripts/deploy.sh` — установка на VPS.
+- `:server` — Ktor + PostgreSQL + Flyway, вложения файлами на диске (или MinIO), LiveKit-токены, Bot API; `deploy/` и `scripts/deploy.sh` — установка на VPS.

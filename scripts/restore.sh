@@ -40,9 +40,9 @@ if [[ -d "$state/certs" ]]; then cp -a "$state/certs/." "$DEPLOY_DIR/certs/"; fi
 
 log "restoring attachments"
 # Labelled as Compose would, so it adopts the volume without warnings.
-docker volume create --label com.docker.compose.project="$COMPOSE_PROJECT" --label com.docker.compose.volume=minio-data \
-    "${COMPOSE_PROJECT}_minio-data" >/dev/null
-docker run --rm --quiet -v "${COMPOSE_PROJECT}_minio-data:/data" -v "$target/blesk/minio:/from:ro" alpine:3.22 \
+docker volume create --label com.docker.compose.project="$COMPOSE_PROJECT" --label com.docker.compose.volume=attachments \
+    "${COMPOSE_PROJECT}_attachments" >/dev/null
+docker run --rm --quiet -v "${COMPOSE_PROJECT}_attachments:/data" -v "$target/blesk/attachments:/from:ro" alpine:3.22 \
     sh -c 'cp -a /from/. /data/'
 
 log "restoring the database"
