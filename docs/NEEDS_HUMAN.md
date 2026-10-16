@@ -51,6 +51,27 @@
 
 Понадобятся: приложение **Termius** (Google Play, бесплатно), браузер с github.com и с панелью Aeza.
 
+### Быстрый путь: всё одной вставкой в Termius
+
+Домен уже есть: **blesk.su** (куплен у Aeza). Сделай по порядку:
+
+1. **DNS.** Панель Aeza → **Домены** → blesk.su → **DNS** (или «Управление зоной») → **Добавить запись**: тип **A**, имя `api`, значение — IP сервера blesk-msk, TTL **300**. Получится `api.blesk.su`. Подожди 10–30 минут.
+2. **Termius**: «+» → **New Host** → Address — IP сервера, Username — `root`, Password — пароль root из панели Aeza → **Save** → подключись (**Accept** на вопрос про отпечаток).
+3. Вставь одну строку и нажми Enter:
+
+```
+ssh-keygen -q -t ed25519 -N "" -C github-deploy -f /root/gh && mkdir -p /root/.ssh && cat /root/gh.pub >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys && echo "=== СКОПИРУЙ ВСЁ НИЖЕ В СЕКРЕТ VPS_SSH_KEY ===" && cat /root/gh && rm /root/gh /root/gh.pub && curl -fsSL https://raw.githubusercontent.com/gotblesk/blesk/claude/file-review-0lky6f/scripts/deploy.sh | BLESK_BRANCH=claude/file-review-0lky6f BLESK_DOMAIN=api.blesk.su bash
+```
+
+   Строка сразу печатает ключ для GitHub (скопируй его, шаг 4), а затем сама ставит сервер — 10–15 минут. В конце будет «Готово».
+4. github.com → репозиторий → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**, три секрета: `VPS_SSH_KEY` — скопированный ключ, `VPS_HOST` — IP сервера, `VPS_USER` — `root`. Теперь сервер можно обновлять кнопкой **Actions → Deploy server**.
+5. **Свой ключ Termius** — шаг 2.2 ниже. Сделай его до первой кнопки **Deploy server**: она выключает вход по паролю.
+6. В blesk на телефонах: **Настройки → Сервер** → «Адрес сервера» `api.blesk.su`.
+
+Резервные копии (2.4–2.6) можно подключить позже — сервер работает и без них. Но до того, как в blesk придут люди кроме тебя, лучше сделать: без копий при поломке сервера переписка и аккаунты пропадут.
+
+Домен у того же хостера, что и сервер, — риск: если с аккаунтом Aeza что-то случится, пропадут оба. Поэтому обязательно включи двухфакторный вход в Aeza (пункт 1.4), а через пару месяцев можно перенести домен к REG.RU — тогда я подскажу, как.
+
 ### 2.1. Ключ, с которым GitHub заходит на сервер
 
 1. В панели Aeza открой сервер **blesk-msk** и посмотри **IP-адрес** и **пароль root** (он же пришёл письмом после покупки).
