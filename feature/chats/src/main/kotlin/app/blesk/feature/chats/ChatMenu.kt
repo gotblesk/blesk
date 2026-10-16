@@ -49,6 +49,9 @@ class ChatMenuActions(
     val onMarkUnread: (Boolean) -> Unit,
     /** «Удалить»: «у меня», or with forBoth «у меня и у собеседника»; null where a chat is not deleted this way. */
     val onDelete: ((forBoth: Boolean) -> Unit)? = null,
+    /** «Закрыть замком» or «Снять замок»; null where a chat cannot be locked. */
+    val onLock: ((Boolean) -> Unit)? = null,
+    val locked: Boolean = false,
 )
 
 /**
@@ -98,6 +101,7 @@ fun ChatMenu(
         val muteLabel = stringResource(if (muted) R.string.chats_unmute_short else R.string.chats_mute)
         val readLabel = stringResource(if (unread) R.string.chats_read_short else R.string.chats_unread_short)
         val deleteLabel = stringResource(R.string.chats_delete_short)
+        val lockLabel = stringResource(if (actions.locked) R.string.lock_remove else R.string.lock_short)
         val cluster = buildList {
             add(ClusterAction(BleskIcons.Pin, pinLabel) {
                 if (!conversation.pinned) haptics.stick()
@@ -111,9 +115,15 @@ fun ChatMenu(
                 })
             }
             add(ClusterAction(BleskIcons.Check, readLabel) { act { actions.onMarkUnread(!unread) } })
+            actions.onLock?.let { lock ->
+                add(ClusterAction(BleskIcons.Lock, lockLabel) {
+                    if (!actions.locked) haptics.stick()
+                    act { lock(!actions.locked) }
+                })
+            }
             if (actions.onDelete != null) add(ClusterAction(BleskIcons.Trash, deleteLabel) { deleting = true })
         }
-        MiniChat(conversation, anchor, messages, authorName, cluster, onOpen, onDismiss)
+        MiniChat(conversation, anchor, messages, authorName, cluster, onOpen, onDismiss, locked = actions.locked)
         if (muting) {
             ChoiceSheet(
                 title = stringResource(R.string.chats_mute),
@@ -176,6 +186,17 @@ fun ChatMenu(
                 showChevron = false,
                 onClick = { act { actions.onMarkUnread(!unread) } },
             )
+            actions.onLock?.let { lock ->
+                ListRow(
+                    title = stringResource(if (actions.locked) R.string.lock_remove else R.string.lock_add),
+                    icon = BleskIcons.Lock,
+                    showChevron = false,
+                    onClick = {
+                        if (!actions.locked) haptics.stick()
+                        act { lock(!actions.locked) }
+                    },
+                )
+            }
         }
     }
 }

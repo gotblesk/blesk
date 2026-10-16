@@ -21,6 +21,7 @@ import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.AutoDownload
+import app.blesk.core.data.settings.ChatLockStore
 import app.blesk.core.data.settings.EconomyStore
 import app.blesk.core.data.settings.KeptOffline
 import app.blesk.core.data.settings.Privacy
@@ -46,6 +47,7 @@ import app.blesk.core.network.ProxyKind
 import app.blesk.core.network.ServerAddress
 import app.blesk.economy.EconomyMonitor
 import app.blesk.feature.profile.ProfileDraft
+import app.blesk.locks.ChatLockSession
 import app.blesk.music.OwnMusic
 import app.blesk.update.Updater
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -97,6 +99,14 @@ class AppContainer(context: Context) {
     val stickerMaker = StickerMaker(context)
     val keptOffline = KeptOffline(context)
     val ownMusic = OwnMusic(context, media, scope)
+    val chatLocks = ChatLockStore(context)
+    val lockSession = ChatLockSession(scope)
+
+    /** The separate code for locks, when the person chose one; otherwise locks use [pinVault]. */
+    val lockVault = PinVault(context, name = "pin_locks")
+
+    /** A chat that was to be locked when there was no code yet; locked as soon as the code is made. */
+    val pendingLock = MutableStateFlow<String?>(null)
     val phrase = PhraseVault(context)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
     val notices = Notices(scope)

@@ -122,6 +122,7 @@ internal fun Home(
     contactActions: ContactActions,
     onAddContact: () -> Unit,
     settings: SettingsActions,
+    onNeedCode: () -> Unit,
 ) {
     var menuFor by remember { mutableStateOf<Conversation?>(null) }
     val rowPlaces = remember { ChatRowPlaces() }
@@ -466,6 +467,7 @@ internal fun Home(
             onPinLimit = onPinLimit,
             onOpen = onOpenConversation,
             onDismiss = { menuFor = null },
+            onNeedCode = onNeedCode,
         )
     }
 }

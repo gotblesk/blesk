@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.model.Conversation
+import app.blesk.core.data.settings.ChatLocks
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.glass.LensScaffold
@@ -25,16 +26,18 @@ import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatRowPlaces
 import app.blesk.feature.chats.EmptyChats
+import app.blesk.feature.chats.LocalChatLocks
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.RequestActions
 import app.blesk.feature.chats.RequestsScreen
+import app.blesk.locks.setLocked
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.launch
 import java.time.Instant
 
 @Composable
-internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) -> Unit, onBack: () -> Unit) {
+internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) -> Unit, onBack: () -> Unit, onNeedCode: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by chats.typing.collectAsStateWithLifecycle()
@@ -71,6 +74,8 @@ internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) 
             header = {
                 item(key = "options") {
                     ArchiveOptions(
+                        locked = LocalChatLocks.current.isLocked(ChatLocks.ARCHIVE),
+                        onLocked = { lock -> container.setLocked(ChatLocks.ARCHIVE, lock, onNeedCode) },
                         keepArchived = keepArchived,
                         onKeepArchived = { scope.launch { container.settings.setKeepArchived(it) } },
                         folded = folded,
@@ -90,13 +95,28 @@ internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) 
             onPinLimit = onPinLimit,
             onOpen = onOpenConversation,
             onDismiss = { menuFor = null },
+            onNeedCode = onNeedCode,
         )
     }
 }
 
 @Composable
-private fun ArchiveOptions(keepArchived: Boolean, onKeepArchived: (Boolean) -> Unit, folded: Boolean, onFolded: (Boolean) -> Unit) {
+private fun ArchiveOptions(
+    locked: Boolean,
+    onLocked: (Boolean) -> Unit,
+    keepArchived: Boolean,
+    onKeepArchived: (Boolean) -> Unit,
+    folded: Boolean,
+    onFolded: (Boolean) -> Unit,
+) {
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(bottom = 12.dp)) {
+        ToggleRow(
+            title = stringResource(R.string.lock_archive),
+            subtitle = stringResource(R.string.lock_archive_hint),
+            icon = BleskIcons.Lock,
+            checked = locked,
+            onCheckedChange = onLocked,
+        )
         ToggleRow(
             title = stringResource(R.string.chats_keep_archived),
             subtitle = stringResource(R.string.chats_keep_archived_hint),

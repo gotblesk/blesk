@@ -10,7 +10,12 @@ import app.blesk.AppContainer
 import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
+import app.blesk.core.data.settings.ChatLocks
 import app.blesk.feature.chats.ChatMenu
+import app.blesk.feature.chats.ChatMenuActions
+import app.blesk.locks.lockOf
+import app.blesk.locks.setLocked
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.map
 import app.blesk.feature.chats.R as ChatsR
@@ -29,7 +34,13 @@ internal fun ConversationMenu(
     onPinLimit: () -> Unit,
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
+    onNeedCode: () -> Unit,
 ) {
+    val locks by container.chatLocks.locks.collectAsStateWithLifecycle(initialValue = ChatLocks())
+    val open by container.lockSession.open.collectAsStateWithLifecycle()
+    val lockId = locks.lockOf(conversation.id)
+    // A locked chat that is not open shows its lock in the mini-chat, never its messages.
+    val hidden = lockId != null && lockId !in open
     val messages by remember(conversation.id) {
         chats.messages(conversation.id).map { it.takeLast(PREVIEW_MESSAGES) }
     }.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -43,10 +54,20 @@ internal fun ConversationMenu(
     ChatMenu(
         conversation = conversation,
         now = System.currentTimeMillis(),
-        actions = chatMenuActions(chats, conversation, all, onPinLimit, delete),
+        actions = chatMenuActions(chats, conversation, all, onPinLimit, delete).let { base ->
+            ChatMenuActions(
+                onPin = base.onPin,
+                onArchive = base.onArchive,
+                onMute = base.onMute,
+                onMarkUnread = base.onMarkUnread,
+                onDelete = base.onDelete,
+                onLock = { lock -> container.setLocked(lockId ?: id, lock, onNeedCode) },
+                locked = lockId != null,
+            )
+        },
         onDismiss = onDismiss,
         anchor = anchor,
-        messages = messages.filter { it.id !in container.notices.hidden }.toImmutableList(),
+        messages = if (hidden) persistentListOf() else messages.filter { it.id !in container.notices.hidden }.toImmutableList(),
         authorName = { author -> chats.contact(author)?.name },
         onOpen = { onOpen(id) },
     )

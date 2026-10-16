@@ -57,6 +57,8 @@ import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.condense
+import app.blesk.feature.chats.locks.ChatLockEntry
+import app.blesk.feature.chats.locks.LocalChatLockControls
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -196,6 +198,9 @@ fun PersonProfileScreen(
                 }
             }
             TimerSection(conversation.timerSeconds, actions.onTimer)
+            if (LocalChatLockControls.current != null) {
+                Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = Blesk.dimens.sectionGap)) { ChatLockEntry() }
+            }
             if (actions.onDeleteChat != null || actions.onBlock != null) {
                 Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = Blesk.dimens.sectionGap)) {
                     actions.onBlock?.let { block ->

@@ -16,6 +16,9 @@ class AppLock(private val vault: PinVault, private val clock: () -> Long = Syste
     private var backgroundedAt = 0L
     private var returning = false
 
+    /** A trip to a picker or system dialog is under way; leaving for it is not going to the background. */
+    val expectingReturn: Boolean get() = returning
+
     fun expectReturn() {
         returning = true
     }

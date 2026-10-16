@@ -13,9 +13,13 @@ import app.blesk.MainActivity
 import app.blesk.R
 import app.blesk.core.data.IncomingMessages
 import app.blesk.core.data.model.Markup
+import app.blesk.core.data.settings.ChatLocks
 import app.blesk.core.data.settings.IncomingNote
+import app.blesk.core.data.settings.LockNotify
 import app.blesk.core.data.settings.NoteKind
 import app.blesk.core.data.settings.NotificationPreview
+import app.blesk.core.data.settings.NotificationSettings
+import app.blesk.locks.lockOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
@@ -62,18 +66,39 @@ internal class MessageNotifier(private val context: Context, private val contain
         return me.isNotBlank() && Regex("(^|[^\\w])@" + Regex.escape(me) + "\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)
     }
 
+    /** What the lock over a chat says about its notifications; a chat in a locked archive follows the archive. */
+    private suspend fun lockNotifyOf(conversationId: String, archived: Boolean): LockNotify? {
+        val locks = container.chatLocks.locks.first()
+        val lockId = locks.lockOf(conversationId) ?: ChatLocks.ARCHIVE.takeIf { archived && locks.isLocked(it) }
+        return lockId?.let { locks.rulesFor(it).notify }
+    }
+
+    private suspend fun wanted(
+        note: IncomingNote,
+        settings: NotificationSettings,
+        muted: Boolean,
+        lockNotify: LockNotify?,
+    ): Boolean = when {
+        !settings.enabled || !manager.areNotificationsEnabled() -> false
+        container.visible && container.openConversation == note.conversationId -> false
+        muted || lockNotify == LockNotify.None -> false
+        note.conversationId in settings.mentionsOnly -> mentions(note.text)
+        else -> true
+    }
+
     @android.annotation.SuppressLint("MissingPermission")
     private suspend fun show(note: IncomingNote) {
         val settings = container.settings.notifications.first()
-        if (!settings.enabled || !manager.areNotificationsEnabled()) return
-        if (container.visible && container.openConversation == note.conversationId) return
         val conversation = container.chats.value?.conversation(note.conversationId)?.first()
-        if (conversation?.muted(System.currentTimeMillis()) == true) return
-        if (note.conversationId in settings.mentionsOnly && !mentions(note.text)) return
+        val lockNotify = lockNotifyOf(note.conversationId, conversation?.archived == true)
+        if (!wanted(note, settings, conversation?.muted(System.currentTimeMillis()) == true, lockNotify)) return
         val generic = context.getString(R.string.notify_new_message)
         val text = Markup.parse(note.text).masked(context.getString(R.string.notify_spoiler))
-        // With the app lock on, nothing about who wrote or what shows outside the app.
-        val preview = if (container.pinVault.isSet) NotificationPreview.Nothing else settings.preview
+        // With the app lock on, or for a chat under a lock that says so, nothing about who wrote or what shows outside the app.
+        val preview = when {
+            container.pinVault.isSet || lockNotify == LockNotify.Anonymous -> NotificationPreview.Nothing
+            else -> settings.preview
+        }
         val (title, line) = when (preview) {
             NotificationPreview.NameAndText -> note.title to (note.author?.let { "$it: $text" } ?: text)
             NotificationPreview.NameOnly -> note.title to generic

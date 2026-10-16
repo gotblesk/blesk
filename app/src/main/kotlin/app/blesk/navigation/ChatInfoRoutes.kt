@@ -18,11 +18,13 @@ import app.blesk.core.data.KeyVerification
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
+import app.blesk.core.data.settings.ChatLocks
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.feature.chats.ForwardScreen
 import app.blesk.feature.chats.PersonActions
 import app.blesk.feature.chats.PersonProfileScreen
 import app.blesk.feature.chats.R
+import app.blesk.locks.hides
 import app.blesk.shared.appearance.Appearance
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
@@ -125,6 +127,7 @@ internal fun ForwardRoute(container: AppContainer, from: String, messageIds: Lis
     val context = LocalContext.current
     val notify = rememberNotify()
     val all by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
+    val locks by container.chatLocks.locks.collectAsStateWithLifecycle(initialValue = ChatLocks())
     val targets = all.flatMap { conversation ->
         when {
             conversation.kind == ConversationKind.Channel -> emptyList()
@@ -134,7 +137,7 @@ internal fun ForwardRoute(container: AppContainer, from: String, messageIds: Lis
                 }
             else -> listOf(conversation)
         }
-    }.filter { it.id != from }
+    }.filter { it.id != from && !locks.hides(it.id, it.archived) { rules -> rules.share } }
     val done = context.getString(R.string.forward_done)
     ForwardScreen(
         conversations = targets.toImmutableList(),
@@ -159,7 +162,9 @@ internal fun ShareRoute(container: AppContainer, onDone: () -> Unit) {
     val notify = rememberNotify()
     val scope = rememberCoroutineScope()
     val all by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
+    val locks by container.chatLocks.locks.collectAsStateWithLifecycle(initialValue = ChatLocks())
     val targets = all.filter { it.kind != ConversationKind.Channel && it.kind != ConversationKind.Room && !it.request }
+        .filterNot { locks.hides(it.id, it.archived) { rules -> rules.share } }
         .sortedByDescending { it.kind == ConversationKind.Saved }
     val done = context.getString(R.string.share_done)
     val failed = context.getString(R.string.media_failed)

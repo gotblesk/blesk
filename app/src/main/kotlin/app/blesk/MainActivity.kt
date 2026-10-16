@@ -75,7 +75,10 @@ class MainActivity : ComponentActivity() {
         lifecycle.addObserver(
             LifecycleEventObserver { _, event ->
                 when (event) {
-                    Lifecycle.Event.ON_STOP -> container.lock.onBackground()
+                    Lifecycle.Event.ON_STOP -> {
+                        if (!container.lock.expectingReturn) container.lockSession.onBackground()
+                        container.lock.onBackground()
+                    }
                     Lifecycle.Event.ON_START -> {
                         container.lock.onForeground(lockDelay)
                         keepOnline(container)

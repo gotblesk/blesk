@@ -112,4 +112,6 @@
     <string name="phrase_unlock">Введи код-пароль, чтобы увидеть фразу</string>
     <string name="phrase_copied">Фраза скопирована. Через минуту буфер очистится</string>
     <string name="phrase_saved_to_manager">Фраза сохранена в менеджере паролей</string>
+    <string name="privacy_chat_locks">Замки на чаты</string>
+    <string name="privacy_chat_locks_hint">Как ведут себя чаты под замком</string>
 </resources>

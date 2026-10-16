@@ -36,6 +36,7 @@ import app.blesk.feature.security.PrivacyActions
 import app.blesk.feature.security.PrivacyScreen
 import app.blesk.feature.security.WipeKind
 import app.blesk.feature.security.WipeScreen
+import app.blesk.locks.applyPendingLock
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -53,6 +54,7 @@ internal fun PrivacyRoute(
     onBack: () -> Unit,
     onOpenBlocked: () -> Unit = {},
     onOpenPhrase: () -> Unit = {},
+    onOpenLocks: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -75,6 +77,7 @@ internal fun PrivacyRoute(
             onBack = onBack,
             onOpenBlocked = onOpenBlocked,
             onOpenPhrase = onOpenPhrase.takeIf { container.phrase.exists },
+            onOpenLocks = onOpenLocks,
         ),
     )
 }
@@ -107,7 +110,10 @@ internal fun PinChangeRoute(container: AppContainer, requireCurrent: Boolean, on
         }
         PinSetup(
             minPassword = PinVault.MIN_PASSWORD,
-            onSave = { pin -> container.pinVault.set(pin) },
+            onSave = { pin ->
+                container.pinVault.set(pin)
+                container.applyPendingLock()
+            },
             onDone = {
                 scope.launch {
                     val biometric = container.settings.privacy.first().biometric
@@ -183,7 +189,7 @@ internal fun LockRoute(container: AppContainer, biometric: Boolean, wipeAfterTen
 
 private const val WIPE_AT = 10
 
-private fun PinVault.Result.toAttempt(): PinAttempt = when (this) {
+internal fun PinVault.Result.toAttempt(): PinAttempt = when (this) {
     PinVault.Result.Ok -> PinAttempt.Ok
     is PinVault.Result.Wrong -> PinAttempt.Wrong(waitMillis)
     is PinVault.Result.Throttled -> PinAttempt.Wrong(waitMillis)

@@ -39,6 +39,7 @@ import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
+import app.blesk.core.data.settings.ChatLocks
 import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.glass.LensAccessories
@@ -51,6 +52,7 @@ import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ServerAddress
 import app.blesk.economy.EconomyNotices
 import app.blesk.feature.chats.ContactActions
+import app.blesk.feature.chats.LocalChatLocks
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.chats.groups.NewKind
 import app.blesk.feature.debug.DebugScreen
@@ -74,6 +76,10 @@ import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SignedBy
 import app.blesk.feature.settings.UpdateControls
 import app.blesk.feature.settings.WhatsNewScreen
+import app.blesk.locks.ChatLockGate
+import app.blesk.locks.ChatLocksRoute
+import app.blesk.locks.LockCodeRoute
+import app.blesk.locks.LockedDetails
 import app.blesk.shared.appearance.Appearance
 import app.blesk.toConfig
 import app.blesk.update.SigningKeys
@@ -160,6 +166,12 @@ data object ServerKey : NavKey
 
 @Serializable
 data object PrivacyKey : NavKey
+
+@Serializable
+data object ChatLocksKey : NavKey
+
+@Serializable
+data object LockCodeKey : NavKey
 
 @Serializable
 data class PinChangeKey(val requireCurrent: Boolean) : NavKey
@@ -256,7 +268,13 @@ fun BleskNavigation(container: AppContainer) {
         }
         // In v1.0 screens only stack: nothing flows from one screen into the next, so shared
         // elements are left out (LocalSharedScope stays empty) until the flows come back in P1.
-        CompositionLocalProvider(LocalLensAccessories provides accessories) {
+        val needCodeText = stringResource(app.blesk.feature.chats.R.string.lock_need_code)
+        val needCode: () -> Unit = {
+            notify(needCodeText)
+            backStack.add(PinChangeKey(requireCurrent = false))
+        }
+        val chatLocks by container.chatLocks.locks.collectAsStateWithLifecycle(initialValue = ChatLocks())
+        CompositionLocalProvider(LocalLensAccessories provides accessories, LocalChatLocks provides chatLocks) {
             // The in-app notice floats over every screen, under the status bar.
             Box(Modifier.fillMaxSize()) {
                 val screenDecorator = remember {
@@ -290,6 +308,7 @@ fun BleskNavigation(container: AppContainer) {
                                 onOpenArchive = { backStack.add(ArchiveKey) },
                                 onOpenRequests = { backStack.add(RequestsKey) },
                                 onAddContact = { backStack.add(NewChatKey) },
+                                onNeedCode = needCode,
                                 contactActions = ContactActions(
                                     onOpen = { contact -> openDirect(contact.username) { backStack.add(ChatInfoKey(it)) } },
                                     onWrite = { contact -> openDirect(contact.username) { backStack.add(ConversationKey(it)) } },
@@ -390,10 +409,15 @@ fun BleskNavigation(container: AppContainer) {
                                     onBack = back,
                                     onOpenBlocked = { backStack.add(BlockedKey) },
                                     onOpenPhrase = { backStack.add(PhraseKey()) },
+                                    onOpenLocks = { backStack.add(ChatLocksKey) },
                                 )
                             }
                         }
                         entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
+                        entry<ChatLocksKey> {
+                            ChatLocksRoute(container, onSeparateCode = { backStack.add(LockCodeKey) }, onNeedCode = needCode, onBack = back)
+                        }
+                        entry<LockCodeKey> { LockCodeRoute(container, onDone = back) }
                         entry<BlockedKey> { BlockedRoute(container, back) }
                         entry<ShareKey> {
                             ShareRoute(container, onDone = {
@@ -434,23 +458,25 @@ fun BleskNavigation(container: AppContainer) {
                         entry<LicensesKey> { LicensesScreen(onOpenLicense = { backStack.add(LicenseKey(it)) }, onBack = back) }
                         entry<LicenseKey> { key -> LicenseTextScreen(key.license, onBack = back) }
                         entry<ConversationKey> { key ->
-                            ConversationRoute(
-                                container = container,
-                                id = key.id,
-                                focusMessageId = key.focusMessageId,
-                                appearance = appearance,
-                                onOpenMedia = { messageId, index -> backStack.add(MediaKey(key.id, messageId, index)) },
-                                onOpenGroup = { backStack.add(GroupInfoKey(it)) },
-                                onOpenChannel = { backStack.add(ChannelInfoKey(it)) },
-                                onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
-                                onVerify = { backStack.add(ChatInfoKey(key.id)) },
-                                onForward = { messageIds -> backStack.add(ForwardKey(key.id, messageIds)) },
-                                onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
-                                onBack = back,
-                                onOpenPerson = { backStack.add(ChatInfoKey(it)) },
-                                onOpenStickers = { backStack.add(StickersKey) },
-                                onMakeSticker = { uri -> backStack.add(StickerMakeKey(uri)) },
-                            )
+                            ChatLockGate(container, key.id) {
+                                ConversationRoute(
+                                    container = container,
+                                    id = key.id,
+                                    focusMessageId = key.focusMessageId,
+                                    appearance = appearance,
+                                    onOpenMedia = { messageId, index -> backStack.add(MediaKey(key.id, messageId, index)) },
+                                    onOpenGroup = { backStack.add(GroupInfoKey(it)) },
+                                    onOpenChannel = { backStack.add(ChannelInfoKey(it)) },
+                                    onOpenSpace = { backStack.add(SpaceInfoKey(it)) },
+                                    onVerify = { backStack.add(ChatInfoKey(key.id)) },
+                                    onForward = { messageIds -> backStack.add(ForwardKey(key.id, messageIds)) },
+                                    onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
+                                    onBack = back,
+                                    onOpenPerson = { backStack.add(ChatInfoKey(it)) },
+                                    onOpenStickers = { backStack.add(StickersKey) },
+                                    onMakeSticker = { uri -> backStack.add(StickerMakeKey(uri)) },
+                                )
+                            }
                         }
                         entry<NewChatKey> {
                             NewChatRoute(
@@ -465,7 +491,14 @@ fun BleskNavigation(container: AppContainer) {
                             )
                         }
                         entry<ArchiveKey> {
-                            ArchiveRoute(container, onOpenConversation = { backStack.add(ConversationKey(it)) }, onBack = back)
+                            ChatLockGate(container, ChatLocks.ARCHIVE) {
+                                ArchiveRoute(
+                                    container,
+                                    onOpenConversation = { backStack.add(ConversationKey(it)) },
+                                    onBack = back,
+                                    onNeedCode = needCode,
+                                )
+                            }
                         }
                         entry<RoomsAddKey> {
                             RoomsAddRoute(container, onCreate = { backStack.add(NewGroupKey(NewKind.Room)) }, onBack = back)
@@ -485,42 +518,48 @@ fun BleskNavigation(container: AppContainer) {
                             }, onBack = back)
                         }
                         entry<ChannelInfoKey> { key ->
-                            ChannelInfoRoute(
-                                container,
-                                key.id,
-                                onOpenRoom = { backStack.add(GroupInfoKey(it)) },
-                                onOpenMessage = { message -> backStack.add(ConversationKey(key.id, message)) },
-                                onOpenPerson = { username -> openDirect(username) { backStack.add(ChatInfoKey(it)) } },
-                                onOpenMedia = { chat, message -> backStack.add(MediaKey(chat, message)) },
-                                onBack = back,
-                            )
+                            LockedDetails(container, key.id, needCode) {
+                                ChannelInfoRoute(
+                                    container,
+                                    key.id,
+                                    onOpenRoom = { backStack.add(GroupInfoKey(it)) },
+                                    onOpenMessage = { message -> backStack.add(ConversationKey(key.id, message)) },
+                                    onOpenPerson = { username -> openDirect(username) { backStack.add(ChatInfoKey(it)) } },
+                                    onOpenMedia = { chat, message -> backStack.add(MediaKey(chat, message)) },
+                                    onBack = back,
+                                )
+                            }
                         }
                         entry<GroupInfoKey> { key ->
-                            GroupInfoRoute(
-                                container,
-                                key.groupId,
-                                editing = key.editing,
-                                onLeft = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
-                                onBack = back,
-                                onOpenPerson = { username -> openDirect(username) { backStack.add(ChatInfoKey(it)) } },
-                                onOpenMedia = { chat, message -> backStack.add(MediaKey(chat, message)) },
-                            )
+                            LockedDetails(container, key.groupId, needCode) {
+                                GroupInfoRoute(
+                                    container,
+                                    key.groupId,
+                                    editing = key.editing,
+                                    onLeft = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                                    onBack = back,
+                                    onOpenPerson = { username -> openDirect(username) { backStack.add(ChatInfoKey(it)) } },
+                                    onOpenMedia = { chat, message -> backStack.add(MediaKey(chat, message)) },
+                                )
+                            }
                         }
                         entry<BotsKey> {
                             Box(Modifier.sharedBounds(screenKey("bots"))) { BotsRoute(container, back) }
                         }
                         entry<SafetyKey> { key -> SafetyRoute(container, key.username, back) }
                         entry<ChatInfoKey> { key ->
-                            ChatInfoRoute(
-                                container = container,
-                                id = key.id,
-                                onVerify = { backStack.add(SafetyKey(key.id)) },
-                                onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
-                                onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
-                                onChatDeleted = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
-                                onBack = back,
-                                onOpenConversation = { backStack.add(ConversationKey(it)) },
-                            )
+                            LockedDetails(container, key.id, needCode) {
+                                ChatInfoRoute(
+                                    container = container,
+                                    id = key.id,
+                                    onVerify = { backStack.add(SafetyKey(key.id)) },
+                                    onOpenMedia = { backStack.add(MediaKey(key.id, it)) },
+                                    onCall = { video -> context.startActivity(CallActivity.call(context, key.id, video)) },
+                                    onChatDeleted = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                                    onBack = back,
+                                    onOpenConversation = { backStack.add(ConversationKey(it)) },
+                                )
+                            }
                         }
                         entry<ForwardKey> { key -> ForwardRoute(container, key.from, key.messageIds, onDone = back, onBack = back) }
                         entry<EconomyKey> { EconomyRoute(container, back) }

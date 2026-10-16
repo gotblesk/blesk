@@ -21,8 +21,8 @@ import javax.crypto.SecretKey
  * Keystore and cannot be exported: a copied file is useless off the device, and every guess on
  * it costs a slow hash. Wrong attempts are throttled with a delay that survives restarts.
  */
-class PinVault(context: Context, private val clock: () -> Long = System::currentTimeMillis) {
-    private val file = File(context.noBackupFilesDir, "pin")
+class PinVault(context: Context, name: String = "pin", private val clock: () -> Long = System::currentTimeMillis) {
+    private val file = File(context.noBackupFilesDir, name)
     private val keys: KeyStore by lazy { KeyStore.getInstance(KEYSTORE).apply { load(null) } }
 
     val isSet: Boolean get() = file.exists()

@@ -34,6 +34,7 @@ import app.blesk.feature.chats.Archive
 import app.blesk.feature.chats.ArchiveActions
 import app.blesk.feature.chats.ArchiveKind
 import app.blesk.feature.chats.R
+import app.blesk.feature.chats.locks.ChatLockEntry
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -98,6 +99,7 @@ fun ChannelInfoScreen(
                 icon = BleskIcons.Rooms,
                 onClick = actions.onOpenRoom,
             )
+            ChatLockEntry()
         }
         SectionHeader(stringResource(R.string.channel_notify))
         Segmented(

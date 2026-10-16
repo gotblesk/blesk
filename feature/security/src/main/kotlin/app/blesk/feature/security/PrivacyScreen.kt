@@ -32,6 +32,8 @@ class PrivacyActions(
     val onOpenBlocked: (() -> Unit)? = null,
     /** The recovery phrase; null without an account that has one. */
     val onOpenPhrase: (() -> Unit)? = null,
+    /** «Замки на чаты». */
+    val onOpenLocks: (() -> Unit)? = null,
 )
 
 @Composable
@@ -105,6 +107,17 @@ fun PrivacyScreen(
                     selected = privacy.lockDelay.ordinal,
                     onSelect = { actions.onChange(privacy.copy(lockDelay = LockDelay.entries[it])) },
                     modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+        }
+
+        actions.onOpenLocks?.let { open ->
+            Card(pad.padding(top = 12.dp)) {
+                ListRow(
+                    title = stringResource(R.string.privacy_chat_locks),
+                    subtitle = stringResource(R.string.privacy_chat_locks_hint),
+                    icon = BleskIcons.Lock,
+                    onClick = open,
                 )
             }
         }

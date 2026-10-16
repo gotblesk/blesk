@@ -43,6 +43,7 @@ import app.blesk.feature.chats.EncryptionRow
 import app.blesk.feature.chats.MenuSheet
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.TimerSection
+import app.blesk.feature.chats.locks.ChatLockEntry
 import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
@@ -287,6 +288,7 @@ private fun GroupSheets(
                 if (onTimer != null) {
                     ListRow(title = stringResource(R.string.info_timer), icon = BleskIcons.Timer, onClick = { onSheet(Sheet.Timer) })
                 }
+                ChatLockEntry()
                 extras.onPin?.let { pin ->
                     ListRow(
                         title = stringResource(if (extras.pinned) R.string.chats_unpin else R.string.chats_pin),

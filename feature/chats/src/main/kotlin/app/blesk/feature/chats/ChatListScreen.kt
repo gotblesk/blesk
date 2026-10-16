@@ -83,6 +83,9 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Markup
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.RoomChannel
+import app.blesk.core.data.settings.ChatLocks
+import app.blesk.core.data.settings.LockCounter
+import app.blesk.core.data.settings.LockPreview
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.GroupAvatar
 import app.blesk.core.design.component.Icon
@@ -97,6 +100,8 @@ import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.Haptics
 import app.blesk.core.motion.rememberHaptics
+import app.blesk.feature.chats.locks.AvatarLock
+import app.blesk.feature.chats.locks.HiddenPreview
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -282,6 +287,9 @@ fun ChatList(
 /** Who is online, for the dots on the avatars of the rows below. */
 internal val LocalOnline = compositionLocalOf<Set<String>> { emptySet() }
 
+/** Which chats are under a lock and how they show in the list; empty outside the chat lists. */
+val LocalChatLocks = compositionLocalOf { ChatLocks() }
+
 /** Rows glide to their new place when a chat is pinned, archived or moves up with a new message. */
 @Composable
 private fun LazyItemScope.listMotion(): Modifier {
@@ -301,11 +309,19 @@ private fun ArchiveRow(count: Int, onOpen: () -> Unit, modifier: Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(Blesk.dimens.avatar).background(Blesk.colors.surface, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(BleskIcons.Archive, contentDescription = null, tint = Blesk.colors.textSecondary)
+        val locked = LocalChatLocks.current.isLocked(ChatLocks.ARCHIVE)
+        Box {
+            Box(Modifier.size(Blesk.dimens.avatar).background(Blesk.colors.surface, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(BleskIcons.Archive, contentDescription = null, tint = Blesk.colors.textSecondary)
+            }
+            if (locked) AvatarLock(Modifier.align(Alignment.BottomEnd).offset(x = LockNudge, y = LockNudge))
         }
         Text(stringResource(R.string.chats_archive), style = Blesk.type.bodyStrong, modifier = Modifier.weight(1f))
-        Text(pluralStringResource(R.plurals.chats_archived, count, count), style = Blesk.type.label, color = Blesk.colors.textSecondary)
+        if (locked) {
+            HiddenPreview()
+        } else {
+            Text(pluralStringResource(R.plurals.chats_archived, count, count), style = Blesk.type.label, color = Blesk.colors.textSecondary)
+        }
     }
 }
 
@@ -627,13 +643,19 @@ private fun ConversationRow(
     val press by animateFloatAsState(if (pressed && !onCapsule) 1f else 0f, label = "press")
     val capsule = Blesk.colors.surface
     val shape = RoundedCornerShape(Blesk.dimens.capsuleRadius)
+    val locked = LocalChatLocks.current.covers(conversation.id)
+    // Frost spreads from the lock on the avatar along the row and stays: a locked row is matte.
+    val frost by animateFloatAsState(if (locked) 1f else 0f, Blesk.motion.transition(), label = "frost")
     Box(
         modifier = modifier
             .sharedBounds(chatKey(conversation.id))
             .fillMaxWidth()
             .let { row -> if (places == null) row else row.onGloballyPositioned { places.put(conversation.id, it.boundsInWindow()) } }
             .clip(shape)
-            .drawBehind { if (press > 0f) drawRect(capsule.copy(alpha = capsule.alpha * press)) }
+            .drawBehind {
+                if (frost > 0f) drawRect(capsule.copy(alpha = capsule.alpha * FROST), size = size.copy(width = size.width * frost))
+                if (press > 0f) drawRect(capsule.copy(alpha = capsule.alpha * press))
+            }
             .combinedClickable(
                 interactionSource = interaction,
                 indication = LocalIndication.current,
@@ -660,25 +682,21 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
     val muted = conversation.muted(now.toEpochMilli())
     val online = conversation.id in LocalOnline.current
     val onlineLabel = stringResource(R.string.chat_online_spoken)
+    val locks = LocalChatLocks.current
+    val locked = locks.covers(conversation.id)
+    val rules = locks.rulesFor(conversation.id)
+    val hidden = locked && rules.preview == LockPreview.Hidden
+    val lockedLabel = stringResource(R.string.lock_locked_spoken)
     Row(
-        modifier = modifier.semantics { if (online) stateDescription = onlineLabel },
+        modifier = modifier.semantics {
+            stateDescription = listOfNotNull(onlineLabel.takeIf { online }, lockedLabel.takeIf { locked }).joinToString(", ")
+        },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (conversation.kind == ConversationKind.Saved) {
-            SavedAvatar()
-        } else if (conversation.faces.size >= 2) {
-            GroupAvatar(conversation.faces.map { it.name to it.id }, Modifier.sharedElement(avatarKey(conversation.id)))
-        } else {
-            Avatar(
-                name = conversation.title,
-                key = conversation.id,
-                protected = conversation.protection == Protection.EndToEnd &&
-                    conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
-                modifier = Modifier.sharedElement(avatarKey(conversation.id)),
-                online = online,
-                photoFile = conversation.photo,
-            )
+        Box {
+            ConversationAvatar(conversation, online)
+            if (locked) AvatarLock(Modifier.align(Alignment.BottomEnd).offset(x = LockNudge, y = LockNudge))
         }
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -719,19 +737,30 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val draft = conversation.draft.isNotBlank() && !typing
-                Text(
-                    text = when {
-                        typing -> stringResource(R.string.chats_typing)
-                        draft -> stringResource(R.string.chats_draft, conversation.draft.lines().first())
-                        else -> previewText(conversation)
-                    },
-                    style = Blesk.type.label,
-                    color = if (typing || draft) Blesk.colors.accent else Blesk.colors.textSecondary,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
-                )
-                UnreadCounter(conversation.unread, muted)
-                if (conversation.unread == 0 && conversation.markedUnread) UnreadDot(muted)
+                if (hidden) {
+                    Box(Modifier.weight(1f)) { HiddenPreview() }
+                } else {
+                    Text(
+                        text = when {
+                            typing -> stringResource(R.string.chats_typing)
+                            draft -> stringResource(R.string.chats_draft, conversation.draft.lines().first())
+                            else -> previewText(conversation)
+                        },
+                        style = Blesk.type.label,
+                        color = if (typing || draft) Blesk.colors.accent else Blesk.colors.textSecondary,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                val counter = if (locked) rules.counter else LockCounter.Number
+                when (counter) {
+                    LockCounter.Number -> {
+                        UnreadCounter(conversation.unread, muted)
+                        if (conversation.unread == 0 && conversation.markedUnread) UnreadDot(muted)
+                    }
+                    LockCounter.Dot -> if (conversation.unread > 0 || conversation.markedUnread) UnreadDot(muted)
+                    LockCounter.Hidden -> Unit
+                }
             }
         }
     }
@@ -824,6 +853,30 @@ private fun UnreadDot(muted: Boolean) {
             .semantics { contentDescription = label },
     )
 }
+
+@Composable
+private fun ConversationAvatar(conversation: Conversation, online: Boolean) {
+    if (conversation.kind == ConversationKind.Saved) {
+        SavedAvatar()
+    } else if (conversation.faces.size >= 2) {
+        GroupAvatar(conversation.faces.map { it.name to it.id }, Modifier.sharedElement(avatarKey(conversation.id)))
+    } else {
+        Avatar(
+            name = conversation.title,
+            key = conversation.id,
+            protected = conversation.protection == Protection.EndToEnd &&
+                conversation.kind != ConversationKind.Channel && conversation.kind != ConversationKind.Bot,
+            modifier = Modifier.sharedElement(avatarKey(conversation.id)),
+            online = online,
+            photoFile = conversation.photo,
+        )
+    }
+}
+
+private const val FROST = 0.6f
+
+/** The lock capsule sits half over the avatar's edge. */
+private val LockNudge = 4.dp
 
 /** «Избранное» has no person behind it, so it shows a bookmark instead of a letter. */
 @Composable

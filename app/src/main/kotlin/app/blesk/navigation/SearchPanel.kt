@@ -15,10 +15,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.core.data.settings.AppMode
+import app.blesk.core.data.settings.ChatLocks
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.SearchHit
 import app.blesk.feature.chats.SearchResults
+import app.blesk.locks.hides
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
@@ -58,17 +60,24 @@ internal fun SearchPanel(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val notify = rememberNotify()
+    val locks by container.chatLocks.locks.collectAsStateWithLifecycle(initialValue = ChatLocks())
+    val archived = remember(conversations) { conversations.filter { it.archived }.map { it.id }.toSet() }
+    fun hidden(id: String) = locks.hides(id, id in archived) { it.search }
     val needle = query.text.toString().trim().removePrefix("@").lowercase()
-    val matchingChats = if (needle.isEmpty()) emptyList() else conversations.filter { it.title.lowercase().contains(needle) }
+    val matchingChats = if (needle.isEmpty()) {
+        emptyList()
+    } else {
+        conversations.filter { it.title.lowercase().contains(needle) && !hidden(it.id) }
+    }
     val matchingPeople = if (needle.isEmpty()) {
         emptyList()
     } else {
         contacts.filter { it.name.lowercase().contains(needle) || it.username.contains(needle) }
-            .filter { person -> matchingChats.none { it.id == person.id } }
+            .filter { person -> matchingChats.none { it.id == person.id } && !hidden(person.id) }
     }
     SearchResults(
         query = query.text.toString(),
-        hits = hits,
+        hits = hits?.filterNot { hidden(it.conversationId) }?.toImmutableList(),
         onOpen = { onOpenMessage(it.conversationId, it.messageId) },
         contentPadding = contentPadding,
         chats = matchingChats.take(MAX_ROWS).toImmutableList(),

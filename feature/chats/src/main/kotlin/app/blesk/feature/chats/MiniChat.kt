@@ -61,6 +61,7 @@ import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
+import app.blesk.feature.chats.locks.LockCapsule
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
@@ -83,6 +84,8 @@ internal fun MiniChat(
     actions: List<ClusterAction>,
     onOpen: (() -> Unit)?,
     onDismiss: () -> Unit,
+    /** A locked chat shows its lock, never its messages, until it is opened. */
+    locked: Boolean = false,
 ) {
     val motion = Blesk.motion
     val scope = rememberCoroutineScope()
@@ -179,6 +182,10 @@ internal fun MiniChat(
             MiniHeader(conversation, Modifier.pointerInput(Unit) {
                 detectVerticalDragGestures { change, drag -> if (drag > SWIPE_CLOSE) close() else change.consume() }
             })
+            if (locked) {
+                Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { LockCapsule(dimmed = false) }
+                return@Column
+            }
             val runs = remember(messages) { runsOf(messages) }
             LazyColumn(
                 modifier = Modifier.fillMaxWidth().weight(1f),
