@@ -38,6 +38,7 @@ internal fun UpdateRoute(container: AppContainer, onBack: () -> Unit) {
                     null -> UpdateProgress.Handed
                     UpdateFailure.Network -> UpdateProgress.NetworkFailed
                     UpdateFailure.Signature -> UpdateProgress.Forged
+                    UpdateFailure.Checksum -> UpdateProgress.Mismatch
                 }
             }
         },

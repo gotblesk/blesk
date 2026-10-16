@@ -132,6 +132,7 @@ import app.blesk.feature.settings.AppearanceFileActions
 import app.blesk.feature.settings.AppearanceScreen
 import app.blesk.feature.settings.BotActions
 import app.blesk.feature.settings.BotsScreen
+import app.blesk.feature.settings.BuildSignature
 import app.blesk.feature.settings.ChatUse
 import app.blesk.feature.settings.ConnectOutcome
 import app.blesk.feature.settings.EconomyScreen
@@ -148,6 +149,7 @@ import app.blesk.feature.settings.ServerScreen
 import app.blesk.feature.settings.ServerState
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
+import app.blesk.feature.settings.SignedBy
 import app.blesk.feature.settings.StorageActions
 import app.blesk.feature.settings.StorageScreen
 import app.blesk.feature.settings.StorageUse
@@ -562,7 +564,15 @@ class KeyScreensScreenshotTest(private val name: String) {
 
     @Test
     fun about() = capture("07_about") {
-        AboutScreen(versionName = "0.3.0", debugUnlocked = false, onUnlockDebug = {}, onOpenLicenses = {}, onOpenPolicy = {}, onBack = {})
+        AboutScreen(
+            versionName = "0.3.0",
+            debugUnlocked = false,
+            onUnlockDebug = {},
+            onOpenLicenses = {},
+            onOpenPolicy = {},
+            onBack = {},
+            signature = BuildSignature(SignedBy.Test, "bd7e78024ea47ca7e7de70c02c39beff5a2855be35560288cdd477e57f9d78bd"),
+        )
     }
 
     @Test

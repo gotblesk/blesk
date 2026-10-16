@@ -2,9 +2,6 @@ package app.blesk.update
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.core.content.FileProvider
 import app.blesk.BuildConfig
 import app.blesk.core.network.NetworkProxy
@@ -26,14 +23,28 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 /** A newer build on GitHub Releases: its number, title, notes and the APK to fetch. */
-data class Update(val versionCode: Int, val title: String, val notes: String, val apkUrl: String, val sizeBytes: Long)
+data class Update(
+    val versionCode: Int,
+    val title: String,
+    val notes: String,
+    val apkUrl: String,
+    val sizeBytes: Long,
+    /** SHA-256 of the APK as published in the release notes; null when they do not give one. */
+    val sha256: String? = null,
+)
+
+/** The APK's SHA-256 from the line the release workflow writes into the notes, lowercase. */
+internal fun publishedChecksum(notes: String): String? = CHECKSUM.find(notes)?.groupValues?.get(1)?.lowercase()
+
+private val CHECKSUM = Regex("""SHA-256 APK: `?([0-9a-fA-F]{64})`?""")
 
 /** How fetching an update went. */
-enum class UpdateFailure { Network, Signature }
+enum class UpdateFailure { Network, Signature, Checksum }
 
 /**
- * Updates from the project's GitHub Releases, outside any store. The APK is installed only if it
- * is signed with the same key as the running app; Android checks this again when installing.
+ * Updates from the project's GitHub Releases, outside any store. The APK is installed only if its
+ * SHA-256 matches the one in the release notes and it is signed with the same key as the running
+ * app; Android checks the signature again when installing.
  * GitHub sees the phone's address when it is asked, through the proxy if there is one.
  */
 class Updater(private val context: Context) {
@@ -67,6 +78,11 @@ class Updater(private val context: Context) {
         } catch (_: IOException) {
             apk.delete()
             return@withContext UpdateFailure.Network
+        }
+        // Checked first: a file that is not the published one is not opened by anything at all.
+        if (update.sha256 == null || sha256(apk) != update.sha256) {
+            apk.delete()
+            return@withContext UpdateFailure.Checksum
         }
         if (!signedLikeThisApp(apk)) {
             apk.delete()
@@ -102,24 +118,24 @@ class Updater(private val context: Context) {
 
     private fun signedLikeThisApp(apk: File): Boolean {
         val manager = context.packageManager
-        val archive = manager.getPackageArchiveInfo(apk.path, SIGNATURES) ?: return false
-        val installed = manager.getPackageInfo(context.packageName, SIGNATURES)
+        val archive = manager.getPackageArchiveInfo(apk.path, SigningKeys.FLAGS) ?: return false
+        val installed = manager.getPackageInfo(context.packageName, SigningKeys.FLAGS)
         if (archive.packageName != context.packageName) return false
-        val expected = fingerprints(installed)
-        return expected.isNotEmpty() && fingerprints(archive) == expected
+        val expected = SigningKeys.fingerprints(installed)
+        return expected.isNotEmpty() && SigningKeys.fingerprints(archive) == expected
     }
 
-    private fun fingerprints(info: PackageInfo): Set<String> {
-        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            info.signingInfo?.apkContentsSigners
-        } else {
-            @Suppress("DEPRECATION")
-            info.signatures
-        }
+    private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        return signatures.orEmpty()
-            .map { signature -> digest.digest(signature.toByteArray()).joinToString("") { "%02x".format(it) } }
-            .toSet()
+        file.inputStream().use { input ->
+            val buffer = ByteArray(BUFFER)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     @Serializable
@@ -134,7 +150,8 @@ class Updater(private val context: Context) {
             if (draft) return null
             val code = tag.removePrefix(TAG_PREFIX).toIntOrNull() ?: return null
             val apk = assets.firstOrNull { it.name == APK_NAME } ?: return null
-            return Update(code, name ?: tag, body.orEmpty(), apk.url, apk.size)
+            val notes = body.orEmpty()
+            return Update(code, name ?: tag, notes, apk.url, apk.size, publishedChecksum(notes))
         }
     }
 
@@ -148,12 +165,5 @@ class Updater(private val context: Context) {
         const val APK_TYPE = "application/vnd.android.package-archive"
         const val TIMEOUT_SECONDS = 120L
         const val BUFFER = 64 * 1024
-
-        @Suppress("DEPRECATION")
-        val SIGNATURES = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            PackageManager.GET_SIGNING_CERTIFICATES
-        } else {
-            PackageManager.GET_SIGNATURES
-        }
     }
 }

@@ -50,6 +50,7 @@
     <string name="chat_quoted_gone">Этого сообщения уже нет</string>
     <string name="chat_delete_for_me">Удалить у меня</string>
     <string name="chat_delete_for_all">Удалить у всех</string>
+    <string name="chat_delete_honest">Сообщение исчезнет в официальных приложениях. Изменённое приложение собеседника или снимок экрана могут его сохранить.</string>
     <string name="chat_close">Закрыть</string>
     <string name="chat_replying_to">Ответ: %1$s</string>
     <string name="chat_editing">Изменение сообщения</string>
@@ -304,7 +305,7 @@
     <string name="info_timer_day">1 день</string>
     <string name="info_timer_week">1 неделя</string>
     <string name="info_timer_custom">свой срок</string>
-    <string name="info_timer_hint">Новые сообщения исчезнут у всех через выбранное время после отправки. Старые останутся. Собеседник всё равно может сделать снимок экрана.</string>
+    <string name="info_timer_hint">Новые сообщения исчезнут у всех через выбранное время после отправки. Старые останутся. Сообщение исчезнет в официальных приложениях. Изменённое приложение собеседника или снимок экрана могут его сохранить.</string>
     <string name="chat_timer">исчезают: %1$s</string>
     <string name="forward_title">Переслать в…</string>
     <string name="forward_send">Переслать (%1$d)</string>

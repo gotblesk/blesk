@@ -40,7 +40,7 @@
     <string name="privacy_incognito">Инкогнито-клавиатура</string>
     <string name="privacy_incognito_hint">Клавиатура не запоминает, что ты пишешь в blesk, и не подсказывает это потом</string>
     <string name="privacy_default_timer">Исчезающие сообщения в новых чатах</string>
-    <string name="privacy_default_timer_hint">Для чатов, которые начинаешь ты. В каждом чате таймер можно поменять</string>
+    <string name="privacy_default_timer_hint">Для чатов, которые начинаешь ты. В каждом чате таймер можно поменять. Сообщение исчезнет в официальных приложениях. Изменённое приложение собеседника или снимок экрана могут его сохранить.</string>
     <string name="privacy_timer_off">Выкл</string>
     <string name="privacy_timer_hour">1 час</string>
     <string name="privacy_timer_day">1 день</string>

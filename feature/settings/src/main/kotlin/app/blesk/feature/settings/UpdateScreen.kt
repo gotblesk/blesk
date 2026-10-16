@@ -29,6 +29,9 @@ sealed interface UpdateProgress {
     /** The file was not signed with blesk's key: it is deleted and never installed. */
     data object Forged : UpdateProgress
 
+    /** The file is not the one published with the release: it is deleted and never installed. */
+    data object Mismatch : UpdateProgress
+
     data object Handed : UpdateProgress
 }
 
@@ -46,6 +49,7 @@ fun UpdateScreen(title: String, notes: String, progress: UpdateProgress, onInsta
             is UpdateProgress.Downloading -> stringResource(R.string.update_downloading, (progress.fraction * PERCENT).roundToInt())
             UpdateProgress.NetworkFailed -> stringResource(R.string.update_failed)
             UpdateProgress.Forged -> stringResource(R.string.update_forged)
+            UpdateProgress.Mismatch -> stringResource(R.string.update_mismatch)
             UpdateProgress.Handed -> stringResource(R.string.update_handed)
         }
         if (progress !is UpdateProgress.Downloading) {
@@ -60,7 +64,7 @@ fun UpdateScreen(title: String, notes: String, progress: UpdateProgress, onInsta
             Text(
                 text = status,
                 style = Blesk.type.label,
-                color = if (progress == UpdateProgress.Forged) Blesk.colors.danger else Blesk.colors.textSecondary,
+                color = if (progress in REFUSED) Blesk.colors.danger else Blesk.colors.textSecondary,
                 modifier = Modifier
                     .padding(horizontal = Blesk.dimens.gutter + 4.dp, vertical = 12.dp)
                     .semantics { liveRegion = LiveRegionMode.Polite },
@@ -101,3 +105,6 @@ internal fun ReleaseNotes(notes: String) {
 }
 
 private const val PERCENT = 100
+
+/** States in which a downloaded file was refused and deleted. */
+private val REFUSED = setOf(UpdateProgress.Forged, UpdateProgress.Mismatch)

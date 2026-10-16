@@ -68,10 +68,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="build-${{ github.run_number }}"
+          # The app installs an update only if its SHA-256 matches this line and the key matches its own.
+          apk_sha=$(sha256sum out/blesk.apk | cut -d' ' -f1)
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner
+          signer=$("$apksigner" verify --print-certs out/blesk.apk | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)
           {
             cat docs/RELEASE_NOTES.md
             echo
             echo "Ветка: \`${GITHUB_REF_NAME}\`, коммит: \`${GITHUB_SHA::7}\`"
+            echo
+            echo "SHA-256 APK: \`$apk_sha\`"
+            echo "Ключ подписи (SHA-256): \`$signer\`"
           } > notes.md
           gh release create "$tag" out/* \
             --target "$GITHUB_SHA" \

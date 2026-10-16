@@ -747,6 +747,7 @@ private fun DeleteSheet(picked: List<Message>, everyoneAllowed: Boolean, onDelet
             if (everyoneAllowed) add(Choice(forAll, danger = true) { onDelete(true) })
         },
         onDismiss = onDismiss,
+        text = if (everyoneAllowed) stringResource(R.string.chat_delete_honest) else null,
     )
 }
 

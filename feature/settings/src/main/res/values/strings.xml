@@ -235,6 +235,12 @@
     <string name="update_install">Скачать и установить</string>
     <string name="update_downloading">Скачиваем… %1$d%%</string>
     <string name="update_failed">Не получилось скачать. Проверь сеть и попробуй ещё раз</string>
+    <string name="update_mismatch">Файл не совпал с опубликованным в релизе и удалён. Ставить его нельзя</string>
+    <string name="about_authenticity">Подлинность</string>
+    <string name="about_official">Официальная сборка</string>
+    <string name="about_test_build">Тестовая сборка: подписана тестовым ключом из репозитория</string>
+    <string name="about_unofficial">Неофициальная сборка: ключ подписи не совпадает с опубликованным</string>
+    <string name="about_fingerprint_copied">Отпечаток скопирован</string>
     <string name="update_forged">Файл подписан не ключом blesk и удалён. Ставить его нельзя</string>
     <string name="update_handed">Подпись проверена. Дальше — системный установщик</string>
     <string name="update_available">Доступно обновление</string>

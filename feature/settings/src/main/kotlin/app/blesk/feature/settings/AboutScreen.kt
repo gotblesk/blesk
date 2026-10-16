@@ -1,14 +1,18 @@
 package app.blesk.feature.settings
 
+import android.content.ClipData
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -22,13 +26,22 @@ import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
+import app.blesk.core.design.component.rememberNotify
+import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import kotlinx.coroutines.launch
 
 /** Taps on the version row needed to unlock the debug screen. */
 const val DEBUG_UNLOCK_TAPS = 7
 
 /** How many remaining taps are announced; the first few taps stay silent. */
 private const val ANNOUNCE_FROM = 4
+
+/** Where this copy of blesk comes from, judged by its signing key against the published ones. */
+enum class SignedBy { Official, Test, Unofficial }
+
+/** «Подлинность» in «О приложении»: the verdict and the key's SHA-256. */
+class BuildSignature(val by: SignedBy, val fingerprint: String)
 
 @Composable
 fun AboutScreen(
@@ -41,6 +54,7 @@ fun AboutScreen(
     onOpenSandbox: () -> Unit = {},
     modifier: Modifier = Modifier,
     updates: UpdateControls? = null,
+    signature: BuildSignature? = null,
 ) {
     val uriHandler = LocalUriHandler.current
     val source = stringResource(R.string.about_source_url)
@@ -74,6 +88,7 @@ fun AboutScreen(
                     if (taps >= DEBUG_UNLOCK_TAPS) onUnlockDebug()
                 },
             )
+            signature?.let { SignatureRow(it) }
             if (updates != null) {
                 ListRow(title = stringResource(R.string.about_whats_new), onClick = updates.onOpenWhatsNew)
                 ToggleRow(
@@ -119,3 +134,34 @@ fun AboutScreen(
 
 /** «Что нового» and whether the app looks for newer builds. */
 class UpdateControls(val checking: Boolean, val onChecking: (Boolean) -> Unit, val onOpenWhatsNew: () -> Unit)
+
+/** The verdict, and under it the key's SHA-256 in groups of four, copied with a tap for comparing with `README.md`. */
+@Composable
+private fun SignatureRow(signature: BuildSignature) {
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    val notify = rememberNotify()
+    val copied = stringResource(R.string.about_fingerprint_copied)
+    val verdict = stringResource(
+        when (signature.by) {
+            SignedBy.Official -> R.string.about_official
+            SignedBy.Test -> R.string.about_test_build
+            SignedBy.Unofficial -> R.string.about_unofficial
+        },
+    )
+    val grouped = signature.fingerprint.uppercase().chunked(FINGERPRINT_GROUP).joinToString(" ")
+    ListRow(
+        title = stringResource(R.string.about_authenticity),
+        subtitle = "$verdict\n$grouped",
+        icon = if (signature.by == SignedBy.Official) BleskIcons.Shield else BleskIcons.Alert,
+        showChevron = false,
+        onClick = {
+            scope.launch {
+                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("blesk", signature.fingerprint)))
+                notify(copied)
+            }
+        },
+    )
+}
+
+private const val FINGERPRINT_GROUP = 4

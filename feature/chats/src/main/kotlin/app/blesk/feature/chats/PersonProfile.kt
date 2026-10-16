@@ -227,6 +227,7 @@ fun PersonProfileScreen(
                     Choice(stringResource(R.string.person_delete_chat_both, conversation.title), danger = true) { delete(true) },
                 ),
                 onDismiss = { deletingChat = false },
+                text = stringResource(R.string.chat_delete_honest),
             )
         }
         actions.onBlock?.takeIf { confirmingBlock }?.let { block ->

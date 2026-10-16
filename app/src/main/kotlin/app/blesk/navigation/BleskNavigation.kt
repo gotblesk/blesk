@@ -59,6 +59,7 @@ import app.blesk.feature.profile.profileLink
 import app.blesk.feature.security.WipeKind
 import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
+import app.blesk.feature.settings.BuildSignature
 import app.blesk.feature.settings.ConnectOutcome
 import app.blesk.feature.settings.License
 import app.blesk.feature.settings.LicenseTextScreen
@@ -70,10 +71,12 @@ import app.blesk.feature.settings.ProxyControls
 import app.blesk.feature.settings.ServerScreen
 import app.blesk.feature.settings.ServerState
 import app.blesk.feature.settings.SettingsActions
+import app.blesk.feature.settings.SignedBy
 import app.blesk.feature.settings.UpdateControls
 import app.blesk.feature.settings.WhatsNewScreen
 import app.blesk.shared.appearance.Appearance
 import app.blesk.toConfig
+import app.blesk.update.SigningKeys
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -568,7 +571,11 @@ fun BleskNavigation(container: AppContainer) {
                         entry<AboutKey> {
                             Box(Modifier.sharedBounds(screenKey("about"))) {
                                 val checkUpdates by container.settings.checkUpdates.collectAsStateWithLifecycle(true)
+                                val signature = remember {
+                                    SigningKeys.of(context).let { BuildSignature(SignedBy.valueOf(it.origin.name), it.fingerprint) }
+                                }
                                 AboutScreen(
+                                    signature = signature,
                                     versionName = BuildConfig.VERSION_NAME,
                                     debugUnlocked = debugUnlocked,
                                     onOpenLicenses = { backStack.add(LicensesKey) },

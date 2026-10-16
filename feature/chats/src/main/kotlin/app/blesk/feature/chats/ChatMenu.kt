@@ -132,6 +132,7 @@ fun ChatMenu(
                     }
                 },
                 onDismiss = { deleting = false },
+                text = if (conversation.kind == ConversationKind.Direct) stringResource(R.string.chat_delete_honest) else null,
             )
         }
         return
