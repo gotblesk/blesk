@@ -5,6 +5,9 @@
 #   curl -fsSL https://raw.githubusercontent.com/gotblesk/blesk/master/scripts/deploy.sh | sudo bash
 #
 # Optional environment: BLESK_BRANCH (default master), BLESK_DOMAIN, BLESK_PUBLIC_IP, BLESK_DIR, BLESK_REPO.
+# Backups (see scripts/backup-lib.sh): BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET, BACKUP_S3_REGION,
+# BACKUP_S3_ACCESS_KEY, BACKUP_S3_SECRET_KEY, BACKUP_PASSWORD. BLESK_RESTORE=latest (or a snapshot
+# id) moves a server here from its backup. BLESK_SSH_KEYS_ONLY=1 turns off SSH passwords.
 set -euo pipefail
 
 REPO_URL="${BLESK_REPO:-https://github.com/gotblesk/blesk}"
@@ -31,7 +34,8 @@ install_packages() {
     say "Устанавливаю пакеты"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
-    apt-get install -y -qq ca-certificates curl git openssl qrencode >/dev/null
+    apt-get install -y -qq ca-certificates curl git openssl qrencode fail2ban unattended-upgrades ufw >/dev/null
+    systemctl enable --now fail2ban unattended-upgrades >/dev/null 2>&1 || true
     if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then
         say "Устанавливаю Docker"
         curl -fsSL https://get.docker.com | sh
@@ -153,15 +157,92 @@ make_certificate() {
     chmod 600 "$key"
 }
 
+ssh_port() { sshd -T 2>/dev/null | awk '/^port / {print $2; exit}' || true; }
+
+# Only what blesk serves, plus SSH. The SSH port is opened before the firewall goes up, so the
+# session that runs this is never cut off.
 open_firewall() {
-    if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
+    if command -v ufw >/dev/null; then
+        local port
+        port=$(ssh_port)
+        ufw allow "${port:-22}/tcp" >/dev/null
         ufw allow 80/tcp >/dev/null
         ufw allow 443/tcp >/dev/null
         ufw allow 443/udp >/dev/null
         # Call media: TCP fallback and the UDP range from deploy/livekit.yaml.
         ufw allow 7881/tcp >/dev/null
         ufw allow 50000:50100/udp >/dev/null
+        ufw --force enable >/dev/null
     fi
+}
+
+# SSH by key only. Done only when asked and when a key is already there, so nobody is locked out:
+# the GitHub workflow that asks for it has just logged in with one.
+harden_ssh() {
+    [[ ${BLESK_SSH_KEYS_ONLY:-} == 1 ]] || return 0
+    if [[ ! -s /root/.ssh/authorized_keys ]]; then
+        warn "Ключей SSH у root нет, вход по паролю оставлен"
+        return 0
+    fi
+    say "Вход по SSH — только по ключу"
+    install -d -m 755 /etc/ssh/sshd_config.d
+    cat >/etc/ssh/sshd_config.d/10-blesk.conf <<EOF
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+EOF
+    sshd -t && { systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true; }
+}
+
+# Writes deploy/backup.env when the backup settings are passed in, and keeps the nightly timer in
+# place whenever that file exists.
+configure_backup() {
+    # shellcheck source=scripts/backup-lib.sh
+    source "$INSTALL_DIR/scripts/backup-lib.sh"
+    if write_backup_env; then say "Настройки резервных копий сохранены"; fi
+    [[ -f "$BACKUP_ENV" ]] || return 0
+    cat >/etc/systemd/system/blesk-backup.service <<EOF
+[Unit]
+Description=blesk backup to S3
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=$INSTALL_DIR/scripts/backup.sh
+Nice=10
+IOSchedulingClass=idle
+EOF
+    cat >/etc/systemd/system/blesk-backup.timer <<EOF
+[Unit]
+Description=Nightly blesk backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Europe/Moscow
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now blesk-backup.timer >/dev/null
+}
+
+# A move from another server: its settings, certificate, files and database come from the backup.
+restore_if_asked() {
+    [[ -n "${BLESK_RESTORE:-}" ]] || return 0
+    [[ -f "$DEPLOY_DIR/backup.env" ]] || die "для переноса нужны настройки резервных копий (BACKUP_*)"
+    say "Переношу данные из резервной копии ($BLESK_RESTORE)"
+    bash "$INSTALL_DIR/scripts/restore.sh" "$BLESK_RESTORE"
+}
+
+# Right after a move or the first setup there is no snapshot from this server yet: make one now.
+first_backup() {
+    [[ -f "$DEPLOY_DIR/backup.env" ]] || return 0
+    [[ -n "${BLESK_RESTORE:-}" || ! -f /var/lib/blesk-backup/last-success ]] || return 0
+    say "Делаю первую резервную копию"
+    "$INSTALL_DIR/scripts/backup.sh" || warn "Резервная копия не получилась, журнал выше"
 }
 
 start_stack() {
@@ -172,8 +253,7 @@ start_stack() {
 
 wait_until_ready() {
     say "Жду, пока сервер ответит"
-    local attempt
-    for attempt in $(seq 1 90); do
+    for _ in $(seq 1 90); do
         if docker compose --project-directory "$DEPLOY_DIR" -f "$DEPLOY_DIR/docker-compose.yml" \
             exec -T caddy wget -qO- http://server:8080/v1/info 2>/dev/null | grep -q '"blesk"'; then
             return
@@ -213,11 +293,15 @@ main() {
         export BLESK_DEPLOY_REEXEC=1
         exec bash "$INSTALL_DIR/scripts/deploy.sh"
     fi
+    configure_backup
+    restore_if_asked
     configure
     open_firewall
+    harden_ssh
     start_stack
     wait_until_ready
     print_connection
+    first_backup
 }
 
 # Everything runs from main, so bash has read the whole file before the checkout can replace it.

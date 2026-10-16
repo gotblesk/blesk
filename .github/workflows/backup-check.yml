@@ -1,0 +1,38 @@
+name: Backup check
+
+# Daily: the newest backup must be fresh. Mondays and on demand: the newest backup is restored on
+# this runner and the server is started on it, which proves a move to another host would work.
+on:
+  schedule:
+    - cron: '7 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: backup-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+      BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+      BACKUP_S3_REGION: ${{ secrets.BACKUP_S3_REGION }}
+      BACKUP_S3_ACCESS_KEY: ${{ secrets.BACKUP_S3_ACCESS_KEY }}
+      BACKUP_S3_SECRET_KEY: ${{ secrets.BACKUP_S3_SECRET_KEY }}
+      BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore drill
+        run: |
+          if [ -z "$BACKUP_S3_ENDPOINT" ] || [ -z "$BACKUP_PASSWORD" ]; then
+            echo "::notice::Backups are not set up yet (secrets BACKUP_*), nothing to check"
+            exit 0
+          fi
+          mode=full
+          if [ "${{ github.event_name }}" = schedule ] && [ "$(date -u +%u)" != 1 ]; then mode=age; fi
+          BLESK_DIR="$GITHUB_WORKSPACE" BLESK_DRILL=$mode bash scripts/restore-drill.sh

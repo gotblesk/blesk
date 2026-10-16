@@ -60,28 +60,19 @@ QR-код можно показать ещё раз в любой момент: 
 
 Без этих портов звонки не соединятся, а переписка будет работать как обычно.
 
-## 6. Резервные копии
+## 6. Резервные копии и переезд
 
-Все данные лежат в двух томах Docker:
+Каждую ночь сервер сам отправляет зашифрованную копию в S3-хранилище у другого провайдера: базу, вложения, пароли из `deploy/.env` и сертификат. Включается секретами `BACKUP_*` в GitHub (пошагово — `docs/NEEDS_HUMAN.md`, пункт 2) и кнопкой **Deploy server**; без них сервер работает без копий.
 
-- `blesk_postgres-data` — аккаунты, открытые ключи, недоставленные сообщения;
-- `blesk_minio-data` — зашифрованные вложения.
-
-Сделать копию:
-
-```
-cd /opt/blesk/deploy
-docker compose stop server
-docker run --rm -v blesk_postgres-data:/v -v /root:/b alpine tar czf /b/blesk-postgres.tgz -C /v .
-docker run --rm -v blesk_minio-data:/v -v /root:/b alpine tar czf /b/blesk-minio.tgz -C /v .
-docker compose start server
-```
-
-Скачайте оба архива из `/root` и ещё сохраните файл `/opt/blesk/deploy/.env` (пароли) и папку `/opt/blesk/deploy/certs` (сертификат). Без сертификата приложениям придётся заново сканировать QR.
-
-Восстановление: та же команда, только `tar xzf` в пустой том при остановленных контейнерах.
+- Сделать копию сейчас: `sudo /opt/blesk/scripts/backup.sh`.
+- Проверить, что копия восстанавливается: **Actions → Backup check → Run workflow**.
+- Переехать на другой сервер или к другому хостеру: `docs/MIGRATION.md`.
 
 ## Техническое приложение
+
+**Резервные копии** (`scripts/backup.sh`, `restore.sh`, `restore-drill.sh`, общая часть — `backup-lib.sh`): restic 0.17 в контейнере, репозиторий `s3:<BACKUP_S3_ENDPOINT>/<BACKUP_S3_BUCKET>/blesk`, шифрование restic (AES-256-CTR + Poly1305, ключ из `BACKUP_PASSWORD` через scrypt). В снимке: `pg_dump --format=custom`, том `minio-data`, `.env`, `certs`. Хост снимков всегда `blesk`, поэтому новый сервер видит снимки старого. Таймер `blesk-backup.timer` — 03:30 по Москве; хранение 7/4/6 (дни, недели, месяцы); по воскресеньям `restic check --read-data-subset=10%`. Настройки — `deploy/backup.env` (права 600, вне git), пишет его `deploy.sh` из переменных `BACKUP_*`. `BLESK_RESTORE=latest` при запуске `deploy.sh` восстанавливает сервер из копии; поверх существующих данных — только с `BLESK_RESTORE_FORCE=1`.
+
+**Защита хоста** (`deploy.sh`): ufw открывает только SSH, 80, 443 и порты LiveKit; fail2ban; автоматические обновления безопасности; при `BLESK_SSH_KEYS_ONLY=1` (так запускает GitHub) — вход по SSH только по ключу, если у root уже есть ключ.
 
 **Состав** (`deploy/docker-compose.yml`): PostgreSQL, MinIO, сервер blesk (Kotlin, Ktor), LiveKit, Caddy. Наружу открыты порты **80** и **443** (TCP, а для HTTP/3 ещё 443/UDP) и порты медиа LiveKit: **7881/TCP** и **50000–50100/UDP**. Порт 80 нужен для выпуска сертификата и перенаправления на HTTPS. `deploy.sh` открывает все эти порты в ufw, если он включён.
 

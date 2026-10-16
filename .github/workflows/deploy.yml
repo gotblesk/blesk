@@ -7,6 +7,14 @@ on:
         description: Domain for the server (leave empty to keep the current setting)
         required: false
         default: ''
+      host:
+        description: Another server to install on (IP); empty means the VPS_HOST secret
+        required: false
+        default: ''
+      restore:
+        description: Move the data here from the newest backup (only onto a clean server)
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy
@@ -22,12 +30,19 @@ jobs:
     steps:
       - name: Deploy over SSH
         env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_HOST: ${{ inputs.host || secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           BRANCH: ${{ github.ref_name }}
           DOMAIN: ${{ inputs.domain }}
           REPOSITORY: ${{ github.repository }}
+          RESTORE: ${{ inputs.restore }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_REGION: ${{ secrets.BACKUP_S3_REGION }}
+          BACKUP_S3_ACCESS_KEY: ${{ secrets.BACKUP_S3_ACCESS_KEY }}
+          BACKUP_S3_SECRET_KEY: ${{ secrets.BACKUP_S3_SECRET_KEY }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
         run: |
           set -euo pipefail
           if [ -z "$VPS_HOST" ] || [ -z "$VPS_USER" ] || [ -z "$VPS_SSH_KEY" ]; then
@@ -37,12 +52,26 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          # The public half is not secret; kept in the run summary, a new server can be given it on a move.
+          {
+            echo "Public key to authorize on a new server:"
+            echo '```'
+            ssh-keygen -y -f ~/.ssh/deploy_key
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
           ssh-keyscan -T 15 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-          domain_env=""
-          if [ -n "$DOMAIN" ]; then domain_env="BLESK_DOMAIN=$(printf '%q' "$DOMAIN")"; fi
+          # Settings for the remote script; values are quoted, so they survive any characters.
+          remote_env="BLESK_BRANCH=$(printf '%q' "$BRANCH") BLESK_SSH_KEYS_ONLY=1"
+          if [ -n "$DOMAIN" ]; then remote_env="$remote_env BLESK_DOMAIN=$(printf '%q' "$DOMAIN")"; fi
+          if [ "$RESTORE" = true ]; then remote_env="$remote_env BLESK_RESTORE=latest"; fi
+          for key in BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET BACKUP_S3_REGION BACKUP_S3_ACCESS_KEY BACKUP_S3_SECRET_KEY BACKUP_PASSWORD; do
+            if [ -n "${!key}" ]; then remote_env="$remote_env $key=$(printf '%q' "${!key}")"; fi
+          done
 
           # On a fresh server the script is not there yet, so the first run fetches it from GitHub.
+          # The here-document expands here on purpose: the remote side gets the values, not the names.
+          # shellcheck disable=SC2087
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<EOF
           set -euo pipefail
           script=/opt/blesk/scripts/deploy.sh
@@ -52,5 +81,5 @@ jobs:
           fi
           sudo_cmd=""
           if [ "\$(id -u)" != 0 ]; then sudo_cmd="sudo -n"; fi
-          \$sudo_cmd env BLESK_BRANCH=$(printf '%q' "$BRANCH") $domain_env bash "\$script"
+          \$sudo_cmd env $remote_env bash "\$script"
           EOF
