@@ -46,7 +46,7 @@ jobs:
           BLESK_KEY_PASSWORD: ${{ secrets.BLESK_KEY_PASSWORD }}
         run: >
           ./gradlew --console=plain
-          detekt testDebugUnitTest :server:test :app:recordRoborazziDebug :app:assembleRelease
+          detekt testDebugUnitTest :server:test :server:installDist :app:recordRoborazziDebug :app:assembleRelease
           -Pblesk.versionCode=${{ github.run_number }}
           -Pblesk.versionSuffix=-build.${{ github.run_number }}
 
@@ -55,6 +55,8 @@ jobs:
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk out/blesk.apk
           cp app/build/screenshots/*.png out/
+          # The VPS takes this instead of building: scripts/deploy.sh, fetch_server.
+          tar -czf out/blesk-server.tar.gz -C server/build/install blesk-server
 
       - name: Upload test reports
         if: failure()

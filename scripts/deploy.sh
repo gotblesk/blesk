@@ -8,6 +8,7 @@
 # Backups (see scripts/backup-lib.sh): BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET, BACKUP_S3_REGION,
 # BACKUP_S3_ACCESS_KEY, BACKUP_S3_SECRET_KEY, BACKUP_PASSWORD. BLESK_RESTORE=latest (or a snapshot
 # id) moves a server here from its backup. BLESK_SSH_KEYS_ONLY=1 turns off SSH passwords.
+# BLESK_BUILD_HERE=1 builds the server on this machine instead of taking the one GitHub built.
 set -euo pipefail
 
 REPO_URL="${BLESK_REPO:-https://github.com/gotblesk/blesk}"
@@ -34,7 +35,7 @@ install_packages() {
     say "Устанавливаю пакеты"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
-    apt-get install -y -qq ca-certificates curl git openssl qrencode fail2ban unattended-upgrades ufw >/dev/null
+    apt-get install -y -qq ca-certificates curl git jq openssl qrencode fail2ban unattended-upgrades ufw >/dev/null
     systemctl enable --now fail2ban unattended-upgrades >/dev/null 2>&1 || true
     if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then
         say "Устанавливаю Docker"
@@ -249,6 +250,33 @@ first_backup() {
     "$INSTALL_DIR/scripts/backup.sh" || warn "Резервная копия не получилась, журнал выше"
 }
 
+# The server's build needs Signal's Maven repository, which is blocked in some countries (Russia
+# among them), so the host takes the build GitHub Actions attached to the release of this commit.
+fetch_server() {
+    if [[ ${BLESK_BUILD_HERE:-} == 1 ]]; then
+        set_env_value BLESK_SERVER_DOCKERFILE server/Dockerfile
+        return
+    fi
+    say "Скачиваю сервер, собранный на GitHub"
+    local commit api url="" dist="$INSTALL_DIR/server/dist" attempt
+    commit=$(git -C "$INSTALL_DIR" rev-parse HEAD)
+    api="https://api.github.com/repos/${REPO_URL#https://github.com/}/releases?per_page=30"
+    for attempt in $(seq 1 60); do
+        url=$(curl -fsSL "$api" 2>/dev/null | jq -r --arg commit "$commit" \
+            'first(.[] | select(.draft | not) | select(.target_commitish == $commit) | .assets[] | select(.name == "blesk-server.tar.gz") | .browser_download_url) // empty' ||
+            true)
+        [[ -z "$url" ]] || break
+        if ((attempt == 1)); then echo "Эта версия ещё собирается на GitHub (обычно до 30 минут), жду…"; fi
+        sleep 60
+    done
+    [[ -n "$url" ]] || die "на GitHub нет собранного сервера для ${commit::7}: проверьте Actions → Build"
+    rm -rf "$dist"
+    mkdir -p "$dist"
+    curl -fsSL "$url" | tar -xz -C "$dist"
+    [[ -x "$dist/blesk-server/bin/blesk-server" ]] || die "архив сервера неполный"
+    set_env_value BLESK_SERVER_DOCKERFILE server/Dockerfile.dist
+}
+
 start_stack() {
     say "Собираю и запускаю (первый раз это занимает несколько минут)"
     docker compose --project-directory "$DEPLOY_DIR" -f "$DEPLOY_DIR/docker-compose.yml" up -d --build --remove-orphans
@@ -302,6 +330,7 @@ main() {
     configure
     open_firewall
     harden_ssh
+    fetch_server
     start_stack
     wait_until_ready
     print_connection

@@ -20,7 +20,8 @@ services:
   server:
     build:
       context: ..
-      dockerfile: server/Dockerfile
+      # server/Dockerfile.dist (written by deploy.sh) takes the server GitHub Actions built.
+      dockerfile: ${BLESK_SERVER_DOCKERFILE:-server/Dockerfile}
     image: blesk-server:local
     restart: unless-stopped
     depends_on:

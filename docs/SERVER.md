@@ -161,3 +161,5 @@ QR-код можно показать ещё раз в любой момент: 
 **Вложения.** В `deploy/` вложения лежат файлами в томе `attachments` (`BLESK_STORAGE=fs`): они зашифрованы на устройствах, серверу достаточно хранить байты. MinIO остаётся для своих установок (`BLESK_STORAGE=minio`). Образы Docker Hub сначала берутся через `mirror.gcr.io` (`/etc/docker/daemon.json`, если его ещё нет).
 
 **Сборка без Docker:** `./gradlew :server:installDist`, затем `server/build/install/blesk-server/bin/blesk-server`. Тесты: `./gradlew :server:test`. Они поднимают настоящий PostgreSQL через embedded-postgres.
+
+**Сборка сервера.** На VPS сервер не собирается: для сборки нужен Maven-репозиторий Signal, заблокированный в России. `build.yml` прикладывает к каждому релизу `blesk-server.tar.gz`, `deploy.sh` (`fetch_server`) скачивает архив релиза ровно своего коммита в `server/dist/` (если сборка ещё идёт — ждёт до часа) и пишет в `.env` `BLESK_SERVER_DOCKERFILE=server/Dockerfile.dist`. `BLESK_BUILD_HERE=1` собирает на месте по `server/Dockerfile`.
