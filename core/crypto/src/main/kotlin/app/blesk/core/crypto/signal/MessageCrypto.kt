@@ -34,7 +34,7 @@ data class Sealed(val type: Int, val body: String)
 class MessageCrypto(private val store: SignalStore, private val localUsername: () -> String) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun hasSession(username: String): Boolean = store.containsSession(address(username))
+    fun hasSession(username: String): Boolean = synchronized(store.lock) { store.containsSession(address(username)) }
 
     /** Starts a session from someone's published keys. Verifies their signatures inside libsignal. */
     fun startSession(bundle: PreKeyBundleDto) {
@@ -52,12 +52,12 @@ class MessageCrypto(private val store: SignalStore, private val localUsername: (
             KEMPublicKey(unb64(bundle.kyberPreKey.publicKey)),
             unb64(bundle.kyberPreKey.signature),
         )
-        SessionBuilder(store, address(bundle.username), local()).process(signal)
+        synchronized(store.lock) { SessionBuilder(store, address(bundle.username), local()).process(signal) }
     }
 
     fun encrypt(username: String, content: Content): Sealed {
         val plain = Padding.pad(json.encodeToString(Content.serializer(), content).encodeToByteArray())
-        val message = SessionCipher(store, local(), address(username)).encrypt(plain)
+        val message = synchronized(store.lock) { SessionCipher(store, local(), address(username)).encrypt(plain) }
         return Sealed(message.type, b64(message.serialize()))
     }
 
@@ -65,10 +65,12 @@ class MessageCrypto(private val store: SignalStore, private val localUsername: (
     fun decrypt(envelope: Envelope): Content {
         val cipher = SessionCipher(store, local(), address(envelope.sender))
         val bytes = unb64(envelope.body)
-        val plain = when (envelope.type) {
-            EnvelopeType.PREKEY -> cipher.decrypt(PreKeySignalMessage(bytes))
-            EnvelopeType.WHISPER -> cipher.decrypt(SignalMessage(bytes))
-            else -> throw IllegalArgumentException("Unknown envelope type ${envelope.type}")
+        val plain = synchronized(store.lock) {
+            when (envelope.type) {
+                EnvelopeType.PREKEY -> cipher.decrypt(PreKeySignalMessage(bytes))
+                EnvelopeType.WHISPER -> cipher.decrypt(SignalMessage(bytes))
+                else -> throw IllegalArgumentException("Unknown envelope type ${envelope.type}")
+            }
         }
         return json.decodeFromString(Content.serializer(), Padding.unpad(plain).decodeToString())
     }

@@ -23,6 +23,14 @@ import java.util.UUID
  */
 class SignalStore(private val dao: SignalStateDao) : SignalProtocolStore {
 
+    /**
+     * Held for every libsignal operation that reads and writes session or sender-key state.
+     * libsignal loads a whole record, advances it and stores it back without a lock of its own, so
+     * a message being encrypted while another from the same person is decrypted would lose one of
+     * the two ratchet steps, and later messages would no longer decrypt.
+     */
+    val lock = Any()
+
     val stateDao: SignalStateDao get() = dao
 
     /** Called when someone's identity key changes, so the chat can show a warning. */

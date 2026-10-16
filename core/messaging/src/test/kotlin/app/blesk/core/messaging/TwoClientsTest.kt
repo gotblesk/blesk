@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -90,8 +91,9 @@ class TwoClientsTest {
     @After
     fun tearDown() = scope.cancel()
 
+    /** Waits for [block] to give a value; on timeout the failure points at the waiting line of the test. */
     private fun <T> eventually(block: suspend () -> T?): T = runBlocking {
-        withTimeout(TIMEOUT) {
+        withTimeoutOrNull(TIMEOUT) {
             var value: T? = null
             while (value == null) {
                 value = block()
@@ -99,7 +101,7 @@ class TwoClientsTest {
             }
             value
         }
-    }
+    } ?: throw AssertionError("nothing after ${TIMEOUT / 1000} s")
 
     private fun Client.messages(conversation: String): List<Message> = runBlocking { repo.messages(conversation).first() }
 

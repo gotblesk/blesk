@@ -21,20 +21,22 @@ class GroupCrypto(private val store: SignalStore, private val localUsername: () 
 
     /** The sender key for this group and epoch, packaged for distribution to members. */
     fun distribution(groupId: String, epoch: Int): String =
-        b64(GroupSessionBuilder(store).create(local(), distributionId(groupId, epoch)).serialize())
+        b64(synchronized(store.lock) { GroupSessionBuilder(store).create(local(), distributionId(groupId, epoch)) }.serialize())
 
     fun accept(sender: String, distribution: String) {
-        GroupSessionBuilder(store).process(address(sender), SenderKeyDistributionMessage(unb64(distribution)))
+        val message = SenderKeyDistributionMessage(unb64(distribution))
+        synchronized(store.lock) { GroupSessionBuilder(store).process(address(sender), message) }
     }
 
     fun encrypt(groupId: String, epoch: Int, content: Content): String {
         val plain = Padding.pad(json.encodeToString(Content.serializer(), content).encodeToByteArray())
-        return b64(GroupCipher(store, local()).encrypt(distributionId(groupId, epoch), plain).serialize())
+        return b64(synchronized(store.lock) { GroupCipher(store, local()).encrypt(distributionId(groupId, epoch), plain) }.serialize())
     }
 
     /** Throws if the sender's key for this group has not arrived or the message was tampered with. */
     fun decrypt(sender: String, body: String): Content {
-        val plain = GroupCipher(store, address(sender)).decrypt(unb64(body))
+        val bytes = unb64(body)
+        val plain = synchronized(store.lock) { GroupCipher(store, address(sender)).decrypt(bytes) }
         return json.decodeFromString(Content.serializer(), Padding.unpad(plain).decodeToString())
     }
 

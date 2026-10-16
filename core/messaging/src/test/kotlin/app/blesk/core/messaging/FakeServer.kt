@@ -206,7 +206,9 @@ class FakeServer {
 }
 
 class FakeTransport : Transport {
-    private val flow = MutableSharedFlow<ServerFrame>(replay = 64, extraBufferCapacity = 64)
+    // Like the server, which keeps every frame until it is acknowledged, nothing is ever dropped:
+    // a bounded buffer would lose frames whenever the client is slower than the sender.
+    private val flow = MutableSharedFlow<ServerFrame>(replay = Int.MAX_VALUE)
     override val frames: SharedFlow<ServerFrame> = flow
     override val connected: StateFlow<Boolean> = MutableStateFlow(true)
     override val link: StateFlow<Link> = MutableStateFlow(Link.Online)

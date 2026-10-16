@@ -61,6 +61,33 @@ class MessageCryptoTest {
     }
 
     @Test
+    fun `sending while receiving from the same person keeps the session intact`() {
+        val alice = Party("alice")
+        val bob = Party("bob")
+        alice.crypto.startSession(bob.bundle())
+        val hello = alice.crypto.encrypt("bob", content("привет"))
+        bob.crypto.decrypt(Envelope(0, "alice", hello.type, hello.body, 0))
+        val incoming = (1..ROUNDS).map { alice.crypto.encrypt("bob", content("a$it")) }
+
+        // Bob answers on one thread while his phone decrypts Alice's messages on another.
+        val replies = java.util.Collections.synchronizedList(mutableListOf<app.blesk.core.crypto.signal.Sealed>())
+        val sender = Thread { repeat(ROUNDS) { replies += bob.crypto.encrypt("alice", content("b$it")) } }
+        val receiver = Thread {
+            incoming.forEachIndexed { index, sealed -> bob.crypto.decrypt(Envelope(index + 1L, "alice", sealed.type, sealed.body, 0)) }
+        }
+        sender.start()
+        receiver.start()
+        sender.join()
+        receiver.join()
+
+        replies.forEachIndexed { index, sealed ->
+            assertEquals(Body.Text("b$index"), alice.crypto.decrypt(Envelope(index.toLong(), "bob", sealed.type, sealed.body, 0)).body)
+        }
+        val after = alice.crypto.encrypt("bob", content("ещё"))
+        assertEquals(Body.Text("ещё"), bob.crypto.decrypt(Envelope(ROUNDS + 1L, "alice", after.type, after.body, 0)).body)
+    }
+
+    @Test
     fun `safety numbers agree on both phones and catch a different key`() {
         val alice = Party("alice")
         val bob = Party("bob")
@@ -147,5 +174,9 @@ class MessageCryptoTest {
         val bytes = encrypted.readBytes().also { it[100] = (it[100].toInt() xor 1).toByte() }
         encrypted.writeBytes(bytes)
         assertThrows(IOException::class.java) { AttachmentCipher.decrypt(key, encrypted, ByteArrayOutputStream()) }
+    }
+
+    private companion object {
+        const val ROUNDS = 300
     }
 }

@@ -104,6 +104,7 @@ import java.io.IOException
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Chats on a real server. Every outgoing content is written to the encrypted outbox first and
@@ -183,6 +184,7 @@ class ServerChatRepository(
     private val typingState = MutableStateFlow<Set<String>>(emptySet())
     private val typingJobs = HashMap<String, Job>()
     private val flushLock = Mutex()
+    private val flushAgain = AtomicBoolean(false)
     private val contactCache = db.contacts().observeAll()
         .map { list -> list.associate { it.username to it.toModel() } }
         .stateIn(scope, SharingStarted.Eagerly, emptyMap())
@@ -870,15 +872,30 @@ class ServerChatRepository(
         flush()
     }
 
+    /**
+     * Sends what waits in the outbox. A call while a pass is running is not dropped: it asks for one
+     * more pass, so a message queued after the running pass read the outbox still goes out now
+     * rather than at the next send or reconnect.
+     */
     private suspend fun flush() {
-        if (!flushLock.tryLock()) return
-        try {
-            for (item in db.outbox().all()) {
-                if (!deliver(item)) break
+        flushAgain.set(true)
+        while (flushAgain.get() && flushLock.tryLock()) {
+            val online = try {
+                drainOutbox()
+            } finally {
+                flushLock.unlock()
             }
-        } finally {
-            flushLock.unlock()
+            // Offline: the next connection flushes again.
+            if (!online) return
         }
+    }
+
+    /** Passes over the outbox while more passes are asked for; false once the network is down. */
+    private suspend fun drainOutbox(): Boolean {
+        while (flushAgain.getAndSet(false)) {
+            if (!db.outbox().all().all { deliver(it) }) return false
+        }
+        return true
     }
 
     /** Returns false when the network is down and the rest of the queue should wait. */
