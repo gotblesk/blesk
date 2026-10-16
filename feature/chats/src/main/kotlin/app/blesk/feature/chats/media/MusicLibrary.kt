@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -49,22 +50,58 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
+/** Something the library can play: a song from a chat or one of your own. */
+sealed interface LibraryEntry {
+    val title: String
+    val artist: String
+}
+
 /** A song in the library: the message it came in, the chat's name and whether it is kept offline. */
-class LibrarySong(val message: Message, val music: Attachment.Music, val from: String, val kept: Boolean)
+class LibrarySong(val message: Message, val music: Attachment.Music, val from: String, val kept: Boolean) : LibraryEntry {
+    override val title: String get() = music.title.ifEmpty { music.name }
+    override val artist: String get() = music.artist
+}
+
+/** A song you added from the phone, with its cover: your own, from the tags, or none. */
+class OwnSong(
+    val id: String,
+    override val title: String,
+    override val artist: String,
+    val durationMillis: Long,
+    val cover: String?,
+    /** The cover is one you picked, so it can be taken off again. */
+    val ownCover: Boolean = false,
+) : LibraryEntry
 
 class LibraryActions(
     /** Plays [songs] from the [start]-th, shuffled if asked. */
-    val play: (songs: List<LibrarySong>, start: Int, shuffle: Boolean) -> Unit,
+    val play: (songs: List<LibraryEntry>, start: Int, shuffle: Boolean) -> Unit,
     /** Takes a song out of «Скачанное»; it stays in its chat. */
     val forget: (LibrarySong) -> Unit,
+    /** Your own music; null where it is not offered. */
+    val own: OwnMusicActions? = null,
+)
+
+/** What can be done with your own music. */
+class OwnMusicActions(
+    /** «Добавить с телефона»: the system picker for one or more audio files. */
+    val add: () -> Unit,
+    val rename: (id: String, title: String, artist: String) -> Unit,
+    /** Pick a photo and crop it square. */
+    val pickCover: (id: String) -> Unit,
+    val removeCover: (id: String) -> Unit,
+    /** Into a chat, chosen next. */
+    val send: (id: String) -> Unit,
+    val remove: (id: String) -> Unit,
 )
 
 private enum class Sort { New, Name }
 
 /**
- * Every song from the chats and everything kept for listening offline: «Скачанное» first, then
- * «Из чатов». Search by title or artist, newest first or by name, «Играть всё» and «Перемешать».
- * A downloaded song swiped aside leaves «Скачанное».
+ * Your own music, everything kept for listening offline and every song from the chats: «Моя
+ * музыка» first, then «Скачанное», then «Из чатов». Search by title or artist, newest first or by
+ * name, «Играть всё» and «Перемешать». A downloaded song swiped aside leaves «Скачанное»; a long
+ * press on your own song renames it, changes its cover, sends it to a chat or deletes it.
  */
 @Composable
 fun MusicLibrary(
@@ -72,17 +109,22 @@ fun MusicLibrary(
     playingPath: String?,
     actions: LibraryActions,
     contentPadding: PaddingValues = PaddingValues(),
+    own: ImmutableList<OwnSong> = persistentListOf(),
+    playingOwn: String? = null,
 ) {
     val query = rememberTextFieldState()
     var sort by rememberSaveable { mutableIntStateOf(0) }
+    var menu by remember { mutableStateOf<OwnSong?>(null) }
     val needle = query.text.toString().trim()
-    val shown = songs
-        .filter { needle.isEmpty() || it.music.title.contains(needle, true) || it.music.artist.contains(needle, true) }
-        .let { list -> if (Sort.entries[sort] == Sort.Name) list.sortedBy { it.music.title.lowercase() } else list }
+    fun <T : LibraryEntry> List<T>.shown() = filter {
+        needle.isEmpty() || it.title.contains(needle, true) || it.artist.contains(needle, true)
+    }.let { list -> if (Sort.entries[sort] == Sort.Name) list.sortedBy { it.title.lowercase() } else list }
+    val mine = own.shown()
+    val shown = songs.shown()
     val kept = shown.filter { it.kept }
     val rest = shown.filterNot { it.kept }
-    val ordered = kept + rest
-    fun play(song: LibrarySong) = actions.play(ordered, ordered.indexOf(song), false)
+    val ordered: List<LibraryEntry> = mine + kept + rest
+    fun play(entry: LibraryEntry) = actions.play(ordered, ordered.indexOf(entry), false)
     LazyColumn(contentPadding = contentPadding) {
         item(key = "search") {
             TextInput(label = stringResource(R.string.library_search), state = query)
@@ -92,11 +134,22 @@ fun MusicLibrary(
                 onSelect = { sort = it },
             )
         }
-        if (songs.isEmpty()) {
+        actions.own?.let { ownActions ->
+            item(key = "add") {
+                Button(
+                    text = stringResource(R.string.music_add),
+                    icon = BleskIcons.Plus,
+                    kind = ButtonKind.Secondary,
+                    onClick = ownActions.add,
+                    modifier = Modifier.padding(horizontal = Blesk.dimens.gutter, vertical = 4.dp),
+                )
+            }
+        }
+        if (songs.isEmpty() && own.isEmpty()) {
             item(key = "empty") { StateMessage(stringResource(R.string.library_empty)) }
             return@LazyColumn
         }
-        if (shown.isEmpty()) {
+        if (ordered.isEmpty()) {
             item(key = "none") { StateMessage(stringResource(R.string.library_nothing_found)) }
             return@LazyColumn
         }
@@ -120,6 +173,17 @@ fun MusicLibrary(
                 )
             }
         }
+        if (mine.isNotEmpty()) {
+            item(key = "mine") { SectionHeader(stringResource(R.string.music_mine)) }
+            items(mine, key = { "own:" + it.id }) { song ->
+                OwnSongRow(
+                    song = song,
+                    playing = song.id == playingOwn,
+                    onPlay = { play(song) },
+                    onMenu = actions.own?.let { { menu = song } },
+                )
+            }
+        }
         if (kept.isNotEmpty()) {
             item(key = "kept") { SectionHeader(stringResource(R.string.library_downloaded)) }
             items(kept, key = { "kept:" + it.message.id }) { song ->
@@ -133,6 +197,8 @@ fun MusicLibrary(
             }
         }
     }
+    val ownActions = actions.own
+    menu?.let { song -> if (ownActions != null) OwnSongSheet(song, ownActions, onClose = { menu = null }) }
 }
 
 @Composable

@@ -112,6 +112,8 @@ import app.blesk.feature.chats.media.MediaController
 import app.blesk.feature.chats.media.MiniPlayer
 import app.blesk.feature.chats.media.MiniPlayerActions
 import app.blesk.feature.chats.media.MusicLibrary
+import app.blesk.feature.chats.media.OwnMusicActions
+import app.blesk.feature.chats.media.OwnSong
 import app.blesk.feature.chats.media.PlayerActions
 import app.blesk.feature.chats.media.PlayerSheet
 import app.blesk.feature.debug.DebugScreen
@@ -762,7 +764,16 @@ class KeyScreensScreenshotTest(private val name: String) {
             Attachment.Music("b.mp3", "b.mp3", "Группа крови", "Кино", 286_000, 9_200_000, "audio/mpeg"),
             Attachment.Music("c.mp3", "c.mp3", "Восьмиклассница", "Кино", 189_000, 7_100_000, "audio/mpeg"),
         ).mapIndexed { i, song -> LibrarySong(base.copy(id = "m$i", attachment = song), song, "Аня Соколова", kept = i == 0) }
-        MusicLibrary(songs.toImmutableList(), playingPath = "a.flac", actions = LibraryActions({ _, _, _ -> }, {}))
+        val own = persistentListOf(
+            OwnSong("o1", "Демо для студии", "Ева", 214_000, cover = null),
+            OwnSong("o2", "Ночной город", "", 187_000, cover = null),
+        )
+        MusicLibrary(
+            songs.toImmutableList(),
+            playingPath = "a.flac",
+            actions = LibraryActions({ _, _, _ -> }, {}, OwnMusicActions({}, { _, _, _ -> }, {}, {}, {}, {})),
+            own = own,
+        )
     }
 
     /** The bar at rest with motion on: the action capsule's bridge only shows when bridges are allowed. */

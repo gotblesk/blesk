@@ -182,7 +182,7 @@ private fun NowPlaying(playback: Playback, level: () -> Float, output: String, a
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Cover(playback.title, info, level, Modifier.fillMaxWidth(COVER_SHARE).aspectRatio(1f))
+        Cover(playback.title, playback.track?.cover, info, level, Modifier.fillMaxWidth(COVER_SHARE).aspectRatio(1f))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = playback.title.ifEmpty { stringResource(R.string.player_untitled) },
@@ -213,15 +213,19 @@ private fun NowPlaying(playback: Playback, level: () -> Float, output: String, a
     }
 }
 
-/** The cover from the tags, or «Свет» in a hue taken from the title; either breathes with the loudness. */
+/**
+ * The song's own cover if it has one, else the one from the tags, else «Свет» in a hue taken from
+ * the title; whichever it is breathes with the loudness.
+ */
 @Composable
-private fun Cover(title: String, info: TrackInfo?, level: () -> Float, modifier: Modifier) {
+private fun Cover(title: String, own: String?, info: TrackInfo?, level: () -> Float, modifier: Modifier) {
     val bytes = info?.cover
-    val picture by produceState<ImageBitmap?>(null, bytes) {
-        value = bytes?.let { data ->
-            withContext(Dispatchers.Default) {
-                runCatching { BitmapFactory.decodeByteArray(data, 0, data.size)?.asImageBitmap() }.getOrNull()
-            }
+    val picture by produceState<ImageBitmap?>(null, own, bytes) {
+        value = withContext(Dispatchers.Default) {
+            runCatching {
+                own?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
+                    ?: bytes?.let { data -> BitmapFactory.decodeByteArray(data, 0, data.size)?.asImageBitmap() }
+            }.getOrNull()
         }
     }
     val light = Blesk.colors.light

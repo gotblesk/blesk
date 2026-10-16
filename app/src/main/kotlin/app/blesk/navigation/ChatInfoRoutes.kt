@@ -175,7 +175,7 @@ internal fun ShareRoute(container: AppContainer, onDone: () -> Unit) {
                     } else {
                         container.media.importFile(uri)
                     }
-                }
+                } + shared.attachments
                 picked.forEach { id ->
                     shared.text?.let { chats.send(id, it) }
                     attachments.filterNotNull().forEach { chats.sendAttachment(id, it) }

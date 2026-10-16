@@ -17,6 +17,7 @@ import app.blesk.core.data.demo.DemoSeed
 import app.blesk.core.data.diagnostics.CrashStore
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.EventLog
+import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.AutoDownload
@@ -45,6 +46,7 @@ import app.blesk.core.network.ProxyKind
 import app.blesk.core.network.ServerAddress
 import app.blesk.economy.EconomyMonitor
 import app.blesk.feature.profile.ProfileDraft
+import app.blesk.music.OwnMusic
 import app.blesk.update.Updater
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -94,6 +96,7 @@ class AppContainer(context: Context) {
     val stickers by lazy { StickerStore(context) }
     val stickerMaker = StickerMaker(context)
     val keptOffline = KeptOffline(context)
+    val ownMusic = OwnMusic(context, media, scope)
     val phrase = PhraseVault(context)
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
     val notices = Notices(scope)
@@ -268,7 +271,12 @@ class AppContainer(context: Context) {
 data class InAppNote(val conversationId: String, val title: String, val line: String)
 
 /** What another app shared: text (or a link) and files; the files are readable while the share lasts. */
-data class Shared(val text: String?, val files: List<android.net.Uri>)
+data class Shared(
+    val text: String?,
+    val files: List<android.net.Uri>,
+    /** Ready attachments from inside the app, such as a song from your own library. */
+    val attachments: List<Attachment> = emptyList(),
+)
 
 internal fun ProxySetting.toConfig(): ProxyConfig? =
     if (usable) ProxyConfig(if (socks) ProxyKind.Socks5 else ProxyKind.Http, host, port) else null

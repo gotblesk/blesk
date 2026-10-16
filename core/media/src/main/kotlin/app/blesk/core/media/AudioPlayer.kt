@@ -62,6 +62,8 @@ data class Track(
     val from: String = "",
     val conversationId: String? = null,
     val messageId: String? = null,
+    /** A cover picture of its own; without it the player looks in the file's tags. */
+    val cover: String? = null,
 )
 
 /**
