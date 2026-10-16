@@ -38,9 +38,7 @@ internal fun Route.postRoutes(services: Services) {
         post {
             val space = call.space(services)
             val author = call.account
-            val role = services.requireRole(space, author.id, SpaceRole.Member)
-            // In a channel only the owner and admins publish; in a room every member writes.
-            ensure(space.kind == SpaceKind.Room || role != SpaceRole.Member) { forbidden() }
+            services.requirePublisher(space, author.id)
             ensure(services.postRateLimiter.tryAcquire(author.id.toString())) {
                 ApiException(HttpStatusCode.TooManyRequests, ErrorCodes.RATE_LIMITED)
             }
@@ -53,7 +51,7 @@ internal fun Route.postRoutes(services: Services) {
                 ensure(services.posts.find(space.id, replyTo)?.post?.channel == request.channel) { badRequest(message = "replyTo") }
             }
             request.attachment?.let { attachment ->
-                ensure(services.attachments.exists(attachment.id)) { badRequest(ErrorCodes.UNKNOWN_ATTACHMENT) }
+                ensure(services.attachments.isComplete(attachment.id)) { badRequest(ErrorCodes.UNKNOWN_ATTACHMENT) }
             }
             val draft = PostDraft(
                 spaceId = space.id,
@@ -89,6 +87,8 @@ internal fun Route.postRoutes(services: Services) {
             val space = call.space(services)
             val stored = call.storedPost(services, space)
             ensure(stored.authorId == call.account.id) { forbidden() }
+            // Someone banned, gone or demoted since keeps no say over what is shown under the space's name.
+            services.requirePublisher(space, call.account.id)
             val text = call.receiveJson<EditPost>(POST_REQUEST_LIMIT).text
             ensure(text.isNotBlank() || stored.post.attachment != null) { badRequest(message = "empty") }
             validText(text)
@@ -100,12 +100,23 @@ internal fun Route.postRoutes(services: Services) {
         delete("{id}") {
             val space = call.space(services)
             val stored = call.storedPost(services, space)
-            if (stored.authorId != call.account.id) services.requireRole(space, call.account.id, SpaceRole.Admin)
+            if (stored.authorId != call.account.id) {
+                val callerRole = services.requireRole(space, call.account.id, SpaceRole.Admin)
+                // An author who left or was banned has no rank left to protect them.
+                val authorRole = services.spaces.role(space.id, stored.authorId)
+                ensure(authorRole == null || outranks(callerRole, authorRole)) { forbidden() }
+            }
             services.posts.delete(stored.post.id)
             services.pushToMembers(space.id, ServerFrame.SpacePostChanged(space.handle, stored.post.id, null))
             call.respond(HttpStatusCode.NoContent)
         }
     }
+}
+
+/** Who may write in [space] now: every member of a room, only the owner and admins of a channel. */
+private suspend fun Services.requirePublisher(space: Space, accountId: Long) {
+    val role = requireRole(space, accountId, SpaceRole.Member)
+    ensure(space.kind == SpaceKind.Room || role != SpaceRole.Member) { forbidden() }
 }
 
 private suspend fun ApplicationCall.storedPost(services: Services, space: Space): StoredPost {

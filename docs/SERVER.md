@@ -85,16 +85,21 @@ QR-код можно показать ещё раз в любой момент: 
 | Метод | Путь | Доступ |
 |---|---|---|
 | GET | `/v1/info` | открыто |
+| GET | `/v1/usernames/{name}` | открыто, лимит запросов |
 | POST | `/v1/accounts` | открыто, лимит запросов |
-| POST | `/v1/auth/challenge`, `/v1/auth/token` | открыто, лимит запросов |
-| GET | `/v1/accounts/{username}` | токен |
-| PUT | `/v1/keys` | токен |
-| GET | `/v1/keys/status`, `/v1/keys/{username}` | токен |
+| POST | `/v1/auth/challenge`, `/v1/auth/token` | открыто, лимит запросов; токен — только подписью ключа этого аккаунта |
+| POST | `/v1/account/recover` | открыто, лимит запросов; нужен токен восстановления |
+| GET | `/v1/accounts/{username}` | токен; скрытый аккаунт — только с `?link=` |
+| DELETE | `/v1/account`; PUT `/v1/account/recovery`, `/v1/discovery` | токен; только свой аккаунт |
+| PUT | `/v1/keys` | токен; ключи подписаны ключом личности этого аккаунта |
+| GET | `/v1/keys/status`, `/v1/keys/{username}` | токен; скрытый аккаунт — только с `?link=` |
 | POST | `/v1/messages/{username}` | токен |
 | POST | `/v1/attachments` (тело `application/octet-stream`) | токен |
-| GET | `/v1/attachments/{id}` | токен |
-| WebSocket | `/v1/ws` (токен в `Authorization` или `?token=`) | токен |
-| POST | `/v1/calls/token` (тело `{"room": "..."}`, ответ `{"url", "token"}`) | токен, 30 в минуту на аккаунт |
+| POST | `/v1/attachments/uploads` | токен; загрузка по частям записывается на того, кто её начал |
+| PUT, GET, POST | `/v1/attachments/{id}/chunks/{n}`, `/chunks`, `/complete` | токен того, кто начал загрузку |
+| GET | `/v1/attachments/{id}` | токен; только законченные; id — 128 случайных бит, файл зашифрован |
+| WebSocket | `/v1/ws` (токен в `Authorization` или `?token=`; в адресе — только здесь) | токен; подтверждения — только своих сообщений |
+| POST | `/v1/calls/token` (тело `{"room": "..."}`, ответ `{"url", "token"}`) | токен, 30 в минуту на аккаунт; identity — всегда имя вызывающего |
 
 **Каналы и комнаты** (`/v1/spaces`, контракт — `Spaces.kt`, без E2EE). Для всех запросов нужен токен.
 
@@ -113,8 +118,8 @@ QR-код можно показать ещё раз в любой момент: 
 | DELETE | `/v1/spaces/{handle}/channels/{id}` | владелец, админ; последний удалить нельзя |
 | POST | `/v1/spaces/{handle}/posts` | в канале — владелец и админы, в комнате — любой участник |
 | GET | `/v1/spaces/{handle}/posts?channel=&before=&limit=` | любой, новые сначала |
-| PATCH | `/v1/spaces/{handle}/posts/{id}` | автор |
-| DELETE | `/v1/spaces/{handle}/posts/{id}` | автор, владелец, админ |
+| PATCH | `/v1/spaces/{handle}/posts/{id}` | автор, пока он может писать здесь (не забанен, не вышел, в канале — ещё админ) |
+| DELETE | `/v1/spaces/{handle}/posts/{id}` | автор; владелец и админ — если автор ниже по роли или уже не участник |
 
 Новые, изменённые и удалённые посты приходят по WebSocket всем участникам в кадрах `post` и `post_changed`. В очередь эти кадры не попадают: после переподключения клиент сам загружает историю. Повтор поста с тем же `clientId` не создаёт новый пост. Посты ограничены 30 в минуту на аккаунт.
 

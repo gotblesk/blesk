@@ -62,8 +62,9 @@ class AttachmentRepository(private val database: Database) {
         database.transaction { connection -> connection.update("UPDATE attachments SET complete = TRUE WHERE id = ?", id) }
     }
 
-    suspend fun exists(id: String): Boolean = database.transaction { connection ->
-        connection.queryOne("SELECT 1 FROM attachments WHERE id = ?", id) { true } ?: false
+    /** False for an unknown id and for a chunked upload that is still unfinished. */
+    suspend fun isComplete(id: String): Boolean = database.transaction { connection ->
+        connection.queryOne("SELECT complete FROM attachments WHERE id = ?", id) { it.getBoolean("complete") } ?: false
     }
 
     suspend fun forget(id: String) {

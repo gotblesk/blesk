@@ -201,7 +201,7 @@ internal suspend fun Services.pushToMembers(spaceId: Long, frame: ServerFrame) {
 }
 
 /** Moderators act only on people strictly below them: an admin cannot touch another admin or the owner. */
-private fun outranks(caller: SpaceRole, target: SpaceRole) = caller.ordinal < target.ordinal
+internal fun outranks(caller: SpaceRole, target: SpaceRole) = caller.ordinal < target.ordinal
 
 /** Cleaned as on the phone; a title of nothing but invisible characters is no title. */
 private fun validTitle(title: String): String {
