@@ -1,5 +1,8 @@
 {
   "attribution": { "commit": "", "pr": "", "sessionUrl": false },
+  "permissions": {
+    "allow": ["Bash(ssh:*)", "Bash(scp:*)", "Bash(sshpass:*)", "Bash(ssh-keygen:*)", "Bash(ssh-keyscan:*)"]
+  },
   "hooks": {
     "SessionStart": [
       {
