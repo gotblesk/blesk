@@ -23,6 +23,12 @@ object Api {
     const val ATTACHMENTS = "/v1/attachments"
     const val SOCKET = "/v1/ws"
     const val INFO = "/v1/info"
+
+    /** `GET /health`: answers 200 while the server and its database work; outside /v1 for probes. */
+    const val HEALTH = "/health"
+
+    /** `GET` the signed-in account's invites, `POST` a new one. */
+    const val INVITES = "/v1/invites"
     const val DISCOVERY = "/v1/discovery"
 
     /** The signed-in account itself; DELETE removes it with its keys and waiting messages. */
@@ -136,10 +142,56 @@ data class RegisterRequest(
     val signature: String,
     /** Base64 SHA-256 of the recovery phrase's confirmation token, stored with the account from the start. */
     val recoveryHash: String? = null,
+    /** The invite code; a server that registers by invite refuses without a usable one. */
+    val invite: String? = null,
 )
 
 @Serializable
 data class AccountInfo(val username: String, val identityKey: String)
+
+/**
+ * Registration by invite. Each person has up to [LIMIT] unused invites at a time; one is good for
+ * one account and for [TTL_DAYS] days. Who came by whose invite is kept [KEEP_DAYS] days after,
+ * then forgotten. An invite travels as a link to the site, which opens the app when it is there.
+ */
+object Invites {
+    const val LIMIT = 5
+    const val TTL_DAYS = 7
+    const val KEEP_DAYS = 30
+    const val CODE_LENGTH = 12
+
+    /** No look-alike letters or digits, so a code read aloud or retyped still works. */
+    const val ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+
+    private const val LINK_PREFIX = "https://blesk.su/i/"
+    private val code = Regex("^[$ALPHABET]{$CODE_LENGTH}$")
+    private val link = Regex("^(?:https?://)?(?:www\\.)?blesk\\.su/i/([^/?#]+)/?(?:[?#].*)?$", RegexOption.IGNORE_CASE)
+
+    fun link(code: String) = LINK_PREFIX + code
+
+    fun isValid(code: String) = this.code.matches(code)
+
+    /** A code from what was typed, pasted or scanned: the code itself or its link; null if neither. */
+    fun parse(text: String): String? {
+        val trimmed = text.trim()
+        val candidate = link.matchEntire(trimmed)?.groupValues?.get(1) ?: trimmed
+        return candidate.lowercase().takeIf(::isValid)
+    }
+}
+
+/** One of the signed-in person's invites; [usedBy] is who came by it, while that is still kept. */
+@Serializable
+data class InviteInfo(
+    val code: String,
+    val createdAtMillis: Long,
+    val expiresAtMillis: Long,
+    val usedBy: String? = null,
+    val usedAtMillis: Long? = null,
+)
+
+/** The person's invites, newest first, and how many more can be made now. */
+@Serializable
+data class InviteList(val invites: List<InviteInfo>, val left: Int)
 
 /** SHA-256 of the confirmation token, in Base64; the token itself never leaves the phone except to recover. */
 @Serializable
