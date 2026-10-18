@@ -51,11 +51,39 @@ for name in VPS_HOST VPS_USER VPS_SSH_KEY BLESK_BRANCH; do
     [[ -n ${!name:-} ]] || fail "$name is required"
 done
 
+# Writes VPS_SSH_KEY as ssh expects it. A key pasted on Windows may carry CR line ends, indentation
+# or, flattened into one line, spaces where its line breaks were; ssh refuses all of these.
+write_key() {
+    local key=${VPS_SSH_KEY//$'\r'/} begin='-----BEGIN OPENSSH PRIVATE KEY-----' end='-----END OPENSSH PRIVATE KEY-----'
+    key=$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d' <<<"$key")
+    if [[ $key == "$begin "*" $end" ]]; then
+        local body=${key#"$begin "} lines
+        read -ra lines <<<"${body%" $end"}"
+        key=$(printf '%s\n' "$begin" "${lines[@]}" "$end")
+    fi
+    printf '%s\n' "$key" >"$1"
+    chmod 600 "$1"
+}
+
+# Says what VPS_SSH_KEY holds instead of a private key, without printing any of it.
+explain_key() {
+    local first
+    first=$(grep -m1 -v '^[[:space:]]*$' "$1" || true)
+    case $first in
+        ssh-ed25519\ * | ssh-rsa\ * | ecdsa-sha2-* | *' ssh-ed25519 '* | *' ssh-rsa '*)
+            echo "VPS_SSH_KEY holds a public key (a line with ssh-ed25519 or ssh-rsa), the server's or the deploy key's:" \
+                "it needs the private key, the text from BEGIN OPENSSH PRIVATE KEY to END OPENSSH PRIVATE KEY" ;;
+        '' ) echo "VPS_SSH_KEY is blank" ;;
+        -----BEGIN*)
+            echo "VPS_SSH_KEY starts like a private key but is cut or protected by a passphrase ($(wc -l <"$1") lines)" ;;
+        *) echo "VPS_SSH_KEY is not an SSH key: it holds $(wc -l <"$1") line(s) of $(wc -c <"$1") characters" ;;
+    esac
+}
+
 dir=$(mktemp -d)
 trap 'rm -rf "$dir"' EXIT
-printf '%s\n' "$VPS_SSH_KEY" >"$dir/key"
-chmod 600 "$dir/key"
-public_key=$(ssh-keygen -y -f "$dir/key" 2>/dev/null) || fail "VPS_SSH_KEY is not a private SSH key without a passphrase"
+write_key "$dir/key"
+public_key=$(ssh-keygen -y -P '' -f "$dir/key" 2>/dev/null) || fail "$(explain_key "$dir/key")"
 # The public half is not secret; kept in the run summary, it can be given to a new server on a move.
 if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
     printf 'Deploy key to authorize on a new server:\n~~~\n%s\n~~~\n' "$public_key" >>"$GITHUB_STEP_SUMMARY"
