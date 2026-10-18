@@ -158,14 +158,14 @@ Write-Ok 'Ключ для GitHub пускает только к обновлен
 
 Write-Step 'Секреты для GitHub'
 $copied = $false
-$pasteHint = 'вставь из буфера обмена (Ctrl+V)'
+$pasteHint = 'вставь из буфера обмена (Ctrl+V) целиком, от строки -----BEGIN до строки -----END'
 try {
     $outOfHistory = Copy-KeyToClipboard ([IO.File]::ReadAllText($server.DeployKey))
     $copied = $true
     Write-Info 'Ключ для GitHub скопирован в буфер обмена (на экран он не выводится).'
 } catch {
     Write-Info 'Скопировать в буфер обмена не получилось.'
-    $pasteHint = "всё содержимое файла $($server.DeployKey) (открой его в Блокноте)"
+    $pasteHint = "всё содержимое файла $($server.DeployKey) (открой его в Блокноте), от строки -----BEGIN до строки -----END"
 }
 # The server's own public key, as this laptop saw it while the password was typed: GitHub then
 # talks only to this server and never hands the backup secrets to one that answers in its place.

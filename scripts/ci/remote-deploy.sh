@@ -51,12 +51,15 @@ for name in VPS_HOST VPS_USER VPS_SSH_KEY BLESK_BRANCH; do
     [[ -n ${!name:-} ]] || fail "$name is required"
 done
 
-# Writes VPS_SSH_KEY as ssh expects it. A key pasted on Windows may carry CR line ends, indentation
-# or, flattened into one line, spaces where its line breaks were; ssh refuses all of these.
+# Writes VPS_SSH_KEY as ssh expects it. A key pasted on Windows may carry CR line ends, indentation,
+# spaces where its line breaks were (flattened into one line) or lack its BEGIN and END lines when
+# only the text between them was selected; ssh refuses all of these.
 write_key() {
     local key=${VPS_SSH_KEY//$'\r'/} begin='-----BEGIN OPENSSH PRIVATE KEY-----' end='-----END OPENSSH PRIVATE KEY-----'
     key=$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d' <<<"$key")
-    if [[ $key == "$begin "*" $end" ]]; then
+    if [[ $key != -----BEGIN* && $(base64 -d <<<"$key" 2>/dev/null | head -c 14) == openssh-key-v1 ]]; then
+        key=$(printf '%s\n' "$begin" "$key" "$end")
+    elif [[ $key == "$begin "*" $end" ]]; then
         local body=${key#"$begin "} lines
         read -ra lines <<<"${body%" $end"}"
         key=$(printf '%s\n' "$begin" "${lines[@]}" "$end")
