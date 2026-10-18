@@ -58,7 +58,8 @@ fun Route.keyRoutes(services: Services) {
         val owner = services.accounts.find(username).orFail { notFound() }
         // Without this a hidden account could still be found, and written to, through its keys.
         ensure(owner.visibleTo(call.account.id, call.request.queryParameters[Api.LINK])) { notFound() }
-        val bundle = services.keys.takeBundle(owner.id).orFail { notFound(ErrorCodes.NO_KEYS) }
+        val oneTimeKeys = services.oneTimeKeyBudget.tryAcquire("${call.account.id}:${owner.id}")
+        val bundle = services.keys.takeBundle(owner.id, oneTimeKeys).orFail { notFound(ErrorCodes.NO_KEYS) }
         if (bundle.remaining.isLow()) {
             services.hub.push(owner.id, ServerFrame.KeysLow(bundle.remaining.preKeys, bundle.remaining.kyberPreKeys))
         }

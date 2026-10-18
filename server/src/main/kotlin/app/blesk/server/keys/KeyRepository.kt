@@ -60,8 +60,13 @@ class KeyRepository(private val database: Database) {
      * Hands out one EC and one Kyber one-time key, deleting them in the same transaction. SKIP LOCKED
      * lets two senders fetching at once each get a different key instead of waiting on each other.
      */
-    suspend fun takeBundle(accountId: Long): Bundle? = database.transaction { connection ->
+    /** The keys to start a session with [accountId]; without [oneTimeKeys] only the signed and last-resort ones. */
+    suspend fun takeBundle(accountId: Long, oneTimeKeys: Boolean = true): Bundle? = database.transaction { connection ->
         val signed = connection.signed("signed_prekeys", accountId) ?: return@transaction null
+        if (!oneTimeKeys) {
+            val lastResort = connection.signed("kyber_last_resort_keys", accountId) ?: return@transaction null
+            return@transaction Bundle(signed, null, lastResort, connection.status(accountId))
+        }
         val preKey = connection.queryOne(
             """
             DELETE FROM one_time_prekeys WHERE (account_id, key_id) = (

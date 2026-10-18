@@ -56,6 +56,17 @@ class Services(
     val invites = InviteRepository(database)
     val health = DatabaseHealth(database)
 
+    /**
+     * One-time keys one person may take from another, keyed "taker:owner": a few at once (a first
+     * message, a reset session), then one an hour. Past that the bundle goes out without them, so
+     * asking again and again cannot empty someone's one-time keys.
+     */
+    val oneTimeKeyBudget =
+        RateLimiter(capacity = ONE_TIME_KEYS_AT_ONCE, refillPerMinute = 1.0 / MINUTES_PER_ONE_TIME_KEY)
+
     /** Whole milliseconds: what goes into the database reads back exactly the same (Postgres keeps microseconds and rounds). */
     fun now(): Instant = clock.instant().truncatedTo(ChronoUnit.MILLIS)
 }
+
+private const val ONE_TIME_KEYS_AT_ONCE = 5
+private const val MINUTES_PER_ONE_TIME_KEY = 60

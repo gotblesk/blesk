@@ -14,18 +14,25 @@ import io.ktor.server.routing.RouteSelectorEvaluation
 import io.ktor.server.routing.RoutingResolveContext
 import java.util.concurrent.ConcurrentHashMap
 
-/** Token bucket per client address. Lives in memory: a restart simply refills everyone. */
-class RateLimiter(private val config: RateLimitConfig, private val nanoTime: () -> Long = System::nanoTime) {
+/** Token bucket per key (a client address, a person). Lives in memory: a restart simply refills everyone. */
+class RateLimiter(
+    private val capacity: Int,
+    refillPerMinute: Double,
+    private val nanoTime: () -> Long = System::nanoTime,
+) {
+    constructor(config: RateLimitConfig, nanoTime: () -> Long = System::nanoTime) :
+        this(config.capacity, config.refillPerMinute.toDouble(), nanoTime)
+
     private class Bucket(var tokens: Double, var updatedAt: Long)
 
     private val buckets = ConcurrentHashMap<String, Bucket>()
-    private val refillPerNano = config.refillPerMinute / NANOS_PER_MINUTE
+    private val refillPerNano = refillPerMinute / NANOS_PER_MINUTE
 
     fun tryAcquire(key: String): Boolean {
         val now = nanoTime()
-        val bucket = buckets.computeIfAbsent(key) { Bucket(config.capacity.toDouble(), now) }
+        val bucket = buckets.computeIfAbsent(key) { Bucket(capacity.toDouble(), now) }
         return synchronized(bucket) {
-            bucket.tokens = minOf(config.capacity.toDouble(), bucket.tokens + (now - bucket.updatedAt) * refillPerNano)
+            bucket.tokens = minOf(capacity.toDouble(), bucket.tokens + (now - bucket.updatedAt) * refillPerNano)
             bucket.updatedAt = now
             if (bucket.tokens >= 1) {
                 bucket.tokens -= 1
@@ -40,7 +47,7 @@ class RateLimiter(private val config: RateLimitConfig, private val nanoTime: () 
     fun evictIdle() {
         val now = nanoTime()
         buckets.entries.removeIf { (_, bucket) ->
-            synchronized(bucket) { bucket.tokens + (now - bucket.updatedAt) * refillPerNano >= config.capacity }
+            synchronized(bucket) { bucket.tokens + (now - bucket.updatedAt) * refillPerNano >= capacity }
         }
     }
 

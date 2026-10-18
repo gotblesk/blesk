@@ -35,6 +35,25 @@ class KeysTest {
     }
 
     @Test
+    fun `asking for someone's keys again and again cannot empty their one-time keys`() = serverTest { harness ->
+        val alice = harness.register()
+        val carol = harness.register()
+        val bob = harness.register()
+        harness.uploadKeys(bob, harness.keys(bob, preKeys = 20, kyberPreKeys = 20))
+        suspend fun bundleFor(user: TestUser) =
+            harness.client.get("${Api.KEYS}/${bob.username}") { bearerAuth(user.token) }.body<PreKeyBundleDto>()
+
+        val fromAlice = (1..8).map { bundleFor(alice) }
+
+        assertEquals(5, fromAlice.count { it.preKey != null })
+        assertEquals(List(3) { Harness.LAST_RESORT_ID }, fromAlice.drop(5).map { it.kyberPreKey.id })
+        assertNull(fromAlice.last().preKey)
+        assertEquals(KeyStatus(15, 15), harness.client.get(Api.KEY_STATUS) { bearerAuth(bob.token) }.body<KeyStatus>())
+        val fromCarol = bundleFor(carol)
+        assertEquals(6, fromCarol.preKey?.id)
+    }
+
+    @Test
     fun `one-time keys add up while signed keys are replaced`() = serverTest { harness ->
         val bob = harness.register()
         harness.uploadKeys(bob, harness.keys(bob, preKeys = 3, kyberPreKeys = 1))

@@ -114,7 +114,7 @@ sudo запускает команду с чистым окружением и �
 | GET | `/v1/accounts/{username}` | токен; скрытый аккаунт — только с `?link=` |
 | DELETE | `/v1/account`; PUT `/v1/account/recovery`, `/v1/discovery` | токен; только свой аккаунт |
 | PUT | `/v1/keys` | токен; ключи подписаны ключом личности этого аккаунта |
-| GET | `/v1/keys/status`, `/v1/keys/{username}` | токен; скрытый аккаунт — только с `?link=` |
+| GET | `/v1/keys/status`, `/v1/keys/{username}` | токен; скрытый аккаунт — только с `?link=`; одноразовых ключей одному человеку — 5 сразу, потом 1 в час, дальше связка без них |
 | POST | `/v1/messages/{username}` | токен |
 | POST | `/v1/attachments` (тело `application/octet-stream`) | токен |
 | POST | `/v1/attachments/uploads` | токен; загрузка по частям записывается на того, кто её начал |
