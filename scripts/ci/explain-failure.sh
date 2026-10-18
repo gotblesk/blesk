@@ -46,7 +46,7 @@ while IFS= read -r report; do
             message = ""
             if (match($0, /message="[^"]*"/)) message = substr($0, RSTART + 9, RLENGTH - 10)
             gsub(/&#10;|&#13;/, " ", message); gsub(/&lt;/, "<", message); gsub(/&gt;/, ">", message)
-            gsub(/&quot;/, "\"", message); gsub(/&apos;/, "'", message); gsub(/&amp;/, "\\&", message)
+            gsub(/&quot;/, "\"", message); gsub(/&apos;/, "\047", message); gsub(/&amp;/, "\\&", message)
             printf "%s.%s\t%s\n", cls, test, substr(message, 1, 300)
         }
     ' "$report")
