@@ -44,10 +44,10 @@ Android Studio даёт эмулятор («второй телефон» на �
 ### 0.4. Репозиторий со скриптами
 
 ```
-cd $HOME; git clone https://github.com/gotblesk/blesk.git; cd blesk; git checkout claude/file-review-0lky6f
+cd $HOME; if (Test-Path blesk) { Rename-Item blesk "blesk-old-$(Get-Date -Format yyyyMMdd-HHmmss)" }; git clone --branch claude/file-review-0lky6f https://github.com/gotblesk/blesk.git; cd blesk
 ```
 
-Появится папка `C:\Users\<твоё имя>\blesk`. Перед каждым использованием скриптов обнови её — эта команда переходит в папку и скачивает свежие версии:
+Появится папка `C:\Users\<твоё имя>\blesk`. Если такая папка уже была, команда не трогает её содержимое, а переименовывает в `blesk-old-…`. Перед каждым использованием скриптов обнови её — эта команда переходит в папку и скачивает свежие версии:
 
 ```
 cd $HOME\blesk; git pull
