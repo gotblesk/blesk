@@ -189,7 +189,7 @@ sudo запускает команду с чистым окружением и �
 
 | Адрес | Что отдаёт |
 |---|---|
-| `/`, `/how`, `/privacy`, `/terms` | страницы (`<путь>/index.html`) |
+| `/`, `/security`, `/privacy`, `/terms` | страницы (`<путь>/index.html`) |
 | `/i/<код>`, `/@<имя>`, `/c/<имя>`, `/r/<код>` | `invite/index.html` — «Тебя пригласили в blesk»; если blesk установлен, Android открывает ссылку сразу в приложении |
 | `/.well-known/assetlinks.json` | отпечаток ключа подписи для Android App Links |
 | `/download`, `/download/` | перенаправление на `/download/blesk.apk`, файл с `Content-Disposition: attachment` |
