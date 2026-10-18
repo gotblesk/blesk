@@ -44,11 +44,16 @@ jobs:
           BLESK_KEYSTORE_PASSWORD: ${{ secrets.BLESK_KEYSTORE_PASSWORD }}
           BLESK_KEY_ALIAS: ${{ secrets.BLESK_KEY_ALIAS }}
           BLESK_KEY_PASSWORD: ${{ secrets.BLESK_KEY_PASSWORD }}
-        run: >
-          ./gradlew --console=plain
-          detekt testDebugUnitTest :server:test :server:installDist :app:recordRoborazziDebug :app:assembleRelease
-          -Pblesk.versionCode=${{ github.run_number }}
-          -Pblesk.versionSuffix=-build.${{ github.run_number }}
+        run: |
+          ./gradlew --console=plain --continue \
+            detekt testDebugUnitTest :server:test :server:installDist :app:recordRoborazziDebug :app:assembleRelease \
+            -Pblesk.versionCode=${{ github.run_number }} \
+            -Pblesk.versionSuffix=-build.${{ github.run_number }} \
+            2>&1 | tee "$RUNNER_TEMP/gradle.log"
+
+      - name: Explain the failure
+        if: failure()
+        run: bash scripts/ci/explain-failure.sh "$RUNNER_TEMP/gradle.log"
 
       - name: Collect release files
         run: |
