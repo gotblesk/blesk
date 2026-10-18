@@ -5,13 +5,16 @@ import java.net.URLDecoder
 
 /**
  * Where the server is and, for a server without a domain, the SHA-256 of its public key that
- * the app pins instead of trusting certificate authorities. Comes from the QR code that
- * `deploy.sh` prints, or is typed in.
+ * the app pins instead of trusting certificate authorities. blesk's own server is [DEFAULT];
+ * another one comes from the QR code that `deploy.sh` prints, or is typed in.
  */
 data class ServerAddress(val url: String, val pin: String? = null) {
     val host: String get() = URI(url).host
 
     companion object {
+        /** blesk's own server: it has a certificate from a public authority, so nothing is pinned. */
+        val DEFAULT = ServerAddress("https://api.blesk.su")
+
         private val pinPattern = Regex("^sha256/[A-Za-z0-9+/]{43}=$")
 
         /** Accepts `blesk://server?url=…&pin=sha256/…`, a bare https URL, or a host name. */

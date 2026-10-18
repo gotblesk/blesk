@@ -1,0 +1,18 @@
+<dialog class="sheet" id="menu" aria-labelledby="menu-title">
+  <div class="sheet-body">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <h2 class="sheet-title" id="menu-title">Меню</h2>
+      <button class="icon-button" type="button" aria-label="Закрыть меню" data-menu-close>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <nav aria-labelledby="menu-title">
+      {{> sitenav}}
+    </nav>
+    <div class="sheet-foot">
+      {{#downloadOpen}}<a class="btn btn-primary" href="/download">Скачать</a>{{/downloadOpen}}{{^downloadOpen}}<span class="soon soon-small">Скоро</span>
+      <p>Сейчас blesk открыт по приглашениям</p>{{/downloadOpen}}
+    </div>
+  </div>
+</dialog>

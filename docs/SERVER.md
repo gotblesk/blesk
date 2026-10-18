@@ -47,7 +47,7 @@ QR-код можно показать ещё раз в любой момент: 
 
 Запустите ту же команду ещё раз. Переписка, файлы, пароли и сертификат сохранятся.
 
-Ещё можно обновить сервер из GitHub: **Actions → Deploy server → Run workflow**. Перед этим нужно один раз добавить в настройки репозитория секреты `VPS_HOST`, `VPS_USER` и `VPS_SSH_KEY`.
+Ещё можно обновлять сервер из GitHub. Для этого сервер один раз готовят скриптом `scripts/server-bootstrap.sh`, а в настройки репозитория добавляют секреты `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` и `VPS_KNOWN_HOSTS` — ключ сервера, по которому GitHub его узнаёт (подробно — «Деплой из GitHub» в техническом приложении). После этого каждая сборка веток `main`, `master` и `claude/file-review-0lky6f` сама ставится на сервер blesk.su вместе с сайтом, а **Actions → Deploy server → Run workflow** запускает установку вручную.
 
 ## 5. Звонки
 
@@ -64,7 +64,7 @@ QR-код можно показать ещё раз в любой момент: 
 
 Каждую ночь сервер сам отправляет зашифрованную копию в S3-хранилище у другого провайдера: базу, вложения, пароли из `deploy/.env` и сертификат. Включается секретами `BACKUP_*` в GitHub (пошагово — `docs/NEEDS_HUMAN.md`, пункт 2) и кнопкой **Deploy server**; без них сервер работает без копий.
 
-- Сделать копию сейчас: `sudo /opt/blesk/scripts/backup.sh`.
+- Сделать копию сейчас: `sudo bash /opt/blesk/scripts/backup.sh`.
 - Проверить, что копия восстанавливается: **Actions → Backup check → Run workflow**.
 - Переехать на другой сервер или к другому хостеру: `docs/MIGRATION.md`.
 
@@ -72,21 +72,43 @@ QR-код можно показать ещё раз в любой момент: 
 
 **Резервные копии** (`scripts/backup.sh`, `restore.sh`, `restore-drill.sh`, общая часть — `backup-lib.sh`): restic 0.17 в контейнере, репозиторий `s3:<BACKUP_S3_ENDPOINT>/<BACKUP_S3_BUCKET>/blesk`, шифрование restic (AES-256-CTR + Poly1305, ключ из `BACKUP_PASSWORD` через scrypt). В снимке: `pg_dump --format=custom`, том `attachments`, `.env`, `certs`. Хост снимков всегда `blesk`, поэтому новый сервер видит снимки старого. Таймер `blesk-backup.timer` — 03:30 по Москве; хранение 7/4/6 (дни, недели, месяцы); по воскресеньям `restic check --read-data-subset=10%`. Настройки — `deploy/backup.env` (права 600, вне git), пишет его `deploy.sh` из переменных `BACKUP_*`. `BLESK_RESTORE=latest` при запуске `deploy.sh` восстанавливает сервер из копии; поверх существующих данных — только с `BLESK_RESTORE_FORCE=1`.
 
-**Защита хоста** (`deploy.sh`): ufw открывает только SSH, 80, 443 и порты LiveKit; fail2ban; автоматические обновления безопасности; при `BLESK_SSH_KEYS_ONLY=1` (так запускает GitHub) — вход по SSH только по ключу, если у root уже есть ключ.
+**Защита хоста** (`deploy.sh`): ufw открывает только SSH, 80/TCP, 443/TCP, 443/UDP и порты LiveKit (7881/TCP, 50000–50100/UDP); fail2ban; автоматические обновления безопасности. При `BLESK_SSH_KEYS_ONLY=1` (так запускает GitHub) — вход по SSH только по ключу: `/etc/ssh/sshd_config.d/10-blesk.conf` с `PasswordAuthentication no`, `KbdInteractiveAuthentication no` и `PermitRootLogin prohibit-password`. Это делается, только если ключи есть у root и, когда пользователь `deploy` уже создан, у него; иначе вход по паролю остаётся и в журнале будет предупреждение.
 
-**Состав** (`deploy/docker-compose.yml`): PostgreSQL, сервер blesk (Kotlin, Ktor), LiveKit, Caddy. Наружу открыты порты **80** и **443** (TCP, а для HTTP/3 ещё 443/UDP) и порты медиа LiveKit: **7881/TCP** и **50000–50100/UDP**. Порт 80 нужен для выпуска сертификата и перенаправления на HTTPS. `deploy.sh` открывает все эти порты в ufw, если он включён.
+**Подготовка сервера** (`scripts/server-bootstrap.sh`, один раз от root, повторный запуск ничего не ломает):
+
+```
+bash server-bootstrap.sh '<строка из blesk_owner.pub>' '<строка из blesk_deploy.pub>'
+```
+
+Скрипт проверяет, что обе строки — открытые SSH-ключи и что они разные. Ключ владельца он добавляет в `/root/.ssh/authorized_keys`. Создаёт пользователя `deploy` (оболочка `/bin/bash`, пароля нет): в `/home/deploy/.ssh/authorized_keys` — только ключ деплоя с пометкой `restrict` (без проброса портов и агента, без терминала), из ключей root этот ключ убирается. Ставит `/usr/local/sbin/blesk-deploy`: команда сбрасывает `BLESK_REPO`, `BLESK_DIR` и `BLESK_BUILD_HERE`, отказывается от имени ветки с `..` или с `/` либо `-` в начале, запускает `/opt/blesk/scripts/deploy.sh`, а на чистом сервере скачивает `deploy.sh` ветки `BLESK_BRANCH` (по умолчанию `master`, адрес `…/refs/heads/<ветка>/…`) с GitHub во временный файл. Пишет `/etc/sudoers.d/blesk-deploy` и проверяет его `visudo -cf`, а потом весь sudo — `visudo -c`:
+
+```
+Defaults!/usr/local/sbin/blesk-deploy env_reset, env_keep = "BLESK_BRANCH BLESK_COMMIT BLESK_DOMAIN BLESK_SITE_DOMAIN BLESK_RESTORE BLESK_SSH_KEYS_ONLY BACKUP_S3_ENDPOINT BACKUP_S3_BUCKET BACKUP_S3_REGION BACKUP_S3_ACCESS_KEY BACKUP_S3_SECRET_KEY BACKUP_PASSWORD"
+deploy ALL=(root) NOPASSWD: /usr/local/sbin/blesk-deploy
+```
+
+sudo запускает команду с чистым окружением и оставляет в нём только эти настройки деплоя, поэтому ни `BASH_ENV`, ни `LD_PRELOAD`, ни `BLESK_REPO` подсунуть нельзя: ключ деплоя позволяет только поставить ветку `gotblesk/blesk` с этими настройками (включая адрес и пароль резервных копий), но не выполнить свой код от root. Эти же имена экспортирует `scripts/ci/remote-deploy.sh` (`FORWARDED` и `BLESK_SSH_KEYS_ONLY`); новое имя добавляется в оба места, а на сервер попадает повторным запуском `server-bootstrap.sh`. В конце скрипт печатает ключ хоста из `/etc/ssh/ssh_host_ed25519_key.pub` — это значение секрета `VPS_KNOWN_HOSTS`. Вход по паролю скрипт не выключает — это делает первый деплой. Ключи на ноутбуке владельца — `~/.ssh/blesk_owner` (комментарий `blesk-owner`) и `~/.ssh/blesk_deploy` (`blesk-deploy`), ed25519 без пароля; закрытый ключ деплоя — секрет `VPS_SSH_KEY`, `VPS_USER=deploy`, `VPS_HOST=94.228.175.178`.
+
+**Деплой из GitHub.** В `build.yml` после сборки APK идёт задача `deploy`: только для веток `main`, `master` и `claude/file-review-0lky6f` и только при секретах `VPS_HOST`, `VPS_USER` и `VPS_SSH_KEY` (без них — пометка в журнале, сервер не трогается). Она заходит по SSH (`scripts/ci/remote-deploy.sh`, `BatchMode`) и запускает `sudo -n /usr/local/sbin/blesk-deploy`, а если `VPS_USER=root` — `bash /opt/blesk/scripts/deploy.sh`. Переменные: `BLESK_BRANCH`, `BLESK_COMMIT` (ровно собранный коммит), `BLESK_DOMAIN=api.blesk.su`, `BLESK_SITE_DOMAIN=blesk.su`, `BLESK_SSH_KEYS_ONLY=1` и `BACKUP_*`, если заданы; значения экранируются, идут по SSH через stdin и экспортируются в окружение, а не пишутся в командную строку sudo. Деплои идут по одному (группа `deploy`): новый push отменяет незаконченную сборку, но не идущий деплой. `deploy.yml` делает то же вручную, с выбором доменов, другого хоста и переноса из копии; расписания и ручные запуски GitHub выполняет только на основной ветке репозитория.
+
+**Ключ сервера** (`VPS_KNOWN_HOSTS`). По SSH уходят секреты резервных копий, поэтому сервер должен доказать, что он тот самый: ssh подключается со `StrictHostKeyChecking=yes` и принимает только ключ из секрета. Значение — строка known_hosts (`94.228.175.178 ssh-ed25519 AAAA…`) или просто ключ (`ssh-ed25519 AAAA…`, его печатает `server-bootstrap.sh`), тогда он считается ключом `VPS_HOST`. Без секрета ключ берётся `ssh-keyscan` у того, кто ответил, — с предупреждением и отпечатком в журнале; так же `deploy.yml` подключается к другому хосту (`host`). После переустановки сервера ключ хоста меняется: секрет нужно обновить, иначе деплой остановится с ошибкой проверки ключа.
+
+**Проверки после деплоя** (`scripts/ci/check-live.sh`, с GitHub, повторы до 3 минут): `https://api.blesk.su/health` отвечает `{"status":"ok"}`; `https://blesk.su` — 200 со словами «Блестящий мессенджер»; `https://www.blesk.su` перенаправляет на `https://blesk.su/`; `/download` отдаёт APK файлом; `/.well-known/assetlinks.json` — JSON с `app.blesk` и `Content-Type: application/json`; сертификаты blesk.su, www.blesk.su и api.blesk.su действуют ещё хотя бы 14 дней. Итог — таблицей в сводке запуска.
+
+**Состав** (`deploy/docker-compose.yml`): PostgreSQL, сервер blesk (Kotlin, Ktor), LiveKit, Caddy (он же отдаёт сайт). Наружу открыты порты **80** и **443** (TCP, а для HTTP/3 ещё 443/UDP) и порты медиа LiveKit: **7881/TCP** и **50000–50100/UDP**. Порт 80 нужен для выпуска сертификата и перенаправления на HTTPS. `deploy.sh` открывает все эти порты в ufw, если он включён.
 
 **Звонки.** Сигнализация LiveKit идёт через Caddy: `wss://<хост>/livekit` проксируется на `livekit:7880` без префикса. Ключ и секрет LiveKit `deploy.sh` создаёт один раз и хранит в `deploy/.env` (`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`), в контейнер они попадают через `LIVEKIT_KEYS`; в `deploy/livekit.yaml` секретов нет. Сервер blesk выдаёт токен LiveKit (JWT HS256, 6 часов, одна комната, identity — имя пользователя). Медиа шифруется на клиентах ключом из Signal-сообщения или состояния группы. Журнал LiveKit — только предупреждения, чтобы в нём не было имён и комнат.
 
-**TLS.** С доменом Caddy сам получает и продлевает сертификат Let's Encrypt. Без домена `deploy.sh` создаёт самоподписанный сертификат: ECDSA P-256, 10 лет, SAN — IP сервера. Он лежит в `deploy/certs`. В QR-код попадает `blesk://server?url=https://<ip>&pin=sha256/<base64>`, где pin — SHA-256 от SubjectPublicKeyInfo в формате OkHttp `CertificatePinner`. С доменом в QR-коде только `blesk://server?url=https://<домен>`.
+**TLS.** С доменом Caddy сам получает и продлевает сертификат Let's Encrypt, с сайтом — для API, сайта и www. Без домена `deploy.sh` создаёт самоподписанный сертификат: ECDSA P-256, 10 лет, SAN — IP сервера. Он лежит в `deploy/certs`. В QR-код попадает `blesk://server?url=https://<ip>&pin=sha256/<base64>`, где pin — SHA-256 от SubjectPublicKeyInfo в формате OkHttp `CertificatePinner`. С доменом в QR-коде только `blesk://server?url=https://<домен>`.
 
 **API** (JSON, байты в Base64, контракт — `shared/.../protocol/Api.kt`):
 
 | Метод | Путь | Доступ |
 |---|---|---|
+| GET | `/health` | открыто, без лимита; 200 `{"status":"ok"}`, если база ответила на `SELECT 1` за 2 с, иначе 503 `{"status":"unavailable"}` |
 | GET | `/v1/info` | открыто |
 | GET | `/v1/usernames/{name}` | открыто, лимит запросов |
-| POST | `/v1/accounts` | открыто, лимит запросов |
+| POST | `/v1/accounts` | открыто, лимит запросов; при `BLESK_REGISTRATION=invite` — только с действующим приглашением в поле `invite` (код или ссылка) |
 | POST | `/v1/auth/challenge`, `/v1/auth/token` | открыто, лимит запросов; токен — только подписью ключа этого аккаунта |
 | POST | `/v1/account/recover` | открыто, лимит запросов; нужен токен восстановления |
 | GET | `/v1/accounts/{username}` | токен; скрытый аккаунт — только с `?link=` |
@@ -100,6 +122,8 @@ QR-код можно показать ещё раз в любой момент: 
 | GET | `/v1/attachments/{id}` | токен; только законченные; id — 128 случайных бит, файл зашифрован |
 | WebSocket | `/v1/ws` (токен в `Authorization` или `?token=`; в адресе — только здесь) | токен; подтверждения — только своих сообщений |
 | POST | `/v1/calls/token` (тело `{"room": "..."}`, ответ `{"url", "token"}`) | токен, 30 в минуту на аккаунт; identity — всегда имя вызывающего |
+| GET | `/v1/invites` (ответ `InviteList`) | токен; только свои: действующие неиспользованные и использованные за последние 30 дней (`usedBy` — кто пришёл), новые сначала; `left` — сколько ещё можно создать |
+| POST | `/v1/invites` (ответ 201 `InviteInfo`) | токен; приглашение на 7 дней, не больше 5 неиспользованных сразу (иначе 409 `invite_limit`); лимит запросов с одного IP общий с регистрацией |
 
 **Каналы и комнаты** (`/v1/spaces`, контракт — `Spaces.kt`, без E2EE). Для всех запросов нужен токен.
 
@@ -135,9 +159,9 @@ QR-код можно показать ещё раз в любой момент: 
 
 Сервер хранит только SHA-256 токена бота. Бот пишет только тем, кто писал ему сам. Ответы ботов идут человеку конвертами типа 100 через ту же очередь. Вебхуки — только `https` на публичные адреса, без перенаправлений; неудачная доставка оставляет обновление для `getUpdates`.
 
-Ошибки приходят как `{"code": "...", "message": ""}`. Коды: `bad_request`, `invalid_username`, `invalid_key`, `invalid_signature`, `username_taken`, `unauthorized`, `auth_failed`, `not_found`, `no_keys`, `too_many_keys`, `too_large`, `rate_limited`, `internal`, а для каналов и комнат ещё `invalid_handle`, `handle_taken`, `forbidden`, `not_member`, `banned`, `owner_cannot_leave`, `invalid_role`, `not_a_room`, `too_many_channels`, `last_channel`, `unknown_attachment`, для звонков `invalid_room` и `calls_unavailable` (503, LiveKit не настроен; тогда и `/v1/info` отвечает `"calls": false`), а для ботов `username_reserved`, `invalid_name`, `too_many_bots`, `invalid_text`, `invalid_buttons`, `invalid_commands`, `invalid_webhook`, `chat_not_started`.
+Ошибки приходят как `{"code": "...", "message": ""}`. Коды: `bad_request`, `invalid_username`, `invalid_key`, `invalid_signature`, `username_taken`, `unauthorized`, `auth_failed`, `not_found`, `no_keys`, `too_many_keys`, `too_large`, `rate_limited`, `internal`, а для каналов и комнат ещё `invalid_handle`, `handle_taken`, `forbidden`, `not_member`, `banned`, `owner_cannot_leave`, `invalid_role`, `not_a_room`, `too_many_channels`, `last_channel`, `unknown_attachment`, для звонков `invalid_room` и `calls_unavailable` (503, LiveKit не настроен; тогда и `/v1/info` отвечает `"calls": false`), а для ботов `username_reserved`, `invalid_name`, `too_many_bots`, `invalid_text`, `invalid_buttons`, `invalid_commands`, `invalid_webhook`, `chat_not_started`, а для приглашений `invite_required` и `invite_invalid` (403: приглашения нет; оно неизвестно, использовано или истекло) и `invite_limit` (409).
 
-Вложения и недоставленные сообщения удаляются через 30 дней. Вложение публичного поста хранится, пока существует сам пост. Токены действуют 30 дней. В журнале сервера пишутся только метод, шаблон пути, код ответа и время ответа.
+Вложения и недоставленные сообщения удаляются через 30 дней. Вложение публичного поста хранится, пока существует сам пост. Истёкшие приглашения удаляются, а использованные — через 30 дней после регистрации по ним, вместе с тем, кто по ним пришёл. Токены действуют 30 дней. В журнале сервера пишутся только метод, шаблон пути, код ответа и время ответа.
 
 **Переменные окружения сервера:**
 
@@ -155,8 +179,25 @@ QR-код можно показать ещё раз в любой момент: 
 | `BLESK_CALL_RATE_PER_MINUTE` | лимит токенов звонков на аккаунт (30) |
 | `BLESK_BOT_RATE_PER_MINUTE` | лимит сообщений ботам и создания ботов на аккаунт (60) |
 | `BLESK_BOT_API_RATE_PER_MINUTE` | лимит запросов к Bot API на бота (300) |
+| `BLESK_REGISTRATION` | `invite` (по умолчанию) — регистрация только по приглашению; `open` — кто угодно, присланное приглашение тогда не тратится |
 
-**Переменные `deploy.sh`:** `BLESK_BRANCH` (по умолчанию `master`), `BLESK_DOMAIN`, `BLESK_PUBLIC_IP`, `BLESK_DIR` (по умолчанию `/opt/blesk`). Пример: `curl ... | sudo BLESK_DOMAIN=chat.example.ru bash`.
+**Приглашения владельца.** Первому человеку пригласить некому, поэтому есть приглашения без владельца: они не истекают. `blesk-server invites` печатает ссылки на неиспользованные, по одной в строке (`https://blesk.su/i/<код>`); при самом первом запуске сначала создаёт 10. `blesk-server invites add <n>` (от 1 до 50) создаёт ещё n и печатает все неиспользованные. Команда подключается к базе по тем же переменным, применяет миграции и завершается, сервер не запускает; в stdout — только ссылки, журнал идёт в stderr; ошибка в аргументах — код выхода 2. В `deploy/`: `cd /opt/blesk/deploy && docker compose exec server /opt/blesk-server/bin/blesk-server invites`.
+
+**Переменные `deploy.sh`:** `BLESK_BRANCH` (по умолчанию `master`); `BLESK_COMMIT` — полный SHA, чтобы поставить ровно этот коммит; он ставится, только если входит в последние 50 коммитов ветки (по одному SHA GitHub отдал бы и коммит из чужого форка), иначе берётся последний коммит ветки; `BLESK_DOMAIN` — домен API; `BLESK_SITE_DOMAIN` — домен сайта, только вместе с `BLESK_DOMAIN` (оба сохраняются в `deploy/.env`, пустое значение выключает); `BLESK_PUBLIC_IP`; `BLESK_DIR` (по умолчанию `/opt/blesk`); `BLESK_SSH_KEYS_ONLY=1`; `BLESK_BUILD_HERE=1`; `BLESK_RESTORE`; `BACKUP_*`. Пример: `curl ... | sudo BLESK_DOMAIN=chat.example.ru bash`. Готовность сервера `deploy.sh` ждёт по `/health`.
+
+**Сайт** (`BLESK_SITE_DOMAIN`, `deploy/Caddyfile.site`). `api.blesk.su` — API и сигнализация звонков, `blesk.su` — сайт, `www.blesk.su` перенаправляет на `https://blesk.su` с тем же путём; у всех трёх A-запись на IP сервера. При каждом деплое `deploy.sh` собирает сайт из `site/` командой `python3 scripts/build-site.py --out … --release release.json`, берёт `release.json` и `blesk.apk` из релиза того же коммита (SHA-256 APK сверяется с `release.json`) и кладёт APK в `download/blesk.apk`. Сборка идёт рядом, в `deploy/site-dist.next`; когда контейнеры запустились, она целиком подменяет `deploy/site-dist`, Caddy пересоздаётся, и только после этого прежняя папка удаляется — неудачный деплой оставляет сайт таким, каким он был. Caddy видит папку как `/srv/site` (только чтение). Caddy пересоздаётся при каждом деплое, LiveKit — только если изменился `deploy/livekit.yaml`, чтобы не обрывать звонки: привязанные файл или папка остаются теми, что были при создании контейнера, а git и сборка сайта кладут новые.
+
+| Адрес | Что отдаёт |
+|---|---|
+| `/`, `/how`, `/privacy`, `/terms` | страницы (`<путь>/index.html`) |
+| `/i/<код>`, `/@<имя>`, `/c/<имя>`, `/r/<код>` | `invite/index.html` — «Тебя пригласили в blesk»; если blesk установлен, Android открывает ссылку сразу в приложении |
+| `/.well-known/assetlinks.json` | отпечаток ключа подписи для Android App Links |
+| `/download`, `/download/` | перенаправление на `/download/blesk.apk`, файл с `Content-Disposition: attachment` |
+| остальное | `404.html` с кодом 404 |
+
+Заголовки сайта: CSP `default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` (поэтому на сайте нет встроенных `<script>` и `style=""`), `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy`, HSTS на год. Сжатие zstd и gzip. Шрифты кешируются на 30 дней, всё остальное — `Cache-Control: no-cache` (браузер переспрашивает по ETag). Без `BLESK_SITE_DOMAIN` всё как раньше: `Caddyfile.domain` (только API) или `Caddyfile.ip` (без домена).
+
+**release.json** лежит в каждом релизе рядом с `blesk.apk` и `blesk-server.tar.gz`: `version`, `versionCode`, `tag`, `commit`, `apkSize`, `apkSha256`, `signerSha256` (SHA-256 сертификата подписи, строчными, без двоеточий), `minAndroid`. Пишет его `scripts/ci/release-json.sh` (версия и minSdk — из APK через aapt2, ключ — через apksigner), сайт проверяется на нём же ещё в CI (`build-site.py --check`).
 
 **Вложения.** В `deploy/` вложения лежат файлами в томе `attachments` (`BLESK_STORAGE=fs`): они зашифрованы на устройствах, серверу достаточно хранить байты. MinIO остаётся для своих установок (`BLESK_STORAGE=minio`). Образы Docker Hub сначала берутся через `mirror.gcr.io` (`/etc/docker/daemon.json`, если его ещё нет).
 

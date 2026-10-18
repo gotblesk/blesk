@@ -23,6 +23,14 @@ class Database(private val dataSource: DataSource) {
         }
     }
 
+    /** Whether `SELECT 1` answers within [timeoutSeconds]; blocks the calling thread. */
+    fun ping(timeoutSeconds: Int): Boolean = dataSource.connection.use { connection ->
+        connection.createStatement().use { statement ->
+            statement.queryTimeout = timeoutSeconds
+            statement.executeQuery("SELECT 1").use { it.next() }
+        }
+    }
+
     companion object {
         fun migrate(dataSource: DataSource) {
             Flyway.configure()

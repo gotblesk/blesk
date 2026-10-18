@@ -45,6 +45,9 @@ object ErrorCodes {
     const val INVALID_COMMANDS = "invalid_commands"
     const val INVALID_WEBHOOK = "invalid_webhook"
     const val CHAT_NOT_STARTED = "chat_not_started"
+    const val INVITE_REQUIRED = "invite_required"
+    const val INVITE_INVALID = "invite_invalid"
+    const val INVITE_LIMIT = "invite_limit"
 }
 
 fun badRequest(code: String = ErrorCodes.BAD_REQUEST, message: String = "", cause: Throwable? = null) =

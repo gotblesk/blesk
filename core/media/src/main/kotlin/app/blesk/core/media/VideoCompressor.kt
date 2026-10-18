@@ -4,8 +4,10 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Metadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.container.Mp4OrientationData
 import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -20,7 +22,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.coroutines.resume
 
-/** Re-encodes a picked video to H.264/AAC with the short side at most 720 px. */
+/** Re-encodes a picked video to H.264/AAC with the short side at most 720 px, without its metadata. */
 @UnstableApi
 class VideoCompressor(private val context: Context) {
 
@@ -31,7 +33,7 @@ class VideoCompressor(private val context: Context) {
             suspendCancellableCoroutine { continuation ->
                 // The index goes at the front, so the video can start playing before it has all arrived.
                 val transformer = Transformer.Builder(context)
-                    .setMuxerFactory(InAppMp4Muxer.Factory().setAttemptStreamableOutputEnabled(true))
+                    .setMuxerFactory(InAppMp4Muxer.Factory(OnlyRotation).setAttemptStreamableOutputEnabled(true))
                     .setVideoMimeType(MimeTypes.VIDEO_H264)
                     .setAudioMimeType(MimeTypes.AUDIO_AAC)
                     .addListener(object : Transformer.Listener {
@@ -76,5 +78,17 @@ class VideoCompressor(private val context: Context) {
 
     private companion object {
         const val MAX_SHORT_SIDE = 720
+    }
+}
+
+/**
+ * What the sent video keeps of the original's metadata: only its rotation, which playback needs.
+ * Location (including Apple's ISO 6709 tag), capture time, camera model and XMP are dropped, as
+ * re-encoding a photo drops its EXIF.
+ */
+@UnstableApi
+internal object OnlyRotation : InAppMp4Muxer.MetadataProvider {
+    override fun updateMetadataEntries(metadataEntries: MutableSet<Metadata.Entry>) {
+        metadataEntries.retainAll { it is Mp4OrientationData }
     }
 }

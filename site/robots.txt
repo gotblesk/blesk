@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /i/
+Disallow: /r/
+Disallow: /c/
+Disallow: /@
+Disallow: /invite/
+Disallow: /download
+
+Sitemap: https://blesk.su/sitemap.xml

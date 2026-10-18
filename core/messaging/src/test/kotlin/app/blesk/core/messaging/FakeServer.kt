@@ -5,6 +5,7 @@ import app.blesk.core.network.Link
 import app.blesk.core.network.ServerAddress
 import app.blesk.core.network.Transport
 import app.blesk.shared.protocol.AccountInfo
+import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.AttachmentUploaded
 import app.blesk.shared.protocol.BotInfo
 import app.blesk.shared.protocol.BotMessage
@@ -12,6 +13,9 @@ import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.Envelope
 import app.blesk.shared.protocol.EnvelopeType
 import app.blesk.shared.protocol.ErrorBody
+import app.blesk.shared.protocol.InviteInfo
+import app.blesk.shared.protocol.InviteList
+import app.blesk.shared.protocol.Invites
 import app.blesk.shared.protocol.KeyStatus
 import app.blesk.shared.protocol.KeyUpload
 import app.blesk.shared.protocol.OutgoingMessage
@@ -43,6 +47,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.Json
+import org.signal.libsignal.protocol.IdentityKey
+import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -57,6 +63,18 @@ class FakeServer {
     private val ids = AtomicLong()
     private val bots = ConcurrentHashMap<String, BotInfo>()
 
+    /** Registration by invite, as with `BLESK_REGISTRATION=invite`; open by default, like most tests want. */
+    @Volatile
+    var inviteOnly = false
+    private val invites = ConcurrentHashMap<String, FakeInvite>()
+
+    /** An invite of the server owner: it belongs to no account. */
+    fun bootstrapInvite(): String = newInvite(owner = null)
+
+    /** How many sign-in challenges still fail, as when the connection drops right after an account is made. */
+    @Volatile
+    var droppedChallenges = 0
+
     /** What people sent to bots, in order: (from, update). */
     val botInbox = java.util.concurrent.CopyOnWriteArrayList<Pair<String, UserToBot>>()
 
@@ -66,7 +84,7 @@ class FakeServer {
 
     /** A bot's program sends [message] to [to]. */
     fun botSays(bot: String, to: String, message: BotMessage) {
-        val body = java.util.Base64.getEncoder().encodeToString(json.encodeToString(BotMessage.serializer(), message).encodeToByteArray())
+        val body = Base64.getEncoder().encodeToString(json.encodeToString(BotMessage.serializer(), message).encodeToByteArray())
         transport(to).deliver(Envelope(ids.incrementAndGet(), bot, EnvelopeType.BOT, body, System.currentTimeMillis()))
     }
 
@@ -80,20 +98,15 @@ class FakeServer {
         val me = request.headers[HttpHeaders.Authorization]?.removePrefix("Bearer ")
         return when {
             path == "/v1/info" -> ok(json.encodeToString(ServerInfo.serializer(), ServerInfo()))
-            path == "/v1/accounts" && request.method == HttpMethod.Post -> {
-                val body = json.decodeFromString(RegisterRequest.serializer(), text(request))
-                if (accounts.putIfAbsent(body.username, body) != null) return error(HttpStatusCode.Conflict, "username_taken")
-                ok(json.encodeToString(AccountInfo.serializer(), AccountInfo(body.username, body.identityKey)), HttpStatusCode.Created)
-            }
+            path == "/v1/accounts" && request.method == HttpMethod.Post ->
+                register(json.decodeFromString(RegisterRequest.serializer(), text(request)))
+            path == "/v1/invites" -> me?.let { invites(it, request.method) } ?: error(HttpStatusCode.Unauthorized, "unauthorized")
             path.startsWith("/v1/accounts/") -> {
                 val account = accounts[path.substringAfterLast('/')] ?: return error(HttpStatusCode.NotFound, "not_found")
                 ok(json.encodeToString(AccountInfo.serializer(), AccountInfo(account.username, account.identityKey)))
             }
-            path == "/v1/auth/challenge" -> ok(json.encodeToString(Challenge.serializer(), Challenge("nonce", Long.MAX_VALUE)))
-            path == "/v1/auth/token" -> {
-                val username = json.decodeFromString(TokenRequest.serializer(), text(request)).username
-                ok(json.encodeToString(TokenResponse.serializer(), TokenResponse(username, Long.MAX_VALUE)))
-            }
+            path == "/v1/auth/challenge" -> challenge()
+            path == "/v1/auth/token" -> token(json.decodeFromString(TokenRequest.serializer(), text(request)))
             path == "/v1/keys" && request.method == HttpMethod.Put -> {
                 val upload = json.decodeFromString(KeyUpload.serializer(), text(request))
                 keys.merge(me!!, upload) { old, new ->
@@ -178,6 +191,60 @@ class FakeServer {
         }
     }
 
+    private fun MockRequestHandleScope.challenge(): HttpResponseData {
+        if (droppedChallenges > 0) {
+            droppedChallenges--
+            return error(HttpStatusCode.ServiceUnavailable, "unavailable")
+        }
+        return ok(json.encodeToString(Challenge.serializer(), Challenge("nonce", Long.MAX_VALUE)))
+    }
+
+    /** As on the real server, only the identity key an account was made with signs in to it; the token is its name. */
+    private fun MockRequestHandleScope.token(request: TokenRequest): HttpResponseData {
+        val account = accounts[request.username] ?: return error(HttpStatusCode.Unauthorized, "auth_failed")
+        val key = IdentityKey(Base64.getDecoder().decode(account.identityKey)).publicKey
+        if (!key.verifySignature(Api.authProof(request.nonce), Base64.getDecoder().decode(request.signature))) {
+            return error(HttpStatusCode.Unauthorized, "auth_failed")
+        }
+        return ok(json.encodeToString(TokenResponse.serializer(), TokenResponse(request.username, Long.MAX_VALUE)))
+    }
+
+    private fun MockRequestHandleScope.register(body: RegisterRequest): HttpResponseData {
+        val invite = body.invite?.let(invites::get)
+        if (inviteOnly && body.invite == null) return error(HttpStatusCode.Forbidden, "invite_required")
+        if (inviteOnly && (invite == null || invite.usedBy != null)) return error(HttpStatusCode.Forbidden, "invite_invalid")
+        // A taken name leaves the invite as it was, so it can be used again with another name.
+        if (accounts.putIfAbsent(body.username, body) != null) return error(HttpStatusCode.Conflict, "username_taken")
+        if (inviteOnly) invite?.usedBy = body.username
+        return ok(json.encodeToString(AccountInfo.serializer(), AccountInfo(body.username, body.identityKey)), HttpStatusCode.Created)
+    }
+
+    private fun MockRequestHandleScope.invites(me: String, method: HttpMethod): HttpResponseData {
+        val left = Invites.LIMIT - invites.values.count { it.owner == me && it.usedBy == null }
+        if (method == HttpMethod.Get) {
+            val mine = invites.filterValues { it.owner == me }
+                .map { (code, invite) -> invite.info(code) }
+                .sortedByDescending { it.createdAtMillis }
+            return ok(json.encodeToString(InviteList.serializer(), InviteList(mine, left)))
+        }
+        if (left <= 0) return error(HttpStatusCode.Conflict, "invite_limit")
+        val code = newInvite(me)
+        return ok(json.encodeToString(InviteInfo.serializer(), invites.getValue(code).info(code)), HttpStatusCode.Created)
+    }
+
+    private fun newInvite(owner: String?): String {
+        val code = (1..Invites.CODE_LENGTH).map { Invites.ALPHABET.random() }.joinToString("")
+        invites[code] = FakeInvite(owner, createdAt = ids.incrementAndGet())
+        return code
+    }
+
+    private class FakeInvite(val owner: String?, val createdAt: Long) {
+        @Volatile
+        var usedBy: String? = null
+
+        fun info(code: String) = InviteInfo(code, createdAt, createdAt + INVITE_TTL, usedBy, usedBy?.let { createdAt })
+    }
+
     private class Upload(val size: Long, val chunks: java.util.SortedMap<Int, ByteArray>)
 
     private suspend fun bytes(request: HttpRequestData): ByteArray = when (val body = request.body) {
@@ -229,3 +296,5 @@ class FakeTransport : Transport {
 
 /** Small chunks, so even a test photo goes up in several pieces. */
 private const val CHUNK = 64 * 1024
+
+private const val INVITE_TTL = 7L * 24 * 60 * 60 * 1000

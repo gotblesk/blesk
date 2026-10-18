@@ -293,41 +293,86 @@ data class GroupChannel(
     val hiddenFrom: Set<String> = emptySet(),
 )
 
-/** `blesk://join?g=<group>&a=<admin>&c=<code>` — handed to people you want to invite. */
+/**
+ * An invite into a closed group or room, `https://blesk.su/r/<code>?g=<group>&a=<admin>`, handed to
+ * people you want to invite: joining asks that admin. The older `blesk://join?g=&a=&c=` still works.
+ */
 object InviteLink {
-    private const val PREFIX = "blesk://join?"
+    private const val LEGACY = "blesk://join"
+    private val groupPattern = Regex("^[A-Za-z0-9-]{8,64}$")
+    private val codePattern = Regex("^[A-Za-z0-9_-]{8,64}$")
 
-    fun format(groupId: String, admin: String, code: String) = "${PREFIX}g=$groupId&a=$admin&c=$code"
+    fun format(groupId: String, admin: String, code: String) = "${BleskLinks.SITE}/r/$code?g=$groupId&a=$admin"
 
     data class Parsed(val groupId: String, val admin: String, val code: String)
 
     fun parse(link: String): Parsed? {
-        if (!link.trim().startsWith(PREFIX)) return null
-        val params = link.trim().removePrefix(PREFIX).split('&').associate { it.substringBefore('=') to it.substringAfter('=', "") }
-        val group = params["g"]?.takeIf { it.matches(Regex("^[A-Za-z0-9-]{8,64}$")) } ?: return null
+        val (code, params) = BleskLinks.site(link, "/r/")?.let { it.rest to it.params }
+            ?: BleskLinks.legacy(link, LEGACY)?.takeIf { it.rest.isEmpty() }?.let { it.params["c"] to it.params }
+            ?: return null
+        val group = params["g"]?.takeIf(groupPattern::matches) ?: return null
         val admin = params["a"]?.takeIf(Usernames::isValid) ?: return null
-        val code = params["c"]?.takeIf { it.matches(Regex("^[A-Za-z0-9_-]{8,64}$")) } ?: return null
-        return Parsed(group, admin, code)
+        val valid = code?.takeIf(codePattern::matches) ?: return null
+        return Parsed(group, admin, valid)
     }
 }
 
 /**
- * A profile link or QR code: `blesk://u/name`, with the link key (see [Api.linkKey]) when the
- * account hides from search, so the link still finds it.
+ * A profile link or QR code, `https://blesk.su/@name`, with the link key (see [Api.linkKey]) when
+ * the account hides from search, so the link still finds it. The older `blesk://u/name` still works.
  */
 object ProfileLink {
-    private const val PREFIX = "blesk://u/"
+    private const val LEGACY = "blesk://u/"
+    private val keyPattern = Regex("^[A-Za-z0-9_-]{8,64}$")
 
-    fun format(username: String, key: String?) = PREFIX + username + (key?.let { "?k=$it" } ?: "")
+    fun format(username: String, key: String?) = "${BleskLinks.SITE}/@$username" + (key?.let { "?k=$it" } ?: "")
 
     data class Parsed(val username: String, val key: String?)
 
     fun parse(link: String): Parsed? {
-        val text = link.trim()
-        if (!text.startsWith(PREFIX)) return null
-        val rest = text.removePrefix(PREFIX)
-        val username = rest.substringBefore('?').takeIf(Usernames::isValid) ?: return null
-        val key = rest.substringAfter("?k=", "").takeIf { it.matches(Regex("^[A-Za-z0-9_-]{8,64}$")) }
-        return Parsed(username, key)
+        val parts = BleskLinks.site(link, "/@") ?: BleskLinks.legacy(link, LEGACY) ?: return null
+        val username = parts.rest.lowercase().takeIf(Usernames::isValid) ?: return null
+        return Parsed(username, parts.params["k"]?.takeIf(keyPattern::matches))
     }
+}
+
+/** A public channel or open room, `https://blesk.su/c/<handle>`: neither is encrypted, so the link is no secret. */
+object ChannelLink {
+    fun format(handle: String) = "${BleskLinks.SITE}/c/$handle"
+
+    /** The handle the link points at. */
+    fun parse(link: String): String? = BleskLinks.site(link, "/c/")?.rest?.lowercase()?.takeIf(Spaces::isValidHandle)
+}
+
+/** A link cut after its known start: what follows up to the query, and the query's parameters. */
+internal class LinkParts(val rest: String, val params: Map<String, String>)
+
+/**
+ * Reads blesk's links: the site's `https://blesk.su/...`, also typed without the scheme or with
+ * `www.`, and the older `blesk://...`. Any other host, `blesk.su.example.com` too, is not blesk.
+ */
+internal object BleskLinks {
+    const val SITE = "https://blesk.su"
+
+    private val sitePattern =
+        Regex("^(?:https?://)?(?:www\\.)?blesk\\.su(/[^?#]*)(?:\\?([^#]*))?(?:#.*)?$", RegexOption.IGNORE_CASE)
+
+    /** A site link whose path starts with [path]; some apps send the `@` of a profile path escaped. */
+    fun site(link: String, path: String): LinkParts? {
+        val match = sitePattern.matchEntire(link.trim()) ?: return null
+        val full = match.groupValues[1].replace("%40", "@")
+        if (!full.startsWith(path)) return null
+        return LinkParts(full.removePrefix(path).removeSuffix("/"), params(match.groupValues[2]))
+    }
+
+    /** An old `blesk://` link that starts with [prefix]. */
+    fun legacy(link: String, prefix: String): LinkParts? {
+        val text = link.trim()
+        if (!text.startsWith(prefix)) return null
+        val rest = text.removePrefix(prefix)
+        return LinkParts(rest.substringBefore('?'), params(rest.substringAfter('?', "")))
+    }
+
+    private fun params(query: String): Map<String, String> =
+        query.split('&').filter { it.isNotEmpty() }.associate { it.substringBefore('=') to it.substringAfter('=', "") }
 }

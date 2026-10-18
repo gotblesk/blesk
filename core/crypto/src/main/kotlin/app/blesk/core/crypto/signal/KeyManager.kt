@@ -35,7 +35,7 @@ class KeyManager(
 
     fun identityPublicKey(): String = b64(store.identityKeyPair.publicKey.serialize())
 
-    fun registration(username: String, recoveryHash: ByteArray? = null): RegisterRequest {
+    fun registration(username: String, recoveryHash: ByteArray? = null, invite: String? = null): RegisterRequest {
         val identity = store.identityKeyPair
         return RegisterRequest(
             username = username,
@@ -43,6 +43,7 @@ class KeyManager(
             registrationId = store.localRegistrationId,
             signature = b64(identity.privateKey.calculateSignature(Api.registrationProof(username))),
             recoveryHash = recoveryHash?.let(::b64),
+            invite = invite,
         )
     }
 

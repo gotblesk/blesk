@@ -50,6 +50,7 @@ fun AboutScreen(
     onUnlockDebug: () -> Unit,
     onOpenLicenses: () -> Unit,
     onOpenPolicy: () -> Unit,
+    onOpenTerms: () -> Unit,
     onBack: () -> Unit,
     onOpenSandbox: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -107,6 +108,11 @@ fun AboutScreen(
                 title = stringResource(R.string.about_policy),
                 subtitle = stringResource(R.string.about_policy_hint),
                 onClick = onOpenPolicy,
+            )
+            ListRow(
+                title = stringResource(R.string.about_terms),
+                subtitle = stringResource(R.string.about_terms_hint),
+                onClick = onOpenTerms,
             )
             ListRow(
                 title = stringResource(R.string.about_source),

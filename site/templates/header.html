@@ -1,0 +1,16 @@
+<a class="skip-link" href="#main">Перейти к содержанию</a>
+<header class="site-header">
+  <div class="wrap header-row">
+    <div class="header-start">
+      <a class="menu-button" href="#site-footer" aria-label="Меню" aria-controls="menu" aria-expanded="false" data-menu-open>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9h16M4 15h16"/></svg>
+      </a>
+      <a class="brand" href="/" aria-label="blesk, на главную">
+        <span class="key">{{> star}}</span>
+        <span class="brand-name">blesk</span>
+      </a>
+    </div>
+    {{#downloadOpen}}<a class="btn btn-primary btn-small" href="/download">Скачать</a>{{/downloadOpen}}{{^downloadOpen}}<a class="soon soon-small" href="/#download" aria-label="Скоро: скачать blesk можно по приглашению">Скоро</a>{{/downloadOpen}}
+  </div>
+</header>
+{{> menu}}

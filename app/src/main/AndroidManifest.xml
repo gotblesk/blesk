@@ -49,7 +49,22 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Profile links and group invites: blesk://u/name, blesk://join?... -->
+            <!-- Site links open the app once Android checks the site's .well-known/assetlinks.json:
+                 /i/ registration invites, /@ profiles, /c/ channels and open rooms, /r/ group invites.
+                 No www.blesk.su: it redirects, the check does not follow redirects, and up to Android 11
+                 one failed host fails them all. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="blesk.su" />
+                <data android:pathPrefix="/i/" />
+                <data android:pathPrefix="/@" />
+                <data android:pathPrefix="/c/" />
+                <data android:pathPrefix="/r/" />
+            </intent-filter>
+            <!-- Older links and QR codes: blesk://u/name, blesk://join?..., blesk://server?... -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

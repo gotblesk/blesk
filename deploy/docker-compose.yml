@@ -57,10 +57,13 @@ services:
       - "443:443/udp"
     environment:
       BLESK_DOMAIN: ${BLESK_DOMAIN:-}
+      BLESK_SITE_DOMAIN: ${BLESK_SITE_DOMAIN:-}
       BLESK_PUBLIC_IP: ${BLESK_PUBLIC_IP:-}
     volumes:
       - ./${BLESK_CADDYFILE:-Caddyfile.domain}:/etc/caddy/Caddyfile:ro
       - ./certs:/certs:ro
+      # The site from deploy.sh, which recreates Caddy after swapping a new build in.
+      - ./site-dist:/srv/site:ro
       - caddy-data:/data
       - caddy-config:/config
 

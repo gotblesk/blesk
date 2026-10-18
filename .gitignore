@@ -26,3 +26,4 @@ legacy/client/release/
 legacy/server/prisma/dev.db
 legacy/server/prisma/dev.db-journal
 deploy/backup.env
+__pycache__/

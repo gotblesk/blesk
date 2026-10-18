@@ -1,12 +1,15 @@
 package app.blesk.server.auth
 
+import app.blesk.server.RegistrationMode
 import app.blesk.server.Services
 import app.blesk.server.http.ApiException
 import app.blesk.server.http.ErrorCodes
 import app.blesk.server.http.badRequest
+import app.blesk.server.http.conflict
 import app.blesk.server.http.decodeBase64
 import app.blesk.server.http.encodeBase64
 import app.blesk.server.http.ensure
+import app.blesk.server.http.forbidden
 import app.blesk.server.http.notFound
 import app.blesk.server.http.orFail
 import app.blesk.server.http.receiveJson
@@ -16,6 +19,7 @@ import app.blesk.shared.protocol.Bots
 import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.ChallengeRequest
 import app.blesk.shared.protocol.Discovery
+import app.blesk.shared.protocol.Invites
 import app.blesk.shared.protocol.RecoverRequest
 import app.blesk.shared.protocol.RecoveryHash
 import app.blesk.shared.protocol.RegisterRequest
@@ -59,9 +63,13 @@ fun Route.registrationRoutes(services: Services) {
         }
         val recoveryHash = request.recoveryHash?.decodeBase64(ErrorCodes.BAD_REQUEST)
         ensure(recoveryHash == null || recoveryHash.size == RECOVERY_TOKEN_BYTES) { badRequest(ErrorCodes.BAD_REQUEST) }
-        val created = services.accounts.create(request.username, keyBytes, request.registrationId, services.now(), recoveryHash)
-        ensure(created) { ApiException(HttpStatusCode.Conflict, ErrorCodes.USERNAME_TAKEN) }
-        call.respond(HttpStatusCode.Created, AccountInfo(request.username, request.identityKey))
+        val invite = if (services.registration == RegistrationMode.Invite) inviteCode(request.invite) else null
+        val now = services.now()
+        when (services.accounts.create(request.username, keyBytes, request.registrationId, now, recoveryHash, invite)) {
+            Registration.Created -> call.respond(HttpStatusCode.Created, AccountInfo(request.username, request.identityKey))
+            Registration.UsernameTaken -> throw conflict(ErrorCodes.USERNAME_TAKEN)
+            Registration.InviteInvalid -> throw forbidden(ErrorCodes.INVITE_INVALID)
+        }
     }
 
     post(Api.RECOVER) {
@@ -78,6 +86,12 @@ fun Route.registrationRoutes(services: Services) {
         services.hub.disconnect(account.id)
         call.respond(AccountInfo(account.username, request.identityKey))
     }
+}
+
+/** The code of the invite a registration brings, on a server that lets people in by invite only. */
+private fun inviteCode(sent: String?): String {
+    val text = sent?.takeIf { it.isNotBlank() }.orFail { forbidden(ErrorCodes.INVITE_REQUIRED) }
+    return Invites.parse(text).orFail { forbidden(ErrorCodes.INVITE_INVALID) }
 }
 
 private const val RECOVERY_TOKEN_BYTES = 32

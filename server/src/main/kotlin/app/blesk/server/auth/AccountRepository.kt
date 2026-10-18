@@ -3,6 +3,8 @@ package app.blesk.server.auth
 import app.blesk.server.db.Database
 import app.blesk.server.db.queryOne
 import app.blesk.server.db.update
+import app.blesk.server.invites.lockUsableInvite
+import app.blesk.server.invites.redeemInvite
 import app.blesk.shared.protocol.Api
 import java.time.Instant
 
@@ -17,29 +19,39 @@ class Account(
     fun visibleTo(viewer: Long, link: String?): Boolean = discoverable || viewer == id || link == Api.linkKey(identityKey)
 }
 
+/** How a registration ended. */
+enum class Registration { Created, UsernameTaken, InviteInvalid }
+
 class AccountRepository(private val database: Database) {
-    /** False when the username is already taken. */
+    /**
+     * Creates the account. With an [invite], only if that invite still works; it is used up in the
+     * same transaction, so a refused name leaves it as it was.
+     */
     suspend fun create(
         username: String,
         identityKey: ByteArray,
         registrationId: Int,
         now: Instant,
         recoveryHash: ByteArray? = null,
-    ): Boolean =
-        database.transaction { connection ->
-            connection.update(
-                """
-                INSERT INTO accounts (username, identity_key, registration_id, created_at, recovery_hash)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT DO NOTHING
-                """.trimIndent(),
-                username,
-                identityKey,
-                registrationId,
-                now,
-                recoveryHash,
-            ) == 1
-        }
+        invite: String? = null,
+    ): Registration = database.transaction { connection ->
+        if (invite != null && !connection.lockUsableInvite(invite, now)) return@transaction Registration.InviteInvalid
+        val id = connection.queryOne(
+            """
+            INSERT INTO accounts (username, identity_key, registration_id, created_at, recovery_hash)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING
+            RETURNING id
+            """.trimIndent(),
+            username,
+            identityKey,
+            registrationId,
+            now,
+            recoveryHash,
+        ) { it.getLong("id") } ?: return@transaction Registration.UsernameTaken
+        if (invite != null) connection.redeemInvite(invite, id, now)
+        Registration.Created
+    }
 
     suspend fun find(username: String): Account? = database.transaction { connection ->
         connection.queryOne(

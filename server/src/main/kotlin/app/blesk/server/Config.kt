@@ -22,6 +22,7 @@ data class Config(
     val botRateLimit: RateLimitConfig,
     /** Per bot, for the Bot API. */
     val botApiRateLimit: RateLimitConfig,
+    val registration: RegistrationMode,
 ) {
     companion object {
         fun fromEnvironment(env: Map<String, String> = System.getenv()): Config {
@@ -57,11 +58,18 @@ data class Config(
                 callRateLimit = perMinute(value("BLESK_CALL_RATE_PER_MINUTE"), DEFAULT_CALL_PER_MINUTE),
                 botRateLimit = perMinute(value("BLESK_BOT_RATE_PER_MINUTE"), DEFAULT_BOT_PER_MINUTE),
                 botApiRateLimit = perMinute(value("BLESK_BOT_API_RATE_PER_MINUTE"), DEFAULT_BOT_API_PER_MINUTE),
+                registration = registration(value("BLESK_REGISTRATION")),
             )
         }
 
         private fun perMinute(setting: String?, default: Int): RateLimitConfig =
             (setting?.toInt() ?: default).let { RateLimitConfig(capacity = it, refillPerMinute = it) }
+
+        private fun registration(setting: String?): RegistrationMode = when (setting ?: "invite") {
+            "invite" -> RegistrationMode.Invite
+            "open" -> RegistrationMode.Open
+            else -> error("BLESK_REGISTRATION must be invite or open, got $setting")
+        }
 
         private fun liveKit(value: (String) -> String?): LiveKitConfig? {
             val names = listOf("LIVEKIT_PUBLIC_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET")
@@ -102,3 +110,6 @@ data class LiveKitConfig(val publicUrl: String, val apiKey: String, val apiSecre
 }
 
 data class RateLimitConfig(val capacity: Int, val refillPerMinute: Int)
+
+/** Who may create an account: only whoever brings an invite, or anyone. */
+enum class RegistrationMode { Invite, Open }

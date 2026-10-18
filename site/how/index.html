@@ -1,0 +1,131 @@
+---
+title: Как это устроено — blesk
+description: Как blesk шифрует переписку, что видит сервер и как проверить, что сборка настоящая.
+path: /how/
+page: how
+---
+<!doctype html>
+<html lang="ru">
+<head>
+{{> head}}
+</head>
+<body>
+{{> header}}
+<main id="main">
+  <div class="page-hero wrap">
+    <h1 class="page-title">Как это устроено</h1>
+    <p class="lead">Без терминов: что шифруется, что видит сервер и как проверить, что у тебя настоящий blesk.</p>
+    {{> docnav}}
+  </div>
+
+  <section class="doc-section wrap" id="encryption" aria-labelledby="encryption-title">
+    <h2 id="encryption-title">Шифрование простыми словами</h2>
+    <div class="prose">
+      <p>Сообщение шифруется на твоём телефоне ещё до отправки, а расшифровывается только на телефоне собеседника. Ключи создаются на телефонах и никуда не уходят. Сервер передаёт запечатанный конверт, ключа от которого у него нет.</p>
+      <p>blesk работает на протоколе Signal через официальную библиотеку libsignal — своей криптографии в blesk нет. Ключи меняются с каждым сообщением, поэтому ключ, украденный сегодня, не откроет вчерашнюю переписку. Первое знакомство телефонов (PQXDH) защищено и от будущих квантовых компьютеров.</p>
+      <p>Собеседника можно проверить: сравни с ним номер безопасности или отсканируй его QR-код. Если ключ собеседника сменится, в чате появится предупреждение.</p>
+      <p>На телефоне переписка лежит в зашифрованной базе (SQLCipher), а ключ от неё — в защищённом хранилище Android.</p>
+    </div>
+    <div class="split">
+      <div class="panel">
+        <h3>Сквозное шифрование</h3>
+        <ul>
+          <li>Личные чаты и «Избранное»</li>
+          <li>Группы</li>
+          <li>Закрытые комнаты</li>
+          <li>Звонки: звук и видео</li>
+          <li>Фото, видео, голосовые и файлы в этих чатах</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Без сквозного шифрования</h3>
+        <ul>
+          <li>Публичные каналы — их читает кто угодно</li>
+          <li>Открытые комнаты — в них может зайти кто угодно</li>
+          <li>Чаты с ботами — бот должен прочитать сообщение</li>
+        </ul>
+        <p class="code-label">В приложении такие чаты матовые и подписаны.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="doc-section wrap" id="server" aria-labelledby="server-title">
+    <h2 id="server-title">Что видит сервер</h2>
+    <div class="split">
+      <div class="panel">
+        <h3>Видит</h3>
+        <ul>
+          <li>Имя пользователя и публичные ключи</li>
+          <li>Кто кого пригласил — 30 дней после регистрации, чтобы останавливать спам; всё это время пригласивший видит, кто пришёл по его ссылке</li>
+          <li>Кому адресовано зашифрованное сообщение и когда оно отправлено</li>
+          <li>Зашифрованные вложения — они удаляются через 30 дней</li>
+          <li>Посты публичных каналов и открытых комнат</li>
+          <li>IP-адрес — только в памяти, чтобы ограничивать частоту запросов</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Не видит</h3>
+        <ul>
+          <li>Текст, фото, голосовые и звонки в личных чатах, группах и закрытых комнатах</li>
+          <li>Номер телефона и почту — их у blesk просто нет</li>
+          <li>Адресную книгу телефона</li>
+          <li>Статус «в сети»: телефон сообщает его собеседникам сам, зашифрованным сообщением</li>
+        </ul>
+      </div>
+    </div>
+    <div class="prose">
+      <p>Подробно — в <a href="/privacy/">политике конфиденциальности</a>.</p>
+    </div>
+  </section>
+
+  <section class="doc-section wrap" id="authenticity" aria-labelledby="authenticity-title">
+    <h2 id="authenticity-title">Проверка подлинности сборки</h2>
+    <div class="prose">
+      <p>Каждая сборка blesk подписана ключом. Если подпись не совпадает с опубликованной, это не наша сборка, даже если она называется blesk.</p>
+    </div>
+    <div class="split">
+      <div class="panel">
+        <h3>Текущая сборка</h3>
+        <table class="facts">
+          <tbody>
+            <tr><th scope="row">Версия</th><td>{{version}}</td></tr>
+            <tr><th scope="row">SHA-256 файла</th><td><code>{{sha256}}</code></td></tr>
+            <tr><th scope="row">Отпечаток ключа подписи</th><td><code>{{signer}}</code></td></tr>
+            {{#commit}}<tr><th scope="row">Исходный код</th><td><a href="https://github.com/gotblesk/blesk/commit/{{commit}}">Коммит {{commitShort}}</a></td></tr>
+            {{/commit}}{{#tag}}<tr><th scope="row">Релиз</th><td><a href="https://github.com/gotblesk/blesk/releases/tag/{{tag}}">{{tag}} на GitHub</a></td></tr>
+            {{/tag}}</tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <h3>Как сверить</h3>
+        <p class="code-label">В приложении открой «Настройки → О приложении → Подлинность»: отпечаток ключа этой копии должен совпасть с опубликованным здесь.</p>
+        <p class="code-label">SHA-256 файла на компьютере:</p>
+        <table class="facts facts-compact">
+          <tbody>
+            <tr><th scope="row">Windows</th><td><code>certutil -hashfile blesk.apk SHA256</code></td></tr>
+            <tr><th scope="row">macOS</th><td><code>shasum -a 256 blesk.apk</code></td></tr>
+            <tr><th scope="row">Linux</th><td><code>sha256sum blesk.apk</code></td></tr>
+          </tbody>
+        </table>
+        <p class="code-label">Отпечаток ключа подписи покажет apksigner из Android SDK:</p>
+        <pre class="code">apksigner verify --print-certs blesk.apk</pre>
+      </div>
+    </div>
+    {{#testSigned}}<p class="note"><strong>Это тестовая сборка.</strong> Официального ключа подписи пока нет, и сборки подписаны тестовым. Он лежит в открытом репозитории, поэтому подписать им может кто угодно: скачивай blesk только с blesk.su и со страницы релизов на GitHub.</p>
+    {{/testSigned}}<div class="prose">
+      <p>Встроенное обновление проверяет это само: ставит только APK, подписанный тем же ключом, что и установленное приложение, и сверяет SHA-256 с описанием релиза.</p>
+    </div>
+  </section>
+
+  <section class="doc-section wrap" id="source" aria-labelledby="source-title">
+    <h2 id="source-title">Открытый код</h2>
+    <div class="prose">
+      <p>Код приложения и сервера открыт под лицензией AGPL-3.0: <a href="https://github.com/gotblesk/blesk">github.com/gotblesk/blesk</a>. Любое утверждение на этом сайте можно проверить по нему.</p>
+      <p>Сервер blesk можно поставить и у себя: одной командой на чистом сервере с Ubuntu. Инструкция лежит в репозитории, в файле docs/SERVER.md.</p>
+      <p>На этом сайте нет счётчиков, аналитики и cookies. Шрифт Onest и всё остальное загружается с blesk.su. Шрифт распространяется по <a href="/fonts/OFL.txt">лицензии SIL Open Font License</a>.</p>
+    </div>
+  </section>
+</main>
+{{> footer}}
+</body>
+</html>

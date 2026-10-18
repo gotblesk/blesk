@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+<head>
+{{> head}}
+</head>
+<body>
+{{> header}}
+<main id="main">
+  <div class="page-hero wrap">
+    <h1 class="page-title">{{heading}}</h1>
+    {{> docnav}}
+  </div>
+  <article class="legal wrap">
+    <div class="prose">
+{{{body}}}
+    </div>
+  </article>
+</main>
+{{> footer}}
+</body>
+</html>

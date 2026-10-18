@@ -439,6 +439,8 @@ class AuthorizationTest {
             HttpMethod.Post to "$SomeBot/token",
             HttpMethod.Delete to SomeBot,
             HttpMethod.Post to "$SomeBot/updates",
+            HttpMethod.Get to Api.INVITES,
+            HttpMethod.Post to Api.INVITES,
         )
 
         /** Every Bot API method. */

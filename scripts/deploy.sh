@@ -4,7 +4,9 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/gotblesk/blesk/master/scripts/deploy.sh | sudo bash
 #
-# Optional environment: BLESK_BRANCH (default master), BLESK_DOMAIN, BLESK_PUBLIC_IP, BLESK_DIR, BLESK_REPO.
+# Optional environment: BLESK_BRANCH (default master), BLESK_COMMIT (a full SHA to deploy instead of
+# the newest commit of the branch), BLESK_DOMAIN (the API, e.g. api.blesk.su), BLESK_SITE_DOMAIN (the
+# site, e.g. blesk.su; works only together with BLESK_DOMAIN), BLESK_PUBLIC_IP, BLESK_DIR, BLESK_REPO.
 # Backups (see scripts/backup-lib.sh): BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET, BACKUP_S3_REGION,
 # BACKUP_S3_ACCESS_KEY, BACKUP_S3_SECRET_KEY, BACKUP_PASSWORD. BLESK_RESTORE=latest (or a snapshot
 # id) moves a server here from its backup. BLESK_SSH_KEYS_ONLY=1 turns off SSH passwords.
@@ -13,10 +15,14 @@ set -euo pipefail
 
 REPO_URL="${BLESK_REPO:-https://github.com/gotblesk/blesk}"
 BRANCH="${BLESK_BRANCH:-master}"
+COMMIT="${BLESK_COMMIT:-}"
 INSTALL_DIR="${BLESK_DIR:-/opt/blesk}"
 DEPLOY_DIR="$INSTALL_DIR/deploy"
 ENV_FILE="$DEPLOY_DIR/.env"
 CERT_DIR="$DEPLOY_DIR/certs"
+SITE_DIR="$DEPLOY_DIR/site-dist"
+# The GitHub release of the checked-out commit as JSON, once find_release has found it.
+RELEASE=""
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m%s\033[0m\n' "$*" >&2; }
@@ -24,6 +30,8 @@ die() {
     printf '\033[31mОшибка: %s\033[0m\n' "$*" >&2
     exit 1
 }
+
+stack() { docker compose --project-directory "$DEPLOY_DIR" -f "$DEPLOY_DIR/docker-compose.yml" "$@"; }
 
 check_system() {
     [[ $EUID -eq 0 ]] || die "запустите от root: curl -fsSL ... | sudo bash"
@@ -35,7 +43,7 @@ install_packages() {
     say "Устанавливаю пакеты"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
-    apt-get install -y -qq ca-certificates curl git jq openssl qrencode fail2ban unattended-upgrades ufw >/dev/null
+    apt-get install -y -qq ca-certificates curl git jq openssl python3 qrencode fail2ban unattended-upgrades ufw >/dev/null
     systemctl enable --now fail2ban unattended-upgrades >/dev/null 2>&1 || true
     if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then
         say "Устанавливаю Docker"
@@ -66,9 +74,18 @@ ensure_swap() {
     fi
 }
 
-# Works for a fresh directory, an existing checkout and a directory without git alike.
+# Works for a fresh directory, an existing checkout and a directory without git alike. A pinned
+# commit makes a deploy from CI install exactly what was built and checked, even when the branch has
+# moved on since. It is looked for only among the recent commits of the branch and never fetched by
+# its SHA: GitHub keeps the commits of every fork of the repository in one store, so a SHA alone may
+# name anybody's code. A pinned commit not found there gives way to the newest one of the branch.
 fetch_code() {
-    say "Получаю код ($BRANCH)"
+    local depth=1 target
+    say "Получаю код ($BRANCH${COMMIT:+, ${COMMIT::7}})"
+    [[ "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ && "$BRANCH" != *..* && "$BRANCH" != [/-]* ]] ||
+        die "BLESK_BRANCH=$BRANCH — это не имя ветки"
+    [[ -z "$COMMIT" || "$COMMIT" =~ ^[0-9a-f]{40}$ ]] || die "BLESK_COMMIT должен быть полным SHA коммита (40 знаков)"
+    [[ -z "$COMMIT" ]] || depth=50
     mkdir -p "$INSTALL_DIR"
     git -C "$INSTALL_DIR" init -q
     if git -C "$INSTALL_DIR" remote get-url origin >/dev/null 2>&1; then
@@ -76,8 +93,16 @@ fetch_code() {
     else
         git -C "$INSTALL_DIR" remote add origin "$REPO_URL"
     fi
-    git -C "$INSTALL_DIR" fetch -q --depth 1 origin "$BRANCH"
-    git -C "$INSTALL_DIR" checkout -q -f -B "$BRANCH" FETCH_HEAD
+    git -C "$INSTALL_DIR" fetch -q --depth "$depth" origin "refs/heads/$BRANCH"
+    target=$(git -C "$INSTALL_DIR" rev-parse FETCH_HEAD)
+    if [[ -n "$COMMIT" && "$COMMIT" != "$target" ]]; then
+        if git -C "$INSTALL_DIR" merge-base --is-ancestor "$COMMIT" "$target" 2>/dev/null; then
+            target=$COMMIT
+        else
+            warn "Коммита ${COMMIT::7} нет среди последних $depth коммитов $BRANCH, беру последний"
+        fi
+    fi
+    git -C "$INSTALL_DIR" checkout -q -f -B "$BRANCH" "$target"
 }
 
 env_value() { grep -E "^$1=" "$ENV_FILE" 2>/dev/null | tail -n 1 | cut -d= -f2-; }
@@ -99,6 +124,12 @@ detect_public_ip() {
     hostname -I | awk '{print $1}'
 }
 
+# Lowercase host names only: the value goes into .env through sed and into the Caddyfile as is.
+check_domain() {
+    [[ -z "$2" || "$2" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$ ]] ||
+        die "$1=$2 — это не доменное имя (нужно, например, chat.example.ru, строчными буквами)"
+}
+
 ask_domain() {
     local answer=""
     if [[ -r /dev/tty ]] && { : </dev/tty; } 2>/dev/null; then
@@ -109,24 +140,36 @@ ask_domain() {
 }
 
 configure() {
+    check_domain BLESK_DOMAIN "${BLESK_DOMAIN:-}"
+    check_domain BLESK_SITE_DOMAIN "${BLESK_SITE_DOMAIN:-}"
     if [[ ! -f "$ENV_FILE" ]]; then
+        local domain
+        domain=${BLESK_DOMAIN-$(ask_domain)}
+        check_domain BLESK_DOMAIN "$domain"
         say "Создаю настройки и пароли"
         umask 077
         cat >"$ENV_FILE" <<EOF
 POSTGRES_PASSWORD=$(openssl rand -hex 24)
-BLESK_DOMAIN=${BLESK_DOMAIN-$(ask_domain)}
+BLESK_DOMAIN=$domain
+BLESK_SITE_DOMAIN=${BLESK_SITE_DOMAIN:-}
 BLESK_PUBLIC_IP=
 BLESK_CADDYFILE=Caddyfile.domain
 EOF
         umask 022
-    elif [[ -n "${BLESK_DOMAIN+set}" ]]; then
-        set_env_value BLESK_DOMAIN "$BLESK_DOMAIN"
+    else
+        [[ -z "${BLESK_DOMAIN+set}" ]] || set_env_value BLESK_DOMAIN "$BLESK_DOMAIN"
+        [[ -z "${BLESK_SITE_DOMAIN+set}" ]] || set_env_value BLESK_SITE_DOMAIN "$BLESK_SITE_DOMAIN"
     fi
 
     DOMAIN=$(env_value BLESK_DOMAIN)
+    SITE_DOMAIN=$(env_value BLESK_SITE_DOMAIN)
     if [[ -n "$DOMAIN" ]]; then
-        set_env_value BLESK_CADDYFILE Caddyfile.domain
+        configure_site
     else
+        if [[ -n "$SITE_DOMAIN" ]]; then
+            warn "Сайт $SITE_DOMAIN не включён: он работает только вместе с доменом для API (BLESK_DOMAIN)"
+            SITE_DOMAIN=""
+        fi
         PUBLIC_IP="${BLESK_PUBLIC_IP:-$(env_value BLESK_PUBLIC_IP)}"
         [[ -n "$PUBLIC_IP" ]] || PUBLIC_IP=$(detect_public_ip)
         [[ -n "$PUBLIC_IP" ]] || die "не удалось определить IP сервера, задайте BLESK_PUBLIC_IP"
@@ -135,6 +178,16 @@ EOF
         make_certificate "$PUBLIC_IP"
     fi
     configure_calls
+}
+
+# With a site domain one Caddyfile serves the API, the site and its www alias.
+configure_site() {
+    if [[ -z "$SITE_DOMAIN" ]]; then
+        set_env_value BLESK_CADDYFILE Caddyfile.domain
+        return
+    fi
+    [[ "$SITE_DOMAIN" != "$DOMAIN" ]] || die "сайту и API нужны разные домены (например blesk.su и api.blesk.su)"
+    set_env_value BLESK_CADDYFILE Caddyfile.site
 }
 
 # LiveKit keys are made once and kept, like the other passwords; the address follows the host.
@@ -181,22 +234,46 @@ open_firewall() {
     fi
 }
 
-# SSH by key only. Done only when asked and when a key is already there, so nobody is locked out:
-# the GitHub workflow that asks for it has just logged in with one.
+has_ssh_keys() {
+    local home
+    home=$(getent passwd "$1" | cut -d: -f6)
+    [[ -n "$home" && -f "$home/.ssh/authorized_keys" ]] && grep -qvE '^[[:space:]]*(#|$)' "$home/.ssh/authorized_keys"
+}
+
+# SSH by key only. Done only when asked and when every account that logs in has a key, so nobody is
+# locked out: root for the owner and, once scripts/server-bootstrap.sh has made it, deploy for CI.
 harden_ssh() {
     [[ ${BLESK_SSH_KEYS_ONLY:-} == 1 ]] || return 0
-    if [[ ! -s /root/.ssh/authorized_keys ]]; then
-        warn "Ключей SSH у root нет, вход по паролю оставлен"
+    # Until scripts/server-bootstrap.sh has run (it creates deploy), the owner's own key may not be on
+    # the server yet, and the bootstrap itself is started with the root password.
+    if ! id deploy >/dev/null 2>&1; then
+        warn "Сервер ещё не подготовлен скриптом server-setup, вход по паролю оставлен"
         return 0
     fi
+    local user
+    for user in root deploy; do
+        if ! has_ssh_keys "$user"; then
+            warn "Ключей SSH у $user нет, вход по паролю оставлен"
+            return 0
+        fi
+    done
     say "Вход по SSH — только по ключу"
     install -d -m 755 /etc/ssh/sshd_config.d
+    # sshd keeps the first value it reads and takes the drop-ins in name order, so 10- outranks
+    # 50-cloud-init.conf, which turns passwords back on in cloud images.
     cat >/etc/ssh/sshd_config.d/10-blesk.conf <<EOF
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 EOF
-    sshd -t && { systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true; }
+    if ! sshd -t; then
+        rm -f /etc/ssh/sshd_config.d/10-blesk.conf
+        warn "sshd отверг настройки, вход по паролю оставлен"
+        return 0
+    fi
+    systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
+    sshd -T 2>/dev/null | grep -qx 'passwordauthentication no' ||
+        warn "sshd всё ещё разрешает вход по паролю: проверьте /etc/ssh/sshd_config"
 }
 
 # Writes deploy/backup.env when the backup settings are passed in, and keeps the nightly timer in
@@ -214,7 +291,7 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=$INSTALL_DIR/scripts/backup.sh
+ExecStart=/bin/bash $INSTALL_DIR/scripts/backup.sh
 Nice=10
 IOSchedulingClass=idle
 EOF
@@ -247,8 +324,29 @@ first_backup() {
     [[ -f "$DEPLOY_DIR/backup.env" ]] || return 0
     [[ -n "${BLESK_RESTORE:-}" || ! -f /var/lib/blesk-backup/last-success ]] || return 0
     say "Делаю первую резервную копию"
-    "$INSTALL_DIR/scripts/backup.sh" || warn "Резервная копия не получилась, журнал выше"
+    bash "$INSTALL_DIR/scripts/backup.sh" || warn "Резервная копия не получилась, журнал выше"
 }
+
+# The release GitHub Actions published for the checked-out commit. A push deploys only after its
+# build has finished; a manual run may come earlier and then waits for the build, up to $1 minutes.
+find_release() {
+    local minutes=$1 commit api attempt
+    [[ -z "$RELEASE" ]] || return 0
+    commit=$(git -C "$INSTALL_DIR" rev-parse HEAD)
+    api="https://api.github.com/repos/${REPO_URL#https://github.com/}/releases?per_page=30"
+    for attempt in $(seq 1 "$minutes"); do
+        RELEASE=$(curl -fsSL "$api" 2>/dev/null | jq -c --arg commit "$commit" \
+            'first(.[] | select(.draft | not) | select(.target_commitish == $commit)
+                | select(any(.assets[]; .name == "blesk-server.tar.gz"))) // empty' || true)
+        [[ -z "$RELEASE" ]] || return 0
+        ((attempt < minutes)) || break
+        if ((attempt == 1)); then echo "Эта версия ещё собирается на GitHub (обычно до 30 минут), жду…"; fi
+        sleep 60
+    done
+    return 1
+}
+
+release_asset() { jq -r --arg name "$1" 'first(.assets[] | select(.name == $name) | .browser_download_url) // empty' <<<"$RELEASE"; }
 
 # The server's build needs Signal's Maven repository, which is blocked in some countries (Russia
 # among them), so the host takes the build GitHub Actions attached to the release of this commit.
@@ -258,41 +356,88 @@ fetch_server() {
         return
     fi
     say "Скачиваю сервер, собранный на GitHub"
-    local commit api url="" dist="$INSTALL_DIR/server/dist" attempt
-    commit=$(git -C "$INSTALL_DIR" rev-parse HEAD)
-    api="https://api.github.com/repos/${REPO_URL#https://github.com/}/releases?per_page=30"
-    for attempt in $(seq 1 60); do
-        url=$(curl -fsSL "$api" 2>/dev/null | jq -r --arg commit "$commit" \
-            'first(.[] | select(.draft | not) | select(.target_commitish == $commit) | .assets[] | select(.name == "blesk-server.tar.gz") | .browser_download_url) // empty' ||
-            true)
-        [[ -z "$url" ]] || break
-        if ((attempt == 1)); then echo "Эта версия ещё собирается на GitHub (обычно до 30 минут), жду…"; fi
-        sleep 60
-    done
-    [[ -n "$url" ]] || die "на GitHub нет собранного сервера для ${commit::7}: проверьте Actions → Build"
+    local dist="$INSTALL_DIR/server/dist"
+    find_release 60 ||
+        die "на GitHub нет собранного сервера для $(git -C "$INSTALL_DIR" rev-parse --short HEAD): проверьте Actions → Build"
     rm -rf "$dist"
     mkdir -p "$dist"
-    curl -fsSL "$url" | tar -xz -C "$dist"
+    curl -fsSL "$(release_asset blesk-server.tar.gz)" | tar -xz -C "$dist"
     [[ -x "$dist/blesk-server/bin/blesk-server" ]] || die "архив сервера неполный"
     set_env_value BLESK_SERVER_DOCKERFILE server/Dockerfile.dist
 }
 
+# The site is built from this checkout, with the APK and its checksums from the same release, into
+# site-dist.next, which no container uses; publish_site puts it in place once the stack is up.
+build_site() {
+    local next="$SITE_DIR.next" work release_url="" apk_url="" release_args=()
+    rm -rf "$next"
+    [[ -n "$SITE_DOMAIN" ]] || return 0
+    [[ -f "$INSTALL_DIR/scripts/build-site.py" ]] || die "в этой версии нет scripts/build-site.py, сайт не собрать"
+    say "Собираю сайт $SITE_DOMAIN"
+    if find_release 1; then
+        release_url=$(release_asset release.json)
+        apk_url=$(release_asset blesk.apk)
+    fi
+    [[ -n "$release_url" && -n "$apk_url" ]] || warn "В релизе этой версии нет APK и release.json: сайт будет без скачивания"
+    work=$(mktemp -d)
+    mkdir -p "$next"
+    if [[ -n "$release_url" ]]; then
+        curl -fsSL "$release_url" -o "$work/release.json"
+        release_args=(--release "$work/release.json")
+    fi
+    python3 "$INSTALL_DIR/scripts/build-site.py" --out "$next" "${release_args[@]}" || die "сайт не собрался, журнал выше"
+    if [[ -n "$release_url" && -n "$apk_url" ]]; then
+        mkdir -p "$next/download"
+        curl -fsSL "$apk_url" -o "$next/download/blesk.apk"
+        [[ "$(sha256sum "$next/download/blesk.apk" | cut -d' ' -f1)" == "$(jq -r .apkSha256 "$work/release.json")" ]] ||
+            die "APK скачался с ошибкой: SHA-256 не совпадает с release.json"
+    fi
+    chmod -R a+rX "$next"
+    rm -rf "$work"
+}
+
 start_stack() {
     say "Собираю и запускаю (первый раз это занимает несколько минут)"
-    docker compose --project-directory "$DEPLOY_DIR" -f "$DEPLOY_DIR/docker-compose.yml" up -d --build --remove-orphans
+    mkdir -p "$SITE_DIR"
+    stack up -d --build --remove-orphans
+    publish_site
+    recreate_mounted
+    # Caddy has just been made anew on the current site-dist, so nothing serves the old trees now.
+    rm -rf "$SITE_DIR".old*
     docker image prune -f >/dev/null 2>&1 || true
 }
 
+# A running Caddy goes on serving a tree moved aside, since its bind mount holds the directory and
+# not the path, until recreate_mounted makes a new container. So the trees moved aside are named
+# apart and removed only after that: a deploy that fails earlier leaves the site being served intact.
+publish_site() {
+    [[ -d "$SITE_DIR.next" ]] || return 0
+    mv "$SITE_DIR" "$SITE_DIR.old.$(date +%s)"
+    mv "$SITE_DIR.next" "$SITE_DIR"
+}
+
+# A bind mount holds what was at its path when the container was made, while git replaces changed
+# files with new ones and publish_site swaps the whole site directory: without a new container Caddy
+# and LiveKit would go on with the old ones. Caddy restarts in a moment, so it is recreated every
+# time; LiveKit only when its config changed, since that ends the calls in progress.
+recreate_mounted() {
+    local services=(caddy) stamp="$DEPLOY_DIR/.livekit.sha256" sum
+    sum=$(sha256sum "$DEPLOY_DIR/livekit.yaml" | cut -d' ' -f1)
+    [[ "$(cat "$stamp" 2>/dev/null)" == "$sum" ]] || services+=(livekit)
+    stack up -d --no-deps --force-recreate "${services[@]}"
+    printf '%s\n' "$sum" >"$stamp"
+}
+
+# /health answers only once the server is up and its database replies.
 wait_until_ready() {
     say "Жду, пока сервер ответит"
     for _ in $(seq 1 90); do
-        if docker compose --project-directory "$DEPLOY_DIR" -f "$DEPLOY_DIR/docker-compose.yml" \
-            exec -T caddy wget -qO- http://server:8080/v1/info 2>/dev/null | grep -q '"blesk"'; then
+        if stack exec -T caddy wget -qO- http://server:8080/health 2>/dev/null | grep -q '"ok"'; then
             return
         fi
         sleep 2
     done
-    docker compose --project-directory "$DEPLOY_DIR" -f "$DEPLOY_DIR/docker-compose.yml" logs --tail 50 server >&2 || true
+    stack logs --tail 50 server >&2 || true
     die "сервер не запустился, журнал выше"
 }
 
@@ -300,8 +445,11 @@ print_connection() {
     local link
     if [[ -n "$DOMAIN" ]]; then
         link="blesk://server?url=https://$DOMAIN"
-        if ! curl -fsS --max-time 20 "https://$DOMAIN/v1/info" >/dev/null 2>&1; then
+        if ! curl -fsS --max-time 20 "https://$DOMAIN/health" >/dev/null 2>&1; then
             warn "HTTPS для $DOMAIN пока не отвечает. Проверьте, что домен указывает на этот сервер; сертификат появится сам."
+        fi
+        if [[ -n "$SITE_DOMAIN" ]] && ! curl -fsS --max-time 20 -o /dev/null "https://$SITE_DOMAIN/" 2>/dev/null; then
+            warn "Сайт https://$SITE_DOMAIN пока не отвечает. Проверьте A-записи $SITE_DOMAIN и www.$SITE_DOMAIN."
         fi
     else
         local crt="$CERT_DIR/blesk.crt" pin fingerprint
@@ -313,6 +461,7 @@ print_connection() {
     say "Готово. В приложении: Настройки → Сервер → Сканировать QR"
     qrencode -t ANSIUTF8 "$link"
     printf '%s\n' "$link"
+    if [[ -n "${SITE_DOMAIN:-}" ]]; then printf '\nСайт: https://%s\n' "$SITE_DOMAIN"; fi
 }
 
 main() {
@@ -320,9 +469,13 @@ main() {
     install_packages
     ensure_swap
     fetch_code
-    # The checkout may have brought a newer version of this script; continue with that one.
-    if [[ "${BLESK_DEPLOY_REEXEC:-}" != 1 && -f "$INSTALL_DIR/scripts/deploy.sh" ]]; then
-        export BLESK_DEPLOY_REEXEC=1
+    # The checkout may have brought another version of this script; continue with that one. The
+    # guard holds the commit rather than a flag: the script from the newest commit of the branch may
+    # itself check out an older pinned one, and then hands over to that commit's script in turn.
+    local head
+    head=$(git -C "$INSTALL_DIR" rev-parse HEAD)
+    if [[ "${BLESK_DEPLOY_REEXEC:-}" != "$head" && -f "$INSTALL_DIR/scripts/deploy.sh" ]]; then
+        export BLESK_DEPLOY_REEXEC=$head
         exec bash "$INSTALL_DIR/scripts/deploy.sh"
     fi
     configure_backup
@@ -331,6 +484,7 @@ main() {
     open_firewall
     harden_ssh
     fetch_server
+    build_site
     start_stack
     wait_until_ready
     print_connection

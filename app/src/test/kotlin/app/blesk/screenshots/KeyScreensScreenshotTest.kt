@@ -572,6 +572,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             onUnlockDebug = {},
             onOpenLicenses = {},
             onOpenPolicy = {},
+            onOpenTerms = {},
             onBack = {},
             signature = BuildSignature(SignedBy.Test, "bd7e78024ea47ca7e7de70c02c39beff5a2855be35560288cdd477e57f9d78bd"),
         )
@@ -594,7 +595,7 @@ class KeyScreensScreenshotTest(private val name: String) {
     fun server() = capture("07e_server_proxy") {
         ServerScreen(
             connected = ServerState("https://chat.example.ru", "alex", pinned = true),
-            onConnect = { _, _ -> ConnectOutcome.Ok },
+            onConnect = { ConnectOutcome.Ok },
             onBack = {},
             proxy = ProxyControls(ProxySetting(enabled = true, host = "10.0.0.2", port = 1080), {}, { ProxyCheck.Silent }),
         )

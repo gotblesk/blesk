@@ -159,6 +159,9 @@ class AppContainer(context: Context) {
     /** A `blesk://` link opened from another app: someone's profile or a group invite. */
     val linkRequest = MutableStateFlow<String?>(null)
 
+    /** An invite code that came by link before there was an account; the registration form fills it in. */
+    val pendingInvite = MutableStateFlow<String?>(null)
+
     /** Something shared into blesk from another app, waiting for the chats to send it to. */
     val shareRequest = MutableStateFlow<Shared?>(null)
 
@@ -218,18 +221,31 @@ class AppContainer(context: Context) {
     }
 
     /**
-     * Creates an account on [address] with a new recovery phrase and switches the app to it. The
-     * phrase is kept sealed on this phone until the person has written it down.
+     * Creates an account on [address] by [invite] with a new recovery phrase and switches the app to
+     * it. The phrase is kept sealed on this phone until the person has written it down.
      */
-    suspend fun connect(address: ServerAddress, username: String): RegisterResult {
+    suspend fun connect(address: ServerAddress, username: String, invite: String?): RegisterResult {
         val stack = ServerStack(appContext, this, address)
-        val entropy = RecoveryPhrase.newEntropy()
-        val result = withContext(Dispatchers.IO) { stack.register(username, PhraseKeys(entropy)) }
+        // The same name again after a failure keeps its phrase, so an account the server made before the
+        // connection dropped is signed in to and still opens with the phrase saved below.
+        val resumed = unfinished?.takeIf { it.address == address && it.username == username }
+        val entropy = resumed?.entropy ?: RecoveryPhrase.newEntropy()
+        unfinished = Attempt(address, username, entropy)
+        val result = withContext(Dispatchers.IO) {
+            stack.register(username, PhraseKeys(entropy), invite, resume = resumed != null)
+        }
         if (result != RegisterResult.Ok) return result
+        unfinished = null
+        pendingInvite.value = null
         withContext(Dispatchers.IO) { phrase.save(entropy) }
         open(stack, address, username)
         return result
     }
+
+    /** The last registration that did not succeed; the server may still have made its account. */
+    private var unfinished: Attempt? = null
+
+    private class Attempt(val address: ServerAddress, val username: String, val entropy: ByteArray)
 
     /** Opens the account of [words] on [address]; the phone that had it is signed out. */
     suspend fun recover(address: ServerAddress, words: List<String>): RecoverResult {

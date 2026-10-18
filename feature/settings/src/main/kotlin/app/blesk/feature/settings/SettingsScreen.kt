@@ -52,6 +52,8 @@ class SettingsActions(
     val onOpenPhrase: () -> Unit = {},
     val onOpenDevices: () -> Unit = {},
     val onOpenMusic: () -> Unit = {},
+    /** Invites to the server; null in the demo, which has no server to invite to. */
+    val onOpenInvites: (() -> Unit)? = null,
 )
 
 /** The «Ты» tab: your profile and what is yours — saved messages, calls, invites, stickers, bots. */
@@ -123,7 +125,13 @@ fun YouList(
                 modifier = Modifier.sharedBounds(screenKey("music")),
             )
             ListRow(title = stringResource(R.string.you_calls), icon = BleskIcons.Phone, soon = true)
-            ListRow(title = stringResource(R.string.you_invites), icon = BleskIcons.Invite, soon = true)
+            ListRow(
+                title = stringResource(R.string.you_invites),
+                icon = BleskIcons.Invite,
+                soon = actions.onOpenInvites == null,
+                onClick = actions.onOpenInvites,
+                modifier = Modifier.sharedBounds(screenKey("invites")),
+            )
             ListRow(title = stringResource(R.string.you_stickers), icon = BleskIcons.Sticker, onClick = actions.onOpenStickers)
             val notify = rememberNotify()
             val needsServer = stringResource(R.string.needs_server)

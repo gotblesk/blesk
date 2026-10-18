@@ -63,6 +63,7 @@ import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
 import app.blesk.feature.settings.BuildSignature
 import app.blesk.feature.settings.ConnectOutcome
+import app.blesk.feature.settings.ConnectRequest
 import app.blesk.feature.settings.License
 import app.blesk.feature.settings.LicenseTextScreen
 import app.blesk.feature.settings.LicensesScreen
@@ -74,6 +75,7 @@ import app.blesk.feature.settings.ServerScreen
 import app.blesk.feature.settings.ServerState
 import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SignedBy
+import app.blesk.feature.settings.TermsScreen
 import app.blesk.feature.settings.UpdateControls
 import app.blesk.feature.settings.WhatsNewScreen
 import app.blesk.locks.ChatLockGate
@@ -165,6 +167,9 @@ data object StorageKey : NavKey
 data object ServerKey : NavKey
 
 @Serializable
+data object InvitesKey : NavKey
+
+@Serializable
 data object PrivacyKey : NavKey
 
 @Serializable
@@ -187,6 +192,9 @@ data object LicensesKey : NavKey
 
 @Serializable
 data object PolicyKey : NavKey
+
+@Serializable
+data object TermsKey : NavKey
 
 @Serializable
 data object SandboxKey : NavKey
@@ -219,6 +227,10 @@ fun BleskNavigation(container: AppContainer) {
     val debugUnlocked by container.settings.debugUnlocked.collectAsStateWithLifecycle(initialValue = false)
     val appearance by container.settings.appearance.collectAsStateWithLifecycle(initialValue = Appearance())
     val demo = mode is AppMode.Demo
+    // Every invite link leads to blesk's own server, so an invite made on another one would send a friend astray.
+    val openInvites: (() -> Unit)? = (mode as? AppMode.Server)
+        ?.takeIf { ServerAddress(it.url, it.pin) == ServerAddress.DEFAULT }
+        ?.let { { backStack.add(InvitesKey) } }
     val context = LocalContext.current
     val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
     val openDirect: (String, (String) -> Unit) -> Unit = { username, then ->
@@ -233,20 +245,8 @@ fun BleskNavigation(container: AppContainer) {
         backStack.add(ConversationKey(id))
     }
 
-    // A blesk:// link from another app: a profile opens its chat, an invite asks to join.
-    val linkRequest by container.linkRequest.collectAsStateWithLifecycle()
-    val ready = container.chats.collectAsStateWithLifecycle().value
     val notify = rememberNotify()
-    val joinSent = stringResource(app.blesk.feature.chats.R.string.contacts_join_sent)
     val contactRemoved = stringResource(app.blesk.feature.chats.R.string.contacts_removed)
-    val linkMissing = stringResource(app.blesk.feature.chats.R.string.link_not_found)
-    LaunchedEffect(linkRequest, ready) {
-        val link = linkRequest ?: return@LaunchedEffect
-        val chats = ready ?: return@LaunchedEffect
-        container.linkRequest.value = null
-        val opened = find(chats, link, open = { backStack.add(ConversationKey(it)) }) { notify(joinSent) }
-        if (!opened) notify(linkMissing)
-    }
     val shareRequest by container.shareRequest.collectAsStateWithLifecycle()
     LaunchedEffect(shareRequest) {
         if (shareRequest != null && backStack.lastOrNull() != ShareKey) backStack.add(ShareKey)
@@ -315,7 +315,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onCall = { contact ->
                                         openDirect(contact.username) { id -> context.startActivity(CallActivity.call(context, id, false)) }
                                     },
-                                    onInvite = (mode as? AppMode.Server)?.let { server ->
+                                    onInvite = openInvites ?: (mode as? AppMode.Server)?.let { server ->
                                         { scope.launch { invite(context, server.username, container.chats.value?.linkKey()) } }
                                     },
                                     onRemove = { contact ->
@@ -352,6 +352,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenPhrase = { backStack.add(PhraseKey()) },
                                     onOpenDevices = { backStack.add(DevicesKey) },
                                     onOpenMusic = { backStack.add(MusicKey) },
+                                    onOpenInvites = openInvites,
                                     onShowQr = { backStack.add(MyQrKey) },
                                     onDeleteAccount = if (demo) null else ({ backStack.add(WipeKey(WipeKind.DeleteAccount)) }),
                                     onShare = {
@@ -381,10 +382,12 @@ fun BleskNavigation(container: AppContainer) {
                             Box(Modifier.sharedBounds(screenKey("server"))) {
                                 val server = mode as? AppMode.Server
                                 val proxy by container.settings.proxy.collectAsStateWithLifecycle(ProxySetting())
+                                val pendingInvite by container.pendingInvite.collectAsStateWithLifecycle()
                                 ServerScreen(
                                     connected = server?.let { ServerState(it.url, it.username, it.pin != null) },
-                                    onConnect = { raw, username ->
-                                        connect(container, raw, username).also { outcome ->
+                                    pendingInvite = pendingInvite,
+                                    onConnect = { request ->
+                                        connect(container, request).also { outcome ->
                                             // A new account starts with its phrase: written down now, or put off on purpose.
                                             if (outcome == ConnectOutcome.Ok) backStack.add(PhraseKey(afterRegistration = true))
                                         }
@@ -397,6 +400,9 @@ fun BleskNavigation(container: AppContainer) {
                                     ),
                                 )
                             }
+                        }
+                        entry<InvitesKey> {
+                            Box(Modifier.sharedBounds(screenKey("invites"))) { InvitesRoute(container, back) }
                         }
                         entry<PrivacyKey> {
                             Box(Modifier.sharedBounds(screenKey("privacy"))) {
@@ -446,6 +452,7 @@ fun BleskNavigation(container: AppContainer) {
                             )
                         }
                         entry<PolicyKey> { PrivacyPolicyScreen(onBack = back) }
+                        entry<TermsKey> { TermsScreen(onBack = back) }
                         entry<SandboxKey> { MetaballSandbox(onBack = back) }
                         entry<UpdateKey> { UpdateRoute(container, back) }
                         entry<WhatsNewKey> {
@@ -487,6 +494,7 @@ fun BleskNavigation(container: AppContainer) {
                                 },
                                 onScan = { backStack.add(ScanKey) },
                                 onNewGroup = { kind -> backStack.add(NewGroupKey(kind)) },
+                                onOpenInvites = openInvites,
                                 onBack = back,
                             )
                         }
@@ -501,13 +509,29 @@ fun BleskNavigation(container: AppContainer) {
                             }
                         }
                         entry<RoomsAddKey> {
-                            RoomsAddRoute(container, onCreate = { backStack.add(NewGroupKey(NewKind.Room)) }, onBack = back)
+                            RoomsAddRoute(
+                                container,
+                                onCreate = { backStack.add(NewGroupKey(NewKind.Room)) },
+                                onOpenConversation = { id ->
+                                    back()
+                                    backStack.add(ConversationKey(id))
+                                },
+                                onBack = back,
+                            )
                         }
                         entry<ScanKey> {
-                            ScanRoute(container, onOpenConversation = { id ->
-                                while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-                                backStack.add(ConversationKey(id))
-                            }, onBack = back)
+                            ScanRoute(
+                                container,
+                                onOpenConversation = { id ->
+                                    while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                                    backStack.add(ConversationKey(id))
+                                },
+                                onRegister = {
+                                    while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                                    backStack.add(ServerKey)
+                                },
+                                onBack = back,
+                            )
                         }
                         entry<NewGroupKey> { key ->
                             NewGroupRoute(container, key.kind, onCreated = { id, room ->
@@ -619,6 +643,7 @@ fun BleskNavigation(container: AppContainer) {
                                     debugUnlocked = debugUnlocked,
                                     onOpenLicenses = { backStack.add(LicensesKey) },
                                     onOpenPolicy = { backStack.add(PolicyKey) },
+                                    onOpenTerms = { backStack.add(TermsKey) },
                                     onOpenSandbox = { backStack.add(SandboxKey) },
                                     updates = UpdateControls(
                                         checking = checkUpdates,
@@ -682,17 +707,30 @@ fun BleskNavigation(container: AppContainer) {
                         backStack.add(ForwardKey(chat, listOf(message)))
                     },
                 )
+                IncomingLinks(
+                    container = container,
+                    screens = LinkScreens(
+                        conversation = { backStack.add(ConversationKey(it)) },
+                        profile = { backStack.add(ChatInfoKey(it)) },
+                        registration = { if (backStack.lastOrNull() != ServerKey) backStack.add(ServerKey) },
+                    ),
+                    atHome = backStack.size == 1,
+                )
             }
         }
     }
 }
 
-private suspend fun connect(container: AppContainer, raw: String, username: String): ConnectOutcome {
-    val address = ServerAddress.parse(raw) ?: return ConnectOutcome.BadAddress
-    return when (container.connect(address, username)) {
+/** Registers on blesk's own server unless another address was typed or scanned. */
+private suspend fun connect(container: AppContainer, request: ConnectRequest): ConnectOutcome {
+    val address = request.address?.let { ServerAddress.parse(it) ?: return ConnectOutcome.BadAddress } ?: ServerAddress.DEFAULT
+    return when (container.connect(address, request.username, request.invite)) {
         RegisterResult.Ok -> ConnectOutcome.Ok
         RegisterResult.NameTaken -> ConnectOutcome.NameTaken
         RegisterResult.NameInvalid -> ConnectOutcome.NameInvalid
+        RegisterResult.InviteRequired -> ConnectOutcome.InviteRequired
+        RegisterResult.InviteInvalid -> ConnectOutcome.InviteInvalid
+        RegisterResult.TooManyAttempts -> ConnectOutcome.TooManyAttempts
         RegisterResult.Unreachable -> ConnectOutcome.Unreachable
     }
 }

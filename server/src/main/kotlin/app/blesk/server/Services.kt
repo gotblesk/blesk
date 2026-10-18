@@ -10,7 +10,9 @@ import app.blesk.server.bots.BotWebhooks
 import app.blesk.server.bots.WebhookPolicy
 import app.blesk.server.calls.CallTokens
 import app.blesk.server.db.Database
+import app.blesk.server.db.DatabaseHealth
 import app.blesk.server.http.RateLimiter
+import app.blesk.server.invites.InviteRepository
 import app.blesk.server.keys.KeyRepository
 import app.blesk.server.messages.MessageRepository
 import app.blesk.server.socket.SocketHub
@@ -36,6 +38,7 @@ class Services(
     /** Per bot, for every Bot API call. */
     val botApiRateLimiter: RateLimiter,
     webhookPolicy: WebhookPolicy,
+    val registration: RegistrationMode,
     webhookRetryDelays: List<Duration> = BotWebhooks.DefaultRetryDelays,
     private val clock: Clock = Clock.systemUTC(),
 ) {
@@ -50,6 +53,8 @@ class Services(
     val bots = BotRepository(database)
     val botSignals = BotSignals()
     val webhooks = BotWebhooks(webhookPolicy, webhookRetryDelays)
+    val invites = InviteRepository(database)
+    val health = DatabaseHealth(database)
 
     /** Whole milliseconds: what goes into the database reads back exactly the same (Postgres keeps microseconds and rounds). */
     fun now(): Instant = clock.instant().truncatedTo(ChronoUnit.MILLIS)

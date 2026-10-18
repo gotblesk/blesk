@@ -17,6 +17,8 @@ import app.blesk.shared.protocol.CreateSpaceChannel
 import app.blesk.shared.protocol.Discovery
 import app.blesk.shared.protocol.EditPost
 import app.blesk.shared.protocol.ErrorBody
+import app.blesk.shared.protocol.InviteInfo
+import app.blesk.shared.protocol.InviteList
 import app.blesk.shared.protocol.KeyStatus
 import app.blesk.shared.protocol.KeyUpload
 import app.blesk.shared.protocol.NewPost
@@ -166,9 +168,16 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
     suspend fun usernameAvailable(name: String): Boolean =
         call<UsernameCheck> { client.get(url("${Api.USERNAMES}/$name")) }.available
 
+    /** Creates the account; a server that registers by invite answers 403 `invite_required` or `invite_invalid`. */
     suspend fun register(request: RegisterRequest): AccountInfo = call {
         client.post(url(Api.ACCOUNTS)) { jsonBody(request) }
     }
+
+    /** The signed-in person's invites, newest first, and how many more can be made now. */
+    suspend fun listInvites(): InviteList = call { client.get(url(Api.INVITES)) { auth() } }
+
+    /** A new invite; 409 `invite_limit` when all of them are out and unused. */
+    suspend fun createInvite(): InviteInfo = call { client.post(url(Api.INVITES)) { auth() } }
 
     suspend fun account(username: String, link: String? = null): AccountInfo? = optional {
         client.get(url("${Api.ACCOUNTS}/$username")) {

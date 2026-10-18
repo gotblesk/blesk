@@ -15,6 +15,7 @@ import app.blesk.server.http.ApiException
 import app.blesk.server.http.ErrorCodes
 import app.blesk.server.http.RequestLogging
 import app.blesk.server.http.rateLimited
+import app.blesk.server.invites.inviteRoutes
 import app.blesk.server.keys.keyRoutes
 import app.blesk.server.messages.messageRoutes
 import app.blesk.server.socket.socketRoutes
@@ -37,6 +38,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.pingPeriod
 import io.ktor.server.websocket.timeout
+import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -70,6 +72,14 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
 
     routing {
         get(Api.INFO) { call.respond(ServerInfo(calls = services.callTokens != null)) }
+        // For probes and uptime monitors, so outside the rate limits: the check itself runs one at a time.
+        get(Api.HEALTH) {
+            if (services.health.isUp()) {
+                call.respond(Health("ok"))
+            } else {
+                call.respond(HttpStatusCode.ServiceUnavailable, Health("unavailable"))
+            }
+        }
         rateLimited(services.authRateLimiter, services.trustProxy) {
             registrationRoutes(services)
             loginRoutes(services)
@@ -83,6 +93,7 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
             spaceRoutes(services)
             callRoutes(services)
             botRoutes(services)
+            inviteRoutes(services)
         }
         authenticate(BOT_BEARER) {
             botApiRoutes(services)
@@ -91,3 +102,6 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
 
     launchMaintenance(services, maintenanceInterval)
 }
+
+@Serializable
+private data class Health(val status: String)

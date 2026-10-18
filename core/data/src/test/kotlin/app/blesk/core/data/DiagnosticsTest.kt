@@ -3,6 +3,7 @@ package app.blesk.core.data
 import app.blesk.core.data.diagnostics.CrashStore
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.EventLog
+import app.blesk.core.data.diagnostics.EventSink
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -21,6 +22,16 @@ class DiagnosticsTest {
         val log = EventLog(capacity = 3, clock = { 0L })
         EventCode.entries.take(5).forEach { log.record(it) }
         assertEquals(EventCode.entries.subList(2, 5), log.entries.value.map { it.code })
+    }
+
+    @Test
+    fun `every entry also goes to the sink as its code and number`() {
+        val lines = mutableListOf<String>()
+        val log = EventLog(capacity = 1, clock = { 0L }, sink = EventSink { lines += it.line })
+        log.record(EventCode.ScreenOpened, 3)
+        log.record(EventCode.AppStarted)
+        assertEquals(listOf("ScreenOpened 3", "AppStarted"), lines)
+        assertEquals(listOf(EventCode.AppStarted), log.entries.value.map { it.code })
     }
 
     @Test

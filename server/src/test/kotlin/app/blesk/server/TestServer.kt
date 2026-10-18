@@ -42,45 +42,88 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair
 import org.signal.libsignal.protocol.kem.KEMKeyPair
 import org.signal.libsignal.protocol.kem.KEMKeyType
 import java.nio.file.Files
-import java.nio.file.Path
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 import java.util.Base64
+import java.util.UUID
 import javax.sql.DataSource
 import kotlin.random.Random
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 /** One real Postgres for the whole test run; every test uses fresh random usernames instead of a clean database. */
 object TestDatabase {
-    val dataSource: DataSource by lazy {
-        val postgres = EmbeddedPostgres.builder().start()
-        Runtime.getRuntime().addShutdownHook(Thread { postgres.close() })
-        postgres.postgresDatabase.also(Database::migrate)
+    private val postgres: EmbeddedPostgres by lazy {
+        EmbeddedPostgres.builder().start().also { postgres -> Runtime.getRuntime().addShutdownHook(Thread { postgres.close() }) }
     }
+
+    val dataSource: DataSource by lazy { postgres.postgresDatabase.also(Database::migrate) }
+
+    /** An empty database of its own, for tests of what the whole server shares, such as bootstrap invites. */
+    fun fresh(): DataSource = postgres.getDatabase(USER, create()).also(Database::migrate)
+
+    /** Like [fresh], but not migrated yet: for the server's own process, which migrates as it starts. */
+    fun freshUrl(): String = postgres.getJdbcUrl(USER, create())
+
+    private fun create(): String {
+        val name = "blesk_" + UUID.randomUUID().toString().replace("-", "")
+        postgres.postgresDatabase.connection.use { it.createStatement().use { statement -> statement.execute("CREATE DATABASE $name") } }
+        return name
+    }
+
+    const val USER = "postgres"
+}
+
+/** A clock moved by hand, for what expires. */
+class TestClock(@Volatile var instant: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)) : Clock() {
+    fun advance(by: Duration) {
+        instant += by.toJavaDuration()
+    }
+
+    override fun instant(): Instant = instant
+
+    override fun getZone(): ZoneId = ZoneOffset.UTC
+
+    override fun withZone(zone: ZoneId): Clock = this
 }
 
 class TestUser(val username: String, val identity: IdentityKeyPair, val token: String)
 
 class Harness(val client: HttpClient, val services: Services) {
-    suspend fun register(username: String = randomUsername(), identity: IdentityKeyPair = IdentityKeyPair.generate()): TestUser {
-        val response = registerRaw(username, identity)
+    suspend fun register(
+        username: String = randomUsername(),
+        identity: IdentityKeyPair = IdentityKeyPair.generate(),
+        invite: String? = null,
+    ): TestUser {
+        val response = registerRaw(username, identity, invite = invite)
         assertEquals(HttpStatusCode.Created, response.status)
         return TestUser(username, identity, login(username, identity))
     }
 
-    suspend fun registerRaw(username: String, identity: IdentityKeyPair, signed: String = username): HttpResponse =
-        client.post(Api.ACCOUNTS) {
-            contentType(ContentType.Application.Json)
-            setBody(
-                RegisterRequest(
-                    username = username,
-                    identityKey = identity.publicKey.serialize().b64(),
-                    registrationId = Random.nextInt(1, 16380),
-                    signature = identity.privateKey.calculateSignature(Api.registrationProof(signed)).b64(),
-                ),
-            )
-        }
+    suspend fun registerRaw(
+        username: String,
+        identity: IdentityKeyPair,
+        signed: String = username,
+        invite: String? = null,
+    ): HttpResponse = client.post(Api.ACCOUNTS) {
+        contentType(ContentType.Application.Json)
+        setBody(
+            RegisterRequest(
+                username = username,
+                identityKey = identity.publicKey.serialize().b64(),
+                registrationId = Random.nextInt(1, 16380),
+                signature = identity.privateKey.calculateSignature(Api.registrationProof(signed)).b64(),
+                invite = invite,
+            ),
+        )
+    }
 
     suspend fun challenge(username: String): Challenge = client.post(Api.CHALLENGE) {
         contentType(ContentType.Application.Json)
@@ -132,47 +175,42 @@ fun serverTest(
     callRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     liveKit: LiveKitConfig? = null,
     botRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
+    // Open, so that tests of everything else register without invites.
+    registration: RegistrationMode = RegistrationMode.Open,
+    clock: Clock = Clock.systemUTC(),
+    dataSource: DataSource = TestDatabase.dataSource,
     block: suspend ApplicationTestBuilder.(Harness) -> Unit,
 ) {
     // Every test uploads a few megabytes; left behind, they fill the disk across runs.
     val attachments = Files.createTempDirectory("blesk-attachments")
     try {
-        serverTest(attachments, rateLimit, postRateLimit, callRateLimit, liveKit, botRateLimit, block)
+        val services = Services(
+            database = Database(dataSource),
+            storage = FileSystemStorage(attachments),
+            authRateLimiter = RateLimiter(rateLimit),
+            postRateLimiter = RateLimiter(postRateLimit),
+            trustProxy = false,
+            callRateLimiter = RateLimiter(callRateLimit),
+            callTokens = liveKit?.let(::CallTokens),
+            botRateLimiter = RateLimiter(botRateLimit),
+            botApiRateLimiter = RateLimiter(botRateLimit),
+            // Webhook tests call a local HTTP server; production never allows private addresses.
+            webhookPolicy = WebhookPolicy(allowPrivateAddresses = true),
+            registration = registration,
+            webhookRetryDelays = listOf(ZERO, 100.milliseconds),
+            clock = clock,
+        )
+        testApplication {
+            application { bleskModule(services, maintenanceInterval = 1.hours) }
+            val client = createClient {
+                install(ContentNegotiation) { json(BleskJson) }
+                install(WebSockets)
+            }
+            block(Harness(client, services))
+        }
     } finally {
         attachments.toFile().deleteRecursively()
     }
-}
-
-@Suppress("LongParameterList")
-private fun serverTest(
-    attachments: Path,
-    rateLimit: RateLimitConfig,
-    postRateLimit: RateLimitConfig,
-    callRateLimit: RateLimitConfig,
-    liveKit: LiveKitConfig?,
-    botRateLimit: RateLimitConfig,
-    block: suspend ApplicationTestBuilder.(Harness) -> Unit,
-) = testApplication {
-    val services = Services(
-        database = Database(TestDatabase.dataSource),
-        storage = FileSystemStorage(attachments),
-        authRateLimiter = RateLimiter(rateLimit),
-        postRateLimiter = RateLimiter(postRateLimit),
-        trustProxy = false,
-        callRateLimiter = RateLimiter(callRateLimit),
-        callTokens = liveKit?.let(::CallTokens),
-        botRateLimiter = RateLimiter(botRateLimit),
-        botApiRateLimiter = RateLimiter(botRateLimit),
-        // Webhook tests call a local HTTP server; production never allows private addresses.
-        webhookPolicy = WebhookPolicy(allowPrivateAddresses = true),
-        webhookRetryDelays = listOf(ZERO, 100.milliseconds),
-    )
-    application { bleskModule(services, maintenanceInterval = 1.hours) }
-    val client = createClient {
-        install(ContentNegotiation) { json(BleskJson) }
-        install(WebSockets)
-    }
-    block(Harness(client, services))
 }
 
 fun randomUsername(): String = "u_" + (1..12).map { "abcdefghijklmnopqrstuvwxyz0123456789".random() }.joinToString("")

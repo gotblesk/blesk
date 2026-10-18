@@ -1,5 +1,6 @@
 package app.blesk.server
 
+import app.blesk.server.auth.Registration
 import app.blesk.shared.protocol.BotCreated
 import app.blesk.shared.protocol.BotInfo
 import app.blesk.shared.protocol.Bots
@@ -80,7 +81,8 @@ class BotsTest {
 
         // An account registered before such names were reserved keeps its name.
         val legacy = randomBotUsername()
-        assertTrue(harness.services.accounts.create(legacy, IdentityKeyPair.generate().publicKey.serialize(), 1, Instant.now()))
+        val created = harness.services.accounts.create(legacy, IdentityKeyPair.generate().publicKey.serialize(), 1, Instant.now())
+        assertEquals(Registration.Created, created)
         val botOverPerson = harness.createBotRaw(owner, username = legacy)
         assertEquals(HttpStatusCode.Conflict, botOverPerson.status)
         assertEquals("username_taken", botOverPerson.body<ErrorBody>().code)

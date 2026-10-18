@@ -27,9 +27,8 @@ import app.blesk.feature.chats.SpaceSearch
 import app.blesk.feature.chats.groups.NewKind
 import app.blesk.feature.profile.profileLink
 import app.blesk.feature.settings.QrScanner
-import app.blesk.shared.protocol.InviteLink
-import app.blesk.shared.protocol.ProfileLink
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -38,6 +37,8 @@ internal fun NewChatRoute(
     onOpenConversation: (String) -> Unit,
     onScan: () -> Unit,
     onNewGroup: (NewKind) -> Unit,
+    /** «Ты → Приглашения» on blesk's own server; elsewhere «Пригласить» sends a link to your profile instead. */
+    onOpenInvites: (() -> Unit)?,
     onBack: () -> Unit,
 ) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
@@ -54,12 +55,12 @@ internal fun NewChatRoute(
             onScan = onScan,
             onNewGroup = if (chats is GroupController) ({ onNewGroup(NewKind.Group) }) else null,
             onNewChannel = if (chats is SpaceController) ({ onNewGroup(NewKind.Channel) }) else null,
-            onInvite = server?.let { { scope.launch { invite(context, it.username, chats.linkKey()) } } },
+            onInvite = onOpenInvites ?: server?.let { { scope.launch { invite(context, it.username, chats.linkKey()) } } },
             onOpenContact = { contact -> scope.launch { chats.openDirect(contact.username)?.let(onOpenConversation) } },
             onFind = if (server == null) null else { text -> find(chats, text, onOpenConversation) { notify(joinSent) } },
             spaces = (chats as? SpaceController)?.let { controller ->
                 SpaceSearch(
-                    search = { query -> if (InviteLink.parse(query) != null) emptyList() else controller.searchSpaces(query) },
+                    search = { query -> spaceQuery(query)?.let { controller.searchSpaces(it) }.orEmpty() },
                     join = { handle -> controller.joinSpace(handle)?.let(onOpenConversation) },
                 )
             },
@@ -69,7 +70,7 @@ internal fun NewChatRoute(
 }
 
 @Composable
-internal fun RoomsAddRoute(container: AppContainer, onCreate: () -> Unit, onBack: () -> Unit) {
+internal fun RoomsAddRoute(container: AppContainer, onCreate: () -> Unit, onOpenConversation: (String) -> Unit, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = AppMode.Demo)
     val notify = rememberNotify()
@@ -77,41 +78,45 @@ internal fun RoomsAddRoute(container: AppContainer, onCreate: () -> Unit, onBack
     RoomsAddScreen(
         onCreate = onCreate,
         onJoin = { link ->
+            val target = LinkTarget.of(link)?.takeIf { it is LinkTarget.Group || it is LinkTarget.Space }
             when {
-                InviteLink.parse(link) == null -> false
+                target == null -> false
                 // An invite asks the group's admin on their server; the demo has nobody to ask.
                 mode == AppMode.Demo -> null.also { notify(needsServer) }
-                else -> (chats as? GroupController)?.join(link) == true
+                else -> when (reach(target, chats, onOpenConversation, onOpenConversation)) {
+                    LinkOutcome.JoinRequested -> true
+                    LinkOutcome.Opened -> null
+                    else -> false
+                }
             }
         },
         onBack = onBack,
     )
 }
 
-/** Reads a profile code (`blesk://u/name`, see [ProfileLink]) or a group invite and acts on it. */
+/** Reads a profile code, an invite or a server's code and goes where it points; a profile opens its chat. */
 @Composable
-internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> Unit, onBack: () -> Unit) {
+internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> Unit, onRegister: () -> Unit, onBack: () -> Unit) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val context = LocalContext.current
     val notify = rememberNotify()
-    val joinSent = stringResource(R.string.contacts_join_sent)
     val scope = rememberCoroutineScope()
+    val screens = LinkScreens(
+        conversation = onOpenConversation,
+        profile = onOpenConversation,
+        registration = onRegister,
+    )
     LensScaffold(top = { TopLens(title = context.getString(R.string.new_chat_scan), onBack = onBack) }) { padding ->
         QrScanner(
             onCode = { code ->
                 scope.launch {
-                    val handled = when {
-                        ProfileLink.parse(code) != null -> {
-                            val link = ProfileLink.parse(code)
-                            link?.let { chats.openDirect(it.username, it.key) }?.let {
-                                onOpenConversation(it)
-                                true
-                            } ?: false
-                        }
-                        InviteLink.parse(code) != null -> find(chats, code, onOpenConversation) { notify(joinSent) }
-                        else -> false
+                    val target = LinkTarget.of(code)
+                    if (target == null) {
+                        notify(context.getString(R.string.scan_unknown))
+                        return@launch
                     }
-                    if (!handled) notify(context.getString(R.string.scan_unknown))
+                    val demo = container.settings.mode.first() is AppMode.Demo
+                    follow(target, chats, demo, container.pendingInvite, screens).notice?.let { notify(context.getString(it)) }
                 }
             },
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -119,15 +124,12 @@ internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> 
     }
 }
 
-/** A username opens a chat; an invite link asks the group's admin to let you in. */
+/** A username opens a chat; a link opens what it points at, and a group invite asks the group's admin to let you in. */
 internal suspend fun find(chats: ChatRepository, text: String, open: (String) -> Unit, onJoinSent: () -> Unit): Boolean {
-    if (InviteLink.parse(text) != null) {
-        val sent = (chats as? GroupController)?.join(text) == true
-        if (sent) onJoinSent()
-        return sent
-    }
-    ProfileLink.parse(text)?.let { link -> return chats.openDirect(link.username, link.key)?.also(open) != null }
-    return chats.openDirect(text.removePrefix("@").lowercase())?.also(open) != null
+    val target = LinkTarget.of(text) ?: return chats.openDirect(text.removePrefix("@").lowercase())?.also(open) != null
+    val outcome = reach(target, chats, openConversation = open, openProfile = open)
+    if (outcome == LinkOutcome.JoinRequested) onJoinSent()
+    return outcome == LinkOutcome.Opened || outcome == LinkOutcome.JoinRequested
 }
 
 internal fun invite(context: Context, username: String, key: String?) {

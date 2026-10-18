@@ -36,8 +36,12 @@ internal class ServerStack(
     val accounts: AccountManager by lazy { AccountManager(store, keys) }
     val api = BleskApi(address)
 
-    /** Creates the account bound to [phrase]; runs off the main thread. */
-    suspend fun register(username: String, phrase: PhraseKeys): RegisterResult = accounts.register(api, username, phrase)
+    /**
+     * Creates the account bound to [phrase], by [invite] when the server asks for one, or with [resume]
+     * finishes the one an attempt that broke off may have made; runs off the main thread.
+     */
+    suspend fun register(username: String, phrase: PhraseKeys, invite: String?, resume: Boolean): RegisterResult =
+        accounts.register(api, username, phrase, invite, resume)
 
     /** Takes over the account of [phrase] on this phone; runs off the main thread. */
     suspend fun recover(phrase: PhraseKeys): RecoverResult = accounts.recover(api, phrase)

@@ -1,0 +1,70 @@
+# The API (as in Caddyfile.domain) and the site on one server. scripts/deploy.sh picks this file when
+# BLESK_SITE_DOMAIN is set and puts the site, built by scripts/build-site.py, into /srv/site.
+# Caddy obtains and renews the certificates of all three hosts by itself.
+
+(site_headers) {
+	header {
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+		Referrer-Policy no-referrer
+		X-Content-Type-Options nosniff
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()"
+		Strict-Transport-Security "max-age=31536000"
+	}
+}
+
+{$BLESK_DOMAIN} {
+	# LiveKit signalling (WebSocket); the prefix is stripped because LiveKit serves from the root.
+	handle_path /livekit/* {
+		reverse_proxy livekit:7880
+	}
+	handle {
+		reverse_proxy server:8080
+	}
+}
+
+www.{$BLESK_SITE_DOMAIN} {
+	redir https://{$BLESK_SITE_DOMAIN}{uri} permanent
+}
+
+{$BLESK_SITE_DOMAIN} {
+	root * /srv/site
+	encode zstd gzip
+	import site_headers
+
+	redir /download /download/blesk.apk
+	redir /download/ /download/blesk.apk
+
+	# Every release puts its APK under the same name, so browsers ask again each time.
+	handle /download/blesk.apk {
+		header Content-Disposition `attachment; filename="blesk.apk"`
+		header Cache-Control no-cache
+		file_server
+	}
+
+	handle /fonts/* {
+		header Cache-Control "public, max-age=2592000"
+		file_server
+	}
+
+	handle {
+		header Cache-Control no-cache
+		# Invite, profile, channel and room links open the app when it is installed (Android App
+		# Links); a browser gets the one page that offers to download it and reads the link itself.
+		@app_link path /i/* /@* /c/* /r/*
+		rewrite @app_link /invite/index.html
+		try_files {path} {path}/index.html
+		# The marker scripts/build-site.py leaves to recognise its own output.
+		file_server {
+			hide .blesk-site
+		}
+	}
+
+	handle_errors 404 {
+		import site_headers
+		# A missing APK must not come back as an attachment named blesk.apk holding the error page.
+		header -Content-Disposition
+		header Cache-Control no-cache
+		rewrite * /404.html
+		file_server
+	}
+}

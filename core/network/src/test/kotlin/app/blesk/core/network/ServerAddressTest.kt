@@ -25,6 +25,14 @@ class ServerAddressTest {
     }
 
     @Test
+    fun `the default is blesk's own server without a pin`() {
+        assertEquals("https://api.blesk.su", ServerAddress.DEFAULT.url)
+        assertEquals("api.blesk.su", ServerAddress.DEFAULT.host)
+        assertNull(ServerAddress.DEFAULT.pin)
+        assertEquals(ServerAddress.DEFAULT, ServerAddress.parse("api.blesk.su"))
+    }
+
+    @Test
     fun `plain http and malformed pins are refused`() {
         assertNull(ServerAddress.parse("http://chat.example.org"))
         assertNull(ServerAddress.parse("blesk://server?url=https://1.2.3.4&pin=sha256/short"))

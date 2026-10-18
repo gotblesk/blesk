@@ -50,6 +50,7 @@ fun CoroutineScope.launchMaintenance(services: Services, interval: Duration): Jo
 suspend fun runMaintenance(services: Services) {
     val now = services.now()
     services.auth.deleteExpired(now)
+    services.invites.deleteStale(now)
     services.messages.deleteOlderThan(queuedBefore = now - RetentionPeriod, sentBefore = now - IdempotencyWindow)
     services.bots.deleteOlderThan(
         consumedBefore = now - ConsumedUpdateRetention,

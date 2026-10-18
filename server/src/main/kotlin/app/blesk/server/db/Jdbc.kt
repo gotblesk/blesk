@@ -24,6 +24,8 @@ fun <T> Connection.queryOne(sql: String, vararg params: Any?, map: (ResultSet) -
 
 fun ResultSet.instant(column: String): Instant = getObject(column, OffsetDateTime::class.java).toInstant()
 
+fun ResultSet.instantOrNull(column: String): Instant? = getObject(column, OffsetDateTime::class.java)?.toInstant()
+
 private fun PreparedStatement.bind(params: Array<out Any?>) {
     params.forEachIndexed { index, value ->
         val position = index + 1
