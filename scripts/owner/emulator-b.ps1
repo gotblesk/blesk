@@ -106,6 +106,18 @@ function New-BleskAvd([string]$Sdk) {
     Write-Ok 'Эмулятор «Б» создан.'
 }
 
+# Without hardware acceleration an x86_64 emulator does not start at all; checked before the 1.5 GB
+# download rather than after it.
+function Assert-Acceleration([string]$Emulator) {
+    if (-not (Test-Path -LiteralPath $Emulator)) { return }
+    if ((Invoke-Native $Emulator @('-accel-check')).ExitCode -eq 0) { return }
+    Exit-WithError 'Эмулятору нужно аппаратное ускорение, а в Windows оно выключено.' `
+        'Пуск → набери «компоненты» → «Включение или отключение компонентов Windows» →' `
+        'отметь «Платформа низкоуровневой оболочки Windows» → OK. Windows установит компонент и попросит перезагрузку.' `
+        'Перезагрузи ноутбук и запусти скрипт снова.' `
+        'Если не поможет: Диспетчер задач → Производительность → ЦП → строка «Виртуализация» должна быть «Включено».'
+}
+
 function Start-BleskEmulator([string]$Sdk) {
     $emulator = Join-Path $Sdk 'emulator\emulator.exe'
     $log = Join-Path ([IO.Path]::GetTempPath()) 'blesk-emulator.log'
@@ -168,10 +180,12 @@ $started = $null
 if (Get-BleskEmulatorSerial $adb) {
     Write-Step 'Эмулятор «Б» уже запущен'
 } else {
+    Assert-Acceleration $emulator
     $avds = @()
     if (Test-Path -LiteralPath $emulator) { $avds = @((Invoke-Native $emulator @('-list-avds')).Lines) }
     if ($avds -notcontains $BleskAvd) { New-BleskAvd $sdk }
     if (-not (Test-Path -LiteralPath $emulator)) { Exit-WithError 'Эмулятор не установился. Запусти скрипт снова.' }
+    Assert-Acceleration $emulator
     $started = Start-BleskEmulator $sdk
 }
 $target = Wait-ForBoot $adb $started $sdk
