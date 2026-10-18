@@ -49,7 +49,7 @@
     const target = `blesk.su${path}${window.location.search}`;
     const fallback = encodeURIComponent(window.location.href);
     const extras = `scheme=https;package=app.blesk;S.browser_fallback_url=${fallback}`;
-    openApp.querySelector("a").href = `intent://${target}#Intent;${extras};end`;
+    openApp.href = `intent://${target}#Intent;${extras};end`;
     openApp.hidden = false;
   }
 })();

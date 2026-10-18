@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="ru" data-stage="soon">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>blesk — блестящий мессенджер</title>
+<meta name="description" content="Мессенджер без номера телефона, со сквозным шифрованием и комнатами для своих.">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0E10" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='240' fill='%23111113'/%3E%3Cg transform='translate(512 512) scale(.66) translate(-512 -508)'%3E%3Cpath fill='%23D9C1F0' d='M512 96C520 96 523 119 526 145C552 388 594 439 837 488C866 494 884 499 884 508C884 517 866 522 837 528C594 577 552 628 526 871C523 897 520 920 512 920C504 920 501 897 498 871C472 628 430 577 187 528C158 522 140 517 140 508C140 499 158 494 187 488C430 439 472 388 498 145C501 119 504 96 512 96Z'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+@font-face { font-family: "Onest"; src: url("fonts/Onest.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+
+:root {
+  --bg: #FFFFFF; --panel: #F3F2F0; --panel-2: #EAE8E4; --line: #E3E0DB;
+  --ink: #121214; --mute: #75726D; --key: #FFFFFF; --key-edge: #D9D5CE;
+  --lilac: #D9C1F0; --lilac-ink: #4E2F86; --lilac-soft: #F4ECFC;
+  --btn: #121214; --btn-ink: #FFFFFF;
+  /* the chat inside the page uses the app's light theme */
+  --app-bg: #E9E6E1; --app-in: #D7D3CD; --app-out: #252528; --app-out-ink: #F4F4F4;
+  --font: "Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --wrap: 1120px; --gut: clamp(18px, 4.5vw, 40px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0E0E10; --panel: #19191C; --panel-2: #222226; --line: #2B2B30;
+    --ink: #F2F2F3; --mute: #9C9BA2; --key: #222226; --key-edge: #0A0A0B;
+    --lilac-ink: #D9C1F0; --lilac-soft: #2A2236;
+    --btn: #F2F2F3; --btn-ink: #0E0E10;
+    --app-bg: #16171A; --app-in: #26272B; --app-out: #E9E7E3; --app-out-ink: #141414;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 400 18px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--lilac-ink); outline-offset: 3px; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 var(--gut); }
+html[data-stage="soon"] [data-only="live"], html[data-stage="live"] [data-only="soon"] { display: none !important; }
+
+/* ---------- pieces ---------- */
+.pill {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 52px; padding: 0 26px; border-radius: 999px; border: 0;
+  font-weight: 600; font-size: 17px; letter-spacing: -.01em; text-decoration: none; cursor: pointer;
+  transition: transform .12s ease, background-color .2s ease;
+}
+.pill:active { transform: scale(.97); }
+.pill.dark { background: var(--btn); color: var(--btn-ink); }
+.pill.soft { background: var(--panel); color: var(--ink); }
+.pill.soon { background: var(--lilac-soft); color: var(--lilac-ink); box-shadow: inset 0 0 0 1.5px var(--lilac); cursor: default; }
+.pill.soon:active { transform: none; }
+
+/* the brand key: the star sitting in a physical capsule */
+.key {
+  display: inline-grid; place-items: center; width: 64px; height: 52px; border-radius: 18px;
+  background: var(--key); box-shadow: inset 0 0 0 1.5px var(--key-edge), 0 4px 0 var(--key-edge);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.key:active { transform: translateY(3px); box-shadow: inset 0 0 0 1.5px var(--key-edge), 0 1px 0 var(--key-edge); }
+.key svg { width: 30px; height: 30px; }
+.key .st { fill: #8B6BC2; }
+@media (prefers-color-scheme: dark) { .key .st { fill: var(--lilac); } }
+
+/* ---------- header ---------- */
+.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: saturate(1.4) blur(10px); }
+.top .wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 76px; }
+.burger { justify-self: start; width: 48px; height: 48px; border: 0; background: none; cursor: pointer; display: grid; place-content: center; gap: 6px; border-radius: 14px; }
+.burger i { display: block; width: 24px; height: 2.5px; border-radius: 2px; background: var(--ink); }
+.top .pill { justify-self: end; min-height: 46px; padding: 0 20px; font-size: 16px; }
+
+/* ---------- hero ---------- */
+.hero { padding: clamp(28px, 6vh, 72px) 0 clamp(40px, 7vh, 80px); }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(28px, 5vw, 72px); align-items: center; }
+h1 { margin: 0; font-weight: 800; font-size: clamp(52px, 8.4vw, 104px); line-height: .94; letter-spacing: -.045em; }
+.lead { margin: 22px 0 0; color: var(--mute); font-size: clamp(18px, 1.6vw, 21px); max-width: 30ch; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.small-note { margin: 14px 0 0; font-size: 14px; color: var(--mute); }
+
+/* live chat: a real piece of the app */
+.chat {
+  background: var(--app-bg); border-radius: 36px; padding: 18px 16px 16px; display: grid; gap: 14px;
+  min-height: 420px; grid-template-rows: auto 1fr auto;
+}
+.chat-head { display: flex; align-items: center; gap: 12px; padding: 4px 6px; }
+.ava { width: 44px; height: 44px; border-radius: 50%; background: #A9D8EE; color: #10222C; display: grid; place-items: center; font-weight: 700; font-size: 18px; position: relative; }
+.ava::after { content: ""; position: absolute; inset: 1px; border-radius: 50%; border: 2px solid transparent; border-top-color: rgba(255, 255, 255, .95); border-left-color: rgba(255, 255, 255, .6); transform: rotate(-20deg); }
+.who b { display: block; font-weight: 700; font-size: 17px; line-height: 1.2; }
+.who span { font-size: 14px; color: var(--mute); }
+.lock { width: 14px; height: 14px; vertical-align: -1px; margin-left: 6px; opacity: .6; }
+.msgs { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; overflow: hidden; }
+.m { max-width: 78%; padding: 11px 16px; font-size: 16px; line-height: 1.35; border-radius: 22px; position: relative; }
+.m.in { align-self: flex-start; background: var(--app-in); }
+.m.out { align-self: flex-end; background: var(--app-out); color: var(--app-out-ink); }
+.m.in + .m.in { border-top-left-radius: 8px; }
+.m.in:has(+ .m.in) { border-bottom-left-radius: 8px; }
+.m.out + .m.out { border-top-right-radius: 8px; }
+.m.out:has(+ .m.out) { border-bottom-right-radius: 8px; }
+.m.in + .m.out, .m.out + .m.in { margin-top: 10px; }
+.m .r { position: absolute; left: 12px; bottom: -14px; background: var(--app-in); border: 3px solid var(--app-bg); border-radius: 999px; padding: 1px 9px; font-size: 13px; }
+.m.has-r { margin-bottom: 14px; }
+.m.pop { animation: pop .42s cubic-bezier(.3, 1.5, .5, 1) both; transform-origin: 100% 100%; }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } }
+.composer { display: flex; align-items: center; gap: 10px; background: color-mix(in srgb, #fff 55%, var(--app-bg)); border-radius: 999px; padding: 6px 6px 6px 18px; }
+@media (prefers-color-scheme: dark) { .composer { background: #26272B; } }
+.composer span { flex: 1; color: var(--mute); font-size: 16px; }
+.send { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--app-out); color: var(--app-out-ink); cursor: pointer; display: grid; place-items: center; }
+.send svg { width: 20px; height: 20px; }
+.send:active { transform: scale(.92); }
+
+/* ---------- sections ---------- */
+section.block { padding: clamp(56px, 10vh, 110px) 0; }
+h2 { margin: 0; font-weight: 800; font-size: clamp(40px, 6vw, 72px); line-height: 1; letter-spacing: -.04em; }
+.sub { margin: 16px 0 0; color: var(--mute); max-width: 46ch; }
+
+/* features: chips + detail table */
+.chips { position: relative; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 34px; }
+.chip {
+  position: relative; z-index: 1; min-height: 52px; padding: 0 22px; border-radius: 999px; border: 0; cursor: pointer;
+  background: var(--panel); font-weight: 600; font-size: 17px; transition: color .2s ease, background-color .2s ease;
+}
+.chip[aria-selected="true"] { background: var(--lilac-soft); color: var(--lilac-ink); box-shadow: inset 0 0 0 1.5px var(--lilac); }
+.detail { margin-top: 30px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: clamp(24px, 4vw, 56px); align-items: start; }
+.detail h3 { margin: 0; font-weight: 700; font-size: clamp(24px, 2.6vw, 32px); letter-spacing: -.025em; line-height: 1.15; }
+.detail p { margin: 12px 0 0; color: var(--mute); max-width: 40ch; }
+.rows { border-top: 1px solid var(--line); }
+.rows div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+.rows dt { color: var(--mute); }
+.rows dd { margin: 0; }
+.fade { animation: fadein .3s ease both; }
+@keyframes fadein { from { opacity: 0; transform: translateY(6px); } }
+
+/* download card */
+.card { background: var(--panel); border-radius: 36px; padding: clamp(24px, 4vw, 44px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 56px); margin-top: 34px; }
+.card h3 { margin: 0; font-weight: 800; font-size: clamp(32px, 4vw, 48px); letter-spacing: -.035em; line-height: 1; }
+.card .rows { border-top-color: var(--panel-2); }
+.card .rows div { border-bottom-color: var(--panel-2); }
+.card .cta { display: flex; flex-direction: column; justify-content: space-between; gap: 24px; }
+.card .pill { align-self: start; }
+
+/* faq */
+.faq { margin-top: 34px; background: var(--panel); border-radius: 32px; overflow: hidden; }
+.faq details + details { border-top: 1px solid var(--bg); }
+.faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 26px clamp(20px, 3vw, 34px); font-size: clamp(19px, 2vw, 24px); font-weight: 600; letter-spacing: -.015em; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary svg { flex: none; width: 26px; height: 26px; transition: transform .25s ease; }
+.faq details[open] summary svg { transform: rotate(180deg); }
+.faq .a { padding: 0 clamp(20px, 3vw, 34px) 26px; color: var(--mute); max-width: 64ch; }
+
+/* footer */
+footer { padding: 56px 0 40px; }
+.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.cols h4 { margin: 0 0 12px; font-weight: 500; font-size: 15px; color: var(--mute); }
+.cols a { display: block; padding: 7px 0; text-decoration: none; }
+.cols a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.sign { margin-top: 44px; background: var(--panel); border-radius: 32px; padding: 28px clamp(20px, 3vw, 34px); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; }
+.sign .mark { display: flex; align-items: center; gap: 14px; font-weight: 800; font-size: 34px; letter-spacing: -.04em; }
+.sign p { margin: 0; color: var(--mute); font-size: 14px; max-width: 46ch; }
+
+/* sheet menu */
+.sheet-bg { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+.sheet { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 41; max-width: 640px; margin: 0 auto; background: var(--bg); border-radius: 32px; padding: 14px 26px 30px; transform: translateY(110%); transition: transform .35s cubic-bezier(.3, 1.1, .4, 1); }
+.menu-open .sheet-bg { opacity: 1; pointer-events: auto; }
+.menu-open .sheet { transform: none; }
+.grab { width: 44px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 18px; }
+.sheet .cols a { font-size: 19px; }
+
+/* inner pages */
+.page { padding: 28px 0 80px; }
+.page .wrap { max-width: 760px; }
+.page h1 { font-size: clamp(44px, 7vw, 76px); }
+.page h2 { font-size: clamp(26px, 3vw, 32px); letter-spacing: -.025em; margin-top: 48px; }
+.page p, .page li { color: var(--mute); max-width: 62ch; }
+.page strong { color: var(--ink); font-weight: 600; }
+.page ol { padding-left: 1.2em; }
+.page .rows { margin-top: 18px; }
+
+/* prototype switch — remove in production */
+.proto { position: fixed; right: 12px; bottom: 12px; z-index: 30; display: flex; gap: 6px; background: var(--panel); padding: 6px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; }
+.proto button, .proto a { border: 0; background: none; padding: 7px 12px; border-radius: 999px; cursor: pointer; text-decoration: none; font-size: 13px; }
+.proto [aria-pressed="true"] { background: var(--btn); color: var(--btn-ink); }
+
+@media (max-width: 860px) {
+  .hero .wrap, .detail, .card { grid-template-columns: 1fr; }
+  .chat { min-height: 380px; }
+  .cols { grid-template-columns: 1fr 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <button class="burger" type="button" aria-label="Меню" data-menu><i></i><i></i><i></i></button>
+    <a class="key" href="#/" aria-label="blesk, на главную"><svg viewBox="0 0 1024 1024" aria-hidden="true"><path class="st" d="M512 96C520 96 523 119 526 145C552 388 594 439 837 488C866 494 884 499 884 508C884 517 866 522 837 528C594 577 552 628 526 871C523 897 520 920 512 920C504 920 501 897 498 871C472 628 430 577 187 528C158 522 140 517 140 508C140 499 158 494 187 488C430 439 472 388 498 145C501 119 504 96 512 96Z"/></svg></a>
+    <a class="pill dark" href="#download" data-only="live">Скачать</a>
+    <span class="pill soon" data-only="soon">Скоро</span>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<template id="t-home">
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <h1>Блестящий мессенджер.</h1>
+        <p class="lead">Без номера телефона, со сквозным шифрованием и комнатами для своих.</p>
+        <div class="actions">
+          <a class="pill dark" href="#download" data-only="live">Скачать для Android</a>
+          <span class="pill soon" data-only="soon">Скоро для Android</span>
+          <a class="pill soft" href="#/security">Как это устроено</a>
+        </div>
+        <p class="small-note" data-only="soon">Пока blesk открыт по приглашениям.</p>
+      </div>
+      <div class="chat" aria-label="Пример переписки в blesk">
+        <div class="chat-head">
+          <div class="ava">А</div>
+          <div class="who"><b>Аня <svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0z"/></svg></b><span>в сети</span></div>
+        </div>
+        <div class="msgs" data-msgs>
+          <div class="m in">Привет!</div>
+          <div class="m in">Где пропал?</div>
+          <div class="m out">Ты тоже в blesk?</div>
+          <div class="m in has-r">Да. Тут всё летает<span class="r">✦ 1</span></div>
+        </div>
+        <div class="composer"><span data-draft>Покажи свой кружок</span><button class="send" type="button" aria-label="Отправить" data-send><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m-6 6 6-6 6 6"/></svg></button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="features">
+    <div class="wrap">
+      <h2>Что внутри</h2>
+      <p class="sub">Всё, что нужно для переписки с друзьями, и ничего, что следит за тобой.</p>
+      <div class="chips" role="tablist" aria-label="Возможности" data-chips></div>
+      <div class="detail" data-detail></div>
+    </div>
+  </section>
+
+  <section class="block" id="download">
+    <div class="wrap">
+      <h2>Скачать</h2>
+      <div class="card">
+        <div>
+          <h3>blesk для Android</h3>
+          <dl class="rows" style="margin-top:24px">
+            <div><dt>Версия</dt><dd data-only="live">1.0</dd><dd data-only="soon">готовится к запуску</dd></div>
+            <div><dt>Размер</dt><dd>около 38 МБ</dd></div>
+            <div><dt>Система</dt><dd>Android 8 и новее</dd></div>
+            <div><dt>Цена</dt><dd>бесплатно, без рекламы</dd></div>
+            <div><dt>iPhone</dt><dd>позже</dd></div>
+          </dl>
+        </div>
+        <div class="cta">
+          <p class="sub" style="margin:0" data-only="live">Приложение скачивается с этого сайта. Android может предупредить, что оно не из Google Play, так бывает со всеми приложениями с сайтов. Подлинность сборки легко проверить.</p>
+          <p class="sub" style="margin:0" data-only="soon">Сейчас blesk открыт по приглашениям: попроси ссылку у друга, который уже в blesk. Для всех откроемся скоро.</p>
+          <div class="actions" style="margin:0">
+            <a class="pill dark" href="/download" data-only="live">Скачать APK</a>
+            <span class="pill soon" data-only="soon">Скоро</span>
+            <a class="pill soft" href="#/security">Проверить подлинность</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="faq">
+    <div class="wrap">
+      <h2>Вопросы и ответы</h2>
+      <div class="faq" data-faq></div>
+    </div>
+  </section>
+</template>
+
+<template id="t-security">
+  <article class="page">
+    <div class="wrap">
+      <h1>Как это устроено</h1>
+      <p class="lead">Коротко и без терминов: что защищает твою переписку.</p>
+      <h2>Шифрование</h2>
+      <p>Личные чаты, группы и закрытые комнаты шифруются на телефоне. Ключи есть только у собеседников, поэтому прочитать переписку не может никто посередине: ни мы, ни хостинг, ни тот, кто перехватит трафик.</p>
+      <h2>Что видит сервер</h2>
+      <p>Только то, без чего сообщение не доставить: кому и когда. Имя, фото и описание профиля тоже зашифрованы.</p>
+      <h2>Каналы и открытые комнаты</h2>
+      <p>Их может читать любой, кто вступил, поэтому сквозного шифрования там нет. В шапке таких чатов нет замка.</p>
+      <h2>Вход без номера</h2>
+      <p>Аккаунт открывается фразой из 12 слов. Её знаешь только ты, и восстановить её за тебя мы не сможем, поэтому сохрани её на бумаге.</p>
+      <h2>Проверка сборки</h2>
+      <ol>
+        <li>Открой в blesk <strong>Ты → О приложении → Подлинность</strong>.</li>
+        <li>Сравни отпечаток с тем, что указан ниже.</li>
+        <li>Если они не совпадают, это чужая сборка. Удали её и скачай blesk с этого сайта.</li>
+      </ol>
+      <dl class="rows">
+        <div><dt>Отпечаток ключа подписи</dt><dd>появится с первой публичной версией</dd></div>
+      </dl>
+      <h2>Открытый код</h2>
+      <p>Код приложения и сервера открыт на <a href="https://github.com/gotblesk/blesk">GitHub</a>.</p>
+    </div>
+  </article>
+</template>
+
+<template id="t-invite">
+  <article class="page">
+    <div class="wrap">
+      <h1>Тебя пригласили в blesk</h1>
+      <p class="lead"><strong>@berksk</strong> зовёт тебя переписываться в blesk.</p>
+      <div class="actions">
+        <a class="pill dark" href="/download">Скачать для Android</a>
+        <a class="pill soft" href="#" data-open>Открыть приглашение</a>
+      </div>
+      <ol style="margin-top:34px">
+        <li>Скачай и установи приложение.</li>
+        <li>Вернись на эту страницу и нажми «Открыть приглашение».</li>
+      </ol>
+      <p style="font-size:15px">Android может предупредить, что приложение скачано не из Google Play. Так бывает со всеми приложениями с сайтов. Подлинность можно проверить на странице «<a href="#/security">Как это устроено</a>».</p>
+    </div>
+  </article>
+</template>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div><h4>blesk</h4><a href="#/" data-goto="features">Что внутри</a><a href="#/" data-goto="download">Скачать</a><a href="#/" data-goto="faq">Вопросы</a></div>
+      <div><h4>Безопасность</h4><a href="#/security">Как это устроено</a><a href="https://github.com/gotblesk/blesk">Исходный код</a></div>
+      <div><h4>Документы</h4><a href="#/privacy">Политика конфиденциальности</a><a href="#/terms">Правила</a><a href="mailto:support@blesk.su">support@blesk.su</a></div>
+    </div>
+    <div class="sign">
+      <div class="mark"><span class="key" aria-hidden="true"><svg viewBox="0 0 1024 1024"><path class="st" d="M512 96C520 96 523 119 526 145C552 388 594 439 837 488C866 494 884 499 884 508C884 517 866 522 837 528C594 577 552 628 526 871C523 897 520 920 512 920C504 920 501 897 498 871C472 628 430 577 187 528C158 522 140 517 140 508C140 499 158 494 187 488C430 439 472 388 498 145C501 119 504 96 512 96Z"/></svg></span>blesk</div>
+      <p>© 2026 blesk. Открытый код под лицензией AGPL-3.0. Без рекламы и счётчиков.</p>
+    </div>
+  </div>
+</footer>
+
+<div class="sheet-bg" data-close></div>
+<nav class="sheet" aria-label="Меню">
+  <div class="grab"></div>
+  <div class="cols">
+    <div><h4>blesk</h4><a href="#/" data-goto="features">Что внутри</a><a href="#/" data-goto="download">Скачать</a><a href="#/" data-goto="faq">Вопросы</a></div>
+    <div><h4>Безопасность</h4><a href="#/security">Как это устроено</a><a href="https://github.com/gotblesk/blesk">Исходный код</a></div>
+    <div><h4>Документы</h4><a href="#/privacy">Политика</a><a href="#/terms">Правила</a></div>
+  </div>
+</nav>
+
+<!-- prototype switch: remove in production -->
+<div class="proto" aria-label="Прототип">
+  <button type="button" data-stage="soon">Скоро</button>
+  <button type="button" data-stage="live">Запуск</button>
+  <a href="#/i/K7Q2M9">Приглашение</a>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const view = document.getElementById("view");
+
+  const FEATURES = [
+    { id: "phone", name: "Без номера", title: "Без номера телефона", text: "Регистрируешься по имени. Найти тебя можно по нику или только по твоей ссылке, если так спокойнее.",
+      rows: [["Регистрация", "по имени"], ["Как тебя найти", "по @нику или только по ссылке"], ["Вход на новом телефоне", "фраза из 12 слов"], ["Номер телефона", "не нужен никогда"]] },
+    { id: "e2e", name: "Шифрование", title: "Переписку видите только вы", text: "Сообщения шифруются на телефоне и открываются только у собеседника.",
+      rows: [["Личные чаты и группы", "сквозное шифрование"], ["Ключи", "только на телефонах"], ["Что знает сервер", "кому и когда доставить"], ["Профиль", "имя, фото и описание зашифрованы"]] },
+    { id: "rooms", name: "Комнаты", title: "Комнаты для своих", text: "Текстовые и голосовые каналы, роли и приглашения. Комната раскрывается в каналы прямо в списке.",
+      rows: [["Каналы", "текстовые и голосовые"], ["Роли и права", "да, с порядком перетаскиванием"], ["Приглашения", "ссылки со сроком и лимитом"], ["В голосовых", "видно, кто говорит"]] },
+    { id: "voice", name: "Голосовые и кружки", title: "Голос и кружки", text: "Видно, что идёт запись, перед отправкой можно прослушать и обрезать.",
+      rows: [["Скорость", "от 0,5× до 2×, голос не меняется"], ["Перед отправкой", "прослушать и обрезать"], ["Кружки", "с подсветкой лица экраном"], ["Волна", "по настоящей громкости"]] },
+    { id: "calls", name: "Звонки", title: "Звонки", text: "Аудио и видео, один на один и в группах. Свёрнутый звонок живёт капсулой сверху экрана.",
+      rows: [["Кто", "один на один и группы"], ["Экран", "демонстрация экрана"], ["Шифрование", "сквозное"], ["Свернуть", "звонок не обрывается"]] },
+    { id: "themes", name: "Темы", title: "Свет под настроение", text: "Четыре темы и своя, собранная из любого оттенка. Контраст подстраивается сам, чтобы всё читалось.",
+      rows: [["Темы", "светлая, тёмная, лиловая, лаймовая"], ["Своя", "из любого оттенка"], ["Экономный режим", "меньше света и движения при низком заряде"]] },
+  ];
+  const FAQ = [
+    ["Это бесплатно?", "Да. В blesk нет рекламы и платных функций для переписки."],
+    ["Зачем без номера телефона?", "Номер привязывает аккаунт к твоему имени и сим-карте. В blesk тебя знают только по нику, а найти тебя можно и вовсе только по ссылке."],
+    ["Что будет, если я потеряю телефон?", "Установи blesk на новый телефон и введи фразу из 12 слов. Аккаунт, контакты и чаты вернутся, если включено зашифрованное копирование."],
+    ["Можете ли вы прочитать мою переписку?", "Нет. Личные чаты, группы и закрытые комнаты шифруются на телефоне, ключей у нас нет. Публичные каналы видят все, кто в них вступил."],
+    ["Почему blesk не в Google Play?", "Пока приложение скачивается с этого сайта. Android может предупредить об этом, это нормально. Подлинность каждой сборки можно проверить."],
+    ["Будет ли версия для iPhone?", "Да, после версии для Android."],
+  ];
+  const chev = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m5 9 7 7 7-7"/></svg>';
+  const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function renderDetail(box, f) {
+    box.innerHTML = `<div class="fade"><h3>${esc(f.title)}</h3><p>${esc(f.text)}</p></div>
+      <dl class="rows fade">${f.rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+  }
+  function bindHome() {
+    const chips = view.querySelector("[data-chips]"), detail = view.querySelector("[data-detail]");
+    if (chips && detail) {
+      FEATURES.forEach((f, i) => {
+        const b = document.createElement("button");
+        b.className = "chip"; b.type = "button"; b.setAttribute("role", "tab"); b.textContent = f.name;
+        b.setAttribute("aria-selected", String(i === 0));
+        b.addEventListener("click", () => {
+          chips.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-selected", String(c === b)));
+          renderDetail(detail, f);
+          if (navigator.vibrate) navigator.vibrate(6);
+        });
+        chips.appendChild(b);
+      });
+      renderDetail(detail, FEATURES[0]);
+    }
+    const faq = view.querySelector("[data-faq]");
+    if (faq) faq.innerHTML = FAQ.map(([q, a]) => `<details><summary>${esc(q)}${chev}</summary><div class="a">${esc(a)}</div></details>`).join("");
+
+    const msgs = view.querySelector("[data-msgs]"), send = view.querySelector("[data-send]"), draft = view.querySelector("[data-draft]");
+    const script = [["out", "Покажи свой кружок"], ["in", "Сейчас запишу"], ["out", "Жду"], ["in", "Лови ✦"]];
+    let step = 0;
+    if (msgs && send) send.addEventListener("click", () => {
+      const [side, text] = script[step % script.length];
+      const m = document.createElement("div");
+      m.className = `m ${side} pop`; m.textContent = text;
+      msgs.appendChild(m);
+      while (msgs.children.length > 7) msgs.firstElementChild.remove();
+      step++;
+      draft.textContent = script[step % script.length][1];
+      if (navigator.vibrate) navigator.vibrate(8);
+    });
+  }
+
+  function route() {
+    const h = decodeURIComponent(location.hash.replace(/^#/, "")) || "/";
+    let tpl = "t-home", title = "blesk — блестящий мессенджер";
+    if (h.startsWith("/security")) { tpl = "t-security"; title = "Как это устроено — blesk"; }
+    else if (h.startsWith("/i/")) { tpl = "t-invite"; title = "Тебя пригласили в blesk"; }
+    else if (h.startsWith("/privacy") || h.startsWith("/terms")) { tpl = "t-security"; }
+    view.replaceChildren(document.getElementById(tpl).content.cloneNode(true));
+    if (tpl === "t-home") bindHome();
+    if (tpl === "t-invite") { const o = view.querySelector("[data-open]"); if (o) o.href = "blesk://invite/" + encodeURIComponent(h.slice(3)); }
+    document.title = title;
+    scrollTo(0, 0);
+  }
+  addEventListener("hashchange", route);
+
+  const close = () => root.classList.remove("menu-open");
+  document.querySelector("[data-menu]").addEventListener("click", () => root.classList.add("menu-open"));
+  document.querySelector("[data-close]").addEventListener("click", close);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+  document.addEventListener("click", e => {
+    const a = e.target.closest("[data-goto]");
+    if (a) {
+      e.preventDefault(); close();
+      const go = () => { const t = document.getElementById(a.dataset.goto); if (t) t.scrollIntoView({ behavior: "smooth" }); };
+      if (location.hash && location.hash !== "#/") { location.hash = "#/"; setTimeout(go, 60); } else go();
+    } else if (e.target.closest(".sheet a")) close();
+  });
+
+  document.querySelectorAll(".proto [data-stage]").forEach(b => {
+    b.setAttribute("aria-pressed", String(b.dataset.stage === root.dataset.stage));
+    b.addEventListener("click", () => {
+      root.dataset.stage = b.dataset.stage;
+      document.querySelectorAll(".proto [data-stage]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    });
+  });
+
+  route();
+})();
+</script>
+</body>
+</html>

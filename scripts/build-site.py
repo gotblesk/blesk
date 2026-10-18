@@ -3,7 +3,7 @@
 
     python3 scripts/build-site.py --out DIR [--release release.json] [--public] [--check]
 
-Pages in site/ are templates: a front matter block (title, description, path, page, noindex,
+Pages in site/ are templates: a front matter block (title, description, path, noindex,
 download — the page offers the APK even before the public launch, like the invite page does),
 partials from site/templates/ as {{> name}}, values as {{name}} (escaped) or {{{name}}} (raw),
 and sections {{#flag}}...{{/flag}} and {{^flag}}...{{/flag}}. Only the Python standard library is
@@ -141,16 +141,12 @@ def split_front_matter(text: str) -> tuple[dict, str]:
 
 
 def page_values(meta: dict, public: bool) -> dict:
-    page = meta.get("page", "")
     return {
         "title": meta.get("title", ""),
         "description": meta.get("description", ""),
         "path": meta.get("path", ""),
         "noindex": meta.get("noindex") == "true",
         "downloadOpen": public or meta.get("download") == "true",
-        "isHow": page == "how",
-        "isPrivacy": page == "privacy",
-        "isTerms": page == "terms",
     }
 
 
@@ -338,7 +334,7 @@ def build_pages(out: Path, values: dict) -> None:
     layout = (TEMPLATES / "legal.html").read_text(encoding="utf-8")
     for name, document in LEGAL_PAGES:
         title, body, summary = render_markdown(document.read_text(encoding="utf-8"))
-        meta = {"title": title, "description": summary, "path": f"/{name}/", "page": name}
+        meta = {"title": title, "description": summary, "path": f"/{name}/"}
         page = render(layout, {**context(meta), "heading": title, "body": body}, name)
         target = out / name / "index.html"
         target.parent.mkdir(parents=True, exist_ok=True)

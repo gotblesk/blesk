@@ -1,6 +1,6 @@
 ---
 title: blesk — блестящий мессенджер
-description: Приватный мессенджер для Android: личные чаты, группы, комнаты и звонки со сквозным шифрованием. Без номера телефона, рекламы и слежки.
+description: Мессенджер без номера телефона, со сквозным шифрованием и комнатами для своих.
 path: /
 ---
 <!doctype html>
@@ -12,283 +12,199 @@ path: /
 <body>
 {{> header}}
 <main id="main">
-  <section class="hero wrap" aria-labelledby="hero-title">
-    <div>
-      <h1 class="display" id="hero-title">Блестящий мессенджер.</h1>
-      <p class="lead">Приватный мессенджер со сквозным шифрованием. Номер телефона не нужен.</p>
-      <div class="actions">
-        {{#public}}<a class="btn btn-primary" href="/download">Скачать</a>{{/public}}{{^public}}<span class="soon">Скоро</span>{{/public}}
-        <a class="btn btn-secondary" href="/how/">Как это устроено</a>
-      </div>
-    </div>
-
-    <figure class="chat" aria-labelledby="chat-caption">
-      <figcaption class="visually-hidden" id="chat-caption">Пример переписки в blesk</figcaption>
-      <div class="chat-head">
-        <span class="chat-avatar" aria-hidden="true">А</span>
-        <div>
-          <p class="chat-name">Аня <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10" rx="3"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></p>
-          <p class="chat-status">Сквозное шифрование</p>
-        </div>
-      </div>
-      <div class="chat-feed" role="log" aria-label="Сообщения" tabindex="0" data-chat-feed data-typing-label="Аня печатает">
-        <p class="chat-day">Сегодня</p>
-        <div class="msg-group theirs">
-          <p class="msg">Привет! Ты уже в blesk? <time class="msg-time" data-minutes-ago="4">18:02</time></p>
-          <p class="msg">Мне как раз прислали приглашение <time class="msg-time" data-minutes-ago="4">18:02</time></p>
-        </div>
-        <div class="msg-group mine">
-          <p class="msg">Да! Номер телефона даже не спросили <time class="msg-time" data-minutes-ago="2">18:04</time></p>
-          <p class="msg">Только имя и фраза из 12 слов <time class="msg-time" data-minutes-ago="2">18:04</time></p>
-        </div>
-      </div>
-      <form class="composer" data-chat-composer hidden>
-        <p class="composer-field" id="composer-text"></p>
-        <button class="send-button" type="submit" aria-label="Отправить" aria-describedby="composer-text">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </button>
-      </form>
-      <template data-chat-script>
-        <p data-from="mine">Всё личное шифруется прямо на телефоне</p>
-        <p data-from="theirs">А звонки?</p>
-        <p data-from="mine">Тоже. И звук, и видео</p>
-        <p data-from="theirs">Тогда созвонимся вечером</p>
-        <p data-from="theirs">В восемь удобно?</p>
-        <p data-from="mine">Да, давай</p>
-        <p data-from="theirs">Договорились</p>
-      </template>
-    </figure>
-  </section>
-
-  <section class="section wrap" id="inside" aria-labelledby="inside-title">
-    <h2 class="section-title" id="inside-title">Что внутри</h2>
-    <p class="section-lead">Только то, что уже работает в приложении.</p>
-    <div class="tabs" role="tablist" aria-label="Возможности" data-tabs hidden>
-      <button class="tab" type="button" role="tab" id="tab-crypto" aria-controls="feature-crypto">Шифрование</button>
-      <button class="tab" type="button" role="tab" id="tab-chats" aria-controls="feature-chats">Чаты</button>
-      <button class="tab" type="button" role="tab" id="tab-media" aria-controls="feature-media">Медиа</button>
-      <button class="tab" type="button" role="tab" id="tab-calls" aria-controls="feature-calls">Звонки</button>
-      <button class="tab" type="button" role="tab" id="tab-rooms" aria-controls="feature-rooms">Комнаты и каналы</button>
-      <button class="tab" type="button" role="tab" id="tab-locks" aria-controls="feature-locks">Замки</button>
-      <button class="tab" type="button" role="tab" id="tab-look" aria-controls="feature-look">Оформление</button>
-      <button class="tab" type="button" role="tab" id="tab-code" aria-controls="feature-code">Открытый код</button>
-    </div>
-    <div class="features">
-      <section class="feature" id="feature-crypto" aria-labelledby="feature-crypto-title">
-        <div class="feature-intro">
-          <h3 class="feature-title" id="feature-crypto-title">Шифрование</h3>
-          <p>Личное шифруется на твоём телефоне. Сервер передаёт только шифр и прочитать его не может.</p>
-        </div>
-        <table class="facts">
-          <tbody>
-            <tr><th scope="row">Личные чаты, группы, «Избранное»</th><td>Сквозное шифрование всегда</td></tr>
-            <tr><th scope="row">Закрытые комнаты</th><td>Сквозное шифрование</td></tr>
-            <tr><th scope="row">Протокол</th><td>Signal через официальную libsignal: PQXDH, Double Ratchet, Sender Keys для групп</td></tr>
-            <tr><th scope="row">Проверка собеседника</th><td>Номер безопасности и QR-код, предупреждение о смене ключа</td></tr>
-            <tr><th scope="row">На телефоне</th><td>Зашифрованная база SQLCipher, ключи в Android Keystore</td></tr>
-            <tr><th scope="row">Без сквозного шифрования</th><td>Публичные каналы, открытые комнаты и боты — они матовые и подписаны</td></tr>
-            <tr><th scope="row">Номер телефона и почта</th><td>Не нужны</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="feature" id="feature-chats" aria-labelledby="feature-chats-title">
-        <div class="feature-intro">
-          <h3 class="feature-title" id="feature-chats-title">Чаты</h3>
-          <p>Ответы, реакции, правка и удаление — в одно движение.</p>
-        </div>
-        <table class="facts">
-          <tbody>
-            <tr><th scope="row">Ответ</th><td>Свайпом по сообщению</td></tr>
-            <tr><th scope="row">Реакция</th><td>Двойное касание ставит «блик», остальные — из меню</td></tr>
-            <tr><th scope="row">Форматирование</th><td>Жирный, курсив, зачёркнутый, моноширинный, спойлер, цитата</td></tr>
-            <tr><th scope="row">Правка и удаление</th><td>«У меня» и «у всех», без ограничения по времени</td></tr>
-            <tr><th scope="row">Исчезающие сообщения</th><td>Таймер для чата и для всех новых чатов</td></tr>
-            <tr><th scope="row">Превью ссылок</th><td>Собирает телефон отправителя, можно выключить</td></tr>
-            <tr><th scope="row">Порядок</th><td>Закреплённые, архив, без звука, черновики, поиск</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="feature" id="feature-media" aria-labelledby="feature-media-title">
-        <div class="feature-intro">
-          <h3 class="feature-title" id="feature-media-title">Медиа</h3>
-          <p>Фото, видео, голосовые и файлы шифруются так же, как текст.</p>
-        </div>
-        <table class="facts">
-          <tbody>
-            <tr><th scope="row">Фото и видео</th><td>Альбомы до 10 штук, «Сжатое» или «Оригинал»</td></tr>
-            <tr><th scope="row">Метаданные</th><td>Из фото и видео перед отправкой удаляются место съёмки, время и сведения о камере</td></tr>
-            <tr><th scope="row">Видео</th><td>Играет, пока докачивается</td></tr>
-            <tr><th scope="row">Файлы</th><td>Любые, до 2 ГБ, докачка после обрыва</td></tr>
-            <tr><th scope="row">Голосовые и кружки</th><td>Предпросмотр, обрезка, скорость от 0,5× до 2×</td></tr>
-            <tr><th scope="row">Музыка</th><td>Без пережатия, с мини-плеером</td></tr>
-            <tr><th scope="row">Стикеры</th><td>Свои наборы до 120 штук, WebP и Lottie</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="feature" id="feature-calls" aria-labelledby="feature-calls-title">
-        <div class="feature-intro">
-          <h3 class="feature-title" id="feature-calls-title">Звонки</h3>
-          <p>Звук и видео шифруются на телефонах ключом, которого нет у сервера.</p>
-        </div>
-        <table class="facts">
-          <tbody>
-            <tr><th scope="row">Аудио и видео</th><td>Один на один</td></tr>
-            <tr><th scope="row">Шифрование</th><td>Сквозное, для звука и видео</td></tr>
-            <tr><th scope="row">Входящий</th><td>На системном экране, даже на заблокированном телефоне</td></tr>
-            <tr><th scope="row">Свёрнутый звонок</th><td>Капсула сверху экрана, разговор не прерывается</td></tr>
-            <tr><th scope="row">Голосовые каналы</th><td>В комнатах, с демонстрацией экрана</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="feature" id="feature-rooms" aria-labelledby="feature-rooms-title">
-        <div class="feature-intro">
-          <h3 class="feature-title" id="feature-rooms-title">Комнаты и каналы</h3>
-          <p>Комнаты — для сообществ, каналы — для новостей. Что не шифруется, видно сразу.</p>
-        </div>
-        <table class="facts">
-          <tbody>
-            <tr><th scope="row">Комнаты</th><td>Текстовые и голосовые каналы</td></tr>
-            <tr><th scope="row">Канал объявлений</th><td>Пишут только админы</td></tr>
-            <tr><th scope="row">Роли</th><td>Права для админов и участников, приглашения ссылкой</td></tr>
-            <tr><th scope="row">Закрытые комнаты</th><td>Со сквозным шифрованием</td></tr>
-            <tr><th scope="row">Открытые комнаты и каналы</th><td>Без сквозного шифрования — это видно по матовому виду</td></tr>
-            <tr><th scope="row">Группы</th><td>Роли «владелец · админ · участник»</td></tr>
-            <tr><th scope="row">Каналы</th><td>Публичные, с подписчиками</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="feature" id="feature-locks" aria-labelledby="feature-locks-title">
-        <div class="feature-intro">
-          <h3 class="feature-title" id="feature-locks-title">Замки</h3>
-          <p>Замок защищает интерфейс. Данные на телефоне зашифрованы всегда.</p>
-        </div>
-        <table class="facts">
-          <tbody>
-            <tr><th scope="row">Замок приложения</th><td>Код из 4 или 6 цифр или пароль</td></tr>
-            <tr><th scope="row">Отпечаток</th><td>Через надёжную биометрию Android</td></tr>
-            <tr><th scope="row">Замки на чаты</th><td>Любой чат, «Избранное» и «Архив», у каждого свои настройки</td></tr>
-            <tr><th scope="row">Автоблокировка</th><td>Сразу, через минуту, 5 минут или час</td></tr>
-            <tr><th scope="row">Скриншоты</th><td>Можно запретить</td></tr>
-            <tr><th scope="row">Клавиатура</th><td>Инкогнито: не учится на том, что ты пишешь</td></tr>
-            <tr><th scope="row">Кто может</th><td>Писать, звонить, добавлять в группы и видеть, что ты в сети, — решаешь ты</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="feature" id="feature-look" aria-labelledby="feature-look-title">
-        <div class="feature-intro">
-          <h3 class="feature-title" id="feature-look-title">Оформление</h3>
-          <p>Спокойный интерфейс: светится только то, что что-то значит.</p>
-        </div>
-        <table class="facts">
-          <tbody>
-            <tr><th scope="row">Темы</th><td>Светлая, тёмная, лиловая и лаймовая</td></tr>
-            <tr><th scope="row">Своя тема</th><td>Фон, цвет света, стекло, блеск, размер текста, плотность</td></tr>
-            <tr><th scope="row">Фон чатов</th><td>Своё фото под стеклом</td></tr>
-            <tr><th scope="row">Тема для чата</th><td>Отдельная для любого чата</td></tr>
-            <tr><th scope="row">Обмен темами</th><td>Файлом или прямо в чат</td></tr>
-            <tr><th scope="row">Экономный режим</th><td>Упрощает анимации, когда заряд на исходе</td></tr>
-            <tr><th scope="row">Шрифт</th><td>Onest</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="feature" id="feature-code" aria-labelledby="feature-code-title">
-        <div class="feature-intro">
-          <h3 class="feature-title" id="feature-code-title">Открытый код</h3>
-          <p>Код приложения и сервера открыт: каждое обещание здесь можно проверить.</p>
-        </div>
-        <table class="facts">
-          <tbody>
-            <tr><th scope="row">Лицензия</th><td>AGPL-3.0</td></tr>
-            <tr><th scope="row">Исходники</th><td><a href="https://github.com/gotblesk/blesk">github.com/gotblesk/blesk</a></td></tr>
-            <tr><th scope="row">Свой сервер</th><td>Ставится одной командой на Ubuntu</td></tr>
-            <tr><th scope="row">Подлинность</th><td>Обновление ставит только APK с тем же ключом подписи и сверяет SHA-256</td></tr>
-            <tr><th scope="row">Боты</th><td>Bot API с вебхуками, кнопками и командами</td></tr>
-            <tr><th scope="row">Слежка</th><td>Нет рекламы, аналитики и трекеров</td></tr>
-          </tbody>
-        </table>
-      </section>
-    </div>
-  </section>
-
-  <section class="section wrap" id="download" aria-labelledby="download-title">
-    <div class="download-card">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
       <div>
-        <h2 class="section-title" id="download-title">Скачать</h2>
-        <p class="download-sub">blesk для Android</p>
-        <dl class="download-facts">
-          <div><dt>Версия</dt><dd>{{version}}</dd></div>
-          <div><dt>Размер</dt><dd>{{size}}</dd></div>
-          <div><dt>Система</dt><dd>Android {{minAndroid}}+</dd></div>
-          <div><dt>Цена</dt><dd>Бесплатно</dd></div>
-        </dl>
-        {{^public}}<div class="invite-only">
-          <span class="soon">Скоро</span>
-          <p><strong>Сейчас blesk открыт по приглашениям.</strong> Попроси ссылку у друга, который уже в blesk: по ней можно скачать приложение и создать аккаунт.</p>
-        </div>{{/public}}
-        {{#public}}<div class="actions">
-          <a class="btn btn-primary" href="/download">Скачать APK</a>
-          <a class="btn btn-secondary" href="/how/#authenticity">Проверить подлинность</a>
-        </div>{{/public}}
+        <h1 id="hero-title">Блестящий мессенджер.</h1>
+        <p class="lead">Без номера телефона, со сквозным шифрованием и комнатами для своих.</p>
+        <div class="actions">
+          {{#public}}<a class="pill dark" href="/download">Скачать для Android</a>{{/public}}{{^public}}<span class="pill soon">Скоро для Android</span>{{/public}}
+          <a class="pill soft" href="/security/">Как это устроено</a>
+        </div>
+        {{^public}}<p class="small-note">Пока blesk открыт по приглашениям.</p>{{/public}}
       </div>
-      {{#qr}}<figure class="qr">
-        <img src="/assets/qr-download.svg" width="160" height="160" alt="QR-код со ссылкой на скачивание blesk">
-        <figcaption>Наведи камеру телефона, чтобы скачать</figcaption>
-      </figure>{{/qr}}
+
+      <figure class="chat" aria-labelledby="chat-caption">
+        <figcaption class="visually-hidden" id="chat-caption">Пример переписки в blesk</figcaption>
+        <div class="chat-head">
+          <span class="ava" aria-hidden="true">А</span>
+          <div class="who">
+            <b>Аня <svg class="lock" viewBox="0 0 24 24" role="img" aria-label="сквозное шифрование"><path fill="currentColor" d="M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0z"/></svg></b>
+            <span>в сети</span>
+          </div>
+        </div>
+        <div class="msgs" role="log" aria-label="Сообщения" data-msgs>
+          <p class="m in">Привет!</p>
+          <p class="m in">Где пропал?</p>
+          <p class="m out">Ты тоже в blesk?</p>
+          <p class="m in has-r">Да. Тут всё летает<span class="r"><span aria-hidden="true">✦ 1</span><span class="visually-hidden">, реакция ✦</span></span></p>
+        </div>
+        <div class="composer" data-composer hidden>
+          <p id="draft" data-draft></p>
+          <button class="send" type="button" aria-label="Отправить" aria-describedby="draft" data-send>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m-6 6 6-6 6 6"/></svg>
+          </button>
+        </div>
+        <template data-script>
+          <p data-side="out">Покажи свой кружок</p>
+          <p data-side="in">Сейчас запишу</p>
+          <p data-side="out">Жду</p>
+          <p data-side="in">Лови ✦</p>
+        </template>
+      </figure>
     </div>
   </section>
 
-  <section class="section wrap" id="faq" aria-labelledby="faq-title">
-    <h2 class="section-title" id="faq-title">Вопросы и ответы</h2>
-    <div class="faq">
-      <details class="faq-item">
-        <summary>Что такое blesk?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></summary>
-        <div class="faq-answer">
-          <p>Мессенджер для Android: личные чаты, группы, комнаты с текстовыми и голосовыми каналами, каналы и звонки. Личное шифруется на телефоне, а для аккаунта хватает имени — номер телефона и почта не нужны.</p>
+  <section class="block" id="features" aria-labelledby="features-title">
+    <div class="wrap">
+      <h2 id="features-title">Что внутри</h2>
+      <p class="sub">Всё, что нужно для переписки с друзьями, и ничего, что следит за тобой.</p>
+      <div class="chips" role="tablist" aria-label="Возможности" data-tabs hidden>
+        <button class="chip" type="button" role="tab" id="tab-phone" aria-controls="feature-phone">Без номера</button>
+        <button class="chip" type="button" role="tab" id="tab-e2e" aria-controls="feature-e2e">Шифрование</button>
+        <button class="chip" type="button" role="tab" id="tab-rooms" aria-controls="feature-rooms">Комнаты</button>
+        <button class="chip" type="button" role="tab" id="tab-voice" aria-controls="feature-voice">Голосовые и кружки</button>
+        <button class="chip" type="button" role="tab" id="tab-calls" aria-controls="feature-calls">Звонки</button>
+        <button class="chip" type="button" role="tab" id="tab-themes" aria-controls="feature-themes">Темы</button>
+      </div>
+
+      <section class="detail" id="feature-phone" aria-labelledby="feature-phone-title">
+        <div>
+          <h3 id="feature-phone-title">Без номера телефона</h3>
+          <p>Регистрируешься по имени. Найти тебя можно по нику или только по твоей ссылке, если так спокойнее.</p>
         </div>
-      </details>
-      <details class="faq-item">
-        <summary>Это бесплатно?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></summary>
-        <div class="faq-answer">
-          <p>Да. В blesk нет рекламы, платных функций и слежки за тем, как ты им пользуешься.</p>
+        <dl class="rows">
+          <div><dt>Регистрация</dt><dd>по имени</dd></div>
+          <div><dt>Как тебя найти</dt><dd>по @нику или только по ссылке</dd></div>
+          <div><dt>Ключ восстановления</dt><dd>фраза из 12 слов</dd></div>
+          <div><dt>Номер телефона</dt><dd>не нужен никогда</dd></div>
+        </dl>
+      </section>
+
+      <section class="detail" id="feature-e2e" aria-labelledby="feature-e2e-title">
+        <div>
+          <h3 id="feature-e2e-title">Переписку видите только вы</h3>
+          <p>Сообщения шифруются на телефоне и открываются только у собеседника.</p>
         </div>
-      </details>
-      <details class="faq-item">
-        <summary>Как получить приглашение?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></summary>
-        <div class="faq-answer">
-          <p>Попроси у друга, который уже в blesk: у каждого есть 5 приглашений, они лежат в «Ты → Приглашения». Ссылка-приглашение одноразовая и действует 7 дней.</p>
-          <p>Открой её на телефоне: с неё можно скачать blesk, а код приглашения подставится сам.</p>
+        <dl class="rows">
+          <div><dt>Личные чаты и группы</dt><dd>сквозное шифрование</dd></div>
+          <div><dt>Ключи</dt><dd>только на телефонах</dd></div>
+          <div><dt>Что знает сервер</dt><dd>кому и когда доставить</dd></div>
+          <div><dt>Проверка собеседника</dt><dd>номер безопасности и QR-код</dd></div>
+        </dl>
+      </section>
+
+      <section class="detail" id="feature-rooms" aria-labelledby="feature-rooms-title">
+        <div>
+          <h3 id="feature-rooms-title">Комнаты для своих</h3>
+          <p>Текстовые и голосовые каналы, роли и приглашения. Комната раскрывается в каналы прямо в списке.</p>
         </div>
-      </details>
-      <details class="faq-item">
-        <summary>Что видит сервер?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></summary>
-        <div class="faq-answer">
-          <p>Имя пользователя, публичные ключи и кому адресовано зашифрованное сообщение. Первые 30 дней после регистрации — ещё и кто тебя пригласил: так проще останавливать спам. Текст, фото, голосовые и звонки в личных чатах, группах и закрытых комнатах он прочитать не может.</p>
-          <p>Публичные каналы и открытые комнаты не шифруются: их видит много людей. В приложении они матовые и подписаны. Подробно — в <a href="/privacy/">политике конфиденциальности</a>.</p>
+        <dl class="rows">
+          <div><dt>Каналы</dt><dd>текстовые и голосовые</dd></div>
+          <div><dt>Роли и права</dt><dd>владелец, админы и участники</dd></div>
+          <div><dt>Приглашения</dt><dd>по ссылке</dd></div>
+          <div><dt>В голосовых</dt><dd>демонстрация экрана</dd></div>
+        </dl>
+      </section>
+
+      <section class="detail" id="feature-voice" aria-labelledby="feature-voice-title">
+        <div>
+          <h3 id="feature-voice-title">Голос и кружки</h3>
+          <p>Видно, что идёт запись, перед отправкой можно прослушать и обрезать.</p>
         </div>
-      </details>
-      <details class="faq-item">
-        <summary>Где версия для iPhone?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></summary>
-        <div class="faq-answer">
-          <p>Будет позже. Сейчас blesk работает на Android {{minAndroid}} и новее.</p>
+        <dl class="rows">
+          <div><dt>Скорость</dt><dd>от 0,5× до 2×, голос не меняется</dd></div>
+          <div><dt>Перед отправкой</dt><dd>прослушать и обрезать</dd></div>
+          <div><dt>Кружки</dt><dd>с подсветкой лица экраном</dd></div>
+          <div><dt>Волна</dt><dd>по настоящей громкости</dd></div>
+        </dl>
+      </section>
+
+      <section class="detail" id="feature-calls" aria-labelledby="feature-calls-title">
+        <div>
+          <h3 id="feature-calls-title">Звонки</h3>
+          <p>Аудио и видео один на один, голосовые каналы в комнатах. Свёрнутый звонок живёт капсулой сверху экрана.</p>
         </div>
-      </details>
-      <details class="faq-item">
-        <summary>Как проверить, что сборка настоящая?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></summary>
-        <div class="faq-answer">
-          <p>Сравни отпечатки скачанного файла с опубликованными здесь.</p>
-          <p class="fingerprint"><strong>SHA-256 файла</strong><code>{{sha256}}</code></p>
-          <p class="fingerprint"><strong>Отпечаток ключа подписи</strong><code>{{signer}}</code></p>
-          {{#testSigned}}<p><strong>Сейчас сборки подписаны тестовым ключом.</strong> Он лежит в открытом репозитории, и подписать им может кто угодно, поэтому один отпечаток ключа подлинность не доказывает. Сверяй SHA-256 файла и скачивай blesk только с blesk.su и со страницы релизов на GitHub.</p>
-          {{/testSigned}}<p>В приложении отпечаток ключа виден в «Настройки → О приложении → Подлинность». Как посчитать SHA-256 на компьютере — в разделе <a href="/how/#authenticity">«Как это устроено»</a>.</p>
+        <dl class="rows">
+          <div><dt>Кто</dt><dd>один на один, в комнатах — голосовые каналы</dd></div>
+          <div><dt>Экран</dt><dd>демонстрация экрана</dd></div>
+          <div><dt>Шифрование</dt><dd>сквозное</dd></div>
+          <div><dt>Свернуть</dt><dd>звонок не обрывается</dd></div>
+        </dl>
+      </section>
+
+      <section class="detail" id="feature-themes" aria-labelledby="feature-themes-title">
+        <div>
+          <h3 id="feature-themes-title">Свет под настроение</h3>
+          <p>Четыре темы и своя, собранная из любого оттенка. Контраст подстраивается сам, чтобы всё читалось.</p>
         </div>
-      </details>
+        <dl class="rows">
+          <div><dt>Темы</dt><dd>светлая, тёмная, лиловая, лаймовая</dd></div>
+          <div><dt>Своя</dt><dd>из любого оттенка</dd></div>
+          <div><dt>Экономный режим</dt><dd>меньше света и движения при низком заряде</dd></div>
+        </dl>
+      </section>
+    </div>
+  </section>
+
+  <section class="block" id="download" aria-labelledby="download-title">
+    <div class="wrap">
+      <h2 id="download-title">Скачать</h2>
+      <div class="card">
+        <div>
+          <h3>blesk для Android</h3>
+          <dl class="rows">
+            <div><dt>Версия</dt><dd>{{#public}}{{version}}{{/public}}{{^public}}готовится к запуску{{/public}}</dd></div>
+            <div><dt>Размер</dt><dd>{{size}}</dd></div>
+            <div><dt>Система</dt><dd>Android {{minAndroid}} и новее</dd></div>
+            <div><dt>Цена</dt><dd>бесплатно, без рекламы</dd></div>
+            <div><dt>iPhone</dt><dd>позже</dd></div>
+          </dl>
+        </div>
+        <div class="cta">
+          {{#public}}<p class="sub">Приложение скачивается с этого сайта. Android может предупредить, что оно не из Google Play, так бывает со всеми приложениями с сайтов. Подлинность сборки легко проверить.</p>{{/public}}{{^public}}<p class="sub">Сейчас blesk открыт по приглашениям: попроси ссылку у друга, который уже в blesk. Для всех откроемся скоро.</p>{{/public}}
+          <div class="actions">
+            {{#public}}<a class="pill dark" href="/download">Скачать APK</a>{{/public}}{{^public}}<span class="pill soon">Скоро</span>{{/public}}
+            <a class="pill soft" href="/security/#authenticity">Проверить подлинность</a>
+          </div>
+          {{#qr}}<figure class="qr">
+            <img src="/assets/qr-download.svg" width="128" height="128" alt="QR-код со ссылкой на скачивание blesk">
+            <figcaption>Наведи камеру телефона, чтобы скачать</figcaption>
+          </figure>{{/qr}}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <h2 id="faq-title">Вопросы и ответы</h2>
+      <div class="faq">
+        <details>
+          <summary>Это бесплатно?{{> chevron}}</summary>
+          <div class="a"><p>Да. В blesk нет рекламы и платных функций для переписки.</p></div>
+        </details>
+        <details>
+          <summary>Зачем без номера телефона?{{> chevron}}</summary>
+          <div class="a"><p>Номер привязывает аккаунт к твоему имени и сим-карте. В blesk тебя знают только по нику, а найти тебя можно и вовсе только по ссылке.</p></div>
+        </details>
+        <details>
+          <summary>Что будет, если я потеряю телефон?{{> chevron}}</summary>
+          <div class="a"><p>Аккаунт держится на фразе из 12 слов, которую blesk показывает при регистрации. Сохрани её на бумаге: восстановить её за тебя мы не сможем.</p></div>
+        </details>
+        <details>
+          <summary>Можете ли вы прочитать мою переписку?{{> chevron}}</summary>
+          <div class="a"><p>Нет. Личные чаты, группы и закрытые комнаты шифруются на телефоне, ключей у нас нет. Публичные каналы видят все, кто в них вступил.</p></div>
+        </details>
+        <details>
+          <summary>Почему blesk не в Google Play?{{> chevron}}</summary>
+          <div class="a"><p>Пока приложение скачивается с этого сайта. Android может предупредить об этом, это нормально. Подлинность каждой сборки можно проверить.</p></div>
+        </details>
+        <details>
+          <summary>Будет ли версия для iPhone?{{> chevron}}</summary>
+          <div class="a"><p>Да, после версии для Android.</p></div>
+        </details>
+      </div>
     </div>
   </section>
 </main>

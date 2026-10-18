@@ -11,14 +11,16 @@ noindex: true
 <body>
 {{> header}}
 <main id="main">
-  <div class="not-found wrap">
-    <h1 class="page-title">Такой страницы нет</h1>
-    <p class="lead">Возможно, ссылка устарела или в ней опечатка.</p>
-    <div class="actions">
-      <a class="btn btn-primary" href="/">На главную</a>
-      <a class="btn btn-secondary" href="/how/">Как это устроено</a>
+  <article class="page">
+    <div class="wrap">
+      <h1>Такой страницы нет</h1>
+      <p class="lead">Возможно, ссылка устарела или в ней опечатка.</p>
+      <div class="actions">
+        <a class="pill dark" href="/">На главную</a>
+        <a class="pill soft" href="/security/">Как это устроено</a>
+      </div>
     </div>
-  </div>
+  </article>
 </main>
 {{> footer}}
 </body>
