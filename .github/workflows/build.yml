@@ -10,14 +10,14 @@ permissions:
 
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     # A newer push makes the build of an older one pointless; a deploy already running is never cut off.
     concurrency:
       group: build-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-java@v4
         with:
@@ -101,7 +101,7 @@ jobs:
       github.ref == 'refs/heads/main' ||
       github.ref == 'refs/heads/master' ||
       github.ref == 'refs/heads/claude/file-review-0lky6f'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     concurrency:
       group: deploy
@@ -123,7 +123,7 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.secrets.outputs.ready == 'true'
 
       - name: Deploy over SSH
