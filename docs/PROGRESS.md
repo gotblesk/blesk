@@ -56,7 +56,7 @@
 - [x] «Запуск сервера» в брифе описывает сервер как он есть: без Redis и MinIO, сборка из архива релиза, деплой из `build.yml`
 - [x] Правило про открытый репозиторий в `CLAUDE.md`; gitleaks по всей истории в CI (`.github/workflows/secrets.yml`)
 - [x] Прототип сайта в `site/prototype/`, сайт приведён к нему: шапка с клавишей, живой чат, капсулы «Что внутри», карточка скачивания, вопросы, подвал с плашкой, меню нижним листом; «Как это устроено» — `/security/`
-- [ ] Старые пароли из `legacy/` сменены (NEEDS_HUMAN 1.6) — после ответа владельца удалить `legacy/restart_server.py` и `legacy/test_smtp.py`
+- [ ] Старые пароли и ключ GIF из истории сменены (NEEDS_HUMAN 1.6) — после ответа владельца удалить `legacy/restart_server.py` и `legacy/test_smtp.py`
 
 ## Этап 0. Каркас
 - [x] Модули, Gradle convention plugins, version catalog, wrapper

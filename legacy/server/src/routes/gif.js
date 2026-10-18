@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 
 const router = Router();
 
-const TENOR_API_KEY = process.env.TENOR_API_KEY || 'AIzaSyBqwDKjwi9kGJGUUBpxJ7v0Qi9HPVVn8hg';
+const TENOR_API_KEY = process.env.TENOR_API_KEY || '';
 const TENOR_BASE = 'https://tenor.googleapis.com/v2';
 
 // GET /api/gif/search?q=...&limit=20
