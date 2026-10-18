@@ -1,5 +1,6 @@
 package app.blesk.core.messaging
 
+import androidx.room.withTransaction
 import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
@@ -19,7 +20,6 @@ import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ContactEntity
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.MessageEntity
-import app.blesk.core.data.db.OutboxEntity
 import app.blesk.core.data.db.PIN_SEPARATOR
 import app.blesk.core.data.db.pinnedIds
 import app.blesk.core.data.diagnostics.EventCode
@@ -97,14 +97,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Chats on a real server. Every outgoing content is written to the encrypted outbox first and
@@ -137,6 +135,8 @@ class ServerChatRepository(
     private val linkPreview: suspend (text: String) -> LinkPreview? = { null },
     /** «Автозагрузка»: whether a kind of file comes by itself over the network the phone is on now. */
     private val autoDownload: (AutoKind) -> Boolean = { true },
+    /** How long the outbox waits after a failed pass when the server names no time of its own. */
+    retryMillis: Long = Outbox.RETRY_MILLIS,
 ) : ChatRepository,
     GroupController,
     SpaceController,
@@ -164,6 +164,19 @@ class ServerChatRepository(
         allowed = ::allowed,
         enqueue = ::enqueue,
     )
+    private val outbox: Outbox = Outbox(
+        db = db,
+        api = api,
+        crypto = crypto,
+        accounts = accounts,
+        me = me,
+        scope = scope,
+        log = log,
+        clock = clock,
+        retryMillis = retryMillis,
+        shareProfile = profiles::share,
+        linkOf = ::linkOf,
+    )
     private val bots =
         BotEngine(db, api, me, clock) { bot, title, text ->
             scope.launch { returnFromArchive(bot) }
@@ -173,18 +186,12 @@ class ServerChatRepository(
         db = db,
         crypto = groupCrypto,
         me = me,
-        outbox = object : GroupOutbox {
-            override suspend fun direct(recipient: String, content: Content) = enqueue(recipient, content)
-            override suspend fun sealed(recipient: String, content: Content, type: Int, body: String) =
-                enqueueSealed(recipient, content, type, body)
-        },
+        outbox = outbox,
         clock = clock,
     )
     private val signals = MutableSharedFlow<CallSignal>(extraBufferCapacity = SIGNAL_BUFFER)
     private val typingState = MutableStateFlow<Set<String>>(emptySet())
     private val typingJobs = HashMap<String, Job>()
-    private val flushLock = Mutex()
-    private val flushAgain = AtomicBoolean(false)
     private val contactCache = db.contacts().observeAll()
         .map { list -> list.associate { it.username to it.toModel() } }
         .stateIn(scope, SharingStarted.Eagerly, emptyMap())
@@ -226,7 +233,7 @@ class ServerChatRepository(
 
     override fun setBlocked(username: String, blocked: Boolean) {
         scope.launch {
-            if (db.contacts().get(username) == null) db.contacts().upsert(ContactEntity(username, username, added = false))
+            db.contacts().insertIfAbsent(ContactEntity(username, username, added = false))
             db.contacts().setBlocked(username, blocked)
         }
     }
@@ -279,11 +286,12 @@ class ServerChatRepository(
 
     fun start() {
         scope.launch {
-            if (!accounts.restore(api)) runCatching { accounts.signIn(api, me) }
+            // The token lives in the database, which Room keeps off the main thread the app runs this on.
+            withContext(Dispatchers.IO) { if (!accounts.restore(api)) runCatching { accounts.signIn(api, me) } }
             socket.start()
         }
         scope.launch { socket.frames.collect { frame -> handle(frame) } }
-        scope.launch { socket.connected.filter { it }.collect { flush() } }
+        scope.launch { socket.connected.filter { it }.collect { outbox.flush() } }
         scope.launch { socket.connected.filter { it }.collect { presenceTracker.reconnected() } }
         // The server only keeps whether you can be found by name; it is told again on every connection.
         scope.launch { socket.connected.filter { it }.collect { setDiscoverable(privacy().findable) } }
@@ -304,7 +312,11 @@ class ServerChatRepository(
         val fresh = db.conversations().get(username) == null
         if (existing == null) {
             val account = runCatching { api.account(username, link) }.getOrNull() ?: return null
-            db.contacts().upsert(ContactEntity(username = account.username, name = account.username, identityKey = account.identityKey))
+            val key = account.identityKey
+            // Their profile or first message may have brought them in while the server answered; that row keeps what it has.
+            if (db.contacts().insertIfAbsent(ContactEntity(account.username, account.username, identityKey = key)) == -1L) {
+                db.contacts().markAddedWithKey(account.username, key)
+            }
         }
         ensureConversation(username)
         // A chat you start takes your default for disappearing messages; one someone else starts keeps theirs.
@@ -475,7 +487,7 @@ class ServerChatRepository(
                 val attachment = decodeAttachment(row.attachment) ?: return@forEach
                 val cleared = attachment.withoutFiles() ?: return@forEach
                 media.forget(attachment)
-                db.messages().upsert(row.copy(attachment = encodeAttachment(cleared)))
+                db.messages().setAttachment(row.id, encodeAttachment(cleared))
             }
     }
 
@@ -497,7 +509,7 @@ class ServerChatRepository(
     private suspend fun cardFor(id: String, text: String, attachment: Attachment?, forwarded: Boolean): LinkPreview? {
         if (attachment != null || forwarded || !privacy().linkPreviews) return null
         val card = withTimeoutOrNull(LINK_PREVIEW_MILLIS) { linkPreview(text) } ?: return null
-        db.messages().get(id)?.let { db.messages().upsert(it.copy(link = encodeLink(card))) }
+        db.messages().setLink(id, encodeLink(card))
         return card
     }
 
@@ -540,8 +552,8 @@ class ServerChatRepository(
 
     /** «Избранное» is a chat with yourself: always there, pinned, and never sent anywhere. */
     private suspend fun ensureSaved() {
-        if (savedTitle.isEmpty() || db.conversations().get(me) != null) return
-        db.conversations().upsert(
+        if (savedTitle.isEmpty()) return
+        db.conversations().insertIfAbsent(
             ConversationEntity(
                 id = me,
                 kind = ConversationKind.Saved.name,
@@ -610,9 +622,8 @@ class ServerChatRepository(
         if (spaces.handleOf(conversationId) != null) return
         scope.launch {
             val message = db.messages().get(messageId) ?: return@launch
-            val entries = decodeReactions(message.reactions)
-            val mine = entries.any { it.symbol == symbol && me in it.users }
-            db.messages().upsert(message.copy(reactions = encodeReactions(applyReaction(entries, me, symbol, remove = mine))))
+            val mine = decodeReactions(message.reactions).any { it.symbol == symbol && me in it.users }
+            db.messages().changeReactions(messageId) { encodeReactions(applyReaction(decodeReactions(it), me, symbol, remove = mine)) }
             dispatch(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Reaction(messageId, symbol, remove = mine)))
         }
     }
@@ -625,8 +636,7 @@ class ServerChatRepository(
             return
         }
         scope.launch {
-            val message = db.messages().get(messageId)?.takeIf { it.authorId == me } ?: return@launch
-            db.messages().upsert(message.copy(text = body, edited = true))
+            if (db.messages().editText(messageId, me, body) == 0) return@launch
             refreshPreview(conversationId)
             dispatch(conversationId, Content(UUID.randomUUID().toString(), clock(), Body.Edit(messageId, body)))
         }
@@ -707,42 +717,35 @@ class ServerChatRepository(
         rows.firstOrNull { it.id == id }?.let { storageJson.decodeFromString(GroupState.serializer(), it.state) }
     }
 
-    override suspend fun createGroup(kind: GroupKind, title: String, members: List<String>): String {
-        val id = groups.create(kind, TextSafety.clean(title), members)
-        flush()
-        return id
-    }
+    // The engine sends what a change queued as soon as the change is stored.
 
-    override suspend fun rename(groupId: String, title: String) = groups.rename(groupId, TextSafety.clean(title)).also { flush() }
+    override suspend fun createGroup(kind: GroupKind, title: String, members: List<String>): String =
+        groups.create(kind, TextSafety.clean(title), members)
 
-    override suspend fun addMembers(groupId: String, usernames: List<String>) = groups.addMembers(groupId, usernames).also { flush() }
+    override suspend fun rename(groupId: String, title: String) = groups.rename(groupId, TextSafety.clean(title))
 
-    override suspend fun removeMember(groupId: String, username: String) = groups.remove(groupId, username).also { flush() }
+    override suspend fun addMembers(groupId: String, usernames: List<String>) = groups.addMembers(groupId, usernames)
 
-    override suspend fun setRole(groupId: String, username: String, role: GroupRole) =
-        groups.setRole(groupId, username, role).also { flush() }
+    override suspend fun removeMember(groupId: String, username: String) = groups.remove(groupId, username)
+
+    override suspend fun setRole(groupId: String, username: String, role: GroupRole) = groups.setRole(groupId, username, role)
 
     override suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) =
-        groups.addChannel(groupId, TextSafety.clean(title), kind, adminsOnly).also { flush() }
+        groups.addChannel(groupId, TextSafety.clean(title), kind, adminsOnly)
 
-    override suspend fun removeChannel(groupId: String, channelId: String) = groups.removeChannel(groupId, channelId).also { flush() }
+    override suspend fun removeChannel(groupId: String, channelId: String) = groups.removeChannel(groupId, channelId)
 
-    override suspend fun change(groupId: String, change: GroupChange) = groups.change(groupId, change).also { flush() }
+    override suspend fun change(groupId: String, change: GroupChange) = groups.change(groupId, change)
 
-    override suspend fun setInvite(groupId: String, enabled: Boolean): String? {
-        val code = groups.setInvite(groupId, enabled)
-        flush()
-        return code?.let { InviteLink.format(groupId, me, it) }
-    }
+    override suspend fun setInvite(groupId: String, enabled: Boolean): String? =
+        groups.setInvite(groupId, enabled)?.let { InviteLink.format(groupId, me, it) }
 
-    override suspend fun leave(groupId: String) {
-        groups.leave(groupId)
-        flush()
-    }
+    override suspend fun leave(groupId: String) = groups.leave(groupId)
 
     override suspend fun join(link: String): Boolean {
         val invite = InviteLink.parse(link) ?: return false
         if (openDirect(invite.admin) == null) return false
+        groups.joining(invite.groupId)
         enqueue(invite.admin, Content(UUID.randomUUID().toString(), clock(), Body.JoinRequest(invite.groupId, invite.code)))
         return true
     }
@@ -839,7 +842,7 @@ class ServerChatRepository(
 
     override suspend fun callToken(room: String): CallToken? = runCatching { api.callToken(room) }.getOrNull()
 
-    override suspend fun voiceKey(groupId: String): String? = groups.voiceKey(groupId).also { flush() }
+    override suspend fun voiceKey(groupId: String): String? = groups.voiceKey(groupId)
 
     // Outgoing
 
@@ -853,7 +856,6 @@ class ServerChatRepository(
             } else if (content.body is Body.Text) {
                 advanceStatus(listOf(content.id), SendStatus.Sent)
             }
-            flush()
         } else {
             // Writing to someone makes them a contact, even if they wrote first.
             if (content.body is Body.Text) db.contacts().markAdded(conversationId)
@@ -861,105 +863,7 @@ class ServerChatRepository(
         }
     }
 
-    private suspend fun enqueueSealed(recipient: String, content: Content, type: Int, body: String) {
-        val json = storageJson.encodeToString(Content.serializer(), content)
-        db.outbox().insert(OutboxEntity(recipient = recipient, content = json, createdAt = clock(), sealedType = type, sealedBody = body))
-    }
-
-    private suspend fun enqueue(recipient: String, content: Content) {
-        val json = storageJson.encodeToString(Content.serializer(), content)
-        db.outbox().insert(OutboxEntity(recipient = recipient, content = json, createdAt = clock()))
-        flush()
-    }
-
-    /**
-     * Sends what waits in the outbox. A call while a pass is running is not dropped: it asks for one
-     * more pass, so a message queued after the running pass read the outbox still goes out now
-     * rather than at the next send or reconnect.
-     */
-    private suspend fun flush() {
-        flushAgain.set(true)
-        while (flushAgain.get() && flushLock.tryLock()) {
-            val online = try {
-                drainOutbox()
-            } finally {
-                flushLock.unlock()
-            }
-            // Offline: the next connection flushes again.
-            if (!online) return
-        }
-    }
-
-    /** Passes over the outbox while more passes are asked for; false once the network is down. */
-    private suspend fun drainOutbox(): Boolean {
-        while (flushAgain.getAndSet(false)) {
-            if (!db.outbox().all().all { deliver(it) }) return false
-        }
-        return true
-    }
-
-    /** Returns false when the network is down and the rest of the queue should wait. */
-    private suspend fun deliver(item: OutboxEntity): Boolean {
-        val content = storageJson.decodeFromString(Content.serializer(), item.content)
-        return try {
-            val sealedType = item.sealedType
-            val sealedBody = item.sealedBody
-            if (sealedType != null && sealedBody != null) {
-                api.send(item.recipient, OutgoingMessage("${content.id}:${item.recipient}", sealedType, sealedBody))
-                db.outbox().delete(item.id)
-                return true
-            }
-            if (!crypto.hasSessionSafe(item.recipient)) {
-                val bundle = api.bundle(item.recipient, linkOf(item.recipient))
-                if (bundle == null) {
-                    dropFailed(item, content)
-                    return true
-                }
-                withContext(Dispatchers.IO) { crypto.startSession(bundle) }
-                profiles.share(item.recipient)
-            }
-            val sealed = withContext(Dispatchers.IO) { crypto.encrypt(item.recipient, content) }
-            api.send(item.recipient, OutgoingMessage(content.id, sealed.type, sealed.body, item.ephemeral))
-            db.outbox().delete(item.id)
-            if (content.body is Body.Text) advanceStatus(listOf(content.id), SendStatus.Sent)
-            true
-        } catch (e: ApiException) {
-            when {
-                e.status == UNAUTHORIZED -> {
-                    runCatching { accounts.signIn(api, me) }
-                    false
-                }
-                e.status in CLIENT_ERRORS && e.status != TOO_MANY -> {
-                    dropFailed(item, content)
-                    true
-                }
-                else -> false
-            }
-        } catch (_: IOException) {
-            db.outbox().bumpAttempts(item.id)
-            scheduleRetry()
-            false
-        } catch (cancelled: kotlinx.coroutines.CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            // Broken keys or an untrusted identity: this item can never go out as it is.
-            dropFailed(item, content)
-            true
-        }
-    }
-
-    private fun scheduleRetry() {
-        scope.launch {
-            delay(RETRY_MILLIS)
-            flush()
-        }
-    }
-
-    private suspend fun dropFailed(item: OutboxEntity, content: Content) {
-        db.outbox().delete(item.id)
-        if (content.body is Body.Text) advanceStatus(listOf(content.id), SendStatus.Failed, force = true)
-        log.record(EventCode.SendFailed)
-    }
+    private suspend fun enqueue(recipient: String, content: Content) = outbox.enqueue(recipient, content)
 
     // Incoming
 
@@ -1057,16 +961,16 @@ class ServerChatRepository(
         when (val body = content.body) {
             is Body.Text -> {
                 if (!groups.canPost(state, conversation, sender)) return
-                if (db.contacts().get(sender) == null) db.contacts().upsert(ContactEntity(sender, sender))
+                db.contacts().insertIfAbsent(ContactEntity(sender, sender))
                 storeIncoming(sender, conversation, content, body, author = contact(sender)?.name?.substringBefore(' ') ?: sender)
             }
-            is Body.Reaction -> db.messages().get(body.target)?.takeIf { it.conversationId == conversation }?.let { message ->
-                val entries = applyReaction(decodeReactions(message.reactions), sender, body.symbol, body.remove)
-                db.messages().upsert(message.copy(reactions = encodeReactions(entries)))
+            is Body.Reaction -> if (db.messages().get(body.target)?.conversationId == conversation) {
+                db.messages().changeReactions(body.target) {
+                    encodeReactions(applyReaction(decodeReactions(it), sender, body.symbol, body.remove))
+                }
             }
-            is Body.Edit -> db.messages().get(body.target)?.takeIf { it.authorId == sender && it.conversationId == conversation }?.let {
-                db.messages().upsert(it.copy(text = body.text, edited = true))
-                refreshPreview(conversation)
+            is Body.Edit -> if (db.messages().get(body.target)?.conversationId == conversation) {
+                if (db.messages().editText(body.target, sender, body.text) > 0) refreshPreview(conversation)
             }
             is Body.Delete -> db.messages().get(body.target)?.takeIf {
                 it.conversationId == conversation && (it.authorId == sender || GroupPolicy.can(state, sender, Right.DeleteOthers))
@@ -1122,7 +1026,7 @@ class ServerChatRepository(
     }
 
     private suspend fun receiveText(sender: String, content: Content, body: Body.Text) {
-        if (db.contacts().get(sender) == null) db.contacts().upsert(ContactEntity(sender, sender, added = false))
+        db.contacts().insertIfAbsent(ContactEntity(sender, sender, added = false))
         ensureConversation(sender)
         showTyping(sender, false)
         val known = db.messages().get(content.id) != null
@@ -1157,17 +1061,21 @@ class ServerChatRepository(
 
     private suspend fun ensureConversation(username: String) {
         if (db.conversations().get(username) != null || groups.groupOf(username) != null) return
-        val name = db.contacts().get(username)?.name?.ifBlank { null } ?: username
-        db.conversations().upsert(
-            ConversationEntity(
-                id = username,
-                kind = ConversationKind.Direct.name,
-                title = name,
-                protection = Protection.EndToEnd.name,
-                peer = username,
-                updatedAt = clock(),
-            ),
-        )
+        // With the name read in the same transaction, a profile stored meanwhile either comes first and is read
+        // here, or comes after and renames the chat this creates.
+        db.withTransaction {
+            val name = db.contacts().get(username)?.name?.ifBlank { null } ?: username
+            db.conversations().insertIfAbsent(
+                ConversationEntity(
+                    id = username,
+                    kind = ConversationKind.Direct.name,
+                    title = name,
+                    protection = Protection.EndToEnd.name,
+                    peer = username,
+                    updatedAt = clock(),
+                ),
+            )
+        }
     }
 
     private suspend fun setPreview(conversationId: String, author: String?, text: String, at: Long) {
@@ -1179,22 +1087,14 @@ class ServerChatRepository(
 
     private suspend fun refreshPreview(conversationId: String) = changes.refreshPreview(conversationId)
 
-    /** Statuses only move forward, except an explicit failure. */
+    /** Statuses only move forward, except an explicit failure; the database decides, so a late Sent cannot undo a receipt. */
     private suspend fun advanceStatus(ids: List<String>, status: SendStatus, force: Boolean = false) {
-        ids.forEach { id ->
-            val message = db.messages().get(id)?.takeIf { it.authorId == me } ?: return@forEach
-            val current = runCatching { SendStatus.valueOf(message.status) }.getOrDefault(SendStatus.Sending)
-            if (force || status.ordinal > current.ordinal) db.messages().upsert(message.copy(status = status.name))
-        }
+        if (force) db.messages().setStatus(ids, me, status.name) else db.messages().advanceStatus(ids, me, status)
     }
 
     private suspend fun MessageCrypto.hasSessionSafe(username: String) = withContext(Dispatchers.IO) { hasSession(username) }
 
     private companion object {
-        const val UNAUTHORIZED = 401
-        const val TOO_MANY = 429
-        val CLIENT_ERRORS = 400..499
-        const val RETRY_MILLIS = 15_000L
         const val TYPING_TIMEOUT_MILLIS = 6_000L
         const val SEARCH_LIMIT = 100
         const val SIGNAL_BUFFER = 16

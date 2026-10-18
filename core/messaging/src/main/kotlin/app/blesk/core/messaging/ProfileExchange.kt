@@ -1,5 +1,6 @@
 package app.blesk.core.messaging
 
+import androidx.room.withTransaction
 import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ContactEntity
@@ -51,23 +52,31 @@ internal class ProfileExchange(
         people.forEach { contact -> enqueue(contact.username, Content(UUID.randomUUID().toString(), clock(), body(own, photo))) }
     }
 
+    /**
+     * Writes only what a profile owns: the name, bio, links and photo. Whether they are a contact or blocked
+     * belongs to you, and a block made while the photo was downloading must not be undone by this.
+     */
     suspend fun receive(sender: String, body: Body.Profile) {
-        val base = db.contacts().get(sender) ?: ContactEntity(sender, sender, added = false)
+        val name = TextSafety.clean(body.name).take(MAX_NAME)
         val links = body.links.map { it.trim().take(Body.Profile.MAX_LINK) }.filter { it.isNotEmpty() }.take(Body.Profile.MAX_LINKS)
         // A new photo replaces the old one; none means they no longer show it to you.
         val photo = body.photo?.takeIf { it.kind == Attachments.KIND_PHOTO }?.let { pointer ->
             runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }.getOrNull() as? Attachment.Photo
         }
-        if (body.photo == null || photo != null) base.photo?.let { media.forget(Attachment.Photo(it, 0, 0)) }
-        val updated = base.copy(
-            name = TextSafety.clean(body.name).take(MAX_NAME),
-            bio = TextSafety.clean(body.bio, multiline = true).take(MAX_BIO),
-            links = links.joinToString("\n"),
-            photo = if (body.photo == null) null else photo?.path ?: base.photo,
-        )
-        db.contacts().upsert(updated)
-        val shown = updated.name.takeIf(TextSafety::hasVisible) ?: sender
-        db.conversations().get(sender)?.let { db.conversations().upsert(it.copy(title = shown)) }
+        db.contacts().insertIfAbsent(ContactEntity(sender, sender, added = false))
+        val previous = db.contacts().get(sender)?.photo
+        if (body.photo == null || photo != null) previous?.let { media.forget(Attachment.Photo(it, 0, 0)) }
+        // Together, so a chat created meanwhile reads either the old name and is then renamed, or the new one.
+        db.withTransaction {
+            db.contacts().setProfile(
+                username = sender,
+                name = name,
+                bio = TextSafety.clean(body.bio, multiline = true).take(MAX_BIO),
+                links = links.joinToString("\n"),
+                photo = if (body.photo == null) null else photo?.path ?: previous,
+            )
+            db.conversations().setTitle(sender, name.takeIf(TextSafety::hasVisible) ?: sender)
+        }
     }
 
     private fun body(own: OwnProfile, photo: AttachmentPointer?) = Body.Profile(own.name, own.bio, own.links, photo)

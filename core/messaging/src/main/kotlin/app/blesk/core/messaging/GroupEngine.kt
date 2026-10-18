@@ -1,9 +1,11 @@
 package app.blesk.core.messaging
 
+import androidx.room.withTransaction
 import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.GroupEntity
+import app.blesk.core.data.db.LeftGroupEntity
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Protection
 import app.blesk.shared.protocol.Body
@@ -21,6 +23,7 @@ import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.TextSafety
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -28,10 +31,23 @@ import java.security.SecureRandom
 import java.util.Base64
 import java.util.UUID
 
-/** What the group engine needs from the repository around it. */
+/**
+ * Where the group engine queues what it sends. Queueing writes the row and nothing more, so it can be part of a
+ * change's transaction, and a new state and the updates telling members of it are stored together or not at all.
+ *
+ * Sending starts with [flush], once that transaction is committed. A pass started inside it reads the queue on a
+ * connection of its own, and with the write-ahead log the phone's database keeps, that connection does not see rows
+ * not yet committed: the pass would find nothing and end, and the updates would wait for whatever asks next.
+ */
 internal interface GroupOutbox {
-    suspend fun direct(recipient: String, content: Content)
-    suspend fun sealed(recipient: String, content: Content, type: Int, body: String)
+    /** Content to encrypt one-to-one when it goes out. */
+    suspend fun queue(recipient: String, content: Content)
+
+    /** A group message, encrypted once with our sender key and sent to each member as it is. */
+    suspend fun queueSealed(recipient: String, content: Content, type: Int, body: String)
+
+    /** Sends what waits, in a pass of the outbox's own that the caller need not wait for. */
+    fun flush(): Job
 }
 
 /**
@@ -39,6 +55,10 @@ internal interface GroupOutbox {
  * send the new state to every member one-to-one. Messages are encrypted once with the
  * sender's SenderKey and fanned out. Leaving or removing someone moves the group to a new
  * epoch, and everyone hands out fresh sender keys to the remaining members only.
+ *
+ * Every change reads the state, works out the next one and writes it in one transaction, so another change, an
+ * admin's update or someone leaving lands before or after it, never between its read and its write. What it queues
+ * for members is sent once the transaction is committed.
  */
 internal class GroupEngine(
     private val db: BleskDatabase,
@@ -73,8 +93,10 @@ internal class GroupEngine(
             channels = channels,
             voiceKey = if (kind == GroupKind.Room) newVoiceKey() else null,
         )
-        apply(state)
-        broadcast(state, state.members.map { it.username })
+        queueing {
+            store(state, new = true)
+            broadcast(state, state.members.map { it.username })
+        }
         return id
     }
 
@@ -89,11 +111,10 @@ internal class GroupEngine(
 
     suspend fun remove(groupId: String, username: String) = change(groupId, GroupChange.Remove(username))
 
-    suspend fun setRole(groupId: String, username: String, role: GroupRole): Boolean {
-        val state = state(groupId) ?: return false
-        if (role == GroupRole.Owner || state.roleOf(username) == GroupRole.Owner) return false
-        if (state.roleOf(me) != GroupRole.Owner && role == GroupRole.Admin) return false
-        return change(groupId) { s -> s.copy(members = s.members.map { if (it.username == username) it.copy(role = role) else it }) }
+    suspend fun setRole(groupId: String, username: String, role: GroupRole) = change(groupId) { state ->
+        val refused = role == GroupRole.Owner || state.roleOf(username) == GroupRole.Owner ||
+            (state.roleOf(me) != GroupRole.Owner && role == GroupRole.Admin)
+        if (refused) null else state.copy(members = state.members.map { if (it.username == username) it.copy(role = role) else it })
     }
 
     suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) = change(groupId) { state ->
@@ -107,53 +128,53 @@ internal class GroupEngine(
     }
 
     /** A change checked by [GroupPolicy]; a ban tells the banned person they are out, as a removal does. */
-    suspend fun change(groupId: String, change: GroupChange): Boolean {
-        val state = state(groupId) ?: return false
-        val next = GroupPolicy.apply(state, me, change, clock()) ?: return false
+    suspend fun change(groupId: String, change: GroupChange): Boolean = queueing {
+        val state = state(groupId) ?: return@queueing false
+        val next = GroupPolicy.apply(state, me, change, clock()) ?: return@queueing false
         val rotated = if (next.epoch != state.epoch) next.copy(voiceKey = next.voiceKey?.let { newVoiceKey() }) else next
-        apply(rotated)
+        store(rotated)
         broadcast(rotated, (state.members + rotated.members).map { it.username }.distinct())
         val gone = rotated.copy(invite = null, voiceKey = null, invites = emptyList())
         when (change) {
-            is GroupChange.Ban -> outbox.direct(change.username, update(gone))
-            is GroupChange.Remove -> outbox.direct(change.username, update(gone))
+            is GroupChange.Ban -> outbox.queue(change.username, update(gone))
+            is GroupChange.Remove -> outbox.queue(change.username, update(gone))
             GroupChange.Dissolve -> {
-                state.members.filter { it.username != me }.forEach { outbox.direct(it.username, update(gone)) }
-                forget(groupId)
+                state.members.filter { it.username != me }.forEach { outbox.queue(it.username, update(gone)) }
+                forget(groupId, rotated.version, byUs = true)
             }
             else -> Unit
         }
-        return true
+        true
     }
 
     /** Turns the invite link on (new code) or off. Returns the code. */
     suspend fun setInvite(groupId: String, enabled: Boolean): String? {
-        var code: String? = null
-        change(groupId) { state ->
-            code = if (enabled) newCode() else null
-            state.copy(invite = code)
-        }
-        return code
+        val code = if (enabled) newCode() else null
+        return if (change(groupId) { it.copy(invite = code) }) code else null
     }
 
-    suspend fun leave(groupId: String) {
-        val state = state(groupId) ?: return
+    suspend fun leave(groupId: String) = queueing {
+        val state = state(groupId) ?: return@queueing
         state.members.filter { it.username != me }.forEach {
-            outbox.direct(it.username, Content(UUID.randomUUID().toString(), clock(), Body.GroupLeave(groupId)))
+            outbox.queue(it.username, Content(UUID.randomUUID().toString(), clock(), Body.GroupLeave(groupId)))
         }
-        forget(groupId)
+        forget(groupId, state.version, byUs = true)
     }
+
+    /** We ask to join by an invite: the admin's answer may bring the group back, even one we once left. */
+    suspend fun joining(groupId: String) = db.groups().unmarkLeft(groupId)
 
     // Messages
 
-    /** Encrypts once and queues the same ciphertext for every other member. */
+    /** Encrypts once, queues the same ciphertext for every other member and sends it. */
     suspend fun send(conversationId: String, content: Content): Boolean {
         val state = groupOf(conversationId) ?: return false
         if (!canPost(state, conversationId, me)) return false
         shareSenderKey(state)
         val stamped = content.copy(group = conversationId)
         val body = withContext(Dispatchers.IO) { crypto.encrypt(state.id, state.epoch, stamped) }
-        state.members.filter { it.username != me }.forEach { outbox.sealed(it.username, stamped, EnvelopeType.SENDERKEY, body) }
+        state.members.filter { it.username != me }.forEach { outbox.queueSealed(it.username, stamped, EnvelopeType.SENDERKEY, body) }
+        outbox.flush()
         return true
     }
 
@@ -170,33 +191,45 @@ internal class GroupEngine(
 
     // Incoming control messages
 
-    suspend fun onUpdate(sender: String, incoming: GroupState) {
+    suspend fun onUpdate(sender: String, incoming: GroupState) = db.withTransaction {
         val current = state(incoming.id)
         val trusted = if (current == null) {
-            incoming.isAdmin(sender)
+            incoming.isAdmin(sender) && mayComeBack(incoming)
         } else {
             GroupPolicy.manages(current, sender) && incoming.version > current.version
         }
-        if (!trusted) return
+        if (!trusted) return@withTransaction
         // Only the owner may hand the group over; an admin's state that moves ownership is not taken.
         val owner = incoming.members.firstOrNull { it.role == GroupRole.Owner }?.username
         val previous = current?.members?.firstOrNull { it.role == GroupRole.Owner }?.username
-        if (current != null && owner != previous && current.roleOf(sender) != GroupRole.Owner) return
+        if (current != null && owner != previous && current.roleOf(sender) != GroupRole.Owner) return@withTransaction
         if (incoming.roleOf(me) == null) {
-            forget(incoming.id)
-            return
+            if (current != null) forget(incoming.id, incoming.version, byUs = false)
+            return@withTransaction
         }
-        // Titles come from another phone: cleaned here as if typed on this one.
-        apply(
-            incoming.copy(
-                title = TextSafety.clean(incoming.title),
-                description = TextSafety.clean(incoming.description, multiline = true).take(GroupPolicy.MAX_DESCRIPTION),
-                channels = incoming.channels.map {
-                    it.copy(title = TextSafety.clean(it.title), description = TextSafety.clean(it.description, multiline = true))
-                },
-                roles = incoming.roles.map { it.copy(title = TextSafety.clean(it.title)) },
-            ),
-        )
+        store(cleaned(incoming), new = current == null)
+        if (current == null) db.groups().unmarkLeft(incoming.id)
+    }
+
+    /** Titles come from another phone: cleaned here as if typed on this one. */
+    private fun cleaned(incoming: GroupState) = incoming.copy(
+        title = TextSafety.clean(incoming.title),
+        description = TextSafety.clean(incoming.description, multiline = true).take(GroupPolicy.MAX_DESCRIPTION),
+        channels = incoming.channels.map {
+            it.copy(title = TextSafety.clean(it.title), description = TextSafety.clean(it.description, multiline = true))
+        },
+        roles = incoming.roles.map { it.copy(title = TextSafety.clean(it.title)) },
+    )
+
+    /**
+     * Whether a group this phone let go of may return. An admin may have sent a state before he learned we were out:
+     * removed or dissolved, only a newer state than the one that put us out counts; left by us, none does, as we
+     * come back only by asking to join ourselves. The admin drops us on his side without a word, so a group brought
+     * back by such a late state would stay here for good, silent.
+     */
+    private suspend fun mayComeBack(incoming: GroupState): Boolean {
+        val left = db.groups().leftGroup(incoming.id) ?: return true
+        return !left.byUs && incoming.version > left.version
     }
 
     suspend fun onSenderKey(sender: String, key: Body.SenderKey) {
@@ -206,25 +239,24 @@ internal class GroupEngine(
     }
 
     suspend fun onJoinRequest(sender: String, request: Body.JoinRequest) {
-        val state = state(request.groupId) ?: return
-        if (!GroupPolicy.can(state, me, Right.Invite) || state.roleOf(sender) != null || sender in state.banned) return
-        val invite = state.invites.firstOrNull { it.code == request.code }
-        when {
-            invite != null && invite.usable(clock()) -> change(request.groupId) { s ->
-                s.copy(
-                    members = s.members + GroupMember(sender, GroupRole.Member),
-                    invites = s.invites.map { if (it.code == invite.code) it.copy(joined = it.joined + sender) else it },
-                )
+        change(request.groupId) { state ->
+            val invite = state.invites.firstOrNull { it.code == request.code }
+            val joined = state.copy(members = state.members + GroupMember(sender, GroupRole.Member))
+            when {
+                !GroupPolicy.can(state, me, Right.Invite) || state.roleOf(sender) != null || sender in state.banned -> null
+                invite != null && invite.usable(clock()) ->
+                    joined.copy(invites = state.invites.map { if (it.code == invite.code) it.copy(joined = it.joined + sender) else it })
+                invite == null && state.invite != null && request.code == state.invite -> joined
+                else -> null
             }
-            invite == null && state.invite != null && request.code == state.invite -> addMembers(request.groupId, listOf(sender))
         }
     }
 
     suspend fun onLeave(sender: String, groupId: String) {
-        val state = state(groupId) ?: return
-        if (state.roleOf(sender) == null) return
-        val left = state.copy(members = state.members.filter { it.username != sender }, epoch = state.epoch + 1)
-        apply(left)
+        val left = db.withTransaction {
+            val state = state(groupId)?.takeIf { it.roleOf(sender) != null } ?: return@withTransaction null
+            state.copy(members = state.members.filter { it.username != sender }, epoch = state.epoch + 1).also { store(it) }
+        } ?: return
         // One admin, the first in the list, replaces the voice key so the one who left cannot listen in.
         if (left.voiceKey != null && left.members.firstOrNull { left.isAdmin(it.username) }?.username == me) {
             change(groupId) { it.copy(voiceKey = newVoiceKey()) }
@@ -236,7 +268,8 @@ internal class GroupEngine(
         val state = state(groupId) ?: return null
         if (state.kind != GroupKind.Room) return null
         state.voiceKey?.let { return it }
-        if (!change(groupId) { it.copy(voiceKey = newVoiceKey()) }) return null
+        // Another change may have made one meanwhile; that one stays.
+        if (!change(groupId) { if (it.voiceKey != null) it else it.copy(voiceKey = newVoiceKey()) }) return null
         return state(groupId)?.voiceKey
     }
 
@@ -245,19 +278,24 @@ internal class GroupEngine(
 
     // Internals
 
-    private suspend fun change(groupId: String, transform: (GroupState) -> GroupState): Boolean {
-        val state = state(groupId) ?: return false
-        if (!GroupPolicy.manages(state, me)) return false
-        val next = transform(state)
-        if (next == state) return true
-        val versioned = next.copy(version = state.version + 1)
-        apply(versioned)
-        broadcast(versioned, (state.members + versioned.members).map { it.username }.distinct())
-        return true
+    /** [transform] returns null to refuse, which returns false; returning the state unchanged is no change. */
+    private suspend fun change(groupId: String, transform: (GroupState) -> GroupState?): Boolean = queueing {
+        val state = state(groupId) ?: return@queueing false
+        if (!GroupPolicy.manages(state, me)) return@queueing false
+        val next = transform(state) ?: return@queueing false
+        if (next != state) {
+            val versioned = next.copy(version = state.version + 1)
+            store(versioned)
+            broadcast(versioned, (state.members + versioned.members).map { it.username }.distinct())
+        }
+        true
     }
 
+    /** Runs [block], which queues updates, in one transaction, and sends them once it is committed. */
+    private suspend fun <T> queueing(block: suspend () -> T): T = db.withTransaction(block).also { outbox.flush() }
+
     private suspend fun broadcast(state: GroupState, recipients: List<String>) {
-        recipients.filter { it != me && state.roleOf(it) != null }.forEach { outbox.direct(it, update(state)) }
+        recipients.filter { it != me && state.roleOf(it) != null }.forEach { outbox.queue(it, update(state)) }
     }
 
     private fun update(state: GroupState) = Content(UUID.randomUUID().toString(), clock(), Body.GroupUpdate(state))
@@ -270,44 +308,52 @@ internal class GroupEngine(
         if (missing.isEmpty()) return
         val distribution = withContext(Dispatchers.IO) { crypto.distribution(state.id, state.epoch) }
         missing.forEach { member ->
-            outbox.direct(member, Content(UUID.randomUUID().toString(), clock(), Body.SenderKey(state.id, state.epoch, distribution)))
+            outbox.queue(member, Content(UUID.randomUUID().toString(), clock(), Body.SenderKey(state.id, state.epoch, distribution)))
         }
-        db.groups().upsert(entity.copy(keyHolders = encodeNames(holders + missing), keyEpoch = state.epoch))
+        // Making the key and queueing its copies is not one transaction with the read above: by now the state may have
+        // moved on or the group may be gone, so only the holders are written, merged with those another send recorded.
+        db.groups().changeKeyHolders(state.id, state.epoch) { current ->
+            encodeNames((current?.let(::decodeNames).orEmpty() + missing).distinct())
+        }
     }
 
-    /** Stores the state and keeps the conversation rows (the group, or the room and its text channels) in step. */
-    private suspend fun apply(state: GroupState) {
-        val existing = db.groups().get(state.id)
-        db.groups().upsert(
-            existing?.copy(state = storageJson.encodeToString(GroupState.serializer(), state))
-                ?: GroupEntity(state.id, storageJson.encodeToString(GroupState.serializer(), state)),
-        )
+    /**
+     * Stores the state and keeps the conversation rows (the group, or the room and its text channels) in step. Runs
+     * inside the transaction that read the group, so it writes a row that is there, or creates a [new] one.
+     */
+    private suspend fun store(state: GroupState, new: Boolean = false) {
+        val json = storageJson.encodeToString(GroupState.serializer(), state)
+        if (new) db.groups().insertIfAbsent(GroupEntity(state.id, json)) else db.groups().setState(state.id, json)
+        keepConversations(state)
+    }
+
+    private suspend fun keepConversations(state: GroupState) {
         val kind = if (state.kind == GroupKind.Room) ConversationKind.Room else ConversationKind.Group
         val now = clock()
-        val root = db.conversations().get(state.id)
-        db.conversations().upsert(
-            (root ?: ConversationEntity(state.id, kind.name, state.title, Protection.EndToEnd.name, null, now, previewText = ""))
-                .copy(title = state.title),
+        db.conversations().insertIfAbsent(
+            ConversationEntity(state.id, kind.name, state.title, Protection.EndToEnd.name, null, now, previewText = ""),
         )
+        db.conversations().setTitle(state.id, state.title)
         if (state.kind != GroupKind.Room) return
         val visible = state.channels.filter { it.kind == GroupChannelKind.Text && GroupPolicy.sees(state, me, it) }
         val textIds = visible.map { channelConversation(state.id, it.id) }
         db.conversations().children(state.id).filter { it.id !in textIds }.forEach { db.conversations().deleteWithChildren(it.id) }
         visible.forEach { channel ->
             val id = channelConversation(state.id, channel.id)
-            val row = db.conversations().get(id)
-            val fresh = ConversationEntity(
-                id, ConversationKind.Room.name, channel.title, Protection.EndToEnd.name, null, now, parentId = state.id,
+            db.conversations().insertIfAbsent(
+                ConversationEntity(id, ConversationKind.Room.name, channel.title, Protection.EndToEnd.name, null, now, parentId = state.id),
             )
-            db.conversations().upsert((row ?: fresh).copy(title = channel.title))
+            db.conversations().setTitle(id, channel.title)
         }
     }
 
-    private suspend fun forget(groupId: String) {
+    /** Deletes the group and its chats, and notes it was let go of at [version], left or dissolved [byUs] or not. */
+    private suspend fun forget(groupId: String, version: Int, byUs: Boolean) = db.withTransaction {
         db.conversations().children(groupId).forEach { db.messages().deleteConversation(it.id) }
         db.messages().deleteConversation(groupId)
         db.conversations().deleteWithChildren(groupId)
         db.groups().delete(groupId)
+        db.groups().markLeft(LeftGroupEntity(groupId, version, byUs))
     }
 
     private fun newId(): String = UUID.randomUUID().toString().substring(0, 8)

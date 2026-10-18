@@ -64,7 +64,11 @@ internal class BotEngine(
         )
         db.conversations().setPreview(username, me, text, now)
         val sent = runCatching { api.sendToBot(username, UserToBot(id, text = text.take(Bots.MAX_TEXT))) }.isSuccess
-        db.messages().get(id)?.let { db.messages().upsert(it.copy(status = (if (sent) SendStatus.Sent else SendStatus.Failed).name)) }
+        if (sent) {
+            db.messages().advanceStatus(listOf(id), me, SendStatus.Sent)
+        } else {
+            db.messages().setStatus(listOf(id), me, SendStatus.Failed.name)
+        }
     }
 
     suspend fun press(username: String, messageId: String, data: String): Boolean =
@@ -87,8 +91,8 @@ internal class BotEngine(
         val buttons = encodeButtons(message.buttons)
         val target = message.editOf
         if (target != null) {
-            val existing = db.messages().get(messageId(bot, target))?.takeIf { it.authorId == bot } ?: return true
-            db.messages().upsert(existing.copy(text = message.text.take(Bots.MAX_TEXT), buttons = buttons, edited = true))
+            val id = messageId(bot, target)
+            if (db.messages().editText(id, bot, message.text.take(Bots.MAX_TEXT)) > 0) db.messages().setButtons(id, buttons)
             return true
         }
         ensure(bot)
@@ -123,8 +127,8 @@ internal class BotEngine(
 
     private suspend fun remember(info: BotInfo) {
         commandCache[info.username] = info.commands
-        db.contacts().upsert((db.contacts().get(info.username) ?: ContactEntity(info.username, info.name)).copy(name = info.name))
-        val existing = db.conversations().get(info.username)
+        db.contacts().insertIfAbsent(ContactEntity(info.username, info.name))
+        db.contacts().setName(info.username, info.name)
         val fresh = ConversationEntity(
             id = info.username,
             kind = ConversationKind.Bot.name,
@@ -134,7 +138,8 @@ internal class BotEngine(
             updatedAt = clock(),
             previewText = "",
         )
-        db.conversations().upsert((existing ?: fresh).copy(title = info.name))
+        db.conversations().insertIfAbsent(fresh)
+        db.conversations().setTitle(info.username, info.name)
     }
 
     private fun messageId(bot: String, id: String) = "$bot$SEPARATOR$id"

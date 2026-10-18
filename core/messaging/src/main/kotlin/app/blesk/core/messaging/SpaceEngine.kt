@@ -59,44 +59,48 @@ internal class SpaceEngine(
         known.update { it + (info.handle to info) }
         val rootId = PREFIX + info.handle
         val kind = if (info.kind == SpaceKind.Channel) ConversationKind.Channel else ConversationKind.Room
-        val existing = db.conversations().get(rootId)
-        val fresh = ConversationEntity(
-            rootId, kind.name, info.title, Protection.Open.name, null, System.currentTimeMillis(), previewText = "",
+        db.conversations().insertIfAbsent(
+            ConversationEntity(rootId, kind.name, info.title, Protection.Open.name, null, System.currentTimeMillis(), previewText = ""),
         )
-        db.conversations().upsert((existing ?: fresh).copy(title = info.title))
+        db.conversations().setTitle(rootId, info.title)
         if (info.kind != SpaceKind.Room) return
         val ids = info.channels.map { conversation(info.handle, it.id) }
         db.conversations().children(rootId).filter { it.id !in ids }.forEach { db.conversations().deleteWithChildren(it.id) }
         info.channels.forEach { channel ->
             val id = conversation(info.handle, channel.id)
-            val row = db.conversations().get(id)
-            val fresh = ConversationEntity(
-                id, kind.name, channel.title, Protection.Open.name, null, System.currentTimeMillis(), parentId = rootId,
+            db.conversations().insertIfAbsent(
+                ConversationEntity(id, kind.name, channel.title, Protection.Open.name, null, System.currentTimeMillis(), parentId = rootId),
             )
-            db.conversations().upsert((row ?: fresh).copy(title = channel.title))
+            db.conversations().setTitle(id, channel.title)
         }
     }
 
-    /** Keeps [post]; returns its conversation when it is new here, so it can be announced. */
+    /**
+     * Keeps [post]; returns its conversation when it is new here, so it can be announced. A post already here gets only
+     * what the server owns: its file may be downloading or being cleared right now, and that write must stand.
+     */
     suspend fun store(post: Post): String? {
         val conversationId =
             if (known.value[post.space]?.kind == SpaceKind.Room) conversation(post.space, post.channel) else PREFIX + post.space
+        val id = messageId(post.space, post.id)
+        val replyTo = post.replyTo?.let { messageId(post.space, it) }
+        val edited = post.editedAtMillis != null
         val placeholder = post.attachment?.let(Attachments::placeholder)
-        val existing = db.messages().get(messageId(post.space, post.id))
-        db.messages().upsert(
-            MessageEntity(
-                id = messageId(post.space, post.id),
-                conversationId = conversationId,
-                authorId = post.author,
-                text = post.text,
-                sentAt = post.createdAtMillis,
-                status = SendStatus.Read.name,
-                replyToId = post.replyTo?.let { messageId(post.space, it) },
-                edited = post.editedAtMillis != null,
-                attachment = existing?.attachment ?: encodeAttachment(placeholder),
-            ),
+        val fresh = MessageEntity(
+            id = id,
+            conversationId = conversationId,
+            authorId = post.author,
+            text = post.text,
+            sentAt = post.createdAtMillis,
+            status = SendStatus.Read.name,
+            replyToId = replyTo,
+            edited = edited,
+            attachment = encodeAttachment(placeholder),
         )
-        if (existing != null) return null
+        if (db.messages().insert(fresh) == ALREADY_STORED) {
+            db.messages().setPost(id, conversationId, post.text, edited, replyTo)
+            return null
+        }
         val preview = post.text.ifEmpty { labels(placeholder) }
         db.conversations().setPreview(conversationId, post.author.takeIf { it != me }, preview, post.createdAtMillis)
         db.conversations().get(conversationId)?.parentId?.let {
@@ -104,9 +108,7 @@ internal class SpaceEngine(
         }
         post.attachment?.let { pointer ->
             val local = runCatching { withContext(Dispatchers.IO) { Attachments.download(api, media, pointer) } }.getOrNull()
-            db.messages().get(messageId(post.space, post.id))?.let {
-                db.messages().upsert(it.copy(attachment = encodeAttachment(local)))
-            }
+            db.messages().setAttachment(id, encodeAttachment(local))
         }
         return conversationId
     }
@@ -157,6 +159,9 @@ internal class SpaceEngine(
         const val PREFIX = "space:"
         private const val POST_PREFIX = "post:"
         private const val SEPARATOR = ':'
+
+        /** What an insert that kept the row already there returns. */
+        private const val ALREADY_STORED = -1L
 
         fun conversation(handle: String, channel: String) = "$PREFIX$handle$SEPARATOR$channel"
 

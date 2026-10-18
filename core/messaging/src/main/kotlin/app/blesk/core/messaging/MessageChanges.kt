@@ -17,14 +17,10 @@ internal class MessageChanges(
 ) {
     suspend fun apply(sender: String, body: Body) {
         when (body) {
-            is Body.Reaction -> db.messages().get(body.target)?.let { message ->
-                val entries = applyReaction(decodeReactions(message.reactions), sender, body.symbol, body.remove)
-                db.messages().upsert(message.copy(reactions = encodeReactions(entries)))
+            is Body.Reaction -> db.messages().changeReactions(body.target) {
+                encodeReactions(applyReaction(decodeReactions(it), sender, body.symbol, body.remove))
             }
-            is Body.Edit -> db.messages().get(body.target)?.takeIf { it.authorId == sender }?.let {
-                db.messages().upsert(it.copy(text = body.text, edited = true))
-                refreshPreview(sender)
-            }
+            is Body.Edit -> if (db.messages().editText(body.target, sender, body.text) > 0) refreshPreview(sender)
             is Body.Delete -> db.messages().get(body.target)?.takeIf { it.authorId == sender }?.let {
                 db.messages().delete(it.id)
                 refreshPreview(sender)

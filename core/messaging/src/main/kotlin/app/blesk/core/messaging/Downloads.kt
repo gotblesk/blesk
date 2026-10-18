@@ -82,8 +82,7 @@ internal class Downloads(
         var complete = true
         remote.single?.let { pointer ->
             val local = download(pointer, messageId)
-            val stored = db.messages().get(messageId) ?: return
-            if (local == null) complete = false else db.messages().upsert(stored.copy(attachment = encodeAttachment(local)))
+            if (local == null) complete = false else db.messages().setAttachment(messageId, encodeAttachment(local))
         }
         remote.album.forEachIndexed { index, pointer ->
             val stored = db.messages().get(messageId) ?: return
@@ -97,9 +96,9 @@ internal class Downloads(
             val fresh = db.messages().get(messageId) ?: return
             val items = (decodeAttachment(fresh.attachment) as? Attachment.Album ?: return).items.toMutableList()
             if (index < items.size) items[index] = local
-            db.messages().upsert(fresh.copy(attachment = encodeAttachment(Attachment.Album(items))))
+            db.messages().setAttachment(messageId, encodeAttachment(Attachment.Album(items)))
         }
-        if (complete) db.messages().get(messageId)?.let { db.messages().upsert(it.copy(remote = null)) }
+        if (complete) db.messages().clearRemote(messageId)
         jobs.remove(messageId)
     }
 

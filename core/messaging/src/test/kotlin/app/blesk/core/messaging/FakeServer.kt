@@ -42,14 +42,18 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.toByteArray
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.Json
 import org.signal.libsignal.protocol.IdentityKey
+import java.io.IOException
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /** The server contract in memory: enough of it to run two real clients against each other. */
@@ -74,6 +78,41 @@ class FakeServer {
     /** How many sign-in challenges still fail, as when the connection drops right after an account is made. */
     @Volatile
     var droppedChallenges = 0
+
+    /** How many sign-in challenges are answered with something that is not a challenge, as by a broken proxy. */
+    @Volatile
+    var garbledChallenges = 0
+
+    private val refusals = ConcurrentHashMap<String, ConcurrentLinkedQueue<Refusal>>()
+
+    /** Sign-in tokens handed out so far. */
+    val tokensIssued = AtomicInteger()
+
+    /** While set, file downloads wait for it to complete: the moment a file is on its way, held open. */
+    @Volatile
+    var heldDownloads: CompletableDeferred<Unit>? = null
+
+    /** How many downloads have come to [heldDownloads] and waited there. */
+    val downloadsHeld = AtomicInteger()
+
+    /** How many refusals have come to their [Refusal.answerAfter] and waited there. */
+    val refusalsHeld = AtomicInteger()
+
+    /**
+     * A refusal of a message: the status the server answers with and the Retry-After it names, if any. Without a
+     * status the connection breaks before any answer. With [answerAfter] the answer waits for it: the moment a
+     * refused request is on its way back, held open.
+     */
+    class Refusal(
+        val status: HttpStatusCode?,
+        val retryAfterSeconds: Long? = null,
+        val answerAfter: CompletableDeferred<Unit>? = null,
+    )
+
+    /** The next messages [from] sends are refused, one refusal each, in order; later ones go through. */
+    fun refuseSends(from: String, vararg refused: Refusal) {
+        refusals.getOrPut(from) { ConcurrentLinkedQueue() } += refused
+    }
 
     /** What people sent to bots, in order: (from, update). */
     val botInbox = java.util.concurrent.CopyOnWriteArrayList<Pair<String, UserToBot>>()
@@ -136,6 +175,7 @@ class FakeServer {
                 ok(json.encodeToString(PreKeyBundleDto.serializer(), bundle))
             }
             path.startsWith("/v1/messages/") -> {
+                me?.let { refusals[it]?.poll() }?.let { return refuse(it) }
                 val message = json.decodeFromString(OutgoingMessage.serializer(), text(request))
                 val id = ids.incrementAndGet()
                 val envelope = Envelope(id, me!!, message.type, message.body, System.currentTimeMillis())
@@ -175,6 +215,10 @@ class FakeServer {
                 ok(json.encodeToString(AttachmentUploaded.serializer(), AttachmentUploaded(id)))
             }
             path.startsWith("/v1/attachments/") -> {
+                heldDownloads?.let { gate ->
+                    downloadsHeld.incrementAndGet()
+                    gate.await()
+                }
                 val blob = blobs.getValue(path.substringAfterLast('/'))
                 val from = request.headers[HttpHeaders.Range]?.removePrefix("bytes=")?.substringBefore('-')?.toIntOrNull()
                 if (from == null) {
@@ -196,6 +240,10 @@ class FakeServer {
             droppedChallenges--
             return error(HttpStatusCode.ServiceUnavailable, "unavailable")
         }
+        if (garbledChallenges > 0) {
+            garbledChallenges--
+            return ok("{}")
+        }
         return ok(json.encodeToString(Challenge.serializer(), Challenge("nonce", Long.MAX_VALUE)))
     }
 
@@ -206,6 +254,7 @@ class FakeServer {
         if (!key.verifySignature(Api.authProof(request.nonce), Base64.getDecoder().decode(request.signature))) {
             return error(HttpStatusCode.Unauthorized, "auth_failed")
         }
+        tokensIssued.incrementAndGet()
         return ok(json.encodeToString(TokenResponse.serializer(), TokenResponse(request.username, Long.MAX_VALUE)))
     }
 
@@ -270,6 +319,20 @@ class FakeServer {
             status,
             headersOf(HttpHeaders.ContentType, "application/json"),
         )
+
+    private suspend fun MockRequestHandleScope.refuse(refusal: Refusal): HttpResponseData {
+        refusal.answerAfter?.let { gate ->
+            refusalsHeld.incrementAndGet()
+            gate.await()
+        }
+        val status = refusal.status ?: throw IOException("connection reset")
+        val headers = listOfNotNull(
+            HttpHeaders.ContentType to listOf("application/json"),
+            refusal.retryAfterSeconds?.let { HttpHeaders.RetryAfter to listOf(it.toString()) },
+        )
+        val body = json.encodeToString(ErrorBody.serializer(), ErrorBody("refused"))
+        return respond(body, status, headersOf(*headers.toTypedArray()))
+    }
 }
 
 class FakeTransport : Transport {
@@ -279,16 +342,25 @@ class FakeTransport : Transport {
     override val frames: SharedFlow<ServerFrame> = flow
     override val connected: StateFlow<Boolean> = MutableStateFlow(true)
     override val link: StateFlow<Link> = MutableStateFlow(Link.Online)
-    val acked = mutableListOf<Long>()
+    private val lock = Any()
+    private val delivered = mutableListOf<Long>()
+    private val acknowledged = mutableListOf<Long>()
+
+    /** Server ids the client has acknowledged, that is, handled: shown, stored or refused. */
+    val acked: List<Long> get() = synchronized(lock) { acknowledged.toList() }
+
+    /** Whether the client has handled every frame delivered so far: an ack of one frame says nothing about the next. */
+    val caughtUp: Boolean get() = synchronized(lock) { acknowledged.containsAll(delivered) }
 
     fun deliver(envelope: Envelope) {
+        synchronized(lock) { delivered += envelope.serverId }
         flow.tryEmit(ServerFrame.Deliver(envelope))
     }
 
     override fun start() = Unit
 
     override fun ack(serverId: Long) {
-        synchronized(acked) { acked += serverId }
+        synchronized(lock) { acknowledged += serverId }
     }
 
     override fun stop() = Unit

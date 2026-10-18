@@ -92,8 +92,8 @@ import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 
-/** A request the server refused, with its stable error code. */
-class ApiException(val status: Int, val code: String) : Exception("HTTP $status $code")
+/** A request the server refused, with its stable error code and, if it named one, how long to wait before asking again. */
+class ApiException(val status: Int, val code: String, val retryAfterMillis: Long? = null) : Exception("HTTP $status $code")
 
 /**
  * Typed access to the blesk server. A pinned server is trusted only by its public key hash:
@@ -370,7 +370,9 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
 
     private suspend fun HttpResponse.error(): ApiException {
         val code = runCatching { body<ErrorBody>().code }.getOrDefault("http_${status.value}")
-        return ApiException(status.value, code)
+        // Only the delay in seconds: the date form would need this phone's clock to agree with the server's.
+        val retryAfter = headers[HttpHeaders.RetryAfter]?.trim()?.toLongOrNull()?.takeIf { it >= 0 }?.let(TimeUnit.SECONDS::toMillis)
+        return ApiException(status.value, code, retryAfter)
     }
 
     fun close() = client.close()

@@ -112,6 +112,19 @@ data class GroupEntity(
     val keyEpoch: Int = -1,
 )
 
+/**
+ * A group this phone let go of: left, dissolved, or removed from. Its row and chats are gone; this keeps an update
+ * that was already on its way from bringing them back.
+ */
+@Entity(tableName = "left_groups")
+data class LeftGroupEntity(
+    @PrimaryKey val id: String,
+    /** The version it was let go at; only a state made after it, a newer one, may bring the group back. */
+    val version: Int,
+    /** Left or dissolved by us: no admin's update brings it back, only a request of ours to join. */
+    val byUs: Boolean,
+)
+
 /** Key-value storage for libsignal state: one table, namespaced keys, opaque records. */
 @Entity(tableName = "signal_state", primaryKeys = ["kind", "name"])
 data class SignalStateEntity(

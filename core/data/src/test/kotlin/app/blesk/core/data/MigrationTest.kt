@@ -39,12 +39,14 @@ class MigrationTest {
                 BleskDatabase.MIGRATION_8_9,
                 BleskDatabase.MIGRATION_9_10,
                 BleskDatabase.MIGRATION_10_11,
+                BleskDatabase.MIGRATION_11_12,
             )
             .allowMainThreadQueries()
             .build()
         runBlocking {
             assertEquals("привет", room.conversations().get("bob")?.previewText)
             assertEquals(null, room.groups().get("missing"))
+            assertEquals(null, room.groups().leftGroup("missing"))
         }
         room.close()
     }

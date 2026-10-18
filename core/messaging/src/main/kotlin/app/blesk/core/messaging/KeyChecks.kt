@@ -36,17 +36,12 @@ internal class KeyChecks(
         return ok
     }
 
-    override suspend fun setVerified(username: String, verified: Boolean) {
-        val contact = db.contacts().get(username) ?: return
-        db.contacts().upsert(contact.copy(verified = verified, keyChanged = if (verified) false else contact.keyChanged))
-    }
+    override suspend fun setVerified(username: String, verified: Boolean) = db.contacts().setVerified(username, verified)
 
     /** Called by the key store: someone's identity key is not the one we knew. */
     override fun onKeyChanged(username: String) {
         scope.launch {
-            val contact = db.contacts().get(username) ?: return@launch
-            db.contacts().upsert(contact.copy(verified = false, keyChanged = true))
-            log.record(EventCode.KeyChanged)
+            if (db.contacts().markKeyChanged(username) > 0) log.record(EventCode.KeyChanged)
         }
     }
 }

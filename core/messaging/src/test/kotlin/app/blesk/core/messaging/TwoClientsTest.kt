@@ -26,11 +26,13 @@ import app.blesk.shared.protocol.BotMessage
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.InlineButton
 import app.blesk.shared.protocol.LinkPreview
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
@@ -57,7 +59,8 @@ class TwoClientsTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val server = FakeServer()
 
-    private inner class Client(val name: String, displayName: String) {
+    /** [retryMillis] is how long its outbox waits after a failed pass when the server names no time. */
+    private inner class Client(val name: String, displayName: String, retryMillis: Long = NO_RETRY_IN_TIME) {
         var privacy = Privacy()
         var photo: File? = null
         val db: BleskDatabase = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java).allowMainThreadQueries().build()
@@ -83,6 +86,7 @@ class TwoClientsTest {
             linkPreview = { text ->
                 LinkPreview(text.substringAfter("сюда "), "Страница", image = "A".repeat(LinkPreview.MAX_IMAGE_BYTES * 2))
             },
+            retryMillis = retryMillis,
         )
 
         fun register() = runBlocking { assertEquals(RegisterResult.Ok, accounts.register(api, name)) }
@@ -97,13 +101,22 @@ class TwoClientsTest {
             var value: T? = null
             while (value == null) {
                 value = block()
-                if (value == null) kotlinx.coroutines.delay(50)
+                if (value == null) delay(50)
             }
             value
         }
     } ?: throw AssertionError("nothing after ${TIMEOUT / 1000} s")
 
     private fun Client.messages(conversation: String): List<Message> = runBlocking { repo.messages(conversation).first() }
+
+    /**
+     * Waits until [to] has handled [text] from this client, shown or refused. A message is Sent once the server took
+     * it, and this server hands it over before answering; whatever went ahead of it, like a profile, is there too.
+     */
+    private fun Client.handledBy(to: String, text: String) {
+        eventually { messages(to).firstOrNull { it.text == text }?.takeIf { it.status >= SendStatus.Sent } }
+        eventually { server.transport(to).takeIf { it.caughtUp } }
+    }
 
     @Test
     fun strangersAndBlockedPeopleDoNotGetThrough() {
@@ -117,7 +130,9 @@ class TwoClientsTest {
 
         runBlocking { alice.repo.openDirect("bob") }
         alice.repo.send("bob", "первое")
-        eventually { server.transport("bob").acked.takeIf { it.isNotEmpty() } }
+        // Not just any ack: the profile goes ahead of a first message, and if Bob opened the chat while still
+        // working on "первое", Alice would already be his contact and it would rightly get through.
+        alice.handledBy("bob", "первое")
         assertTrue(bob.messages("alice").isEmpty())
 
         // Once Bob opens the chat himself, Alice is a contact and gets through.
@@ -127,9 +142,8 @@ class TwoClientsTest {
 
         bob.repo.setBlocked("alice", true)
         eventually { runBlocking { bob.repo.blocked.first() }.takeIf { list -> list.any { it.username == "alice" } } }
-        val before = server.transport("bob").acked.size
         alice.repo.send("bob", "третье")
-        eventually { server.transport("bob").acked.takeIf { it.size > before } }
+        alice.handledBy("bob", "третье")
         assertTrue(bob.messages("alice").none { it.text == "третье" })
     }
 
@@ -354,9 +368,186 @@ class TwoClientsTest {
         eventually { alice.messages("echo_bot").firstOrNull { it.text == "Выбрано" && it.edited } }
     }
 
+    /** Alice and Bob, each with the other as a contact and a session between them already. */
+    private fun acquainted(alice: Client, bob: Client) {
+        listOf(alice, bob).forEach {
+            it.register()
+            it.repo.start()
+        }
+        runBlocking {
+            alice.repo.openDirect("bob")
+            bob.repo.openDirect("alice")
+        }
+        alice.repo.send("bob", "первое")
+        alice.handledBy("bob", "первое")
+    }
+
+    @Test
+    fun aServerErrorIsRetriedWithoutAnotherSend() {
+        val alice = Client("alice", "Алиса", retryMillis = 200)
+        val bob = Client("bob", "Боб")
+        acquainted(alice, bob)
+
+        server.refuseSends("alice", FakeServer.Refusal(HttpStatusCode.InternalServerError))
+        alice.repo.send("bob", "второе")
+        eventually { bob.messages("alice").firstOrNull { it.text == "второе" } }
+        eventually { alice.messages("bob").firstOrNull { it.text == "второе" }?.takeIf { it.status >= SendStatus.Sent } }
+    }
+
+    @Test
+    fun aBusyServerIsAskedAgainWhenItSaid() {
+        // Alice's own pause is far beyond the test's patience: only the server's Retry-After can bring the message.
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        acquainted(alice, bob)
+
+        server.refuseSends(
+            "alice",
+            FakeServer.Refusal(HttpStatusCode.TooManyRequests, retryAfterSeconds = 1),
+            FakeServer.Refusal(HttpStatusCode.ServiceUnavailable, retryAfterSeconds = 1),
+        )
+        alice.repo.send("bob", "второе")
+        eventually { bob.messages("alice").firstOrNull { it.text == "второе" } }
+    }
+
+    @Test
+    fun anExpiredTokenIsRenewedAndTheMessageGoesAtOnce() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        acquainted(alice, bob)
+        val tokens = server.tokensIssued.get()
+
+        server.refuseSends("alice", FakeServer.Refusal(HttpStatusCode.Unauthorized))
+        alice.repo.send("bob", "второе")
+        eventually { bob.messages("alice").firstOrNull { it.text == "второе" } }
+        assertEquals(tokens + 1, server.tokensIssued.get())
+    }
+
+    @Test
+    fun aTokenRefusedRightAfterSigningInWaitsForTheNextSend() {
+        val alice = Client("alice", "Алиса", retryMillis = 200)
+        val bob = Client("bob", "Боб")
+        acquainted(alice, bob)
+        val tokens = server.tokensIssued.get()
+
+        server.refuseSends("alice", FakeServer.Refusal(HttpStatusCode.Unauthorized), FakeServer.Refusal(HttpStatusCode.Unauthorized))
+        alice.repo.send("bob", "второе")
+        eventually { server.tokensIssued.get().takeIf { it > tokens } }
+        // Several of Alice's pauses: a timer would have signed in again and sent by now.
+        runBlocking { delay(1_000) }
+        assertEquals(tokens + 1, server.tokensIssued.get())
+        assertTrue(bob.messages("alice").none { it.text == "второе" })
+
+        alice.repo.send("bob", "третье")
+        val got = eventually { bob.messages("alice").map { it.text }.takeIf { "третье" in it } }
+        assertEquals(listOf("второе", "третье"), got.filter { it in setOf("второе", "третье") })
+    }
+
+    @Test
+    fun theLatestFailureSetsWhenToAskAgain() {
+        val alice = Client("alice", "Алиса", retryMillis = 300)
+        val bob = Client("bob", "Боб")
+        acquainted(alice, bob)
+
+        // A busy server asks for ten minutes; the next try, made by a new send, only loses the connection.
+        server.refuseSends(
+            "alice",
+            FakeServer.Refusal(HttpStatusCode.ServiceUnavailable, retryAfterSeconds = 600),
+            FakeServer.Refusal(status = null),
+        )
+        alice.repo.send("bob", "второе")
+        eventually { runBlocking { alice.db.outbox().all() }.firstOrNull()?.takeIf { it.attempts > 0 } }
+        // No need to wait for the refused pass to end: a send while it finishes gets its own pass right after it.
+        alice.repo.send("bob", "третье")
+        eventually { bob.messages("alice").firstOrNull { it.text == "третье" } }
+    }
+
+    @Test
+    fun aSignInThatGoesWrongStopsNothing() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        acquainted(alice, bob)
+
+        // Alice's receipt for "второе" finds her token refused, and the sign-in after it gets no challenge back.
+        server.refuseSends("alice", FakeServer.Refusal(HttpStatusCode.Unauthorized))
+        server.garbledChallenges = 1
+        bob.repo.send("alice", "второе")
+        eventually { server.garbledChallenges.takeIf { it == 0 } }
+
+        bob.repo.send("alice", "третье")
+        eventually { alice.messages("bob").firstOrNull { it.text == "третье" } }
+        eventually { bob.messages("alice").firstOrNull { it.text == "второе" }?.takeIf { it.status >= SendStatus.Delivered } }
+    }
+
+    @Test
+    fun aMessageTheServerRefusesForGoodFailsOnceAndLeavesTheQueue() {
+        val alice = Client("alice", "Алиса", retryMillis = 200)
+        val bob = Client("bob", "Боб")
+        acquainted(alice, bob)
+
+        server.refuseSends("alice", FakeServer.Refusal(HttpStatusCode.Forbidden))
+        alice.repo.send("bob", "второе")
+        eventually { alice.messages("bob").firstOrNull { it.text == "второе" }?.takeIf { it.status == SendStatus.Failed } }
+        assertTrue(runBlocking { alice.db.outbox().all() }.isEmpty())
+        assertTrue(bob.messages("alice").none { it.text == "второе" })
+    }
+
+    @Test
+    fun aBlockMadeWhileTheirProfileArrivesStays() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        alice.photo = File(context.cacheDir, "alice.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        listOf(alice, bob).forEach {
+            it.register()
+            it.repo.start()
+        }
+        runBlocking { bob.repo.openDirect("alice") }
+        val photoOnItsWay = CompletableDeferred<Unit>().also { server.heldDownloads = it }
+
+        runBlocking { alice.repo.openDirect("bob") }
+        alice.repo.send("bob", "привет")
+        // Bob is in the middle of taking Alice's profile: the photo is coming, the name is not stored yet.
+        eventually { server.downloadsHeld.get().takeIf { it > 0 } }
+        bob.repo.setBlocked("alice", true)
+        eventually { bob.contactRow("alice")?.takeIf { it.blocked } }
+        photoOnItsWay.complete(Unit)
+
+        val alicesRow = eventually { bob.contactRow("alice")?.takeIf { it.photo != null } }
+        assertEquals("Алиса", alicesRow.name)
+        assertTrue(alicesRow.blocked)
+    }
+
+    @Test
+    fun aChatOpenedWhileTheirProfileArrivesKeepsThemAContact() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        alice.photo = File(context.cacheDir, "alice.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        listOf(alice, bob).forEach {
+            it.register()
+            it.repo.start()
+        }
+        val photoOnItsWay = CompletableDeferred<Unit>().also { server.heldDownloads = it }
+
+        runBlocking { alice.repo.openDirect("bob") }
+        alice.repo.send("bob", "привет")
+        eventually { server.downloadsHeld.get().takeIf { it > 0 } }
+        runBlocking { bob.repo.openDirect("alice") }
+        photoOnItsWay.complete(Unit)
+
+        val alicesRow = eventually { bob.contactRow("alice")?.takeIf { it.photo != null } }
+        assertEquals("Алиса", alicesRow.name)
+        assertTrue(alicesRow.added)
+        eventually { runBlocking { bob.repo.conversation("alice").first() }?.takeIf { it.title == "Алиса" } }
+    }
+
+    private fun Client.contactRow(username: String) = runBlocking { db.contacts().get(username) }
+
     private companion object {
         // Only a ceiling: a passing check returns at once. The full build runs the server tests and the
         // Kyber key generation of several clients side by side, where 20 seconds was sometimes not enough.
         const val TIMEOUT = 60_000L
+
+        /** An outbox pause no test waits out, so whatever gets through came by another way. */
+        const val NO_RETRY_IN_TIME = 10 * TIMEOUT
     }
 }
