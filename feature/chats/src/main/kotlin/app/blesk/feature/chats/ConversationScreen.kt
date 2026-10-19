@@ -59,7 +59,9 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -559,6 +561,19 @@ fun ConversationScreen(
                 },
             ) { padding ->
                 Box(Modifier.fillMaxSize()) {
+                    val othersWrote = messages.any { !it.isOwn }
+                    val writable = !readOnly
+                    val hint = when {
+                        selection.isNotEmpty() -> null
+                        GestureHint.Reply !in hintsSeen && othersWrote && writable -> GestureHint.Reply
+                        GestureHint.DoubleTap !in hintsSeen && othersWrote && reactions -> GestureHint.DoubleTap
+                        GestureHint.RecordLock !in hintsSeen && recorders?.tapToRecord == false && writable -> GestureHint.RecordLock
+                        else -> null
+                    }
+                    // The hint floats over the list; the list makes room so it never hides the newest message.
+                    val density = LocalDensity.current
+                    var hintHeight by remember { mutableStateOf(0.dp) }
+                    val hintRoom = if (hintHeight > 0.dp) hintHeight + 8.dp else 0.dp
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -568,7 +583,7 @@ fun ConversationScreen(
                             start = Blesk.dimens.gutter,
                             end = Blesk.dimens.gutter,
                             top = 8.dp,
-                            bottom = 12.dp,
+                            bottom = 12.dp + hintRoom,
                         ),
                         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
                     ) {
@@ -647,22 +662,14 @@ fun ConversationScreen(
                             }
                         }
                     }
-                    val othersWrote = messages.any { !it.isOwn }
-                    val writable = !readOnly
-                    val hint = when {
-                        selection.isNotEmpty() -> null
-                        GestureHint.Reply !in hintsSeen && othersWrote && writable -> GestureHint.Reply
-                        GestureHint.DoubleTap !in hintsSeen && othersWrote && reactions -> GestureHint.DoubleTap
-                        GestureHint.RecordLock !in hintsSeen && recorders?.tapToRecord == false && writable -> GestureHint.RecordLock
-                        else -> null
-                    }
                     HintCapsule(
                         text = hint?.let { hintText(it) },
                         onClose = { hint?.let(onHintDone) },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .padding(horizontal = Blesk.dimens.gutter)
-                            .padding(padding.bottomOnly(12.dp)),
+                            .padding(padding.bottomOnly(12.dp))
+                            .onSizeChanged { hintHeight = with(density) { it.height.toDp() } },
                     )
                     ScrollDate(
                         date = shownDay,
