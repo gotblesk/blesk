@@ -2,6 +2,8 @@
 # The Tenor (Google API) key of the old blesk.fun client and server: reported for deletion in docs/NEEDS_HUMAN.md, 1.6.
 24ce15f57fb64e39295c20ed0d3a64e2ae742a9b:client/src/components/chat/GifPicker.jsx:gcp-api-key:6
 b2f31560a4f1d7850b51d45a3c6fcd659cdfece7:server/src/routes/gif.js:gcp-api-key:7
-# Not secrets: an instruction naming the "BEGIN OPENSSH PRIVATE KEY" header, and a made-up key in a test.
+9d6f50a179e7f263d7a62d6fd3a5c531d8a083ca:server/src/routes/gif.js:gcp-api-key:7
+# Not secrets: an instruction and a deploy script naming the "BEGIN OPENSSH PRIVATE KEY" header, and a made-up key in a test.
 76b503589355c071194068840531cbe41cacba46:docs/NEEDS_HUMAN.md:private-key:31
 3480b2f1b4add6a78c1982d54077f82558406a6e:shared/src/test/kotlin/app/blesk/shared/protocol/LinksTest.kt:generic-api-key:8
+7797ea30d4e438be170b9c7edf0d4cd546f2b7ab:scripts/ci/remote-deploy.sh:private-key:57
