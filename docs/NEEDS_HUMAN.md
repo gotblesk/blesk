@@ -267,7 +267,7 @@ github.com → **Actions** → **Backup check** → **Run workflow**. Зелён
 1. Создай ключ (программа keytool входит в Android Studio):
 
    ```
-   & "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -genkeypair -keystore "$HOME\blesk-release.jks" -alias blesk -keyalg EC -groupname secp256r1 -validity 36500 -storepass ПРИДУМАЙ -keypass ПРИДУМАЙ -dname "CN=blesk"
+   & "$((Get-ItemProperty 'HKLM:\SOFTWARE\Android Studio').Path)\jbr\bin\keytool.exe" -genkeypair -keystore "$HOME\blesk-release.jks" -alias blesk -keyalg EC -groupname secp256r1 -validity 36500 -storepass ПРИДУМАЙ -keypass ПРИДУМАЙ -dname "CN=blesk"
    ```
 
 2. Скопируй ключ в буфер обмена одной строкой:

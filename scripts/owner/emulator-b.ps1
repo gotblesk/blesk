@@ -34,6 +34,9 @@ function Test-Java([string]$Java) {
 # sdkmanager needs Java 17 or newer, and Android Studio brings its own.
 function Use-Java {
     $homes = @()
+    # The installer records where Android Studio went, which may well be another drive.
+    $studio = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Android Studio' -Name Path -ErrorAction SilentlyContinue
+    if ($studio -and $studio.Path) { $homes += Join-Path $studio.Path 'jbr' }
     if ($env:ProgramFiles) { $homes += Join-Path $env:ProgramFiles 'Android\Android Studio\jbr' }
     if ($env:LOCALAPPDATA) { $homes += Join-Path $env:LOCALAPPDATA 'Programs\Android Studio\jbr' }
     $homes += $env:JAVA_HOME
