@@ -252,9 +252,11 @@ class SettingsStore(context: Context) {
     }
 
     val profile: Flow<Profile> = store.data.map { prefs ->
+        val serverUsername = prefs[SERVER_USERNAME]?.takeIf { it.isNotBlank() && !prefs[SERVER].isNullOrBlank() }
         Profile(
             name = prefs[PROFILE_NAME].orEmpty(),
-            username = prefs[PROFILE_USERNAME].orEmpty(),
+            // On a server the @username is the account's, fixed at registration; the demo keeps its own editable one.
+            username = serverUsername ?: prefs[PROFILE_USERNAME].orEmpty(),
             bio = prefs[PROFILE_BIO].orEmpty(),
             photoVersion = prefs[PROFILE_PHOTO] ?: 0L,
             header = prefs[PROFILE_HEADER] ?: Profile.DEFAULT_HEADER,
