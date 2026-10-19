@@ -15,6 +15,7 @@ import app.blesk.shared.protocol.GroupMember
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -27,6 +28,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -63,12 +65,16 @@ class GroupEngineTest {
     /**
      * Updates go into the phone's real outbox table, so a change cut short shows what it left there; group messages
      * only note whom they are for. While [keyOut] is set, handing out a sender key waits for it; an update to
-     * [updateHeldFor] waits for good.
+     * [updateHeldFor] waits for good. [afterUpdate] runs once an update is queued.
      */
     private inner class HeldOutbox : GroupOutbox {
         val sealedTo = CopyOnWriteArrayList<String>()
         val keysHeld = AtomicInteger()
         val updatesHeld = AtomicInteger()
+        val flushes = AtomicInteger()
+
+        @Volatile
+        var afterUpdate: () -> Unit = {}
 
         @Volatile
         var keyOut: CompletableDeferred<Unit>? = null
@@ -89,6 +95,7 @@ class GroupEngineTest {
                     }
                     val json = storageJson.encodeToString(Content.serializer(), content)
                     db.outbox().insert(OutboxEntity(recipient = recipient, content = json, createdAt = content.sentAtMillis))
+                    afterUpdate()
                 }
                 else -> Unit
             }
@@ -98,7 +105,10 @@ class GroupEngineTest {
             sealedTo += recipient
         }
 
-        override fun flush(): Job = Job().apply { complete() }
+        override fun flush(): Job {
+            flushes.incrementAndGet()
+            return Job().apply { complete() }
+        }
     }
 
     @After
@@ -174,6 +184,23 @@ class GroupEngineTest {
 
         assertEquals("Выходные", engine.state(group)!!.title)
         assertEquals(emptyList<String>(), db.outbox().all().map { it.recipient })
+    }
+
+    @Test
+    fun aChangeStoredAsItsScreenClosesIsStillSent() = runBlocking {
+        val group = engine.create(GroupKind.Group, "Выходные", listOf("bob"))
+        val flushes = outbox.flushes.get()
+        lateinit var renaming: Job
+        // The screen is closed once the update to Bob is queued: the change is committed, the screen never hears of it.
+        outbox.afterUpdate = { renaming.cancel() }
+        renaming = launch(Dispatchers.IO, start = CoroutineStart.LAZY) { engine.rename(group, "Будни") }
+        renaming.join()
+        outbox.afterUpdate = {}
+
+        assertTrue(renaming.isCancelled)
+        assertEquals("Будни", engine.state(group)!!.title)
+        assertEquals(listOf("bob", "bob"), db.outbox().all().map { it.recipient })
+        assertEquals(flushes + 1, outbox.flushes.get())
     }
 
     @Test

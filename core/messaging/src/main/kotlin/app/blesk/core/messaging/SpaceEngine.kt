@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
@@ -36,6 +38,17 @@ internal class SpaceEngine(
 
     val spaces: StateFlow<Map<String, SpaceInfo>> = known.asStateFlow()
 
+    /** Held from the check that a post's version is the newest until it is written, so no other write gets between. */
+    private val postWrites = Mutex()
+
+    /**
+     * While a sync runs, the newest version written to each post: its edit time, or [REMOVED]. A sync stores posts
+     * fetched before the live edits and removals that come meanwhile, and its older copy must not undo them. This map
+     * and the count of [syncs] running are guarded by the map's monitor.
+     */
+    private val newest = HashMap<String, Long>()
+    private var syncs = 0
+
     fun handleOf(conversationId: String): String? =
         conversationId.takeIf { it.startsWith(PREFIX) }?.removePrefix(PREFIX)?.substringBefore(SEPARATOR)
 
@@ -44,14 +57,21 @@ internal class SpaceEngine(
 
     /** Re-reads the spaces you are in and their latest posts; called on every (re)connection. */
     suspend fun sync() {
-        val mine = api.mySpaces()
-        val handles = mine.map { it.handle }.toSet()
-        known.value.keys.filter { it !in handles }.forEach { forget(it) }
-        mine.forEach { info ->
-            remember(info)
-            channelsOf(info).forEach { channel ->
-                api.posts(info.handle, channel).asReversed().forEach { store(it) }
-            }
+        synchronized(newest) { syncs++ }
+        try {
+            val mine = api.mySpaces()
+            val handles = mine.map { it.handle }.toSet()
+            known.value.keys.filter { it !in handles }.forEach { forget(it) }
+            mine.forEach { syncSpace(it) }
+        } finally {
+            synchronized(newest) { if (--syncs == 0) newest.clear() }
+        }
+    }
+
+    private suspend fun syncSpace(info: SpaceInfo) {
+        remember(info)
+        channelsOf(info).forEach { channel ->
+            api.posts(info.handle, channel).asReversed().forEach { store(it) }
         }
     }
 
@@ -77,7 +97,8 @@ internal class SpaceEngine(
 
     /**
      * Keeps [post]; returns its conversation when it is new here, so it can be announced. A post already here gets only
-     * what the server owns: its file may be downloading or being cleared right now, and that write must stand.
+     * what the server owns: its file may be downloading or being cleared right now, and that write must stand. An older
+     * version than one written during a sync, or a post removed meanwhile, is not stored.
      */
     suspend fun store(post: Post): String? {
         val conversationId =
@@ -97,10 +118,17 @@ internal class SpaceEngine(
             edited = edited,
             attachment = encodeAttachment(placeholder),
         )
-        if (db.messages().insert(fresh) == ALREADY_STORED) {
-            db.messages().setPost(id, conversationId, post.text, edited, replyTo)
-            return null
+        val added = postWrites.withLock {
+            when {
+                !takeNewest(id, post.editedAtMillis ?: UNEDITED) -> false
+                db.messages().insert(fresh) == ALREADY_STORED -> {
+                    db.messages().setPost(id, conversationId, post.text, edited, replyTo)
+                    false
+                }
+                else -> true
+            }
         }
+        if (!added) return null
         val preview = post.text.ifEmpty { labels(placeholder) }
         db.conversations().setPreview(conversationId, post.author.takeIf { it != me }, preview, post.createdAtMillis)
         db.conversations().get(conversationId)?.parentId?.let {
@@ -113,7 +141,19 @@ internal class SpaceEngine(
         return conversationId
     }
 
-    suspend fun removed(space: String, id: Long) = db.messages().delete(messageId(space, id))
+    suspend fun removed(space: String, id: Long) {
+        val messageId = messageId(space, id)
+        postWrites.withLock {
+            if (takeNewest(messageId, REMOVED)) db.messages().delete(messageId)
+        }
+    }
+
+    /** Whether [version] of a post is no older than any written during a sync; if so, it is the newest from now on. */
+    private fun takeNewest(messageId: String, version: Long): Boolean = synchronized(newest) {
+        if ((newest[messageId] ?: version) > version) return false
+        if (syncs > 0) newest[messageId] = version
+        true
+    }
 
     suspend fun send(conversationId: String, text: String, replyToId: String?, attachment: Attachment?): Boolean {
         val handle = handleOf(conversationId) ?: return false
@@ -162,6 +202,10 @@ internal class SpaceEngine(
 
         /** What an insert that kept the row already there returns. */
         private const val ALREADY_STORED = -1L
+
+        /** The version of a post never edited, older than any edit; a removal is newer than all of them. */
+        private const val UNEDITED = 0L
+        private const val REMOVED = Long.MAX_VALUE
 
         fun conversation(handle: String, channel: String) = "$PREFIX$handle$SEPARATOR$channel"
 

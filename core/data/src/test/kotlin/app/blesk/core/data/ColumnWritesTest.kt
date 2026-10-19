@@ -8,6 +8,7 @@ import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ContactEntity
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.GroupEntity
+import app.blesk.core.data.db.MessageDao
 import app.blesk.core.data.db.MessageEntity
 import app.blesk.core.data.model.SendStatus
 import kotlinx.coroutines.Dispatchers
@@ -75,8 +76,20 @@ class ColumnWritesTest {
     fun `a receipt naming over a thousand messages moves them all, batch by batch`() = runBlocking {
         val ids = (1..1_200).map { "m$it" }
         ids.forEach { messages.insert(message(it)) }
-        messages.advanceStatus(ids, ME, SendStatus.Delivered)
+        // Robolectric's SQLite takes far more values per statement than older phones do, so each one is counted here.
+        val bound = mutableListOf<Int>()
+        val counting = object : MessageDao by messages {
+            override suspend fun advanceStatus(ids: List<String>, author: String, status: SendStatus) =
+                super<MessageDao>.advanceStatus(ids, author, status)
+
+            override suspend fun raiseStatus(ids: List<String>, author: String, status: String, below: List<String>) {
+                bound += ids.size + below.size + 2
+                messages.raiseStatus(ids, author, status, below)
+            }
+        }
+        counting.advanceStatus(ids, ME, SendStatus.Delivered)
         assertTrue(ids.all { status(it) == SendStatus.Delivered.name })
+        assertTrue(bound.isNotEmpty() && bound.all { it <= OLD_SQLITE_VALUES })
     }
 
     @Test
@@ -245,6 +258,17 @@ class ColumnWritesTest {
     }
 
     @Test
+    fun `a send of an older epoch finishing late leaves the newer holders alone`() = runBlocking {
+        groups.insertIfAbsent(GroupEntity("g", "state"))
+        groups.changeKeyHolders("g", epoch = 1) { "bob" }
+        groups.changeKeyHolders("g", epoch = 0) { error("an older epoch's holders are not rewritten") }
+        groups.get("g")!!.let {
+            assertEquals("bob", it.keyHolders)
+            assertEquals(1, it.keyEpoch)
+        }
+    }
+
+    @Test
     fun `nothing written after leaving a group brings it back`() = runBlocking {
         groups.insertIfAbsent(GroupEntity("g", "state"))
         groups.delete("g")
@@ -266,5 +290,8 @@ class ColumnWritesTest {
 
     private companion object {
         const val ME = "me"
+
+        /** SQLite's limit on values bound to one statement before 3.32, as on older phones. */
+        const val OLD_SQLITE_VALUES = 999
     }
 }

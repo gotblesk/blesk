@@ -26,6 +26,9 @@ import app.blesk.shared.protocol.BotMessage
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.InlineButton
 import app.blesk.shared.protocol.LinkPreview
+import app.blesk.shared.protocol.NewPost
+import app.blesk.shared.protocol.Post
+import app.blesk.shared.protocol.ServerFrame
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +45,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -538,6 +542,27 @@ class TwoClientsTest {
         assertEquals("Алиса", alicesRow.name)
         assertTrue(alicesRow.added)
         eventually { runBlocking { bob.repo.conversation("alice").first() }?.takeIf { it.title == "Алиса" } }
+    }
+
+    @Test
+    fun aLiveEditKeepsTheSpacePostAndARemovalTakesItAway() {
+        val alice = Client("alice", "Алиса")
+        alice.register()
+        alice.repo.start()
+        val socket = server.transport("alice")
+        val post = Post(1, "club", NewPost.MAIN_CHANNEL, "bob", "анонс", createdAtMillis = 1)
+        fun row(id: Long) = runBlocking { alice.db.messages().get(SpaceEngine.messageId("club", id)) }
+
+        socket.push(ServerFrame.SpacePost(post))
+        socket.push(ServerFrame.SpacePost(post.copy(id = 2, text = "второй")))
+        socket.push(ServerFrame.SpacePostChanged("club", 1, post.copy(text = "анонс!", editedAtMillis = 2)))
+        socket.push(ServerFrame.SpacePostChanged("club", 2))
+        // Frames are handled in order, so once this post is here the changes before it have been handled.
+        socket.push(ServerFrame.SpacePost(post.copy(id = 3, text = "третий")))
+        eventually { row(3) }
+
+        assertEquals("анонс!", row(1)?.text)
+        assertNull(row(2))
     }
 
     private fun Client.contactRow(username: String) = runBlocking { db.contacts().get(username) }

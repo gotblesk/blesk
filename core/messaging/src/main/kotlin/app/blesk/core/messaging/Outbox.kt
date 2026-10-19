@@ -64,10 +64,16 @@ internal class Outbox(
         db.outbox().insert(OutboxEntity(recipient = recipient, content = json, createdAt = clock(), sealedType = type, sealedBody = body))
     }
 
-    /** Queues and sends; never inside a transaction, for the reason [GroupOutbox] gives. */
+    /**
+     * Queues and sends; never inside a transaction, for the reason [GroupOutbox] gives. Sends in a finally: a caller
+     * cancelled after the row is written, as the database hands back the answer, would leave it to whatever asks next.
+     */
     suspend fun enqueue(recipient: String, content: Content) {
-        queue(recipient, content)
-        flush()
+        try {
+            queue(recipient, content)
+        } finally {
+            flush()
+        }
     }
 
     /**
@@ -100,15 +106,22 @@ internal class Outbox(
         passWhileAsked()
     }
 
-    /** One pass over the queue in order, with [lock] held; the first item that has to wait keeps the rest behind it. */
+    /**
+     * One pass over the queue in order, with [lock] held; the first item that has to wait keeps the rest behind it.
+     * Its caller then checks for a pass asked for meanwhile. A pass that throws, a write to the database that failed,
+     * skips that check, so it makes it itself once the lock is free, and leaves the failure to the scope.
+     */
     private suspend fun passAndUnlock() {
+        var ended = false
         try {
             asked.set(false)
             for (item in db.outbox().all()) {
-                if (!deliver(item)) return
+                if (!deliver(item)) break
             }
+            ended = true
         } finally {
             lock.unlock()
+            if (!ended && asked.get()) scope.launch { passWhileAsked() }
         }
     }
 
@@ -117,7 +130,14 @@ internal class Outbox(
      * the server is busy or this phone is signed out. Only a refusal of this very item fails it.
      */
     private suspend fun deliver(item: OutboxEntity, signedInAgain: Boolean = false): Boolean {
-        val content = storageJson.decodeFromString(Content.serializer(), item.content)
+        val content = try {
+            storageJson.decodeFromString(Content.serializer(), item.content)
+        } catch (_: IllegalArgumentException) {
+            // Written in a form this version no longer reads: it can never go out, and kept it would hold up the rest.
+            db.outbox().delete(item.id)
+            log.record(EventCode.SendFailed)
+            return true
+        }
         return try {
             transmit(item, content)
             true
@@ -206,19 +226,20 @@ internal class Outbox(
      * pass it started may be the one asking.
      */
     private fun scheduleRetry(afterMillis: Long) {
-        // Lazy, so it cannot fire before it is the pending timer.
-        val next = scope.launch(start = CoroutineStart.LAZY) {
+        // Started in place, whatever the scope's dispatcher: it is the pending timer and counting before the failed
+        // pass goes on, not at some later turn of a thread, by when the time it waits for may have run.
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            val self = coroutineContext.job
+            synchronized(timerLock) {
+                timer?.cancel()
+                timer = self
+            }
             delay(afterMillis)
             // Replaced as it came due, it leaves the asking to the newer timer. Past this check nothing cancels it, so
             // its pass cannot die halfway, after taking over a request it would then never carry out.
-            val due = synchronized(timerLock) { (timer === coroutineContext.job).also { if (it) timer = null } }
+            val due = synchronized(timerLock) { (timer === self).also { if (it) timer = null } }
             if (due) retry()
         }
-        synchronized(timerLock) {
-            timer?.cancel()
-            timer = next
-        }
-        next.start()
     }
 
     private suspend fun dropFailed(item: OutboxEntity, content: Content) {

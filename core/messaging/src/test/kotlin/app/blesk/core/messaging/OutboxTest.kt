@@ -8,6 +8,8 @@ import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.crypto.signal.SignalStore
 import app.blesk.core.data.db.BleskDatabase
+import app.blesk.core.data.db.OutboxEntity
+import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.Content
@@ -15,12 +17,16 @@ import app.blesk.shared.protocol.EnvelopeType
 import app.blesk.shared.protocol.ServerFrame
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestCoroutineScheduler
@@ -28,10 +34,12 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * When the outbox makes a pass and when it waits for the time the server named. Retry timers run on a test
@@ -42,12 +50,25 @@ import org.robolectric.annotation.Config
 class OutboxTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val server = FakeServer()
-    private val db = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java).allowMainThreadQueries().build()
+
+    /** Run with every statement, on the thread that runs it, before it runs. */
+    @Volatile
+    private var beforeStatement: (sql: String) -> Unit = {}
+    private val db = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java)
+        .setQueryCallback(Dispatchers.Unconfined) { sql, _ -> beforeStatement(sql) }
+        .allowMainThreadQueries()
+        .build()
     private val store = SignalStore(db.signal())
     private val accounts = AccountManager(store, KeyManager(store))
     private val api = server.api()
     private val virtualTime = TestCoroutineScheduler()
-    private val timers = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(virtualTime))
+
+    /** What the app's scope would note as a failure in the background. */
+    private val failures = CopyOnWriteArrayList<Throwable>()
+    private val timers = CoroutineScope(
+        SupervisorJob() + UnconfinedTestDispatcher(virtualTime) + CoroutineExceptionHandler { _, failure -> failures += failure },
+    )
+    private val log = EventLog()
     private val outbox = Outbox(
         db = db,
         api = api,
@@ -55,7 +76,7 @@ class OutboxTest {
         accounts = accounts,
         me = ME,
         scope = timers,
-        log = EventLog(),
+        log = log,
         clock = System::currentTimeMillis,
         retryMillis = RETRY_MILLIS,
         shareProfile = {},
@@ -149,11 +170,63 @@ class OutboxTest {
         untilARefusalIsHeld()
         // The retry comes due while that pass waits for its answer, and the answer is then a refusal for ten minutes.
         virtualTime.advanceTimeBy(RETRY_MILLIS + 1)
+        // It did come due, and found the pass under way: nothing of the outbox is left running but that pass.
+        assertEquals(listOf<Job>(refused), timers.coroutineContext.job.children.toList())
         answer.complete(Unit)
         refused.join()
 
         assertEquals(listOf("первое" to 2, "второе" to 0), waiting())
         assertEquals(emptyList<String>(), sentToBob())
+    }
+
+    @Test
+    fun aRowThisVersionCannotReadIsDroppedAndTheRestGoOut() = runBlocking {
+        db.outbox().insert(OutboxEntity(recipient = BOB, content = """{"body":{"type":"gone"}}""", createdAt = 1))
+        queue("первое")
+        outbox.flush().join()
+
+        assertEquals(listOf("первое"), sentToBob())
+        assertEquals(emptyList<Pair<String, Int>>(), waiting())
+        assertEquals(listOf(EventCode.SendFailed), log.entries.value.map { it.code })
+    }
+
+    @Test
+    fun aPassThatFailsOnTheDatabaseStillRunsTheOneAskedForMeanwhile() = runBlocking {
+        // Noting an attempt fails, as on a full disk.
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER full BEFORE UPDATE ON outbox BEGIN SELECT RAISE(ABORT, 'full'); END")
+        val answer = CompletableDeferred<Unit>()
+        server.refuseSends(ME, FakeServer.Refusal(HttpStatusCode.ServiceUnavailable, answerAfter = answer))
+        queue("первое")
+        val failing = outbox.flush()
+        untilARefusalIsHeld()
+        queue("второе")
+        outbox.flush()
+        answer.complete(Unit)
+        failing.join()
+
+        withTimeout(TIMEOUT) { while (waiting().isNotEmpty()) delay(POLL) }
+        assertEquals(listOf("первое", "второе"), sentToBob())
+        assertEquals(1, failures.size)
+    }
+
+    @Test
+    fun aSendWhoseCallerIsGoneOnceItIsQueuedStillGoesOut() = runBlocking {
+        val bob = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java).allowMainThreadQueries().build()
+        val bobStore = SignalStore(bob.signal())
+        assertEquals(RegisterResult.Ok, AccountManager(bobStore, KeyManager(bobStore)).register(server.api(), BOB))
+        lateinit var sending: Job
+        // The screen is closed while the row is being written: the write is done, but the screen never hears of it.
+        beforeStatement = { sql -> if (sql.startsWith("INSERT") && "outbox" in sql) sending.cancel() }
+        sending = launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
+            outbox.enqueue(BOB, Content("первое", 1, Body.Text("первое")))
+        }
+        sending.join()
+        beforeStatement = {}
+        assertTrue(sending.isCancelled)
+
+        withTimeout(TIMEOUT) { while (waiting().isNotEmpty()) delay(POLL) }
+        assertEquals(1, sentToBob().size)
+        bob.close()
     }
 
     private companion object {

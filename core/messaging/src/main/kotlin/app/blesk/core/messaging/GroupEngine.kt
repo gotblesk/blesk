@@ -291,8 +291,16 @@ internal class GroupEngine(
         true
     }
 
-    /** Runs [block], which queues updates, in one transaction, and sends them once it is committed. */
-    private suspend fun <T> queueing(block: suspend () -> T): T = db.withTransaction(block).also { outbox.flush() }
+    /**
+     * Runs [block], which queues updates, in one transaction, and sends them once it is committed. Sends in a finally:
+     * a caller cancelled once the commit is done, as it hands back the result, a screen closed during the save, would
+     * leave the updates to whatever asks next.
+     */
+    private suspend fun <T> queueing(block: suspend () -> T): T = try {
+        db.withTransaction(block)
+    } finally {
+        outbox.flush()
+    }
 
     private suspend fun broadcast(state: GroupState, recipients: List<String>) {
         recipients.filter { it != me && state.roleOf(it) != null }.forEach { outbox.queue(it, update(state)) }

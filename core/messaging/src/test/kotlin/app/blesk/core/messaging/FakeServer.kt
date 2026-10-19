@@ -357,6 +357,11 @@ class FakeTransport : Transport {
         flow.tryEmit(ServerFrame.Deliver(envelope))
     }
 
+    /** A frame the server pushes on its own, not tied to an envelope, like a post in a space. */
+    fun push(frame: ServerFrame) {
+        flow.tryEmit(frame)
+    }
+
     override fun start() = Unit
 
     override fun ack(serverId: Long) {

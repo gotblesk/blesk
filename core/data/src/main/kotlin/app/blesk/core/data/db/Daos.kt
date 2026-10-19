@@ -316,11 +316,12 @@ interface GroupDao {
 
     /**
      * Rewrites who holds our sender key for [epoch], reading and writing in one transaction so two sends handing the
-     * key out at once both count. [change] gets the holders on file, or null if they are of another epoch's key.
+     * key out at once both count. [change] gets the holders on file, or null if they are of an older epoch's key. A send
+     * of an older epoch finishing late changes nothing: going back would hand the newer key out to everyone again.
      */
     @Transaction
     suspend fun changeKeyHolders(id: String, epoch: Int, change: (current: String?) -> String) {
-        val row = get(id) ?: return
+        val row = get(id)?.takeIf { it.keyEpoch <= epoch } ?: return
         setKeyHolders(id, change(row.keyHolders.takeIf { row.keyEpoch == epoch }), epoch)
     }
 

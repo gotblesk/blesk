@@ -877,7 +877,11 @@ class ServerChatRepository(
                 scope.launch { runCatching { spaces.sync() } }
             }
             is ServerFrame.SpacePost -> spaces.store(frame.post)?.let { announcePost(it, frame.post) }
-            is ServerFrame.SpacePostChanged -> frame.post?.let { spaces.store(it) } ?: spaces.removed(frame.space, frame.id)
+            // Not an elvis: store gives null for a post already here, as an edited one always is, and that is no removal.
+            is ServerFrame.SpacePostChanged -> {
+                val post = frame.post
+                if (post != null) spaces.store(post) else spaces.removed(frame.space, frame.id)
+            }
         }
     }
 
