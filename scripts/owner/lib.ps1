@@ -44,7 +44,9 @@ function Exit-WithError {
 # Windows PowerShell drops an empty argument when it starts a program itself.
 function ConvertTo-CommandLine([string[]]$Arguments) {
     $quoted = foreach ($argument in $Arguments) {
-        if ($argument -eq '' -or $argument -match '[\s"]') {
+        # cmd.exe, which runs the SDK's .bat tools, splits arguments at ; , and = as well as at spaces:
+        # sdkmanager would otherwise read system-images;android-34;… as four package names.
+        if ($argument -eq '' -or $argument -match '[\s";,=]') {
             '"' + ($argument -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
         } else {
             $argument
