@@ -35,6 +35,7 @@ import app.blesk.core.design.component.Switch
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.R
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -62,6 +63,8 @@ fun NewGroupScreen(
     val picked = remember { mutableStateListOf<String>() }
     var busy by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<SpaceResult?>(null) }
+    var nameMissing by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
     val public = kind == NewKind.Channel || kind == NewKind.OpenRoom
     ScrollScreen(title = stringResource(R.string.group_new_title), onBack = onBack, modifier = modifier) {
         Segmented(
@@ -104,6 +107,13 @@ fun NewGroupScreen(
             SectionHeader(stringResource(R.string.group_pick_contacts))
             ContactPicker(contacts, picked)
         }
+        if (nameMissing && title.text.isBlank()) {
+            Text(
+                text = stringResource(R.string.group_name_required),
+                color = Blesk.colors.danger,
+                modifier = Modifier.padding(horizontal = Blesk.dimens.gutter + 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
         if (result == SpaceResult.Failed) {
             Text(
                 text = stringResource(R.string.space_error_failed),
@@ -115,7 +125,12 @@ fun NewGroupScreen(
             text = stringResource(R.string.group_create),
             onClick = {
                 val name = title.text.toString().trim()
-                if (busy || name.isEmpty()) return@Button
+                if (busy) return@Button
+                if (name.isEmpty()) {
+                    nameMissing = true
+                    haptics.refuse()
+                    return@Button
+                }
                 busy = true
                 scope.launch {
                     val spec = NewSpec(

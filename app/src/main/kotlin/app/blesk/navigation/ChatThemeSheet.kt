@@ -40,7 +40,8 @@ internal fun ChatThemeSheet(
     current: ThemeSpec,
     overridden: Boolean,
     onSelect: (ThemeSpec?) -> Unit,
-    onSend: () -> Unit,
+    /** Null where there is no chat to send the theme into. */
+    onSend: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     BackHandler(onBack = onDismiss)
@@ -76,12 +77,14 @@ internal fun ChatThemeSheet(
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
-            ListRow(
-                title = stringResource(R.string.chat_theme_send),
-                icon = BleskIcons.Send,
-                showChevron = false,
-                onClick = onSend,
-            )
+            if (onSend != null) {
+                ListRow(
+                    title = stringResource(R.string.chat_theme_send),
+                    icon = BleskIcons.Send,
+                    showChevron = false,
+                    onClick = onSend,
+                )
+            }
         }
     }
 }
@@ -101,9 +104,11 @@ internal fun ConversationThemeSheet(container: AppContainer, ids: List<String>, 
         current = override ?: appearance.theme,
         overridden = override != null,
         onSelect = { spec -> scope.launch { ids.forEach { container.settings.setChatTheme(it, spec) } } },
-        onSend = {
-            sendTo?.let { container.chats.value?.sendTheme(it, override ?: appearance.theme, caption) }
-            onDismiss()
+        onSend = sendTo?.let { target ->
+            {
+                container.chats.value?.sendTheme(target, override ?: appearance.theme, caption)
+                onDismiss()
+            }
         },
         onDismiss = onDismiss,
     )

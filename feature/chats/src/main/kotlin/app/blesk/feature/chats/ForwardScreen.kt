@@ -36,12 +36,15 @@ fun ForwardScreen(
         title = stringResource(R.string.forward_title),
         onBack = onBack,
         modifier = modifier,
+        // Appears with the first chat picked: with none it would have nothing to do.
         bottom = {
-            Button(
-                text = stringResource(R.string.forward_send, picked.size),
-                onClick = { if (picked.isNotEmpty()) onSend(picked.toList()) },
-                modifier = Modifier.padding(Blesk.dimens.gutter).fillMaxWidth(),
-            )
+            if (picked.isNotEmpty()) {
+                Button(
+                    text = stringResource(R.string.forward_send, picked.size),
+                    onClick = { onSend(picked.toList()) },
+                    modifier = Modifier.padding(Blesk.dimens.gutter).fillMaxWidth(),
+                )
+            }
         },
     ) {
         Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {

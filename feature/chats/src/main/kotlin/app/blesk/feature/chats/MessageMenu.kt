@@ -60,7 +60,8 @@ internal val QuickReactions = listOf("❤️", "👍", "🔥", "😂", "😢")
 internal fun MessageMenu(
     message: Message,
     onDismiss: () -> Unit,
-    onReply: () -> Unit,
+    /** Null where no answer can be written: no composer below the chat. */
+    onReply: (() -> Unit)?,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onReact: ((String) -> Unit)?,
@@ -138,12 +139,14 @@ internal fun MessageMenu(
                         onClick = { act(retry) },
                     )
                 }
-                ListRow(
-                    title = stringResource(R.string.chat_reply),
-                    icon = BleskIcons.Back,
-                    showChevron = false,
-                    onClick = { act(onReply) },
-                )
+                if (onReply != null) {
+                    ListRow(
+                        title = stringResource(R.string.chat_reply),
+                        icon = BleskIcons.Back,
+                        showChevron = false,
+                        onClick = { act(onReply) },
+                    )
+                }
                 ListRow(
                     title = stringResource(R.string.chat_copy),
                     icon = BleskIcons.Copy,

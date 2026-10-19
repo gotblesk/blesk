@@ -36,7 +36,9 @@ import app.blesk.BuildConfig
 import app.blesk.calls.CallActivity
 import app.blesk.calls.CallCapsule
 import app.blesk.core.data.diagnostics.EventCode
+import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
+import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.ChatLocks
@@ -233,8 +235,17 @@ fun BleskNavigation(container: AppContainer) {
         ?.let { { backStack.add(InvitesKey) } }
     val context = LocalContext.current
     val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
-    val openDirect: (String, (String) -> Unit) -> Unit = { username, then ->
-        scope.launch { container.chats.value?.openDirect(username)?.let(then) }
+    val openChannel: (Conversation, RoomChannel) -> Unit = { room, channel ->
+        when {
+            channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
+            // The demo has nobody to talk to, so its voice channels stay a picture.
+            demo -> backStack.add(VoiceChannelKey(room.id, channel.id))
+            else -> {
+                val title = "${room.title} · ${channel.title}"
+                val channelId = channel.id.substringAfter(':')
+                context.startActivity(CallActivity.voice(context, room.id, channelId, channel.id, title))
+            }
+        }
     }
 
     val openRequest by container.openRequest.collectAsStateWithLifecycle()
@@ -246,6 +257,14 @@ fun BleskNavigation(container: AppContainer) {
     }
 
     val notify = rememberNotify()
+    val needsServer = stringResource(app.blesk.R.string.call_needs_server)
+    val personMissing = if (demo) needsServer else stringResource(app.blesk.feature.chats.R.string.contacts_not_found)
+    val openDirect: (String, (String) -> Unit) -> Unit = { username, then ->
+        scope.launch {
+            val chats = container.chats.value ?: return@launch
+            chats.openDirect(username)?.let(then) ?: notify(personMissing)
+        }
+    }
     val contactRemoved = stringResource(app.blesk.feature.chats.R.string.contacts_removed)
     val shareRequest by container.shareRequest.collectAsStateWithLifecycle()
     LaunchedEffect(shareRequest) {
@@ -325,18 +344,7 @@ fun BleskNavigation(container: AppContainer) {
                                     },
                                 ),
                                 onOpenRoom = { backStack.add(GroupInfoKey(it)) },
-                                onOpenChannel = { room, channel ->
-                                    when {
-                                        channel.kind != RoomChannelKind.Voice -> backStack.add(ConversationKey(channel.id))
-                                        // The demo has nobody to talk to, so its voice channels stay a picture.
-                                        demo -> backStack.add(VoiceChannelKey(room.id, channel.id))
-                                        else -> {
-                                            val title = "${room.title} · ${channel.title}"
-                                            val channelId = channel.id.substringAfter(':')
-                                            context.startActivity(CallActivity.voice(context, room.id, channelId, channel.id, title))
-                                        }
-                                    }
-                                },
+                                onOpenChannel = openChannel,
                                 settings = SettingsActions(
                                     onOpenProfile = { backStack.add(ProfileKey) },
                                     onOpenAppearance = { backStack.add(AppearanceKey) },
@@ -353,12 +361,17 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenDevices = { backStack.add(DevicesKey) },
                                     onOpenMusic = { backStack.add(MusicKey) },
                                     onOpenInvites = openInvites,
-                                    onShowQr = { backStack.add(MyQrKey) },
+                                    // A profile link and its code lead to an account on a server; the demo has none to point at.
+                                    onShowQr = if (demo) ({ notify(needsServer) }) else ({ backStack.add(MyQrKey) }),
                                     onDeleteAccount = if (demo) null else ({ backStack.add(WipeKey(WipeKind.DeleteAccount)) }),
-                                    onShare = {
-                                        scope.launch {
-                                            val key = container.chats.value?.linkKey()
-                                            shareProfile(context, container.settings.profile.first().username, key)
+                                    onShare = if (demo) {
+                                        { notify(needsServer) }
+                                    } else {
+                                        {
+                                            scope.launch {
+                                                val key = container.chats.value?.linkKey()
+                                                shareProfile(context, container.settings.profile.first().username, key)
+                                            }
                                         }
                                     },
                                     onOpenStickers = { backStack.add(StickersKey) },
@@ -503,6 +516,7 @@ fun BleskNavigation(container: AppContainer) {
                                 ArchiveRoute(
                                     container,
                                     onOpenConversation = { backStack.add(ConversationKey(it)) },
+                                    onOpenChannel = openChannel,
                                     onBack = back,
                                     onNeedCode = needCode,
                                 )
@@ -564,6 +578,11 @@ fun BleskNavigation(container: AppContainer) {
                                     onBack = back,
                                     onOpenPerson = { username -> openDirect(username) { backStack.add(ChatInfoKey(it)) } },
                                     onOpenMedia = { chat, message -> backStack.add(MediaKey(chat, message)) },
+                                    onOpenVoice = if (demo) {
+                                        { channelId -> backStack.add(VoiceChannelKey(key.groupId, channelId)) }
+                                    } else {
+                                        null
+                                    },
                                 )
                             }
                         }
@@ -582,6 +601,14 @@ fun BleskNavigation(container: AppContainer) {
                                     onChatDeleted = { while (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
                                     onBack = back,
                                     onOpenConversation = { backStack.add(ConversationKey(it)) },
+                                    onWrite = {
+                                        val below = backStack.getOrNull(backStack.lastIndex - 1)
+                                        if (below is ConversationKey && below.id == key.id) {
+                                            back()
+                                        } else {
+                                            backStack.add(ConversationKey(key.id))
+                                        }
+                                    },
                                 )
                             }
                         }

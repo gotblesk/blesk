@@ -200,7 +200,7 @@ internal fun MiniChat(
                         author = if (!own && conversation.faces.size >= 2) authorName(run.first().authorId) else null,
                         fresh = emptySet(),
                         quoteText = { id -> messages.firstOrNull { it.id == id }?.text },
-                        actions = MessageActions(onReply = {}, onMenu = {}, onReact = { _, _ -> }, onApplyTheme = {}),
+                        actions = MessageActions(onReply = null, onMenu = {}, onReact = { _, _ -> }, onApplyTheme = {}),
                     )
                 }
             }

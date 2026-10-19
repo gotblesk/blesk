@@ -255,18 +255,19 @@ private fun NewChannelSheet(env: ManageEnv, actions: GroupActions, onClose: () -
             selected = kind,
             onSelect = { kind = it },
         )
-        Button(
-            text = stringResource(R.string.group_create),
-            icon = BleskIcons.Plus,
-            onClick = {
-                val name = title.text.toString().trim()
-                if (name.isNotEmpty()) {
+        // Appears with a name: closing the sheet on an empty one would look like a channel was made.
+        if (title.text.isNotBlank()) {
+            Button(
+                text = stringResource(R.string.group_create),
+                icon = BleskIcons.Plus,
+                onClick = {
+                    val name = title.text.toString().trim()
                     val channelKind = if (kind == 1) GroupChannelKind.Voice else GroupChannelKind.Text
                     env.run { actions.addChannel(name, channelKind, kind == 2) }
-                }
-                onClose()
-            },
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        )
+                    onClose()
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            )
+        }
     }
 }

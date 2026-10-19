@@ -126,7 +126,8 @@ fun CallScreen(
             }
         }
         val ownCamera = local?.camera
-        val demoCamera = demo && session.video && media.cameraOn
+        // The demo shows your own camera whenever it is on, also once turned on during a voice call.
+        val demoCamera = demo && media.cameraOn
         if (demoCamera && session.phase != CallPhase.Ended) {
             Box(
                 Modifier

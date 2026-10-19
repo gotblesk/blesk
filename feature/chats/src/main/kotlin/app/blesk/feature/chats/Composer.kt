@@ -327,6 +327,7 @@ internal fun Composer(
                 if (!(recordingNow && recording.locked)) {
                     SendOrRecord(
                         record = state.text.isBlank() && editing == null && recorders != null,
+                        canSend = state.text.isNotBlank(),
                         editing = editing != null,
                         recording = recording,
                         recorders = recorders,
@@ -421,27 +422,43 @@ private fun RowScope.EditorRow(
 
 /** «Отправить» and the record button flow into each other rather than swap. */
 @Composable
-private fun SendOrRecord(record: Boolean, editing: Boolean, recording: RecordingUi, recorders: Recorders?, onSend: () -> Unit) {
+private fun SendOrRecord(
+    record: Boolean,
+    canSend: Boolean,
+    editing: Boolean,
+    recording: RecordingUi,
+    recorders: Recorders?,
+    onSend: () -> Unit,
+) {
     val motion = Blesk.motion
+    // With nothing to send and nothing to record (a bot chat, an emptied edit) the button steps aside
+    // rather than staying there to do nothing.
+    val slot = when {
+        record && recorders != null -> SendSlot.Record
+        canSend -> SendSlot.Send
+        else -> SendSlot.Empty
+    }
     AnimatedContent(
-        targetState = record,
+        targetState = slot,
         transitionSpec = {
             (scaleIn(motion.settle(), initialScale = 0.4f) + fadeIn(motion.press()))
                 .togetherWith(scaleOut(motion.press(), targetScale = 0.4f) + fadeOut(motion.press()))
         },
         label = "send",
-    ) { showRecord ->
-        if (showRecord && recorders != null) {
-            RecordButton(recording, recorders)
-        } else {
-            IconButton(
+    ) { shown ->
+        when (shown) {
+            SendSlot.Record -> if (recorders != null) RecordButton(recording, recorders)
+            SendSlot.Send -> IconButton(
                 icon = if (editing) BleskIcons.Check else BleskIcons.Send,
                 contentDescription = stringResource(R.string.chat_send),
                 onClick = onSend,
             )
+            SendSlot.Empty -> Unit
         }
     }
 }
+
+private enum class SendSlot { Record, Send, Empty }
 
 @Composable
 internal fun DraftKeeper(state: TextFieldState, onDraft: (String) -> Unit) {

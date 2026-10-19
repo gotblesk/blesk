@@ -41,6 +41,8 @@ internal fun ChatInfoRoute(
     onChatDeleted: () -> Unit,
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit = {},
+    /** «Написать»: back to the chat when the profile was opened from it, into it otherwise. */
+    onWrite: () -> Unit = onBack,
 ) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val conversation by remember(id) { chats.conversation(id) }.collectAsStateWithLifecycle(initialValue = null)
@@ -75,7 +77,7 @@ internal fun ChatInfoRoute(
         muted = current.muted(System.currentTimeMillis()),
         messages = messages.toImmutableList(),
         actions = PersonActions(
-            onWrite = onBack,
+            onWrite = onWrite,
             onCall = onCall,
             onMute = { mute -> chats.mute(id, if (mute) Long.MAX_VALUE else 0L) },
             onPin = { chats.setChatPinned(id, it) },
@@ -88,7 +90,7 @@ internal fun ChatInfoRoute(
             },
             onOpenMedia = onOpenMedia,
             onOpenFile = { file -> openFile(context, file) },
-            onOpenLink = { link -> openLink(context, link) },
+            onOpenLink = { link -> openMessageLink(container, context, link) },
             onPlayVoice = { path -> container.audioPlayer.toggle(path) },
             onBlock = if (current.kind == ConversationKind.Direct) {
                 { block ->
@@ -100,7 +102,7 @@ internal fun ChatInfoRoute(
                 null
             },
             blocked = blocked.any { it.username == username },
-            onOpenConversation = onOpenConversation,
+            onOpenConversation = { chat -> onOpenConversation(shared.firstOrNull { it.id == chat }?.chatTarget() ?: chat) },
         ),
         onBack = onBack,
         shared = shared.toImmutableList(),

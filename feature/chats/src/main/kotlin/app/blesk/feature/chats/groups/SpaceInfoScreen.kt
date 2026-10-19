@@ -266,18 +266,19 @@ private fun SpaceChannels(space: SpaceInfo, admin: Boolean, actions: SpaceAction
     if (!admin) return
     val title = rememberTextFieldState()
     TextInput(label = stringResource(R.string.group_channel_name), state = title)
-    Button(
-        text = stringResource(R.string.space_add_channel),
-        kind = ButtonKind.Secondary,
-        onClick = {
-            val name = title.text.toString().trim()
-            if (name.isNotEmpty()) {
+    // Shows up once there is a name to add: an empty one would make the tap do nothing.
+    if (title.text.isNotBlank()) {
+        Button(
+            text = stringResource(R.string.space_add_channel),
+            kind = ButtonKind.Secondary,
+            onClick = {
+                val name = title.text.toString().trim()
                 title.clearText()
                 run { actions.addChannel(name) }
-            }
-        },
-        modifier = Modifier.padding(horizontal = Blesk.dimens.gutter),
-    )
+            },
+            modifier = Modifier.padding(horizontal = Blesk.dimens.gutter),
+        )
+    }
 }
 
 private val HeroAvatar = 88.dp

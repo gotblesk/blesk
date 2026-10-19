@@ -39,10 +39,13 @@ internal fun ConversationMenu(
     val locks by container.chatLocks.locks.collectAsStateWithLifecycle(initialValue = ChatLocks())
     val open by container.lockSession.open.collectAsStateWithLifecycle()
     val lockId = locks.lockOf(conversation.id)
+    // A room previews its first channel, which may be locked on its own while the room is not.
+    val target = conversation.chatTarget()
+    val previewLock = locks.lockOf(target) ?: lockId
     // A locked chat that is not open shows its lock in the mini-chat, never its messages.
-    val hidden = lockId != null && lockId !in open
-    val messages by remember(conversation.id) {
-        chats.messages(conversation.id).map { it.takeLast(PREVIEW_MESSAGES) }
+    val hidden = previewLock != null && previewLock !in open
+    val messages by remember(target) {
+        chats.messages(target).map { it.takeLast(PREVIEW_MESSAGES) }
     }.collectAsStateWithLifecycle(initialValue = emptyList())
     val deleted = stringResource(ChatsR.string.person_chat_deleted)
     val id = conversation.id
@@ -69,7 +72,7 @@ internal fun ConversationMenu(
         anchor = anchor,
         messages = if (hidden) persistentListOf() else messages.filter { it.id !in container.notices.hidden }.toImmutableList(),
         authorName = { author -> chats.contact(author)?.name },
-        onOpen = { onOpen(id) },
+        onOpen = { onOpen(target) },
     )
 }
 

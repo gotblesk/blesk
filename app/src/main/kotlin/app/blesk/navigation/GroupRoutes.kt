@@ -23,6 +23,7 @@ import app.blesk.calls.CallActivity
 import app.blesk.core.data.GroupController
 import app.blesk.core.data.SpaceController
 import app.blesk.core.data.SpaceResult
+import app.blesk.core.data.demo.DemoRepository
 import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.feature.chats.ArchiveActions
@@ -47,6 +48,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -118,7 +120,7 @@ internal fun SpaceInfoRoute(
         archive = ArchiveActions(
             onOpenMedia = { id -> messages.firstOrNull { it.id == id }?.let { onOpenMedia(it.conversationId, id) } },
             onOpenFile = { file -> openFile(context, file) },
-            onOpenLink = { link -> openLink(context, link) },
+            onOpenLink = { link -> openMessageLink(container, context, link) },
             onPlayVoice = { path -> container.audioPlayer.toggle(path) },
         ),
         space = current,
@@ -163,6 +165,8 @@ internal fun GroupInfoRoute(
     onBack: () -> Unit,
     onOpenPerson: (username: String) -> Unit = {},
     onOpenMedia: (conversationId: String, messageId: String) -> Unit = { _, _ -> },
+    /** Set in the demo, where a voice channel is a picture to look at rather than a call. */
+    onOpenVoice: ((channelId: String) -> Unit)? = null,
 ) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val groups = chats as? GroupController ?: return
@@ -189,7 +193,7 @@ internal fun GroupInfoRoute(
     val gate = rememberIdentityGate(container)
     val current = state ?: return
     val extras = GroupInfoExtras(
-        inviteLink = { code -> InviteLink.format(groupId, groups.me, code) },
+        inviteLink = if (chats is DemoRepository) null else ({ code -> InviteLink.format(groupId, groups.me, code) }),
         gate = gate,
         onGone = onLeft,
         startEditing = editing,
@@ -205,17 +209,17 @@ internal fun GroupInfoRoute(
         onCall = {
             // A room talks in its voice channels; a group has no call of its own yet.
             val voice = current.channels.firstOrNull { it.kind == GroupChannelKind.Voice }
-            if (voice != null) {
-                context.startActivity(CallActivity.voice(context, groupId, voice.id, voice.id, "${current.title} · ${voice.title}"))
-            } else {
-                notify(callsLater)
+            when {
+                voice == null -> notify(callsLater)
+                onOpenVoice != null -> onOpenVoice(voice.id)
+                else -> context.startActivity(CallActivity.voice(context, groupId, voice.id, voice.id, "${current.title} · ${voice.title}"))
             }
         },
         onOpenPerson = onOpenPerson,
         archive = ArchiveActions(
             onOpenMedia = { id -> messages.firstOrNull { it.id == id }?.let { onOpenMedia(it.conversationId, id) } },
             onOpenFile = { file -> openFile(context, file) },
-            onOpenLink = { link -> openLink(context, link) },
+            onOpenLink = { link -> openMessageLink(container, context, link) },
             onPlayVoice = { path -> container.audioPlayer.toggle(path) },
         ),
     )
@@ -243,7 +247,9 @@ internal fun GroupInfoRoute(
         onBack = onBack,
     )
     if (themeSheet) {
-        ConversationThemeSheet(container, conversationIds, sendTo = groupId, onDismiss = { themeSheet = false })
+        // A room's messages live in its channels, so a shared theme goes into the first text one, or nowhere.
+        val sendTo = conversation?.let { chat -> chat.chatTarget().takeUnless { it == chat.id && chat.channels.isNotEmpty() } }
+        ConversationThemeSheet(container, conversationIds, sendTo = sendTo, onDismiss = { themeSheet = false })
     }
 }
 
@@ -267,6 +273,7 @@ internal fun ChannelInfoRoute(
     val conversation by remember(id) { chats.conversation(id) }.collectAsStateWithLifecycle(initialValue = null)
     val messages by remember(id) { chats.messages(id) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val notifications by container.settings.notifications.collectAsStateWithLifecycle(initialValue = NotificationSettings())
+    val ownName by remember { container.settings.profile.map { it.name } }.collectAsStateWithLifecycle(initialValue = "")
     var themeSheet by remember { mutableStateOf(false) }
     val room = state ?: return
     val channel = room.channels.firstOrNull { it.id == id.substringAfter(':', "") } ?: return
@@ -282,7 +289,11 @@ internal fun ChannelInfoRoute(
         notify = notify,
         messages = messages.toImmutableList(),
         pinned = messages.filter { it.id in pinnedIds }.toImmutableList(),
-        members = room.members.map { ChannelMember(it.username, chats.contact(it.username)?.name ?: it.username) }.toImmutableList(),
+        members = room.members.map { member ->
+            val you = member.username == groups.me
+            val name = if (you) ownName.ifBlank { member.username } else chats.contact(member.username)?.name ?: member.username
+            ChannelMember(member.username, name, you)
+        }.toImmutableList(),
         actions = ChannelInfoActions(
             onNotify = { choice ->
                 chats.mute(id, if (choice == ChannelNotify.Nothing) Long.MAX_VALUE else 0L)
@@ -300,7 +311,7 @@ internal fun ChannelInfoRoute(
             archive = ArchiveActions(
                 onOpenMedia = { messageId -> onOpenMedia(id, messageId) },
                 onOpenFile = { file -> openFile(context, file) },
-                onOpenLink = { link -> openLink(context, link) },
+                onOpenLink = { link -> openMessageLink(container, context, link) },
                 onPlayVoice = { path -> container.audioPlayer.toggle(path) },
             ),
         ),

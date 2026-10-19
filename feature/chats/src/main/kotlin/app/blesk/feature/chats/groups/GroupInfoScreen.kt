@@ -79,8 +79,8 @@ class GroupInfoExtras(
     val archive: ArchiveActions = ArchiveActions({}, {}, {}, {}),
     /** «Оформление чата»; the header of the chat opens this screen, so the theme lives under «Ещё». */
     val onTheme: (() -> Unit)? = null,
-    /** The link that carries an invite code. */
-    val inviteLink: (code: String) -> String = { it },
+    /** The link that carries an invite code; null without a server, where no link leads anywhere. */
+    val inviteLink: ((code: String) -> String)? = { it },
     /** The code or a fingerprint before handing over or deleting; null when the app has no lock. */
     val gate: IdentityGate? = null,
     /** The group is gone: deleted for everyone. */

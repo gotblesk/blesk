@@ -36,6 +36,7 @@
     </plurals>
     <string name="player_voice">Голосовое сообщение</string>
     <string name="call_needs_server">Работает после подключения к серверу</string>
+    <string name="link_example_only">Это пример ссылки: она никуда не ведёт</string>
     <string name="link_invite_registered">Ты уже в blesk — инвайт пригодится другу</string>
     <string name="link_server_connected">У тебя уже есть аккаунт на сервере</string>
     <string name="link_server_other">Чтобы подключиться к этому серверу, открой «Другой сервер» и отсканируй QR-код там</string>

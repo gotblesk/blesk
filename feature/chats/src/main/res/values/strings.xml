@@ -251,6 +251,7 @@
     <string name="space_error_taken">Этот адрес уже занят</string>
     <string name="space_error_invalid">Такой адрес не подходит</string>
     <string name="space_error_failed">Не получилось создать. Проверь связь.</string>
+    <string name="group_name_required">Придумай название</string>
     <string name="space_join">Вступить</string>
     <string name="chat_open">Открыть</string>
     <string name="space_found">Каналы и открытые комнаты</string>

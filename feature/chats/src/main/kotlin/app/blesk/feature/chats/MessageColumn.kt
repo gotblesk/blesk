@@ -161,7 +161,8 @@ private const val BREATH_MILLIS = 90
 
 /** Callbacks a message can trigger. */
 internal class MessageActions(
-    val onReply: (Message) -> Unit,
+    /** Null where nothing can be answered: no composer below the chat. */
+    val onReply: ((Message) -> Unit)?,
     val onMenu: (Message) -> Unit,
     val onReact: (Message, String) -> Unit,
     val onApplyTheme: (ThemeSpec) -> Unit,
@@ -172,6 +173,8 @@ internal class MessageActions(
     val onDoubleTap: ((Message) -> Unit)? = null,
     /** A press on an @username in the text; null where people cannot be opened. */
     val onMention: ((String) -> Unit)? = null,
+    /** Your own @username: named in bold like any other, but nothing to open. */
+    val self: String? = null,
     /** A press on a reply's quote: the id of the message it quotes. */
     val onQuote: (String) -> Unit = {},
 )
@@ -492,10 +495,11 @@ private fun MessageEntry(
             horizontalAlignment = if (own) Alignment.End else Alignment.Start,
             modifier = Modifier
                 .offset { IntOffset(drag.value.roundToInt(), 0) }
-                .pointerInput(message.id) {
+                .pointerInput(message.id, actions.onReply) {
+                    val reply = actions.onReply ?: return@pointerInput
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (abs(drag.value) >= swipeLimit) actions.onReply(message)
+                            if (abs(drag.value) >= swipeLimit) reply(message)
                             scope.launch { drag.animateTo(0f, spring(dampingRatio = 0.8f)) }
                         },
                         onDragCancel = { scope.launch { drag.animateTo(0f) } },
@@ -583,7 +587,7 @@ private fun MessageEntry(
                         contentDescription = listOfNotNull(label.ifEmpty { null }, body.ifEmpty { null }, edited, time, status)
                             .joinToString(", ")
                         customActions = listOfNotNull(
-                            CustomAccessibilityAction(replyLabel) { actions.onReply(message); true },
+                            actions.onReply?.let { reply -> CustomAccessibilityAction(replyLabel) { reply(message); true } },
                             CustomAccessibilityAction(readMore) { expanded = true; true }.takeIf { cut && !expanded },
                         )
                     }
@@ -650,6 +654,7 @@ private fun MessageEntry(
                                 modifier = Modifier,
                                 maxLines = if (expanded) Int.MAX_VALUE else COLLAPSED_LINES,
                                 onMention = actions.onMention,
+                                self = actions.self,
                             ) { layout ->
                                 if (!expanded) cut = layout.hasVisualOverflow
                                 onLayout(layout)
@@ -871,17 +876,18 @@ private fun FormattedText(
     maxLines: Int = Int.MAX_VALUE,
     onReveal: (Boolean) -> Unit = {},
     onMention: ((String) -> Unit)? = null,
+    self: String? = null,
     onTextLayout: ((TextLayoutResult) -> Unit)? = null,
 ) {
     val colors = Blesk.colors
     val link = ensureContrast(colors.light, colors.surface, ContrastLevel.BODY_TEXT)
-    val text = remember(markup, colors, onMention) {
+    val text = remember(markup, colors, onMention, self) {
         buildAnnotatedString {
             append(markup.text)
             mention.findAll(markup.text).forEach { match ->
                 addStyle(SpanStyle(fontWeight = FontWeight.SemiBold), match.range.first, match.range.last + 1)
-                if (onMention != null) {
-                    val username = match.value.removePrefix("@")
+                val username = match.value.removePrefix("@")
+                if (onMention != null && !username.equals(self, ignoreCase = true)) {
                     addLink(LinkAnnotation.Clickable(username) { onMention(username) }, match.range.first, match.range.last + 1)
                 }
             }

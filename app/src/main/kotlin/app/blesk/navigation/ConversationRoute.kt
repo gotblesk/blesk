@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -150,6 +153,13 @@ internal fun ConversationRoute(
     val failed = stringResource(app.blesk.feature.chats.R.string.media_failed)
     val context = LocalContext.current
     val notify = rememberNotify()
+    // A @name the demo does not know may well exist on a server; there it was looked up and not found.
+    val personMissing = stringResource(
+        if (demo is DemoRepository) R.string.call_needs_server else app.blesk.feature.chats.R.string.contacts_not_found,
+    )
+    // Without a connection the lookup fails rather than finds nobody; the callbacks are kept, so it is read as it is now.
+    val noNetwork = stringResource(app.blesk.feature.chats.R.string.connection_no_network)
+    val online by rememberUpdatedState(connection == Connection.Online)
     // Picked photos and videos wait for «Сжатое» or «Оригинал» before they are encoded and sent.
     var picked by remember { mutableStateOf<List<Uri>>(emptyList()) }
     val pickMedia =
@@ -285,7 +295,9 @@ internal fun ConversationRoute(
     val callbacks = remember(id, direct) {
         ConversationCallbacks(
             onSend = { text, replyTo -> demo.send(id, text, replyTo) },
-            onOpenPerson = { username -> scope.launch { demo.openDirect(username)?.let(onOpenPerson) } },
+            onOpenPerson = { username ->
+                scope.launch { demo.openDirect(username)?.let(onOpenPerson) ?: notify(if (online) personMissing else noNetwork) }
+            },
             onEdit = { messageId, text -> demo.edit(id, messageId, text) },
             onDelete = { messageId, forEveryone -> demo.delete(id, messageId, forEveryone) },
             onReact = { messageId, symbol -> demo.toggleReaction(id, messageId, symbol) },
@@ -351,78 +363,90 @@ internal fun ConversationRoute(
     val ownerBadge = stringResource(app.blesk.feature.chats.R.string.group_role_owner)
     val adminBadge = stringResource(app.blesk.feature.chats.R.string.group_role_admin)
     val showing = Blesk.appearance
-    BleskTheme(appearance = if (override != null) showing.copy(theme = override) else showing, motion = Blesk.motion) {
-        Box(Modifier.fillMaxSize()) {
-            ConversationScreen(
-                conversation = current,
-                // Read receipts work both ways: switched off, you do not see others read yours either.
-                messages = if (privacy.readReceipts) {
-                    messages.toImmutableList()
-                } else {
-                    messages.map { if (it.status == SendStatus.Read) it.copy(status = SendStatus.Delivered) else it }.toImmutableList()
-                },
-                typing = id in typing,
-                authorName = { authorId -> demo.contact(authorId)?.name },
-                authorBadge = { authorId ->
-                    when (groupState?.roleOf(demo.contact(authorId)?.username ?: authorId)) {
-                        GroupRole.Owner -> ownerBadge
-                        GroupRole.Admin -> adminBadge
-                        else -> null
-                    }
-                },
-                callbacks = callbacks,
-                recorders = if (isBot) null else recorders,
-                commands = commands.toImmutableList(),
-                media = mediaController,
-                busy = busy,
-                readOnly = readOnly ?: (current.kind == ConversationKind.Channel),
-                reactions = !isSpace && !isBot,
-                demo = demo is DemoRepository,
-                keyChanged = direct && keyState.changed,
-                me = groupController?.me,
-                unreadAtOpen = unread,
-                focusMessageId = focusMessageId,
-                connection = connection,
-                sendByEnter = sendByEnter,
-                doubleTapReaction = doubleTapReaction,
-                blocked = direct && blockedPeople.any { it.id == id || it.username == id },
-                presence = if (direct) presence[id] else null,
-                hintsSeen = hintsSeen,
-                onHintDone = { hint -> scope.launch { container.settings.markHint(hint) } },
-                recentEmoji = recentEmoji.toImmutableList(),
-                stickers = stickers.takeIf { !isBot },
-                keptOffline = kept,
-                members = groupState?.members.orEmpty()
-                    .filter { it.username != groupController?.me }
-                    .map { member -> demo.contact(member.username) ?: Contact(member.username, member.username, member.username) }
-                    .toImmutableList(),
-                underlay = { ChatBackdrop(chatBackground(background, wallpaper != null), wallpaper) },
-                transfers = transfers,
-            )
-            if (themeSheet) {
-                ChatThemeSheet(
-                    current = override ?: appearance.theme,
-                    overridden = override != null,
-                    onSelect = { spec -> scope.launch { container.settings.setChatTheme(id, spec) } },
-                    onSend = {
-                        demo.sendTheme(id, override ?: appearance.theme, caption)
-                        themeSheet = false
-                    },
-                    onDismiss = { themeSheet = false },
-                )
+    // A reserved .example address, like the demo's sample place, leads nowhere: say so instead of a browser error.
+    val browser = LocalUriHandler.current
+    val exampleOnly = stringResource(R.string.link_example_only)
+    val exampleLinks = remember(browser, exampleOnly) {
+        object : UriHandler {
+            override fun openUri(uri: String) {
+                if (isExampleLink(uri)) notify(exampleOnly) else browser.openUri(uri)
             }
-            if (picked.isNotEmpty()) {
-                val originalBytes = remember(picked) { picked.sumOf { uri -> sizeOf(context, uri) } }
-                val compressedBytes by produceState(originalBytes, picked) {
-                    value = withContext(Dispatchers.IO) { picked.sumOf { uri -> compressedSizeOf(context, uri) } }
-                }
-                QualitySheet(
-                    count = picked.size,
-                    originalBytes = originalBytes,
-                    compressedBytes = compressedBytes,
-                    onSend = ::sendPicked,
-                    onDismiss = { picked = emptyList() },
+        }
+    }
+    BleskTheme(appearance = if (override != null) showing.copy(theme = override) else showing, motion = Blesk.motion) {
+        CompositionLocalProvider(LocalUriHandler provides exampleLinks) {
+            Box(Modifier.fillMaxSize()) {
+                ConversationScreen(
+                    conversation = current,
+                    // Read receipts work both ways: switched off, you do not see others read yours either.
+                    messages = if (privacy.readReceipts) {
+                        messages.toImmutableList()
+                    } else {
+                        messages.map { if (it.status == SendStatus.Read) it.copy(status = SendStatus.Delivered) else it }.toImmutableList()
+                    },
+                    typing = id in typing,
+                    authorName = { authorId -> demo.contact(authorId)?.name },
+                    authorBadge = { authorId ->
+                        when (groupState?.roleOf(demo.contact(authorId)?.username ?: authorId)) {
+                            GroupRole.Owner -> ownerBadge
+                            GroupRole.Admin -> adminBadge
+                            else -> null
+                        }
+                    },
+                    callbacks = callbacks,
+                    recorders = if (isBot) null else recorders,
+                    commands = commands.toImmutableList(),
+                    media = mediaController,
+                    busy = busy,
+                    readOnly = readOnly ?: (current.kind == ConversationKind.Channel),
+                    reactions = !isSpace && !isBot,
+                    demo = demo is DemoRepository,
+                    keyChanged = direct && keyState.changed,
+                    me = groupController?.me,
+                    unreadAtOpen = unread,
+                    focusMessageId = focusMessageId,
+                    connection = connection,
+                    sendByEnter = sendByEnter,
+                    doubleTapReaction = doubleTapReaction,
+                    blocked = direct && blockedPeople.any { it.id == id || it.username == id },
+                    presence = if (direct) presence[id] else null,
+                    hintsSeen = hintsSeen,
+                    onHintDone = { hint -> scope.launch { container.settings.markHint(hint) } },
+                    recentEmoji = recentEmoji.toImmutableList(),
+                    stickers = stickers.takeIf { !isBot },
+                    keptOffline = kept,
+                    members = groupState?.members.orEmpty()
+                        .filter { it.username != groupController?.me }
+                        .map { member -> demo.contact(member.username) ?: Contact(member.username, member.username, member.username) }
+                        .toImmutableList(),
+                    underlay = { ChatBackdrop(chatBackground(background, wallpaper != null), wallpaper) },
+                    transfers = transfers,
                 )
+                if (themeSheet) {
+                    ChatThemeSheet(
+                        current = override ?: appearance.theme,
+                        overridden = override != null,
+                        onSelect = { spec -> scope.launch { container.settings.setChatTheme(id, spec) } },
+                        onSend = {
+                            demo.sendTheme(id, override ?: appearance.theme, caption)
+                            themeSheet = false
+                        },
+                        onDismiss = { themeSheet = false },
+                    )
+                }
+                if (picked.isNotEmpty()) {
+                    val originalBytes = remember(picked) { picked.sumOf { uri -> sizeOf(context, uri) } }
+                    val compressedBytes by produceState(originalBytes, picked) {
+                        value = withContext(Dispatchers.IO) { picked.sumOf { uri -> compressedSizeOf(context, uri) } }
+                    }
+                    QualitySheet(
+                        count = picked.size,
+                        originalBytes = originalBytes,
+                        compressedBytes = compressedBytes,
+                        onSend = ::sendPicked,
+                        onDismiss = { picked = emptyList() },
+                    )
+                }
             }
         }
     }

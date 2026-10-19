@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.model.Conversation
+import app.blesk.core.data.model.RoomChannel
 import app.blesk.core.data.settings.ChatLocks
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ToggleRow
@@ -37,7 +38,13 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 
 @Composable
-internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) -> Unit, onBack: () -> Unit, onNeedCode: () -> Unit) {
+internal fun ArchiveRoute(
+    container: AppContainer,
+    onOpenConversation: (String) -> Unit,
+    onOpenChannel: (Conversation, RoomChannel) -> Unit,
+    onBack: () -> Unit,
+    onNeedCode: () -> Unit,
+) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by chats.typing.collectAsStateWithLifecycle()
@@ -64,7 +71,7 @@ internal fun ArchiveRoute(container: AppContainer, onOpenConversation: (String) 
             now = remember(conversations) { Instant.now() },
             contentPadding = padding,
             onOpenConversation = onOpenConversation,
-            onOpenChannel = { _, _ -> },
+            onOpenChannel = onOpenChannel,
             onLongPress = { menuFor = it },
             places = rowPlaces,
             onSwipeArchive = { chats.setArchived(it.id, false) },

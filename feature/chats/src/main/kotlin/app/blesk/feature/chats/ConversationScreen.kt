@@ -366,18 +366,25 @@ fun ConversationScreen(
         if (lastOwnStatus == SendStatus.Failed) haptics.refuse()
     }
 
+    // A request waiting for an answer, a read-only chat and a blocked person show something else in
+    // place of the composer, and with no composer there is nothing to write a reply or an edit in.
+    val composerShown = !(conversation.request && callbacks.request != null) && !readOnly && !(blocked && callbacks.onUnblock != null)
     // The actions are kept for the chat; the quote jump reads the feed as it is now.
     val quoteJump = rememberUpdatedState<(String) -> Unit> { showMessage(it) }
-    val actions = remember(conversation.id) {
+    val actions = remember(conversation.id, composerShown, me) {
         val react: (Message, String) -> Unit = { message, symbol ->
             haptics.stick()
             callbacks.onReact(message.id, symbol)
         }
         MessageActions(
-            onReply = {
-                replyToId = it.id
-                editingId = null
-                onHintDone(GestureHint.Reply)
+            onReply = if (composerShown) {
+                {
+                    replyToId = it.id
+                    editingId = null
+                    onHintDone(GestureHint.Reply)
+                }
+            } else {
+                null
             },
             onMenu = {
                 haptics.menu()
@@ -396,6 +403,7 @@ fun ConversationScreen(
                 null
             },
             onMention = callbacks.onOpenPerson,
+            self = me,
             onTap = { message ->
                 when {
                     selection.isNotEmpty() -> selection = if (message.id in selection) selection - message.id else selection + message.id
@@ -562,7 +570,7 @@ fun ConversationScreen(
             ) { padding ->
                 Box(Modifier.fillMaxSize()) {
                     val othersWrote = messages.any { !it.isOwn }
-                    val writable = !readOnly
+                    val writable = composerShown
                     val hint = when {
                         selection.isNotEmpty() -> null
                         GestureHint.Reply !in hintsSeen && othersWrote && writable -> GestureHint.Reply
@@ -704,14 +712,14 @@ fun ConversationScreen(
                 MessageMenu(
                     message = message,
                     onDismiss = { menuFor = null },
-                    onReply = { replyToId = message.id; editingId = null },
+                    onReply = if (composerShown) ({ replyToId = message.id; editingId = null }) else null,
                     onEdit = {
                         editingId = message.id
                         replyToId = null
                         input.setTextAndPlaceCursorAtEnd(message.text)
                     },
                     onDelete = { deleting = listOf(message) },
-                    editable = conversation.kind != ConversationKind.Bot,
+                    editable = composerShown && conversation.kind != ConversationKind.Bot,
                     onForward = callbacks.onForward?.let { forward -> { forward(listOf(message.id)) } },
                     onSelect = { selection = setOf(message.id) },
                     onRetry = if (message.isOwn && message.status == SendStatus.Failed) ({ callbacks.onRetry(message.id) }) else null,

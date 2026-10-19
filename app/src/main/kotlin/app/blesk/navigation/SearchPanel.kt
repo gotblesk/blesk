@@ -82,7 +82,7 @@ internal fun SearchPanel(
         contentPadding = contentPadding,
         chats = matchingChats.take(MAX_ROWS).toImmutableList(),
         people = matchingPeople.take(MAX_ROWS).toImmutableList(),
-        onOpenChat = onOpen,
+        onOpenChat = { chat -> onOpen(matchingChats.firstOrNull { it.id == chat }?.chatTarget() ?: chat) },
         onOpenPerson = { person -> scope.launch { chats.openDirect(person.username)?.let(onOpen) } },
         onFindUsername = if (mode is AppMode.Server) {
             { username ->

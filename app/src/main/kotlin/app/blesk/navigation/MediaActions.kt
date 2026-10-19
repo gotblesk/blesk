@@ -38,7 +38,24 @@ internal fun openFile(context: Context, file: Attachment.File) {
 
 /** Opens a bot's https link in the browser; anything else is ignored. */
 internal fun openLink(context: Context, url: String) {
-    if (!url.startsWith("https://")) return
+    if (url.startsWith("https://")) browse(context, url)
+}
+
+/**
+ * Opens a link found in messages the way the message itself does: http as well as https. A reserved
+ * .example address, like the demo's sample place, leads nowhere, so it is named an example instead.
+ */
+internal fun openMessageLink(container: AppContainer, context: Context, url: String) {
+    when {
+        isExampleLink(url) -> container.notices.show(context.getString(app.blesk.R.string.link_example_only))
+        url.startsWith("https://") || url.startsWith("http://") -> browse(context, url)
+    }
+}
+
+/** Whether [url] points at a reserved .example host, which never resolves anywhere. */
+internal fun isExampleLink(url: String): Boolean = Uri.parse(url).host?.endsWith(".example") == true
+
+private fun browse(context: Context, url: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (_: ActivityNotFoundException) {

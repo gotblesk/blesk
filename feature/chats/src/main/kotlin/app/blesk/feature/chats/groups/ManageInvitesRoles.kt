@@ -144,7 +144,7 @@ private fun NewInviteForm(env: ManageEnv, now: Long) {
 
 @Composable
 private fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose: () -> Unit) {
-    val link = env.inviteLink(invite.code)
+    val link = env.inviteLink?.invoke(invite.code)
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -153,7 +153,14 @@ private fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose:
     var qr by remember { mutableStateOf(false) }
     MenuSheet(title = invite.title.ifBlank { stringResource(R.string.manage_invite_untitled) }, onDismiss = onClose) {
         Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
-            if (qr) {
+            if (link == null) {
+                Text(
+                    stringResource(R.string.manage_invite_needs_server),
+                    style = Blesk.type.caption,
+                    color = Blesk.colors.textSecondary,
+                    modifier = Modifier.padding(8.dp),
+                )
+            } else if (qr) {
                 // Dark modules on white whatever the theme: many scanners cannot read inverted codes.
                 Box(
                     Modifier
@@ -168,7 +175,7 @@ private fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose:
                 Text(link, style = Blesk.type.caption, color = Blesk.colors.textSecondary, modifier = Modifier.padding(8.dp))
             }
             val usable = invite.usable(now)
-            if (usable) {
+            if (usable && link != null) {
                 Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(stringResource(R.string.manage_invite_copy), icon = BleskIcons.Copy, kind = ButtonKind.Secondary, onClick = {
                         scope.launch {

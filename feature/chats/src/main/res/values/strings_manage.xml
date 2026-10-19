@@ -51,6 +51,7 @@
     <string name="manage_invite_joined">Пришли: %1$s</string>
     <string name="manage_invite_nobody">По ссылке пока никто не пришёл</string>
     <string name="manage_invite_copied">Ссылка скопирована</string>
+    <string name="manage_invite_needs_server">Ссылка заработает после подключения к серверу: в демо приглашать некого</string>
     <string name="manage_invites_empty">Ссылок пока нет. Создай первую: с названием, сроком и лимитом.</string>
     <plurals name="manage_invite_joined_count">
         <item quantity="one">%d пришёл</item>

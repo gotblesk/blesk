@@ -42,8 +42,8 @@ import kotlinx.collections.immutable.toImmutableList
 /** How a channel tells about new messages: always, only when you are named with @, or never. */
 enum class ChannelNotify { All, Mentions, Nothing }
 
-/** Someone who sees the channel: everyone in its room. */
-class ChannelMember(val username: String, val name: String)
+/** Someone who sees the channel: everyone in its room, [you] among them. */
+class ChannelMember(val username: String, val name: String, val you: Boolean = false)
 
 class ChannelInfoActions(
     val onNotify: (ChannelNotify) -> Unit,
@@ -125,12 +125,13 @@ fun ChannelInfoScreen(
         when (val shown = ChannelTab.entries[tab]) {
             ChannelTab.Pinned -> PinnedList(pinned, actions.onOpenMessage)
             ChannelTab.Members -> Card(gutter) {
+                val you = stringResource(R.string.group_you)
                 members.forEach { member ->
                     ListRow(
-                        title = member.name,
+                        title = if (member.you) "${member.name} · $you" else member.name,
                         subtitle = "@${member.username}",
                         icon = BleskIcons.Person,
-                        onClick = { actions.onOpenPerson(member.username) },
+                        onClick = if (member.you) null else ({ actions.onOpenPerson(member.username) }),
                     )
                 }
             }

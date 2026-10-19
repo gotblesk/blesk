@@ -44,7 +44,7 @@ internal class ManageEnv(
     /** Makes a change; false when it was not allowed or did not go through. */
     val change: suspend (GroupChange) -> Boolean,
     val run: (suspend () -> Unit) -> Unit,
-    val inviteLink: (code: String) -> String,
+    val inviteLink: ((code: String) -> String)?,
     val gate: IdentityGate?,
     val onOpenPerson: (String) -> Unit,
     val onGone: () -> Unit,
