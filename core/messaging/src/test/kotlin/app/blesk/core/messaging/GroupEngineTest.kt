@@ -812,6 +812,31 @@ class GroupEngineTest {
         assertNull(engine.voiceAccess(ROOM, VOICE_ID))
     }
 
+    @Test
+    fun aVoiceKeyNoOtherCanFollowStillGivesWayToTheKeepers() = runBlocking {
+        val erin = GroupMember("erin", GroupRole.Admin)
+        val room = roomOf(version = 1).let { it.copy(members = it.members + erin) }
+        engine.onUpdate("bob", room)
+        // Erin, an admin but not the keeper, hands us a key no later one could be newer than, room and all.
+        val pinned = Body.VoiceKey(ROOM, VOICE_ID, Long.MAX_VALUE, Calls.closedVoiceRoom(ROOM, VOICE_ID, "erin"), mediaKey(1))
+        voiceKeys.accept("erin", pinned)
+        assertEquals(pinned.access(), engine.voiceAccess(ROOM, VOICE_ID))
+
+        // Bob, the keeper, replaces it all the same.
+        val kept = pinned.copy(version = 7, room = Calls.closedVoiceRoom(ROOM, VOICE_ID, "s7"), key = mediaKey(7))
+        voiceKeys.accept("bob", kept)
+        assertEquals(kept.access(), engine.voiceAccess(ROOM, VOICE_ID))
+
+        // Once she is no admin, a key from her is of no use, until his next one is here.
+        voiceKeys.accept("erin", pinned)
+        val demoted = room.copy(version = 2, members = room.members.map { if (it == erin) it.copy(role = GroupRole.Member) else it })
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", demoted))
+        assertNull(engine.voiceAccess(ROOM, VOICE_ID))
+        val next = kept.copy(version = 8, room = Calls.closedVoiceRoom(ROOM, VOICE_ID, "s8"), key = mediaKey(8))
+        voiceKeys.accept("bob", next)
+        assertEquals(next.access(), engine.voiceAccess(ROOM, VOICE_ID))
+    }
+
     /** A room of ours: Bob holds the moderators' role, the only one that sees [closed]; Carol has no role. */
     private class Club(val id: String, val openChannel: String, val closedChannel: String, val voiceChannel: String) {
         val open = GroupEngine.channelConversation(id, openChannel)

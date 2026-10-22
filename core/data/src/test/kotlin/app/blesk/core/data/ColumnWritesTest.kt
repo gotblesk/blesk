@@ -283,29 +283,42 @@ class ColumnWritesTest {
 
     @Test
     fun `a voice key given by an admin is kept only if newer, and only while its group is here`() = runBlocking {
-        assertFalse(groups.offerVoiceKey(voiceKey(version = 1, key = "k1")))
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 1, key = "k1"), KEEPER))
         groups.insertIfAbsent(GroupEntity("g", "state"))
-        assertTrue(groups.offerVoiceKey(voiceKey(version = 2, key = "k2")))
-        assertFalse(groups.offerVoiceKey(voiceKey(version = 1, key = "k1")))
-        assertFalse(groups.offerVoiceKey(voiceKey(version = 2, key = "k2-again")))
+        assertTrue(groups.offerVoiceKey(voiceKey(version = 2, key = "k2"), KEEPER))
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 1, key = "k1"), KEEPER))
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 2, key = "k2-again"), KEEPER))
         assertEquals("k2", groups.voiceKey("g", "c")?.key)
-        assertTrue(groups.offerVoiceKey(voiceKey(version = 3, key = "k3")))
+        assertTrue(groups.offerVoiceKey(voiceKey(version = 3, key = "k3"), KEEPER))
         assertEquals("k3", groups.voiceKey("g", "c")?.key)
 
         groups.delete("g")
         groups.deleteVoiceKeys("g")
-        assertFalse(groups.offerVoiceKey(voiceKey(version = 4, key = "k4")))
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 4, key = "k4"), KEEPER))
         assertNull(groups.voiceKey("g", "c"))
     }
 
-    private fun voiceKey(version: Long, key: String) =
-        VoiceKeyEntity("g", "c", version, room = "voice-g-c-$version", key = key, epoch = 0)
+    @Test
+    fun `the keeper's voice key takes the place of another admin's, however new that one says it is`() = runBlocking {
+        groups.insertIfAbsent(GroupEntity("g", "state"))
+        assertTrue(groups.offerVoiceKey(voiceKey(version = Long.MAX_VALUE, key = "erin's", giver = "erin"), KEEPER))
+        assertTrue(groups.offerVoiceKey(voiceKey(version = 5, key = "k5"), KEEPER))
+        assertEquals("k5" to KEEPER, groups.voiceKey("g", "c")?.let { it.key to it.giver })
+        // The keeper's own keys still only move forward.
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 4, key = "k4"), KEEPER))
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 3, key = "erin's again", giver = "erin"), KEEPER))
+        assertEquals("k5", groups.voiceKey("g", "c")?.key)
+    }
+
+    private fun voiceKey(version: Long, key: String, giver: String = KEEPER) =
+        VoiceKeyEntity("g", "c", version, room = "voice-g-c-$version", key = key, epoch = 0, giver = giver)
 
     private fun held(group: String, version: Int, content: String, at: Long = 1) =
         HeldGroupMessageEntity(groupId = group, sender = "bob", content = content, version = version, heldAt = at)
 
     private companion object {
         const val ME = "me"
+        const val KEEPER = "bob"
 
         /** SQLite's limit on values bound to one statement before 3.32, as on older phones. */
         const val OLD_SQLITE_VALUES = 999

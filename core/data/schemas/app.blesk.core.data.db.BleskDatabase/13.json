@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 13,
-    "identityHash": "0aa44ae93abc7fe740e3e87a94f45bb7",
+    "identityHash": "83a7aaeae956460f2626058aa50d5541",
     "entities": [
       {
         "tableName": "conversations",
@@ -582,7 +582,7 @@
       },
       {
         "tableName": "voice_keys",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`groupId` TEXT NOT NULL, `channelId` TEXT NOT NULL, `version` INTEGER NOT NULL, `room` TEXT NOT NULL, `key` TEXT NOT NULL, `epoch` INTEGER NOT NULL, `holders` TEXT, PRIMARY KEY(`groupId`, `channelId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`groupId` TEXT NOT NULL, `channelId` TEXT NOT NULL, `version` INTEGER NOT NULL, `room` TEXT NOT NULL, `key` TEXT NOT NULL, `epoch` INTEGER NOT NULL, `holders` TEXT, `giver` TEXT, PRIMARY KEY(`groupId`, `channelId`))",
         "fields": [
           {
             "fieldPath": "groupId",
@@ -624,6 +624,11 @@
             "fieldPath": "holders",
             "columnName": "holders",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "giver",
+            "columnName": "giver",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -637,7 +642,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0aa44ae93abc7fe740e3e87a94f45bb7')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '83a7aaeae956460f2626058aa50d5541')"
     ]
   }
 }

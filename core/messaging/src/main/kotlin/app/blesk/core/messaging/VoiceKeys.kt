@@ -56,12 +56,21 @@ internal class VoiceKeys(
     suspend fun accept(sender: String, key: Body.VoiceKey) {
         val state = db.groups().get(key.groupId)?.let { storageJson.decodeFromString(GroupState.serializer(), it.state) } ?: return
         if (!state.isAdmin(sender) || !Calls.isClosedVoiceRoom(key.room, key.groupId, key.channelId) || !isMediaKey(key.key)) return
-        db.groups().offerVoiceKey(VoiceKeyEntity(key.groupId, key.channelId, key.version, key.room, key.key, state.epoch))
+        db.groups().offerVoiceKey(
+            VoiceKeyEntity(key.groupId, key.channelId, key.version, key.room, key.key, state.epoch, giver = sender),
+            keeper(state),
+        )
     }
 
-    /** A closed voice channel's key as this phone has it, made here or given; the caller says whether we may use it. */
-    suspend fun stored(groupId: String, channelId: String): VoiceAccess? =
-        db.groups().voiceKey(groupId, channelId)?.let { VoiceAccess(it.room, it.key) }
+    /**
+     * A closed voice channel's key as this phone has it, made here or given by someone [state] still has as an admin:
+     * one from an admin since let go of may have been made to outlast them. The caller says whether we see the channel.
+     */
+    suspend fun stored(state: GroupState, channelId: String): VoiceAccess? {
+        val row = db.groups().voiceKey(state.id, channelId) ?: return null
+        val giver = row.giver
+        return if (giver == null || state.isAdmin(giver)) VoiceAccess(row.room, row.key) else null
+    }
 
     fun keeps(state: GroupState) = keeper(state) == me
 

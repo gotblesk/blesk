@@ -148,7 +148,7 @@ data class HeldGroupMessageEntity(
 data class VoiceKeyEntity(
     val groupId: String,
     val channelId: String,
-    /** Grows with every new key of the channel; a phone keeps the highest it has been given. */
+    /** Grows with every new key of the channel; a phone keeps the highest, or the keeper's latest over another admin's. */
     val version: Long,
     val room: String,
     /** Base64 media key. */
@@ -157,6 +157,8 @@ data class VoiceKeyEntity(
     val epoch: Int,
     /** JSON list of members a key made here was handed to; null for a key given by another admin. */
     val holders: String? = null,
+    /** The admin who gave it; null for a key made here. */
+    val giver: String? = null,
 )
 
 /**

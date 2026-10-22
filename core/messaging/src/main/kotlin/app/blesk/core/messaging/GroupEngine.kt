@@ -394,7 +394,7 @@ internal class GroupEngine(
         if (!VoiceKeys.hasOwnKey(channel)) return openVoiceKey(state)?.let { VoiceAccess(Calls.voiceRoom(groupId, channelId), it) }
         // The keeper looks over its keys first: a channel closed before they existed gets one now.
         if (voiceKeys.keeps(state)) renewVoiceKeys(groupId)
-        return voiceKeys.stored(groupId, channelId)
+        return voiceKeys.stored(state, channelId)
     }
 
     /** The key of the room's voice channels open to all; an admin makes one for a room made before calls existed. */

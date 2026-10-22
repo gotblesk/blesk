@@ -171,7 +171,7 @@ abstract class BleskDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE TABLE IF NOT EXISTS `voice_keys` (`groupId` TEXT NOT NULL, `channelId` TEXT NOT NULL, " +
                         "`version` INTEGER NOT NULL, `room` TEXT NOT NULL, `key` TEXT NOT NULL, `epoch` INTEGER NOT NULL, " +
-                        "`holders` TEXT, PRIMARY KEY(`groupId`, `channelId`))",
+                        "`holders` TEXT, `giver` TEXT, PRIMARY KEY(`groupId`, `channelId`))",
                 )
             }
         }

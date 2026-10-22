@@ -385,14 +385,16 @@ interface GroupDao {
     suspend fun upsertVoiceKey(key: VoiceKeyEntity)
 
     /**
-     * Keeps a key given by an admin if it is newer than the one here, and only while its group is on this phone.
-     * Returns whether it was kept.
+     * Keeps a key given by an admin, only while its group is on this phone: if it is newer than the one here, or comes
+     * from the room's [keeper] in place of one that did not. A version is only what its giver says: an admin could give
+     * one no later key is newer than, and it must not outlast the keeper's next key. Returns whether it was kept.
      */
     @Transaction
-    suspend fun offerVoiceKey(key: VoiceKeyEntity): Boolean {
+    suspend fun offerVoiceKey(key: VoiceKeyEntity, keeper: String?): Boolean {
         if (get(key.groupId) == null) return false
         val current = voiceKey(key.groupId, key.channelId)
-        if (current != null && current.version >= key.version) return false
+        val replacesAnother = key.giver != null && key.giver == keeper && current?.giver != keeper
+        if (current != null && current.version >= key.version && !replacesAnother) return false
         upsertVoiceKey(key)
         return true
     }
