@@ -120,6 +120,8 @@
     <string name="channel_menu_up">Выше</string>
     <string name="channel_menu_down">Ниже</string>
     <string name="channel_rights_hint">Кто видит канал. Владелец и админы видят все каналы.</string>
+    <string name="channel_rights_roles_hint">Сейчас канал видят все участники. Чтобы открыть его только некоторым ролям, выключи «Все участники».</string>
+    <string name="channel_closed">Закрытый канал</string>
     <string name="channel_delete_slide">Удалить канал</string>
     <string name="channel_delete_hint">Сообщения канала исчезнут у всех.</string>
     <string name="channel_description">Описание канала</string>

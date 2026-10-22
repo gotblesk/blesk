@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -109,7 +110,10 @@ fun ListRow(
     }
 }
 
-/** A row with an on/off switch. The whole row toggles. */
+/**
+ * A row with an on/off switch. The whole row toggles. A row that is not [enabled] still shows
+ * whether it is on, dimmed, and is announced as unavailable.
+ */
 @Composable
 fun ToggleRow(
     title: String,
@@ -118,13 +122,14 @@ fun ToggleRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     icon: ImageVector? = null,
+    enabled: Boolean = true,
 ) {
     val haptics = rememberHaptics()
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = Blesk.dimens.touchTarget + 8.dp)
-            .toggleable(value = checked, role = Role.Switch) { on ->
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch) { on ->
                 haptics.toggle(on)
                 onCheckedChange(on)
             }
@@ -134,12 +139,12 @@ fun ToggleRow(
     ) {
         if (icon != null) Icon(icon, contentDescription = null, tint = Blesk.colors.textSecondary)
         Column(Modifier.weight(1f)) {
-            Text(title, style = Blesk.type.bodyStrong)
+            Text(title, style = Blesk.type.bodyStrong, color = if (enabled) Blesk.colors.textPrimary else Blesk.colors.textSecondary)
             if (subtitle != null) {
                 Text(subtitle, style = Blesk.type.label, color = Blesk.colors.textSecondary, modifier = Modifier.padding(top = 2.dp))
             }
         }
-        Switch(checked)
+        Switch(checked, Modifier.alpha(if (enabled) 1f else DIMMED))
     }
 }
 
@@ -187,5 +192,6 @@ fun Switch(checked: Boolean, modifier: Modifier = Modifier) {
 }
 
 private const val REST = 0.02f
+private const val DIMMED = 0.4f
 private const val LEAD_IN_MOTION = 0.85f
 private const val TAIL_IN_MOTION = 0.55f

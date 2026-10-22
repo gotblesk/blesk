@@ -105,8 +105,13 @@ internal fun ChannelsSection(env: ManageEnv, actions: GroupActions) {
                     }
                 }
                 if (channel.adminsOnly) Tag(stringResource(R.string.channel_kind_announce))
-                if (channel.hiddenFrom.isNotEmpty()) {
-                    Icon(BleskIcons.Lock, contentDescription = null, tint = Blesk.colors.textTertiary, size = 16.dp)
+                if (GroupPolicy.EVERYONE in channel.hiddenFrom) {
+                    Icon(
+                        BleskIcons.Lock,
+                        contentDescription = stringResource(R.string.channel_closed),
+                        tint = Blesk.colors.textTertiary,
+                        size = 16.dp,
+                    )
                 }
             }
         }
@@ -217,10 +222,16 @@ private fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: Channel
     }
 }
 
-/** Who sees the channel: every role, and everyone without one, as switches. */
+/**
+ * Who sees the channel, as switches: «Все участники» first, then every role. While everyone sees
+ * the channel a role cannot take it away from its holders, so the roles show as on and stay put.
+ * Closing the channel to everyone leaves it open to every role, which are then shut out one by one.
+ */
 @Composable
 private fun ChannelRights(env: ManageEnv, channel: GroupChannel) {
     val live = env.state.channels.firstOrNull { it.id == channel.id } ?: channel
+    val open = GroupPolicy.EVERYONE !in live.hiddenFrom
+    fun hide(hidden: Set<String>) = env.run { env.change(GroupChange.HideChannel(channel.id, hidden)) }
     Text(
         stringResource(R.string.channel_rights_hint),
         style = Blesk.type.caption,
@@ -229,14 +240,29 @@ private fun ChannelRights(env: ManageEnv, channel: GroupChannel) {
     )
     Card {
         Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
-            val groups = env.state.roles.map { it.id to it.title } + (GroupPolicy.EVERYONE to stringResource(R.string.manage_role_everyone))
-            groups.forEach { (id, title) ->
-                ToggleRow(title = title, checked = id !in live.hiddenFrom, onCheckedChange = { shown ->
-                    val hidden = if (shown) live.hiddenFrom - id else live.hiddenFrom + id
-                    env.run { env.change(GroupChange.HideChannel(channel.id, hidden)) }
-                })
+            ToggleRow(
+                title = stringResource(R.string.manage_role_everyone),
+                checked = open,
+                onCheckedChange = { shown -> hide(if (shown) emptySet() else setOf(GroupPolicy.EVERYONE)) },
+            )
+            val untitled = stringResource(R.string.manage_role_untitled)
+            env.state.roles.forEach { role ->
+                ToggleRow(
+                    title = role.title.ifBlank { untitled },
+                    checked = open || role.id !in live.hiddenFrom,
+                    enabled = !open,
+                    onCheckedChange = { shown -> hide(if (shown) live.hiddenFrom - role.id else live.hiddenFrom + role.id) },
+                )
             }
         }
+    }
+    if (open && env.state.roles.isNotEmpty()) {
+        Text(
+            stringResource(R.string.channel_rights_roles_hint),
+            style = Blesk.type.caption,
+            color = Blesk.colors.textSecondary,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+        )
     }
 }
 

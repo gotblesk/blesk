@@ -41,6 +41,7 @@ import app.blesk.feature.chats.groups.SpaceActions
 import app.blesk.feature.chats.groups.SpaceInfoScreen
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
+import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.InviteLink
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceMember
@@ -290,7 +291,7 @@ internal fun ChannelInfoRoute(
         notify = notify,
         messages = messages.toImmutableList(),
         pinned = messages.filter { it.id in pinnedIds }.toImmutableList(),
-        members = room.members.map { member ->
+        members = room.members.filter { GroupPolicy.sees(room, it.username, channel) }.map { member ->
             val you = member.username == groups.me
             val name = if (you) ownName.ifBlank { member.username } else chats.contact(member.username)?.name ?: member.username
             ChannelMember(member.username, name, you)
