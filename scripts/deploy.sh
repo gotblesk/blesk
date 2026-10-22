@@ -74,7 +74,8 @@ maxretry = 5
 findtime = 10m
 bantime = 1h
 EOF
-    systemctl enable fail2ban >/dev/null 2>&1
+    systemctl unmask fail2ban.service >/dev/null 2>&1 || die "не удалось снять запрет с fail2ban"
+    systemctl enable fail2ban >/dev/null 2>&1 || die "fail2ban не включается: systemctl status fail2ban"
     systemctl restart fail2ban || die "fail2ban не запустился: journalctl -u fail2ban"
     for tries in $(seq 1 15); do
         fail2ban-client status sshd >/dev/null 2>&1 && break
@@ -86,18 +87,22 @@ EOF
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
-    # Images often mask the apt timers to keep apt free on first boot; enabling a masked unit fails.
-    systemctl unmask apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1
+    # Hosting images mask apt's services to keep apt free on first boot. Their timers then report a
+    # successful start and stop at once, so the services are unmasked along with the timers.
+    systemctl unmask apt-daily.service apt-daily-upgrade.service apt-daily.timer apt-daily-upgrade.timer \
+        unattended-upgrades.service >/dev/null 2>&1 || die "не удалось снять запрет с обновлений безопасности"
     systemctl enable --now unattended-upgrades apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 ||
         die "не удалось включить обновления безопасности: systemctl status unattended-upgrades"
     [[ $(apt-config dump APT::Periodic::Unattended-Upgrade) == *'"1"'* ]] ||
         die "обновления безопасности выключены в настройках apt"
     local timer
     for timer in apt-daily.timer apt-daily-upgrade.timer; do
-        systemctl is-active --quiet "$timer" || systemctl restart "$timer" >/dev/null 2>&1
         if ! systemctl is-active --quiet "$timer"; then
-            systemctl status "$timer" --no-pager >&2 || true
-            systemctl cat "$timer" --no-pager >&2 || true
+            # Started by the enable above when it could be; one more try now that nothing is masked.
+            systemctl restart "$timer" >/dev/null 2>&1 || true
+        fi
+        if ! systemctl is-active --quiet "$timer"; then
+            systemctl status "$timer" "${timer%.timer}.service" --no-pager >&2 || true
             die "таймер обновлений безопасности $timer не работает: состояние выше"
         fi
     done
