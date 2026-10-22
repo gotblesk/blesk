@@ -28,6 +28,7 @@ shot() {
 }
 fail() {
     shot failed || true
+    adb exec-out uiautomator dump /dev/tty >"$shots/screen.xml" 2>/dev/null || true
     adb logcat -d -s blesk:V AndroidRuntime:E >"$shots/logcat.txt" 2>&1 || true
     echo "smoke test failed: $1" >&2
     exit 1

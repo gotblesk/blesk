@@ -106,12 +106,30 @@ def tap_node(node):
 
 
 def is_field(node):
-    return node.get("class") == "android.widget.EditText"
+    return node.get("class") == "android.widget.EditText" or node.get("focusable") == "true" and node.get("long-clickable") == "true"
+
+
+def describe_fields(all_nodes):
+    return [(node.get("class"), node.get("text"), node.get("content-desc"), node.get("bounds")) for node in all_nodes if is_field(node)]
+
+
+def field_for(label, all_nodes):
+    """The field [label] describes, or else the field nearest below the text [label]."""
+    wanted = label.get("text") or label.get("content-desc") or ""
+    described = [node for node in all_nodes if is_field(node) and shows(node, wanted)]
+    if described:
+        return described[0]
+    _, top, _, bottom = bounds(label)
+    below = [node for node in all_nodes if is_field(node) and bounds(node)[1] >= top]
+    if not below:
+        raise SystemExit(f"no text field near «{wanted}»; fields on the screen: {describe_fields(all_nodes)}")
+    return min(below, key=lambda node: bounds(node)[1] - bottom)
 
 
 def type_into(label, value):
-    """Types into the text field described by [label]: blesk's fields carry their label as description."""
-    field, _ = find(label, 60, scroll=True, kind=is_field)
+    """Types into the text field under [label]: blesk's fields carry a label above them."""
+    found, all_nodes = find(label, 60, scroll=True)
+    field = field_for(found, all_nodes)
     tap_node(field)
     time.sleep(0.5)
     # `input text` takes the text as one shell word: quote it for the device's shell.
