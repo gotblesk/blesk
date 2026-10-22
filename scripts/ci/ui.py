@@ -21,6 +21,8 @@ import xml.etree.ElementTree as ElementTree
 ADB = ["adb"]
 DUMP = "/sdcard/blesk-ui.xml"
 BOUNDS = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
+# A fifth of the screen each, so this many go well past the end of a long settings page.
+SCROLL_STEPS = 8
 
 
 def adb(*args, capture=True):
@@ -64,9 +66,11 @@ def on_screen(node, height):
 
 
 def find(text, seconds, scroll=False, kind=lambda node: True):
-    """The node of [kind] showing [text]; with [scroll] the screen is swiped up until it is in full view."""
+    """The node of [kind] showing [text]. With [scroll] the screen moves in short slow steps, first
+    down the page and then back up, since a long swipe flings past what it looks for."""
     deadline = time.monotonic() + seconds
     width, height = screen_size()
+    steps = 0
     while True:
         all_nodes = nodes()
         found = [node for node in all_nodes if shows(node, text) and kind(node)]
@@ -76,8 +80,10 @@ def find(text, seconds, scroll=False, kind=lambda node: True):
         if time.monotonic() > deadline:
             raise SystemExit(f"no «{text}» on the screen after {seconds} s; it shows: {screen_texts(all_nodes)}")
         if scroll:
-            middle = str(width // 2)
-            adb("shell", "input", "swipe", middle, str(height * 3 // 4), middle, str(height // 3), "600")
+            down_the_page = steps < SCROLL_STEPS
+            start, end = (height * 3 // 5, height * 2 // 5) if down_the_page else (height * 2 // 5, height * 3 // 5)
+            adb("shell", "input", "swipe", str(width // 2), str(start), str(width // 2), str(end), "900")
+            steps = (steps + 1) % (SCROLL_STEPS * 2)
         time.sleep(1)
 
 
@@ -92,7 +98,7 @@ def is_field(node):
 
 def type_into(label, value):
     """Types into the text field described by [label]: blesk's fields carry their label as description."""
-    field, _ = find(label, 20, scroll=True, kind=is_field)
+    field, _ = find(label, 60, scroll=True, kind=is_field)
     tap_node(field)
     time.sleep(0.5)
     # `input text` takes the text as one shell word: quote it for the device's shell.
@@ -104,7 +110,7 @@ def main(argv):
     if command == "wait":
         find(args[0], float(args[1]) if len(args) > 1 else 30)
     elif command == "tap":
-        node, _ = find(args[0], float(args[1]) if len(args) > 1 else 30, scroll=True)
+        node, _ = find(args[0], float(args[1]) if len(args) > 1 else 60, scroll=True)
         tap_node(node)
     elif command == "type":
         type_into(args[0], args[1])
