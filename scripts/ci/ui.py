@@ -53,9 +53,9 @@ def screen_texts(all_nodes):
     return sorted({value for node in all_nodes for value in (node.get("text"), node.get("content-desc")) if value})
 
 
-def screen_height():
-    size = re.search(r"(\d+)x(\d+)", adb("shell", "wm", "size")).groups()
-    return int(size[1])
+def screen_size():
+    width, height = re.search(r"(\d+)x(\d+)", adb("shell", "wm", "size")).groups()
+    return int(width), int(height)
 
 
 def on_screen(node, height):
@@ -66,7 +66,7 @@ def on_screen(node, height):
 def find(text, seconds, scroll=False, kind=lambda node: True):
     """The node of [kind] showing [text]; with [scroll] the screen is swiped up until it is in full view."""
     deadline = time.monotonic() + seconds
-    height = screen_height()
+    width, height = screen_size()
     while True:
         all_nodes = nodes()
         found = [node for node in all_nodes if shows(node, text) and kind(node)]
@@ -76,7 +76,8 @@ def find(text, seconds, scroll=False, kind=lambda node: True):
         if time.monotonic() > deadline:
             raise SystemExit(f"no «{text}» on the screen after {seconds} s; it shows: {screen_texts(all_nodes)}")
         if scroll:
-            adb("shell", "input", "swipe", "500", str(height * 3 // 4), "500", str(height // 3), "300")
+            middle = str(width // 2)
+            adb("shell", "input", "swipe", middle, str(height * 3 // 4), middle, str(height // 3), "600")
         time.sleep(1)
 
 
