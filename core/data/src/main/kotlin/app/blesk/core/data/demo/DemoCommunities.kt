@@ -22,6 +22,7 @@ import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.InviteLink
+import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.SpaceChannel
 import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
@@ -110,8 +111,10 @@ internal class DemoCommunities(
 
     override suspend fun removeMember(groupId: String, username: String) = change(groupId, GroupChange.Remove(username))
 
-    override suspend fun setRole(groupId: String, username: String, role: GroupRole) = change(groupId) { state ->
-        state.copy(members = state.members.map { if (it.username == username && it.role != GroupRole.Owner) it.copy(role = role) else it })
+    override suspend fun setRole(groupId: String, username: String, role: GroupRole) = when (role) {
+        GroupRole.Owner -> false
+        GroupRole.Admin -> change(groupId, GroupChange.Admin(username, Right.ADMIN_ALL))
+        GroupRole.Member -> change(groupId, GroupChange.Admin(username, null))
     }
 
     override suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) = change(groupId) {

@@ -202,6 +202,142 @@ class GroupPolicyTest {
     }
 
     @Test
+    fun aRoleManagerGivesNoRightTheyLack() {
+        fun save(role: RoomRole) =
+            GroupPolicy.apply(ranked, "kira", GroupChange.SaveRole(role), NOW)?.roles?.firstOrNull { it.id == role.id }
+        val fans = ranked.roles.first { it.id == "fans" }
+        assertNull(save(fans.copy(rights = fans.rights + Right.AssignRoles)))
+        assertNull(save(RoomRole("new", "Новички", rights = setOf(Right.Ban))))
+        // Her own role and those above are not hers to change at all.
+        assertNull(save(ranked.roles.first { it.id == "keepers" }.copy(rights = setOf(Right.Roles, Right.Pin))))
+        assertNull(save(ranked.roles.first { it.id == "mods" }.copy(title = "Модерация")))
+
+        // What she has she may give below her; what a role had it keeps, or loses.
+        assertEquals(setOf(Right.Timeout, Right.Pin), save(fans.copy(rights = fans.rights + Right.Pin))?.rights)
+        assertEquals(setOf(Right.Timeout), save(fans.copy(title = "Друзья"))?.rights)
+        assertEquals(emptySet<Right>(), save(fans.copy(rights = emptySet()))?.rights)
+        assertEquals(setOf(Right.Roles), save(RoomRole("new", "Новички", rights = setOf(Right.Roles)))?.rights)
+    }
+
+    @Test
+    fun rolesMoveOnlyBelowTheirMover() {
+        fun move(id: String, to: Int) = GroupPolicy.apply(ranked, "kira", GroupChange.MoveRole(id, to), NOW)?.roles?.map { it.id }
+        assertNull(move("guests", 0))
+        assertNull(move("guests", 1))
+        assertNull(move("keepers", 0))
+        assertNull(move("mods", 3))
+        assertNull(GroupPolicy.apply(ranked, "kira", GroupChange.DeleteRole("mods"), NOW))
+        assertEquals(listOf("mods", "keepers", "guests", "fans"), move("guests", 2))
+        assertNotNull(GroupPolicy.apply(ranked, "kira", GroupChange.DeleteRole("guests"), NOW))
+    }
+
+    @Test
+    fun aRoleIsGivenOnlyBelowTheGiverAndOnlyWithWhatTheyHave() {
+        val assigning = ranked.role("keepers") { it.copy(rights = it.rights + Right.AssignRoles) }
+        fun give(state: GroupState, roleId: String, to: String = "anya") = GroupPolicy
+            .apply(state, "kira", GroupChange.AssignRole(to, roleId, on = true), NOW)
+            ?.members?.first { it.username == to }?.roles
+        assertNull(give(assigning, "mods"))
+        assertNull(give(assigning, "keepers"))
+        assertNull(give(assigning, "guests", to = "kira"))
+        // The fans may time people out, which she may not; the guests see the closed channel, which she does not.
+        assertNull(give(assigning, "fans"))
+        assertNull(give(assigning, "guests"))
+        assertEquals(listOf("guests"), give(assigning.channel("c2") { it.copy(hiddenFrom = it.hiddenFrom + "guests") }, "guests"))
+        assertEquals(listOf("fans"), give(assigning.role("keepers") { it.copy(rights = it.rights + Right.Timeout) }, "fans"))
+    }
+
+    @Test
+    fun onlyAnAdminMakesAdminsAndNeverOfThemselves() {
+        // Kira may add admins through her role, yet every admin would stand above her: she makes none, herself least.
+        val appointing = ranked.role("keepers") { it.copy(rights = it.rights + Right.AddAdmins) }
+        assertNull(GroupPolicy.apply(appointing, "kira", GroupChange.Admin("kira", emptySet()), NOW))
+        assertNull(GroupPolicy.apply(appointing, "kira", GroupChange.Admin("anya", emptySet()), NOW))
+
+        fun lead(change: GroupChange.Admin) =
+            GroupPolicy.apply(ranked, "lead", change, NOW)?.members?.first { it.username == change.username }
+        assertEquals(setOf(Right.Ban, Right.Pin), lead(GroupChange.Admin("anya", setOf(Right.Ban, Right.Pin)))?.rights)
+        assertNull(lead(GroupChange.Admin("anya", setOf(Right.Roles))))
+        assertNull(lead(GroupChange.Admin("lead", setOf(Right.AddAdmins, Right.Ban, Right.Pin))))
+        assertEquals(setOf(Right.Ban), lead(GroupChange.Admin("lead", setOf(Right.Ban)))?.rights)
+        assertEquals(GroupRole.Member, lead(GroupChange.Admin("lead", null))?.role)
+    }
+
+    @Test
+    fun anAdminLeavesTheOwnerAndOtherAdminsAlone() {
+        fun lead(change: GroupChange) = GroupPolicy.apply(ranked, "lead", change, NOW)
+        assertNull(lead(GroupChange.Admin("admin", setOf(Right.Ban))))
+        assertNull(lead(GroupChange.Admin("admin", null)))
+        assertNull(lead(GroupChange.Admin("owner", setOf(Right.Ban))))
+        assertNull(lead(GroupChange.Remove("admin")))
+        assertNull(lead(GroupChange.Ban("owner")))
+        assertNotNull(lead(GroupChange.Remove("kira")))
+    }
+
+    @Test
+    fun nobodyRaisesTheirOwnRights() {
+        // Here everyone may change the details, and so what every member may do, but only within what they may do.
+        val open = ranked.copy(memberRights = ranked.memberRights + Right.EditInfo)
+        fun set(actor: String, rights: Set<Right>) = GroupPolicy.apply(open, actor, GroupChange.MemberRights(rights), NOW)?.memberRights
+        assertNull(set("anya", open.memberRights + Right.Ban))
+        assertNull(set("kira", open.memberRights + Right.AssignRoles))
+        assertNull(set("lead", open.memberRights + Right.Roles))
+        assertEquals(open.memberRights + Right.Roles, set("kira", open.memberRights + Right.Roles))
+        assertEquals(open.memberRights - Right.Media, set("anya", open.memberRights - Right.Media))
+    }
+
+    @Test
+    fun theOwnerMayDoAllOfIt() {
+        val everything = Right.entries.toSet()
+        listOf(
+            GroupChange.SaveRole(RoomRole("keepers", "Хранители", rights = everything)),
+            GroupChange.SaveRole(RoomRole("new", "Новички", rights = everything)),
+            GroupChange.MoveRole("guests", 0),
+            GroupChange.DeleteRole("mods"),
+            GroupChange.AssignRole("anya", "mods", on = true),
+            GroupChange.AssignRole("kira", "fans", on = true),
+            GroupChange.Admin("admin", everything),
+            GroupChange.Admin("lead", null),
+            GroupChange.Admin("kira", everything),
+            GroupChange.MemberRights(everything),
+            GroupChange.Remove("admin"),
+        ).forEach { change ->
+            val next = applied(GroupPolicy.apply(ranked, "owner", change, NOW))
+            assertTrue("$change", GroupPolicy.admits(ranked, next, "owner"))
+        }
+    }
+
+    @Test
+    fun aStateThatRaisesItsSenderIsRefused() {
+        // Kira's role may change roles, give them, change the details and add admins.
+        val able = ranked.role("keepers") { it.copy(rights = setOf(Right.Roles, Right.AssignRoles, Right.EditInfo, Right.AddAdmins)) }
+        val keepers = able.roles.first { it.id == "keepers" }
+        val raised = listOf(
+            "kira" to able.role("keepers") { it.copy(rights = it.rights + Right.Ban) },
+            "kira" to able.copy(roles = listOf(keepers) + able.roles.filter { it != keepers }),
+            "kira" to able.copy(roles = listOf(RoomRole("new", "Новички")) + able.roles),
+            "kira" to able.copy(roles = able.roles.filter { it != keepers }),
+            "kira" to able.role("fans") { it.copy(rights = it.rights + Right.Ban) },
+            "kira" to able.copy(roles = able.roles + RoomRole("new", "Новички", rights = setOf(Right.Ban))),
+            "kira" to able.member("anya") { it.copy(roles = listOf("guests")) },
+            "kira" to able.member("anya") { it.copy(roles = listOf("fans")) },
+            "kira" to able.copy(memberRights = able.memberRights + Right.Ban),
+            "kira" to able.member("kira") { it.copy(role = GroupRole.Admin, rights = emptySet()) },
+            "kira" to able.member("anya") { it.copy(role = GroupRole.Admin, rights = emptySet()) },
+            "lead" to able.member("lead") { it.copy(rights = it.rights.orEmpty() + Right.Roles) },
+            "lead" to able.member("admin") { it.copy(rights = setOf(Right.Ban)) },
+            "lead" to able.member("admin") { it.copy(role = GroupRole.Member, rights = null) },
+            "lead" to able.member("anya") { it.copy(role = GroupRole.Admin, rights = setOf(Right.Roles)) },
+            "lead" to able.member("lead") { it.copy(role = GroupRole.Owner, rights = null) },
+        ).map { (sender, state) -> sender to state.copy(version = able.version + 1) }
+
+        raised.forEach { (sender, incoming) ->
+            assertFalse("$sender: $incoming", GroupPolicy.admits(able, incoming, sender))
+            assertTrue("owner: $incoming", GroupPolicy.admits(able, incoming, "owner"))
+        }
+    }
+
+    @Test
     fun everyHonestChangePassesTheGuard() {
         val invite = GroupInvite("abcdefgh", "Друзья")
         val changes = listOf(
@@ -228,11 +364,25 @@ class GroupPolicyTest {
             GroupChange.AssignRole("mod", "mods", on = false),
         )
         changes.forEach { assertNotNull("$it", GroupPolicy.apply(guarded, "owner", it, NOW)) }
-        listOf("owner", "admin", "mod", "anya", "guard").forEach { actor ->
-            changes.forEach { change ->
-                GroupPolicy.apply(guarded, actor, change, NOW)?.let { next ->
-                    assertTrue("$actor: $change", GroupPolicy.admitsVisibility(guarded, next, actor))
-                }
+        val byKira = listOf(
+            GroupChange.SaveRole(RoomRole("guests", "Гости", rights = setOf(Right.Pin))),
+            GroupChange.SaveRole(RoomRole("newer", "Новенькие", rights = setOf(Right.Roles))),
+            GroupChange.MoveRole("guests", 2),
+            GroupChange.DeleteRole("guests"),
+        )
+        val byLead = listOf(
+            GroupChange.Admin("anya", setOf(Right.Ban)),
+            GroupChange.Admin("lead", setOf(Right.Ban)),
+            GroupChange.Admin("lead", null),
+        )
+        byKira.forEach { assertNotNull("kira: $it", GroupPolicy.apply(ranked, "kira", it, NOW)) }
+        byLead.forEach { assertNotNull("lead: $it", GroupPolicy.apply(ranked, "lead", it, NOW)) }
+        val tries = listOf(guarded to changes, ranked to changes + byKira + byLead).flatMap { (state, list) ->
+            state.members.flatMap { member -> list.map { Triple(state, member.username, it) } }
+        }
+        tries.forEach { (state, actor, change) ->
+            GroupPolicy.apply(state, actor, change, NOW)?.let { next ->
+                assertTrue("$actor: $change", GroupPolicy.admits(state, next, actor))
             }
         }
     }
@@ -243,6 +393,26 @@ class GroupPolicyTest {
         channels = room.channels.map { if (it.id == "c2") it.copy(hiddenFrom = it.hiddenFrom + "guards") else it },
         roles = room.roles + RoomRole("guards", "Охрана", rights = setOf(Right.Ban)),
     )
+
+    /**
+     * [room] with Kira, whose keepers' role may change roles and nothing more: it ranks under the moderators and above
+     * the fans, who may time people out, and the guests. The closed channel is shut to the keepers and the fans, open to
+     * the moderators and the guests. Lead is an admin who may add admins and ban, no more.
+     */
+    private val ranked = room.copy(
+        members = room.members + GroupMember("kira", GroupRole.Member, roles = listOf("keepers")) +
+            GroupMember("lead", GroupRole.Admin, rights = setOf(Right.AddAdmins, Right.Ban)),
+        channels = room.channels.map { if (it.id == "c2") it.copy(hiddenFrom = it.hiddenFrom + setOf("keepers", "fans")) else it },
+        roles = listOf(
+            room.roles.first { it.id == "mods" },
+            RoomRole("keepers", "Хранители", rights = setOf(Right.Roles)),
+            RoomRole("fans", "Фанаты", rights = setOf(Right.Timeout)),
+            RoomRole("guests", "Гости"),
+        ),
+    )
+
+    private fun GroupState.role(id: String, change: (RoomRole) -> RoomRole) =
+        copy(roles = roles.map { if (it.id == id) change(it) else it })
 
     private fun GroupState.member(username: String, change: (GroupMember) -> GroupMember) =
         copy(members = members.map { if (it.username == username) change(it) else it })

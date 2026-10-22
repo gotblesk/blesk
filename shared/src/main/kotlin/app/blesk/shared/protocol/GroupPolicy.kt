@@ -269,6 +269,13 @@ object GroupPolicy {
     }
 
     /**
+     * Whether [incoming], a state from [sender], is one [sender] could reach from [current] by changes [apply] takes, as
+     * far as who sees and may do what: [admitsVisibility] and [admitsRights].
+     */
+    fun admits(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        admitsVisibility(current, incoming, sender) && admitsRights(current, incoming, sender)
+
+    /**
      * Whether [incoming], a state from [sender], shows anyone a channel [current] hides from them only where [sender]
      * may open it. Rights and ranks come from [current], the state this phone trusts; closing needs no right. A state
      * that skips versions is judged as one change by [sender].
@@ -301,13 +308,15 @@ object GroupPolicy {
     private fun mayOpen(current: GroupState, sender: String, channelId: String): Boolean =
         can(current, sender, Right.Channels) && current.channels.none { it.id == channelId && !sees(current, sender, it) }
 
+    /** Admins see every channel: a new one is made only by an admin who may add admins, as [appoints] decides. */
     private fun adminsMadeWithRight(current: GroupState, incoming: GroupState, sender: String): Boolean =
-        can(current, sender, Right.AddAdmins) ||
+        (current.isAdmin(sender) && can(current, sender, Right.AddAdmins)) ||
             incoming.members.none { incoming.isAdmin(it.username) && !current.isAdmin(it.username) }
 
     /**
-     * Every role someone gains is one [sender] could give them, as [assign] decides. A role new in [incoming] ranks
-     * where [incoming] puts it; [newRolesStayClosed] has already checked it opens nothing.
+     * Every role someone gains is one [sender] could give them, as [assign] decides, with the rights and channels
+     * [incoming] gives it. A role new in [incoming] ranks where [incoming] puts it; [newRolesStayClosed] has already
+     * checked it opens nothing.
      */
     private fun rolesGivenWithRight(current: GroupState, incoming: GroupState, sender: String): Boolean {
         val own = rank(current, sender)
@@ -316,10 +325,65 @@ object GroupPolicy {
             val had = current.members.firstOrNull { it.username == member.username }?.roles.orEmpty()
             member.roles.filter { it !in had }.all { id ->
                 val roleRank = roleRank(current, id) ?: roleRank(incoming, id)
-                assigns && roleRank != null && roleRank > own && rank(current, member.username) > own
+                assigns && roleRank != null && roleRank > own && rank(current, member.username) > own &&
+                    incoming.roles.filter { it.id == id }.all { handsOut(current, sender, it, incoming.channels) }
             }
         }
     }
+
+    /**
+     * Whether [incoming], a state from [sender], raises no one beyond what [apply] lets [sender] do, judged by the
+     * rights and ranks [current] gives them: only the owner hands the group over; rights come only from those [sender]
+     * has; the roles at and above [sender]'s own stay as they are; and an admin, once made, changes only by the owner,
+     * or downward by themselves.
+     */
+    fun admitsRights(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        current.roleOf(sender) == GroupRole.Owner || (
+            owners(incoming) == owners(current) &&
+                memberRightsGiven(current, incoming, sender) &&
+                rolesAboveKept(current, incoming, sender) &&
+                roleRightsGiven(current, incoming, sender) &&
+                adminsKept(current, incoming, sender)
+            )
+
+    private fun owners(state: GroupState) = state.members.filter { it.role == GroupRole.Owner }.map { it.username }
+
+    private fun memberRightsGiven(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        val added = incoming.memberRights - current.memberRights
+        return added.isEmpty() || (can(current, sender, Right.EditInfo) && gives(current, sender, added))
+    }
+
+    /** The roles at and above [sender]'s own keep their places and rights, and no other role joins them. */
+    private fun rolesAboveKept(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        val own = rank(current, sender)
+        fun above(state: GroupState) =
+            state.roles.filter { role -> roleRank(state, role.id)?.let { it <= own } == true }.map { it.id to it.rights }
+        return above(incoming) == above(current)
+    }
+
+    /** A role gains only rights [sender] has, and only if [sender] may change roles. */
+    private fun roleRightsGiven(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        val gained = incoming.roles.flatMapTo(mutableSetOf()) { role ->
+            role.rights - current.roles.firstOrNull { it.id == role.id }?.rights.orEmpty()
+        }
+        return gained.isEmpty() || (can(current, sender, Right.Roles) && gives(current, sender, gained))
+    }
+
+    /**
+     * Another admin stays as they were, and [sender] changes only downward, as [admin] decides; a new admin, made as
+     * [adminsMadeWithRight] decides, gets only rights [sender] has.
+     */
+    private fun adminsKept(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        incoming.members.all { member ->
+            val before = current.members.firstOrNull { it.username == member.username }?.let(::adminRights)
+            val after = adminRights(member)
+            when {
+                after == before -> true
+                member.username == sender -> after == null || before?.containsAll(after) == true
+                before != null -> false
+                else -> gives(current, sender, after.orEmpty())
+            }
+        }
 
     /** Where a role puts its holders in [rank]; null for an id that is not one of the room's roles. */
     private fun roleRank(state: GroupState, roleId: String): Int? =
@@ -337,7 +401,10 @@ object GroupPolicy {
                 description = change.description?.let { TextSafety.clean(it, multiline = true).take(MAX_DESCRIPTION) } ?: state.description,
                 hue = change.hue ?: state.hue,
             ).logged(now, actor, LogAction.Edited)
-            is GroupChange.MemberRights -> if (!owner && !allowed(Right.EditInfo)) null else {
+            // A right every member gets is a right given: the actor adds only those they have themselves.
+            is GroupChange.MemberRights -> if (!allowed(Right.EditInfo) || !gives(state, actor, change.rights - state.memberRights)) {
+                null
+            } else {
                 state.copy(memberRights = change.rights).logged(now, actor, LogAction.Rights)
             }
             is GroupChange.Admin -> admin(state, actor, change, now)
@@ -373,17 +440,28 @@ object GroupPolicy {
         return next?.copy(version = state.version + 1)
     }
 
-    private fun admin(state: GroupState, actor: String, change: GroupChange.Admin, now: Long): GroupState? {
-        if (!can(state, actor, Right.AddAdmins)) return null
-        val target = state.members.firstOrNull { it.username == change.username } ?: return null
-        if (target.role == GroupRole.Owner) return null
-        val actorRights = if (state.roleOf(actor) == GroupRole.Owner) {
-            Right.entries.toSet()
-        } else {
-            state.members.first { it.username == actor }.rights ?: Right.ADMIN_ALL
+    /**
+     * Whether [actor] may make [username] an admin, change their rights or make them a member again. The owner may,
+     * for anyone but themselves. Otherwise only an admin with the right, and only for a member or themselves: admins
+     * stand level, so none changes another. A member with the right may not use it: an admin they made would stand
+     * above them and see every channel, and they could make themselves one.
+     */
+    fun appoints(state: GroupState, actor: String, username: String): Boolean {
+        val target = state.roleOf(username) ?: return false
+        if (target == GroupRole.Owner || !can(state, actor, Right.AddAdmins)) return false
+        return when (state.roleOf(actor)) {
+            GroupRole.Owner -> true
+            GroupRole.Admin -> target == GroupRole.Member || username == actor
+            else -> false
         }
-        // An admin cannot hand out rights they do not have.
-        if (change.rights != null && !actorRights.containsAll(change.rights)) return null
+    }
+
+    /** An admin's rights gain only what the actor has, and their own nothing at all; they may keep what they had. */
+    private fun admin(state: GroupState, actor: String, change: GroupChange.Admin, now: Long): GroupState? {
+        if (!appoints(state, actor, change.username)) return null
+        val target = state.members.first { it.username == change.username }
+        val added = change.rights.orEmpty() - adminRights(target).orEmpty()
+        if (added.isNotEmpty() && (target.username == actor || !gives(state, actor, added))) return null
         val updated = if (change.rights == null) {
             target.copy(role = GroupRole.Member, rights = null)
         } else {
@@ -408,7 +486,6 @@ object GroupPolicy {
 
     private fun rooms(state: GroupState, actor: String, change: GroupChange, now: Long): GroupState? {
         val channels = can(state, actor, Right.Channels)
-        val roles = can(state, actor, Right.Roles)
         return when (change) {
             is GroupChange.RenameChannel -> if (!channels) null else state.copy(
                 channels = state.channels.map {
@@ -431,24 +508,41 @@ object GroupPolicy {
                     channels = state.channels.map { if (it.id == change.id) it.copy(hiddenFrom = change.fromRoles) else it },
                 ).logged(now, actor, LogAction.Channel, change.id)
             }
-            is GroupChange.SaveRole -> if (!roles) null else saveRole(state, actor, change.role, now)
-            is GroupChange.MoveRole -> if (!roles) null else state.copy(roles = state.roles.moved(change.id, change.to, RoomRole::id))
-            is GroupChange.DeleteRole -> if (!roles) null else state.copy(
+            is GroupChange.AssignRole -> assign(state, actor, change, now)
+            else -> roles(state, actor, change, now)
+        }
+    }
+
+    /** Roles are made, changed, moved and deleted by someone who may change roles, and only below them. */
+    private fun roles(state: GroupState, actor: String, change: GroupChange, now: Long): GroupState? {
+        if (!can(state, actor, Right.Roles)) return null
+        return when (change) {
+            is GroupChange.SaveRole -> saveRole(state, actor, change.role, now)
+            // From below the actor to below them: their own role and those above stay where they are.
+            is GroupChange.MoveRole -> if (!outranks(state, actor, change.id)) {
+                null
+            } else {
+                state.copy(roles = state.roles.moved(change.id, change.to, RoomRole::id)).takeIf { outranks(it, actor, change.id) }
+            }
+            is GroupChange.DeleteRole -> if (!outranks(state, actor, change.id)) null else state.copy(
                 roles = state.roles.filterNot { it.id == change.id },
                 members = state.members.map { it.copy(roles = it.roles - change.id) },
             ).logged(now, actor, LogAction.Role, change.id)
-            is GroupChange.AssignRole -> assign(state, actor, change, now)
             else -> null
         }
     }
 
     /**
-     * A new role starts closed out of every channel closed to everyone: otherwise whoever may make roles and give
-     * them would open such a channel to anyone, themselves too, by a role made a moment ago.
+     * A role is made or changed only below the actor, and gains only rights they have; it keeps those it had. A new one
+     * goes last, below whoever makes it unless they hold no role and so stand below every one. It starts closed out of
+     * every channel closed to everyone: otherwise whoever may make roles and give them would open such a channel to
+     * anyone, themselves too, by a role made a moment ago.
      */
-    private fun saveRole(state: GroupState, actor: String, saved: RoomRole, now: Long): GroupState {
+    private fun saveRole(state: GroupState, actor: String, saved: RoomRole, now: Long): GroupState? {
         val role = saved.copy(title = TextSafety.clean(saved.title).take(MAX_TITLE))
-        val next = if (state.roles.any { it.id == role.id }) {
+        val old = state.roles.firstOrNull { it.id == role.id }
+        if (!gives(state, actor, role.rights - old?.rights.orEmpty())) return null
+        val next = if (old != null) {
             state.copy(roles = state.roles.map { if (it.id == role.id) role else it })
         } else {
             state.copy(
@@ -456,15 +550,18 @@ object GroupPolicy {
                 channels = state.channels.map { if (EVERYONE in it.hiddenFrom) it.copy(hiddenFrom = it.hiddenFrom + role.id) else it },
             )
         }
-        return next.logged(now, actor, LogAction.Role, role.title)
+        return next.takeIf { outranks(it, actor, role.id) }?.logged(now, actor, LogAction.Role, role.title)
     }
 
-    /** A role may be given only by someone above it, to someone below them. */
+    /**
+     * A role may be given only by someone above it, to someone below them, and only if it brings nothing the giver
+     * lacks: otherwise an account of theirs would get a right or a channel they do not have.
+     */
     private fun assign(state: GroupState, actor: String, change: GroupChange.AssignRole, now: Long): GroupState? {
         if (!can(state, actor, Right.AssignRoles)) return null
-        val roleRank = roleRank(state, change.roleId) ?: return null
-        val own = rank(state, actor)
-        if (roleRank <= own || rank(state, change.username) <= own) return null
+        val role = state.roles.firstOrNull { it.id == change.roleId } ?: return null
+        if (!outranks(state, actor, role.id) || rank(state, change.username) <= rank(state, actor)) return null
+        if (change.on && !handsOut(state, actor, role)) return null
         return state.copy(
             members = state.members.map {
                 when {
@@ -475,6 +572,30 @@ object GroupPolicy {
             },
         ).logged(now, actor, LogAction.Role, change.username)
     }
+
+    /**
+     * Whether [actor] stands above the role [roleId], and so may change, move, delete and give it. The owner stands
+     * above every role, admins above all the room's roles, a member above those below their highest one.
+     */
+    fun outranks(state: GroupState, actor: String, roleId: String): Boolean =
+        state.roleOf(actor) == GroupRole.Owner || (roleRank(state, roleId) ?: return false) > rank(state, actor)
+
+    /** Whether [actor] has every one of [rights]: no one hands on a right they do not have. */
+    private fun gives(state: GroupState, actor: String, rights: Set<Right>): Boolean = rights.all { can(state, actor, it) }
+
+    /**
+     * Whether [actor] may hand [role] to someone: it brings no right [actor] lacks and shows no channel of [channels]
+     * that [state] hides from them. A channel [state] does not have yet is one [actor] makes, and so sees.
+     */
+    private fun handsOut(state: GroupState, actor: String, role: RoomRole, channels: List<GroupChannel> = state.channels) =
+        gives(state, actor, role.rights) &&
+            channels.all { channel ->
+                role.id in channel.hiddenFrom || state.channels.none { it.id == channel.id && !sees(state, actor, it) }
+            }
+
+    /** What [member] may do as an admin; null for the owner and for members. */
+    private fun adminRights(member: GroupMember): Set<Right>? =
+        if (member.role == GroupRole.Admin) member.rights ?: Right.ADMIN_ALL else null
 
     private fun GroupState.logged(now: Long, actor: String, action: LogAction, target: String = "") =
         copy(log = (log + LogEntry(now, actor, action, target)).takeLast(MAX_LOG))

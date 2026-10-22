@@ -140,10 +140,11 @@ internal class GroupEngine(
 
     suspend fun remove(groupId: String, username: String) = change(groupId, GroupChange.Remove(username))
 
-    suspend fun setRole(groupId: String, username: String, role: GroupRole) = change(groupId) { state ->
-        val refused = role == GroupRole.Owner || state.roleOf(username) == GroupRole.Owner ||
-            (state.roleOf(me) != GroupRole.Owner && role == GroupRole.Admin)
-        if (refused) null else state.copy(members = state.members.map { if (it.username == username) it.copy(role = role) else it })
+    /** Makes [username] an admin with every admin right, or a member again; the group is handed over only by a transfer. */
+    suspend fun setRole(groupId: String, username: String, role: GroupRole) = when (role) {
+        GroupRole.Owner -> false
+        GroupRole.Admin -> change(groupId, GroupChange.Admin(username, Right.ADMIN_ALL))
+        GroupRole.Member -> change(groupId, GroupChange.Admin(username, null))
     }
 
     suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) = change(groupId) { state ->
@@ -299,9 +300,10 @@ internal class GroupEngine(
             GroupPolicy.manages(current, sender) && incoming.version > current.version
         }
         if (!trusted) return UpdateOutcome.Ignored
-        // Refused whole: mended field by field, it would become a state no phone made. This phone stays behind until
-        // a state it can take arrives, and messages written in the newer one wait for that.
-        if (current != null && !mayMake(current, incoming, sender)) return UpdateOutcome.Refused
+        // Taken only as a state the sender could have made from ours, or a modified app would give itself rights and
+        // channels in one step. Refused whole: mended field by field, it would become a state no phone made. This
+        // phone stays behind until a state it can take arrives, and messages written in the newer one wait for that.
+        if (current != null && !GroupPolicy.admits(current, incoming, sender)) return UpdateOutcome.Refused
         when {
             incoming.roleOf(me) != null -> {
                 val taken = cleaned(incoming)
@@ -313,18 +315,6 @@ internal class GroupEngine(
             else -> return UpdateOutcome.Ignored
         }
         return UpdateOutcome.Taken
-    }
-
-    /**
-     * Whether [sender] may turn [current] into [incoming], as far as this phone checks: only the owner hands the group
-     * over, and no one lets more people see a channel, by opening it, giving a role or making an admin, without the
-     * right to.
-     */
-    private fun mayMake(current: GroupState, incoming: GroupState, sender: String): Boolean {
-        val owner = incoming.members.firstOrNull { it.role == GroupRole.Owner }?.username
-        val previous = current.members.firstOrNull { it.role == GroupRole.Owner }?.username
-        val ownerKept = owner == previous || current.roleOf(sender) == GroupRole.Owner
-        return ownerKept && GroupPolicy.admitsVisibility(current, incoming, sender)
     }
 
     /** Titles come from another phone: cleaned here as if typed on this one. */

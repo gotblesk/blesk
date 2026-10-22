@@ -591,6 +591,41 @@ class GroupEngineTest {
     }
 
     @Test
+    fun aStateThatRaisesItsSenderIsRefusedWhileTheOwnersIsTaken() = runBlocking {
+        // Carol's role may change roles and add admins; it ranks under the moderators' and does not see the closed
+        // channel. Erin is an account of hers.
+        val keepers = RoomRole("keepers", "Хранители", rights = setOf(Right.Roles, Right.AddAdmins))
+        val room = roomOf(version = 1, ourRoles = emptyList()).let { state ->
+            state.copy(
+                roles = state.roles + keepers,
+                members = state.members.map { if (it.username == "carol") it.copy(roles = listOf(keepers.id)) else it } +
+                    GroupMember("erin", GroupRole.Member),
+                channels = state.channels.map {
+                    if (GroupPolicy.EVERYONE in it.hiddenFrom) it.copy(hiddenFrom = it.hiddenFrom + keepers.id) else it
+                },
+            )
+        }
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+        val closed = GroupEngine.channelConversation(ROOM, CLOSED_ID)
+
+        // Her role gives itself the right to give roles and goes to the top; then she hands Erin the moderators' role.
+        fun GroupState.member(username: String, change: (GroupMember) -> GroupMember) =
+            copy(members = members.map { if (it.username == username) change(it) else it })
+        val assigning = keepers.copy(rights = keepers.rights + Right.AssignRoles)
+        val raised = room.copy(version = 2, roles = listOf(assigning) + room.roles - keepers)
+        val given = raised.copy(version = 3).member("erin") { it.copy(roles = listOf(MODS)) }
+        val crowned = room.copy(version = 2).member("carol") { it.copy(role = GroupRole.Admin) }
+        listOf(raised, given, crowned).forEach { assertEquals(UpdateOutcome.Refused, engine.onUpdate("carol", it)) }
+        assertEquals(room.version, engine.state(ROOM)?.version)
+        assertEquals(room.roles, engine.state(ROOM)?.roles)
+        assertEquals(room.members, engine.state(ROOM)?.members)
+        assertFalse("erin" in GroupPolicy.readers(engine.state(ROOM)!!, closed))
+
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", given))
+        assertTrue("erin" in GroupPolicy.readers(engine.state(ROOM)!!, closed))
+    }
+
+    @Test
     fun losingAChannelTakesItsMessagesAndFilesOffThePhone() = runBlocking {
         engine.onUpdate("bob", roomOf(version = 1))
         val open = GroupEngine.channelConversation(ROOM, OPEN_ID)
