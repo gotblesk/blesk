@@ -104,7 +104,7 @@
     <string name="devices_active_now">сейчас</string>
     <string name="devices_address">IP-адрес и город</string>
     <string name="devices_history">История входов за 30 дней</string>
-    <string name="devices_privacy">Название устройства шифруется ключом аккаунта. IP-адреса входов сервер хранит 30 дней и потом удаляет, город определяет по своей базе, без внешних запросов.</string>
+    <string name="devices_privacy">Адрес и история входов появятся, когда сервер начнёт их показывать. Сейчас сервер не хранит IP-адреса: они живут только в памяти, чтобы ограничивать частоту запросов.</string>
     <string name="settings_bots_hint">Свои боты для Bot API</string>
     <string name="bots_title">Боты</string>
     <string name="bots_note">Бот — это программа, которая отвечает в чате. Переписка с ботами не шифруется сквозным шифрованием: сервер её видит. Как написать бота — в docs/BOT_API.md.</string>
