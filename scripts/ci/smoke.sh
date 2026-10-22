@@ -38,6 +38,8 @@ adb wait-for-device
 # Text goes in through `input text`; an on-screen keyboard would only cover the buttons.
 adb shell ime list -s | while read -r ime; do adb shell ime disable "$ime" >/dev/null; done
 adb reverse tcp:8443 tcp:443
+# Crash and «not responding» dialogs of other apps would cover the screen being read.
+adb shell settings put global hide_error_dialogs 1
 adb install -r "$apk"
 adb shell pm grant "$package" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 adb shell am start -W -n "$package/.MainActivity" >/dev/null

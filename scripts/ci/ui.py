@@ -65,6 +65,16 @@ def on_screen(node, height):
     return right > left and bottom > top and top >= 0 and bottom <= height
 
 
+def dismiss_not_responding(all_nodes):
+    """A slow emulator now and then shows «... isn't responding» over everything; waiting is the answer."""
+    stuck = any(re.search(r"isn.t responding|не отвечает", node.get("text") or "") for node in all_nodes)
+    wait = [node for node in all_nodes if shows(node, "Wait") or shows(node, "Подождать")]
+    if stuck and wait:
+        tap_node(wait[0])
+        return True
+    return False
+
+
 def find(text, seconds, scroll=False, kind=lambda node: True):
     """The node of [kind] showing [text]. With [scroll] the screen moves in short slow steps, first
     down the page and then back up, since a long swipe flings past what it looks for."""
@@ -73,6 +83,9 @@ def find(text, seconds, scroll=False, kind=lambda node: True):
     steps = 0
     while True:
         all_nodes = nodes()
+        if dismiss_not_responding(all_nodes):
+            time.sleep(1)
+            continue
         found = [node for node in all_nodes if shows(node, text) and kind(node)]
         visible = [node for node in found if on_screen(node, height)]
         if visible:
