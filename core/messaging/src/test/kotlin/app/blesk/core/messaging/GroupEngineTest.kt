@@ -541,6 +541,17 @@ class GroupEngineTest {
     }
 
     @Test
+    fun aMessageForNoChatOfTheRoomIsDropped() {
+        val state = roomOf(version = 5)
+        // We and Dave see «эфир», but a voice channel has no chat on the phone; nor does a channel with no name.
+        for (conversation in listOf(GroupEngine.channelConversation(ROOM, VOICE_ID), GroupEngine.channelConversation(ROOM, ""))) {
+            assertEquals(conversation, Admission.Drop, engine.admission(state, conversation, "dave", text("сюда")))
+            assertEquals(conversation, Admission.Drop, engine.admission(state, conversation, "dave", reaction()))
+        }
+        assertEquals(Admission.Store, engine.admission(state, ROOM, "dave", text("в саму комнату")))
+    }
+
+    @Test
     fun aHeldMessageComesBackOnceItsStateArrives() = runBlocking {
         engine.onUpdate("bob", roomOf(version = 1, ourRoles = emptyList()))
         val closed = GroupEngine.channelConversation(ROOM, CLOSED_ID)

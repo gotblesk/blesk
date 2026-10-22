@@ -233,12 +233,14 @@ internal class GroupEngine(
         state.roleOf(username) != null && GroupPolicy.canWrite(state, username, conversationId)
 
     /**
-     * What this phone does with [content], from [sender] in [conversationId], by its own [state]: keeps it only if we
-     * both may read there and, for what only a writer sends, [sender] may write there. Otherwise it waits if [sender]
-     * wrote it in a newer state than ours, one that may let us read it, and is dropped if not.
+     * What this phone does with [content], from [sender] in [conversationId], by its own [state]: keeps it only in a
+     * chat we have, the group or a text channel we see, if [sender] may read there too and, for what only a writer
+     * sends, write there. Otherwise it waits if [sender] wrote it in a newer state than ours, one that may let us read
+     * it, and is dropped if not.
      */
     fun admission(state: GroupState, conversationId: String, sender: String, content: Content): Admission {
-        val readable = GroupPolicy.reads(state, me, conversationId) && GroupPolicy.reads(state, sender, conversationId)
+        val chat = conversationId == state.id || GroupPolicy.channelOf(state, conversationId)?.kind == GroupChannelKind.Text
+        val readable = chat && GroupPolicy.reads(state, me, conversationId) && GroupPolicy.reads(state, sender, conversationId)
         val written = (content.body !is Body.Text && content.body !is Body.Timer) || canPost(state, conversationId, sender)
         return when {
             readable && written -> Admission.Store
