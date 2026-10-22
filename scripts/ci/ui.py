@@ -61,8 +61,11 @@ def screen_size():
 
 
 def on_screen(node, height):
+    """In the middle of the screen: the floating top and bottom lenses of blesk lie over the content
+    near the edges, and a tap there would land on them instead."""
     left, top, right, bottom = bounds(node)
-    return right > left and bottom > top and top >= 0 and bottom <= height
+    middle = (top + bottom) // 2
+    return right > left and bottom > top and height * 0.15 <= middle <= height * 0.78
 
 
 def dismiss_not_responding(all_nodes):
@@ -87,7 +90,8 @@ def find(text, seconds, scroll=False, kind=lambda node: True):
             time.sleep(1)
             continue
         found = [node for node in all_nodes if shows(node, text) and kind(node)]
-        visible = [node for node in found if on_screen(node, height)]
+        # Without scrolling there is nothing to wait for but the node itself, wherever it is.
+        visible = [node for node in found if on_screen(node, height) or not scroll]
         if visible:
             return visible[0], all_nodes
         if time.monotonic() > deadline:
