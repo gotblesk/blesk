@@ -460,12 +460,15 @@ internal class GroupEngine(
         val missing = readers - holders.orEmpty().toSet()
         if (missing.isEmpty()) return id
         val distribution = withContext(Dispatchers.IO) { crypto.distribution(id) }
-        missing.forEach { reader ->
-            outbox.queue(reader, Content(UUID.randomUUID().toString(), clock(), Body.SenderKey(state.id, state.epoch, distribution)))
-        }
-        // Not one transaction with the read above: the group may be gone by now, and then no key of it is written.
         val handedOut = encodeNames(holders.orEmpty() + missing)
-        db.groups().putSenderKey(GroupSenderKeyEntity(state.id, scope, id.toString(), state.epoch, handedOut))
+        // Queued and noted together: a send cut short between the two would leave the key on its way to someone not on
+        // the list, and it would stay in use after they lost the right to read.
+        db.withTransaction {
+            missing.forEach { reader ->
+                outbox.queue(reader, Content(UUID.randomUUID().toString(), clock(), Body.SenderKey(state.id, state.epoch, distribution)))
+            }
+            db.groups().putSenderKey(GroupSenderKeyEntity(state.id, scope, id.toString(), state.epoch, handedOut))
+        }
         return id
     }
 

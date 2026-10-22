@@ -50,6 +50,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.signal.libsignal.protocol.message.SenderKeyDistributionMessage
 import org.signal.libsignal.protocol.message.SenderKeyMessage
+import java.io.IOException
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
@@ -85,10 +86,11 @@ class GroupEngineTest {
     }
 
     /**
-     * Updates go into the phone's real outbox table, so a change cut short shows what it left there; sender keys and
-     * group messages only note whom they are for and which key they are, by its distribution id, and voice keys whom
-     * they are for and which they are. While [keyOut] is set, handing out a sender key waits for it; an update to [updateHeldFor] waits
-     * for good. [afterUpdate] runs once an update is queued.
+     * Updates and sender keys go into the phone's real outbox table, so a change or a send cut short shows what it left
+     * there; sender keys and group messages also note whom they are for and which key they are, by its distribution id,
+     * and voice keys whom they are for and which they are. While [keyOut] is set, handing out a sender key waits for it;
+     * one for [keyRefusedFor] fails, as a full disk would fail it; an update to [updateHeldFor] waits for good.
+     * [afterUpdate] runs once an update is queued.
      */
     private inner class HeldOutbox : GroupOutbox {
         val sealedTo = CopyOnWriteArrayList<String>()
@@ -106,6 +108,9 @@ class GroupEngineTest {
         var keyOut: CompletableDeferred<Unit>? = null
 
         @Volatile
+        var keyRefusedFor: String? = null
+
+        @Volatile
         var updateHeldFor: String? = null
 
         override suspend fun queue(recipient: String, content: Content) {
@@ -115,7 +120,10 @@ class GroupEngineTest {
                         keysHeld.incrementAndGet()
                         gate.await()
                     }
-                    keysTo += recipient to SenderKeyDistributionMessage(Base64.getDecoder().decode(body.distribution)).distributionId
+                    if (recipient == keyRefusedFor) throw IOException("no room for the key")
+                    val json = storageJson.encodeToString(Content.serializer(), content)
+                    db.outbox().insert(OutboxEntity(recipient = recipient, content = json, createdAt = content.sentAtMillis))
+                    keysTo += recipient to distributionOf(body)
                 }
                 is Body.GroupUpdate -> {
                     if (recipient == updateHeldFor) {
@@ -161,9 +169,10 @@ class GroupEngineTest {
         val sending = launch(Dispatchers.IO) { engine.send(group, text("всем")) }
         untilAKeyIsHeld()
         // Carol leaves while our key is on its way: the group moves to a new epoch without her.
-        engine.onLeave("carol", group)
+        val leaving = launch(Dispatchers.IO) { engine.onLeave("carol", group) }
+        withTimeoutOrNull(GRACE) { leaving.join() }
         keyOut.complete(Unit)
-        sending.join()
+        joinAll(sending, leaving)
 
         val state = engine.state(group)!!
         assertEquals(listOf(ME, "bob"), state.members.map { it.username })
@@ -181,9 +190,10 @@ class GroupEngineTest {
         val keyOut = CompletableDeferred<Unit>().also { outbox.keyOut = it }
         val sending = launch(Dispatchers.IO) { engine.send(group, text("всем")) }
         untilAKeyIsHeld()
-        engine.leave(group)
+        val leaving = launch(Dispatchers.IO) { engine.leave(group) }
+        withTimeoutOrNull(GRACE) { leaving.join() }
         keyOut.complete(Unit)
-        sending.join()
+        joinAll(sending, leaving)
 
         assertNull(engine.state(group))
         assertNull(db.conversations().get(group))
@@ -433,9 +443,11 @@ class GroupEngineTest {
         val sending = launch(Dispatchers.IO) { engine.send(club.open, text("всем")) }
         untilAKeyIsHeld()
         // The channel is closed to all but the moderators while our key for the whole room is on its way to Carol too.
-        engine.change(club.id, GroupChange.HideChannel(club.openChannel, setOf(GroupPolicy.EVERYONE)))
+        val closed = GroupChange.HideChannel(club.openChannel, setOf(GroupPolicy.EVERYONE))
+        val closing = launch(Dispatchers.IO) { engine.change(club.id, closed) }
+        withTimeoutOrNull(GRACE) { closing.join() }
         keyOut.complete(Unit)
-        sending.join()
+        joinAll(sending, closing)
         val roomKey = outbox.sealed.first().second
         outbox.keyOut = null
         outbox.forgetSent()
@@ -445,6 +457,26 @@ class GroupEngineTest {
         assertEquals("bob", sent.first)
         assertNotEquals(roomKey, sent.second)
         assertEquals(listOf(sent), outbox.keysTo.toList())
+    }
+
+    @Test
+    fun aKeyThatCouldNotGoToAllItsNewReadersWentToNone() = runBlocking {
+        val club = club(listOf("bob", "carol", "dave"))
+        engine.send(club.closed, text("модераторам"))
+        engine.change(club.id, GroupChange.AssignRole("carol", MODS, on = true))
+        engine.change(club.id, GroupChange.AssignRole("dave", MODS, on = true))
+        // Our key is queued for Carol, then cannot be for Dave: the send stops halfway.
+        outbox.keyRefusedFor = "dave"
+        assertTrue(runCatching { engine.send(club.closed, text("всем троим")) }.isFailure)
+        outbox.keyRefusedFor = null
+        engine.change(club.id, GroupChange.AssignRole("carol", MODS, on = false))
+        outbox.forgetSent()
+        engine.send(club.closed, text("без Кэрол"))
+
+        val key = outbox.sealed.map { it.second }.distinct().single()
+        assertEquals(listOf("bob", "dave"), outbox.sealed.map { it.first })
+        // A key of ours waits to go only to those who still read where it is used.
+        assertEquals(listOf("bob", "dave"), keysQueuedFor(key))
     }
 
     @Test
@@ -796,6 +828,15 @@ class GroupEngineTest {
     }
 
     private fun Body.VoiceKey.access() = VoiceAccess(room, key)
+
+    private fun distributionOf(key: Body.SenderKey): UUID =
+        SenderKeyDistributionMessage(Base64.getDecoder().decode(key.distribution)).distributionId
+
+    /** Everyone our sender key [id] waits in the outbox for, in the order it was queued. */
+    private suspend fun keysQueuedFor(id: UUID): List<String> = db.outbox().all().mapNotNull { row ->
+        val key = storageJson.decodeFromString(Content.serializer(), row.content).body as? Body.SenderKey
+        row.recipient.takeIf { key != null && distributionOf(key) == id }
+    }
 
     private fun mediaKey(seed: Int): String = Base64.getEncoder().encodeToString(ByteArray(Calls.KEY_BYTES) { seed.toByte() })
 
