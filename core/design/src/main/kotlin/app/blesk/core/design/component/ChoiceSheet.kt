@@ -42,7 +42,7 @@ fun ChoiceSheet(title: String, choices: List<Choice>, onDismiss: () -> Unit, tex
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = SCRIM))
+            .background(Color.Black.copy(alpha = SHEET_SCRIM))
             .dismissOnTap(onDismiss),
     ) {
         Column(
@@ -107,5 +107,3 @@ private fun ChoiceRow(label: String, color: Color, onClick: () -> Unit) {
         Text(label, style = Blesk.type.bodyStrong, color = color, textAlign = TextAlign.Center)
     }
 }
-
-private const val SCRIM = 0.35f

@@ -36,13 +36,13 @@ import app.blesk.core.design.component.HeaderArt
 import app.blesk.core.design.component.HeaderStyle
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.ListRow
+import app.blesk.core.design.component.MenuSheet
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.component.avatarHue
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
-import app.blesk.feature.chats.MenuSheet
 import app.blesk.feature.chats.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

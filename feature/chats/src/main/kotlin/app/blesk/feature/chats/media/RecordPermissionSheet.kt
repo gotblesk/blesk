@@ -15,10 +15,10 @@ import androidx.compose.ui.unit.dp
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Card
+import app.blesk.core.design.component.MenuSheet
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
-import app.blesk.feature.chats.MenuSheet
 import app.blesk.feature.chats.R
 
 /**

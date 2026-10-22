@@ -1,27 +1,13 @@
 package app.blesk.feature.chats
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Message
@@ -30,12 +16,8 @@ import app.blesk.core.design.component.Choice
 import app.blesk.core.design.component.ChoiceSheet
 import app.blesk.core.design.component.ClusterAction
 import app.blesk.core.design.component.ListRow
-import app.blesk.core.design.component.Text
-import app.blesk.core.design.component.blockTaps
-import app.blesk.core.design.component.dismissOnTap
-import app.blesk.core.design.component.dragToDismiss
+import app.blesk.core.design.component.MenuSheet
 import app.blesk.core.design.icon.BleskIcons
-import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -201,35 +183,6 @@ fun ChatMenu(
     }
 }
 
-/** A matte sheet at the bottom over a dimmed screen, titled with what it acts on; a tap outside or a swipe down closes it. */
-@Composable
-internal fun MenuSheet(title: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    BackHandler(onBack = onDismiss)
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = SCRIM))
-            .dismissOnTap(onDismiss),
-    ) {
-        Column(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .dragToDismiss(onDismiss)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(Blesk.dimens.gutter)
-                .blockTaps(),
-        ) {
-            Text(
-                text = title,
-                style = Blesk.type.headline,
-                maxLines = 1,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-            )
-            content()
-        }
-    }
-}
-
 @Composable
 private fun MuteChoices(now: Long, onChoose: (Long) -> Unit) {
     muteChoices(now).forEach { (label, until) ->
@@ -244,5 +197,4 @@ private fun muteChoices(now: Long) = listOf(
     R.string.chats_mute_forever to Long.MAX_VALUE,
 )
 
-private const val SCRIM = 0.35f
 private const val HOUR = 3_600_000L

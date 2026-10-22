@@ -29,6 +29,7 @@ import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.Choice
 import app.blesk.core.design.component.ChoiceSheet
 import app.blesk.core.design.component.Icon
+import app.blesk.core.design.component.MenuSheet
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.SlideToConfirm
 import app.blesk.core.design.component.Tag
@@ -39,7 +40,6 @@ import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
-import app.blesk.feature.chats.MenuSheet
 import app.blesk.feature.chats.R
 import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannel

@@ -26,12 +26,12 @@ import app.blesk.core.data.settings.LockRules
 import app.blesk.core.data.settings.LockUnlock
 import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ListRow
+import app.blesk.core.design.component.MenuSheet
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
-import app.blesk.feature.chats.MenuSheet
 import app.blesk.feature.chats.R
 import kotlinx.collections.immutable.toImmutableList
 

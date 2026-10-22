@@ -29,6 +29,7 @@ import app.blesk.core.design.component.Card
 import app.blesk.core.design.component.ClusterAction
 import app.blesk.core.design.component.GroupAvatar
 import app.blesk.core.design.component.ListRow
+import app.blesk.core.design.component.MenuSheet
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
@@ -41,7 +42,6 @@ import app.blesk.feature.chats.Archive
 import app.blesk.feature.chats.ArchiveActions
 import app.blesk.feature.chats.ArchiveKind
 import app.blesk.feature.chats.EncryptionRow
-import app.blesk.feature.chats.MenuSheet
 import app.blesk.feature.chats.R
 import app.blesk.feature.chats.TimerSection
 import app.blesk.feature.chats.locks.ChatLockEntry
