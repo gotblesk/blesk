@@ -65,9 +65,15 @@ ui type "Инвайт-код" "$invite"
 ui type "Имя пользователя" "$username"
 shot filled
 ui tap "Создать аккаунт"
-ui wait "Фраза восстановления" 120
-shot registered
 
-taken=$(curl -fsS --cacert "$root/deploy/certs/blesk.crt" "https://127.0.0.1/v1/usernames/$username" | jq -r .available)
+# Signed up means both sides agree: the server holds the name and the app logged that it moved to it.
+taken=
+for _ in $(seq 60); do
+    taken=$(curl -fsS --cacert "$root/deploy/certs/blesk.crt" "https://127.0.0.1/v1/usernames/$username" | jq -r .available || true)
+    [[ $taken == false ]] && break
+    sleep 2
+done
 [[ $taken == false ]] || fail "the server has no account $username"
+adb logcat -d -s blesk:I | grep -q ServerRegistered || fail "the app never logged ServerRegistered"
+shot registered
 echo "smoke test passed: @$username signed up on the test server"
