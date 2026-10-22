@@ -17,7 +17,9 @@ mkdir -p "$shots"
 
 pin=$(openssl x509 -in "$root/deploy/certs/blesk.crt" -pubkey -noout | openssl pkey -pubin -outform DER |
     openssl dgst -sha256 -binary | base64)
-invite=$("$server" invites | head -n 1)
+# Taken whole and cut here: head would stop reading, and pipefail would fail on the writer it cut off.
+invites=$("$server" invites)
+invite=${invites%%$'\n'*}
 [[ -n $invite ]] || { echo "the test server has no bootstrap invites left" >&2; exit 1; }
 username="smoke_$(date +%s)"
 step=0
@@ -74,6 +76,7 @@ for _ in $(seq 60); do
     sleep 2
 done
 [[ $taken == false ]] || fail "the server has no account $username"
-adb logcat -d -s blesk:I | grep -q ServerRegistered || fail "the app never logged ServerRegistered"
+journal=$(adb logcat -d -s blesk:I)
+[[ $journal == *ServerRegistered* ]] || fail "the app never logged ServerRegistered"
 shot registered
 echo "smoke test passed: @$username signed up on the test server"

@@ -86,11 +86,21 @@ EOF
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
+    # Images often mask the apt timers to keep apt free on first boot; enabling a masked unit fails.
+    systemctl unmask apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1
     systemctl enable --now unattended-upgrades apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 ||
         die "не удалось включить обновления безопасности: systemctl status unattended-upgrades"
     [[ $(apt-config dump APT::Periodic::Unattended-Upgrade) == *'"1"'* ]] ||
         die "обновления безопасности выключены в настройках apt"
-    systemctl is-active --quiet apt-daily-upgrade.timer || die "таймер обновлений безопасности не работает"
+    local timer
+    for timer in apt-daily.timer apt-daily-upgrade.timer; do
+        systemctl is-active --quiet "$timer" || systemctl restart "$timer" >/dev/null 2>&1
+        if ! systemctl is-active --quiet "$timer"; then
+            systemctl status "$timer" --no-pager >&2 || true
+            systemctl cat "$timer" --no-pager >&2 || true
+            die "таймер обновлений безопасности $timer не работает: состояние выше"
+        fi
+    done
 
     install -d /etc/systemd/journald.conf.d
     cat >/etc/systemd/journald.conf.d/blesk.conf <<EOF
@@ -288,7 +298,7 @@ configure_calls() {
 make_certificate() {
     local ip=$1 crt="$CERT_DIR/blesk.crt" key="$CERT_DIR/blesk.key"
     mkdir -p "$CERT_DIR"
-    if [[ -f "$crt" && -f "$key" ]] && openssl x509 -in "$crt" -noout -ext subjectAltName 2>/dev/null | grep -q "IP Address:$ip\$"; then
+    if [[ -f "$crt" && -f "$key" && $'\n'$(openssl x509 -in "$crt" -noout -ext subjectAltName 2>/dev/null)$'\n' == *"IP Address:$ip"$'\n'* ]]; then
         return
     fi
     say "Создаю сертификат для $ip"
@@ -345,21 +355,36 @@ harden_ssh() {
     done
     say "Вход по SSH — только по ключу"
     install -d -m 755 /etc/ssh/sshd_config.d
-    # sshd keeps the first value it reads and takes the drop-ins in name order, so 10- outranks
-    # 50-cloud-init.conf, which turns passwords back on in cloud images.
+    # sshd keeps the first value it reads. Hosting images turn passwords on in sshd_config itself or
+    # in drop-ins named to sort before ours (50-cloud-init.conf, 00-<hoster>.conf), and some leave out
+    # the Include line, so every yes is turned off where it stands and the drop-ins are read first.
     cat >/etc/ssh/sshd_config.d/10-blesk.conf <<EOF
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 EOF
+    grep -qiE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/\*\.conf' /etc/ssh/sshd_config ||
+        sed -i '1i Include /etc/ssh/sshd_config.d/*.conf' /etc/ssh/sshd_config
+    local file
+    for file in /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf; do
+        [[ -f $file ]] || continue
+        sed -i -E 's/^([[:space:]]*)(PasswordAuthentication|KbdInteractiveAuthentication|ChallengeResponseAuthentication)([[:space:]]+)yes([[:space:]]*)$/\1\2\3no\4/I' "$file"
+    done
     if ! sshd -t; then
         rm -f /etc/ssh/sshd_config.d/10-blesk.conf
         warn "sshd отверг настройки, вход по паролю оставлен"
         return 0
     fi
     systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
-    sshd -T 2>/dev/null | grep -qx 'passwordauthentication no' ||
-        warn "sshd всё ещё разрешает вход по паролю: проверьте /etc/ssh/sshd_config"
+    # Read whole, not piped into grep -q: grep stops at the match, sshd dies writing the rest, and
+    # pipefail would count that as a failed check.
+    local effective
+    effective=$(sshd -T 2>/dev/null || true)
+    if ! grep -qx 'passwordauthentication no' <<<"$effective"; then
+        grep -rniE '^[[:space:]]*(Include|PasswordAuthentication|KbdInteractiveAuthentication)' \
+            /etc/ssh/sshd_config /etc/ssh/sshd_config.d >&2 || true
+        warn "sshd всё ещё разрешает вход по паролю: строки выше показывают, где"
+    fi
 }
 
 # Writes deploy/backup.env when the backup settings are passed in, and keeps the nightly timer in
@@ -518,7 +543,7 @@ recreate_mounted() {
 wait_until_ready() {
     say "Жду, пока сервер ответит"
     for _ in $(seq 1 90); do
-        if stack exec -T caddy wget -qO- http://server:8080/health 2>/dev/null | grep -q '"ok"'; then
+        if [[ $(stack exec -T caddy wget -qO- http://server:8080/health 2>/dev/null) == *'"ok"'* ]]; then
             return
         fi
         sleep 2

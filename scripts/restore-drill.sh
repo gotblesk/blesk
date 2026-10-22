@@ -69,7 +69,7 @@ if [[ ${BLESK_DRILL_SERVER:-1} == 1 ]]; then
     compose up -d --build server
     answered=""
     for _ in $(seq 1 90); do
-        if docker run --rm --quiet --network "${COMPOSE_PROJECT}_default" alpine:3.22 wget -qO- http://server:8080/v1/info 2>/dev/null | grep -q '"blesk"'; then
+        if [[ $(docker run --rm --quiet --network "${COMPOSE_PROJECT}_default" alpine:3.22 wget -qO- http://server:8080/v1/info 2>/dev/null) == *'"blesk"'* ]]; then
             answered=1
             break
         fi

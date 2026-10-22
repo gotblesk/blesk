@@ -20,7 +20,7 @@ apply() {
     # Ours are recognised by their comment and replaced as a whole, so a change of numbers takes effect.
     # They go by number: a rule printed by -S does not always read back as the same rule for -D.
     local number
-    while number=$("$tables" -n -L DOCKER-USER --line-numbers | awk -v tag="/* $rule_comment */" 'index($0, tag) { print $1; exit }') &&
+    while number=$("$tables" -n -L DOCKER-USER --line-numbers | awk -v tag="/* $rule_comment */" 'index($0, tag) && !found { print $1; found = 1 }') &&
         [[ -n $number ]]; do
         "$tables" -D DOCKER-USER "$number"
     done

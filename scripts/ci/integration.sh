@@ -15,7 +15,9 @@ while read -r line; do
     [[ $line == BLESK_IT_*=* ]] && export "${line%%=*}=${line#*=}"
 done <<<"$config"
 
-BLESK_IT_INVITES=$("$server" invites | head -n 1)
+# Taken whole and cut here: head would stop reading, and pipefail would fail on the writer it cut off.
+invites=$("$server" invites)
+BLESK_IT_INVITES=${invites%%$'\n'*}
 [[ -n $BLESK_IT_INVITES ]] || { echo "the test server has no bootstrap invites left" >&2; exit 1; }
 export BLESK_IT_INVITES
 
