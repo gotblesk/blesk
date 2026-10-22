@@ -3,6 +3,8 @@ package app.blesk.screenshots
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.onRoot
 import androidx.test.core.app.ApplicationProvider
 import app.blesk.BleskApplication
 import app.blesk.core.design.theme.LocalClock
@@ -37,6 +39,16 @@ internal fun captureFrozen(path: String, content: @Composable () -> Unit) {
     captureRoboImage(path) {
         CompositionLocalProvider(LocalClock provides { Frozen.moment }) { content() }
     }
+}
+
+/** As [captureFrozen], once [act] has tapped through [content] to what the picture shows. */
+internal fun ComposeContentTestRule.captureFrozen(path: String, act: ComposeContentTestRule.() -> Unit, content: @Composable () -> Unit) {
+    Frozen.prepare(ApplicationProvider.getApplicationContext())
+    setContent {
+        CompositionLocalProvider(LocalClock provides { Frozen.moment }) { content() }
+    }
+    act()
+    onRoot().captureRoboImage(path)
 }
 
 /** The whole app, as the smoke tests drive it, with its clock stopped at [Frozen.moment]. */

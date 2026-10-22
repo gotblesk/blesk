@@ -14,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -64,15 +63,15 @@ sealed interface ChannelTarget {
 }
 
 /**
- * The room's channels in order. Whoever may manage channels taps or long-presses one for
- * «Изменить», «Права», «Выше», «Ниже» and «Удалить» (with a slider), and adds new ones with «+ Канал».
+ * The room's channels in order. Whoever may manage channels taps or long-presses one for its menu
+ * and adds new ones with «+ Канал»; what opens goes to [onTarget], for [ChannelSheets] to show over
+ * the whole screen rather than inside its scrolling content.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun ChannelsSection(env: ManageEnv, actions: GroupActions) {
+internal fun ChannelsSection(env: ManageEnv, onTarget: (ChannelTarget) -> Unit) {
     val manage = env.can(Right.Channels)
     val haptics = rememberHaptics()
-    var target by remember { mutableStateOf<ChannelTarget?>(null) }
     val visible = env.state.channels.filter { GroupPolicy.sees(env.state, env.me, it) }
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
         visible.forEach { channel ->
@@ -85,9 +84,9 @@ internal fun ChannelsSection(env: ManageEnv, actions: GroupActions) {
                         role = Role.Button,
                         onLongClick = {
                             haptics.menu()
-                            target = ChannelTarget.Menu(channel.id)
+                            onTarget(ChannelTarget.Menu(channel.id))
                         },
-                        onClick = { target = ChannelTarget.Menu(channel.id) },
+                        onClick = { onTarget(ChannelTarget.Menu(channel.id)) },
                     )
                     .padding(horizontal = Blesk.dimens.gutter, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -121,16 +120,15 @@ internal fun ChannelsSection(env: ManageEnv, actions: GroupActions) {
         Button(
             text = stringResource(R.string.channel_add_capsule),
             kind = ButtonKind.Secondary,
-            onClick = { target = ChannelTarget.Add },
+            onClick = { onTarget(ChannelTarget.Add) },
             modifier = Modifier.padding(Blesk.dimens.gutter),
         )
     }
-    ChannelSheets(env, actions, target) { target = it }
 }
 
 /**
- * The menu and sheets for a room's channels, wherever they were asked for: the room's details or
- * the room's cluster in the list. Shown only to those who may manage channels.
+ * [ChannelSheets] for the room's cluster in the list, which has no [ManageEnv] of its own; the
+ * room's details show the same sheets with theirs. Shown only to those who may manage channels.
  */
 @Composable
 fun RoomChannelSheets(
@@ -155,12 +153,16 @@ fun RoomChannelSheets(
         onGone = {},
         refused = { notify(refused) },
     )
-    if (!env.can(Right.Channels)) return
     ChannelSheets(env, actions, target, onTarget)
 }
 
+/**
+ * The menu of a channel and its «Изменить», «Права» and «Удалить» sheets, or «+ Канал»: whichever
+ * [target] names. Drawn over the screen, so it is placed beside the screen's content, not in it.
+ */
 @Composable
-private fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: ChannelTarget?, onTarget: (ChannelTarget?) -> Unit) {
+internal fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: ChannelTarget?, onTarget: (ChannelTarget?) -> Unit) {
+    if (!env.can(Right.Channels)) return
     val close = { onTarget(null) }
     fun channel(id: String) = env.state.channels.firstOrNull { it.id == id }
     when (target) {
