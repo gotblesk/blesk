@@ -606,6 +606,18 @@ class GroupEngineTest {
         assertEquals(listOf(file.id), purged.map { it.id })
     }
 
+    @Test
+    fun aGroupIdThatNamesAChatOfOursTakesNothingOffThePhone() = runBlocking {
+        val chat = stored("dave", "привет", at = 1, attachment = PLAN)
+        // Anyone may ask to join any group; this asks for one named like our chat with Dave.
+        engine.onJoinRequest("mallory", Body.JoinRequest("dave", "code"))
+        val notOurs = stateOf(1, GroupMember("mallory", GroupRole.Owner)).copy(id = "dave")
+        assertEquals(UpdateOutcome.Ignored, engine.onUpdate("mallory", notOurs))
+
+        assertNotNull(db.messages().get(chat.id))
+        assertEquals(emptyList<MessageEntity>(), purged.toList())
+    }
+
     /** A room of ours: Bob holds the moderators' role, the only one that sees [closed]; Carol has no role. */
     private class Club(val id: String, val openChannel: String, val closedChannel: String) {
         val open = GroupEngine.channelConversation(id, openChannel)

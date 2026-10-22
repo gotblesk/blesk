@@ -494,10 +494,12 @@ internal class GroupEngine(
      * Takes off the phone the messages of [groupId] the stored state does not let us read, files and search entries
      * with them: those of channels we do not see or that are gone, and all of a group let go of. Runs after the
      * commit that changed the state, so files go only with rows that are gone for good; what a crash leaves between
-     * the two, [tidy] takes on the next start.
+     * the two, [tidy] takes on the next start. An id this phone never had as a group is left alone: it comes from
+     * whoever asked to join or sent a state, and may name one of our other chats.
      */
     private suspend fun purge(groupId: String) {
         val state = state(groupId)
+        if (state == null && db.groups().leftGroup(groupId) == null) return
         val kept = state?.let { channelsWeRead(it).map { channel -> channelConversation(groupId, channel.id) } }.orEmpty()
         val lost = db.messages().channelsWithMessages(groupId).filter { it !in kept } + listOfNotNull(groupId.takeIf { state == null })
         if (lost.isEmpty()) return
