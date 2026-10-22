@@ -74,8 +74,11 @@ import java.io.File
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-/** Process-wide dependencies, built once in [BleskApplication]. */
-class AppContainer(context: Context) {
+/**
+ * Process-wide dependencies, built once in [BleskApplication]. [clock] is the app's «now»: the
+ * demo world dates its messages by it and every screen reads it through `LocalClock`.
+ */
+class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
     val eventLog = EventLog()
 
     /** Background work never takes the app down; a failure is noted in the debug journal instead. */
@@ -132,7 +135,7 @@ class AppContainer(context: Context) {
     /** Trims and joins recordings before they are sent. */
     val trimmer = MediaTrimmer(context, media)
     val demo: DemoRepository by lazy {
-        DemoRepository(DemoSeed.from(context.resources, Instant.now()), context.resources::attachmentLabel, scope, eventLog)
+        DemoRepository(DemoSeed.from(context.resources, clock()), context.resources::attachmentLabel, scope, eventLog, clock)
     }
 
     private val appContext = context.applicationContext

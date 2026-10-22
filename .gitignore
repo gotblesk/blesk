@@ -27,3 +27,9 @@ legacy/server/prisma/dev.db
 legacy/server/prisma/dev.db-journal
 deploy/backup.env
 __pycache__/
+
+# The test server of scripts/ci/test-server.sh and deploy.sh on a server
+deploy/certs/*
+!deploy/certs/.gitkeep
+deploy/site-dist/
+deploy/.livekit.sha256

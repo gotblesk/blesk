@@ -117,6 +117,7 @@ import app.blesk.core.design.motion.rememberLoopPhase
 import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.motion.sharedElement
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.media.CircleOverlay
 import app.blesk.feature.chats.media.LocalMediaController
@@ -139,7 +140,6 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.PI
 import kotlin.math.sin
@@ -789,7 +789,7 @@ private fun ChatHeader(
     blocked: Boolean = false,
 ) {
     val protected = conversation.protection == Protection.EndToEnd
-    val now = Instant.now()
+    val now = LocalClock.current()
     val encryption = stringResource(if (protected) R.string.chat_e2ee_spoken else R.string.chat_not_e2ee_spoken)
     val status = when {
         typing -> stringResource(R.string.chats_typing)

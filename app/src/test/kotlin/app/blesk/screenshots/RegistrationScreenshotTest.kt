@@ -15,16 +15,12 @@ import app.blesk.shared.appearance.ThemeSpec
 import app.blesk.shared.protocol.InviteInfo
 import app.blesk.shared.protocol.InviteList
 import app.blesk.shared.protocol.Invites
-import com.github.takahirom.roborazzi.captureRoboImage
-import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.Duration
-import java.time.Instant
-import java.util.TimeZone
 
 /** Registration on blesk's own server by invite, and the invites every account hands out. */
 @RunWith(ParameterizedRobolectricTestRunner::class)
@@ -32,10 +28,10 @@ import java.util.TimeZone
 @Config(sdk = [36], qualifiers = "w400dp-h860dp-xxhdpi")
 class RegistrationScreenshotTest(private val name: String) {
     private val theme = ThemeSpec.presets.first { it.preset.name.lowercase() == name }
-    private val now = Instant.parse("2026-10-11T15:00:00Z")
+    private val now = Frozen.moment
 
     private fun capture(screen: String, textScale: Float = 1f, content: @Composable () -> Unit) {
-        captureRoboImage("build/screenshots/${screen}_$name.png") {
+        captureFrozen("build/screenshots/${screen}_$name.png") {
             BleskTheme(appearance = Appearance(theme = theme, textScale = textScale), motion = BleskMotion(reduced = true)) { content() }
         }
     }
@@ -100,11 +96,5 @@ class RegistrationScreenshotTest(private val name: String) {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun themes(): List<Array<Any>> = ThemeSpec.presets.map { arrayOf(it.preset.name.lowercase()) }
-
-        @JvmStatic
-        @BeforeClass
-        fun fixTimeZone() {
-            TimeZone.setDefault(TimeZone.getTimeZone("Europe/Moscow"))
-        }
     }
 }

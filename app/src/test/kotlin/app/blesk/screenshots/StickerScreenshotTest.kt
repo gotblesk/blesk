@@ -2,7 +2,6 @@ package app.blesk.screenshots
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
@@ -43,19 +42,15 @@ import app.blesk.feature.chats.stickers.StickerSetsScreen
 import app.blesk.feature.chats.stickers.StickerSource
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
-import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.junit.Before
-import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
-import java.time.Instant
-import java.util.TimeZone
 
 /** Stickers: the panel, a sticker in the chat, the sets and the maker, in every theme. */
 @RunWith(ParameterizedRobolectricTestRunner::class)
@@ -64,7 +59,7 @@ import java.util.TimeZone
 class StickerScreenshotTest(private val name: String) {
     private val theme = ThemeSpec.presets.first { it.preset.name.lowercase() == name }
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val now = Instant.parse("2026-10-11T15:00:00Z")
+    private val now = Frozen.moment
     private val seed by lazy { DemoSeed.from(context.resources, now) }
 
     private lateinit var stickers: List<Sticker>
@@ -79,9 +74,6 @@ class StickerScreenshotTest(private val name: String) {
             file.outputStream().use { sticker.compress(Bitmap.CompressFormat.PNG, 100, it) }
             Sticker(id = "s$index", file = file.name, emoji = EMOJI[index], format = StickerFormat.Static, path = file.path)
         }
-        // Robolectric's native graphics set themselves up on the first decode; several image
-        // loader threads doing it at once abort the process, so one decode here comes first.
-        BitmapFactory.decodeFile(stickers.first().path)
     }
     private val set by lazy { StickerSet(id = "own", title = "Мои стикеры", stickers = stickers) }
     private val library by lazy { StickerLibrary(sets = listOf(set), favorites = listOf("s2"), recent = listOf("s0", "s3")) }
@@ -209,7 +201,7 @@ class StickerScreenshotTest(private val name: String) {
     private fun Sticker.attachment() = Attachment.Sticker(path, emoji, format)
 
     private fun capture(screen: String, content: @Composable () -> Unit) {
-        captureRoboImage("build/screenshots/${screen}_$name.png") {
+        captureFrozen("build/screenshots/${screen}_$name.png") {
             BleskTheme(appearance = Appearance(theme = theme), motion = BleskMotion(reduced = true)) { content() }
         }
     }
@@ -221,11 +213,5 @@ class StickerScreenshotTest(private val name: String) {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun themes(): List<Array<Any>> = ThemeSpec.presets.map { arrayOf(it.preset.name.lowercase()) }
-
-        @JvmStatic
-        @BeforeClass
-        fun fixTimeZone() {
-            TimeZone.setDefault(TimeZone.getTimeZone("Europe/Moscow"))
-        }
     }
 }

@@ -6,7 +6,6 @@ import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.settings.TermsScreen
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
@@ -21,7 +20,7 @@ class TermsScreenshotTest(private val name: String) {
     private val theme = ThemeSpec.presets.first { it.preset.name.lowercase() == name }
 
     private fun capture(screen: String, textScale: Float = 1f, content: @Composable () -> Unit) {
-        captureRoboImage("build/screenshots/${screen}_$name.png") {
+        captureFrozen("build/screenshots/${screen}_$name.png") {
             BleskTheme(appearance = Appearance(theme = theme, textScale = textScale), motion = BleskMotion(reduced = true)) { content() }
         }
     }

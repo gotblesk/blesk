@@ -49,6 +49,7 @@ import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.NoticeHost
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskThemeWithWave
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.core.motion.BleskMotion
 import app.blesk.core.motion.Durations
 import app.blesk.core.motion.LocalHapticLevel
@@ -103,6 +104,7 @@ class MainActivity : ComponentActivity() {
             AskForNotifications(container)
             val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
             CompositionLocalProvider(
+                LocalClock provides container.clock,
                 LocalHapticLevel provides vibration.toHapticLevel(),
                 LocalNotices provides container.notices,
                 LocalPictureInPicture provides pictureInPicture,

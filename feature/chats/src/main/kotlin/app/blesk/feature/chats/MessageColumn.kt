@@ -122,6 +122,7 @@ import app.blesk.core.design.metaball.Blob
 import app.blesk.core.design.metaball.lerp
 import app.blesk.core.design.metaball.metaballs
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.core.design.theme.OnOwnBubble
 import app.blesk.core.motion.Durations
 import app.blesk.core.motion.rememberHaptics
@@ -849,8 +850,9 @@ internal fun statusLabel(status: SendStatus) = when (status) {
  */
 @Composable
 private fun rememberRemaining(sentAt: Instant, expiresAt: Instant): State<Float> {
+    val clock = LocalClock.current
     val total = (expiresAt.toEpochMilli() - sentAt.toEpochMilli()).coerceAtLeast(1)
-    fun left() = ((expiresAt.toEpochMilli() - System.currentTimeMillis()).toFloat() / total).coerceIn(0f, 1f)
+    fun left() = ((expiresAt.toEpochMilli() - clock().toEpochMilli()).toFloat() / total).coerceIn(0f, 1f)
     return produceState(left(), sentAt, expiresAt) {
         // About two hundred steps over the whole life, never more often than once a second.
         val step = (total / MELT_STEPS).coerceAtLeast(MIN_MELT_STEP_MILLIS)

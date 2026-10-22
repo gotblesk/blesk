@@ -11,6 +11,7 @@ import app.blesk.core.data.ChatRepository
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.settings.ChatLocks
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.feature.chats.ChatMenu
 import app.blesk.feature.chats.ChatMenuActions
 import app.blesk.locks.lockOf
@@ -56,7 +57,7 @@ internal fun ConversationMenu(
     }
     ChatMenu(
         conversation = conversation,
-        now = System.currentTimeMillis(),
+        now = LocalClock.current().toEpochMilli(),
         actions = chatMenuActions(chats, conversation, all, onPinLimit, delete).let { base ->
             ChatMenuActions(
                 onPin = base.onPin,

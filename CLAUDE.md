@@ -26,8 +26,10 @@
 ## Сборка
 
 - Android SDK ставит `scripts/setup-android.sh` (SessionStart-хук). В облачной сессии Maven Central подменяется зеркалом через `scripts/gradle/central-mirror.init.gradle.kts`.
-- Перед push: `./gradlew detekt testDebugUnitTest :app:recordRoborazziDebug :app:assembleRelease`. Скриншоты — в `app/build/screenshots`, смотри их глазами.
+- Перед push: `python3 scripts/ci/screenshots.py fetch`, затем `./gradlew detekt testDebugUnitTest :shared:test :detekt-rules:test :server:test :server:installDist :app:compareRoborazziDebug :app:assembleRelease`, затем `python3 scripts/ci/screenshots.py check <папка>` и `scripts/ci/integration.sh` (настоящий сервер в Docker). Эталон скриншотов — снимки последнего релиза; намеренно изменённый экран называется в `docs/RELEASE_NOTES.md` строкой «Вид изменён (сравнение со сборкой N): …». Снимки этой сборки — в папке из `check`, смотри их глазами.
 - Релизы делает `.github/workflows/build.yml` на каждый push; описание релиза — `docs/RELEASE_NOTES.md`, обнови его перед push.
+- В облачной сессии Docker-демон не запущен: `nohup dockerd >/tmp/dockerd.log 2>&1 &` перед `integration.sh`. Если Docker Hub отвечает 429, образ берётся с `mirror.gcr.io/<имя>` и получает прежний тег (`docker tag`).
+- CI на каждый push: всё из проверки выше, плюс дым-тест релизного APK на эмуляторе (`scripts/ci/smoke.sh`). Упавший шаг останавливает релиз и деплой.
 
 ## Устройство кода
 
@@ -44,5 +46,6 @@
 - `:app` — навигация (Navigation 3), `AppContainer`, звонки (`calls`: активность, сервис, уведомления, core-telecom), фон (`background`: уведомления, «всегда на связи»).
 - `:third-party:audioswitch` — исходники форка AudioSwitch, нужного LiveKit (на Maven его нет), подставляются вместо JitPack.
 - `:server` — Ktor + PostgreSQL + Flyway, вложения файлами на диске (или MinIO), LiveKit-токены, Bot API, инвайты, `/health`; `deploy/` и `scripts/deploy.sh` — установка на VPS.
+- `:integration` — тест клиентов против настоящего сервера в Docker (`scripts/ci/integration.sh`); без сервера задача пропускается.
 - `site/` — статический сайт blesk.su (без фреймворков), собирает `scripts/build-site.py`; Caddy отдаёт его с основного сервера.
 - `scripts/owner/` — скрипты владельца для ноутбука (главные — `.ps1` для Windows, `.sh` — запасные): установка APK, журнал, эмулятор «Б», вход на сервер, запись экрана.

@@ -48,10 +48,10 @@ import app.blesk.core.design.component.StateMessage
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.glass.lens
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.core.motion.rememberHaptics
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
-import java.time.Instant
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -125,7 +125,7 @@ fun RequestsScreen(requests: ImmutableList<Conversation>, actions: RequestAction
                     ConversationSummary(
                         conversation = request,
                         typing = false,
-                        now = Instant.now(),
+                        now = LocalClock.current(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(role = Role.Button) { actions.onOpen(request) }

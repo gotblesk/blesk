@@ -14,10 +14,14 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.time.Instant
 
-class BleskApplication : Application() {
+open class BleskApplication : Application() {
     lateinit var container: AppContainer
         private set
+
+    /** The app's «now»; screenshot tests stop it at one moment so dates on screen never move. */
+    protected open val clock: () -> Instant = Instant::now
 
     internal lateinit var notifier: MessageNotifier
         private set
@@ -25,7 +29,7 @@ class BleskApplication : Application() {
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
-        container = AppContainer(this)
+        container = AppContainer(this, clock)
         container.crashStore.install(container.eventLog)
         container.eventLog.record(EventCode.AppStarted, BuildConfig.VERSION_CODE.toLong())
         registerActivityLifecycleCallbacks(VisibleActivities { container.visible = it })

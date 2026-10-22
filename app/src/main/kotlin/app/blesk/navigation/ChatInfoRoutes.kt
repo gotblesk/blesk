@@ -20,6 +20,7 @@ import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.ChatLocks
 import app.blesk.core.design.component.rememberNotify
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.feature.chats.ForwardScreen
 import app.blesk.feature.chats.PersonActions
 import app.blesk.feature.chats.PersonProfileScreen
@@ -74,7 +75,7 @@ internal fun ChatInfoRoute(
         conversation = current,
         username = chats.contact(id)?.username ?: id,
         verified = keyState.verified,
-        muted = current.muted(System.currentTimeMillis()),
+        muted = current.muted(LocalClock.current().toEpochMilli()),
         messages = messages.toImmutableList(),
         actions = PersonActions(
             onWrite = onWrite,

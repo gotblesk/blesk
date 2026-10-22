@@ -24,6 +24,7 @@ import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.feature.chats.ChatList
 import app.blesk.feature.chats.ChatRowPlaces
 import app.blesk.feature.chats.EmptyChats
@@ -35,7 +36,6 @@ import app.blesk.locks.setLocked
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.launch
-import java.time.Instant
 
 @Composable
 internal fun ArchiveRoute(
@@ -48,6 +48,7 @@ internal fun ArchiveRoute(
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by chats.typing.collectAsStateWithLifecycle()
+    val clock = LocalClock.current
     var menuFor by remember { mutableStateOf<Conversation?>(null) }
     val rowPlaces = remember { ChatRowPlaces() }
     // Under a chat's menu the list is darkened and softly blurred; the lifted row stays sharp.
@@ -68,7 +69,7 @@ internal fun ArchiveRoute(
         ChatList(
             conversations = archived.toImmutableList(),
             typing = typing.toImmutableSet(),
-            now = remember(conversations) { Instant.now() },
+            now = remember(conversations) { clock() },
             contentPadding = padding,
             onOpenConversation = onOpenConversation,
             onOpenChannel = onOpenChannel,

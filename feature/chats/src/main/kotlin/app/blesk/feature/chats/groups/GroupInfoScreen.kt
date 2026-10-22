@@ -36,6 +36,7 @@ import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.feature.chats.Archive
 import app.blesk.feature.chats.ArchiveActions
 import app.blesk.feature.chats.ArchiveKind
@@ -87,7 +88,6 @@ class GroupInfoExtras(
     val onGone: () -> Unit = {},
     /** Opens in edit mode, as a room does right after it is made. */
     val startEditing: Boolean = false,
-    val now: Long = System.currentTimeMillis(),
     val pinned: Boolean = false,
     val archived: Boolean = false,
     /** «Закрепить» and «В архив» under «Ещё»; a room's long press in the list opens these details instead of a menu. */
@@ -128,6 +128,7 @@ fun GroupInfoScreen(
 ) {
     val scope = rememberCoroutineScope()
     val notify = rememberNotify()
+    val now = LocalClock.current().toEpochMilli()
     val room = state.kind == GroupKind.Room
     fun run(block: suspend () -> Unit) {
         scope.launch { block() }
@@ -238,7 +239,7 @@ fun GroupInfoScreen(
                     query = needle,
                 )
             }
-            ManageSection(env, extras.now) { page = it }
+            ManageSection(env, now) { page = it }
             Card(Modifier.padding(horizontal = Blesk.dimens.gutter).padding(top = Blesk.dimens.sectionGap)) {
                 ListRow(
                     title = stringResource(if (room) R.string.room_leave else R.string.group_leave_full),
@@ -260,7 +261,7 @@ fun GroupInfoScreen(
             onTheme = extras.onTheme,
             extras = extras,
         )
-        page?.let { ManageScreen(it, env, extras.now, onBack = { page = null }) }
+        page?.let { ManageScreen(it, env, now, onBack = { page = null }) }
     }
 }
 

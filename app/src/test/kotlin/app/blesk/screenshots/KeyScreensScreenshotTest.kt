@@ -176,18 +176,14 @@ import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
-import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
-import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.time.Instant
-import java.util.TimeZone
 
 /**
  * Key screens in every theme. The PNGs land in app/build/screenshots and are attached to each
@@ -199,7 +195,7 @@ import java.util.TimeZone
 class KeyScreensScreenshotTest(private val name: String) {
 
     private val theme = ThemeSpec.presets.first { it.preset.name.lowercase() == name }
-    private val now = Instant.parse("2026-10-11T15:00:00Z")
+    private val now = Frozen.moment
     private val seed by lazy { DemoSeed.from(ApplicationProvider.getApplicationContext<android.content.Context>().resources, now) }
     private val tabs = persistentListOf(
         LensTab("Чаты", BleskIcons.Chats, LivingIcon.Fill),
@@ -210,7 +206,7 @@ class KeyScreensScreenshotTest(private val name: String) {
     )
 
     private fun capture(screen: String, textScale: Float = 1f, content: @Composable () -> Unit) {
-        captureRoboImage("build/screenshots/${screen}_$name.png") {
+        captureFrozen("build/screenshots/${screen}_$name.png") {
             BleskTheme(appearance = Appearance(theme = theme, textScale = textScale), motion = BleskMotion(reduced = true)) {
                 content()
             }
@@ -780,7 +776,7 @@ class KeyScreensScreenshotTest(private val name: String) {
     /** The bar at rest with motion on: the action capsule's bridge only shows when bridges are allowed. */
     @Test
     fun navigationBridge() {
-        captureRoboImage("build/screenshots/34_navbar_bridge_$name.png") {
+        captureFrozen("build/screenshots/34_navbar_bridge_$name.png") {
             BleskTheme(appearance = Appearance(theme = theme), motion = BleskMotion(reduced = false)) {
                 LensScaffold(
                     bottom = {
@@ -1154,11 +1150,5 @@ class KeyScreensScreenshotTest(private val name: String) {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun themes(): List<Array<Any>> = ThemeSpec.presets.map { arrayOf(it.preset.name.lowercase()) }
-
-        @JvmStatic
-        @BeforeClass
-        fun fixTimeZone() {
-            TimeZone.setDefault(TimeZone.getTimeZone("Europe/Moscow"))
-        }
     }
 }

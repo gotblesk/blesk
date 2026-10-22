@@ -45,8 +45,10 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.glass.lens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.LocalClock
 import kotlinx.coroutines.delay
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -64,7 +66,7 @@ internal fun DayDivider(date: LocalDate) {
 
 @Composable
 internal fun dayLabel(date: LocalDate): String {
-    val today = LocalDate.now()
+    val today = LocalClock.current().atZone(ZoneId.systemDefault()).toLocalDate()
     return when (date) {
         today -> stringResource(R.string.chat_today)
         today.minusDays(1) -> stringResource(R.string.chat_yesterday)

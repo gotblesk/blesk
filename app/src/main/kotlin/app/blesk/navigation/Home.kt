@@ -69,6 +69,7 @@ import app.blesk.core.design.glass.TopLens
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.icon.LivingIcon
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.core.network.NetworkProxy
 import app.blesk.feature.chats.ChatList
@@ -96,7 +97,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import java.time.Instant
 import app.blesk.feature.chats.R as ChatsR
 import app.blesk.feature.settings.R as SettingsR
 
@@ -177,7 +177,8 @@ internal fun Home(
     val conversations by chats.conversations.collectAsStateWithLifecycle(initialValue = emptyList())
     val typing by chats.typing.collectAsStateWithLifecycle()
     val presence by chats.presence.collectAsStateWithLifecycle()
-    val online = remember(presence) { presence.filterValues { it.isOnline(Instant.now()) }.keys.toImmutableSet() }
+    val clock = LocalClock.current
+    val online = remember(presence) { presence.filterValues { it.isOnline(clock()) }.keys.toImmutableSet() }
     var searching by rememberSaveable { mutableStateOf(false) }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     val query = rememberTextFieldState()
@@ -311,7 +312,7 @@ internal fun Home(
                             requests = requests.toImmutableList(),
                             onOpenRequests = onOpenRequests,
                             typing = typing.toImmutableSet(),
-                            now = remember(conversations) { Instant.now() },
+                            now = remember(conversations) { clock() },
                             contentPadding = padding,
                             onOpenConversation = onOpenConversation,
                             onOpenChannel = onOpenChannel,
@@ -384,7 +385,7 @@ internal fun Home(
                     ChatList(
                         conversations = rooms.toImmutableList(),
                         typing = typing.toImmutableSet(),
-                        now = remember(conversations) { Instant.now() },
+                        now = remember(conversations) { clock() },
                         contentPadding = padding,
                         onOpenConversation = onOpenConversation,
                         onOpenChannel = onOpenChannel,

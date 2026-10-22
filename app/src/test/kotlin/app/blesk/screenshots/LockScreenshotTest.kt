@@ -19,17 +19,13 @@ import app.blesk.feature.chats.locks.ChatLocksScreen
 import app.blesk.feature.chats.locks.LockGlass
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
-import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
-import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.time.Instant
-import java.util.TimeZone
 
 /** Chats under a lock: the list, the frost over a locked chat, the settings of locks. */
 @RunWith(ParameterizedRobolectricTestRunner::class)
@@ -38,11 +34,11 @@ import java.util.TimeZone
 class LockScreenshotTest(private val name: String) {
     private val theme = ThemeSpec.presets.first { it.preset.name.lowercase() == name }
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val now = Instant.parse("2026-10-11T15:00:00Z")
+    private val now = Frozen.moment
     private val seed by lazy { DemoSeed.from(context.resources, now) }
 
     private fun capture(screen: String, content: @Composable () -> Unit) {
-        captureRoboImage("build/screenshots/${screen}_$name.png") {
+        captureFrozen("build/screenshots/${screen}_$name.png") {
             BleskTheme(appearance = Appearance(theme = theme), motion = BleskMotion(reduced = true)) { content() }
         }
     }
@@ -89,11 +85,5 @@ class LockScreenshotTest(private val name: String) {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun themes(): List<Array<Any>> = ThemeSpec.presets.map { arrayOf(it.preset.name.lowercase()) }
-
-        @JvmStatic
-        @BeforeClass
-        fun fixTimeZone() {
-            TimeZone.setDefault(TimeZone.getTimeZone("Europe/Moscow"))
-        }
     }
 }

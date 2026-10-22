@@ -11,7 +11,7 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     # A newer push makes the build of an older one pointless; a deploy already running is never cut off.
     concurrency:
       group: build-${{ github.ref }}
@@ -39,14 +39,23 @@ jobs:
             echo "BLESK_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
           fi
 
+      # The screenshots of the latest release are the reference this build's are compared with.
+      - name: Reference screenshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/screenshots.py fetch
+
       - name: Check, test and build
         env:
           BLESK_KEYSTORE_PASSWORD: ${{ secrets.BLESK_KEYSTORE_PASSWORD }}
           BLESK_KEY_ALIAS: ${{ secrets.BLESK_KEY_ALIAS }}
           BLESK_KEY_PASSWORD: ${{ secrets.BLESK_KEY_PASSWORD }}
         run: |
+          # Without it tee's success would hide a failed test or detekt, and the release would go out.
+          set -o pipefail
           ./gradlew --console=plain --continue \
-            detekt testDebugUnitTest :server:test :server:installDist :app:recordRoborazziDebug :app:assembleRelease \
+            detekt testDebugUnitTest :shared:test :detekt-rules:test :server:test :server:installDist \
+            :app:compareRoborazziDebug :app:assembleRelease \
             -Pblesk.versionCode=${{ github.run_number }} \
             -Pblesk.versionSuffix=-build.${{ github.run_number }} \
             2>&1 | tee "$RUNNER_TEMP/gradle.log"
@@ -55,11 +64,39 @@ jobs:
         if: failure()
         run: bash scripts/ci/explain-failure.sh "$RUNNER_TEMP/gradle.log"
 
+      # Nothing after this step signs anything, and the actions below need not see the key.
+      - name: Forget the release key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
+
+      - name: Check screenshots against the reference
+        run: python3 scripts/ci/screenshots.py check "$RUNNER_TEMP/screenshots"
+
+      - name: Two clients through the real server
+        run: bash scripts/ci/integration.sh
+
+      - name: Allow the emulator to use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Release APK on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash scripts/ci/smoke.sh app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/smoke"
+
       - name: Collect release files
         run: |
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk out/blesk.apk
-          cp app/build/screenshots/*.png out/
+          cp "$RUNNER_TEMP"/screenshots/*.png "$RUNNER_TEMP/screenshots/screenshots.zip" out/
           # The VPS takes this instead of building: scripts/deploy.sh, fetch_server.
           tar -czf out/blesk-server.tar.gz -C server/build/install blesk-server
           # Version, size and checksums of the APK for the site and for scripts/deploy.sh.
@@ -74,7 +111,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: reports
-          path: '**/build/reports/'
+          path: |
+            **/build/reports/
+            app/build/outputs/roborazzi/
+            ${{ runner.temp }}/smoke/
 
       - name: Publish pre-release
         env:
@@ -91,6 +131,8 @@ jobs:
             echo
             echo "SHA-256 APK: \`$apk_sha\`"
             echo "Ключ подписи (SHA-256): \`$signer\`"
+            echo
+            cat "$RUNNER_TEMP/screenshots/summary.txt"
           } > notes.md
           gh release create "$tag" out/* \
             --target "$GITHUB_SHA" \

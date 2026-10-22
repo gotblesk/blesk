@@ -26,6 +26,7 @@ import app.blesk.core.data.SpaceResult
 import app.blesk.core.data.demo.DemoRepository
 import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.core.design.component.rememberNotify
+import app.blesk.core.design.theme.LocalClock
 import app.blesk.feature.chats.ArchiveActions
 import app.blesk.feature.chats.groups.ChannelInfoActions
 import app.blesk.feature.chats.groups.ChannelInfoScreen
@@ -51,7 +52,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.Instant
 
 /** [onCreated] gets the new conversation and whether it is a closed room, whose details open first. */
 @Composable
@@ -185,8 +185,9 @@ internal fun GroupInfoRoute(
         combine(conversationIds.map { chats.messages(it) }) { lists -> lists.toList().flatten().sortedBy { it.sentAt } }
     }.collectAsStateWithLifecycle(initialValue = emptyList())
     val presence by chats.presence.collectAsStateWithLifecycle()
+    val clock = LocalClock.current
     val online = remember(presence) {
-        val now = Instant.now()
+        val now = clock()
         presence.filterValues { it.isOnline(now) }.keys.map { chats.contact(it)?.username ?: it }.toImmutableSet()
     }
     var themeSheet by remember { mutableStateOf(false) }
@@ -204,7 +205,7 @@ internal fun GroupInfoRoute(
         onTheme = { themeSheet = true },
         messages = messages.toImmutableList(),
         online = online,
-        muted = conversation?.muted(System.currentTimeMillis()) == true,
+        muted = conversation?.muted(clock().toEpochMilli()) == true,
         onMute = { mute -> chats.mute(groupId, if (mute) Long.MAX_VALUE else 0L) },
         onCall = {
             // A room talks in its voice channels; a group has no call of its own yet.
@@ -278,7 +279,7 @@ internal fun ChannelInfoRoute(
     val room = state ?: return
     val channel = room.channels.firstOrNull { it.id == id.substringAfter(':', "") } ?: return
     val notify = when {
-        conversation?.muted(System.currentTimeMillis()) == true -> ChannelNotify.Nothing
+        conversation?.muted(LocalClock.current().toEpochMilli()) == true -> ChannelNotify.Nothing
         id in notifications.mentionsOnly -> ChannelNotify.Mentions
         else -> ChannelNotify.All
     }

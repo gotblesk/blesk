@@ -22,6 +22,7 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Reaction
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.design.theme.Blesk
+import app.blesk.core.design.theme.LocalClock
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -37,19 +38,21 @@ enum class ChatMotion { Send, Receive, Status, Thread, Reaction, Delete, Melt, F
  */
 @Composable
 fun ChatMotionDemo(motion: ChatMotion, replay: Int, modifier: Modifier = Modifier) {
+    val clock = LocalClock.current
     key(replay) {
+        val now = remember { clock() }
         Column(modifier.fillMaxWidth().heightIn(min = 72.dp), verticalArrangement = Arrangement.Bottom) {
             when (motion) {
-                ChatMotion.Send -> Send()
-                ChatMotion.Receive -> Receive()
-                ChatMotion.Status -> Status()
-                ChatMotion.Thread -> Thread()
-                ChatMotion.Reaction -> Reaction()
-                ChatMotion.Delete -> Delete()
-                ChatMotion.Melt -> Melt()
-                ChatMotion.Failure -> Failure()
+                ChatMotion.Send -> Send(now)
+                ChatMotion.Receive -> Receive(now)
+                ChatMotion.Status -> Status(now)
+                ChatMotion.Thread -> Thread(now)
+                ChatMotion.Reaction -> Reaction(now)
+                ChatMotion.Delete -> Delete(now)
+                ChatMotion.Melt -> Melt(now)
+                ChatMotion.Failure -> Failure(now)
                 ChatMotion.Unread -> Unread()
-                ChatMotion.ReadMore -> ReadMore()
+                ChatMotion.ReadMore -> ReadMore(now)
             }
         }
     }
@@ -57,12 +60,12 @@ fun ChatMotionDemo(motion: ChatMotion, replay: Int, modifier: Modifier = Modifie
 
 private val QuietActions = MessageActions(onReply = null, onMenu = {}, onReact = { _, _ -> }, onApplyTheme = {})
 
-private fun demo(id: String, own: Boolean, text: String, status: SendStatus = SendStatus.Read) = Message(
+private fun demo(at: Instant, id: String, own: Boolean, text: String, status: SendStatus = SendStatus.Read) = Message(
     id = id,
     conversationId = "demo",
     authorId = if (own) ME else "anya",
     text = text,
-    sentAt = Instant.now(),
+    sentAt = at,
     status = status,
 )
 
@@ -72,29 +75,29 @@ private fun Messages(messages: ImmutableList<Message>, fresh: Set<String> = empt
 }
 
 @Composable
-private fun Send() {
-    val first = demo("a", own = true, text = "Привет!")
+private fun Send(now: Instant) {
+    val first = demo(now, "a", own = true, text = "Привет!")
     var sent by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(STEP)
         sent = true
     }
-    val messages = if (sent) persistentListOf(first, demo("b", own = true, text = "Как дела?")) else persistentListOf(first)
+    val messages = if (sent) persistentListOf(first, demo(now, "b", own = true, text = "Как дела?")) else persistentListOf(first)
     Messages(messages, fresh = setOf("b"))
 }
 
 @Composable
-private fun Receive() {
+private fun Receive(now: Instant) {
     var arrived by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(TYPING)
         arrived = true
     }
-    if (arrived) Messages(persistentListOf(demo("a", own = false, text = "Уже еду")), fresh = setOf("a")) else TypingDots()
+    if (arrived) Messages(persistentListOf(demo(now, "a", own = false, text = "Уже еду")), fresh = setOf("a")) else TypingDots()
 }
 
 @Composable
-private fun Status() {
+private fun Status(now: Instant) {
     var step by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         repeat(STATUSES.size - 1) {
@@ -102,38 +105,38 @@ private fun Status() {
             step++
         }
     }
-    Messages(persistentListOf(demo("a", own = true, text = "Отправлено, доставлено, прочитано", status = STATUSES[step])))
+    Messages(persistentListOf(demo(now, "a", own = true, text = "Отправлено, доставлено, прочитано", status = STATUSES[step])))
 }
 
 @Composable
-private fun Thread() {
+private fun Thread(now: Instant) {
     var replied by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(STEP)
         replied = true
     }
-    Messages(persistentListOf(demo("q", own = false, text = "Во сколько встречаемся?")))
+    Messages(persistentListOf(demo(now, "q", own = false, text = "Во сколько встречаемся?")))
     if (replied) {
-        val reply = demo("r", own = true, text = "В семь, у входа").copy(replyToId = "q")
+        val reply = demo(now, "r", own = true, text = "В семь, у входа").copy(replyToId = "q")
         Messages(persistentListOf(reply), fresh = setOf("r"), quotes = mapOf("q" to "Аня: Во сколько встречаемся?"))
     }
 }
 
 @Composable
-private fun Reaction() {
+private fun Reaction(now: Instant) {
     var reacted by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(STEP)
         reacted = true
     }
     val reactions = if (reacted) persistentListOf(Reaction(GLINT_REACTION, 1, mine = true)) else persistentListOf()
-    Messages(persistentListOf(demo("a", own = false, text = "Смотри, какой закат").copy(reactions = reactions)))
+    Messages(persistentListOf(demo(now, "a", own = false, text = "Смотри, какой закат").copy(reactions = reactions)))
 }
 
 @Composable
-private fun Delete() {
+private fun Delete(now: Instant) {
     var messages by remember {
-        mutableStateOf(listOf(demo("a", true, "Первое"), demo("b", true, "Это удалится"), demo("c", true, "Третье")))
+        mutableStateOf(listOf(demo(now, "a", true, "Первое"), demo(now, "b", true, "Это удалится"), demo(now, "c", true, "Третье")))
     }
     LaunchedEffect(Unit) {
         delay(STEP)
@@ -154,23 +157,22 @@ private fun Delete() {
 }
 
 @Composable
-private fun Melt() {
-    val now = remember { Instant.now() }
-    val message = demo("a", own = false, text = "Исчезнет через восемь секунд")
-        .copy(sentAt = now, expiresAt = now.plusSeconds(MELT_SECONDS))
+private fun Melt(now: Instant) {
+    val message = demo(now, "a", own = false, text = "Исчезнет через восемь секунд")
+        .copy(expiresAt = now.plusSeconds(MELT_SECONDS))
     Messages(persistentListOf(message))
 }
 
 @Composable
-private fun Failure() {
+private fun Failure(now: Instant) {
     var failed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(STEP * 2)
         failed = true
     }
     val messages = listOf(
-        demo("a", own = true, text = "Это дошло"),
-        demo("b", own = true, text = "А это нет", status = if (failed) SendStatus.Failed else SendStatus.Sending),
+        demo(now, "a", own = true, text = "Это дошло"),
+        demo(now, "b", own = true, text = "А это нет", status = if (failed) SendStatus.Failed else SendStatus.Sending),
     )
     Messages(messages.toImmutableList())
 }
@@ -190,9 +192,9 @@ private fun Unread() {
 }
 
 @Composable
-private fun ReadMore() {
+private fun ReadMore(now: Instant) {
     val text = List(LONG_LINES) { "Длинное сообщение раскрывается плавно, а соседние сдвигаются без скачка." }.joinToString(" ")
-    Messages(persistentListOf(demo("a", own = false, text = text)))
+    Messages(persistentListOf(demo(now, "a", own = false, text = text)))
 }
 
 private val STATUSES = listOf(SendStatus.Sending, SendStatus.Sent, SendStatus.Delivered, SendStatus.Read)
