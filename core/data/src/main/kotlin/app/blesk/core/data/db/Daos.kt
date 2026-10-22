@@ -134,6 +134,13 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId AND attachment IS NOT NULL")
     suspend fun withFilesIn(conversationId: String): List<MessageEntity>
 
+    /**
+     * The messages of the room's channels, `room:channel`. Every id that starts with `room:` sorts between it and
+     * `room;`, so the chat index answers this without reading the other rooms' messages, as a pattern would.
+     */
+    @Query("SELECT * FROM messages WHERE conversationId >= :roomId || ':' AND conversationId < :roomId || ';'")
+    suspend fun inChannelsOf(roomId: String): List<MessageEntity>
+
     /** Full-text search; [match] is an FTS query such as `"свет"*`. Case and Cyrillic are handled by unicode61. */
     @Query(
         "SELECT messages.* FROM messages JOIN messages_fts ON messages.rowid = messages_fts.rowid " +
@@ -292,7 +299,11 @@ interface SignalStateDao {
     fun deleteByPrefix(kind: String, prefix: String)
 }
 
+/** How many messages a group may have waiting for its state; the oldest go first. */
+const val MAX_HELD_PER_GROUP = 200
+
 @Dao
+@Suppress("TooManyFunctions") // the group, our sender keys and the messages waiting for its state live together
 interface GroupDao {
     @Query("SELECT * FROM groups WHERE id = :id")
     suspend fun get(id: String): GroupEntity?
@@ -300,10 +311,10 @@ interface GroupDao {
     @Query("SELECT * FROM groups")
     fun observeAll(): Flow<List<GroupEntity>>
 
-    /**
-     * Creates the row of a group new to this phone. The state and our sender key's holders of an existing one each
-     * have their own writer below, and neither rewrites the other.
-     */
+    @Query("SELECT * FROM groups")
+    suspend fun all(): List<GroupEntity>
+
+    /** Creates the row of a group new to this phone; the state of an existing one has its own writer below. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfAbsent(group: GroupEntity): Long
 
@@ -311,22 +322,56 @@ interface GroupDao {
     @Query("UPDATE groups SET state = :state WHERE id = :id")
     suspend fun setState(id: String, state: String): Int
 
-    @Query("UPDATE groups SET keyHolders = :holders, keyEpoch = :epoch WHERE id = :id")
-    suspend fun setKeyHolders(id: String, holders: String, epoch: Int)
-
-    /**
-     * Rewrites who holds our sender key for [epoch], reading and writing in one transaction so two sends handing the
-     * key out at once both count. [change] gets the holders on file, or null if they are of an older epoch's key. A send
-     * of an older epoch finishing late changes nothing: going back would hand the newer key out to everyone again.
-     */
-    @Transaction
-    suspend fun changeKeyHolders(id: String, epoch: Int, change: (current: String?) -> String) {
-        val row = get(id)?.takeIf { it.keyEpoch <= epoch } ?: return
-        setKeyHolders(id, change(row.keyHolders.takeIf { row.keyEpoch == epoch }), epoch)
-    }
-
     @Query("DELETE FROM groups WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("SELECT * FROM group_sender_keys WHERE groupId = :groupId AND scope = :scope")
+    suspend fun senderKey(groupId: String, scope: String): GroupSenderKeyEntity?
+
+    @Upsert
+    suspend fun upsertSenderKey(key: GroupSenderKeyEntity)
+
+    /** Writes only while the group is on this phone: a send that finishes after we left leaves no key of it behind. */
+    @Transaction
+    suspend fun putSenderKey(key: GroupSenderKeyEntity) {
+        if (get(key.groupId) != null) upsertSenderKey(key)
+    }
+
+    @Query("DELETE FROM group_sender_keys WHERE groupId = :groupId")
+    suspend fun deleteSenderKeys(groupId: String)
+
+    @Insert
+    suspend fun insertHeld(message: HeldGroupMessageEntity): Long
+
+    @Query(
+        "DELETE FROM held_group_messages WHERE groupId = :groupId AND id NOT IN " +
+            "(SELECT id FROM held_group_messages WHERE groupId = :groupId ORDER BY id DESC LIMIT :keep)",
+    )
+    suspend fun trimHeld(groupId: String, keep: Int)
+
+    /** Keeps [message] until its state arrives, and only the newest [MAX_HELD_PER_GROUP] of its group. */
+    @Transaction
+    suspend fun hold(message: HeldGroupMessageEntity) {
+        insertHeld(message)
+        trimHeld(message.groupId, MAX_HELD_PER_GROUP)
+    }
+
+    @Query("SELECT * FROM held_group_messages WHERE groupId = :groupId AND version <= :version ORDER BY id ASC")
+    suspend fun heldUpTo(groupId: String, version: Int): List<HeldGroupMessageEntity>
+
+    @Query("DELETE FROM held_group_messages WHERE groupId = :groupId AND version <= :version")
+    suspend fun deleteHeldUpTo(groupId: String, version: Int)
+
+    /** Takes the held messages a state at [version] may judge, in the order they came, off the list. */
+    @Transaction
+    suspend fun releasable(groupId: String, version: Int): List<HeldGroupMessageEntity> =
+        heldUpTo(groupId, version).also { deleteHeldUpTo(groupId, version) }
+
+    @Query("DELETE FROM held_group_messages WHERE groupId = :groupId")
+    suspend fun deleteHeld(groupId: String)
+
+    @Query("DELETE FROM held_group_messages WHERE heldAt < :at")
+    suspend fun dropHeldBefore(at: Long)
 
     @Query("SELECT * FROM left_groups WHERE id = :id")
     suspend fun leftGroup(id: String): LeftGroupEntity?

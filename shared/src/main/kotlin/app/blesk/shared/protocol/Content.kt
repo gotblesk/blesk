@@ -111,7 +111,10 @@ sealed interface Body {
     @SerialName("group_update")
     data class GroupUpdate(val state: GroupState) : Body
 
-    /** The sender's SenderKey for a group epoch, sent one-to-one so only members can read the group. */
+    /**
+     * One of the sender's SenderKeys for a group epoch: the one for everyone in the group, or for the readers of a
+     * closed channel. Sent one-to-one, only to those who may read what it encrypts.
+     */
     @Serializable
     @SerialName("sender_key")
     data class SenderKey(val groupId: String, val epoch: Int, val distribution: String) : Body

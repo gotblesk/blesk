@@ -5,6 +5,7 @@ import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.GroupEntity
+import app.blesk.core.data.db.GroupSenderKeyEntity
 import app.blesk.core.data.db.LeftGroupEntity
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Protection
@@ -24,6 +25,8 @@ import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.TextSafety
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -52,9 +55,10 @@ internal interface GroupOutbox {
 
 /**
  * Closed groups and rooms. Their state lives only on members' phones; admins change it and
- * send the new state to every member one-to-one. Messages are encrypted once with the
- * sender's SenderKey and fanned out. Leaving or removing someone moves the group to a new
- * epoch, and everyone hands out fresh sender keys to the remaining members only.
+ * send the new state to every member one-to-one. A message is encrypted once and goes only to
+ * those who may read it: everyone in the group under one of the sender's keys, the readers of a
+ * closed channel under a key of that channel. A key is not used again once someone who got it may
+ * no longer read, or once someone leaves or is removed and the group moves to a new epoch.
  *
  * Every change reads the state, works out the next one and writes it in one transaction, so another change, an
  * admin's update or someone leaving lands before or after it, never between its read and its write. What it queues
@@ -68,6 +72,9 @@ internal class GroupEngine(
     private val clock: () -> Long,
 ) {
     private val random = SecureRandom()
+
+    /** One send at a time: two at once would each find no key for an audience and hand out one of their own. */
+    private val sending = Mutex()
 
     suspend fun state(groupId: String): GroupState? =
         db.groups().get(groupId)?.let { storageJson.decodeFromString(GroupState.serializer(), it.state) }
@@ -118,13 +125,20 @@ internal class GroupEngine(
     }
 
     suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) = change(groupId) { state ->
-        if (state.kind != GroupKind.Room || state.channels.size >= MAX_CHANNELS) return@change state
-        state.copy(channels = state.channels + GroupChannel(newId(), title.trim().take(MAX_TITLE), kind, adminsOnly))
+        when {
+            !GroupPolicy.can(state, me, Right.Channels) -> null
+            state.kind != GroupKind.Room || state.channels.size >= MAX_CHANNELS -> state
+            else -> state.copy(channels = state.channels + GroupChannel(newId(), title.trim().take(MAX_TITLE), kind, adminsOnly))
+        }
     }
 
     suspend fun removeChannel(groupId: String, channelId: String) = change(groupId) { state ->
         val remaining = state.channels.filter { it.id != channelId }
-        if (remaining.none { it.kind == GroupChannelKind.Text }) state else state.copy(channels = remaining)
+        when {
+            !GroupPolicy.can(state, me, Right.Channels) -> null
+            remaining.none { it.kind == GroupChannelKind.Text } -> state
+            else -> state.copy(channels = remaining)
+        }
     }
 
     /** A change checked by [GroupPolicy]; a ban tells the banned person they are out, as a removal does. */
@@ -166,16 +180,22 @@ internal class GroupEngine(
 
     // Messages
 
-    /** Encrypts once, queues the same ciphertext for every other member and sends it. */
-    suspend fun send(conversationId: String, content: Content): Boolean {
-        val state = groupOf(conversationId) ?: return false
-        if (!canPost(state, conversationId, me)) return false
-        shareSenderKey(state)
-        val stamped = content.copy(group = conversationId)
-        val body = withContext(Dispatchers.IO) { crypto.encrypt(state.id, state.epoch, stamped) }
-        state.members.filter { it.username != me }.forEach { outbox.queueSealed(it.username, stamped, EnvelopeType.SENDERKEY, body) }
-        outbox.flush()
-        return true
+    /** Encrypts once, queues the same ciphertext for everyone else who may read [conversationId] and sends it. */
+    suspend fun send(conversationId: String, content: Content): Boolean = sending.withLock {
+        val state = groupOf(conversationId) ?: return@withLock false
+        if (!canPost(state, conversationId, me)) return@withLock false
+        val readers = GroupPolicy.readers(state, conversationId) - me
+        // A channel only we read, or a group of one: there is no one to hand a key to, so nothing to encrypt with.
+        if (readers.isEmpty()) return@withLock true
+        val stamped = content.copy(group = conversationId, groupVersion = state.version)
+        try {
+            val key = senderKey(state, GroupPolicy.keyScope(state, conversationId), readers)
+            val body = withContext(Dispatchers.IO) { crypto.encrypt(key, stamped) }
+            readers.forEach { outbox.queueSealed(it, stamped, EnvelopeType.SENDERKEY, body) }
+        } finally {
+            outbox.flush()
+        }
+        true
     }
 
     /** Decrypts a group envelope; null if it is not from a member of the group it names. */
@@ -308,21 +328,26 @@ internal class GroupEngine(
 
     private fun update(state: GroupState) = Content(UUID.randomUUID().toString(), clock(), Body.GroupUpdate(state))
 
-    /** Gives our sender key for the current epoch to every member who does not have it yet. */
-    private suspend fun shareSenderKey(state: GroupState) {
-        val entity = db.groups().get(state.id) ?: return
-        val holders = if (entity.keyEpoch == state.epoch) decodeNames(entity.keyHolders) else emptyList()
-        val missing = state.members.map { it.username }.filter { it != me && it !in holders }
-        if (missing.isEmpty()) return
-        val distribution = withContext(Dispatchers.IO) { crypto.distribution(state.id, state.epoch) }
-        missing.forEach { member ->
-            outbox.queue(member, Content(UUID.randomUUID().toString(), clock(), Body.SenderKey(state.id, state.epoch, distribution)))
+    /**
+     * Our sender key for [scope], handed to each of [readers] who does not have it yet. A key stays ours only while
+     * everyone who got it is still among [readers] and the epoch is the same; otherwise a new one with a random id
+     * takes its place, so a key is never used again after someone lost the right to read, nor after an epoch went
+     * back. Runs under [sending], so its row is read and written by one send at a time.
+     */
+    private suspend fun senderKey(state: GroupState, scope: String, readers: List<String>): UUID {
+        val row = db.groups().senderKey(state.id, scope)
+        val holders = row?.takeIf { it.epoch == state.epoch }?.let { decodeNames(it.holders) }?.takeIf { readers.containsAll(it) }
+        val id = if (row != null && holders != null) UUID.fromString(row.distributionId) else UUID.randomUUID()
+        val missing = readers - holders.orEmpty().toSet()
+        if (missing.isEmpty()) return id
+        val distribution = withContext(Dispatchers.IO) { crypto.distribution(id) }
+        missing.forEach { reader ->
+            outbox.queue(reader, Content(UUID.randomUUID().toString(), clock(), Body.SenderKey(state.id, state.epoch, distribution)))
         }
-        // Making the key and queueing its copies is not one transaction with the read above: by now the state may have
-        // moved on or the group may be gone, so only the holders are written, merged with those another send recorded.
-        db.groups().changeKeyHolders(state.id, state.epoch) { current ->
-            encodeNames((current?.let(::decodeNames).orEmpty() + missing).distinct())
-        }
+        // Not one transaction with the read above: the group may be gone by now, and then no key of it is written.
+        val handedOut = encodeNames(holders.orEmpty() + missing)
+        db.groups().putSenderKey(GroupSenderKeyEntity(state.id, scope, id.toString(), state.epoch, handedOut))
+        return id
     }
 
     /**
@@ -361,6 +386,7 @@ internal class GroupEngine(
         db.messages().deleteConversation(groupId)
         db.conversations().deleteWithChildren(groupId)
         db.groups().delete(groupId)
+        db.groups().deleteSenderKeys(groupId)
         db.groups().markLeft(LeftGroupEntity(groupId, version, byUs))
     }
 
@@ -368,8 +394,9 @@ internal class GroupEngine(
 
     private fun newCode(): String = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(INVITE_BYTES).also(random::nextBytes))
 
-    private fun decodeNames(raw: String): List<String> =
-        runCatching { storageJson.decodeFromString(ListSerializer(String.serializer()), raw) }.getOrDefault(emptyList())
+    /** Null for a list that does not read: a key whose holders are unknown is not used again. */
+    private fun decodeNames(raw: String): List<String>? =
+        runCatching { storageJson.decodeFromString(ListSerializer(String.serializer()), raw) }.getOrNull()
 
     private fun encodeNames(names: List<String>) = storageJson.encodeToString(ListSerializer(String.serializer()), names)
 

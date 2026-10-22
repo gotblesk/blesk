@@ -13,7 +13,12 @@ import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.Content
+import app.blesk.shared.protocol.EnvelopeType
+import app.blesk.shared.protocol.GroupChange
+import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
+import app.blesk.shared.protocol.GroupPolicy
+import app.blesk.shared.protocol.RoomRole
 import app.blesk.shared.protocol.ServerFrame
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +34,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import java.util.UUID
 
 /**
  * What a group change queues goes out once the change is stored, on a database opened the way the phone opens it: a
@@ -130,6 +136,41 @@ class GroupUpdatesTest {
         assertEquals(before.map { it + 1 }, envelopesTo(BOB))
     }
 
+    @Test
+    fun aClosedChannelsKeyAndMessageReachOnlyItsReaders() = runBlocking {
+        val room = engine.create(GroupKind.Room, "Клуб", listOf(BOB, CAROL))
+        listOf(MODS, FANS).forEach { assertTrue(engine.change(room, GroupChange.SaveRole(RoomRole(it, it)))) }
+        assertTrue(engine.change(room, GroupChange.AssignRole(BOB, MODS, on = true)))
+        assertTrue(engine.change(room, GroupChange.AssignRole(CAROL, FANS, on = true)))
+        assertTrue(engine.addChannel(room, "модерация", GroupChannelKind.Text, adminsOnly = false))
+        val closed = engine.state(room)!!.channels.first { it.title == "модерация" }.id
+        assertTrue(engine.change(room, GroupChange.HideChannel(closed, setOf(GroupPolicy.EVERYONE, FANS))))
+        val conversation = GroupEngine.channelConversation(room, closed)
+        untilTheOutboxIsIdle()
+
+        val start = envelopesTo(BOB, CAROL)
+        val startSealed = sealedTo(BOB, CAROL)
+        assertTrue(engine.send(conversation, text("модераторам")))
+        untilTheOutboxIsIdle()
+        // Bob: our key for the channel, then the message.
+        assertEquals(listOf(2, 0), envelopesTo(BOB, CAROL).since(start))
+        assertEquals(listOf(1, 0), sealedTo(BOB, CAROL).since(startSealed))
+
+        val revoked = envelopesTo(BOB, CAROL)
+        val revokedSealed = sealedTo(BOB, CAROL)
+        // One change takes the channel from Bob's role and gives it to Carol's.
+        assertTrue(engine.change(room, GroupChange.HideChannel(closed, setOf(GroupPolicy.EVERYONE, MODS))))
+        assertTrue(engine.send(conversation, text("теперь фанатам")))
+        untilTheOutboxIsIdle()
+        // Bob: only the new state. Carol: the new state, a new key for the channel, the message.
+        assertEquals(listOf(1, 3), envelopesTo(BOB, CAROL).since(revoked))
+        assertEquals(listOf(0, 1), sealedTo(BOB, CAROL).since(revokedSealed))
+    }
+
+    private fun text(value: String) = Content(UUID.randomUUID().toString(), System.currentTimeMillis(), Body.Text(value))
+
+    private fun List<Int>.since(before: List<Int>) = zip(before) { now, then -> now - then }
+
     private suspend fun register(name: String) {
         val peer = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java).allowMainThreadQueries().build()
         peers += peer
@@ -139,6 +180,10 @@ class GroupUpdatesTest {
 
     private fun envelopesTo(vararg names: String): List<Int> =
         names.map { name -> server.transport(name).frames.replayCache.count { it is ServerFrame.Deliver } }
+
+    private fun sealedTo(vararg names: String): List<Int> = names.map { name ->
+        server.transport(name).frames.replayCache.count { it is ServerFrame.Deliver && it.envelope.type == EnvelopeType.SENDERKEY }
+    }
 
     /** No pass is running or about to run. Nothing here is refused, so no retry timer is ever waiting either. */
     private suspend fun untilTheOutboxIsIdle() = withTimeout(TIMEOUT) {
@@ -151,6 +196,8 @@ class GroupUpdatesTest {
         const val BOB = "bob"
         const val CAROL = "carol"
         const val DAVE = "dave"
+        const val MODS = "mods"
+        const val FANS = "fans"
         const val RETRY_MILLIS = 15_000L
         const val TIMEOUT = 60_000L
         const val POLL = 20L

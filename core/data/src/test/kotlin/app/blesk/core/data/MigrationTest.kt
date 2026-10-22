@@ -3,6 +3,9 @@ package app.blesk.core.data
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.data.db.BleskDatabase
@@ -10,6 +13,7 @@ import app.blesk.core.data.db.ConversationEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -28,19 +32,7 @@ class MigrationTest {
             db.version = 1
         }
         val room = Room.databaseBuilder(context, BleskDatabase::class.java, file.path)
-            .addMigrations(
-                BleskDatabase.MIGRATION_1_2,
-                BleskDatabase.MIGRATION_2_3,
-                BleskDatabase.MIGRATION_3_4,
-                BleskDatabase.MIGRATION_4_5,
-                BleskDatabase.MIGRATION_5_6,
-                BleskDatabase.MIGRATION_6_7,
-                BleskDatabase.MIGRATION_7_8,
-                BleskDatabase.MIGRATION_8_9,
-                BleskDatabase.MIGRATION_9_10,
-                BleskDatabase.MIGRATION_10_11,
-                BleskDatabase.MIGRATION_11_12,
-            )
+            .addMigrations(*UP_TO_12.toTypedArray(), BleskDatabase.MIGRATION_12_13)
             .allowMainThreadQueries()
             .build()
         runBlocking {
@@ -48,6 +40,43 @@ class MigrationTest {
             assertEquals(null, room.groups().get("missing"))
             assertEquals(null, room.groups().leftGroup("missing"))
         }
+        room.close()
+    }
+
+    @Test
+    fun `a version 12 group keeps its state and leaves the holders of its old key behind`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = context.getDatabasePath("migration-12.db").apply { parentFile?.mkdirs(); delete() }
+        val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(file.path)
+            .callback(
+                object : SupportSQLiteOpenHelper.Callback(12) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        V1.forEach(db::execSQL)
+                        UP_TO_12.forEach { it.migrate(db) }
+                    }
+
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                },
+            )
+            .build()
+        FrameworkSQLiteOpenHelperFactory().create(configuration).use { helper ->
+            helper.writableDatabase.execSQL("INSERT INTO `groups` VALUES ('g', '{\"id\":\"g\"}', '[\"bob\",\"carol\"]', 3)")
+        }
+
+        val room = Room.databaseBuilder(context, BleskDatabase::class.java, file.path)
+            .addMigrations(BleskDatabase.MIGRATION_12_13)
+            .allowMainThreadQueries()
+            .build()
+        runBlocking {
+            assertEquals("{\"id\":\"g\"}", room.groups().get("g")?.state)
+            assertNull(room.groups().senderKey("g", ""))
+            assertEquals(emptyList<Any>(), room.groups().releasable("g", Int.MAX_VALUE))
+        }
+        val columns = room.openHelper.readableDatabase.query("PRAGMA table_info(`groups`)").use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.getString(cursor.getColumnIndexOrThrow("name"))) }
+        }
+        assertEquals(listOf("id", "state"), columns)
         room.close()
     }
 
@@ -76,6 +105,20 @@ class MigrationTest {
     }
 
     private companion object {
+        val UP_TO_12 = listOf(
+            BleskDatabase.MIGRATION_1_2,
+            BleskDatabase.MIGRATION_2_3,
+            BleskDatabase.MIGRATION_3_4,
+            BleskDatabase.MIGRATION_4_5,
+            BleskDatabase.MIGRATION_5_6,
+            BleskDatabase.MIGRATION_6_7,
+            BleskDatabase.MIGRATION_7_8,
+            BleskDatabase.MIGRATION_8_9,
+            BleskDatabase.MIGRATION_9_10,
+            BleskDatabase.MIGRATION_10_11,
+            BleskDatabase.MIGRATION_11_12,
+        )
+
         val V1 = listOf(
             "CREATE TABLE conversations (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `protection` TEXT NOT NULL, " +
                 "`peer` TEXT, `updatedAt` INTEGER NOT NULL, `unread` INTEGER NOT NULL, `pinned` INTEGER NOT NULL, " +

@@ -12,25 +12,29 @@ import org.signal.libsignal.protocol.message.SenderKeyDistributionMessage
 import java.util.UUID
 
 /**
- * Group encryption with libsignal SenderKeys: each member encrypts once with their own sender
- * key, which they hand to every other member over the one-to-one Signal sessions. A new epoch
- * (someone left or was removed) means new sender keys that the departed never receive.
+ * Group encryption with libsignal SenderKeys: each member encrypts once with a sender key of their own, which they
+ * hand over the one-to-one Signal sessions to those who may read what it encrypts. Which key a message goes under,
+ * and when a key is replaced by one with a new [UUID], is the caller's choice; a key is never derived from anything.
  */
 class GroupCrypto(private val store: SignalStore, private val localUsername: () -> String) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** The sender key for this group and epoch, packaged for distribution to members. */
-    fun distribution(groupId: String, epoch: Int): String =
-        b64(synchronized(store.lock) { GroupSessionBuilder(store).create(local(), distributionId(groupId, epoch)) }.serialize())
+    /**
+     * Our sender key [distributionId], packaged for a reader; made on first use. Asked again, it hands out the chain
+     * as it stands, so a reader who joins later reads from then on, not what came before.
+     */
+    fun distribution(distributionId: UUID): String =
+        b64(synchronized(store.lock) { GroupSessionBuilder(store).create(local(), distributionId) }.serialize())
 
     fun accept(sender: String, distribution: String) {
         val message = SenderKeyDistributionMessage(unb64(distribution))
         synchronized(store.lock) { GroupSessionBuilder(store).process(address(sender), message) }
     }
 
-    fun encrypt(groupId: String, epoch: Int, content: Content): String {
+    /** Throws if [distribution] was never asked for [distributionId]: no reader could open what it encrypts. */
+    fun encrypt(distributionId: UUID, content: Content): String {
         val plain = Padding.pad(json.encodeToString(Content.serializer(), content).encodeToByteArray())
-        return b64(synchronized(store.lock) { GroupCipher(store, local()).encrypt(distributionId(groupId, epoch), plain) }.serialize())
+        return b64(synchronized(store.lock) { GroupCipher(store, local()).encrypt(distributionId, plain) }.serialize())
     }
 
     /** Throws if the sender's key for this group has not arrived or the message was tampered with. */
@@ -43,8 +47,4 @@ class GroupCrypto(private val store: SignalStore, private val localUsername: () 
     private fun local() = address(localUsername())
 
     private fun address(username: String) = SignalProtocolAddress(username, Api.DEVICE_ID)
-
-    companion object {
-        fun distributionId(groupId: String, epoch: Int): UUID = UUID.nameUUIDFromBytes("blesk-group:$groupId:$epoch".encodeToByteArray())
-    }
 }

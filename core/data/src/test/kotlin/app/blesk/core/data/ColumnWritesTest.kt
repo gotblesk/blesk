@@ -8,6 +8,9 @@ import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ContactEntity
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.GroupEntity
+import app.blesk.core.data.db.GroupSenderKeyEntity
+import app.blesk.core.data.db.HeldGroupMessageEntity
+import app.blesk.core.data.db.MAX_HELD_PER_GROUP
 import app.blesk.core.data.db.MessageDao
 import app.blesk.core.data.db.MessageEntity
 import app.blesk.core.data.model.SendStatus
@@ -25,7 +28,7 @@ import org.robolectric.annotation.Config
 
 /**
  * Rows several writers touch at once: the sending coroutine and receipts on a message's status, you and their
- * profile on a contact, a group's new state and the send handing out our key. Each writer changes only its own
+ * profile on a contact, leaving a group and the send handing out our key. Each writer changes only its own
  * columns, so none can put back what another just wrote.
  */
 @RunWith(AndroidJUnit4::class)
@@ -230,63 +233,54 @@ class ColumnWritesTest {
     }
 
     @Test
-    fun `a group's new state and our key's holders do not undo each other`() = runBlocking {
-        groups.insertIfAbsent(GroupEntity("g", "state 1"))
-        groups.changeKeyHolders("g", epoch = 0) { held ->
-            assertNull(held)
-            "bob"
-        }
-        assertEquals(1, groups.setState("g", "state 2"))
-        groups.changeKeyHolders("g", epoch = 0) { held -> "$held,carol" }
-        assertEquals(-1L, groups.insertIfAbsent(GroupEntity("g", "state 0")))
-        groups.get("g")!!.let {
-            assertEquals("state 2", it.state)
-            assertEquals("bob,carol", it.keyHolders)
-            assertEquals(0, it.keyEpoch)
-        }
-
-        // A new epoch starts the holders over.
-        groups.changeKeyHolders("g", epoch = 1) { held ->
-            assertNull(held)
-            "bob"
-        }
-        groups.get("g")!!.let {
-            assertEquals("state 2", it.state)
-            assertEquals("bob", it.keyHolders)
-            assertEquals(1, it.keyEpoch)
-        }
-    }
-
-    @Test
-    fun `a send of an older epoch finishing late leaves the newer holders alone`() = runBlocking {
+    fun `a sender key written after leaving a group does not bring it back`() = runBlocking {
         groups.insertIfAbsent(GroupEntity("g", "state"))
-        groups.changeKeyHolders("g", epoch = 1) { "bob" }
-        groups.changeKeyHolders("g", epoch = 0) { error("an older epoch's holders are not rewritten") }
-        groups.get("g")!!.let {
-            assertEquals("bob", it.keyHolders)
-            assertEquals(1, it.keyEpoch)
-        }
-    }
+        groups.putSenderKey(GroupSenderKeyEntity("g", "", "key-1", epoch = 0, holders = "[\"bob\"]"))
+        groups.putSenderKey(GroupSenderKeyEntity("g", "", "key-1", epoch = 0, holders = "[\"bob\",\"carol\"]"))
+        assertEquals("[\"bob\",\"carol\"]", groups.senderKey("g", "")?.holders)
 
-    @Test
-    fun `nothing written after leaving a group brings it back`() = runBlocking {
-        groups.insertIfAbsent(GroupEntity("g", "state"))
         groups.delete("g")
+        groups.deleteSenderKeys("g")
         assertEquals(0, groups.setState("g", "later"))
-        groups.changeKeyHolders("g", epoch = 0) { "bob" }
-        groups.setKeyHolders("g", "bob", epoch = 0)
+        groups.putSenderKey(GroupSenderKeyEntity("g", "c", "key-2", epoch = 0))
         assertNull(groups.get("g"))
+        assertNull(groups.senderKey("g", ""))
+        assertNull(groups.senderKey("g", "c"))
     }
 
     @Test
-    fun `sends handing out our key at once are all counted`() = runBlocking {
-        groups.insertIfAbsent(GroupEntity("g", "state"))
-        val members = (1..50).map { "user$it" }
-        members.map { member ->
-            async(Dispatchers.IO) { groups.changeKeyHolders("g", epoch = 0) { held -> "${held.orEmpty()}|$member" } }
-        }.awaitAll()
-        assertEquals(members.toSet(), groups.get("g")!!.keyHolders.split('|').drop(1).toSet())
+    fun `held messages are capped at 200 per group and the oldest go first`() = runBlocking {
+        val over = MAX_HELD_PER_GROUP + 5
+        (1..over).forEach { groups.hold(held("g", version = 1, content = "m$it")) }
+        groups.hold(held("h", version = 1, content = "other"))
+
+        assertEquals((6..over).map { "m$it" }, groups.releasable("g", version = 1).map { it.content })
+        assertEquals(listOf("other"), groups.releasable("h", version = 1).map { it.content })
     }
+
+    @Test
+    fun `releasable takes only rows at or below the version, in order, and removes them`() = runBlocking {
+        listOf(3, 1, 2, 5).forEach { groups.hold(held("g", version = it, content = "v$it", at = it.toLong())) }
+        groups.hold(held("h", version = 1, content = "other", at = 10))
+
+        assertEquals(listOf("v1", "v2"), groups.releasable("g", version = 2).map { it.content })
+        assertEquals(emptyList<String>(), groups.releasable("g", version = 2).map { it.content })
+        groups.dropHeldBefore(at = 4)
+        assertEquals(listOf("v5"), groups.releasable("g", version = 5).map { it.content })
+        groups.deleteHeld("h")
+        assertEquals(emptyList<String>(), groups.releasable("h", version = 1).map { it.content })
+    }
+
+    @Test
+    fun `channel messages are found by the room prefix only`() = runBlocking {
+        listOf("g", "g:x", "g2:x", "gg:x", "h:x").forEach { conversation ->
+            messages.insert(MessageEntity("in $conversation", conversation, "bob", "привет", sentAt = 1, status = SendStatus.Read.name))
+        }
+        assertEquals(listOf("g:x"), messages.inChannelsOf("g").map { it.conversationId })
+    }
+
+    private fun held(group: String, version: Int, content: String, at: Long = 1) =
+        HeldGroupMessageEntity(groupId = group, sender = "bob", content = content, version = version, heldAt = at)
 
     private companion object {
         const val ME = "me"

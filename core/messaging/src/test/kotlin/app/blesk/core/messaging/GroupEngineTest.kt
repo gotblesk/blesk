@@ -10,10 +10,16 @@ import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.OutboxEntity
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.Content
+import app.blesk.shared.protocol.GroupChange
+import app.blesk.shared.protocol.GroupChannel
+import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupMember
+import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
+import app.blesk.shared.protocol.Right
+import app.blesk.shared.protocol.RoomRole
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -27,11 +33,16 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.signal.libsignal.protocol.message.SenderKeyDistributionMessage
+import org.signal.libsignal.protocol.message.SenderKeyMessage
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -63,12 +74,15 @@ class GroupEngineTest {
     }
 
     /**
-     * Updates go into the phone's real outbox table, so a change cut short shows what it left there; group messages
-     * only note whom they are for. While [keyOut] is set, handing out a sender key waits for it; an update to
-     * [updateHeldFor] waits for good. [afterUpdate] runs once an update is queued.
+     * Updates go into the phone's real outbox table, so a change cut short shows what it left there; sender keys and
+     * group messages only note whom they are for and which key they are, by its distribution id. While [keyOut] is
+     * set, handing out a sender key waits for it; an update to [updateHeldFor] waits for good. [afterUpdate] runs once
+     * an update is queued.
      */
     private inner class HeldOutbox : GroupOutbox {
         val sealedTo = CopyOnWriteArrayList<String>()
+        val sealed = CopyOnWriteArrayList<Pair<String, UUID>>()
+        val keysTo = CopyOnWriteArrayList<Pair<String, UUID>>()
         val keysHeld = AtomicInteger()
         val updatesHeld = AtomicInteger()
         val flushes = AtomicInteger()
@@ -83,10 +97,13 @@ class GroupEngineTest {
         var updateHeldFor: String? = null
 
         override suspend fun queue(recipient: String, content: Content) {
-            when (content.body) {
-                is Body.SenderKey -> keyOut?.let { gate ->
-                    keysHeld.incrementAndGet()
-                    gate.await()
+            when (val body = content.body) {
+                is Body.SenderKey -> {
+                    keyOut?.let { gate ->
+                        keysHeld.incrementAndGet()
+                        gate.await()
+                    }
+                    keysTo += recipient to SenderKeyDistributionMessage(Base64.getDecoder().decode(body.distribution)).distributionId
                 }
                 is Body.GroupUpdate -> {
                     if (recipient == updateHeldFor) {
@@ -103,6 +120,13 @@ class GroupEngineTest {
 
         override suspend fun queueSealed(recipient: String, content: Content, type: Int, body: String) {
             sealedTo += recipient
+            sealed += recipient to SenderKeyMessage(Base64.getDecoder().decode(body)).distributionId
+        }
+
+        fun forgetSent() {
+            sealedTo.clear()
+            sealed.clear()
+            keysTo.clear()
         }
 
         override fun flush(): Job {
@@ -149,6 +173,7 @@ class GroupEngineTest {
 
         assertNull(engine.state(group))
         assertNull(db.conversations().get(group))
+        assertNull(db.groups().senderKey(group, ""))
     }
 
     @Test
@@ -238,8 +263,226 @@ class GroupEngineTest {
         assertEquals(3, engine.state(GROUP)?.version)
     }
 
-    private fun stateOf(version: Int, vararg members: GroupMember, title: String = "Выходные") =
-        GroupState(id = GROUP, kind = GroupKind.Group, title = title, version = version, epoch = 0, members = members.toList())
+    @Test
+    fun aClosedChannelGoesOnlyToThoseWhoSeeIt() = runBlocking {
+        val club = club()
+        assertTrue(engine.send(club.closed, text("модераторам")))
+
+        assertEquals(listOf("bob"), outbox.keysTo.map { it.first })
+        assertEquals(outbox.keysTo.toList(), outbox.sealed.toList())
+    }
+
+    @Test
+    fun anOpenChannelStillGoesToEveryone() = runBlocking {
+        val club = club()
+        engine.send(club.closed, text("модераторам"))
+        val closedKey = outbox.sealed.single().second
+        outbox.forgetSent()
+        engine.send(club.open, text("всем"))
+
+        assertEquals(listOf("bob", "carol"), outbox.sealed.map { it.first })
+        val roomKey = outbox.sealed.map { it.second }.distinct().single()
+        assertNotEquals(closedKey, roomKey)
+    }
+
+    @Test
+    fun losingAClosedChannelGivesItANewKey() = runBlocking {
+        val club = club()
+        engine.send(club.closed, text("до"))
+        val before = outbox.sealed.single().second
+        engine.change(club.id, GroupChange.AssignRole("bob", MODS, on = false))
+        engine.change(club.id, GroupChange.AssignRole("carol", MODS, on = true))
+        outbox.forgetSent()
+        engine.send(club.closed, text("после"))
+
+        val after = outbox.sealed.single()
+        assertEquals("carol", after.first)
+        assertNotEquals(before, after.second)
+        assertEquals(listOf(after), outbox.keysTo.toList())
+    }
+
+    @Test
+    fun gainingAClosedChannelHandsOverTheSameKey() = runBlocking {
+        val club = club()
+        engine.send(club.closed, text("до"))
+        val key = outbox.sealed.single().second
+        engine.change(club.id, GroupChange.AssignRole("carol", MODS, on = true))
+        outbox.forgetSent()
+        engine.send(club.closed, text("и Кэрол"))
+
+        assertEquals(listOf("carol" to key), outbox.keysTo.toList())
+        assertEquals(listOf("bob" to key, "carol" to key), outbox.sealed.toList())
+    }
+
+    @Test
+    fun aNewEpochGivesEveryScopeANewKey() = runBlocking {
+        val club = club(listOf("bob", "carol", "dave"))
+        engine.send(club.open, text("всем"))
+        engine.send(club.closed, text("модераторам"))
+        val before = outbox.sealed.map { it.second }.toSet()
+        engine.remove(club.id, "dave")
+        outbox.forgetSent()
+        engine.send(club.open, text("без Дейва"))
+        engine.send(club.closed, text("модераторам без Дейва"))
+
+        val after = outbox.sealed.map { it.second }.toSet()
+        assertEquals(2, before.size)
+        assertEquals(2, after.size)
+        assertEquals(emptySet<UUID>(), before intersect after)
+        assertEquals(listOf("bob", "carol", "bob"), outbox.keysTo.map { it.first })
+    }
+
+    @Test
+    fun aRevertedEpochNeverReusesAKey() = runBlocking {
+        val bob = GroupMember("bob", GroupRole.Owner)
+        val me = GroupMember(ME, GroupRole.Member)
+        // Someone left, then an admin who had not heard of it sent a newer state of the epoch before.
+        val keys = listOf(1 to 0, 2 to 1, 3 to 0).map { (version, epoch) ->
+            engine.onUpdate("bob", stateOf(version, bob, me, epoch = epoch))
+            outbox.forgetSent()
+            engine.send(GROUP, text("версия $version"))
+            outbox.sealed.single().second
+        }
+        assertEquals(keys.size, keys.distinct().size)
+    }
+
+    @Test
+    fun aChannelOnlyWeReadSendsNothing() = runBlocking {
+        val club = club()
+        engine.change(club.id, GroupChange.AssignRole("bob", MODS, on = false))
+        assertTrue(engine.send(club.closed, text("себе")))
+        assertEquals(emptyList<Pair<String, UUID>>(), outbox.keysTo + outbox.sealed)
+    }
+
+    @Test
+    fun aGroupOfOneSendsNothing() = runBlocking {
+        val group = engine.create(GroupKind.Group, "Заметки", emptyList())
+        assertTrue(engine.send(group, text("себе")))
+        assertEquals(emptyList<Pair<String, UUID>>(), outbox.keysTo + outbox.sealed)
+    }
+
+    @Test
+    fun aReopenedChannelUsesTheRoomKey() = runBlocking {
+        val club = club()
+        engine.send(club.open, text("всем"))
+        val roomKey = outbox.sealed.first().second
+        engine.send(club.closed, text("модераторам"))
+        engine.change(club.id, GroupChange.HideChannel(club.closedChannel, emptySet()))
+        outbox.forgetSent()
+        engine.send(club.closed, text("теперь всем"))
+
+        assertEquals(listOf("bob" to roomKey, "carol" to roomKey), outbox.sealed.toList())
+        assertEquals(emptyList<Pair<String, UUID>>(), outbox.keysTo.toList())
+    }
+
+    @Test
+    fun aChannelClosedAgainWithOtherReadersGetsANewKey() = runBlocking {
+        val club = club()
+        engine.send(club.closed, text("модераторам"))
+        val closedKey = outbox.sealed.single().second
+        engine.change(club.id, GroupChange.HideChannel(club.closedChannel, emptySet()))
+        engine.change(club.id, GroupChange.AssignRole("bob", MODS, on = false))
+        engine.change(club.id, GroupChange.AssignRole("carol", MODS, on = true))
+        engine.change(club.id, GroupChange.HideChannel(club.closedChannel, setOf(GroupPolicy.EVERYONE)))
+        outbox.forgetSent()
+        engine.send(club.closed, text("снова закрыт"))
+
+        val sent = outbox.sealed.single()
+        assertEquals("carol", sent.first)
+        assertNotEquals(closedKey, sent.second)
+        assertEquals(listOf(sent), outbox.keysTo.toList())
+    }
+
+    @Test
+    fun concurrentSendsShareOneKey() = runBlocking {
+        val club = club()
+        val keyOut = CompletableDeferred<Unit>().also { outbox.keyOut = it }
+        val first = launch(Dispatchers.IO) { engine.send(club.open, text("раз")) }
+        untilAKeyIsHeld()
+        val second = launch(Dispatchers.IO) { engine.send(club.open, text("два")) }
+        // Not a guess at how long anything takes: the second send cannot reach the key while the first hands it out.
+        // This only gives it the time to, the way it could before sends took turns.
+        withTimeoutOrNull(GRACE) { until { outbox.keysHeld.get() > 1 } }
+        keyOut.complete(Unit)
+        joinAll(first, second)
+
+        assertEquals(listOf("bob", "carol"), outbox.keysTo.map { it.first })
+        assertEquals(4, outbox.sealed.size)
+        assertEquals(outbox.keysTo.map { it.second }.distinct(), outbox.sealed.map { it.second }.distinct())
+        assertEquals(1, outbox.sealed.map { it.second }.distinct().size)
+    }
+
+    @Test
+    fun aChannelClosedWhileOurKeyWentOutIsClosedForTheNextMessage() = runBlocking {
+        val club = club()
+        val keyOut = CompletableDeferred<Unit>().also { outbox.keyOut = it }
+        val sending = launch(Dispatchers.IO) { engine.send(club.open, text("всем")) }
+        untilAKeyIsHeld()
+        // The channel is closed to all but the moderators while our key for the whole room is on its way to Carol too.
+        engine.change(club.id, GroupChange.HideChannel(club.openChannel, setOf(GroupPolicy.EVERYONE)))
+        keyOut.complete(Unit)
+        sending.join()
+        val roomKey = outbox.sealed.first().second
+        outbox.keyOut = null
+        outbox.forgetSent()
+        engine.send(club.open, text("модераторам"))
+
+        val sent = outbox.sealed.single()
+        assertEquals("bob", sent.first)
+        assertNotEquals(roomKey, sent.second)
+        assertEquals(listOf(sent), outbox.keysTo.toList())
+    }
+
+    @Test
+    fun writingToAnUnknownChannelFails() = runBlocking {
+        val club = club()
+        assertFalse(engine.send(GroupEngine.channelConversation(club.id, "zzz"), text("в никуда")))
+        assertEquals(emptyList<Pair<String, UUID>>(), outbox.keysTo + outbox.sealed)
+    }
+
+    @Test
+    fun addingAChannelNeedsTheChannelsRight() = runBlocking {
+        val guards = RoomRole("guards", "Охрана", rights = setOf(Right.Ban))
+        val room = GroupState(
+            id = GROUP,
+            kind = GroupKind.Room,
+            title = "Клуб",
+            version = 1,
+            epoch = 0,
+            members = listOf(GroupMember("bob", GroupRole.Owner), GroupMember(ME, GroupRole.Member, roles = listOf(guards.id))),
+            channels = listOf(GroupChannel("c1", "общее"), GroupChannel("c2", "второй")),
+            roles = listOf(guards),
+        )
+        engine.onUpdate("bob", room)
+        assertFalse(engine.addChannel(GROUP, "новый", GroupChannelKind.Text, adminsOnly = false))
+        assertFalse(engine.removeChannel(GROUP, "c2"))
+        assertEquals(room.channels, engine.state(GROUP)?.channels)
+
+        engine.onUpdate("bob", room.copy(version = 2, roles = listOf(guards.copy(rights = guards.rights + Right.Channels))))
+        assertTrue(engine.addChannel(GROUP, "новый", GroupChannelKind.Text, adminsOnly = false))
+        assertTrue(engine.removeChannel(GROUP, "c2"))
+        assertEquals(listOf("общее", "новый"), engine.state(GROUP)?.channels?.map { it.title })
+    }
+
+    /** A room of ours: Bob holds the moderators' role, the only one that sees [closed]; Carol has no role. */
+    private class Club(val id: String, val openChannel: String, val closedChannel: String) {
+        val open = GroupEngine.channelConversation(id, openChannel)
+        val closed = GroupEngine.channelConversation(id, closedChannel)
+    }
+
+    private suspend fun club(others: List<String> = listOf("bob", "carol")): Club {
+        val id = engine.create(GroupKind.Room, "Клуб", others)
+        assertTrue(engine.change(id, GroupChange.SaveRole(RoomRole(MODS, "Модераторы"))))
+        assertTrue(engine.addChannel(id, CLOSED, GroupChannelKind.Text, adminsOnly = false))
+        val channels = engine.state(id)!!.channels
+        val closed = channels.first { it.title == CLOSED }.id
+        assertTrue(engine.change(id, GroupChange.HideChannel(closed, setOf(GroupPolicy.EVERYONE))))
+        assertTrue(engine.change(id, GroupChange.AssignRole("bob", MODS, on = true)))
+        return Club(id, channels.first { it.title == GroupEngine.DEFAULT_TEXT_CHANNEL }.id, closed)
+    }
+
+    private fun stateOf(version: Int, vararg members: GroupMember, title: String = "Выходные", epoch: Int = 0) =
+        GroupState(id = GROUP, kind = GroupKind.Group, title = title, version = version, epoch = epoch, members = members.toList())
 
     private suspend fun untilAKeyIsHeld() = until { outbox.keysHeld.get() > 0 }
 
@@ -250,6 +493,8 @@ class GroupEngineTest {
     private companion object {
         const val ME = "alice"
         const val GROUP = "g"
+        const val MODS = "mods"
+        const val CLOSED = "модерация"
         const val TIMEOUT = 60_000L
         const val POLL = 20L
         const val GRACE = 500L

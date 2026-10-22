@@ -101,15 +101,43 @@ data class OutboxEntity(
     val sealedBody: String? = null,
 )
 
-/** A closed group or room: its state as members agreed on it, and who already has our sender key. */
+/** A closed group or room: its state as members agreed on it. */
 @Entity(tableName = "groups")
 data class GroupEntity(
     @PrimaryKey val id: String,
     /** JSON of the shared GroupState. */
     val state: String,
-    /** JSON list of members who received our sender key for [keyEpoch]. */
-    val keyHolders: String = "[]",
-    val keyEpoch: Int = -1,
+)
+
+/**
+ * Our current sender key for one audience of a group: [scope] "" for everyone in it, a channel's id for the readers of
+ * that closed channel. It stays in use only while everyone in [holders] may still read and the group is at [epoch].
+ */
+@Entity(tableName = "group_sender_keys", primaryKeys = ["groupId", "scope"])
+data class GroupSenderKeyEntity(
+    val groupId: String,
+    val scope: String,
+    /** The key's libsignal distribution id, random and never used for another key. */
+    val distributionId: String,
+    val epoch: Int,
+    /** JSON list of members it was handed to. */
+    val holders: String = "[]",
+)
+
+/**
+ * A group message this phone may not read yet, from a sender whose state of the group is newer: kept until that state
+ * arrives, for a while at most, and never shown, indexed or announced meanwhile.
+ */
+@Entity(tableName = "held_group_messages", indices = [Index(value = ["groupId"])])
+data class HeldGroupMessageEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val groupId: String,
+    val sender: String,
+    /** The decrypted Content JSON; like the outbox, it never leaves the encrypted database. */
+    val content: String,
+    /** The version of the group's state the sender wrote it in. */
+    val version: Int,
+    val heldAt: Long,
 )
 
 /**

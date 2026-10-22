@@ -18,8 +18,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         GroupEntity::class,
         MessageFtsEntity::class,
         LeftGroupEntity::class,
+        GroupSenderKeyEntity::class,
+        HeldGroupMessageEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class BleskDatabase : RoomDatabase() {
@@ -143,6 +145,31 @@ abstract class BleskDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Our sender keys, one per audience of a group instead of one per group, and group messages waiting for their
+         * state. Who held the old key is not carried over: named after its group and epoch, it may have gone to people
+         * not on record, so each sender hands a fresh one out once.
+         */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `groups_new` (`id` TEXT NOT NULL, `state` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("INSERT INTO `groups_new` (`id`, `state`) SELECT `id`, `state` FROM `groups`")
+                db.execSQL("DROP TABLE `groups`")
+                db.execSQL("ALTER TABLE `groups_new` RENAME TO `groups`")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `group_sender_keys` (`groupId` TEXT NOT NULL, `scope` TEXT NOT NULL, " +
+                        "`distributionId` TEXT NOT NULL, `epoch` INTEGER NOT NULL, `holders` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`groupId`, `scope`))",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `held_group_messages` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`groupId` TEXT NOT NULL, `sender` TEXT NOT NULL, `content` TEXT NOT NULL, `version` INTEGER NOT NULL, " +
+                        "`heldAt` INTEGER NOT NULL)",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_held_group_messages_groupId` ON `held_group_messages` (`groupId`)")
+            }
+        }
+
         /** Opens the SQLCipher database with [passphrase]; the caller gets it from Android Keystore. */
         fun open(context: Context, passphrase: ByteArray): BleskDatabase {
             System.loadLibrary("sqlcipher")
@@ -151,7 +178,7 @@ abstract class BleskDatabase : RoomDatabase() {
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
-                    MIGRATION_11_12,
+                    MIGRATION_11_12, MIGRATION_12_13,
                 )
                 .build()
         }

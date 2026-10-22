@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.util.Base64
+import java.util.UUID
 
 class MessageCryptoTest {
 
@@ -128,17 +129,49 @@ class MessageCryptoTest {
         val bob = Party("bob")
         val carol = Party("carol")
         val aliceGroup = GroupCrypto(alice.store) { "alice" }
-        val distribution = aliceGroup.distribution("g1", 0)
+        val key = UUID.randomUUID()
+        val distribution = aliceGroup.distribution(key)
         GroupCrypto(bob.store) { "bob" }.accept("alice", distribution)
         GroupCrypto(carol.store) { "carol" }.accept("alice", distribution)
 
-        val sealed = aliceGroup.encrypt("g1", 0, content("всем"))
+        val sealed = aliceGroup.encrypt(key, content("всем"))
         assertEquals(Body.Text("всем"), GroupCrypto(bob.store) { "bob" }.decrypt("alice", sealed).body)
         assertEquals(Body.Text("всем"), GroupCrypto(carol.store) { "carol" }.decrypt("alice", sealed).body)
+    }
 
-        aliceGroup.distribution("g1", 1)
-        val nextEpoch = aliceGroup.encrypt("g1", 1, content("без вас"))
-        assertThrows(Exception::class.java) { GroupCrypto(bob.store) { "bob" }.decrypt("alice", nextEpoch) }
+    @Test
+    fun `a new distribution id is a new key`() {
+        val alice = Party("alice")
+        val bob = Party("bob")
+        val aliceGroup = GroupCrypto(alice.store) { "alice" }
+        val bobGroup = GroupCrypto(bob.store) { "bob" }
+        val first = UUID.randomUUID()
+        bobGroup.accept("alice", aliceGroup.distribution(first))
+        assertEquals(Body.Text("старый"), bobGroup.decrypt("alice", aliceGroup.encrypt(first, content("старый"))).body)
+
+        val second = UUID.randomUUID()
+        aliceGroup.distribution(second)
+        val closed = aliceGroup.encrypt(second, content("без тебя"))
+        assertThrows(Exception::class.java) { bobGroup.decrypt("alice", closed) }
+    }
+
+    @Test
+    fun `the same id hands out the current chain`() {
+        val alice = Party("alice")
+        val aliceGroup = GroupCrypto(alice.store) { "alice" }
+        val bobGroup = GroupCrypto(Party("bob").store) { "bob" }
+        val carolGroup = GroupCrypto(Party("carol").store) { "carol" }
+        val key = UUID.randomUUID()
+        bobGroup.accept("alice", aliceGroup.distribution(key))
+        val before = aliceGroup.encrypt(key, content("до Кэрол"))
+        // Carol is let in later: the key she gets is the same, from where it stands now.
+        carolGroup.accept("alice", aliceGroup.distribution(key))
+        val after = aliceGroup.encrypt(key, content("при Кэрол"))
+
+        assertEquals(Body.Text("до Кэрол"), bobGroup.decrypt("alice", before).body)
+        assertEquals(Body.Text("при Кэрол"), bobGroup.decrypt("alice", after).body)
+        assertEquals(Body.Text("при Кэрол"), carolGroup.decrypt("alice", after).body)
+        assertThrows(Exception::class.java) { carolGroup.decrypt("alice", before) }
     }
 
     @Test
