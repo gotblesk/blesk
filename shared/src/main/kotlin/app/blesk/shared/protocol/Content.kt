@@ -16,6 +16,11 @@ data class Content(
     val group: String? = null,
     /** The message disappears this many seconds after [sentAtMillis] on every phone; 0 keeps it. */
     val expiresInSeconds: Int = 0,
+    /**
+     * For group and room messages: the version of the group's state the sender wrote it in. A phone whose state is
+     * older keeps the message until the state that lets it be read arrives, instead of dropping it.
+     */
+    val groupVersion: Int = 0,
 )
 
 /**

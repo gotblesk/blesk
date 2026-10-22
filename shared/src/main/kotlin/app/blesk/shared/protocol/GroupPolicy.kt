@@ -196,6 +196,7 @@ object GroupPolicy {
     const val MAX_LOG = 200
     const val MAX_TITLE = 64
     const val MAX_DESCRIPTION = 500
+    private const val CHANNEL_SEPARATOR = ':'
 
     fun can(state: GroupState, username: String, right: Right): Boolean {
         val member = state.members.firstOrNull { it.username == username } ?: return false
@@ -213,9 +214,35 @@ object GroupPolicy {
     /** Whether [username] may write in [conversationId]: the group itself or one of its channels, `group:channel`. */
     fun canWrite(state: GroupState, username: String, conversationId: String): Boolean {
         if (!can(state, username, Right.Write)) return false
-        val channel = state.channels.firstOrNull { it.id == conversationId.substringAfter(':', "") } ?: return true
+        if (channelPart(conversationId).isEmpty()) return true
+        val channel = channelOf(state, conversationId) ?: return false
         return sees(state, username, channel) && (!channel.adminsOnly || state.isAdmin(username))
     }
+
+    /** The channel [conversationId] names; null for the group or room itself, and for a channel [state] does not have. */
+    fun channelOf(state: GroupState, conversationId: String): GroupChannel? {
+        val id = channelPart(conversationId).ifEmpty { return null }
+        return state.channels.firstOrNull { it.id == id }
+    }
+
+    /** Whether [username] may read [conversationId]: a member reads the group itself and every channel they see. */
+    fun reads(state: GroupState, username: String, conversationId: String): Boolean {
+        if (state.roleOf(username) == null) return false
+        if (channelPart(conversationId).isEmpty()) return true
+        return channelOf(state, conversationId)?.let { sees(state, username, it) } ?: false
+    }
+
+    /** Everyone who may read [conversationId], in member order: the only ones a message there is for. */
+    fun readers(state: GroupState, conversationId: String): List<String> =
+        state.members.map { it.username }.filter { reads(state, it, conversationId) }
+
+    /**
+     * Which of our sender keys a message in [conversationId] is encrypted with: "" for the group, the room and its
+     * channels open to all, the channel's id for one hidden from any role. Decided by the channel alone, not by who
+     * reads it now: a channel closed to anyone never shares the key the whole room holds, even while all still read it.
+     */
+    fun keyScope(state: GroupState, conversationId: String): String =
+        channelOf(state, conversationId)?.takeIf { it.hiddenFrom.isNotEmpty() }?.id.orEmpty()
 
     private val MANAGING =
         setOf(Right.EditInfo, Right.Channels, Right.Roles, Right.Ban, Right.AssignRoles, Right.AddAdmins)
@@ -230,12 +257,75 @@ object GroupPolicy {
         }
     }
 
-    /** A channel closed to every role [username] has is not shown to them; owners and admins see all. */
+    /**
+     * A channel closed to every role [username] has is not shown to them; owners and admins see all. Only the room's
+     * roles count: an id no role has any more, or not yet, opens nothing.
+     */
     fun sees(state: GroupState, username: String, channel: GroupChannel): Boolean {
         val member = state.members.firstOrNull { it.username == username } ?: return false
         if (member.role != GroupRole.Member || channel.hiddenFrom.isEmpty()) return true
-        return (member.roles + EVERYONE).any { it !in channel.hiddenFrom }
+        val roles = member.roles.filter { id -> state.roles.any { it.id == id } } + EVERYONE
+        return roles.any { it !in channel.hiddenFrom }
     }
+
+    /**
+     * Whether [incoming], a state from [sender], shows anyone a channel [current] hides from them only where [sender]
+     * may open it. Rights and ranks come from [current], the state this phone trusts; closing needs no right. A state
+     * that skips versions is judged as one change by [sender].
+     */
+    fun admitsVisibility(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        opensOnlyWithRight(current, incoming, sender) &&
+            newRolesStayClosed(current, incoming, sender) &&
+            adminsMadeWithRight(current, incoming, sender) &&
+            rolesGivenWithRight(current, incoming, sender)
+
+    private fun opensOnlyWithRight(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        incoming.channels.all { channel ->
+            val old = current.channels.firstOrNull { it.id == channel.id }
+            (old != null && channel.hiddenFrom.containsAll(old.hiddenFrom)) || mayOpen(current, sender, channel.id)
+        }
+
+    /**
+     * A new role is closed out of every channel closed to everyone, as [apply] makes it, unless [sender] may open
+     * that channel anyway.
+     */
+    private fun newRolesStayClosed(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        val fresh = incoming.roles.filter { role -> current.roles.none { it.id == role.id } }
+        if (fresh.isEmpty()) return true
+        val closed = incoming.channels.filter { EVERYONE in it.hiddenFrom }
+        return can(current, sender, Right.Roles) &&
+            fresh.all { role -> closed.all { role.id in it.hiddenFrom || mayOpen(current, sender, it.id) } }
+    }
+
+    /** Whether [sender] may make a channel, or show it to more people: only one they see themselves. */
+    private fun mayOpen(current: GroupState, sender: String, channelId: String): Boolean =
+        can(current, sender, Right.Channels) && current.channels.none { it.id == channelId && !sees(current, sender, it) }
+
+    private fun adminsMadeWithRight(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        can(current, sender, Right.AddAdmins) ||
+            incoming.members.none { incoming.isAdmin(it.username) && !current.isAdmin(it.username) }
+
+    /**
+     * Every role someone gains is one [sender] could give them, as [assign] decides. A role new in [incoming] ranks
+     * where [incoming] puts it; [newRolesStayClosed] has already checked it opens nothing.
+     */
+    private fun rolesGivenWithRight(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        val own = rank(current, sender)
+        val assigns = can(current, sender, Right.AssignRoles)
+        return incoming.members.all { member ->
+            val had = current.members.firstOrNull { it.username == member.username }?.roles.orEmpty()
+            member.roles.filter { it !in had }.all { id ->
+                val roleRank = roleRank(current, id) ?: roleRank(incoming, id)
+                assigns && roleRank != null && roleRank > own && rank(current, member.username) > own
+            }
+        }
+    }
+
+    /** Where a role puts its holders in [rank]; null for an id that is not one of the room's roles. */
+    private fun roleRank(state: GroupState, roleId: String): Int? =
+        state.roles.indexOfFirst { it.id == roleId }.takeIf { it >= 0 }?.plus(2)
+
+    private fun channelPart(conversationId: String) = conversationId.substringAfter(CHANNEL_SEPARATOR, "")
 
     @Suppress("CyclomaticComplexMethod")
     fun apply(state: GroupState, actor: String, change: GroupChange, now: Long): GroupState? {
@@ -333,15 +423,15 @@ object GroupPolicy {
             } else {
                 state.copy(channels = state.channels.moved(change.id, change.to, GroupChannel::id))
             }
-            is GroupChange.HideChannel -> if (!channels) null else state.copy(
-                channels = state.channels.map { if (it.id == change.id) it.copy(hiddenFrom = change.fromRoles) else it },
-            ).logged(now, actor, LogAction.Channel, change.id)
-            is GroupChange.SaveRole -> if (!roles) null else {
-                val role = change.role.copy(title = TextSafety.clean(change.role.title).take(MAX_TITLE))
-                val exists = state.roles.any { it.id == role.id }
-                state.copy(roles = if (exists) state.roles.map { if (it.id == role.id) role else it } else state.roles + role)
-                    .logged(now, actor, LogAction.Role, role.title)
+            // Only someone who sees a channel may say who else does: hidden from them, it stays as it is.
+            is GroupChange.HideChannel -> if (!channels || state.channels.none { it.id == change.id && sees(state, actor, it) }) {
+                null
+            } else {
+                state.copy(
+                    channels = state.channels.map { if (it.id == change.id) it.copy(hiddenFrom = change.fromRoles) else it },
+                ).logged(now, actor, LogAction.Channel, change.id)
             }
+            is GroupChange.SaveRole -> if (!roles) null else saveRole(state, actor, change.role, now)
             is GroupChange.MoveRole -> if (!roles) null else state.copy(roles = state.roles.moved(change.id, change.to, RoomRole::id))
             is GroupChange.DeleteRole -> if (!roles) null else state.copy(
                 roles = state.roles.filterNot { it.id == change.id },
@@ -352,10 +442,27 @@ object GroupPolicy {
         }
     }
 
+    /**
+     * A new role starts closed out of every channel closed to everyone: otherwise whoever may make roles and give
+     * them would open such a channel to anyone, themselves too, by a role made a moment ago.
+     */
+    private fun saveRole(state: GroupState, actor: String, saved: RoomRole, now: Long): GroupState {
+        val role = saved.copy(title = TextSafety.clean(saved.title).take(MAX_TITLE))
+        val next = if (state.roles.any { it.id == role.id }) {
+            state.copy(roles = state.roles.map { if (it.id == role.id) role else it })
+        } else {
+            state.copy(
+                roles = state.roles + role,
+                channels = state.channels.map { if (EVERYONE in it.hiddenFrom) it.copy(hiddenFrom = it.hiddenFrom + role.id) else it },
+            )
+        }
+        return next.logged(now, actor, LogAction.Role, role.title)
+    }
+
     /** A role may be given only by someone above it, to someone below them. */
     private fun assign(state: GroupState, actor: String, change: GroupChange.AssignRole, now: Long): GroupState? {
         if (!can(state, actor, Right.AssignRoles)) return null
-        val roleRank = state.roles.indexOfFirst { it.id == change.roleId }.takeIf { it >= 0 }?.plus(2) ?: return null
+        val roleRank = roleRank(state, change.roleId) ?: return null
         val own = rank(state, actor)
         if (roleRank <= own || rank(state, change.username) <= own) return null
         return state.copy(
