@@ -1,10 +1,16 @@
 # Started by scripts/deploy.sh, which also writes .env next to this file.
 name: blesk
 
+# Container logs go to the system journal, which scripts/deploy.sh keeps for seven days and caps in
+# size; `docker compose logs` reads them back from there.
+x-logging: &logging
+  driver: ${BLESK_LOG_DRIVER:-journald}
+
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18.6-alpine3.24
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: blesk
       POSTGRES_USER: blesk
@@ -24,6 +30,7 @@ services:
       dockerfile: ${BLESK_SERVER_DOCKERFILE:-server/Dockerfile}
     image: blesk-server:local
     restart: unless-stopped
+    logging: *logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,10 +51,19 @@ services:
       - attachments:/srv/blesk-attachments
     expose:
       - "8080"
+    # Unhealthy is not restarted by Docker itself: the blesk-watchdog timer of scripts/deploy.sh does that,
+    # so a server that hangs instead of crashing comes back too.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "5", "-o", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 2m
 
   caddy:
-    image: caddy:2
+    image: caddy:2.11.7
     restart: unless-stopped
+    logging: *logging
     depends_on:
       - server
       - livekit
@@ -71,6 +87,7 @@ services:
   livekit:
     image: livekit/livekit-server:v1.13.7
     restart: unless-stopped
+    logging: *logging
     command: ["--config", "/etc/livekit.yaml"]
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?run scripts/deploy.sh to create .env}: ${LIVEKIT_API_SECRET:?run scripts/deploy.sh to create .env}"

@@ -71,7 +71,6 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
     }
 
     routing {
-        get(Api.INFO) { call.respond(ServerInfo(calls = services.callTokens != null)) }
         // For probes and uptime monitors, so outside the rate limits: the check itself runs one at a time.
         get(Api.HEALTH) {
             if (services.health.isUp()) {
@@ -80,23 +79,26 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
                 call.respond(HttpStatusCode.ServiceUnavailable, Health("unavailable"))
             }
         }
-        rateLimited(services.authRateLimiter, services.trustProxy) {
-            registrationRoutes(services)
-            loginRoutes(services)
-        }
-        authenticate(BEARER) {
-            accountLookupRoutes(services)
-            keyRoutes(services)
-            messageRoutes(services)
-            attachmentRoutes(services)
-            socketRoutes(services)
-            spaceRoutes(services)
-            callRoutes(services)
-            botRoutes(services)
-            inviteRoutes(services)
-        }
-        authenticate(BOT_BEARER) {
-            botApiRoutes(services)
+        rateLimited(services.requestRateLimiter, services.trustProxy) {
+            get(Api.INFO) { call.respond(ServerInfo(calls = services.callTokens != null)) }
+            rateLimited(services.authRateLimiter, services.trustProxy) {
+                registrationRoutes(services)
+                loginRoutes(services)
+            }
+            authenticate(BEARER) {
+                accountLookupRoutes(services)
+                keyRoutes(services)
+                messageRoutes(services)
+                attachmentRoutes(services)
+                socketRoutes(services)
+                spaceRoutes(services)
+                callRoutes(services)
+                botRoutes(services)
+                inviteRoutes(services)
+            }
+            authenticate(BOT_BEARER) {
+                botApiRoutes(services)
+            }
         }
     }
 

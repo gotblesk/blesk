@@ -10,6 +10,8 @@ data class Config(
     val storage: StorageConfig,
     /** Behind Caddy the peer address is the proxy, so the client address comes from X-Forwarded-For. */
     val trustProxy: Boolean,
+    /** Per client address, for every request but /health: a floor under the narrower limits below. */
+    val requestRateLimit: RateLimitConfig,
     val authRateLimit: RateLimitConfig,
     /** Per account, for posts in public spaces. */
     val postRateLimit: RateLimitConfig,
@@ -48,6 +50,10 @@ data class Config(
                 ),
                 storage = storage,
                 trustProxy = value("BLESK_TRUST_PROXY")?.toBooleanStrict() ?: false,
+                requestRateLimit = RateLimitConfig(
+                    capacity = value("BLESK_REQUEST_RATE_BURST")?.toInt() ?: DEFAULT_REQUEST_BURST,
+                    refillPerMinute = value("BLESK_REQUEST_RATE_PER_MINUTE")?.toInt() ?: DEFAULT_REQUESTS_PER_MINUTE,
+                ),
                 authRateLimit = RateLimitConfig(
                     capacity = value("BLESK_AUTH_RATE_BURST")?.toInt() ?: DEFAULT_BURST,
                     refillPerMinute = value("BLESK_AUTH_RATE_PER_MINUTE")?.toInt() ?: DEFAULT_PER_MINUTE,
@@ -83,6 +89,8 @@ data class Config(
         }
 
         private const val DEFAULT_PORT = 8080
+        private const val DEFAULT_REQUEST_BURST = 300
+        private const val DEFAULT_REQUESTS_PER_MINUTE = 600
         private const val DEFAULT_BURST = 20
         private const val DEFAULT_PER_MINUTE = 30
         private const val DEFAULT_POST_PER_MINUTE = 30

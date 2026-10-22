@@ -10,6 +10,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import org.junit.Assert.assertEquals
@@ -62,6 +63,18 @@ class AuthTest {
         assertEquals(HttpStatusCode.Unauthorized, harness.client.get(Api.KEY_STATUS) { bearerAuth("forged") }.status)
         assertEquals(HttpStatusCode.Unauthorized, harness.client.get("${Api.ATTACHMENTS}/AAAAAAAAAAAAAAAAAAAAAA").status)
     }
+
+    @Test
+    fun `every request but health is rate limited per address`() =
+        serverTest(requestRateLimit = RateLimitConfig(capacity = 2, refillPerMinute = 1)) { harness ->
+            repeat(2) { assertEquals(HttpStatusCode.OK, harness.client.get(Api.INFO).status) }
+            val limited = harness.client.get(Api.INFO)
+            assertEquals(HttpStatusCode.TooManyRequests, limited.status)
+            assertEquals("60", limited.headers[HttpHeaders.RetryAfter])
+            assertEquals(HttpStatusCode.TooManyRequests, harness.client.get(Api.KEY_STATUS).status)
+            // Monitors keep their answer whatever the load.
+            assertEquals(HttpStatusCode.OK, harness.client.get(Api.HEALTH).status)
+        }
 
     @Test
     fun `auth endpoints are rate limited per address`() = serverTest(RateLimitConfig(capacity = 3, refillPerMinute = 1)) { harness ->

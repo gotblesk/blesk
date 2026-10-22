@@ -43,8 +43,7 @@ install_packages() {
     say "Устанавливаю пакеты"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
-    apt-get install -y -qq ca-certificates curl git jq openssl python3 qrencode fail2ban unattended-upgrades ufw >/dev/null
-    systemctl enable --now fail2ban unattended-upgrades >/dev/null 2>&1 || true
+    apt-get install -y -qq ca-certificates curl git jq openssl python3 python3-systemd qrencode fail2ban unattended-upgrades ufw >/dev/null
     if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then
         say "Устанавливаю Docker"
         curl -fsSL https://get.docker.com | sh
@@ -57,6 +56,93 @@ install_packages() {
         systemctl restart docker >/dev/null 2>&1 || true
     fi
     systemctl enable --now docker >/dev/null 2>&1 || true
+}
+
+# fail2ban for SSH, security updates every night, logs for seven days: each is checked to really be
+# running, since a server that only looks protected is worse than one known to be bare.
+harden_host() {
+    say "Защита сервера: fail2ban, обновления безопасности, журналы"
+    local port tries
+    port=$(ssh_port)
+    install -d /etc/fail2ban/jail.d
+    cat >/etc/fail2ban/jail.d/blesk.conf <<EOF
+[sshd]
+enabled = true
+backend = systemd
+port = ${port:-22}
+maxretry = 5
+findtime = 10m
+bantime = 1h
+EOF
+    systemctl enable fail2ban >/dev/null 2>&1
+    systemctl restart fail2ban || die "fail2ban не запустился: journalctl -u fail2ban"
+    for tries in $(seq 1 15); do
+        fail2ban-client status sshd >/dev/null 2>&1 && break
+        ((tries < 15)) || die "fail2ban запущен, но не следит за SSH: fail2ban-client status sshd"
+        sleep 1
+    done
+
+    cat >/etc/apt/apt.conf.d/20auto-upgrades <<EOF
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+EOF
+    systemctl enable --now unattended-upgrades apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 ||
+        die "не удалось включить обновления безопасности: systemctl status unattended-upgrades"
+    [[ $(apt-config dump APT::Periodic::Unattended-Upgrade) == *'"1"'* ]] ||
+        die "обновления безопасности выключены в настройках apt"
+    systemctl is-active --quiet apt-daily-upgrade.timer || die "таймер обновлений безопасности не работает"
+
+    install -d /etc/systemd/journald.conf.d
+    cat >/etc/systemd/journald.conf.d/blesk.conf <<EOF
+[Journal]
+MaxRetentionSec=7day
+SystemMaxUse=1G
+EOF
+    systemctl restart systemd-journald
+}
+
+# Docker marks a hung server unhealthy but does not restart it; this timer does, every minute. The
+# connection limit has to be set again whenever Docker rebuilds its rules, so it follows docker.service.
+install_guards() {
+    cat >/etc/systemd/system/blesk-watchdog.service <<EOF
+[Unit]
+Description=Restart blesk containers that fail their health check
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'docker ps -q --filter label=com.docker.compose.project=blesk --filter health=unhealthy | xargs -r docker restart'
+EOF
+    cat >/etc/systemd/system/blesk-watchdog.timer <<EOF
+[Unit]
+Description=Look for unhealthy blesk containers every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target
+EOF
+    cat >/etc/systemd/system/blesk-connlimit.service <<EOF
+[Unit]
+Description=Limit connections to blesk per address
+After=docker.service
+BindsTo=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash $INSTALL_DIR/scripts/connlimit.sh
+
+[Install]
+WantedBy=docker.service
+EOF
+    systemctl daemon-reload
+    systemctl enable --now blesk-watchdog.timer >/dev/null
+    systemctl enable blesk-connlimit.service >/dev/null
+    systemctl restart blesk-connlimit.service || die "не удалось ограничить соединения: journalctl -u blesk-connlimit"
 }
 
 # Building the server needs more memory than a 2 GB machine has free next to the running stack.
@@ -483,9 +569,11 @@ main() {
     configure
     open_firewall
     harden_ssh
+    harden_host
     fetch_server
     build_site
     start_stack
+    install_guards
     wait_until_ready
     print_connection
     first_backup

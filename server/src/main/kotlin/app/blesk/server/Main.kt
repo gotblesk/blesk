@@ -33,6 +33,7 @@ fun main(args: Array<String>) {
     val services = Services(
         database = Database(dataSource),
         storage = retrying("storage") { storage(config.storage) },
+        requestRateLimiter = RateLimiter(config.requestRateLimit),
         authRateLimiter = RateLimiter(config.authRateLimit),
         postRateLimiter = RateLimiter(config.postRateLimit),
         trustProxy = config.trustProxy,

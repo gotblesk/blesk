@@ -62,17 +62,21 @@ QR-код можно показать ещё раз в любой момент: 
 
 ## 6. Резервные копии и переезд
 
-Каждую ночь сервер сам отправляет зашифрованную копию в S3-хранилище у другого провайдера: базу, вложения, пароли из `deploy/.env` и сертификат. Включается секретами `BACKUP_*` в GitHub (пошагово — `docs/NEEDS_HUMAN.md`, пункт 2) и кнопкой **Deploy server**; без них сервер работает без копий.
+Ночная зашифрованная копия в S3-хранилище у другого провайдера (база, вложения, пароли из `deploy/.env` и сертификат) включается секретами `BACKUP_*` в GitHub (пошагово — `docs/NEEDS_HUMAN.md`, 2.7): следующий деплой ставит таймер и сразу делает первую копию. **На 22.10.2026 секретов нет, и копий на api.blesk.su нет.**
 
 - Сделать копию сейчас: `sudo bash /opt/blesk/scripts/backup.sh`.
-- Проверить, что копия восстанавливается: **Actions → Backup check → Run workflow**.
+- Проверить, что копия восстанавливается: **Actions → Backup check → Run workflow**. Эта кнопка, как и ежедневная проверка и кнопка **Deploy server**, появится, когда основной веткой репозитория станет рабочая (`NEEDS_HUMAN.md`, 2.4): GitHub запускает расписания и ручные запуски только оттуда. Без секретов проверка красная.
 - Переехать на другой сервер или к другому хостеру: `docs/MIGRATION.md`.
+
+## 7. Мониторинг
+
+Каждые 15 минут GitHub Actions (`monitor.yml`) проверяет снаружи `https://api.blesk.su/health` и `https://blesk.su/`, три попытки с паузой в минуту. Если не отвечает хоть один, открывается обращение «Сервер не отвечает» с упоминанием владельца, и GitHub присылает письмо; когда оба ответят, обращение закрывается само. Как и проверка копий, это расписание заработает после смены основной ветки (`NEEDS_HUMAN.md`, 2.4).
 
 ## Техническое приложение
 
 **Резервные копии** (`scripts/backup.sh`, `restore.sh`, `restore-drill.sh`, общая часть — `backup-lib.sh`): restic 0.17 в контейнере, репозиторий `s3:<BACKUP_S3_ENDPOINT>/<BACKUP_S3_BUCKET>/blesk`, шифрование restic (AES-256-CTR + Poly1305, ключ из `BACKUP_PASSWORD` через scrypt). В снимке: `pg_dump --format=custom`, том `attachments`, `.env`, `certs`. Хост снимков всегда `blesk`, поэтому новый сервер видит снимки старого. Таймер `blesk-backup.timer` — 03:30 по Москве; хранение 7/4/6 (дни, недели, месяцы); по воскресеньям `restic check --read-data-subset=10%`. Настройки — `deploy/backup.env` (права 600, вне git), пишет его `deploy.sh` из переменных `BACKUP_*`. `BLESK_RESTORE=latest` при запуске `deploy.sh` восстанавливает сервер из копии; поверх существующих данных — только с `BLESK_RESTORE_FORCE=1`.
 
-**Защита хоста** (`deploy.sh`): ufw открывает только SSH, 80/TCP, 443/TCP, 443/UDP и порты LiveKit (7881/TCP, 50000–50100/UDP); fail2ban; автоматические обновления безопасности. При `BLESK_SSH_KEYS_ONLY=1` (так запускает GitHub) — вход по SSH только по ключу: `/etc/ssh/sshd_config.d/10-blesk.conf` с `PasswordAuthentication no`, `KbdInteractiveAuthentication no` и `PermitRootLogin prohibit-password`. Это делается, только если ключи есть у root и, когда пользователь `deploy` уже создан, у него; иначе вход по паролю остаётся и в журнале будет предупреждение.
+**Защита хоста** (`deploy.sh`): ufw открывает только SSH, 80/TCP, 443/TCP, 443/UDP и порты LiveKit (7881/TCP, 50000–50100/UDP). fail2ban следит за SSH (`/etc/fail2ban/jail.d/blesk.conf`: 5 ошибок за 10 минут — бан на час), автоматические обновления безопасности включены в apt (`20auto-upgrades`); деплой проверяет, что fail2ban следит за SSH и таймер обновлений работает, и останавливается с ошибкой, если нет. Системный журнал хранится 7 дней и не больше 1 ГБ (`/etc/systemd/journald.conf.d/blesk.conf`), туда же идут журналы контейнеров. С одного адреса на 80 и 443 — не больше 200 соединений сразу и 50 новых в секунду (запас 200): правила в цепочке `DOCKER-USER` ставит `scripts/connlimit.sh` при каждом старте Docker (`blesk-connlimit.service`), потому что опубликованные порты Docker идут мимо ufw. Таймер `blesk-watchdog` раз в минуту перезапускает контейнеры blesk, которые не прошли проверку здоровья. При `BLESK_SSH_KEYS_ONLY=1` (так запускает GitHub) — вход по SSH только по ключу: `/etc/ssh/sshd_config.d/10-blesk.conf` с `PasswordAuthentication no`, `KbdInteractiveAuthentication no` и `PermitRootLogin prohibit-password`. Это делается, только если ключи есть у root и, когда пользователь `deploy` уже создан, у него; иначе вход по паролю остаётся и в журнале будет предупреждение.
 
 **Подготовка сервера** (`scripts/server-bootstrap.sh`, один раз от root, повторный запуск ничего не ломает):
 
@@ -95,7 +99,7 @@ sudo запускает команду с чистым окружением и �
 
 **Проверки после деплоя** (`scripts/ci/check-live.sh`, с GitHub, повторы до 3 минут): `https://api.blesk.su/health` отвечает `{"status":"ok"}`; `https://blesk.su` — 200 со словами «Блестящий мессенджер»; `https://www.blesk.su` перенаправляет на `https://blesk.su/`; `/download` отдаёт APK файлом; `/.well-known/assetlinks.json` — JSON с `app.blesk` и `Content-Type: application/json`; сертификаты blesk.su, www.blesk.su и api.blesk.su действуют ещё хотя бы 14 дней. Итог — таблицей в сводке запуска.
 
-**Состав** (`deploy/docker-compose.yml`): PostgreSQL, сервер blesk (Kotlin, Ktor), LiveKit, Caddy (он же отдаёт сайт). Наружу открыты порты **80** и **443** (TCP, а для HTTP/3 ещё 443/UDP) и порты медиа LiveKit: **7881/TCP** и **50000–50100/UDP**. Порт 80 нужен для выпуска сертификата и перенаправления на HTTPS. `deploy.sh` открывает все эти порты в ufw, если он включён.
+**Состав** (`deploy/docker-compose.yml`): PostgreSQL 18.6, сервер blesk (Kotlin, Ktor, на `eclipse-temurin:21.0.12.1_1-jre-noble`), LiveKit 1.13.7, Caddy 2.11.7 (он же отдаёт сайт); версии закреплены точно и меняются отдельным коммитом. У сервера есть проверка здоровья: `curl /health` каждые 30 с, после трёх неудач подряд контейнер считается нездоровым, и его перезапускает `blesk-watchdog`. Caddy ограничивает заголовки (10 с, 32 КБ), тело запроса (2 минуты; до 16 МБ, одно вложение целиком — до 220 МБ) и простой соединения (5 минут); у API, как и у сайта, есть HSTS. Наружу открыты порты **80** и **443** (TCP, а для HTTP/3 ещё 443/UDP) и порты медиа LiveKit: **7881/TCP** и **50000–50100/UDP**. Порт 80 нужен для выпуска сертификата и перенаправления на HTTPS. `deploy.sh` открывает все эти порты в ufw, если он включён.
 
 **Звонки.** Сигнализация LiveKit идёт через Caddy: `wss://<хост>/livekit` проксируется на `livekit:7880` без префикса. Ключ и секрет LiveKit `deploy.sh` создаёт один раз и хранит в `deploy/.env` (`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`), в контейнер они попадают через `LIVEKIT_KEYS`; в `deploy/livekit.yaml` секретов нет. Сервер blesk выдаёт токен LiveKit (JWT HS256, 6 часов, одна комната, identity — имя пользователя). Медиа шифруется на клиентах ключом из Signal-сообщения или состояния группы. Журнал LiveKit — только предупреждения, чтобы в нём не было имён и комнат.
 
@@ -105,13 +109,13 @@ sudo запускает команду с чистым окружением и �
 
 | Метод | Путь | Доступ |
 |---|---|---|
-| GET | `/health` | открыто, без лимита; 200 `{"status":"ok"}`, если база ответила на `SELECT 1` за 2 с, иначе 503 `{"status":"unavailable"}` |
+| GET | `/health` | открыто, без лимита; 200 `{"status":"ok"}`, если база ответила на `SELECT 1` за 2 с, иначе 503 `{"status":"unavailable"}`. Все остальные запросы — под общим лимитом с одного адреса (600 в минуту, запас 300); ответ 429 несёт `Retry-After` |
 | GET | `/v1/info` | открыто |
 | GET | `/v1/usernames/{name}` | открыто, лимит запросов |
 | POST | `/v1/accounts` | открыто, лимит запросов; при `BLESK_REGISTRATION=invite` — только с действующим приглашением в поле `invite` (код или ссылка) |
 | POST | `/v1/auth/challenge`, `/v1/auth/token` | открыто, лимит запросов; токен — только подписью ключа этого аккаунта |
 | POST | `/v1/account/recover` | открыто, лимит запросов; нужен токен восстановления |
-| GET | `/v1/accounts/{username}` | токен; скрытый аккаунт — только с `?link=` |
+| GET | `/v1/accounts/{username}` | токен; скрытый аккаунт — только с `?link=`; 20 поисков сразу, дальше 10 в минуту на человека (иначе 429) |
 | DELETE | `/v1/account`; PUT `/v1/account/recovery`, `/v1/discovery` | токен; только свой аккаунт |
 | PUT | `/v1/keys` | токен; ключи подписаны ключом личности этого аккаунта |
 | GET | `/v1/keys/status`, `/v1/keys/{username}` | токен; скрытый аккаунт — только с `?link=`; одноразовых ключей одному человеку — 5 сразу, потом 1 в час, дальше связка без них |
@@ -173,6 +177,7 @@ sudo запускает команду с чистым окружением и �
 | `BLESK_MINIO_ENDPOINT`, `BLESK_MINIO_ACCESS_KEY`, `BLESK_MINIO_SECRET_KEY`, `BLESK_MINIO_BUCKET` | MinIO; бакет создаётся сам |
 | `BLESK_FS_DIR` | папка для вложений при `fs` |
 | `BLESK_TRUST_PROXY` | `true` за Caddy: адрес клиента берётся из `X-Forwarded-For` |
+| `BLESK_REQUEST_RATE_BURST`, `BLESK_REQUEST_RATE_PER_MINUTE` | общий лимит запросов с одного IP, кроме `/health` (300 и 600) |
 | `BLESK_AUTH_RATE_BURST`, `BLESK_AUTH_RATE_PER_MINUTE` | лимит на регистрацию и вход с одного IP (20 и 30) |
 | `BLESK_POST_RATE_PER_MINUTE` | лимит постов в каналах и комнатах на аккаунт (30) |
 | `LIVEKIT_PUBLIC_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | LiveKit: адрес для телефонов (`wss://<хост>/livekit`), ключ и секрет. Нужны все три или ни одной; без них звонки выключены |

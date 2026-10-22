@@ -16,6 +16,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.signal.libsignal.protocol.IdentityKeyPair
 
@@ -80,6 +81,18 @@ class AccountsTest {
 
         val missing = harness.client.get("${Api.ACCOUNTS}/${randomUsername()}") { bearerAuth(alice.token) }
         assertEquals(HttpStatusCode.NotFound, missing.status)
+    }
+
+    @Test
+    fun `lookups by username run out, so nobody can walk every name`() = serverTest { harness ->
+        val alice = harness.register()
+        val bob = harness.register()
+        suspend fun lookUp(name: String, token: String) = harness.client.get("${Api.ACCOUNTS}/$name") { bearerAuth(token) }.status
+        val answers = List(25) { lookUp(randomUsername(), alice.token) }
+        assertEquals(List(20) { HttpStatusCode.NotFound }, answers.take(20))
+        assertTrue(answers.drop(20).all { it == HttpStatusCode.TooManyRequests })
+        // The budget is per person: someone else still finds people.
+        assertEquals(HttpStatusCode.OK, lookUp(alice.username, bob.token))
     }
 
     @Test

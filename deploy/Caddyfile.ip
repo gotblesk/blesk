@@ -4,10 +4,29 @@
 	auto_https disable_certs
 	# Clients connecting to a bare IP send no SNI; without this Caddy would not know which certificate to use.
 	default_sni {$BLESK_PUBLIC_IP}
+	# Slow clients may not hold connections open for ever, nor send endless headers. No write timeout:
+	# a large file goes down for as long as the connection needs, and WebSockets are not limited at all.
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 2m
+			idle 5m
+		}
+		max_header_size 32KB
+	}
 }
 
 https://{$BLESK_PUBLIC_IP} {
 	tls /certs/blesk.crt /certs/blesk.key
+	# The server checks every size itself; this stops an oversized body before it reaches it. One
+	# attachment may come in a single request (Api.MAX_ATTACHMENT_BYTES), everything else is small.
+	@small_body not path /v1/attachments
+	request_body @small_body {
+		max_size 16MB
+	}
+	request_body /v1/attachments {
+		max_size 220MB
+	}
 	# LiveKit signalling (WebSocket); the prefix is stripped because LiveKit serves from the root.
 	handle_path /livekit/* {
 		reverse_proxy livekit:7880

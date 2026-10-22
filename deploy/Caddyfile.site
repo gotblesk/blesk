@@ -1,6 +1,18 @@
 # The API (as in Caddyfile.domain) and the site on one server. scripts/deploy.sh picks this file when
 # BLESK_SITE_DOMAIN is set and puts the site, built by scripts/build-site.py, into /srv/site.
 # Caddy obtains and renews the certificates of all three hosts by itself.
+{
+	# Slow clients may not hold connections open for ever, nor send endless headers. No write timeout:
+	# a large file goes down for as long as the connection needs, and WebSockets are not limited at all.
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 2m
+			idle 5m
+		}
+		max_header_size 32KB
+	}
+}
 
 (site_headers) {
 	header {
@@ -13,6 +25,16 @@
 }
 
 {$BLESK_DOMAIN} {
+	header Strict-Transport-Security "max-age=31536000"
+	# The server checks every size itself; this stops an oversized body before it reaches it. One
+	# attachment may come in a single request (Api.MAX_ATTACHMENT_BYTES), everything else is small.
+	@small_body not path /v1/attachments
+	request_body @small_body {
+		max_size 16MB
+	}
+	request_body /v1/attachments {
+		max_size 220MB
+	}
 	# LiveKit signalling (WebSocket); the prefix is stripped because LiveKit serves from the root.
 	handle_path /livekit/* {
 		reverse_proxy livekit:7880

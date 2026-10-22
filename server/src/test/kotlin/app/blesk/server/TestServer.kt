@@ -175,6 +175,7 @@ fun serverTest(
     callRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     liveKit: LiveKitConfig? = null,
     botRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
+    requestRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     // Open, so that tests of everything else register without invites.
     registration: RegistrationMode = RegistrationMode.Open,
     clock: Clock = Clock.systemUTC(),
@@ -187,6 +188,7 @@ fun serverTest(
         val services = Services(
             database = Database(dataSource),
             storage = FileSystemStorage(attachments),
+            requestRateLimiter = RateLimiter(requestRateLimit),
             authRateLimiter = RateLimiter(rateLimit),
             postRateLimiter = RateLimiter(postRateLimit),
             trustProxy = false,

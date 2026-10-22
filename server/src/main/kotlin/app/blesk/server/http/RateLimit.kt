@@ -2,17 +2,20 @@ package app.blesk.server.http
 
 import app.blesk.server.RateLimitConfig
 import app.blesk.shared.protocol.ErrorBody
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.application.install
 import io.ktor.server.plugins.origin
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.RouteSelector
 import io.ktor.server.routing.RouteSelectorEvaluation
 import io.ktor.server.routing.RoutingResolveContext
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.ceil
 
 /** Token bucket per key (a client address, a person). Lives in memory: a restart simply refills everyone. */
 class RateLimiter(
@@ -27,6 +30,9 @@ class RateLimiter(
 
     private val buckets = ConcurrentHashMap<String, Bucket>()
     private val refillPerNano = refillPerMinute / NANOS_PER_MINUTE
+
+    /** How long an empty bucket takes to hold one token again, rounded up to whole seconds for Retry-After. */
+    val retryAfterSeconds: Long = ceil(SECONDS_PER_MINUTE / refillPerMinute).toLong().coerceAtLeast(1)
 
     fun tryAcquire(key: String): Boolean {
         val now = nanoTime()
@@ -53,6 +59,7 @@ class RateLimiter(
 
     private companion object {
         const val NANOS_PER_MINUTE = 60_000_000_000.0
+        const val SECONDS_PER_MINUTE = 60.0
     }
 }
 
@@ -73,6 +80,7 @@ private val RateLimit = createRouteScopedPlugin("RateLimit", ::RateLimitSettings
     val trustProxy = pluginConfig.trustProxy
     onCall { call ->
         if (!limiter.tryAcquire(call.clientAddress(trustProxy))) {
+            call.response.header(HttpHeaders.RetryAfter, limiter.retryAfterSeconds.toString())
             call.respond(HttpStatusCode.TooManyRequests, ErrorBody(ErrorCodes.RATE_LIMITED))
         }
     }

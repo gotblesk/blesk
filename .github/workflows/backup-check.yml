@@ -25,13 +25,15 @@ jobs:
       BACKUP_S3_ACCESS_KEY: ${{ secrets.BACKUP_S3_ACCESS_KEY }}
       BACKUP_S3_SECRET_KEY: ${{ secrets.BACKUP_S3_SECRET_KEY }}
       BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
       - name: Restore drill
         run: |
+          # Red, not a quiet pass: a green check without backups would claim what is not there.
           if [ -z "$BACKUP_S3_ENDPOINT" ] || [ -z "$BACKUP_PASSWORD" ]; then
-            echo "::notice::Backups are not set up yet (secrets BACKUP_*), nothing to check"
-            exit 0
+            echo "::error::Резервных копий нет: секреты BACKUP_* не заданы (NEEDS_HUMAN.md, 2.7)"
+            exit 1
           fi
           mode=full
           if [ "${{ github.event_name }}" = schedule ] && [ "$(date -u +%u)" != 1 ]; then mode=age; fi

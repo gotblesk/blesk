@@ -129,6 +129,9 @@ fun Route.loginRoutes(services: Services) {
 
 fun Route.accountLookupRoutes(services: Services) {
     get("${Api.ACCOUNTS}/{username}") {
+        ensure(services.lookupBudget.tryAcquire(call.account.id.toString())) {
+            ApiException(HttpStatusCode.TooManyRequests, ErrorCodes.RATE_LIMITED)
+        }
         val username = call.parameters["username"].orEmpty()
         ensure(Usernames.isValid(username)) { notFound() }
         val account = services.accounts.find(username).orFail { notFound() }

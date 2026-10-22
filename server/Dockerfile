@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/root/.gradle \
         -Pkotlin.compiler.execution.strategy=in-process \
         :server:installDist
 
-FROM eclipse-temurin:21-jre-noble
+FROM eclipse-temurin:21.0.12.1_1-jre-noble
 RUN groupadd --system blesk && useradd --system --gid blesk --home-dir /opt/blesk-server blesk \
     && mkdir -p /var/lib/blesk /srv/blesk-attachments \
     && chown blesk:blesk /var/lib/blesk /srv/blesk-attachments

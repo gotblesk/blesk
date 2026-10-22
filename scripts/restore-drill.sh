@@ -20,7 +20,7 @@ write_backup_env || fail "BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET, BACKUP_S3_ACCESS
 load_backup_env
 cleanup() {
     compose down --volumes >/dev/null 2>&1 || true
-    rm -f "$DEPLOY_DIR/.env" "$BACKUP_ENV"
+    rm -rf "$DEPLOY_DIR/.env" "$BACKUP_ENV" "$INSTALL_DIR/server/dist"
     find "$DEPLOY_DIR/certs" -type f ! -name .gitkeep -delete 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -45,8 +45,27 @@ attachments=$(sql 'select count(*) from attachments')
 objects=$(docker run --rm --quiet -v "${COMPOSE_PROJECT}_attachments:/data:ro" alpine:3.22 \
     sh -c 'find /data -type f ! -name "*.part" | wc -l')
 
+# The restored settings build the server from the archive GitHub made (server/Dockerfile.dist), as on
+# the VPS, which never has the sources built. The drill takes that archive from the newest release:
+# it is what the VPS runs.
+fetch_server() {
+    [[ $(sed -n 's/^BLESK_SERVER_DOCKERFILE=//p' "$DEPLOY_DIR/.env") == server/Dockerfile.dist ]] || return 0
+    local dist="$INSTALL_DIR/server/dist" url auth=()
+    # A runner shares its address with many others, and GitHub limits unauthenticated calls per address.
+    [[ -z "${GH_TOKEN:-}" ]] || auth=(-H "Authorization: Bearer $GH_TOKEN")
+    url=$(curl -fsSL "${auth[@]}" "https://api.github.com/repos/${GITHUB_REPOSITORY:-gotblesk/blesk}/releases?per_page=20" |
+        jq -r 'first(.[] | select(.draft | not) | .assets[] | select(.name == "blesk-server.tar.gz") | .browser_download_url) // empty')
+    [[ -n "$url" ]] || fail "no release carries blesk-server.tar.gz"
+    log "taking the server from $url"
+    rm -rf "$dist"
+    mkdir -p "$dist"
+    curl -fsSL "$url" | tar -xz -C "$dist"
+    [[ -x "$dist/blesk-server/bin/blesk-server" ]] || fail "the server archive is incomplete"
+}
+
 if [[ ${BLESK_DRILL_SERVER:-1} == 1 ]]; then
     log "starting the server on the restored data"
+    fetch_server
     compose up -d --build server
     answered=""
     for _ in $(seq 1 90); do

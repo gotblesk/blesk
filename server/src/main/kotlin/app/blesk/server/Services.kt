@@ -27,6 +27,8 @@ import kotlin.time.Duration
 class Services(
     database: Database,
     val storage: AttachmentStorage,
+    /** Per client address, for every request but /health. */
+    val requestRateLimiter: RateLimiter,
     val authRateLimiter: RateLimiter,
     val postRateLimiter: RateLimiter,
     val trustProxy: Boolean,
@@ -64,9 +66,17 @@ class Services(
     val oneTimeKeyBudget =
         RateLimiter(capacity = ONE_TIME_KEYS_AT_ONCE, refillPerMinute = 1.0 / MINUTES_PER_ONE_TIME_KEY)
 
+    /**
+     * Lookups by @username per person: enough for anyone opening chats by hand, too few to walk the
+     * names of everyone on the server.
+     */
+    val lookupBudget = RateLimiter(capacity = LOOKUPS_AT_ONCE, refillPerMinute = LOOKUPS_PER_MINUTE)
+
     /** Whole milliseconds: what goes into the database reads back exactly the same (Postgres keeps microseconds and rounds). */
     fun now(): Instant = clock.instant().truncatedTo(ChronoUnit.MILLIS)
 }
 
 private const val ONE_TIME_KEYS_AT_ONCE = 5
 private const val MINUTES_PER_ONE_TIME_KEY = 60
+private const val LOOKUPS_AT_ONCE = 20
+private const val LOOKUPS_PER_MINUTE = 10.0
