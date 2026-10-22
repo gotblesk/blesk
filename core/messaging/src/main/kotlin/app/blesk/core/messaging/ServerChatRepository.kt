@@ -16,6 +16,7 @@ import app.blesk.core.data.SpaceResult
 import app.blesk.core.data.Transfer
 import app.blesk.core.data.calls.CallSignal
 import app.blesk.core.data.calls.CallSignaling
+import app.blesk.core.data.calls.VoiceAccess
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ContactEntity
 import app.blesk.core.data.db.ConversationEntity
@@ -182,6 +183,7 @@ class ServerChatRepository(
             scope.launch { returnFromArchive(bot) }
             incomingFlow.tryEmit(IncomingNote(bot, title, null, text))
         }
+    private val voiceKeys = VoiceKeys(db, me, outbox, clock)
     private val groups = GroupEngine(
         db = db,
         crypto = groupCrypto,
@@ -195,6 +197,7 @@ class ServerChatRepository(
                 media.forget(decodeAttachment(it.attachment))
             }
         },
+        voiceKeys = voiceKeys,
     )
     private val signals = MutableSharedFlow<CallSignal>(extraBufferCapacity = SIGNAL_BUFFER)
     private val typingState = MutableStateFlow<Set<String>>(emptySet())
@@ -850,7 +853,7 @@ class ServerChatRepository(
 
     override suspend fun callToken(room: String): CallToken? = runCatching { api.callToken(room) }.getOrNull()
 
-    override suspend fun voiceKey(groupId: String): String? = groups.voiceKey(groupId)
+    override suspend fun voiceAccess(groupId: String, channelId: String): VoiceAccess? = groups.voiceAccess(groupId, channelId)
 
     // Outgoing
 
@@ -932,6 +935,7 @@ class ServerChatRepository(
             is Body.Reaction, is Body.Edit, is Body.Delete, is Body.ClearChat -> changes.apply(sender, body)
             is Body.GroupUpdate -> takeUpdate(sender, body.state)
             is Body.SenderKey -> groups.onSenderKey(sender, body)
+            is Body.VoiceKey -> voiceKeys.accept(sender, body)
             is Body.JoinRequest -> groups.onJoinRequest(sender, body)
             is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
             is Body.CallOffer, is Body.CallAnswer, is Body.CallEnd, is Body.Timer -> applyControl(sender, content, body)

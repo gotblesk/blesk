@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 13,
-    "identityHash": "d794064403d98730092a702169a4c963",
+    "identityHash": "0aa44ae93abc7fe740e3e87a94f45bb7",
     "entities": [
       {
         "tableName": "conversations",
@@ -579,11 +579,65 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_held_group_messages_groupId` ON `${TABLE_NAME}` (`groupId`)"
           }
         ]
+      },
+      {
+        "tableName": "voice_keys",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`groupId` TEXT NOT NULL, `channelId` TEXT NOT NULL, `version` INTEGER NOT NULL, `room` TEXT NOT NULL, `key` TEXT NOT NULL, `epoch` INTEGER NOT NULL, `holders` TEXT, PRIMARY KEY(`groupId`, `channelId`))",
+        "fields": [
+          {
+            "fieldPath": "groupId",
+            "columnName": "groupId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "channelId",
+            "columnName": "channelId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "room",
+            "columnName": "room",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "epoch",
+            "columnName": "epoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "holders",
+            "columnName": "holders",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "groupId",
+            "channelId"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd794064403d98730092a702169a4c963')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0aa44ae93abc7fe740e3e87a94f45bb7')"
     ]
   }
 }

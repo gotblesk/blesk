@@ -114,10 +114,11 @@ class CallManager(
         finish(CallOutcome.HangUp)
     }
 
-    /** Joins a room's voice channel; nobody is rung. */
+    /** Joins a room's voice channel, in the LiveKit room its access names; nobody is rung. */
     fun joinVoice(groupId: String, channelId: String, conversationId: String, title: String): Boolean {
         val signals = signaling ?: return false
         if (busy()) return mutable.value?.conversationId == conversationId
+        // The session is named after the channel: a closed channel's LiveKit room is another, known only from its access.
         val id = Calls.voiceRoom(groupId, channelId)
         peer = null
         mutable.value = CallSession(
@@ -130,9 +131,9 @@ class CallManager(
             voiceChannel = true,
         )
         scope.launch {
-            val voiceKey = signals.voiceKey(groupId)
-            key = voiceKey
-            if (voiceKey != null && join(id, voiceKey, video = false)) activate(id) else finish(CallOutcome.Unavailable)
+            val access = signals.voiceAccess(groupId, channelId)
+            key = access?.key
+            if (access != null && join(access.room, access.key, video = false)) activate(id) else finish(CallOutcome.Unavailable)
         }
         return true
     }

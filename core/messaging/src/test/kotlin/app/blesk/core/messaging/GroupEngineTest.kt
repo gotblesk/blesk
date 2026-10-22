@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.SignalStore
+import app.blesk.core.data.calls.VoiceAccess
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.HeldGroupMessageEntity
 import app.blesk.core.data.db.LeftGroupEntity
@@ -14,6 +15,7 @@ import app.blesk.core.data.db.OutboxEntity
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.SendStatus
 import app.blesk.shared.protocol.Body
+import app.blesk.shared.protocol.Calls
 import app.blesk.shared.protocol.Content
 import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannel
@@ -65,8 +67,9 @@ class GroupEngineTest {
     private val outbox = HeldOutbox()
     private val crypto = GroupCrypto(SignalStore(db.signal())) { ME }
     private val purged = CopyOnWriteArrayList<MessageEntity>()
+    private val voiceKeys = VoiceKeys(db, ME, outbox, ::clock)
     private val engine =
-        GroupEngine(db, crypto, ME, outbox, ::clock, labels = { FILE_LABEL }, purged = { purged += it })
+        GroupEngine(db, crypto, ME, outbox, ::clock, labels = { FILE_LABEL }, purged = { purged += it }, voiceKeys = voiceKeys)
 
     /** While set, reading the clock waits for it: the moment a change has read the group and not yet written it. */
     @Volatile
@@ -83,14 +86,15 @@ class GroupEngineTest {
 
     /**
      * Updates go into the phone's real outbox table, so a change cut short shows what it left there; sender keys and
-     * group messages only note whom they are for and which key they are, by its distribution id. While [keyOut] is
-     * set, handing out a sender key waits for it; an update to [updateHeldFor] waits for good. [afterUpdate] runs once
-     * an update is queued.
+     * group messages only note whom they are for and which key they are, by its distribution id, and voice keys whom
+     * they are for and which they are. While [keyOut] is set, handing out a sender key waits for it; an update to [updateHeldFor] waits
+     * for good. [afterUpdate] runs once an update is queued.
      */
     private inner class HeldOutbox : GroupOutbox {
         val sealedTo = CopyOnWriteArrayList<String>()
         val sealed = CopyOnWriteArrayList<Pair<String, UUID>>()
         val keysTo = CopyOnWriteArrayList<Pair<String, UUID>>()
+        val voiceKeysTo = CopyOnWriteArrayList<Pair<String, Body.VoiceKey>>()
         val keysHeld = AtomicInteger()
         val updatesHeld = AtomicInteger()
         val flushes = AtomicInteger()
@@ -122,6 +126,7 @@ class GroupEngineTest {
                     db.outbox().insert(OutboxEntity(recipient = recipient, content = json, createdAt = content.sentAtMillis))
                     afterUpdate()
                 }
+                is Body.VoiceKey -> voiceKeysTo += recipient to body
                 else -> Unit
             }
         }
@@ -135,6 +140,7 @@ class GroupEngineTest {
             sealedTo.clear()
             sealed.clear()
             keysTo.clear()
+            voiceKeysTo.clear()
         }
 
         override fun flush(): Job {
@@ -618,8 +624,136 @@ class GroupEngineTest {
         assertEquals(emptyList<MessageEntity>(), purged.toList())
     }
 
+    @Test
+    fun aClosedVoiceChannelsKeyAndRoomGoOnlyToThoseWhoSeeIt() = runBlocking {
+        val club = club()
+        val onAir = closedVoice(club.id)
+
+        val handed = outbox.voiceKeysTo.single()
+        assertEquals("bob", handed.first)
+        val access = engine.voiceAccess(club.id, onAir)!!
+        assertEquals(access, handed.second.access())
+        assertTrue(Calls.isClosedVoiceRoom(access.room, club.id, onAir))
+        val roomWide = engine.voiceAccess(club.id, club.voiceChannel)!!
+        assertEquals(Calls.voiceRoom(club.id, club.voiceChannel), roomWide.room)
+        assertEquals(engine.state(club.id)!!.voiceKey, roomWide.key)
+        assertNotEquals(roomWide.key, access.key)
+    }
+
+    @Test
+    fun losingAClosedVoiceChannelGivesItANewKeyAndRoom() = runBlocking {
+        val club = club()
+        val onAir = closedVoice(club.id)
+        val before = outbox.voiceKeysTo.single().second
+        outbox.forgetSent()
+        engine.change(club.id, GroupChange.AssignRole("bob", MODS, on = false))
+        engine.change(club.id, GroupChange.AssignRole("carol", MODS, on = true))
+
+        val after = outbox.voiceKeysTo.single()
+        assertEquals("carol", after.first)
+        assertTrue(after.second.version > before.version)
+        assertNotEquals(before.room, after.second.room)
+        assertNotEquals(before.key, after.second.key)
+        assertEquals(after.second.access(), engine.voiceAccess(club.id, onAir))
+    }
+
+    @Test
+    fun gainingAClosedVoiceChannelHandsOverTheSameKey() = runBlocking {
+        val club = club()
+        val onAir = closedVoice(club.id)
+        val access = engine.voiceAccess(club.id, onAir)!!
+        outbox.forgetSent()
+        engine.change(club.id, GroupChange.AssignRole("carol", MODS, on = true))
+
+        assertEquals(listOf("carol" to access), outbox.voiceKeysTo.map { it.first to it.second.access() })
+        assertEquals(access, engine.voiceAccess(club.id, onAir))
+
+        engine.leave(club.id)
+        assertNull(db.groups().voiceKey(club.id, onAir))
+    }
+
+    @Test
+    fun aNewEpochGivesAClosedVoiceChannelANewKey() = runBlocking {
+        val club = club(listOf("bob", "carol", "dave"))
+        val onAir = closedVoice(club.id)
+        val first = engine.voiceAccess(club.id, onAir)!!
+        outbox.forgetSent()
+        engine.remove(club.id, "dave")
+        val second = outbox.voiceKeysTo.single()
+        assertEquals("bob", second.first)
+        assertNotEquals(first, second.second.access())
+
+        outbox.forgetSent()
+        engine.onLeave("carol", club.id)
+        val third = outbox.voiceKeysTo.single()
+        assertEquals("bob", third.first)
+        assertNotEquals(second.second.access(), third.second.access())
+        assertEquals(third.second.access(), engine.voiceAccess(club.id, onAir))
+    }
+
+    @Test
+    fun theKeeperHandsOutVoiceKeysForAnotherAdminsStateToo() = runBlocking {
+        val club = club()
+        val onAir = closedVoice(club.id)
+        assertTrue(engine.change(club.id, GroupChange.Admin("carol", Right.ADMIN_ALL)))
+        val access = engine.voiceAccess(club.id, onAir)!!
+        outbox.forgetSent()
+
+        // Carol, an admin now, gives Dave's role the channel; keeping its key is still ours.
+        val current = engine.state(club.id)!!
+        val given = current.copy(
+            version = current.version + 1,
+            members = current.members + GroupMember("dave", GroupRole.Member, roles = listOf(MODS)),
+        )
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("carol", given))
+        assertEquals(listOf("dave" to access), outbox.voiceKeysTo.map { it.first to it.second.access() })
+    }
+
+    @Test
+    fun aChannelClosedBeforeVoiceKeysExistedGetsOneOnStart() = runBlocking {
+        val club = club()
+        val onAir = closedVoice(club.id)
+        // As a build from before closed voice channels had keys of their own left the room.
+        db.groups().deleteVoiceKeys(club.id)
+        outbox.forgetSent()
+        engine.tidy()
+
+        assertEquals(listOf("bob"), outbox.voiceKeysTo.map { it.first })
+        assertEquals(outbox.voiceKeysTo.single().second.access(), engine.voiceAccess(club.id, onAir))
+        outbox.forgetSent()
+        engine.tidy()
+        assertEquals(emptyList<Pair<String, Body.VoiceKey>>(), outbox.voiceKeysTo.toList())
+    }
+
+    @Test
+    fun onlyAnAdminsNewerVoiceKeyIsTakenAndUsedOnlyWhileWeSeeItsChannel() = runBlocking {
+        engine.onUpdate("bob", roomOf(version = 1, ourRoles = emptyList()))
+        // Bob keeps the keys of his room: none of ours goes out.
+        assertEquals(emptyList<Pair<String, Body.VoiceKey>>(), outbox.voiceKeysTo.toList())
+        val key = Body.VoiceKey(ROOM, VOICE_ID, version = 5, Calls.closedVoiceRoom(ROOM, VOICE_ID, "s5"), mediaKey(5))
+        voiceKeys.accept("dave", key)
+        voiceKeys.accept("bob", key.copy(version = 6, room = Calls.voiceRoom(ROOM, VOICE_ID)))
+        voiceKeys.accept("bob", key.copy(version = 6, key = "short"))
+        assertNull(db.groups().voiceKey(ROOM, VOICE_ID))
+
+        // Ahead of the state that shows us the channel: kept, and of use once that state is here.
+        voiceKeys.accept("bob", key)
+        assertNull(engine.voiceAccess(ROOM, VOICE_ID))
+        engine.onUpdate("bob", roomOf(version = 2))
+        assertEquals(key.access(), engine.voiceAccess(ROOM, VOICE_ID))
+
+        voiceKeys.accept("bob", key.copy(version = 4, room = Calls.closedVoiceRoom(ROOM, VOICE_ID, "s4"), key = mediaKey(4)))
+        assertEquals(key.access(), engine.voiceAccess(ROOM, VOICE_ID))
+        val newer = key.copy(version = 7, room = Calls.closedVoiceRoom(ROOM, VOICE_ID, "s7"), key = mediaKey(7))
+        voiceKeys.accept("bob", newer)
+        assertEquals(newer.access(), engine.voiceAccess(ROOM, VOICE_ID))
+
+        engine.onUpdate("bob", roomOf(version = 3, ourRoles = emptyList()))
+        assertNull(engine.voiceAccess(ROOM, VOICE_ID))
+    }
+
     /** A room of ours: Bob holds the moderators' role, the only one that sees [closed]; Carol has no role. */
-    private class Club(val id: String, val openChannel: String, val closedChannel: String) {
+    private class Club(val id: String, val openChannel: String, val closedChannel: String, val voiceChannel: String) {
         val open = GroupEngine.channelConversation(id, openChannel)
         val closed = GroupEngine.channelConversation(id, closedChannel)
     }
@@ -632,15 +766,28 @@ class GroupEngineTest {
         val closed = channels.first { it.title == CLOSED }.id
         assertTrue(engine.change(id, GroupChange.HideChannel(closed, setOf(GroupPolicy.EVERYONE))))
         assertTrue(engine.change(id, GroupChange.AssignRole("bob", MODS, on = true)))
-        return Club(id, channels.first { it.title == GroupEngine.DEFAULT_TEXT_CHANNEL }.id, closed)
+        val voice = channels.first { it.kind == GroupChannelKind.Voice }.id
+        return Club(id, channels.first { it.title == GroupEngine.DEFAULT_TEXT_CHANNEL }.id, closed, voice)
     }
+
+    /** A voice channel of [room] that only the moderators' role sees, closed by us, its keeper. */
+    private suspend fun closedVoice(room: String): String {
+        assertTrue(engine.addChannel(room, ON_AIR, GroupChannelKind.Voice, adminsOnly = false))
+        val id = engine.state(room)!!.channels.first { it.title == ON_AIR }.id
+        assertTrue(engine.change(room, GroupChange.HideChannel(id, setOf(GroupPolicy.EVERYONE))))
+        return id
+    }
+
+    private fun Body.VoiceKey.access() = VoiceAccess(room, key)
+
+    private fun mediaKey(seed: Int): String = Base64.getEncoder().encodeToString(ByteArray(Calls.KEY_BYTES) { seed.toByte() })
 
     private fun stateOf(version: Int, vararg members: GroupMember, title: String = "Выходные", epoch: Int = 0) =
         GroupState(id = GROUP, kind = GroupKind.Group, title = title, version = version, epoch = epoch, members = members.toList())
 
     /**
      * Bob's room, where we are a member holding [ourRoles]. Dave holds the moderators' role, the only one that sees
-     * «модерация»; Carol has none; only admins write in «новости».
+     * «модерация» and «эфир»; Carol has none; only admins write in «новости».
      */
     private fun roomOf(version: Int, ourRoles: List<String> = listOf(MODS)) = GroupState(
         id = ROOM,
@@ -658,6 +805,7 @@ class GroupEngineTest {
             GroupChannel(OPEN_ID, "общее"),
             GroupChannel(CLOSED_ID, CLOSED, hiddenFrom = setOf(GroupPolicy.EVERYONE)),
             GroupChannel(NEWS_ID, "новости", adminsOnly = true),
+            GroupChannel(VOICE_ID, ON_AIR, GroupChannelKind.Voice, hiddenFrom = setOf(GroupPolicy.EVERYONE)),
         ),
         roles = listOf(RoomRole(MODS, "Модераторы")),
     )
@@ -692,8 +840,10 @@ class GroupEngineTest {
         const val OPEN_ID = "open"
         const val CLOSED_ID = "closed"
         const val NEWS_ID = "news"
+        const val VOICE_ID = "air"
         const val MODS = "mods"
         const val CLOSED = "модерация"
+        const val ON_AIR = "эфир"
         const val FILE_LABEL = "Файл"
         const val TIMEOUT = 60_000L
         const val POLL = 20L

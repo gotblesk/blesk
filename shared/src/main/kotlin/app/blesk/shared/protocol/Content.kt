@@ -119,6 +119,15 @@ sealed interface Body {
     @SerialName("sender_key")
     data class SenderKey(val groupId: String, val epoch: Int, val distribution: String) : Body
 
+    /**
+     * The media key and LiveKit [room] of a closed voice channel, from the room's keeper, its first admin, sent
+     * one-to-one only to those who see the channel. A new key, with a higher [version], takes the place of the old one
+     * whenever someone who had it no longer sees the channel or the group moves to a new epoch.
+     */
+    @Serializable
+    @SerialName("voice_key")
+    data class VoiceKey(val groupId: String, val channelId: String, val version: Long, val room: String, val key: String) : Body
+
     /** Asks an admin to be let in with an invite code. */
     @Serializable
     @SerialName("join_request")
@@ -229,7 +238,7 @@ data class GroupState(
     val channels: List<GroupChannel> = emptyList(),
     /** Current invite code; null when invites are off. Only members ever see it. */
     val invite: String? = null,
-    /** Base64 media key for voice channels; replaced with every new epoch. */
+    /** Base64 media key for the voice channels open to all; replaced with every new epoch. Closed ones have their own. */
     val voiceKey: String? = null,
     val description: String = "",
     /** Header hue, one of the palette's; null for the default light. */

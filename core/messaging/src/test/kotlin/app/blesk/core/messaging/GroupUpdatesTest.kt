@@ -18,6 +18,7 @@ import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupPolicy
+import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.RoomRole
 import app.blesk.shared.protocol.ServerFrame
 import kotlinx.coroutines.CoroutineScope
@@ -75,8 +76,16 @@ class GroupUpdatesTest {
         linkOf = { null },
     )
     private val slowCommits = SlowCommits()
-    private val engine =
-        GroupEngine(db, GroupCrypto(store) { ME }, ME, slowCommits, System::currentTimeMillis, labels = { "" }, purged = {})
+    private val engine = GroupEngine(
+        db,
+        GroupCrypto(store) { ME },
+        ME,
+        slowCommits,
+        System::currentTimeMillis,
+        labels = { "" },
+        purged = {},
+        voiceKeys = VoiceKeys(db, ME, slowCommits, System::currentTimeMillis),
+    )
     private val peers = mutableListOf<BleskDatabase>()
 
     /**
@@ -166,6 +175,31 @@ class GroupUpdatesTest {
         // Bob: only the new state. Carol: the new state, a new key for the channel, the message.
         assertEquals(listOf(1, 3), envelopesTo(BOB, CAROL).since(revoked))
         assertEquals(listOf(0, 1), sealedTo(BOB, CAROL).since(revokedSealed))
+    }
+
+    @Test
+    fun aVoiceKeyTheKeeperOwesForAnotherAdminsStateGoesOut() = runBlocking {
+        val room = engine.create(GroupKind.Room, "Клуб", listOf(BOB, CAROL))
+        assertTrue(engine.change(room, GroupChange.Admin(BOB, Right.ADMIN_ALL)))
+        assertTrue(engine.change(room, GroupChange.SaveRole(RoomRole(MODS, MODS))))
+        assertTrue(engine.addChannel(room, "эфир", GroupChannelKind.Voice, adminsOnly = false))
+        val onAir = engine.state(room)!!.channels.first { it.title == "эфир" }.id
+        assertTrue(engine.change(room, GroupChange.HideChannel(onAir, setOf(GroupPolicy.EVERYONE))))
+        untilTheOutboxIsIdle()
+        val before = envelopesTo(BOB, CAROL)
+
+        // Bob, an admin too, gives Carol the channel's role; handing her its key is still ours to do.
+        val current = engine.state(room)!!
+        val given = current.copy(
+            version = current.version + 1,
+            members = current.members.map { if (it.username == CAROL) it.copy(roles = listOf(MODS)) else it },
+        )
+        slowCommits.on = true
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate(BOB, given))
+        untilTheOutboxIsIdle()
+
+        assertEquals(emptyList<String>(), db.outbox().all().map { it.recipient })
+        assertEquals(listOf(0, 1), envelopesTo(BOB, CAROL).since(before))
     }
 
     private fun text(value: String) = Content(UUID.randomUUID().toString(), System.currentTimeMillis(), Body.Text(value))

@@ -377,6 +377,29 @@ interface GroupDao {
     @Query("DELETE FROM held_group_messages WHERE heldAt < :at")
     suspend fun dropHeldBefore(at: Long)
 
+    @Query("SELECT * FROM voice_keys WHERE groupId = :groupId AND channelId = :channelId")
+    suspend fun voiceKey(groupId: String, channelId: String): VoiceKeyEntity?
+
+    /** For the keeper's own key, written in the transaction that read its group. */
+    @Upsert
+    suspend fun upsertVoiceKey(key: VoiceKeyEntity)
+
+    /**
+     * Keeps a key given by an admin if it is newer than the one here, and only while its group is on this phone.
+     * Returns whether it was kept.
+     */
+    @Transaction
+    suspend fun offerVoiceKey(key: VoiceKeyEntity): Boolean {
+        if (get(key.groupId) == null) return false
+        val current = voiceKey(key.groupId, key.channelId)
+        if (current != null && current.version >= key.version) return false
+        upsertVoiceKey(key)
+        return true
+    }
+
+    @Query("DELETE FROM voice_keys WHERE groupId = :groupId")
+    suspend fun deleteVoiceKeys(groupId: String)
+
     @Query("SELECT * FROM left_groups WHERE id = :id")
     suspend fun leftGroup(id: String): LeftGroupEntity?
 

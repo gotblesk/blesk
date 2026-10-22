@@ -72,6 +72,7 @@ class MigrationTest {
             assertEquals("{\"id\":\"g\"}", room.groups().get("g")?.state)
             assertNull(room.groups().senderKey("g", ""))
             assertEquals(emptyList<Any>(), room.groups().releasable("g", Int.MAX_VALUE))
+            assertNull(room.groups().voiceKey("g", "c"))
         }
         val columns = room.openHelper.readableDatabase.query("PRAGMA table_info(`groups`)").use { cursor ->
             buildList { while (cursor.moveToNext()) add(cursor.getString(cursor.getColumnIndexOrThrow("name"))) }

@@ -13,6 +13,7 @@ import app.blesk.core.data.db.HeldGroupMessageEntity
 import app.blesk.core.data.db.MAX_HELD_PER_GROUP
 import app.blesk.core.data.db.MessageDao
 import app.blesk.core.data.db.MessageEntity
+import app.blesk.core.data.db.VoiceKeyEntity
 import app.blesk.core.data.model.SendStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -20,6 +21,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -278,6 +280,26 @@ class ColumnWritesTest {
         }
         assertEquals(listOf("g:x"), messages.channelsWithMessages("g"))
     }
+
+    @Test
+    fun `a voice key given by an admin is kept only if newer, and only while its group is here`() = runBlocking {
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 1, key = "k1")))
+        groups.insertIfAbsent(GroupEntity("g", "state"))
+        assertTrue(groups.offerVoiceKey(voiceKey(version = 2, key = "k2")))
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 1, key = "k1")))
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 2, key = "k2-again")))
+        assertEquals("k2", groups.voiceKey("g", "c")?.key)
+        assertTrue(groups.offerVoiceKey(voiceKey(version = 3, key = "k3")))
+        assertEquals("k3", groups.voiceKey("g", "c")?.key)
+
+        groups.delete("g")
+        groups.deleteVoiceKeys("g")
+        assertFalse(groups.offerVoiceKey(voiceKey(version = 4, key = "k4")))
+        assertNull(groups.voiceKey("g", "c"))
+    }
+
+    private fun voiceKey(version: Long, key: String) =
+        VoiceKeyEntity("g", "c", version, room = "voice-g-c-$version", key = key, epoch = 0)
 
     private fun held(group: String, version: Int, content: String, at: Long = 1) =
         HeldGroupMessageEntity(groupId = group, sender = "bob", content = content, version = version, heldAt = at)

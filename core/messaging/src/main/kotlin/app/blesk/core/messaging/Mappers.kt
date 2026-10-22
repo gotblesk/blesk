@@ -28,6 +28,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.time.Instant
 
@@ -45,6 +46,12 @@ internal fun decodeReactions(raw: String): List<ReactionEntry> =
 
 internal fun encodeReactions(entries: List<ReactionEntry>): String =
     storageJson.encodeToString(ListSerializer(ReactionEntry.serializer()), entries)
+
+/** Null for a list that does not read: a key whose holders are unknown is not used again. */
+internal fun decodeNames(raw: String): List<String>? =
+    runCatching { storageJson.decodeFromString(ListSerializer(String.serializer()), raw) }.getOrNull()
+
+internal fun encodeNames(names: List<String>): String = storageJson.encodeToString(ListSerializer(String.serializer()), names)
 
 internal fun decodeAttachment(raw: String?): Attachment? =
     raw?.let { runCatching { storageJson.decodeFromString(Attachment.serializer(), it) }.getOrNull() }

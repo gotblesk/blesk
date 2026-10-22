@@ -50,6 +50,9 @@ interface CallSignaling {
     /** A join token for a LiveKit room; null when the server has no calls or is unreachable. */
     suspend fun callToken(room: String): CallToken?
 
-    /** The media key of a room's voice channels; created by an admin if missing. */
-    suspend fun voiceKey(groupId: String): String?
+    /** Where to talk in a room's voice channel, and with which key; null for a channel we may not join. */
+    suspend fun voiceAccess(groupId: String, channelId: String): VoiceAccess?
 }
+
+/** A voice channel's LiveKit [room] and the Base64 media [key] its calls are encrypted with. */
+data class VoiceAccess(val room: String, val key: String)

@@ -54,6 +54,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -292,14 +293,50 @@ class TwoClientsTest {
         alice.repo.send(channel.id, "в общий канал")
         assertEquals("в общий канал", eventually { bob.messages(channel.id).firstOrNull() }.text)
 
-        // Voice channels share one media key, replaced when someone is removed.
-        val voiceKey = runBlocking { alice.repo.voiceKey(room) }
-        assertNotNull(voiceKey)
-        assertEquals(voiceKey, eventually { runBlocking { bob.repo.voiceKey(room) } })
-        eventually { runBlocking { carol.repo.voiceKey(room) } }
+        // Voice channels open to all share one media key, replaced when someone is removed.
+        val voice = alice.state(room).channels.first { it.kind == GroupChannelKind.Voice }.id
+        val access = runBlocking { alice.repo.voiceAccess(room, voice) }
+        assertNotNull(access)
+        assertEquals(access, eventually { runBlocking { bob.repo.voiceAccess(room, voice) } })
+        eventually { runBlocking { carol.repo.voiceAccess(room, voice) } }
         runBlocking { assertTrue(alice.repo.removeMember(room, "carol")) }
-        val rotated = eventually { runBlocking { bob.repo.voiceKey(room) }?.takeIf { it != voiceKey } }
-        assertEquals(runBlocking { alice.repo.voiceKey(room) }, rotated)
+        val rotated = eventually { runBlocking { bob.repo.voiceAccess(room, voice) }?.takeIf { it != access } }
+        assertEquals(runBlocking { alice.repo.voiceAccess(room, voice) }, rotated)
+    }
+
+    @Test
+    fun aClosedVoiceChannelHasItsOwnKeyAndRoom() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        val carol = Client("carol", "Кэрол")
+        val room = closedRoom(alice, listOf(bob, carol), moderators = listOf(bob))
+        val onAir = runBlocking {
+            assertTrue(alice.repo.addChannel(room.id, ON_AIR, GroupChannelKind.Voice, adminsOnly = false))
+            val id = alice.state(room.id).channels.first { it.title == ON_AIR }.id
+            assertTrue(alice.repo.change(room.id, GroupChange.HideChannel(id, setOf(GroupPolicy.EVERYONE))))
+            id
+        }
+        val open = alice.state(room.id).channels.first { it.title == GroupEngine.DEFAULT_VOICE_CHANNEL }.id
+        // Until Bob has the state that closes it, the channel is open to all on his phone and the room's key is its key.
+        bob.caughtUpWith(alice, room.id)
+
+        val access = eventually { runBlocking { bob.repo.voiceAccess(room.id, onAir) } }
+        assertEquals(runBlocking { alice.repo.voiceAccess(room.id, onAir) }, access)
+        val roomWide = runBlocking { alice.repo.voiceAccess(room.id, open) }!!
+        assertNotEquals(roomWide.room, access.room)
+        assertNotEquals(roomWide.key, access.key)
+        // Whatever Alice sent Carol before it, Carol has handled once she has this.
+        alice.repo.send(room.general, "всем привет")
+        eventually { carol.messages(room.general).firstOrNull { it.text == "всем привет" } }
+        assertNull(runBlocking { carol.repo.voiceAccess(room.id, onAir) })
+        assertNull(runBlocking { carol.db.groups().voiceKey(room.id, onAir) })
+
+        runBlocking { assertTrue(alice.repo.change(room.id, GroupChange.AssignRole("bob", MODS, on = false))) }
+        bob.caughtUpWith(alice, room.id)
+        val renewed = runBlocking { alice.repo.voiceAccess(room.id, onAir) }!!
+        assertNotEquals(access.room, renewed.room)
+        assertNotEquals(access.key, renewed.key)
+        assertNull(runBlocking { bob.repo.voiceAccess(room.id, onAir) })
     }
 
     @Test
@@ -775,5 +812,6 @@ class TwoClientsTest {
 
         const val MODS = "mods"
         const val CLOSED = "модерация"
+        const val ON_AIR = "эфир"
     }
 }

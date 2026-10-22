@@ -2,6 +2,7 @@ package app.blesk.core.messaging
 
 import androidx.room.withTransaction
 import app.blesk.core.crypto.signal.GroupCrypto
+import app.blesk.core.data.calls.VoiceAccess
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.GroupEntity
@@ -32,8 +33,6 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.UUID
@@ -71,7 +70,8 @@ internal data class Released(val sender: String, val content: Content)
  * send the new state to every member one-to-one. A message is encrypted once and goes only to
  * those who may read it: everyone in the group under one of the sender's keys, the readers of a
  * closed channel under a key of that channel. A key is not used again once someone who got it may
- * no longer read, or once someone leaves or is removed and the group moves to a new epoch.
+ * no longer read, or once someone leaves or is removed and the group moves to a new epoch. A closed
+ * voice channel has a media key and a LiveKit room of its own, kept the same way by [VoiceKeys].
  *
  * A phone keeps only what its own state lets it read, whatever reaches it: a message from a sender whose state is
  * newer waits for that state, and losing a channel takes its messages and files off the phone.
@@ -90,6 +90,8 @@ internal class GroupEngine(
     private val labels: (Attachment?) -> String,
     /** Messages with files, taken off the phone with their channel or group: their downloads and files go next. */
     private val purged: suspend (List<MessageEntity>) -> Unit,
+    /** The keys of closed voice channels, ours to hand out where this phone keeps them. */
+    private val voiceKeys: VoiceKeys,
 ) {
     private val random = SecureRandom()
 
@@ -118,7 +120,7 @@ internal class GroupEngine(
             members = listOf(GroupMember(me, GroupRole.Owner)) +
                 members.distinct().filter { it != me }.map { GroupMember(it, GroupRole.Member) },
             channels = channels,
-            voiceKey = if (kind == GroupKind.Room) newVoiceKey() else null,
+            voiceKey = if (kind == GroupKind.Room) voiceKeys.newMediaKey() else null,
         )
         queueing(id) {
             store(state, new = true)
@@ -165,9 +167,10 @@ internal class GroupEngine(
     suspend fun change(groupId: String, change: GroupChange): Boolean = queueing(groupId) {
         val state = state(groupId) ?: return@queueing false
         val next = GroupPolicy.apply(state, me, change, clock()) ?: return@queueing false
-        val rotated = if (next.epoch != state.epoch) next.copy(voiceKey = next.voiceKey?.let { newVoiceKey() }) else next
+        val rotated = if (next.epoch != state.epoch) next.copy(voiceKey = next.voiceKey?.let { voiceKeys.newMediaKey() }) else next
         store(rotated)
         broadcast(rotated, (state.members + rotated.members).map { it.username }.distinct())
+        voiceKeys.keep(rotated)
         val gone = rotated.copy(invite = null, voiceKey = null, invites = emptyList())
         when (change) {
             is GroupChange.Ban -> outbox.queue(change.username, update(gone))
@@ -267,23 +270,24 @@ internal class GroupEngine(
 
     /**
      * Run once on start: takes off the phone what it may not keep, from channels lost while it was off or before it
-     * checked, lets go of messages held too long, and gives back the held ones whose state is here.
+     * checked, lets go of messages held too long, hands out the voice keys we keep that someone still lacks, and gives
+     * back the held messages whose state is here.
      */
     suspend fun tidy(): List<Released> {
         db.groups().dropHeldBefore(clock() - HOLD_MILLIS)
         val present = db.groups().ids()
         (present + db.groups().leftIds()).distinct().forEach { purge(it) }
+        present.forEach { renewVoiceKeys(it) }
         return present.flatMap { released(it) }
     }
 
     // Incoming control messages
 
-    /** A state of a group from [sender]; once it is taken, what it no longer lets us read leaves the phone. */
-    suspend fun onUpdate(sender: String, incoming: GroupState): UpdateOutcome {
-        val outcome = db.withTransaction { take(sender, incoming) }
-        if (outcome == UpdateOutcome.Taken) purge(incoming.id)
-        return outcome
-    }
+    /**
+     * A state of a group from [sender]; once it is taken, what it no longer lets us read leaves the phone, and the
+     * voice keys it calls for, if we keep them, go out.
+     */
+    suspend fun onUpdate(sender: String, incoming: GroupState): UpdateOutcome = queueing(incoming.id) { take(sender, incoming) }
 
     private suspend fun take(sender: String, incoming: GroupState): UpdateOutcome {
         val current = state(incoming.id)
@@ -298,7 +302,9 @@ internal class GroupEngine(
         if (current != null && !mayMake(current, incoming, sender)) return UpdateOutcome.Refused
         when {
             incoming.roleOf(me) != null -> {
-                store(cleaned(incoming), new = current == null)
+                val taken = cleaned(incoming)
+                store(taken, new = current == null)
+                voiceKeys.keep(taken)
                 if (current == null) db.groups().unmarkLeft(incoming.id)
             }
             current != null -> forget(incoming.id, incoming.version, byUs = false)
@@ -361,28 +367,50 @@ internal class GroupEngine(
     }
 
     suspend fun onLeave(sender: String, groupId: String) {
-        val left = db.withTransaction {
-            val state = state(groupId)?.takeIf { it.roleOf(sender) != null } ?: return@withTransaction null
-            state.copy(members = state.members.filter { it.username != sender }, epoch = state.epoch + 1).also { store(it) }
+        val left = queueing(groupId) {
+            val state = state(groupId)?.takeIf { it.roleOf(sender) != null } ?: return@queueing null
+            state.copy(members = state.members.filter { it.username != sender }, epoch = state.epoch + 1).also {
+                store(it)
+                voiceKeys.keep(it)
+            }
         } ?: return
-        // One admin, the first in the list, replaces the voice key so the one who left cannot listen in.
-        if (left.voiceKey != null && left.members.firstOrNull { left.isAdmin(it.username) }?.username == me) {
-            change(groupId) { it.copy(voiceKey = newVoiceKey()) }
-        }
+        // The keeper replaces the key of the voice channels open to all, so the one who left cannot listen in.
+        if (left.voiceKey != null && voiceKeys.keeps(left)) change(groupId) { it.copy(voiceKey = voiceKeys.newMediaKey()) }
     }
 
-    /** The media key for the room's voice channels; an admin creates one for rooms made before calls existed. */
-    suspend fun voiceKey(groupId: String): String? {
-        val state = state(groupId) ?: return null
-        if (state.kind != GroupKind.Room) return null
+    // Voice channels
+
+    /**
+     * Where we talk in a room's voice channel, and with which key: the room's own for a channel open to all, the
+     * channel's own for a closed one. Null for a channel we do not see, and for a closed one whose key has not reached
+     * us yet.
+     */
+    suspend fun voiceAccess(groupId: String, channelId: String): VoiceAccess? {
+        val state = state(groupId)?.takeIf { it.kind == GroupKind.Room } ?: return null
+        val channel = state.channels.firstOrNull { it.id == channelId && it.kind == GroupChannelKind.Voice } ?: return null
+        if (!GroupPolicy.sees(state, me, channel)) return null
+        if (!VoiceKeys.hasOwnKey(channel)) return openVoiceKey(state)?.let { VoiceAccess(Calls.voiceRoom(groupId, channelId), it) }
+        // The keeper looks over its keys first: a channel closed before they existed gets one now.
+        if (voiceKeys.keeps(state)) renewVoiceKeys(groupId)
+        return voiceKeys.stored(groupId, channelId)
+    }
+
+    /** The key of the room's voice channels open to all; an admin makes one for a room made before calls existed. */
+    private suspend fun openVoiceKey(state: GroupState): String? {
         state.voiceKey?.let { return it }
         // Another change may have made one meanwhile; that one stays.
-        if (!change(groupId) { if (it.voiceKey != null) it else it.copy(voiceKey = newVoiceKey()) }) return null
-        return state(groupId)?.voiceKey
+        if (!change(state.id) { if (it.voiceKey != null) it else it.copy(voiceKey = voiceKeys.newMediaKey()) }) return null
+        return state(state.id)?.voiceKey
     }
 
-    private fun newVoiceKey(): String =
-        Base64.getEncoder().encodeToString(ByteArray(Calls.KEY_BYTES).also(random::nextBytes))
+    /** [VoiceKeys.keep] for the state on the phone, outside any change of it. */
+    private suspend fun renewVoiceKeys(groupId: String) {
+        try {
+            db.withTransaction { state(groupId)?.let { voiceKeys.keep(it) } }
+        } finally {
+            outbox.flush()
+        }
+    }
 
     // Internals
 
@@ -395,6 +423,7 @@ internal class GroupEngine(
             val versioned = next.copy(version = state.version + 1)
             store(versioned)
             broadcast(versioned, (state.members + versioned.members).map { it.username }.distinct())
+            voiceKeys.keep(versioned)
         }
         true
     }
@@ -479,13 +508,14 @@ internal class GroupEngine(
         }
 
     /**
-     * Deletes the group, its chats, our keys and what waits for its state, and notes it was let go of at [version],
-     * left or dissolved [byUs] or not. Its messages and their files go once that is committed, by [purge].
+     * Deletes the group, its chats, our keys, its voice keys and what waits for its state, and notes it was let go of
+     * at [version], left or dissolved [byUs] or not. Its messages and their files go once that is committed, by [purge].
      */
     private suspend fun forget(groupId: String, version: Int, byUs: Boolean) = db.withTransaction {
         db.conversations().deleteWithChildren(groupId)
         db.groups().delete(groupId)
         db.groups().deleteSenderKeys(groupId)
+        db.groups().deleteVoiceKeys(groupId)
         db.groups().deleteHeld(groupId)
         db.groups().markLeft(LeftGroupEntity(groupId, version, byUs))
     }
@@ -520,13 +550,8 @@ internal class GroupEngine(
 
     private fun newId(): String = UUID.randomUUID().toString().substring(0, 8)
 
-    private fun newCode(): String = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(INVITE_BYTES).also(random::nextBytes))
-
-    /** Null for a list that does not read: a key whose holders are unknown is not used again. */
-    private fun decodeNames(raw: String): List<String>? =
-        runCatching { storageJson.decodeFromString(ListSerializer(String.serializer()), raw) }.getOrNull()
-
-    private fun encodeNames(names: List<String>) = storageJson.encodeToString(ListSerializer(String.serializer()), names)
+    private fun newCode(bytes: Int = INVITE_BYTES): String =
+        Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(bytes).also(random::nextBytes))
 
     companion object {
         const val CHANNEL_SEPARATOR = ':'

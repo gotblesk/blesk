@@ -4,6 +4,7 @@ import app.blesk.core.data.calls.CallOutcome
 import app.blesk.core.data.calls.CallPhase
 import app.blesk.core.data.calls.CallSignal
 import app.blesk.core.data.calls.CallSignaling
+import app.blesk.core.data.calls.VoiceAccess
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.CallToken
 import kotlinx.coroutines.CoroutineScope
@@ -69,12 +70,28 @@ class CallManagerTest {
             other.incoming.emit(CallSignal(me, clock(), body))
         }
 
-        override suspend fun callToken(room: String) = CallToken("wss://example/livekit", "token")
+        /** The LiveKit rooms a join token was asked for, in order. */
+        val rooms = mutableListOf<String>()
 
-        override suspend fun voiceKey(groupId: String): String? = "voice-key"
+        /** The voice channels this phone may join, by channel id. */
+        var voice = mapOf("c" to VoiceAccess("voice-g-c", "voice-key"))
+
+        override suspend fun callToken(room: String): CallToken {
+            rooms += room
+            return CallToken("wss://example/livekit", "token")
+        }
+
+        override suspend fun voiceAccess(groupId: String, channelId: String) = voice[channelId]
     }
 
-    private class Pair(val eva: CallManager, val lera: CallManager, val room: FakeRoom, val evaMedia: FakeMedia, val leraMedia: FakeMedia)
+    private class Pair(
+        val eva: CallManager,
+        val lera: CallManager,
+        val room: FakeRoom,
+        val evaMedia: FakeMedia,
+        val leraMedia: FakeMedia,
+        val leraSignals: FakeSignaling,
+    )
 
     private fun TestScope.phones(): Pair {
         val clock = { testScheduler.currentTime }
@@ -88,7 +105,7 @@ class CallManagerTest {
         val eva = CallManager(backgroundScope, evaMedia, evaSignals, { null }, { it }, clock)
         val lera = CallManager(backgroundScope, leraMedia, leraSignals, { null }, { it }, clock)
         runCurrent()
-        return Pair(eva, lera, room, evaMedia, leraMedia)
+        return Pair(eva, lera, room, evaMedia, leraMedia, leraSignals)
     }
 
     @Test
@@ -136,6 +153,29 @@ class CallManagerTest {
         runCurrent()
         assertEquals(CallOutcome.Busy, p.eva.session.value?.outcome)
         assertEquals(CallPhase.Active, p.lera.session.value?.phase)
+    }
+
+    @Test
+    fun aVoiceChannelIsJoinedInTheRoomAndWithTheKeyItsAccessNames() = runTest {
+        val p = phones()
+        p.leraSignals.voice = mapOf("closed" to VoiceAccess("voice-g-closed-secret", "closed-key"))
+        assertTrue(p.lera.joinVoice("g", "closed", "g:closed", "эфир"))
+        runCurrent()
+
+        assertEquals(CallPhase.Active, p.lera.session.value?.phase)
+        assertEquals(listOf("voice-g-closed-secret"), p.leraSignals.rooms)
+        assertEquals("closed-key", p.leraMedia.joinedWith)
+    }
+
+    @Test
+    fun aVoiceChannelWeMayNotJoinIsUnavailable() = runTest {
+        val p = phones()
+        assertTrue(p.lera.joinVoice("g", "closed", "g:closed", "эфир"))
+        runCurrent()
+
+        assertEquals(CallOutcome.Unavailable, p.lera.session.value?.outcome)
+        assertEquals(emptyList<String>(), p.leraSignals.rooms)
+        assertNull(p.leraMedia.joinedWith)
     }
 
     @Test

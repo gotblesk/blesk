@@ -141,6 +141,25 @@ data class HeldGroupMessageEntity(
 )
 
 /**
+ * The current media key and LiveKit room of a closed voice channel, as this phone has it: made here if it is the
+ * room's keeper, its first admin, or given by an admin otherwise.
+ */
+@Entity(tableName = "voice_keys", primaryKeys = ["groupId", "channelId"])
+data class VoiceKeyEntity(
+    val groupId: String,
+    val channelId: String,
+    /** Grows with every new key of the channel; a phone keeps the highest it has been given. */
+    val version: Long,
+    val room: String,
+    /** Base64 media key. */
+    val key: String,
+    /** For a key made here, the group's epoch it was made in: a key from another epoch is not handed out again. */
+    val epoch: Int,
+    /** JSON list of members a key made here was handed to; null for a key given by another admin. */
+    val holders: String? = null,
+)
+
+/**
  * A group this phone let go of: left, dissolved, or removed from. Its row and chats are gone; this keeps an update
  * that was already on its way from bringing them back.
  */

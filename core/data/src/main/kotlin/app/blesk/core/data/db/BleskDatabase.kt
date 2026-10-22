@@ -20,6 +20,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         LeftGroupEntity::class,
         GroupSenderKeyEntity::class,
         HeldGroupMessageEntity::class,
+        VoiceKeyEntity::class,
     ],
     version = 13,
     exportSchema = true,
@@ -146,9 +147,9 @@ abstract class BleskDatabase : RoomDatabase() {
         }
 
         /**
-         * Our sender keys, one per audience of a group instead of one per group, and group messages waiting for their
-         * state. Who held the old key is not carried over: named after its group and epoch, it may have gone to people
-         * not on record, so each sender hands a fresh one out once.
+         * Our sender keys, one per audience of a group instead of one per group, group messages waiting for their
+         * state, and the keys of closed voice channels. Who held the old key is not carried over: named after its group
+         * and epoch, it may have gone to people not on record, so each sender hands a fresh one out once.
          */
         val MIGRATION_12_13 = object : Migration(12, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -167,6 +168,11 @@ abstract class BleskDatabase : RoomDatabase() {
                         "`heldAt` INTEGER NOT NULL)",
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_held_group_messages_groupId` ON `held_group_messages` (`groupId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `voice_keys` (`groupId` TEXT NOT NULL, `channelId` TEXT NOT NULL, " +
+                        "`version` INTEGER NOT NULL, `room` TEXT NOT NULL, `key` TEXT NOT NULL, `epoch` INTEGER NOT NULL, " +
+                        "`holders` TEXT, PRIMARY KEY(`groupId`, `channelId`))",
+                )
             }
         }
 
