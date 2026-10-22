@@ -48,8 +48,21 @@ internal class ManageEnv(
     val gate: IdentityGate?,
     val onOpenPerson: (String) -> Unit,
     val onGone: () -> Unit,
+    /** Says that a change did not go through. */
+    val refused: () -> Unit,
 ) {
     fun can(right: Right) = GroupPolicy.can(state, me, right)
+
+    /** Whether [edit] would go through: the editors offer only what this allows. */
+    fun allows(edit: GroupChange) = GroupPolicy.apply(state, me, edit, now = 0) != null
+
+    /** Makes [edit]; when it is refused, puts back with [undo] whatever showed it as made, and says so. */
+    fun submit(edit: GroupChange, undo: () -> Unit = {}) = run.invoke {
+        if (!change(edit)) {
+            undo()
+            refused()
+        }
+    }
 
     val owner get() = state.roleOf(me) == GroupRole.Owner
     val room get() = state.kind == GroupKind.Room

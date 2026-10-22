@@ -133,6 +133,7 @@ fun GroupInfoScreen(
     fun run(block: suspend () -> Unit) {
         scope.launch { block() }
     }
+    val refused = stringResource(R.string.manage_refused)
     val env = ManageEnv(
         state = state,
         me = me,
@@ -143,6 +144,7 @@ fun GroupInfoScreen(
         gate = extras.gate,
         onOpenPerson = extras.onOpenPerson,
         onGone = extras.onGone,
+        refused = { notify(refused) },
     )
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     var page by rememberSaveable { mutableStateOf<ManagePage?>(null) }

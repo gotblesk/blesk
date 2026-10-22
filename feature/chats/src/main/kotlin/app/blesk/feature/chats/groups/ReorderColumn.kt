@@ -23,15 +23,18 @@ import app.blesk.feature.chats.R
 /**
  * Rows that can be put in order: a long press lifts a row off the column and it follows the
  * finger; past half of a neighbour it takes that place and the neighbour flows into the gap. Let
- * go, and [onMove] gets the row's new index. TalkBack gets «Выше» and «Ниже» instead.
+ * go, and [onMove] gets the row's new index, with what puts the rows back if the move is refused.
+ * TalkBack gets «Выше» and «Ниже» instead. The first [fixed] rows stay put, and no row goes above
+ * them.
  */
 @Composable
 internal fun <T> ReorderColumn(
     items: List<T>,
     key: (T) -> String,
-    onMove: (id: String, to: Int) -> Unit,
+    onMove: (id: String, to: Int, undo: () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    fixed: Int = 0,
     row: @Composable (T) -> Unit,
 ) {
     val haptics = rememberHaptics()
@@ -43,6 +46,7 @@ internal fun <T> ReorderColumn(
     val upLabel = stringResource(R.string.channel_menu_up)
     val downLabel = stringResource(R.string.channel_menu_down)
     val byKey = items.associateBy(key)
+    val undo = { order = items.map(key) }
     Column(modifier) {
         order.mapNotNull(byKey::get).forEach { item ->
             val id = key(item)
@@ -58,11 +62,11 @@ internal fun <T> ReorderColumn(
                         scaleY = LIFT
                     }
                 }
-            val draggable = if (!enabled) base else base
+            val draggable = if (!enabled || index < fixed) base else base
                 .semantics {
                     customActions = listOfNotNull(
-                        CustomAccessibilityAction(upLabel) { onMove(id, index - 1); true }.takeIf { index > 0 },
-                        CustomAccessibilityAction(downLabel) { onMove(id, index + 1); true }.takeIf { index < order.lastIndex },
+                        CustomAccessibilityAction(upLabel) { onMove(id, index - 1, undo); true }.takeIf { index > fixed },
+                        CustomAccessibilityAction(downLabel) { onMove(id, index + 1, undo); true }.takeIf { index < order.lastIndex },
                     )
                 }
                 .pointerInput(id) {
@@ -78,12 +82,12 @@ internal fun <T> ReorderColumn(
                             offset = 0f
                             haptics.stick()
                             val to = order.indexOf(id)
-                            if (to != start) onMove(id, to)
+                            if (to != start) onMove(id, to, undo)
                         },
                         onDragCancel = {
                             lifted = null
                             offset = 0f
-                            order = items.map(key)
+                            undo()
                         },
                     ) { change, amount ->
                         change.consume()
@@ -97,7 +101,7 @@ internal fun <T> ReorderColumn(
                                 offset -= next
                                 haptics.tick()
                             }
-                            previous != null && offset < -previous / 2f -> {
+                            previous != null && at - 1 >= fixed && offset < -previous / 2f -> {
                                 order = order.toMutableList().apply { add(at - 1, removeAt(at)) }
                                 offset += previous
                                 haptics.tick()

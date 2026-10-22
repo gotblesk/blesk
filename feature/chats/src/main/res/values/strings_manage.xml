@@ -16,6 +16,8 @@
     <string name="manage_admin_pick">Кого сделать админом</string>
     <string name="manage_admin_rights">Права админа</string>
     <string name="manage_admin_rights_hint">Ты можешь дать только те права, которые есть у тебя.</string>
+    <string name="manage_rights_lacking">Право, которого нет у тебя самого, дать нельзя.</string>
+    <string name="manage_member_roles_lacking">Роль с правами или каналами, которых нет у тебя, дать нельзя.</string>
     <string name="manage_admin_save">Сохранить права</string>
     <string name="manage_admin_drop">Снять с администраторов</string>
     <string name="manage_member_menu">Действия с %1$s</string>
@@ -85,6 +87,7 @@
     <string name="manage_confirm_title">Подтверди, что это ты</string>
 
     <string name="manage_roles_hint">Порядок ролей — старшинство. Зажми роль и перетащи выше или ниже.</string>
+    <string name="manage_roles_above_hint">Свою роль и роли выше неё меняют только те, кто выше тебя.</string>
     <string name="manage_role_new">Новая роль</string>
     <string name="manage_role_name">Название роли</string>
     <string name="manage_role_hue">Оттенок</string>

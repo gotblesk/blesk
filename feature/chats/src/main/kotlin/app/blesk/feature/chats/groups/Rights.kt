@@ -111,8 +111,14 @@ internal val RoleRightGroups: List<Pair<Int, List<Right>>> = listOf(
 )
 
 @Composable
-internal fun RightToggle(right: Right, checked: Boolean, onChange: (Boolean) -> Unit) {
-    ToggleRow(title = stringResource(right.label), subtitle = stringResource(right.hint), checked = checked, onCheckedChange = onChange)
+internal fun RightToggle(right: Right, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    ToggleRow(
+        title = stringResource(right.label),
+        subtitle = stringResource(right.hint),
+        checked = checked,
+        onCheckedChange = onChange,
+        enabled = enabled,
+    )
 }
 
 /** The eight hues a community or a role may take: the palette's own, evenly round the wheel. */

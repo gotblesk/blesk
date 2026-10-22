@@ -35,6 +35,7 @@ import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.component.ToggleRow
+import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
@@ -140,6 +141,8 @@ fun RoomChannelSheets(
     onTarget: (ChannelTarget?) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val notify = rememberNotify()
+    val refused = stringResource(R.string.manage_refused)
     val env = ManageEnv(
         state = state,
         me = me,
@@ -150,6 +153,7 @@ fun RoomChannelSheets(
         gate = null,
         onOpenPerson = {},
         onGone = {},
+        refused = { notify(refused) },
     )
     if (!env.can(Right.Channels)) return
     ChannelSheets(env, actions, target, onTarget)
@@ -170,7 +174,7 @@ private fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: Channel
                 choices = buildList {
                     add(Choice(stringResource(R.string.channel_menu_edit)) { onTarget(ChannelTarget.Edit(channel.id)) })
                     add(Choice(stringResource(R.string.channel_menu_rights)) { onTarget(ChannelTarget.Rights(channel.id)) })
-                    fun move(to: Int) = env.run { env.change(GroupChange.MoveChannel(channel.id, to)) }
+                    fun move(to: Int) = env.submit(GroupChange.MoveChannel(channel.id, to))
                     if (index > 0) add(Choice(stringResource(R.string.channel_menu_up)) { move(index - 1) })
                     if (index < env.state.channels.lastIndex) {
                         add(Choice(stringResource(R.string.channel_menu_down)) { move(index + 1) })
@@ -190,7 +194,7 @@ private fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: Channel
                 Button(
                     text = stringResource(R.string.group_save),
                     onClick = {
-                        env.run { env.change(GroupChange.RenameChannel(channel.id, title.text.toString(), description.text.toString())) }
+                        env.submit(GroupChange.RenameChannel(channel.id, title.text.toString(), description.text.toString()))
                         close()
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -231,7 +235,7 @@ private fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: Channel
 private fun ChannelRights(env: ManageEnv, channel: GroupChannel) {
     val live = env.state.channels.firstOrNull { it.id == channel.id } ?: channel
     val open = GroupPolicy.EVERYONE !in live.hiddenFrom
-    fun hide(hidden: Set<String>) = env.run { env.change(GroupChange.HideChannel(channel.id, hidden)) }
+    fun hide(hidden: Set<String>) = env.submit(GroupChange.HideChannel(channel.id, hidden))
     Text(
         stringResource(R.string.channel_rights_hint),
         style = Blesk.type.caption,

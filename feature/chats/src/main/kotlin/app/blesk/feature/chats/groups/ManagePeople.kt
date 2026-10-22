@@ -141,7 +141,8 @@ internal fun MemberList(env: ManageEnv, needle: String, online: Set<String> = em
         shown.forEach { member ->
             val mine = member.username == env.me
             val below = GroupPolicy.rank(env.state, member.username) > GroupPolicy.rank(env.state, env.me)
-            val manageable = env.can(Right.AddAdmins) || env.can(Right.Ban) || env.can(Right.AssignRoles)
+            val manageable = GroupPolicy.appoints(env.state, env.me, member.username) || env.can(Right.Ban) ||
+                (env.room && env.can(Right.AssignRoles) && env.state.roles.isNotEmpty())
             MemberLine(
                 env,
                 member,
@@ -157,7 +158,7 @@ internal fun MemberList(env: ManageEnv, needle: String, online: Set<String> = em
         ChoiceSheet(
             title = stringResource(R.string.manage_member_menu, name),
             choices = buildList {
-                if (env.can(Right.AddAdmins)) {
+                if (GroupPolicy.appoints(env.state, env.me, member.username)) {
                     add(Choice(stringResource(R.string.manage_member_rights_action)) { rightsFor = member.username })
                 }
                 if (env.room && env.can(Right.AssignRoles) && env.state.roles.isNotEmpty()) {
@@ -166,8 +167,8 @@ internal fun MemberList(env: ManageEnv, needle: String, online: Set<String> = em
                 if (env.can(Right.Ban)) {
                     val remove = GroupChange.Remove(member.username)
                     val ban = GroupChange.Ban(member.username)
-                    add(Choice(stringResource(R.string.manage_member_remove), danger = true) { env.run { env.change(remove) } })
-                    add(Choice(stringResource(R.string.manage_member_ban), danger = true) { env.run { env.change(ban) } })
+                    add(Choice(stringResource(R.string.manage_member_remove), danger = true) { env.submit(remove) })
+                    add(Choice(stringResource(R.string.manage_member_ban), danger = true) { env.submit(ban) })
                 }
             },
             onDismiss = { menu = null },
@@ -182,14 +183,18 @@ internal fun AdminsPage(env: ManageEnv) {
     var editing by remember { mutableStateOf<String?>(null) }
     var picking by remember { mutableStateOf(false) }
     val admins = env.state.members.filter { it.role != GroupRole.Member }.sortedBy { it.role.ordinal }
+
+    // Admins stand level: only the owner changes another admin.
+    fun appoints(member: GroupMember) = member.username != env.me && GroupPolicy.appoints(env.state, env.me, member.username)
+    val candidates = env.state.members.filter { it.role == GroupRole.Member && appoints(it) }
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
         admins.forEach { member ->
-            val editable = env.can(Right.AddAdmins) && member.role == GroupRole.Admin && member.username != env.me
+            val editable = member.role == GroupRole.Admin && appoints(member)
             MemberLine(env, member, onClick = if (editable) ({ editing = member.username }) else null)
         }
         if (admins.none { it.role == GroupRole.Admin }) Empty(R.string.manage_admins_empty)
     }
-    if (env.can(Right.AddAdmins)) {
+    if (candidates.isNotEmpty()) {
         Button(
             text = stringResource(R.string.manage_admin_add),
             kind = ButtonKind.Secondary,
@@ -201,8 +206,6 @@ internal fun AdminsPage(env: ManageEnv) {
         MenuSheet(title = stringResource(R.string.manage_admin_pick), onDismiss = { picking = false }) {
             Card {
                 Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
-                    val candidates = env.state.members.filter { it.role == GroupRole.Member }
-                    if (candidates.isEmpty()) Empty(R.string.manage_nobody)
                     candidates.forEach { member ->
                         MemberLine(env, member, onClick = {
                             picking = false
@@ -216,19 +219,21 @@ internal fun AdminsPage(env: ManageEnv) {
     editing?.let { AdminEditor(env, it, onClose = { editing = null }) }
 }
 
-/** The rights of one admin, as switches with a line each; only rights the editor has are offered. */
+/**
+ * The rights of one admin, as switches with a line each. A right the editor lacks stays as the admin has it: switched
+ * off, unless the admin had it already.
+ */
 @Composable
 private fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) {
     val member = env.state.members.firstOrNull { it.username == username } ?: return
-    val mine = env.state.members.firstOrNull { it.username == env.me }
-    val grantable = adminRightsOf(env.state.kind).filter { env.owner || it in (mine?.rights ?: Right.ADMIN_ALL) }
+    val had = if (member.role == GroupRole.Admin) member.rights ?: Right.ADMIN_ALL else emptySet()
+    val offered = adminRightsOf(env.state.kind)
+    fun givable(right: Right) = right in had || env.can(right)
     val chosen = remember(username) {
         mutableStateListOf<Right>().apply {
-            addAll(if (member.role == GroupRole.Admin) member.rights ?: Right.ADMIN_ALL else grantable.filter { it != Right.AddAdmins })
+            addAll(if (member.role == GroupRole.Admin) had else offered.filter { givable(it) && it != Right.AddAdmins })
         }
     }
-    val notify = rememberNotify()
-    val refused = stringResource(R.string.manage_refused)
     MenuSheet(title = env.nameOf(username), onDismiss = onClose) {
         Card {
             Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
@@ -238,16 +243,15 @@ private fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) {
                     color = Blesk.colors.textSecondary,
                     modifier = Modifier.padding(horizontal = Blesk.dimens.gutter, vertical = 8.dp),
                 )
-                grantable.forEach { right ->
-                    RightToggle(right, right in chosen) { on -> if (on) chosen += right else chosen -= right }
+                offered.forEach { right ->
+                    RightToggle(right, right in chosen, enabled = givable(right)) { on -> if (on) chosen += right else chosen -= right }
                 }
             }
         }
         Button(
             text = stringResource(R.string.manage_admin_save),
             onClick = {
-                val rights = chosen.toSet()
-                env.run { if (!env.change(GroupChange.Admin(username, rights))) notify(refused) }
+                env.submit(GroupChange.Admin(username, chosen.toSet()))
                 onClose()
             },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -257,7 +261,7 @@ private fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) {
                 text = stringResource(R.string.manage_admin_drop),
                 kind = ButtonKind.Secondary,
                 onClick = {
-                    env.run { env.change(GroupChange.Admin(username, null)) }
+                    env.submit(GroupChange.Admin(username, null))
                     onClose()
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -266,23 +270,32 @@ private fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) {
     }
 }
 
+/** The roles below yours, to give or take; one bringing a right or a channel you lack is shown but cannot be given. */
 @Composable
 private fun MemberRolesSheet(env: ManageEnv, username: String, onClose: () -> Unit) {
     val member = env.state.members.firstOrNull { it.username == username } ?: return
-    val own = GroupPolicy.rank(env.state, env.me)
+    // Roles at or above your own are not yours to give.
+    val roles = env.state.roles.filter { GroupPolicy.outranks(env.state, env.me, it.id) }
+    val untitled = stringResource(R.string.manage_role_untitled)
     MenuSheet(title = env.nameOf(username), onDismiss = onClose) {
-        Card {
-            env.state.roles.forEachIndexed { index, role ->
-                // Roles at or above your own are not yours to give.
-                if (index + 2 <= own) return@forEachIndexed
-                ToggleRow(title = role.title, checked = role.id in member.roles, onCheckedChange = { on ->
-                    env.run { env.change(GroupChange.AssignRole(username, role.id, on)) }
-                })
+        Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
+            val locked = roles.filter { !env.allows(GroupChange.AssignRole(username, it.id, it.id !in member.roles)) }
+            if (locked.isNotEmpty()) Hint(R.string.manage_member_roles_lacking)
+            Card {
+                roles.forEach { role ->
+                    ToggleRow(
+                        title = role.title.ifBlank { untitled },
+                        checked = role.id in member.roles,
+                        enabled = role !in locked,
+                        onCheckedChange = { on -> env.submit(GroupChange.AssignRole(username, role.id, on)) },
+                    )
+                }
             }
         }
     }
 }
 
+/** What every member may do; you switch on only what you may do yourself. */
 @Composable
 internal fun MemberRightsPage(env: ManageEnv) {
     Text(
@@ -291,11 +304,12 @@ internal fun MemberRightsPage(env: ManageEnv) {
         color = Blesk.colors.textSecondary,
         modifier = Modifier.padding(horizontal = Blesk.dimens.gutter + 4.dp, vertical = 8.dp),
     )
+    val rights = memberRightsOf(env.state.kind)
+    if (rights.any { !env.can(it) }) Hint(R.string.manage_rights_lacking)
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
-        memberRightsOf(env.state.kind).forEach { right ->
-            RightToggle(right, right in env.state.memberRights) { on ->
-                val next = if (on) env.state.memberRights + right else env.state.memberRights - right
-                env.run { env.change(GroupChange.MemberRights(next)) }
+        rights.forEach { right ->
+            RightToggle(right, right in env.state.memberRights, enabled = env.can(right)) { on ->
+                env.submit(GroupChange.MemberRights(if (on) env.state.memberRights + right else env.state.memberRights - right))
             }
         }
     }
@@ -314,7 +328,7 @@ internal fun BannedPage(env: ManageEnv) {
                     Button(
                         text = stringResource(R.string.manage_unban),
                         kind = ButtonKind.Secondary,
-                        onClick = { env.run { env.change(GroupChange.Unban(username)) } },
+                        onClick = { env.submit(GroupChange.Unban(username)) },
                     )
                 },
             )
@@ -448,6 +462,17 @@ internal fun DeletePage(env: ManageEnv, guarded: (() -> Unit) -> Unit) {
             },
         )
     }
+}
+
+/** Why some of what is below is switched off. */
+@Composable
+internal fun Hint(text: Int) {
+    Text(
+        stringResource(text),
+        style = Blesk.type.caption,
+        color = Blesk.colors.textSecondary,
+        modifier = Modifier.padding(horizontal = Blesk.dimens.gutter + 4.dp, vertical = 8.dp),
+    )
 }
 
 @Composable

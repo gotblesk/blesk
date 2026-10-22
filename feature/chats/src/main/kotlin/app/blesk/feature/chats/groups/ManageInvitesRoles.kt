@@ -48,6 +48,7 @@ import app.blesk.feature.chats.MenuSheet
 import app.blesk.feature.chats.R
 import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupInvite
+import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.RoomRole
@@ -135,7 +136,7 @@ private fun NewInviteForm(env: ManageEnv, now: Long) {
         icon = BleskIcons.Plus,
         onClick = {
             val invite = GroupInvite.fresh(title.text.toString(), EXPIRIES[expiry]?.let { now + it }, LIMITS[limit])
-            env.run { env.change(GroupChange.NewInvite(invite)) }
+            env.submit(GroupChange.NewInvite(invite))
             title.edit { replace(0, length, "") }
         },
         modifier = Modifier.fillMaxWidth().padding(Blesk.dimens.gutter),
@@ -212,7 +213,7 @@ private fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose:
                         icon = BleskIcons.Close,
                         showChevron = false,
                         onClick = {
-                            env.run { env.change(GroupChange.Revoke(invite.code)) }
+                            env.submit(GroupChange.Revoke(invite.code))
                             onClose()
                         },
                     )
@@ -222,10 +223,18 @@ private fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose:
     }
 }
 
-/** A room's roles in order of seniority, dragged to reorder; a tap opens one to change. */
+/**
+ * A room's roles in order of seniority, dragged to reorder; a tap opens one to change. Your own role and those above
+ * it stay put and closed: only those above you change them.
+ */
 @Composable
 internal fun RolesPage(env: ManageEnv) {
     var editing by remember { mutableStateOf<RoomRole?>(null) }
+    val untitled = stringResource(R.string.manage_role_untitled)
+    val fresh = remember(env.state.roles) {
+        RoomRole(UUID.randomUUID().toString().take(ROLE_ID), "", hue = env.state.roles.size % COMMUNITY_HUES)
+    }
+    val fixed = env.state.roles.count { !GroupPolicy.outranks(env.state, env.me, it.id) }
     Text(
         stringResource(R.string.manage_roles_hint),
         style = Blesk.type.caption,
@@ -237,13 +246,14 @@ internal fun RolesPage(env: ManageEnv) {
         ReorderColumn(
             items = env.state.roles,
             key = { it.id },
-            onMove = { id, to -> env.run { env.change(GroupChange.MoveRole(id, to)) } },
+            fixed = fixed,
+            onMove = { id, to, undo -> env.submit(GroupChange.MoveRole(id, to), undo) },
         ) { role ->
             val count = env.state.members.count { role.id in it.roles }
             ListRow(
-                title = role.title.ifBlank { stringResource(R.string.manage_role_untitled) },
+                title = role.title.ifBlank { untitled },
                 subtitle = pluralStringResource(R.plurals.manage_role_members, count, count),
-                onClick = { editing = role },
+                onClick = if (GroupPolicy.outranks(env.state, env.me, role.id)) ({ editing = role }) else null,
                 trailing = { HueDot(role.hue, size = 12.dp) },
             )
         }
@@ -258,16 +268,20 @@ internal fun RolesPage(env: ManageEnv) {
             showChevron = false,
         )
     }
-    Button(
-        text = stringResource(R.string.manage_role_new),
-        icon = BleskIcons.Plus,
-        kind = ButtonKind.Secondary,
-        onClick = { editing = RoomRole(UUID.randomUUID().toString().take(ROLE_ID), "", hue = env.state.roles.size % COMMUNITY_HUES) },
-        modifier = Modifier.padding(Blesk.dimens.gutter),
-    )
+    if (fixed > 0) Hint(R.string.manage_roles_above_hint)
+    if (env.allows(GroupChange.SaveRole(fresh))) {
+        Button(
+            text = stringResource(R.string.manage_role_new),
+            icon = BleskIcons.Plus,
+            kind = ButtonKind.Secondary,
+            onClick = { editing = fresh },
+            modifier = Modifier.padding(Blesk.dimens.gutter),
+        )
+    }
     editing?.let { role -> RoleEditor(env, role, onClose = { editing = null }) }
 }
 
+/** A role's name, hue and rights. A right you lack stays as the role has it: you may take it away, not give it. */
 @Composable
 private fun RoleEditor(env: ManageEnv, role: RoomRole, onClose: () -> Unit) {
     val title = rememberTextFieldState(role.title)
@@ -275,6 +289,7 @@ private fun RoleEditor(env: ManageEnv, role: RoomRole, onClose: () -> Unit) {
     val rights = remember(role.id) { mutableStateListOf<Right>().apply { addAll(role.rights) } }
     val exists = env.state.roles.any { it.id == role.id }
     val untitled = stringResource(R.string.manage_role_untitled)
+    fun offered(right: Right) = right in role.rights || env.can(right)
     MenuSheet(title = role.title.ifBlank { stringResource(R.string.manage_role_new) }, onDismiss = onClose) {
         Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
             TextInput(label = stringResource(R.string.manage_role_name), state = title)
@@ -287,10 +302,13 @@ private fun RoleEditor(env: ManageEnv, role: RoomRole, onClose: () -> Unit) {
                 )
             }
             HuePicker(selected = hue, onSelect = { hue = it ?: hue }, allowLight = false)
+            if (RoleRightGroups.any { (_, list) -> list.any { !offered(it) } }) Hint(R.string.manage_rights_lacking)
             RoleRightGroups.forEach { (group, list) ->
                 SectionHeader(stringResource(group))
                 Card {
-                    list.forEach { right -> RightToggle(right, right in rights) { on -> if (on) rights += right else rights -= right } }
+                    list.forEach { right ->
+                        RightToggle(right, right in rights, enabled = offered(right)) { on -> if (on) rights += right else rights -= right }
+                    }
                 }
             }
         }
@@ -298,7 +316,7 @@ private fun RoleEditor(env: ManageEnv, role: RoomRole, onClose: () -> Unit) {
             text = stringResource(R.string.manage_role_save),
             onClick = {
                 val saved = role.copy(title = title.text.toString().trim().ifBlank { untitled }, hue = hue, rights = rights.toSet())
-                env.run { env.change(GroupChange.SaveRole(saved)) }
+                env.submit(GroupChange.SaveRole(saved))
                 onClose()
             },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -309,7 +327,7 @@ private fun RoleEditor(env: ManageEnv, role: RoomRole, onClose: () -> Unit) {
                 kind = ButtonKind.Secondary,
                 icon = BleskIcons.Trash,
                 onClick = {
-                    env.run { env.change(GroupChange.DeleteRole(role.id)) }
+                    env.submit(GroupChange.DeleteRole(role.id))
                     onClose()
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
