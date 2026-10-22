@@ -47,7 +47,7 @@ adb shell am start -W -n "$package/.MainActivity" >/dev/null
 
 ui wait "Чаты" 90
 shot started
-ui tap "Настройки"
+ui tab "Настройки"
 ui tap "Сервер и прокси"
 shot server
 ui tap "Другой сервер"

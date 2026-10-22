@@ -3,6 +3,7 @@
 
     ui.py wait <text> [seconds]        until a node shows <text> (its text or its description)
     ui.py tap <text> [seconds]         taps the node that shows <text>, scrolling down to it
+    ui.py tab <text> [seconds]         taps the tab <text> in the floating bar at the bottom
     ui.py type <label> <value>         types <value> into the text field labelled <label>
     ui.py screenshot <file.png>        saves the screen
 
@@ -78,6 +79,11 @@ def dismiss_not_responding(all_nodes):
     return False
 
 
+def in_bottom_bar(node, height):
+    _, top, _, bottom = bounds(node)
+    return (top + bottom) // 2 > height * 0.78
+
+
 def find(text, seconds, scroll=False, kind=lambda node: True):
     """The node of [kind] showing [text]. With [scroll] the screen moves in short slow steps, first
     down the page and then back up, since a long swipe flings past what it looks for."""
@@ -146,6 +152,10 @@ def main(argv):
         find(args[0], float(args[1]) if len(args) > 1 else 30)
     elif command == "tap":
         node, _ = find(args[0], float(args[1]) if len(args) > 1 else 60, scroll=True)
+        tap_node(node)
+    elif command == "tab":
+        _, height = screen_size()
+        node, _ = find(args[0], float(args[1]) if len(args) > 1 else 60, kind=lambda node: in_bottom_bar(node, height))
         tap_node(node)
     elif command == "type":
         type_into(args[0], args[1])
