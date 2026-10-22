@@ -85,7 +85,7 @@ jobs:
       - name: Emulator image
         run: |
           for attempt in 1 2 3; do
-            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install emulator 'system-images;android-34;google_apis;x86_64' >/dev/null &&
+            yes | sdkmanager --install emulator 'system-images;android-34;google_apis;x86_64' >/dev/null &&
               [ -f "$ANDROID_HOME/system-images/android-34/google_apis/x86_64/system.img" ] && exit 0
             echo "::warning::The emulator image did not install, try $attempt of 3"
             rm -rf "$ANDROID_HOME/system-images/android-34/google_apis/x86_64"
