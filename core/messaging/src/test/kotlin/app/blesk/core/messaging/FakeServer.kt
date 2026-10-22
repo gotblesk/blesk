@@ -114,6 +114,43 @@ class FakeServer {
         refusals.getOrPut(from) { ConcurrentLinkedQueue() } += refused
     }
 
+    private val held = ConcurrentHashMap<Pair<String, String>, HeldDeliveries>()
+
+    /**
+     * Messages [from] sends [to] are taken and answered as usual but kept here, not handed over, until the returned
+     * gate completes; then they arrive in the order they came. Everything else goes through meanwhile.
+     */
+    fun holdBetween(from: String, to: String): CompletableDeferred<Unit> {
+        val hold = HeldDeliveries(transport(to))
+        held[from to to] = hold
+        return CompletableDeferred<Unit>().apply {
+            invokeOnCompletion {
+                held.remove(from to to, hold)
+                hold.release()
+            }
+        }
+    }
+
+    private class HeldDeliveries(private val transport: FakeTransport) {
+        private val waiting = mutableListOf<Envelope>()
+        private var released = false
+
+        /** False once released: the envelope then goes straight on, after every one that waited. */
+        @Synchronized
+        fun keep(envelope: Envelope): Boolean {
+            if (released) return false
+            waiting += envelope
+            return true
+        }
+
+        @Synchronized
+        fun release() {
+            released = true
+            waiting.forEach(transport::deliver)
+            waiting.clear()
+        }
+    }
+
     /** What people sent to bots, in order: (from, update). */
     val botInbox = java.util.concurrent.CopyOnWriteArrayList<Pair<String, UserToBot>>()
 
@@ -179,7 +216,8 @@ class FakeServer {
                 val message = json.decodeFromString(OutgoingMessage.serializer(), text(request))
                 val id = ids.incrementAndGet()
                 val envelope = Envelope(id, me!!, message.type, message.body, System.currentTimeMillis())
-                transport(path.substringAfterLast('/')).deliver(envelope)
+                val recipient = path.substringAfterLast('/')
+                if (held[me to recipient]?.keep(envelope) != true) transport(recipient).deliver(envelope)
                 ok(json.encodeToString(SendResult.serializer(), SendResult(id, envelope.timestampMillis)))
             }
             path.startsWith("/v1/bots/") && path.endsWith("/updates") -> {

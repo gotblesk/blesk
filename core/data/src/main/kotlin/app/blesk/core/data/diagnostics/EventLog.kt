@@ -28,6 +28,9 @@ enum class EventCode {
     KeysRefilled,
     ServerRegistered,
     BackgroundFailure,
+    GroupMessageHeld,
+    GroupMessageDropped,
+    GroupUpdateRefused,
 }
 
 /** [value] is an index or a counter, never content. */

@@ -272,11 +272,11 @@ class ColumnWritesTest {
     }
 
     @Test
-    fun `channel messages are found by the room prefix only`() = runBlocking {
-        listOf("g", "g:x", "g2:x", "gg:x", "h:x").forEach { conversation ->
-            messages.insert(MessageEntity("in $conversation", conversation, "bob", "привет", sentAt = 1, status = SendStatus.Read.name))
+    fun `channels with messages are found by the room prefix only, each once`() = runBlocking {
+        listOf("g", "g:x", "g:x", "g2:x", "gg:x", "h:x").forEachIndexed { index, conversation ->
+            messages.insert(MessageEntity("m$index", conversation, "bob", "привет", sentAt = 1, status = SendStatus.Read.name))
         }
-        assertEquals(listOf("g:x"), messages.inChannelsOf("g").map { it.conversationId })
+        assertEquals(listOf("g:x"), messages.channelsWithMessages("g"))
     }
 
     private fun held(group: String, version: Int, content: String, at: Long = 1) =

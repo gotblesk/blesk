@@ -75,7 +75,8 @@ class GroupUpdatesTest {
         linkOf = { null },
     )
     private val slowCommits = SlowCommits()
-    private val engine = GroupEngine(db, GroupCrypto(store) { ME }, ME, slowCommits, System::currentTimeMillis)
+    private val engine =
+        GroupEngine(db, GroupCrypto(store) { ME }, ME, slowCommits, System::currentTimeMillis, labels = { "" }, purged = {})
     private val peers = mutableListOf<BleskDatabase>()
 
     /**

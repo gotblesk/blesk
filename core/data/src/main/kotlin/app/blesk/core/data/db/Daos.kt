@@ -135,11 +135,15 @@ interface MessageDao {
     suspend fun withFilesIn(conversationId: String): List<MessageEntity>
 
     /**
-     * The messages of the room's channels, `room:channel`. Every id that starts with `room:` sorts between it and
-     * `room;`, so the chat index answers this without reading the other rooms' messages, as a pattern would.
+     * The room's channels, `room:channel`, that have messages on this phone. Every id that starts with `room:` sorts
+     * between it and `room;`, so the chat index answers this alone, without reading other rooms or any message.
      */
-    @Query("SELECT * FROM messages WHERE conversationId >= :roomId || ':' AND conversationId < :roomId || ';'")
-    suspend fun inChannelsOf(roomId: String): List<MessageEntity>
+    @Query("SELECT DISTINCT conversationId FROM messages WHERE conversationId >= :roomId || ':' AND conversationId < :roomId || ';'")
+    suspend fun channelsWithMessages(roomId: String): List<String>
+
+    /** The latest message in any of [conversationIds]. */
+    @Query("SELECT * FROM messages WHERE conversationId IN (:conversationIds) ORDER BY sentAt DESC LIMIT 1")
+    suspend fun lastIn(conversationIds: List<String>): MessageEntity?
 
     /** Full-text search; [match] is an FTS query such as `"свет"*`. Case and Cyrillic are handled by unicode61. */
     @Query(
@@ -311,8 +315,8 @@ interface GroupDao {
     @Query("SELECT * FROM groups")
     fun observeAll(): Flow<List<GroupEntity>>
 
-    @Query("SELECT * FROM groups")
-    suspend fun all(): List<GroupEntity>
+    @Query("SELECT id FROM groups")
+    suspend fun ids(): List<String>
 
     /** Creates the row of a group new to this phone; the state of an existing one has its own writer below. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -375,6 +379,9 @@ interface GroupDao {
 
     @Query("SELECT * FROM left_groups WHERE id = :id")
     suspend fun leftGroup(id: String): LeftGroupEntity?
+
+    @Query("SELECT id FROM left_groups")
+    suspend fun leftIds(): List<String>
 
     @Upsert
     suspend fun markLeft(group: LeftGroupEntity)

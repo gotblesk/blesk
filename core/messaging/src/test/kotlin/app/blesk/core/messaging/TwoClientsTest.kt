@@ -17,17 +17,27 @@ import app.blesk.core.data.model.Message
 import app.blesk.core.data.model.Protection
 import app.blesk.core.data.model.SendStatus
 import app.blesk.core.data.settings.Audience
+import app.blesk.core.data.settings.IncomingNote
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
+import app.blesk.shared.protocol.AttachmentPointer
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.BotCommand
 import app.blesk.shared.protocol.BotInfo
 import app.blesk.shared.protocol.BotMessage
+import app.blesk.shared.protocol.Content
+import app.blesk.shared.protocol.EnvelopeType
+import app.blesk.shared.protocol.GroupChange
+import app.blesk.shared.protocol.GroupChannelKind
 import app.blesk.shared.protocol.GroupKind
+import app.blesk.shared.protocol.GroupPolicy
+import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.InlineButton
 import app.blesk.shared.protocol.LinkPreview
 import app.blesk.shared.protocol.NewPost
+import app.blesk.shared.protocol.OutgoingMessage
 import app.blesk.shared.protocol.Post
+import app.blesk.shared.protocol.RoomRole
 import app.blesk.shared.protocol.ServerFrame
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CompletableDeferred
@@ -46,11 +56,14 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import java.io.File
+import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Two real clients (database, libsignal, outbox, receipts) talking through an in-memory server.
@@ -288,6 +301,191 @@ class TwoClientsTest {
         val rotated = eventually { runBlocking { bob.repo.voiceKey(room) }?.takeIf { it != voiceKey } }
         assertEquals(runBlocking { alice.repo.voiceKey(room) }, rotated)
     }
+
+    @Test
+    fun aClosedChannelIsReadOnlyByThoseWhoSeeIt() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        val carol = Client("carol", "Кэрол")
+        val room = closedRoom(alice, listOf(bob, carol), moderators = listOf(bob))
+        val notes = carol.notes()
+        val sealed = sealedTo("carol")
+
+        alice.repo.send(room.closed, "тайный план")
+        eventually { bob.messages(room.closed).firstOrNull { it.text == "тайный план" } }
+        // Whatever Alice sent Carol before it, Carol has handled once she has this.
+        alice.repo.send(room.general, "всем привет")
+        eventually { carol.messages(room.general).firstOrNull { it.text == "всем привет" } }
+        assertEquals(sealed + 1, sealedTo("carol"))
+
+        bob.repo.send(room.closed, "тайный ответ")
+        eventually { alice.messages(room.closed).firstOrNull { it.text == "тайный ответ" } }
+        bob.repo.send(room.general, "и всем")
+        eventually { carol.messages(room.general).firstOrNull { it.text == "и всем" } }
+        assertEquals(sealed + 2, sealedTo("carol"))
+
+        assertTrue(carol.messages(room.closed).isEmpty())
+        assertTrue(runBlocking { carol.repo.search("тайный") }.isEmpty())
+        assertEquals(emptyList<IncomingNote>(), notes.toList())
+    }
+
+    @Test
+    fun someoneWhoLostAChannelCannotOpenItsNextMessage() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        val carol = Client("carol", "Кэрол")
+        val room = closedRoom(alice, listOf(bob, carol), moderators = listOf(bob, carol))
+        alice.repo.send(room.closed, "тайный план")
+        eventually { bob.messages(room.closed).firstOrNull { it.text == "тайный план" } }
+        eventually { carol.messages(room.closed).firstOrNull { it.text == "тайный план" } }
+
+        runBlocking { assertTrue(alice.repo.change(room.id, GroupChange.AssignRole("bob", MODS, on = false))) }
+        bob.caughtUpWith(alice, room.id)
+        eventually { bob.messages(room.closed).takeIf { it.isEmpty() } }
+        assertNull(runBlocking { bob.db.conversations().get(room.closed) })
+        assertTrue(runBlocking { bob.repo.search("тайный") }.isEmpty())
+
+        val toCarol = sealedTo("carol")
+        val toBob = sealedTo("bob")
+        alice.repo.send(room.closed, "тайный план Б")
+        eventually { carol.messages(room.closed).firstOrNull { it.text == "тайный план Б" } }
+        val body = sealedFrames("carol").drop(toCarol).single().envelope.body
+        // Not even with the ciphertext in hand, from a server that kept a copy for him.
+        assertThrows(Exception::class.java) { GroupCrypto(bob.store) { "bob" }.decrypt("alice", body) }
+
+        alice.repo.send(room.general, "всем привет")
+        eventually { bob.messages(room.general).firstOrNull { it.text == "всем привет" } }
+        assertEquals(toBob + 1, sealedTo("bob"))
+    }
+
+    @Test
+    fun aChannelGivenBeforeItsUpdateArrivesIsHeldNotLost() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        val carol = Client("carol", "Кэрол")
+        val room = closedRoom(alice, listOf(bob, carol), moderators = listOf(carol))
+        val update = server.holdBetween("alice", "bob")
+        runBlocking { assertTrue(alice.repo.change(room.id, GroupChange.AssignRole("bob", MODS, on = true))) }
+        carol.caughtUpWith(alice, room.id)
+
+        // Carol has heard Bob may read the channel and writes to him too, before he hears it from Alice.
+        val fromCarol = sealedFrom("carol", to = "bob")
+        carol.repo.send(room.closed, "добро пожаловать")
+        eventually { sealedFrom("carol", to = "bob").takeIf { it > fromCarol } }
+        eventually { server.transport("bob").takeIf { it.caughtUp } }
+        assertTrue(bob.messages(room.closed).isEmpty())
+        assertNull(runBlocking { bob.db.conversations().get(room.closed) })
+
+        update.complete(Unit)
+        eventually { bob.messages(room.closed).firstOrNull { it.text == "добро пожаловать" } }
+        eventually { server.transport("bob").takeIf { it.caughtUp } }
+        assertEquals(1, bob.messages(room.closed).count { it.text == "добро пожаловать" })
+    }
+
+    @Test
+    fun aLateSenderDoesNotShowAClosedChannelToSomeoneWhoLostIt() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        val carol = Client("carol", "Кэрол")
+        val room = closedRoom(alice, listOf(bob, carol), moderators = listOf(bob, carol))
+        val update = server.holdBetween("alice", "carol")
+        runBlocking { assertTrue(alice.repo.change(room.id, GroupChange.AssignRole("bob", MODS, on = false))) }
+        bob.caughtUpWith(alice, room.id)
+        val notes = bob.notes()
+
+        // Carol has not heard yet: by her state Bob still reads the channel, and she writes to him.
+        val fromCarol = sealedFrom("carol", to = "bob")
+        carol.repo.send(room.closed, "тайный план")
+        eventually { sealedFrom("carol", to = "bob").takeIf { it > fromCarol } }
+        eventually { server.transport("bob").takeIf { it.caughtUp } }
+        assertTrue(bob.messages(room.closed).isEmpty())
+        assertTrue(runBlocking { bob.repo.search("тайный") }.isEmpty())
+        assertEquals(emptyList<IncomingNote>(), notes.toList())
+        eventually { alice.messages(room.closed).firstOrNull { it.text == "тайный план" } }
+        update.complete(Unit)
+    }
+
+    @Test
+    fun aRoomKeyMessageForAHiddenChannelLeavesNoTrace() {
+        val alice = Client("alice", "Алиса")
+        val bob = Client("bob", "Боб")
+        val carol = Client("carol", "Кэрол")
+        val room = closedRoom(alice, listOf(bob, carol), moderators = listOf(bob))
+        alice.repo.send(room.general, "всем привет")
+        eventually { carol.messages(room.general).firstOrNull { it.text == "всем привет" } }
+        val notes = carol.notes()
+        server.heldDownloads = CompletableDeferred()
+
+        // A build from before closed channels had keys of their own: the room's one key, which Carol holds.
+        val roomKey = UUID.fromString(runBlocking { alice.db.groups().senderKey(room.id, "") }!!.distributionId)
+        val file = AttachmentPointer("blob-plan", "a2V5", "file", "plan.pdf", size = 10)
+        val text = Body.Text("тайный план", attachment = file)
+        val leaked = Content(UUID.randomUUID().toString(), System.currentTimeMillis(), text, group = room.closed)
+        val body = GroupCrypto(alice.store) { "alice" }.encrypt(roomKey, leaked)
+        runBlocking { alice.api.send("carol", OutgoingMessage(leaked.id, EnvelopeType.SENDERKEY, body)) }
+        alice.repo.send(room.general, "и снова всем")
+        eventually { carol.messages(room.general).firstOrNull { it.text == "и снова всем" } }
+
+        assertNull(runBlocking { carol.db.messages().get(leaked.id) })
+        assertTrue(carol.messages(room.closed).isEmpty())
+        assertTrue(runBlocking { carol.repo.search("тайный") }.isEmpty())
+        assertEquals(emptyList<IncomingNote>(), notes.toList())
+        assertEquals(0, server.downloadsHeld.get())
+    }
+
+    /** The general and the closed channel of a room, as conversations. */
+    private class ClosedRoom(val id: String, val general: String, val closed: String)
+
+    /**
+     * Alice's room with [others] in it, and «модерация», a channel only the moderators' role sees, which [moderators]
+     * hold. Returns once everyone has the room as Alice left it.
+     */
+    private fun closedRoom(alice: Client, others: List<Client>, moderators: List<Client>): ClosedRoom {
+        (listOf(alice) + others).forEach {
+            it.register()
+            it.repo.start()
+        }
+        val room = runBlocking {
+            others.forEach { alice.repo.openDirect(it.name) }
+            alice.repo.createGroup(GroupKind.Room, "Клуб", others.map { it.name })
+        }
+        val closed = runBlocking {
+            assertTrue(alice.repo.change(room, GroupChange.SaveRole(RoomRole(MODS, "Модераторы"))))
+            assertTrue(alice.repo.addChannel(room, CLOSED, GroupChannelKind.Text, adminsOnly = false))
+            val closed = alice.state(room).channels.first { it.title == CLOSED }.id
+            assertTrue(alice.repo.change(room, GroupChange.HideChannel(closed, setOf(GroupPolicy.EVERYONE))))
+            moderators.forEach { assertTrue(alice.repo.change(room, GroupChange.AssignRole(it.name, MODS, on = true))) }
+            closed
+        }
+        others.forEach { it.caughtUpWith(alice, room) }
+        val general = alice.state(room).channels.first { it.title == GroupEngine.DEFAULT_TEXT_CHANNEL }.id
+        return ClosedRoom(room, GroupEngine.channelConversation(room, general), GroupEngine.channelConversation(room, closed))
+    }
+
+    private fun Client.state(group: String): GroupState = runBlocking { repo.group(group).first() }!!
+
+    private fun Client.caughtUpWith(other: Client, group: String) {
+        val version = other.state(group).version
+        eventually { runBlocking { repo.group(group).first() }?.takeIf { it.version >= version } }
+    }
+
+    /** What this client announces from now on, gathered as it comes. */
+    private fun Client.notes(): List<IncomingNote> {
+        val notes = CopyOnWriteArrayList<IncomingNote>()
+        val subscribed = CompletableDeferred<Unit>()
+        scope.launch { repo.incoming.onSubscription { subscribed.complete(Unit) }.collect { notes += it } }
+        runBlocking { subscribed.await() }
+        return notes
+    }
+
+    /** Group messages, sealed with someone's sender key, the server has handed [name] so far. */
+    private fun sealedFrames(name: String) = server.transport(name).frames.replayCache
+        .filterIsInstance<ServerFrame.Deliver>()
+        .filter { it.envelope.type == EnvelopeType.SENDERKEY }
+
+    private fun sealedTo(name: String) = sealedFrames(name).size
+
+    private fun sealedFrom(sender: String, to: String) = sealedFrames(to).count { it.envelope.sender == sender }
 
     @Test
     fun callSignalsArriveEncrypted() {
@@ -574,5 +772,8 @@ class TwoClientsTest {
 
         /** An outbox pause no test waits out, so whatever gets through came by another way. */
         const val NO_RETRY_IN_TIME = 10 * TIMEOUT
+
+        const val MODS = "mods"
+        const val CLOSED = "модерация"
     }
 }

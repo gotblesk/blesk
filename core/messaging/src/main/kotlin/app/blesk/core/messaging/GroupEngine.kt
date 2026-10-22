@@ -6,7 +6,10 @@ import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.ConversationEntity
 import app.blesk.core.data.db.GroupEntity
 import app.blesk.core.data.db.GroupSenderKeyEntity
+import app.blesk.core.data.db.HeldGroupMessageEntity
 import app.blesk.core.data.db.LeftGroupEntity
+import app.blesk.core.data.db.MessageEntity
+import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Protection
 import app.blesk.shared.protocol.Body
@@ -25,6 +28,7 @@ import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.TextSafety
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -53,12 +57,24 @@ internal interface GroupOutbox {
     fun flush(): Job
 }
 
+/** What becomes of a group message that arrives: kept, held for the state it was written in, or dropped. */
+internal enum class Admission { Store, Hold, Drop }
+
+/** What became of a member's state of a group: taken, ignored as not newer or not theirs to send, or refused. */
+internal enum class UpdateOutcome { Taken, Ignored, Refused }
+
+/** A held message whose state has arrived: what [sender] sent, to be judged again. */
+internal data class Released(val sender: String, val content: Content)
+
 /**
  * Closed groups and rooms. Their state lives only on members' phones; admins change it and
  * send the new state to every member one-to-one. A message is encrypted once and goes only to
  * those who may read it: everyone in the group under one of the sender's keys, the readers of a
  * closed channel under a key of that channel. A key is not used again once someone who got it may
  * no longer read, or once someone leaves or is removed and the group moves to a new epoch.
+ *
+ * A phone keeps only what its own state lets it read, whatever reaches it: a message from a sender whose state is
+ * newer waits for that state, and losing a channel takes its messages and files off the phone.
  *
  * Every change reads the state, works out the next one and writes it in one transaction, so another change, an
  * admin's update or someone leaving lands before or after it, never between its read and its write. What it queues
@@ -70,6 +86,10 @@ internal class GroupEngine(
     private val me: String,
     private val outbox: GroupOutbox,
     private val clock: () -> Long,
+    /** The chat list's line for a message that is only a file. */
+    private val labels: (Attachment?) -> String,
+    /** Messages with files, taken off the phone with their channel or group: their downloads and files go next. */
+    private val purged: suspend (List<MessageEntity>) -> Unit,
 ) {
     private val random = SecureRandom()
 
@@ -100,7 +120,7 @@ internal class GroupEngine(
             channels = channels,
             voiceKey = if (kind == GroupKind.Room) newVoiceKey() else null,
         )
-        queueing {
+        queueing(id) {
             store(state, new = true)
             broadcast(state, state.members.map { it.username })
         }
@@ -142,7 +162,7 @@ internal class GroupEngine(
     }
 
     /** A change checked by [GroupPolicy]; a ban tells the banned person they are out, as a removal does. */
-    suspend fun change(groupId: String, change: GroupChange): Boolean = queueing {
+    suspend fun change(groupId: String, change: GroupChange): Boolean = queueing(groupId) {
         val state = state(groupId) ?: return@queueing false
         val next = GroupPolicy.apply(state, me, change, clock()) ?: return@queueing false
         val rotated = if (next.epoch != state.epoch) next.copy(voiceKey = next.voiceKey?.let { newVoiceKey() }) else next
@@ -167,7 +187,7 @@ internal class GroupEngine(
         return if (change(groupId) { it.copy(invite = code) }) code else null
     }
 
-    suspend fun leave(groupId: String) = queueing {
+    suspend fun leave(groupId: String) = queueing(groupId) {
         val state = state(groupId) ?: return@queueing
         state.members.filter { it.username != me }.forEach {
             outbox.queue(it.username, Content(UUID.randomUUID().toString(), clock(), Body.GroupLeave(groupId)))
@@ -206,29 +226,97 @@ internal class GroupEngine(
         return content.takeIf { state.roleOf(sender) != null }
     }
 
-    fun canPost(state: GroupState, conversationId: String, username: String): Boolean =
+    private fun canPost(state: GroupState, conversationId: String, username: String): Boolean =
         state.roleOf(username) != null && GroupPolicy.canWrite(state, username, conversationId)
+
+    /**
+     * What this phone does with [content], from [sender] in [conversationId], by its own [state]: keeps it only if we
+     * both may read there and, for what only a writer sends, [sender] may write there. Otherwise it waits if [sender]
+     * wrote it in a newer state than ours, one that may let us read it, and is dropped if not.
+     */
+    fun admission(state: GroupState, conversationId: String, sender: String, content: Content): Admission {
+        val readable = GroupPolicy.reads(state, me, conversationId) && GroupPolicy.reads(state, sender, conversationId)
+        val written = (content.body !is Body.Text && content.body !is Body.Timer) || canPost(state, conversationId, sender)
+        return when {
+            readable && written -> Admission.Store
+            content.groupVersion > state.version -> Admission.Hold
+            else -> Admission.Drop
+        }
+    }
+
+    /** Keeps [content] out of sight until the state it was written in arrives; [released] gives it back then. */
+    suspend fun hold(sender: String, content: Content) {
+        val conversation = content.group ?: return
+        val held = HeldGroupMessageEntity(
+            groupId = conversation.substringBefore(CHANNEL_SEPARATOR),
+            sender = sender,
+            content = storageJson.encodeToString(Content.serializer(), content),
+            version = content.groupVersion,
+            heldAt = clock(),
+        )
+        db.groups().hold(held)
+    }
+
+    /** The held messages of [groupId] its state has caught up with, in the order they came, taken off the list. */
+    suspend fun released(groupId: String): List<Released> {
+        val state = state(groupId) ?: return emptyList()
+        return db.groups().releasable(groupId, state.version).mapNotNull { row ->
+            runCatching { storageJson.decodeFromString(Content.serializer(), row.content) }.getOrNull()?.let { Released(row.sender, it) }
+        }
+    }
+
+    /**
+     * Run once on start: takes off the phone what it may not keep, from channels lost while it was off or before it
+     * checked, lets go of messages held too long, and gives back the held ones whose state is here.
+     */
+    suspend fun tidy(): List<Released> {
+        db.groups().dropHeldBefore(clock() - HOLD_MILLIS)
+        val present = db.groups().ids()
+        (present + db.groups().leftIds()).distinct().forEach { purge(it) }
+        return present.flatMap { released(it) }
+    }
 
     // Incoming control messages
 
-    suspend fun onUpdate(sender: String, incoming: GroupState) = db.withTransaction {
+    /** A state of a group from [sender]; once it is taken, what it no longer lets us read leaves the phone. */
+    suspend fun onUpdate(sender: String, incoming: GroupState): UpdateOutcome {
+        val outcome = db.withTransaction { take(sender, incoming) }
+        if (outcome == UpdateOutcome.Taken) purge(incoming.id)
+        return outcome
+    }
+
+    private suspend fun take(sender: String, incoming: GroupState): UpdateOutcome {
         val current = state(incoming.id)
         val trusted = if (current == null) {
             incoming.isAdmin(sender) && mayComeBack(incoming)
         } else {
             GroupPolicy.manages(current, sender) && incoming.version > current.version
         }
-        if (!trusted) return@withTransaction
-        // Only the owner may hand the group over; an admin's state that moves ownership is not taken.
-        val owner = incoming.members.firstOrNull { it.role == GroupRole.Owner }?.username
-        val previous = current?.members?.firstOrNull { it.role == GroupRole.Owner }?.username
-        if (current != null && owner != previous && current.roleOf(sender) != GroupRole.Owner) return@withTransaction
-        if (incoming.roleOf(me) == null) {
-            if (current != null) forget(incoming.id, incoming.version, byUs = false)
-            return@withTransaction
+        if (!trusted) return UpdateOutcome.Ignored
+        // Refused whole: mended field by field, it would become a state no phone made. This phone stays behind until
+        // a state it can take arrives, and messages written in the newer one wait for that.
+        if (current != null && !mayMake(current, incoming, sender)) return UpdateOutcome.Refused
+        when {
+            incoming.roleOf(me) != null -> {
+                store(cleaned(incoming), new = current == null)
+                if (current == null) db.groups().unmarkLeft(incoming.id)
+            }
+            current != null -> forget(incoming.id, incoming.version, byUs = false)
+            else -> return UpdateOutcome.Ignored
         }
-        store(cleaned(incoming), new = current == null)
-        if (current == null) db.groups().unmarkLeft(incoming.id)
+        return UpdateOutcome.Taken
+    }
+
+    /**
+     * Whether [sender] may turn [current] into [incoming], as far as this phone checks: only the owner hands the group
+     * over, and no one lets more people see a channel, by opening it, giving a role or making an admin, without the
+     * right to.
+     */
+    private fun mayMake(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        val owner = incoming.members.firstOrNull { it.role == GroupRole.Owner }?.username
+        val previous = current.members.firstOrNull { it.role == GroupRole.Owner }?.username
+        val ownerKept = owner == previous || current.roleOf(sender) == GroupRole.Owner
+        return ownerKept && GroupPolicy.admitsVisibility(current, incoming, sender)
     }
 
     /** Titles come from another phone: cleaned here as if typed on this one. */
@@ -299,7 +387,7 @@ internal class GroupEngine(
     // Internals
 
     /** [transform] returns null to refuse, which returns false; returning the state unchanged is no change. */
-    private suspend fun change(groupId: String, transform: (GroupState) -> GroupState?): Boolean = queueing {
+    private suspend fun change(groupId: String, transform: (GroupState) -> GroupState?): Boolean = queueing(groupId) {
         val state = state(groupId) ?: return@queueing false
         if (!GroupPolicy.manages(state, me)) return@queueing false
         val next = transform(state) ?: return@queueing false
@@ -312,14 +400,16 @@ internal class GroupEngine(
     }
 
     /**
-     * Runs [block], which queues updates, in one transaction, and sends them once it is committed. Sends in a finally:
-     * a caller cancelled once the commit is done, as it hands back the result, a screen closed during the save, would
-     * leave the updates to whatever asks next.
+     * Runs [block], a change of [groupId] that queues updates, in one transaction, then sends them and takes off the
+     * phone what the stored state no longer lets us read. Both in a finally: a caller cancelled once the commit is
+     * done, as it hands back the result, a screen closed during the save, would leave them to whatever comes next.
+     * Whether it committed is not known there, and need not be: either way the state on the phone is what counts.
      */
-    private suspend fun <T> queueing(block: suspend () -> T): T = try {
+    private suspend fun <T> queueing(groupId: String, block: suspend () -> T): T = try {
         db.withTransaction(block)
     } finally {
         outbox.flush()
+        withContext(NonCancellable) { purge(groupId) }
     }
 
     private suspend fun broadcast(state: GroupState, recipients: List<String>) {
@@ -368,7 +458,7 @@ internal class GroupEngine(
         )
         db.conversations().setTitle(state.id, state.title)
         if (state.kind != GroupKind.Room) return
-        val visible = state.channels.filter { it.kind == GroupChannelKind.Text && GroupPolicy.sees(state, me, it) }
+        val visible = channelsWeRead(state)
         val textIds = visible.map { channelConversation(state.id, it.id) }
         db.conversations().children(state.id).filter { it.id !in textIds }.forEach { db.conversations().deleteWithChildren(it.id) }
         visible.forEach { channel ->
@@ -380,14 +470,50 @@ internal class GroupEngine(
         }
     }
 
-    /** Deletes the group and its chats, and notes it was let go of at [version], left or dissolved [byUs] or not. */
+    /** The text channels of a room [state] lets us see; a group has none. */
+    private fun channelsWeRead(state: GroupState): List<GroupChannel> =
+        if (state.kind != GroupKind.Room) {
+            emptyList()
+        } else {
+            state.channels.filter { it.kind == GroupChannelKind.Text && GroupPolicy.sees(state, me, it) }
+        }
+
+    /**
+     * Deletes the group, its chats, our keys and what waits for its state, and notes it was let go of at [version],
+     * left or dissolved [byUs] or not. Its messages and their files go once that is committed, by [purge].
+     */
     private suspend fun forget(groupId: String, version: Int, byUs: Boolean) = db.withTransaction {
-        db.conversations().children(groupId).forEach { db.messages().deleteConversation(it.id) }
-        db.messages().deleteConversation(groupId)
         db.conversations().deleteWithChildren(groupId)
         db.groups().delete(groupId)
         db.groups().deleteSenderKeys(groupId)
+        db.groups().deleteHeld(groupId)
         db.groups().markLeft(LeftGroupEntity(groupId, version, byUs))
+    }
+
+    /**
+     * Takes off the phone the messages of [groupId] the stored state does not let us read, files and search entries
+     * with them: those of channels we do not see or that are gone, and all of a group let go of. Runs after the
+     * commit that changed the state, so files go only with rows that are gone for good; what a crash leaves between
+     * the two, [tidy] takes on the next start.
+     */
+    private suspend fun purge(groupId: String) {
+        val state = state(groupId)
+        val kept = state?.let { channelsWeRead(it).map { channel -> channelConversation(groupId, channel.id) } }.orEmpty()
+        val lost = db.messages().channelsWithMessages(groupId).filter { it !in kept } + listOfNotNull(groupId.takeIf { state == null })
+        if (lost.isEmpty()) return
+        val withFiles = db.withTransaction {
+            lost.flatMap { db.messages().withFilesIn(it) }.also { lost.forEach { db.messages().deleteConversation(it) } }
+        }
+        if (withFiles.isNotEmpty()) purged(withFiles)
+        // The room's line in the chat list may have come from a channel just taken away.
+        if (state != null) showLast(groupId, kept + groupId)
+    }
+
+    private suspend fun showLast(groupId: String, conversationIds: List<String>) {
+        val last = db.messages().lastIn(conversationIds)
+        val author = last?.authorId?.takeIf { it != me }?.let { id -> db.contacts().get(id)?.name?.substringBefore(' ') ?: id }
+        val text = last?.let { it.text.ifEmpty { labels(decodeAttachment(it.attachment)) } }.orEmpty()
+        db.conversations().setPreview(groupId, author, text, last?.sentAt ?: 0)
     }
 
     private fun newId(): String = UUID.randomUUID().toString().substring(0, 8)
@@ -405,6 +531,9 @@ internal class GroupEngine(
         private const val MAX_TITLE = 64
         private const val MAX_CHANNELS = 20
         private const val INVITE_BYTES = 12
+
+        /** How long a message waits for the state it was written in. */
+        private const val HOLD_MILLIS = 7L * 24 * 60 * 60 * 1000
         const val DEFAULT_TEXT_CHANNEL = "общее"
         const val DEFAULT_VOICE_CHANNEL = "голосовой"
 

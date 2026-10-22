@@ -7,7 +7,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.SignalStore
 import app.blesk.core.data.db.BleskDatabase
+import app.blesk.core.data.db.HeldGroupMessageEntity
+import app.blesk.core.data.db.LeftGroupEntity
+import app.blesk.core.data.db.MessageEntity
 import app.blesk.core.data.db.OutboxEntity
+import app.blesk.core.data.model.Attachment
+import app.blesk.core.data.model.SendStatus
 import app.blesk.shared.protocol.Body
 import app.blesk.shared.protocol.Content
 import app.blesk.shared.protocol.GroupChange
@@ -35,6 +40,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -58,7 +64,9 @@ class GroupEngineTest {
     private val db = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java).allowMainThreadQueries().build()
     private val outbox = HeldOutbox()
     private val crypto = GroupCrypto(SignalStore(db.signal())) { ME }
-    private val engine = GroupEngine(db, crypto, ME, outbox, ::clock)
+    private val purged = CopyOnWriteArrayList<MessageEntity>()
+    private val engine =
+        GroupEngine(db, crypto, ME, outbox, ::clock, labels = { FILE_LABEL }, purged = { purged += it })
 
     /** While set, reading the clock waits for it: the moment a change has read the group and not yet written it. */
     @Volatile
@@ -464,6 +472,140 @@ class GroupEngineTest {
         assertEquals(listOf("общее", "новый"), engine.state(GROUP)?.channels?.map { it.title })
     }
 
+    @Test
+    fun admissionStoresHoldsAndDrops() {
+        val closed = GroupEngine.channelConversation(ROOM, CLOSED_ID)
+        // Dave sees the channel, Carol does not; ours is the state at version 5.
+        val cases = listOf(true, false).flatMap { weSee ->
+            listOf("dave", "carol").flatMap { sender -> listOf(4, 5, 6).map { version -> Triple(weSee, sender, version) } }
+        }
+        for ((weSee, sender, version) in cases) {
+            val state = roomOf(version = 5, ourRoles = if (weSee) listOf(MODS) else emptyList())
+            val expected = when {
+                weSee && sender == "dave" -> Admission.Store
+                version > state.version -> Admission.Hold
+                else -> Admission.Drop
+            }
+            val content = text("модераторам").copy(group = closed, groupVersion = version)
+            assertEquals("we see: $weSee, from $sender at $version", expected, engine.admission(state, closed, sender, content))
+        }
+
+        val state = roomOf(version = 5)
+        // Only an admin writes in the news; whoever reads them may react there.
+        val news = GroupEngine.channelConversation(ROOM, NEWS_ID)
+        assertEquals(Admission.Drop, engine.admission(state, news, "carol", text("можно и мне?")))
+        assertEquals(Admission.Store, engine.admission(state, news, "bob", text("новость")))
+        assertEquals(Admission.Store, engine.admission(state, news, "carol", reaction()))
+        // A channel our state does not have: perhaps one made in a state we are yet to get.
+        val unknown = GroupEngine.channelConversation(ROOM, "zzz")
+        assertEquals(Admission.Drop, engine.admission(state, unknown, "dave", text("в никуда")))
+        assertEquals(Admission.Hold, engine.admission(state, unknown, "dave", text("в новый").copy(groupVersion = 6)))
+    }
+
+    @Test
+    fun aHeldMessageComesBackOnceItsStateArrives() = runBlocking {
+        engine.onUpdate("bob", roomOf(version = 1, ourRoles = emptyList()))
+        val closed = GroupEngine.channelConversation(ROOM, CLOSED_ID)
+        // Dave wrote it once Bob had let us in; Bob's state saying so is still on its way.
+        val early = text("теперь и тебе").copy(group = closed, groupVersion = 2)
+        assertEquals(Admission.Hold, engine.admission(engine.state(ROOM)!!, closed, "dave", early))
+        engine.hold("dave", early)
+        assertEquals(emptyList<Released>(), engine.released(ROOM))
+
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", roomOf(version = 2)))
+        assertEquals(listOf(Released("dave", early)), engine.released(ROOM))
+        assertEquals(emptyList<Released>(), engine.released(ROOM))
+        assertEquals(Admission.Store, engine.admission(engine.state(ROOM)!!, closed, "dave", early))
+    }
+
+    @Test
+    fun aStateThatOpensAChannelFromAManagerWithoutTheRightIsRefused() = runBlocking {
+        val guards = RoomRole("guards", "Охрана", rights = setOf(Right.Ban))
+        val room = roomOf(version = 1, ourRoles = emptyList()).let { state ->
+            state.copy(
+                roles = state.roles + guards,
+                members = state.members.map { if (it.username == "carol") it.copy(roles = listOf(guards.id)) else it },
+            )
+        }
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+        val closed = GroupEngine.channelConversation(ROOM, CLOSED_ID)
+        val opened = room.copy(version = 2, channels = room.channels.map { it.copy(hiddenFrom = emptySet()) })
+
+        // Carol may ban, so her states are taken, but not one that opens a channel: that needs the channels right.
+        assertEquals(UpdateOutcome.Refused, engine.onUpdate("carol", opened))
+        assertEquals(room.version, engine.state(ROOM)?.version)
+        assertEquals(room.channels, engine.state(ROOM)?.channels)
+        assertNull(db.conversations().get(closed))
+
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", opened))
+        assertNotNull(db.conversations().get(closed))
+    }
+
+    @Test
+    fun losingAChannelTakesItsMessagesAndFilesOffThePhone() = runBlocking {
+        engine.onUpdate("bob", roomOf(version = 1))
+        val open = GroupEngine.channelConversation(ROOM, OPEN_ID)
+        val closed = GroupEngine.channelConversation(ROOM, CLOSED_ID)
+        val photo = stored(open, "", at = 1, attachment = PLAN)
+        val plan = stored(closed, "тайный план", at = 2, attachment = PLAN)
+        val note = stored(closed, "тайная заметка", at = 3)
+        // As an incoming message leaves it: the room's line in the chat list shows the channel's last one.
+        db.conversations().setPreview(ROOM, "dave", "тайная заметка", 3)
+        assertEquals(2, db.messages().searchFullText("тайн*").size)
+
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", roomOf(version = 2, ourRoles = emptyList())))
+
+        assertNull(db.conversations().get(closed))
+        assertNull(db.messages().get(plan.id))
+        assertNull(db.messages().get(note.id))
+        assertEquals(emptyList<MessageEntity>(), db.messages().searchFullText("тайн*"))
+        assertEquals(listOf(plan.id), purged.map { it.id })
+        assertNotNull(db.messages().get(photo.id))
+        val room = db.conversations().get(ROOM)!!
+        assertEquals("dave" to FILE_LABEL, room.previewAuthor to room.previewText)
+    }
+
+    @Test
+    fun tidyRemovesLeftoversOfChannelsWeDoNotSee() = runBlocking {
+        engine.onUpdate("bob", roomOf(version = 3, ourRoles = emptyList()))
+        val open = GroupEngine.channelConversation(ROOM, OPEN_ID)
+        val greeting = stored(open, "привет всем", at = 1)
+        // What a build that stored whatever it could decrypt left behind, and what a crash left of a group we left.
+        val hidden = stored(GroupEngine.channelConversation(ROOM, CLOSED_ID), "тайный план", at = 2, attachment = PLAN)
+        val unknown = stored(GroupEngine.channelConversation(ROOM, "zzz"), "в никуда", at = 3)
+        db.groups().markLeft(LeftGroupEntity(GROUP, version = 1, byUs = true))
+        val left = stored(GROUP, "из прошлого", at = 4)
+        // Held for a state that has come since, and for one that never came.
+        val waited = text("дождался").copy(group = open, groupVersion = 3)
+        engine.hold("dave", waited)
+        val stale = storageJson.encodeToString(Content.serializer(), text("забыт").copy(group = open, groupVersion = 9))
+        db.groups().hold(HeldGroupMessageEntity(groupId = ROOM, sender = "dave", content = stale, version = 9, heldAt = 0))
+
+        assertEquals(listOf(Released("dave", waited)), engine.tidy())
+        assertNotNull(db.messages().get(greeting.id))
+        listOf(hidden, unknown, left).forEach { assertNull(db.messages().get(it.id)) }
+        assertEquals(listOf(hidden.id), purged.map { it.id })
+
+        assertEquals(emptyList<Released>(), engine.tidy())
+        assertNotNull(db.messages().get(greeting.id))
+        assertEquals(listOf(hidden.id), purged.map { it.id })
+        // Too old to wait for its state: when it comes, nothing is left to give back.
+        engine.onUpdate("bob", roomOf(version = 9, ourRoles = emptyList()))
+        assertEquals(emptyList<Released>(), engine.released(ROOM))
+    }
+
+    @Test
+    fun leavingAGroupTakesItsFilesToo() = runBlocking {
+        val group = engine.create(GroupKind.Group, "Выходные", listOf("bob"))
+        val file = stored(group, "", at = 1, attachment = PLAN)
+        val words = stored(group, "до встречи", at = 2)
+        engine.leave(group)
+
+        assertNull(db.messages().get(file.id))
+        assertNull(db.messages().get(words.id))
+        assertEquals(listOf(file.id), purged.map { it.id })
+    }
+
     /** A room of ours: Bob holds the moderators' role, the only one that sees [closed]; Carol has no role. */
     private class Club(val id: String, val openChannel: String, val closedChannel: String) {
         val open = GroupEngine.channelConversation(id, openChannel)
@@ -484,6 +626,47 @@ class GroupEngineTest {
     private fun stateOf(version: Int, vararg members: GroupMember, title: String = "Выходные", epoch: Int = 0) =
         GroupState(id = GROUP, kind = GroupKind.Group, title = title, version = version, epoch = epoch, members = members.toList())
 
+    /**
+     * Bob's room, where we are a member holding [ourRoles]. Dave holds the moderators' role, the only one that sees
+     * «модерация»; Carol has none; only admins write in «новости».
+     */
+    private fun roomOf(version: Int, ourRoles: List<String> = listOf(MODS)) = GroupState(
+        id = ROOM,
+        kind = GroupKind.Room,
+        title = "Клуб",
+        version = version,
+        epoch = 0,
+        members = listOf(
+            GroupMember("bob", GroupRole.Owner),
+            GroupMember(ME, GroupRole.Member, roles = ourRoles),
+            GroupMember("dave", GroupRole.Member, roles = listOf(MODS)),
+            GroupMember("carol", GroupRole.Member),
+        ),
+        channels = listOf(
+            GroupChannel(OPEN_ID, "общее"),
+            GroupChannel(CLOSED_ID, CLOSED, hiddenFrom = setOf(GroupPolicy.EVERYONE)),
+            GroupChannel(NEWS_ID, "новости", adminsOnly = true),
+        ),
+        roles = listOf(RoomRole(MODS, "Модераторы")),
+    )
+
+    private fun reaction() = Content(UUID.randomUUID().toString(), 1, Body.Reaction("m1", "+"))
+
+    /** A message as an earlier receive left it on the phone, from Dave. */
+    private suspend fun stored(conversation: String, text: String, at: Long, attachment: Attachment? = null): MessageEntity {
+        val row = MessageEntity(
+            id = UUID.randomUUID().toString(),
+            conversationId = conversation,
+            authorId = "dave",
+            text = text,
+            sentAt = at,
+            status = SendStatus.Delivered.name,
+            attachment = encodeAttachment(attachment),
+        )
+        db.messages().insert(row)
+        return row
+    }
+
     private suspend fun untilAKeyIsHeld() = until { outbox.keysHeld.get() > 0 }
 
     private suspend fun until(condition: () -> Boolean) = withTimeout(TIMEOUT) {
@@ -493,10 +676,16 @@ class GroupEngineTest {
     private companion object {
         const val ME = "alice"
         const val GROUP = "g"
+        const val ROOM = "r"
+        const val OPEN_ID = "open"
+        const val CLOSED_ID = "closed"
+        const val NEWS_ID = "news"
         const val MODS = "mods"
         const val CLOSED = "модерация"
+        const val FILE_LABEL = "Файл"
         const val TIMEOUT = 60_000L
         const val POLL = 20L
         const val GRACE = 500L
+        val PLAN = Attachment.File("/media/plan.pdf", "plan.pdf", 1, "application/pdf")
     }
 }

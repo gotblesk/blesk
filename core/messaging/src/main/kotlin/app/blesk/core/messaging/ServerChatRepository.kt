@@ -188,6 +188,13 @@ class ServerChatRepository(
         me = me,
         outbox = outbox,
         clock = clock,
+        labels = labels,
+        purged = { rows ->
+            rows.forEach {
+                downloads.cancel(it.id)
+                media.forget(decodeAttachment(it.attachment))
+            }
+        },
     )
     private val signals = MutableSharedFlow<CallSignal>(extraBufferCapacity = SIGNAL_BUFFER)
     private val typingState = MutableStateFlow<Set<String>>(emptySet())
@@ -300,6 +307,7 @@ class ServerChatRepository(
         scope.launch { network.drop(1).filter { it }.collect { socket.retryNow() } }
         scope.launch { sweep() }
         scope.launch { ensureSaved() }
+        scope.launch { groups.tidy().forEach { applyGroup(it.sender, it.content) } }
     }
 
     fun stop() = socket.stop()
@@ -922,7 +930,7 @@ class ServerChatRepository(
             )
             is Body.Typing -> showTyping(sender, body.active)
             is Body.Reaction, is Body.Edit, is Body.Delete, is Body.ClearChat -> changes.apply(sender, body)
-            is Body.GroupUpdate -> groups.onUpdate(sender, body.state)
+            is Body.GroupUpdate -> takeUpdate(sender, body.state)
             is Body.SenderKey -> groups.onSenderKey(sender, body)
             is Body.JoinRequest -> groups.onJoinRequest(sender, body)
             is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
@@ -949,7 +957,6 @@ class ServerChatRepository(
         }
     }
 
-    /** A message inside a group or room, already checked to come from a member. */
     /** Calls and the disappearing-message timer: they change state, not the message list. */
     private suspend fun applyControl(sender: String, content: Content, body: Body) {
         if (body is Body.Timer) {
@@ -959,12 +966,22 @@ class ServerChatRepository(
         }
     }
 
+    /** A state of a group from a member; the messages that waited for it are judged again once it is taken. */
+    private suspend fun takeUpdate(sender: String, state: GroupState) {
+        when (groups.onUpdate(sender, state)) {
+            UpdateOutcome.Taken -> groups.released(state.id).forEach { applyGroup(it.sender, it.content) }
+            UpdateOutcome.Refused -> log.record(EventCode.GroupUpdateRefused)
+            UpdateOutcome.Ignored -> Unit
+        }
+    }
+
+    /** A message inside a group or room, already checked to come from a member. */
     private suspend fun applyGroup(sender: String, content: Content) {
         val conversation = content.group ?: return
         val state = groups.groupOf(conversation) ?: return
+        if (!admitted(state, conversation, sender, content)) return
         when (val body = content.body) {
             is Body.Text -> {
-                if (!groups.canPost(state, conversation, sender)) return
                 db.contacts().insertIfAbsent(ContactEntity(sender, sender))
                 storeIncoming(sender, conversation, content, body, author = contact(sender)?.name?.substringBefore(' ') ?: sender)
             }
@@ -982,12 +999,28 @@ class ServerChatRepository(
                 db.messages().delete(it.id)
                 refreshPreview(conversation)
             }
-            is Body.Timer -> if (groups.canPost(state, conversation, sender)) {
-                db.conversations().setTimer(conversation, body.seconds.coerceIn(0, MAX_TIMER_SECONDS))
-            }
+            is Body.Timer -> db.conversations().setTimer(conversation, body.seconds.coerceIn(0, MAX_TIMER_SECONDS))
             else -> Unit
         }
     }
+
+    /**
+     * Whether this phone keeps a group message: nothing of a conversation it may not read is stored, counted, shown,
+     * announced or downloaded. One that a newer state may let it read waits for that state.
+     */
+    private suspend fun admitted(state: GroupState, conversation: String, sender: String, content: Content): Boolean =
+        when (groups.admission(state, conversation, sender, content)) {
+            Admission.Store -> true
+            Admission.Hold -> {
+                groups.hold(sender, content)
+                log.record(EventCode.GroupMessageHeld)
+                false
+            }
+            Admission.Drop -> {
+                log.record(EventCode.GroupMessageDropped)
+                false
+            }
+        }
 
     private suspend fun storeIncoming(sender: String, conversation: String, content: Content, body: Body.Text, author: String?) {
         val album = body.album.take(Attachment.Album.MAX)
