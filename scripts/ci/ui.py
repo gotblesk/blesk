@@ -136,12 +136,31 @@ def field_for(label, all_nodes):
     return min(below, key=lambda node: bounds(node)[1] - bottom)
 
 
-def type_into(label, value):
-    """Types into the text field under [label]: blesk's fields carry a label above them."""
-    found, all_nodes = find(label, 60, scroll=True)
-    field = field_for(found, all_nodes)
-    tap_node(field)
-    time.sleep(0.5)
+def bring_to_middle(node, width, height):
+    """A slow swipe that moves [node] to the middle of the screen, where nothing floats over it."""
+    _, top, _, bottom = bounds(node)
+    shift = (top + bottom) // 2 - height // 2
+    start, end = height // 2 + shift // 2, height // 2 - shift // 2
+    adb("shell", "input", "swipe", str(width // 2), str(start), str(width // 2), str(end), "900")
+
+
+def type_into(label, value, seconds=60):
+    """Types into the text field under [label]: blesk's fields carry a label above them. The text goes
+    in only once that field has the focus, since `input text` types wherever the focus happens to be."""
+    deadline = time.monotonic() + seconds
+    width, height = screen_size()
+    while True:
+        found, all_nodes = find(label, max(deadline - time.monotonic(), 1), scroll=True)
+        field = field_for(found, all_nodes)
+        if field.get("focused") == "true":
+            break
+        if time.monotonic() > deadline:
+            raise SystemExit(f"the field under «{label}» never took the focus; fields: {describe_fields(all_nodes)}")
+        if on_screen(field, height):
+            tap_node(field)
+        else:
+            bring_to_middle(field, width, height)
+        time.sleep(1)
     # `input text` takes the text as one shell word: quote it for the device's shell.
     adb("shell", "input", "text", "'" + value.replace("'", "'\\''") + "'")
 

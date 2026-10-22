@@ -5,7 +5,8 @@
 # go to the directory given, for the CI artifact.
 #
 #   scripts/ci/smoke.sh <blesk.apk> <screenshot dir>
-set -euo pipefail
+# -E: the trap below also catches a step that fails inside ui().
+set -Eeuo pipefail
 
 apk=${1:?usage: smoke.sh <blesk.apk> <screenshot dir>}
 shots=${2:?usage: smoke.sh <blesk.apk> <screenshot dir>}
@@ -36,8 +37,16 @@ fail() {
 trap 'fail "step $step"' ERR
 
 adb wait-for-device
-# Text goes in through `input text`; an on-screen keyboard would only cover the buttons.
-adb shell ime list -s | while read -r ime; do adb shell ime disable "$ime" >/dev/null; done
+# Text goes in through `input text`, and an on-screen keyboard would cover the fields below the focused
+# one. Android falls back to any input method left, the voice one included, so all of them go, with their
+# apps. adb reads stdin, hence the list is taken whole first.
+mapfile -t imes < <(adb shell ime list -a -s | tr -d '\r')
+for ime in "${imes[@]}"; do
+    adb shell ime disable "$ime" </dev/null >/dev/null 2>&1 || true
+    adb shell pm disable-user --user 0 "${ime%%/*}" </dev/null >/dev/null 2>&1 || true
+done
+left=$(adb shell ime list -s | tr -d '\r')
+[[ -z $left ]] || { echo "input methods still on: $left" >&2; exit 1; }
 adb reverse tcp:8443 tcp:443
 # Crash and «not responding» dialogs of other apps would cover the screen being read.
 adb shell settings put global hide_error_dialogs 1
