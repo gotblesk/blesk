@@ -292,7 +292,7 @@ internal class GroupEngine(
     private suspend fun take(sender: String, incoming: GroupState): UpdateOutcome {
         val current = state(incoming.id)
         val trusted = if (current == null) {
-            incoming.isAdmin(sender) && mayComeBack(incoming)
+            isGroupId(incoming.id) && incoming.isAdmin(sender) && mayComeBack(incoming)
         } else {
             GroupPolicy.manages(current, sender) && incoming.version > current.version
         }
@@ -565,5 +565,12 @@ internal class GroupEngine(
         const val DEFAULT_VOICE_CHANNEL = "голосовой"
 
         fun channelConversation(groupId: String, channelId: String) = "$groupId$CHANNEL_SEPARATOR$channelId"
+
+        /**
+         * Whether [id] can name a group: a UUID as [create] makes it. Anyone may add us to a group, and one named like
+         * another of our chats, after a person, the «Избранное» or an open room's prefix, would take it over: what we
+         * write there would go to the group, and leaving it would take that chat off the phone.
+         */
+        fun isGroupId(id: String): Boolean = runCatching { UUID.fromString(id).toString() == id }.getOrDefault(false)
     }
 }

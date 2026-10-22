@@ -625,6 +625,23 @@ class GroupEngineTest {
     }
 
     @Test
+    fun aGroupNamedLikeAChatOfOursIsNotTaken() = runBlocking {
+        val chat = stored("dave", "привет", at = 1, attachment = PLAN)
+        val mallory = GroupMember("mallory", GroupRole.Owner)
+        val us = GroupMember(ME, GroupRole.Member)
+        // Anyone may add us to a group; taken, one named after our chat with Dave would get what we write him there,
+        // and one named «space» every open room we follow.
+        for (id in listOf("dave", "space", GROUP.uppercase())) {
+            assertEquals(UpdateOutcome.Ignored, engine.onUpdate("mallory", stateOf(1, mallory, us).copy(id = id)))
+            assertEquals(UpdateOutcome.Ignored, engine.onUpdate("mallory", stateOf(2, mallory).copy(id = id)))
+        }
+        assertNull(engine.groupOf("dave"))
+        assertNull(engine.groupOf("space:club"))
+        assertNotNull(db.messages().get(chat.id))
+        assertEquals(emptyList<MessageEntity>(), purged.toList())
+    }
+
+    @Test
     fun aClosedVoiceChannelsKeyAndRoomGoOnlyToThoseWhoSeeIt() = runBlocking {
         val club = club()
         val onAir = closedVoice(club.id)
@@ -835,8 +852,8 @@ class GroupEngineTest {
 
     private companion object {
         const val ME = "alice"
-        const val GROUP = "g"
-        const val ROOM = "r"
+        const val GROUP = "0c6f3a52-8d1e-4b7a-9e2f-5a4b3c2d1e0f"
+        const val ROOM = "7e1d2c3b-4a59-4687-b6c5-d4e3f2a1b0c9"
         const val OPEN_ID = "open"
         const val CLOSED_ID = "closed"
         const val NEWS_ID = "news"
