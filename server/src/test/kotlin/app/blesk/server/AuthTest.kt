@@ -1,9 +1,13 @@
 package app.blesk.server
 
+import app.blesk.server.auth.Registration
 import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.ChallengeRequest
+import app.blesk.shared.protocol.EnvelopeType
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.KeyStatus
+import app.blesk.shared.protocol.OutgoingMessage
+import app.blesk.shared.protocol.SendMessage
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
@@ -17,6 +21,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.signal.libsignal.protocol.IdentityKeyPair
+import java.util.UUID
+import kotlin.random.Random
 
 class AuthTest {
     @Test
@@ -86,5 +92,32 @@ class AuthTest {
         }
         assertEquals(HttpStatusCode.TooManyRequests, limited.status)
         assertEquals("rate_limited", limited.body<ErrorBody>().code)
+    }
+
+    @Test
+    fun `an account whose name became reserved still signs in and is reached`() = serverTest { harness ->
+        val name = "support" + Random.nextInt(100_000, 999_999)
+        val identity = IdentityKeyPair.generate()
+        val created = harness.services.accounts.create(name, identity.publicKey.serialize(), 1, harness.services.now())
+        assertEquals(Registration.Created, created)
+        val person = TestUser(name, identity, harness.login(name, identity))
+        val bob = harness.register()
+
+        assertEquals(HttpStatusCode.OK, harness.client.get("${Api.ACCOUNTS}/$name") { bearerAuth(bob.token) }.status)
+        val message = OutgoingMessage(UUID.randomUUID().toString(), EnvelopeType.WHISPER, Random.nextBytes(32).b64())
+        val sent = harness.client.post("${Api.MESSAGES}/$name") {
+            bearerAuth(bob.token)
+            contentType(ContentType.Application.Json)
+            setBody(message)
+        }
+        assertEquals(HttpStatusCode.OK, sent.status)
+        // The name is found; only the keys are missing, since none were uploaded.
+        val keys = harness.client.get("${Api.KEYS}/$name") { bearerAuth(bob.token) }
+        assertEquals(HttpStatusCode.NotFound, keys.status)
+        assertEquals("no_keys", keys.body<ErrorBody>().code)
+
+        val bot = harness.createBot(bob)
+        assertEquals(HttpStatusCode.NoContent, harness.writeToBot(person, bot.bot.username, text = "/start").status)
+        assertEquals(HttpStatusCode.OK, harness.botPost(bot.token, "sendMessage", SendMessage(name, "Привет!")).status)
     }
 }

@@ -32,16 +32,4 @@ class TextSafetyTest {
 
     @Test
     fun countsWhatTheEyeSees() = assertEquals(1, TextSafety.visibleLength("é"))
-
-    @Test
-    fun usernames() {
-        assertTrue(Usernames.isValid("egor.makarov"))
-        assertFalse(Usernames.isValid("Egor"))
-        assertFalse(Usernames.isValid("_egor"))
-        assertFalse(Usernames.isValid("eg..or"))
-        assertFalse(Usernames.isValid("9egor"))
-        assertFalse(Usernames.isValid("b.lesk"))
-        assertFalse(Usernames.isValid("ab"))
-        assertEquals("egor", Usernames.normalize("@Egor"))
-    }
 }

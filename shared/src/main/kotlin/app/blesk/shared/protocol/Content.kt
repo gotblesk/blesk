@@ -336,7 +336,7 @@ object InviteLink {
             ?: BleskLinks.legacy(link, LEGACY)?.takeIf { it.rest.isEmpty() }?.let { it.params["c"] to it.params }
             ?: return null
         val group = params["g"]?.takeIf(groupPattern::matches) ?: return null
-        val admin = params["a"]?.takeIf(Usernames::isValid) ?: return null
+        val admin = params["a"]?.takeIf(Usernames::isWellFormed) ?: return null
         val valid = code?.takeIf(codePattern::matches) ?: return null
         return Parsed(group, admin, valid)
     }
@@ -356,7 +356,7 @@ object ProfileLink {
 
     fun parse(link: String): Parsed? {
         val parts = BleskLinks.site(link, "/@") ?: BleskLinks.legacy(link, LEGACY) ?: return null
-        val username = parts.rest.lowercase().takeIf(Usernames::isValid) ?: return null
+        val username = parts.rest.lowercase().takeIf(Usernames::isWellFormed) ?: return null
         return Parsed(username, parts.params["k"]?.takeIf(keyPattern::matches))
     }
 }

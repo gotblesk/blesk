@@ -57,7 +57,7 @@ object TextSafety {
 
     private fun isControl(code: Int) = Character.getType(code) == Character.CONTROL.toInt()
 
-    private fun isMark(code: Int): Boolean = when (Character.getType(code)) {
+    internal fun isMark(code: Int): Boolean = when (Character.getType(code)) {
         Character.NON_SPACING_MARK.toInt(), Character.ENCLOSING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt() -> true
         else -> false
     }
@@ -65,7 +65,7 @@ object TextSafety {
     private const val NEWLINE = '\n'.code
 
     /** Direction overrides and isolates, zero-width characters, and letters that draw nothing. */
-    private val Removed: Set<Int> = buildSet {
+    internal val Removed: Set<Int> = buildSet {
         addAll(0x202A..0x202E)
         addAll(0x2066..0x2069)
         addAll(listOf(0x200E, 0x200F, 0x061C))

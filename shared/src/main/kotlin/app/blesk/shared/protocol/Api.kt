@@ -13,7 +13,10 @@ object Api {
 
     const val ACCOUNTS = "/v1/accounts"
 
-    /** `GET /v1/usernames/{name}`: whether a name may be taken, asked while it is typed. */
+    /**
+     * `GET /v1/usernames/{name}`: whether a name may be taken, asked while it is typed; a [UsernameCheck]
+     * with the verdict, the name as compared and up to three free names.
+     */
     const val USERNAMES = "/v1/usernames"
     const val CHALLENGE = "/v1/auth/challenge"
     const val TOKEN = "/v1/auth/token"
@@ -95,32 +98,6 @@ data class UploadState(val received: List<Int>, val complete: Boolean)
 @Serializable
 data class Discovery(val discoverable: Boolean)
 
-/** Lowercase latin letters, digits and underscores, 3 to 32 characters. */
-/**
- * @username: lower-case latin letters, digits, dot and underscore, 3 to 32 of them, starting with
- * a letter; a dot or underscore never at either end and never two in a row. Latin only, so a
- * look-alike Cyrillic letter cannot pass for someone else. Lower case only, so «Egor» and «egor»
- * are one name. Names of the service itself are kept back.
- */
-object Usernames {
-    const val MIN = 3
-    const val MAX = 32
-    private val pattern = Regex("^[a-z][a-z0-9]*(?:[._][a-z0-9]+)*$")
-    private val reserved = setOf(
-        "admin", "administrator", "support", "blesk", "system", "moderator", "mod", "root", "help",
-        "official", "security", "staff", "service", "owner", "team", "info", "abuse", "noreply",
-    )
-
-    fun isValid(username: String) = username.length in MIN..MAX && pattern.matches(username) && !isReserved(username)
-
-    /** «b.lesk» and «blesk_» are as reserved as «blesk». */
-    fun isReserved(username: String) = username.filter { it != '.' && it != '_' } in reserved
-
-    /** What is typed, as a username can be: lower case, without «@» and anything not allowed. */
-    fun normalize(raw: String): String =
-        raw.trim().removePrefix("@").lowercase().filter { it in 'a'..'z' || it in '0'..'9' || it == '.' || it == '_' }.take(MAX)
-}
-
 @Serializable
 data class ServerInfo(
     val name: String = "blesk",
@@ -129,9 +106,30 @@ data class ServerInfo(
     val calls: Boolean = false,
 )
 
-/** The answer to «is this @username free?»: invalid and reserved names are not free either. */
+/**
+ * The answer to «is this @username free?»: invalid and reserved names are not free either. An older
+ * server sends only [available]; a newer one also says why ([UsernameVerdict]), the [username] as it
+ * compared it, and up to three free [suggestions] when the name is not free.
+ */
 @Serializable
-data class UsernameCheck(val available: Boolean)
+data class UsernameCheck(
+    val available: Boolean,
+    val verdict: String? = null,
+    val username: String? = null,
+    val suggestions: List<String> = emptyList(),
+)
+
+/** Values of [UsernameCheck.verdict]. */
+object UsernameVerdict {
+    const val FREE = "free"
+    const val TAKEN = "taken"
+
+    /** The service's own name or one like it, or a bot's. */
+    const val RESERVED = "reserved"
+
+    /** Breaks a rule for a new name; see [UsernameProblem]. */
+    const val INVALID = "invalid"
+}
 
 @Serializable
 data class RegisterRequest(

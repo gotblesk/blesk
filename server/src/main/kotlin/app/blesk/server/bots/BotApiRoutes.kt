@@ -190,7 +190,7 @@ fun Route.botApiRoutes(services: Services) = route(Bots.API_PATH) {
 
 /** The person's account id, if they ever wrote to this bot; a bot cannot start a chat by itself. */
 private suspend fun chatOf(services: Services, bot: Bot, username: String): Long {
-    ensure(Usernames.isValid(username)) { notFound() }
+    ensure(Usernames.isWellFormed(username)) { notFound() }
     val person = services.accounts.find(username).orFail { notFound() }
     ensure(services.bots.hasChat(bot.id, person.id)) { forbidden(ErrorCodes.CHAT_NOT_STARTED) }
     return person.id

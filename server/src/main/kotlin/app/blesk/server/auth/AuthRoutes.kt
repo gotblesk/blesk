@@ -15,7 +15,6 @@ import app.blesk.server.http.orFail
 import app.blesk.server.http.receiveJson
 import app.blesk.shared.protocol.AccountInfo
 import app.blesk.shared.protocol.Api
-import app.blesk.shared.protocol.Bots
 import app.blesk.shared.protocol.Challenge
 import app.blesk.shared.protocol.ChallengeRequest
 import app.blesk.shared.protocol.Discovery
@@ -26,6 +25,7 @@ import app.blesk.shared.protocol.RegisterRequest
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
 import app.blesk.shared.protocol.UsernameCheck
+import app.blesk.shared.protocol.UsernameProblem
 import app.blesk.shared.protocol.Usernames
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
@@ -46,15 +46,17 @@ fun Route.registrationRoutes(services: Services) {
     // Asked while a name is typed, before there is an account; limited with registration itself.
     get("${Api.USERNAMES}/{name}") {
         val name = call.parameters["name"].orEmpty()
-        val free = Usernames.isValid(name) && !name.endsWith(Bots.SUFFIX) && services.accounts.find(name) == null
+        val free = Usernames.isValid(name) && services.accounts.find(name) == null
         call.respond(UsernameCheck(free))
     }
 
     post(Api.ACCOUNTS) {
         val request = call.receiveJson<RegisterRequest>()
-        ensure(Usernames.isValid(request.username)) { badRequest(ErrorCodes.INVALID_USERNAME) }
+        val problem = Usernames.problem(request.username)
         // Names ending like a bot's belong to bots, so a person can never pass for a program or the other way round.
-        ensure(!request.username.endsWith(Bots.SUFFIX)) { badRequest(ErrorCodes.USERNAME_RESERVED) }
+        ensure(problem != UsernameProblem.BotName) { badRequest(ErrorCodes.USERNAME_RESERVED) }
+        // The service's names get this code too: released apps read only it as «a name you cannot take».
+        ensure(problem == null) { badRequest(ErrorCodes.INVALID_USERNAME) }
         val keyBytes = request.identityKey.decodeBase64(ErrorCodes.INVALID_KEY)
         val identityKey = Signatures.identityKey(keyBytes).orFail { badRequest(ErrorCodes.INVALID_KEY) }
         val signature = request.signature.decodeBase64(ErrorCodes.INVALID_SIGNATURE)
@@ -101,7 +103,7 @@ private fun sha256(bytes: ByteArray): ByteArray = MessageDigest.getInstance("SHA
 fun Route.loginRoutes(services: Services) {
     post(Api.CHALLENGE) {
         val request = call.receiveJson<ChallengeRequest>()
-        ensure(Usernames.isValid(request.username)) { badRequest(ErrorCodes.INVALID_USERNAME) }
+        ensure(Usernames.isWellFormed(request.username)) { badRequest(ErrorCodes.INVALID_USERNAME) }
         // Issued whether or not the account exists, so this endpoint cannot be used to probe usernames.
         val nonce = Tokens.newNonce()
         val expiresAt = services.now() + ChallengeLifetime
@@ -133,7 +135,7 @@ fun Route.accountLookupRoutes(services: Services) {
             ApiException(HttpStatusCode.TooManyRequests, ErrorCodes.RATE_LIMITED)
         }
         val username = call.parameters["username"].orEmpty()
-        ensure(Usernames.isValid(username)) { notFound() }
+        ensure(Usernames.isWellFormed(username)) { notFound() }
         val account = services.accounts.find(username).orFail { notFound() }
         // A hidden account answers exactly like a missing one, so a search learns nothing.
         ensure(account.visibleTo(call.account.id, call.request.queryParameters[Api.LINK])) { notFound() }

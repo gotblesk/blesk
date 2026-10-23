@@ -32,7 +32,7 @@ fun Route.messageRoutes(services: Services) {
         val body = message.body.decodeBase64()
         ensure(body.size <= Api.MAX_MESSAGE_BYTES) { tooLarge() }
         val username = call.parameters["username"].orEmpty()
-        ensure(Usernames.isValid(username)) { notFound() }
+        ensure(Usernames.isWellFormed(username)) { notFound() }
         val recipient = services.accounts.find(username).orFail { notFound() }
         val now = services.now()
 

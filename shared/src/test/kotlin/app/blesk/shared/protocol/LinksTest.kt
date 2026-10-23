@@ -44,11 +44,16 @@ class LinksTest {
             "https://blesk.su/vera.s",
             "https://blesk.su/@vera.s/chat",
             "https://blesk.su/@",
-            "https://blesk.su/@blesk",
             "https://blesk.su/c/vera_s",
             "blesk://x/vera.s",
             "@vera.s",
         ).forEach { assertNull(it, ProfileLink.parse(it)) }
+    }
+
+    @Test
+    fun `links to names kept back since keep working`() {
+        assertEquals(ProfileLink.Parsed("support1", null), ProfileLink.parse("https://blesk.su/@support1"))
+        assertEquals("support1", InviteLink.parse(InviteLink.format(group, "support1", code))?.admin)
     }
 
     @Test
