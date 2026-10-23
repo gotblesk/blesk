@@ -20,7 +20,7 @@ data class Content(
      * For group and room messages: the version of the group's state the sender wrote it in. A phone whose state is
      * older keeps the message until the state that lets it be read arrives, instead of dropping it.
      */
-    val groupVersion: Int = 0,
+    val groupVersion: Long = 0,
 )
 
 /**
@@ -230,8 +230,8 @@ data class GroupState(
     val id: String,
     val kind: GroupKind,
     val title: String,
-    /** Grows with every change; older states are ignored. */
-    val version: Int,
+    /** Grows with every change; older states are ignored. Long, so that no run of states can carry it past its end. */
+    val version: Long,
     /** Grows when someone leaves or is removed, so everyone moves to fresh sender keys. */
     val epoch: Int,
     val members: List<GroupMember>,

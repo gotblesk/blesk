@@ -136,7 +136,7 @@ data class HeldGroupMessageEntity(
     /** The decrypted Content JSON; like the outbox, it never leaves the encrypted database. */
     val content: String,
     /** The version of the group's state the sender wrote it in. */
-    val version: Int,
+    val version: Long,
     val heldAt: Long,
 )
 
@@ -169,7 +169,7 @@ data class VoiceKeyEntity(
 data class LeftGroupEntity(
     @PrimaryKey val id: String,
     /** The version it was let go at; only a state made after it, a newer one, may bring the group back. */
-    val version: Int,
+    val version: Long,
     /** Left or dissolved by us: no admin's update brings it back, only a request of ours to join. */
     val byUs: Boolean,
 )

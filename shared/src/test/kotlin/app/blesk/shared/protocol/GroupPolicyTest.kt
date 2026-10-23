@@ -287,6 +287,19 @@ class GroupPolicyTest {
     }
 
     @Test
+    fun aStateFarAheadIsTakenOnlyFromTheOwner() {
+        // The guard may ban. Her ban sent as a version no later change of the owner's could pass would stop the room.
+        val banned = applied(GroupPolicy.apply(guarded, "guard", GroupChange.Ban("anya"), NOW))
+        val far = banned.copy(version = 2_147_483_647)
+        assertFalse(GroupPolicy.admits(guarded, far, "guard"))
+        assertTrue(GroupPolicy.admits(guarded, far, "owner"))
+        val step = GroupPolicy.MAX_VERSION_STEP
+        assertFalse(GroupPolicy.admits(guarded, banned.copy(version = guarded.version + step + 1), "guard"))
+        // A phone that missed a few states still takes the next one.
+        assertTrue(GroupPolicy.admits(guarded, banned.copy(version = guarded.version + step), "guard"))
+    }
+
+    @Test
     fun anAdminKeepsWhatMembersLoseAndMayGiveItBack() {
         val editing = room.member("admin") { it.copy(rights = it.rights.orEmpty() + Right.EditInfo) }
         for (right in listOf(Right.Write, Right.Media, Right.Speak)) {

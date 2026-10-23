@@ -203,6 +203,13 @@ object GroupPolicy {
     const val MAX_LOG = 200
     const val MAX_TITLE = 64
     const val MAX_DESCRIPTION = 500
+
+    /**
+     * How far ahead of this phone's state one from anyone but the owner may be. A phone that missed a few states still
+     * takes the next; one far ahead would put the room beyond the owner, whose next states would all be older, and
+     * whatever it gave could never be taken back. A phone that missed more waits for the owner's next state.
+     */
+    const val MAX_VERSION_STEP = 100L
     private const val CHANNEL_SEPARATOR = ':'
 
     fun can(state: GroupState, username: String, right: Right): Boolean {
@@ -340,18 +347,22 @@ object GroupPolicy {
 
     /**
      * Whether [incoming], a state from [sender], raises no one beyond what [apply] lets [sender] do, judged by the
-     * rights and ranks [current] gives them: only the owner hands the group over; rights come only from those [sender]
-     * has; the roles at and above [sender]'s own stay as they are; and an admin, once made, changes only by the owner,
-     * or downward by themselves.
+     * rights and ranks [current] gives them: it is not far ahead; only the owner hands the group over; rights come
+     * only from those [sender] has; the roles at and above [sender]'s own stay as they are; and an admin, once made,
+     * changes only by the owner, or downward by themselves.
      */
     fun admitsRights(current: GroupState, incoming: GroupState, sender: String): Boolean =
         current.roleOf(sender) == GroupRole.Owner || (
-            owners(incoming) == owners(current) &&
+            withinReach(current, incoming) &&
+                owners(incoming) == owners(current) &&
                 memberRightsGiven(current, incoming, sender) &&
                 rolesAboveKept(current, incoming, sender) &&
                 roleRightsGiven(current, incoming, sender) &&
                 adminsKept(current, incoming, sender)
             )
+
+    /** At most [MAX_VERSION_STEP] ahead, compared so that no version, however large, wraps around. */
+    private fun withinReach(current: GroupState, incoming: GroupState) = incoming.version - MAX_VERSION_STEP <= current.version
 
     private fun owners(state: GroupState) = state.members.filter { it.role == GroupRole.Owner }.map { it.username }
 

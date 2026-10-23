@@ -262,7 +262,7 @@ class ColumnWritesTest {
 
     @Test
     fun `releasable takes only rows at or below the version, in order, and removes them`() = runBlocking {
-        listOf(3, 1, 2, 5).forEach { groups.hold(held("g", version = it, content = "v$it", at = it.toLong())) }
+        listOf(3L, 1L, 2L, 5L).forEach { groups.hold(held("g", version = it, content = "v$it", at = it)) }
         groups.hold(held("h", version = 1, content = "other", at = 10))
 
         assertEquals(listOf("v1", "v2"), groups.releasable("g", version = 2).map { it.content })
@@ -313,7 +313,7 @@ class ColumnWritesTest {
     private fun voiceKey(version: Long, key: String, giver: String = KEEPER) =
         VoiceKeyEntity("g", "c", version, room = "voice-g-c-$version", key = key, epoch = 0, giver = giver)
 
-    private fun held(group: String, version: Int, content: String, at: Long = 1) =
+    private fun held(group: String, version: Long, content: String, at: Long = 1) =
         HeldGroupMessageEntity(groupId = group, sender = "bob", content = content, version = version, heldAt = at)
 
     private companion object {

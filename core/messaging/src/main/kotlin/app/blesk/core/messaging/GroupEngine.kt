@@ -506,7 +506,7 @@ internal class GroupEngine(
      * Deletes the group, its chats, our keys, its voice keys and what waits for its state, and notes it was let go of
      * at [version], left or dissolved [byUs] or not. Its messages and their files go once that is committed, by [purge].
      */
-    private suspend fun forget(groupId: String, version: Int, byUs: Boolean) = db.withTransaction {
+    private suspend fun forget(groupId: String, version: Long, byUs: Boolean) = db.withTransaction {
         db.conversations().deleteWithChildren(groupId)
         db.groups().delete(groupId)
         db.groups().deleteSenderKeys(groupId)

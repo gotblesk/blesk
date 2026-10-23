@@ -284,7 +284,7 @@ class GroupEngineTest {
 
         // Added again afterwards: a state newer than the one that put us out.
         engine.onUpdate("bob", stateOf(3, bob, carol, me))
-        assertEquals(3, engine.state(GROUP)?.version)
+        assertEquals(3L, engine.state(GROUP)?.version)
     }
 
     @Test
@@ -361,7 +361,7 @@ class GroupEngineTest {
         val bob = GroupMember("bob", GroupRole.Owner)
         val me = GroupMember(ME, GroupRole.Member)
         // Someone left, then an admin who had not heard of it sent a newer state of the epoch before.
-        val keys = listOf(1 to 0, 2 to 1, 3 to 0).map { (version, epoch) ->
+        val keys = listOf(1L to 0, 2L to 1, 3L to 0).map { (version, epoch) ->
             engine.onUpdate("bob", stateOf(version, bob, me, epoch = epoch))
             outbox.forgetSent()
             engine.send(GROUP, text("версия $version"))
@@ -515,7 +515,7 @@ class GroupEngineTest {
         val closed = GroupEngine.channelConversation(ROOM, CLOSED_ID)
         // Dave sees the channel, Carol does not; ours is the state at version 5.
         val cases = listOf(true, false).flatMap { weSee ->
-            listOf("dave", "carol").flatMap { sender -> listOf(4, 5, 6).map { version -> Triple(weSee, sender, version) } }
+            listOf("dave", "carol").flatMap { sender -> listOf(4L, 5L, 6L).map { version -> Triple(weSee, sender, version) } }
         }
         for ((weSee, sender, version) in cases) {
             val state = roomOf(version = 5, ourRoles = if (weSee) listOf(MODS) else emptyList())
@@ -623,6 +623,24 @@ class GroupEngineTest {
 
         assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", given))
         assertTrue("erin" in GroupPolicy.readers(engine.state(ROOM)!!, closed))
+    }
+
+    @Test
+    fun aManagerCannotPutTheRoomBeyondTheOwnersReach() = runBlocking {
+        val guards = RoomRole("guards", "Охрана", rights = setOf(Right.Ban))
+        val room = roomOf(version = 1, ourRoles = emptyList()).let { state ->
+            state.copy(
+                roles = state.roles + guards,
+                members = state.members.map { if (it.username == "carol") it.copy(roles = listOf(guards.id)) else it },
+            )
+        }
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+
+        // Carol may ban, so her states are taken, but not one as far ahead as a version goes: no state of Bob's would
+        // be newer, and whatever she was given could never be taken back.
+        assertEquals(UpdateOutcome.Refused, engine.onUpdate("carol", room.copy(version = 2_147_483_647)))
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room.copy(version = 2, roles = room.roles - guards)))
+        assertFalse(GroupPolicy.manages(engine.state(ROOM)!!, "carol"))
     }
 
     @Test
@@ -911,14 +929,14 @@ class GroupEngineTest {
 
     private fun mediaKey(seed: Int): String = Base64.getEncoder().encodeToString(ByteArray(Calls.KEY_BYTES) { seed.toByte() })
 
-    private fun stateOf(version: Int, vararg members: GroupMember, title: String = "Выходные", epoch: Int = 0) =
+    private fun stateOf(version: Long, vararg members: GroupMember, title: String = "Выходные", epoch: Int = 0) =
         GroupState(id = GROUP, kind = GroupKind.Group, title = title, version = version, epoch = epoch, members = members.toList())
 
     /**
      * Bob's room, where we are a member holding [ourRoles]. Dave holds the moderators' role, the only one that sees
      * «модерация» and «эфир»; Carol has none; only admins write in «новости».
      */
-    private fun roomOf(version: Int, ourRoles: List<String> = listOf(MODS)) = GroupState(
+    private fun roomOf(version: Long, ourRoles: List<String> = listOf(MODS)) = GroupState(
         id = ROOM,
         kind = GroupKind.Room,
         title = "Клуб",

@@ -361,14 +361,14 @@ interface GroupDao {
     }
 
     @Query("SELECT * FROM held_group_messages WHERE groupId = :groupId AND version <= :version ORDER BY id ASC")
-    suspend fun heldUpTo(groupId: String, version: Int): List<HeldGroupMessageEntity>
+    suspend fun heldUpTo(groupId: String, version: Long): List<HeldGroupMessageEntity>
 
     @Query("DELETE FROM held_group_messages WHERE groupId = :groupId AND version <= :version")
-    suspend fun deleteHeldUpTo(groupId: String, version: Int)
+    suspend fun deleteHeldUpTo(groupId: String, version: Long)
 
     /** Takes the held messages a state at [version] may judge, in the order they came, off the list. */
     @Transaction
-    suspend fun releasable(groupId: String, version: Int): List<HeldGroupMessageEntity> =
+    suspend fun releasable(groupId: String, version: Long): List<HeldGroupMessageEntity> =
         heldUpTo(groupId, version).also { deleteHeldUpTo(groupId, version) }
 
     @Query("DELETE FROM held_group_messages WHERE groupId = :groupId")
