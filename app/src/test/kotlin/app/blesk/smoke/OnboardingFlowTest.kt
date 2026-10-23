@@ -21,6 +21,7 @@ import app.blesk.core.data.settings.StartState
 import app.blesk.core.network.ServerAddress
 import app.blesk.screenshots.FrozenApplication
 import app.blesk.shared.protocol.Invites
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -79,7 +80,8 @@ class OnboardingFlowTest {
         compose.onNodeWithContentDescription("Новый чат").assertIsDisplayed()
         // The chats took the welcome screen's place rather than covering it: back leaves the app.
         assertFalse(compose.activity.onBackPressedDispatcher.hasEnabledCallbacks())
-        runBlocking { withTimeout(WAIT_MILLIS) { container.onboarding.start.first { it == StartState.Demo } } }
+        // Read anew until it is there: a reader that starts while the choice is written may get only the value before it.
+        runBlocking { withTimeout(WAIT_MILLIS) { while (container.onboarding.start.first() != StartState.Demo) delay(POLL_MILLIS) } }
     }
 
     @Test
@@ -222,6 +224,7 @@ class OnboardingFlowTest {
         const val INVITE_FIELD = "Код или ссылка"
         const val WAIT_MILLIS = 5_000L
         const val SETTLE_MILLIS = 1_000L
+        const val POLL_MILLIS = 10L
         val SMOKE_BAND = 0.15f..0.78f
     }
 }
