@@ -35,7 +35,6 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import java.security.MessageDigest
-import java.util.Locale
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
@@ -46,11 +45,7 @@ private val TokenLifetime = 30.days.toJavaDuration()
 fun Route.registrationRoutes(services: Services) {
     post(Api.ACCOUNTS) {
         val request = call.receiveJson<RegisterRequest>()
-        val canonical = request.username.lowercase(Locale.ROOT)
-        // «Egor» when «egor» exists is that name: taken, as the check said while it was typed.
-        if (canonical != request.username && Usernames.isWellFormed(canonical)) {
-            ensure(services.accounts.find(canonical) == null) { conflict(ErrorCodes.USERNAME_TAKEN) }
-        }
+        // Capitals are refused here, so «Egor» never sits beside «egor», and nothing is looked up before the invite is checked.
         val problem = Usernames.problem(request.username)
         // Names ending like a bot's belong to bots, so a person can never pass for a program or the other way round.
         ensure(problem != UsernameProblem.BotName) { badRequest(ErrorCodes.USERNAME_RESERVED) }

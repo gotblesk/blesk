@@ -68,12 +68,12 @@ class AccountsTest {
         val check = harness.checkUsername(egor.username.uppercase()).copy(suggestions = emptyList())
         assertEquals(UsernameCheck(available = false, verdict = UsernameVerdict.TAKEN, username = egor.username), check)
 
-        val sameName = harness.registerRaw(egor.username.uppercase(), IdentityKeyPair.generate())
-        assertEquals(HttpStatusCode.Conflict, sameName.status)
-        assertEquals("username_taken", sameName.body<ErrorBody>().code)
-        val capitals = harness.registerRaw(randomUsername().uppercase(), IdentityKeyPair.generate())
-        assertEquals(HttpStatusCode.BadRequest, capitals.status)
-        assertEquals("invalid_username", capitals.body<ErrorBody>().code)
+        // Capitals are refused before any lookup, so registering says no more about a name than the check does.
+        for (name in listOf(egor.username, randomUsername())) {
+            val capitals = harness.registerRaw(name.uppercase(), IdentityKeyPair.generate())
+            assertEquals(name, HttpStatusCode.BadRequest, capitals.status)
+            assertEquals(name, "invalid_username", capitals.body<ErrorBody>().code)
+        }
     }
 
     @Test
