@@ -11,6 +11,9 @@ import java.net.URLDecoder
 data class ServerAddress(val url: String, val pin: String? = null) {
     val host: String get() = URI(url).host
 
+    /** The address as [parse] reads it back: a server with a pinned key as the link its QR code holds, any other as its URL. */
+    fun link(): String = if (pin == null) url else "blesk://server?url=$url&pin=$pin"
+
     companion object {
         /** blesk's own server: it has a certificate from a public authority, so nothing is pinned. */
         val DEFAULT = ServerAddress("https://api.blesk.su")

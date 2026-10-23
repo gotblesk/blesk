@@ -33,6 +33,18 @@ class ServerAddressTest {
     }
 
     @Test
+    fun `a server link reads back as the same address`() {
+        val address = ServerAddress("https://1.2.3.4:8443", "sha256/" + "a+b/".repeat(10) + "abc=")
+        assertEquals(address, ServerAddress.parse(address.link()))
+    }
+
+    @Test
+    fun `blesk's own server is just its url`() {
+        assertEquals("https://api.blesk.su", ServerAddress.DEFAULT.link())
+        assertEquals(ServerAddress.DEFAULT, ServerAddress.parse(ServerAddress.DEFAULT.link()))
+    }
+
+    @Test
     fun `plain http and malformed pins are refused`() {
         assertNull(ServerAddress.parse("http://chat.example.org"))
         assertNull(ServerAddress.parse("blesk://server?url=https://1.2.3.4&pin=sha256/short"))
