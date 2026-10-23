@@ -13,7 +13,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.blesk.AppContainer
 import app.blesk.R
-import app.blesk.core.data.settings.AppMode
+import app.blesk.core.data.settings.StartState
 import app.blesk.core.design.component.Choice
 import app.blesk.core.design.component.ChoiceSheet
 import app.blesk.core.design.component.rememberNotify
@@ -31,12 +31,12 @@ import kotlinx.coroutines.launch
  * act at once on their screens.
  *
  * [atHome] tells when the chats are on screen again: a link that needed an account opens then,
- * after the person made one.
+ * after the person made one, and so does a link that came while the new account was set up.
  */
 @Composable
 internal fun IncomingLinks(container: AppContainer, screens: LinkScreens, atHome: Boolean) {
     val chats = container.chats.collectAsStateWithLifecycle().value
-    val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = null)
+    val start by container.onboarding.start.collectAsStateWithLifecycle(initialValue = null)
     val locked = container.lock.locked
     val context = LocalContext.current
     val notify = rememberNotify()
@@ -47,14 +47,19 @@ internal fun IncomingLinks(container: AppContainer, screens: LinkScreens, atHome
     LaunchedEffect(chats, locked) {
         if (chats == null || locked) return@LaunchedEffect
         deliverLinks(container.linkRequest, locked = { container.lock.locked }, scope) { link ->
-            // The mode as stored, not the collected one, which is null until settings load.
-            val demo = container.settings.mode.first() is AppMode.Demo
+            // The state as stored, not the collected one, which is null until settings load.
+            val now = container.onboarding.start.first()
+            if (linkWaits(now)) {
+                afterSignUp = link
+                return@deliverLinks
+            }
+            val account = chats.takeIf { now is StartState.Account }
             val target = LinkTarget.of(link)
-            if (target != null && !demo && target.revealsPerson) {
+            if (target != null && account != null && target.revealsPerson) {
                 asking = target
                 return@deliverLinks
             }
-            val outcome = target?.let { follow(it, chats, demo, container.pendingInvite, screens) } ?: LinkOutcome.NotFound
+            val outcome = target?.let { follow(it, account, container.pendingInvite, screens) } ?: LinkOutcome.NotFound
             if (outcome == LinkOutcome.NeedsAccount) {
                 afterSignUp = link
                 notify(context.getString(R.string.link_after_account))
@@ -64,9 +69,9 @@ internal fun IncomingLinks(container: AppContainer, screens: LinkScreens, atHome
         }
     }
 
-    LaunchedEffect(afterSignUp, atHome, mode) {
+    LaunchedEffect(afterSignUp, atHome, start) {
         val link = afterSignUp ?: return@LaunchedEffect
-        if (atHome && mode is AppMode.Server) {
+        if (atHome && start == StartState.Account(pendingSetup = null)) {
             afterSignUp = null
             container.linkRequest.value = link
         }
@@ -108,6 +113,9 @@ internal suspend fun deliverLinks(
         scope.launch { open(link) }
     }
 }
+
+/** A link that comes while the new account is set up waits for the chats: the setup is not left halfway for it. */
+internal fun linkWaits(start: StartState): Boolean = start is StartState.Account && start.pendingSetup != null
 
 /** A link that tells someone else who the person is as soon as it is followed. */
 internal val LinkTarget.revealsPerson: Boolean

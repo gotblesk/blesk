@@ -57,7 +57,7 @@ class OnboardingStoreTest {
         everythingSet()
         val before = settings.store.data.first().asMap()
 
-        onboarding.enterAccount(EVA, keepNameAndPhoto = true)
+        onboarding.enterAccount(EVA, keepNameAndPhoto = true, setup = null)
 
         val after = settings.store.data.first().asMap()
         assertEquals(DEMO_KEYS, (before.keys - after.keys).map { it.name }.toSet())
@@ -78,7 +78,7 @@ class OnboardingStoreTest {
         everythingSet()
         val before = settings.store.data.first().asMap()
 
-        onboarding.enterAccount(EVA, keepNameAndPhoto = false)
+        onboarding.enterAccount(EVA, keepNameAndPhoto = false, setup = null)
 
         val after = settings.store.data.first().asMap()
         assertEquals(DEMO_KEYS + setOf("profile_name", "profile_photo"), (before.keys - after.keys).map { it.name }.toSet())
@@ -94,13 +94,15 @@ class OnboardingStoreTest {
         settings.setChatTheme("anya", ThemeSpec.Lilac)
         val before = file.writes.size
 
-        onboarding.enterAccount(EVA, keepNameAndPhoto = true)
+        onboarding.enterAccount(EVA, keepNameAndPhoto = true, setup = SetupStep.Profile)
 
         // One write: a phone stopped on the way never has the account under the demo's settings, nor the demo
-        // given up with no account yet, which would open the welcome screen.
+        // given up with no account yet, which would open the welcome screen, nor the account without its setup.
         val written = file.writes.drop(before).single()
         assertEquals(EVA, written.appMode())
         assertEquals(emptyList<String>(), written.asMap().keys.map { it.name }.filter { it in DEMO_KEYS })
+        assertEquals(SetupStep.Profile.name, written[stringPreferencesKey("setup_step")])
+        assertEquals(StartState.Account(SetupStep.Profile), onboarding.start.first())
     }
 
     @Test

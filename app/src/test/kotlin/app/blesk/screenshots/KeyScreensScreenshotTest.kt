@@ -139,7 +139,6 @@ import app.blesk.feature.settings.BotActions
 import app.blesk.feature.settings.BotsScreen
 import app.blesk.feature.settings.BuildSignature
 import app.blesk.feature.settings.ChatUse
-import app.blesk.feature.settings.ConnectOutcome
 import app.blesk.feature.settings.EconomyScreen
 import app.blesk.feature.settings.LicensesScreen
 import app.blesk.feature.settings.MetaballSandbox
@@ -597,7 +596,6 @@ class KeyScreensScreenshotTest(private val name: String) {
     fun server() = capture("07e_server_proxy") {
         ServerScreen(
             connected = ServerState("https://chat.example.ru", "alex", pinned = true),
-            onConnect = { ConnectOutcome.Ok },
             onBack = {},
             proxy = ProxyControls(ProxySetting(enabled = true, host = "10.0.0.2", port = 1080), {}, { ProxyCheck.Silent }),
         )

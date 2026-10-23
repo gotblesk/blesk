@@ -19,6 +19,7 @@ import app.blesk.core.data.settings.AppMode
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.TopLens
+import app.blesk.core.network.ServerAddress
 import app.blesk.feature.chats.NewChatActions
 import app.blesk.feature.chats.NewChatScreen
 import app.blesk.feature.chats.R
@@ -96,7 +97,13 @@ internal fun RoomsAddRoute(container: AppContainer, onCreate: () -> Unit, onOpen
 
 /** Reads a profile code, an invite or a server's code and goes where it points; a profile opens its chat. */
 @Composable
-internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> Unit, onRegister: () -> Unit, onBack: () -> Unit) {
+internal fun ScanRoute(
+    container: AppContainer,
+    onOpenConversation: (String) -> Unit,
+    onSignUp: () -> Unit,
+    onOtherServer: (ServerAddress) -> Unit,
+    onBack: () -> Unit,
+) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
     val context = LocalContext.current
     val notify = rememberNotify()
@@ -104,7 +111,8 @@ internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> 
     val screens = LinkScreens(
         conversation = onOpenConversation,
         profile = onOpenConversation,
-        registration = onRegister,
+        signUp = onSignUp,
+        otherServer = onOtherServer,
     )
     LensScaffold(top = { TopLens(title = context.getString(R.string.new_chat_scan), onBack = onBack) }) { padding ->
         QrScanner(
@@ -115,8 +123,8 @@ internal fun ScanRoute(container: AppContainer, onOpenConversation: (String) -> 
                         notify(context.getString(R.string.scan_unknown))
                         return@launch
                     }
-                    val demo = container.settings.mode.first() is AppMode.Demo
-                    follow(target, chats, demo, container.pendingInvite, screens).notice?.let { notify(context.getString(it)) }
+                    val account = chats.takeIf { container.settings.mode.first() is AppMode.Server }
+                    follow(target, account, container.pendingInvite, screens).notice?.let { notify(context.getString(it)) }
                 }
             },
             modifier = Modifier.fillMaxSize().padding(padding),

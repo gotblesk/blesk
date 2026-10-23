@@ -45,7 +45,7 @@ internal sealed interface LinkTarget {
 }
 
 /** What came of following a link. */
-internal enum class LinkOutcome { Opened, JoinRequested, NotFound, NeedsAccount, AlreadyRegistered, AlreadyConnected, OtherServer }
+internal enum class LinkOutcome { Opened, JoinRequested, NotFound, NeedsAccount, AlreadyRegistered, AlreadyConnected }
 
 /** The notice that tells the person about [this]; null when the screen that opened says enough. */
 @get:StringRes
@@ -57,45 +57,46 @@ internal val LinkOutcome.notice: Int?
         LinkOutcome.NeedsAccount -> R.string.link_needs_account
         LinkOutcome.AlreadyRegistered -> R.string.link_invite_registered
         LinkOutcome.AlreadyConnected -> R.string.link_server_connected
-        LinkOutcome.OtherServer -> R.string.link_server_other
     }
 
 /** The screens a followed link may open. */
 internal class LinkScreens(
     val conversation: (String) -> Unit,
     val profile: (String) -> Unit,
-    /** Account creation, where a waiting invite is already filled in. */
-    val registration: () -> Unit,
+    /** Sign-up on blesk's own server at its invite step, where a waiting invite is already filled in. */
+    val signUp: () -> Unit,
+    /** The step of a server other than blesk's own, with its address filled in. */
+    val otherServer: (ServerAddress) -> Unit,
 )
 
 /**
- * Follows [target]. The demo has nobody to ask: an invite to register is kept in [pendingInvite]
- * for the form, and every other link opens the form too, since it needs an account first.
+ * Follows [target] in [account], the chats of the account, or null before there is one. Without
+ * an account nobody can be asked: an invite to register is kept in [pendingInvite] for the
+ * invite step, a server's code opens its step, and every other link opens sign-up, since it
+ * needs an account first.
  */
 internal suspend fun follow(
     target: LinkTarget,
-    chats: ChatRepository,
-    demo: Boolean,
+    account: ChatRepository?,
     pendingInvite: MutableStateFlow<String?>,
     screens: LinkScreens,
 ): LinkOutcome = when {
-    target is LinkTarget.Registration && demo -> {
+    target is LinkTarget.Registration && account == null -> {
         pendingInvite.value = target.code
-        screens.registration()
+        screens.signUp()
         LinkOutcome.Opened
     }
     target is LinkTarget.Registration -> LinkOutcome.AlreadyRegistered
-    target is LinkTarget.Server && demo -> {
-        screens.registration()
-        // The form signs up on blesk's own server; another one is typed or scanned behind «Другой сервер».
-        if (target.address == ServerAddress.DEFAULT) LinkOutcome.Opened else LinkOutcome.OtherServer
+    target is LinkTarget.Server && account == null -> {
+        if (target.address == ServerAddress.DEFAULT) screens.signUp() else screens.otherServer(target.address)
+        LinkOutcome.Opened
     }
     target is LinkTarget.Server -> LinkOutcome.AlreadyConnected
-    demo -> {
-        screens.registration()
+    account == null -> {
+        screens.signUp()
         LinkOutcome.NeedsAccount
     }
-    else -> reach(target, chats, screens.conversation, screens.profile)
+    else -> reach(target, account, screens.conversation, screens.profile)
 }
 
 /** Opens the person, channel or group behind [target] on the server; other targets lead nowhere here. */

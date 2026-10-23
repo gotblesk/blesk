@@ -82,9 +82,9 @@ internal fun PrivacyRoute(
     )
 }
 
-/** Set a new code; when [requireCurrent], the current code is asked first. */
+/** Set a new code; when [requireCurrent], the current code is asked first. [onCancel] leaves without one. */
 @Composable
-internal fun PinChangeRoute(container: AppContainer, requireCurrent: Boolean, onDone: () -> Unit) {
+internal fun PinChangeRoute(container: AppContainer, requireCurrent: Boolean, onDone: () -> Unit, onCancel: () -> Unit = onDone) {
     var verified by rememberSaveable { mutableStateOf(!requireCurrent) }
     if (!verified) {
         PinEntry(
@@ -120,7 +120,7 @@ internal fun PinChangeRoute(container: AppContainer, requireCurrent: Boolean, on
                     if (!biometric && Biometrics.available(context)) offerBiometric = true else onDone()
                 }
             },
-            onCancel = onDone,
+            onCancel = onCancel,
         )
     }
 }

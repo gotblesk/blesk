@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# The release APK on an emulator, as a person would meet it: installs, starts, and signs up by invite on
-# the test server of scripts/ci/test-server.sh, which must be up. The emulator reaches it through
-# `adb reverse` on 127.0.0.1:8443, the address in the server's certificate. Screenshots of every step
-# go to the directory given, for the CI artifact.
+# The release APK on an emulator, as a person would meet it: installs, starts in the demo, signs up by
+# invite through «Сервер и прокси» on the test server of scripts/ci/test-server.sh, which must be up, and
+# goes through every setup step to the chats. The emulator reaches the server through `adb reverse` on
+# 127.0.0.1:8443, the address in the server's certificate. Screenshots of the steps go to the directory
+# given, for the CI artifact.
 #
 #   scripts/ci/smoke.sh <blesk.apk> <screenshot dir>
 # -E: the trap below also catches a step that fails inside ui().
@@ -63,21 +64,34 @@ ui tap "Сервер и прокси"
 shot server
 ui tap "Другой сервер"
 ui type "Адрес сервера" "blesk://server?url=https://127.0.0.1:8443&pin=sha256/$pin"
-ui type "Инвайт-код" "$invite"
+# A step's buttons stay at the foot of the screen, below what `tap` reaches; `tab` taps there.
+ui tab "Готово"
+# Back on «Сервер и прокси» once the test server has answered; then its invite step.
+ui tap "Создать аккаунт"
+ui type "Код или ссылка" "$invite"
+shot invite
+ui tab "Дальше"
 ui type "Имя пользователя" "$username"
 shot filled
-ui tap "Создать аккаунт"
+ui tab "Создать аккаунт"
+ui wait "Как тебя называть" 120
+ui tab "Пропустить"
+# The phrase screen cannot be captured, so it has no shot.
+ui wait "Фраза восстановления"
+ui tap "Позже"
+ui wait "Код-пароль"
+ui tab "Не сейчас"
+ui wait "Тема"
+ui tab "Дальше"
+ui wait "Язык блеска"
+shot glint
+ui tab "В чаты"
+ui wait "Позвать друга" 60
+shot chats
 
 # Signed up means both sides agree: the server holds the name and the app logged that it moved to it.
-taken=
-for _ in $(seq 60); do
-    taken=$(curl -fsS --cacert "$root/deploy/certs/blesk.crt" "https://127.0.0.1/v1/usernames/$username" | jq -r .available || true)
-    [[ $taken == false ]] && break
-    sleep 2
-done
+taken=$(curl -fsS --cacert "$root/deploy/certs/blesk.crt" "https://127.0.0.1/v1/usernames/$username" | jq -r .available || true)
 [[ $taken == false ]] || fail "the server has no account $username"
-# The server holds the name as soon as the account is made; the app logs only after it has also put its
-# keys there, so its log is waited for too.
 registered=
 for _ in $(seq 30); do
     journal=$(adb logcat -d -s blesk:I)
@@ -85,5 +99,4 @@ for _ in $(seq 30); do
     sleep 2
 done
 [[ -n $registered ]] || fail "the app never logged ServerRegistered"
-shot registered
-echo "smoke test passed: @$username signed up on the test server"
+echo "smoke test passed: @$username signed up on the test server through every setup step"

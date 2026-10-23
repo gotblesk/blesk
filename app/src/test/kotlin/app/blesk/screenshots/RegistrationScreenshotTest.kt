@@ -1,10 +1,11 @@
 package app.blesk.screenshots
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.motion.BleskMotion
-import app.blesk.feature.settings.ConnectOutcome
+import app.blesk.feature.settings.DemoSignUp
 import app.blesk.feature.settings.InviteCreation
 import app.blesk.feature.settings.InvitesScreen
 import app.blesk.feature.settings.ProxyCheck
@@ -21,8 +22,9 @@ import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.Duration
+import app.blesk.feature.onboarding.R as OnboardingR
 
-/** Registration on blesk's own server by invite, and the invites every account hands out. */
+/** The way to an account from the demo, and the invites every account hands out. */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [36], qualifiers = "w400dp-h860dp-xxhdpi")
@@ -43,21 +45,25 @@ class RegistrationScreenshotTest(private val name: String) {
     }
 
     @Composable
-    private fun RegisterForm() {
+    private fun DemoCard(server: String? = null, problem: String? = null) {
         ServerScreen(
             connected = null,
-            onConnect = { ConnectOutcome.Ok },
             onBack = {},
             proxy = ProxyControls(ProxySetting(), {}, { ProxyCheck.Silent }),
-            pendingInvite = "k7m2p9xq4tzd",
+            signUp = DemoSignUp(server = server, busy = false, problem = problem, onCreate = {}, onOtherServer = {}),
         )
     }
 
     @Test
-    fun register() = capture("07g_server_register") { RegisterForm() }
+    fun serverDemo() = capture("07g_server_demo") { DemoCard() }
 
     @Test
-    fun registerLargeText() = capture("07g_server_register_large", textScale = 1.5f) { RegisterForm() }
+    fun serverDemoLargeText() = capture("07g_server_demo_large", textScale = 1.5f) { DemoCard() }
+
+    @Test
+    fun serverDemoOther() = capture("07g_server_demo_other") {
+        DemoCard(server = "chat.example.ru", problem = stringResource(OnboardingR.string.onboarding_error_unreachable_other))
+    }
 
     @Composable
     private fun SomeInvites() {

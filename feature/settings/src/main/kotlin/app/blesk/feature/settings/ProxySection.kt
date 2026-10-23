@@ -39,9 +39,17 @@ sealed interface ProxyCheck {
     data object Silent : ProxyCheck
 }
 
-/** «Прокси»: SOCKS5 or HTTP, address and port, and a check that goes all the way to the server. */
+/**
+ * «Прокси»: SOCKS5 or HTTP, address and port, and a check that goes all the way to the server.
+ * [heading] is left out where a row of that name already opens the section.
+ */
 @Composable
-internal fun ProxySection(proxy: ProxySetting, onSave: (ProxySetting) -> Unit, onCheck: suspend (ProxySetting) -> ProxyCheck) {
+fun ProxySection(
+    proxy: ProxySetting,
+    onSave: (ProxySetting) -> Unit,
+    onCheck: suspend (ProxySetting) -> ProxyCheck,
+    heading: Boolean = true,
+) {
     val scope = rememberCoroutineScope()
     val haptics = rememberHaptics()
     val host = rememberTextFieldState(proxy.host)
@@ -56,7 +64,7 @@ internal fun ProxySection(proxy: ProxySetting, onSave: (ProxySetting) -> Unit, o
         port = port.text.toString().toIntOrNull() ?: 0,
     )
 
-    SectionHeader(stringResource(R.string.proxy_title))
+    if (heading) SectionHeader(stringResource(R.string.proxy_title))
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
         ToggleRow(
             title = stringResource(R.string.proxy_enabled),

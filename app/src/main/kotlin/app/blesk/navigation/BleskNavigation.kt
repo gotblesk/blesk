@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -49,8 +51,6 @@ import app.blesk.core.design.glass.LocalLensAccessories
 import app.blesk.core.design.motion.screenKey
 import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.theme.Blesk
-import app.blesk.core.messaging.RegisterResult
-import app.blesk.core.messaging.ServerTrouble
 import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ServerAddress
 import app.blesk.economy.EconomyNotices
@@ -59,14 +59,15 @@ import app.blesk.feature.chats.LocalChatLocks
 import app.blesk.feature.chats.VoiceChannelScreen
 import app.blesk.feature.chats.groups.NewKind
 import app.blesk.feature.debug.DebugScreen
+import app.blesk.feature.onboarding.AccessProblem
+import app.blesk.feature.onboarding.text
 import app.blesk.feature.profile.MyQrScreen
 import app.blesk.feature.profile.profileLink
 import app.blesk.feature.security.WipeKind
 import app.blesk.feature.security.WipeScreen
 import app.blesk.feature.settings.AboutScreen
 import app.blesk.feature.settings.BuildSignature
-import app.blesk.feature.settings.ConnectOutcome
-import app.blesk.feature.settings.ConnectRequest
+import app.blesk.feature.settings.DemoSignUp
 import app.blesk.feature.settings.License
 import app.blesk.feature.settings.LicenseTextScreen
 import app.blesk.feature.settings.LicensesScreen
@@ -85,6 +86,12 @@ import app.blesk.locks.ChatLockGate
 import app.blesk.locks.ChatLocksRoute
 import app.blesk.locks.LockCodeRoute
 import app.blesk.locks.LockedDetails
+import app.blesk.onboarding.OtherServerKey
+import app.blesk.onboarding.ServerRef
+import app.blesk.onboarding.SetupOpener
+import app.blesk.onboarding.onboardingEntries
+import app.blesk.onboarding.openSignUp
+import app.blesk.onboarding.rememberSignUpStart
 import app.blesk.shared.appearance.Appearance
 import app.blesk.toConfig
 import app.blesk.update.SigningKeys
@@ -276,6 +283,18 @@ fun BleskNavigation(container: AppContainer) {
         container.eventLog.record(EventCode.ScreenOpened, backStack.size.toLong())
     }
 
+    // Invite links lead to blesk's own server, so sign-up by one goes there whatever was chosen before.
+    val openSignUp: () -> Unit = {
+        container.signUp.server = ServerAddress.DEFAULT
+        backStack.openSignUp(ServerRef.of(ServerAddress.DEFAULT))
+    }
+    val openOtherServer: (ServerAddress) -> Unit = { address ->
+        while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+        // In the demo an account starts from «Сервер и прокси», where the server step comes back to.
+        if (backStack.firstOrNull() == HomeKey) backStack.add(ServerKey)
+        backStack.add(OtherServerKey(ServerRef.of(address)))
+    }
+
     // Which way the stack went last, read by each screen while it moves: deeper or back.
     val direction = remember { StackDirection(backStack.size) }
     direction.update(backStack.size)
@@ -312,6 +331,7 @@ fun BleskNavigation(container: AppContainer) {
                     backStack = backStack,
                     onBack = back,
                     entryProvider = entryProvider {
+                        onboardingEntries(container, backStack, direction)
                         entry<HomeKey> {
                             var tab by rememberSaveable { mutableStateOf(HomeTab.Chats) }
                             Home(
@@ -358,7 +378,7 @@ fun BleskNavigation(container: AppContainer) {
                                     onOpenEconomy = { backStack.add(EconomyKey) },
                                     onOpenStorage = { backStack.add(StorageKey) },
                                     onOpenUpdate = { backStack.add(UpdateKey) },
-                                    onOpenPhrase = { backStack.add(PhraseKey()) },
+                                    onOpenPhrase = { backStack.add(PhraseKey) },
                                     onOpenDevices = { backStack.add(DevicesKey) },
                                     onOpenMusic = { backStack.add(MusicKey) },
                                     onOpenInvites = openInvites,
@@ -396,22 +416,40 @@ fun BleskNavigation(container: AppContainer) {
                             Box(Modifier.sharedBounds(screenKey("server"))) {
                                 val server = mode as? AppMode.Server
                                 val proxy by container.settings.proxy.collectAsStateWithLifecycle(ProxySetting())
-                                val pendingInvite by container.pendingInvite.collectAsStateWithLifecycle()
+                                // Only from this screen: a look at the server ending after the person left must not open sign-up elsewhere.
+                                val start = rememberSignUpStart(container) { next ->
+                                    if (backStack.lastOrNull() == ServerKey) backStack.add(next)
+                                }
+                                val problem = start.problem
                                 ServerScreen(
                                     connected = server?.let { ServerState(it.url, it.username, it.pin != null) },
-                                    pendingInvite = pendingInvite,
-                                    onConnect = { request ->
-                                        connect(container, request).also { outcome ->
-                                            // A new account starts with its phrase: written down now, or put off on purpose.
-                                            if (outcome == ConnectOutcome.Ok) backStack.add(PhraseKey(afterRegistration = true))
-                                        }
+                                    onBack = {
+                                        start.stop()
+                                        back()
                                     },
-                                    onBack = back,
                                     proxy = ProxyControls(
                                         setting = proxy,
                                         onSave = { scope.launch { container.settings.setProxy(it) } },
                                         onCheck = { checkProxy(container, it) },
                                     ),
+                                    signUp = if (server != null) {
+                                        null
+                                    } else {
+                                        DemoSignUp(
+                                            server = container.signUp.server
+                                                .takeIf { it != ServerAddress.DEFAULT }
+                                                ?.url
+                                                ?.removePrefix("https://"),
+                                            busy = start.busy,
+                                            problem = problem?.text(),
+                                            onCreate = start::begin,
+                                            onOtherServer = {
+                                                start.stop()
+                                                backStack.add(OtherServerKey())
+                                            },
+                                            onUpdate = if (problem == AccessProblem.AppTooOld) ({ backStack.add(UpdateKey) }) else null,
+                                        )
+                                    },
                                 )
                             }
                         }
@@ -428,12 +466,12 @@ fun BleskNavigation(container: AppContainer) {
                                     onWipe = { backStack.add(WipeKey()) },
                                     onBack = back,
                                     onOpenBlocked = { backStack.add(BlockedKey) },
-                                    onOpenPhrase = { backStack.add(PhraseKey()) },
+                                    onOpenPhrase = { backStack.add(PhraseKey) },
                                     onOpenLocks = { backStack.add(ChatLocksKey) },
                                 )
                             }
                         }
-                        entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, back) }
+                        entry<PinChangeKey> { key -> PinChangeRoute(container, key.requireCurrent, onDone = back) }
                         entry<ChatLocksKey> {
                             ChatLocksRoute(container, onSeparateCode = { backStack.add(LockCodeKey) }, onNeedCode = needCode, onBack = back)
                         }
@@ -541,10 +579,11 @@ fun BleskNavigation(container: AppContainer) {
                                     while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
                                     backStack.add(ConversationKey(id))
                                 },
-                                onRegister = {
+                                onSignUp = {
                                     while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-                                    backStack.add(ServerKey)
+                                    openSignUp()
                                 },
+                                onOtherServer = openOtherServer,
                                 onBack = back,
                             )
                         }
@@ -643,7 +682,7 @@ fun BleskNavigation(container: AppContainer) {
                         entry<DevicesKey> { DevicesRoute(container, back) }
                         entry<MusicKey> { MusicRoute(container, back) }
                         entry<MotionKey> { MotionRoute(container, onOpenChat = { backStack.add(ConversationKey(it)) }, onBack = back) }
-                        entry<PhraseKey> { key -> PhraseRoute(container, key, onBack = back) }
+                        entry<PhraseKey> { PhraseRoute(container, fresh = false, onDone = back, onLater = null, onBack = back) }
                         entry<StickersKey> { StickersRoute(container, onOpen = { backStack.add(StickerSetKey(it)) }, onBack = back) }
                         entry<StickerSetKey> { key -> StickerSetRoute(container, key.setId, onMake = { backStack.add(it) }, onBack = back) }
                         entry<StickerMakeKey> { key -> StickerMakeRoute(container, key, onBack = back) }
@@ -740,35 +779,15 @@ fun BleskNavigation(container: AppContainer) {
                     screens = LinkScreens(
                         conversation = { backStack.add(ConversationKey(it)) },
                         profile = { backStack.add(ChatInfoKey(it)) },
-                        registration = { if (backStack.lastOrNull() != ServerKey) backStack.add(ServerKey) },
+                        signUp = openSignUp,
+                        otherServer = openOtherServer,
                     ),
-                    atHome = backStack.size == 1,
+                    atHome = backStack.singleOrNull() == HomeKey,
                 )
+                SetupOpener(container.onboarding.start, backStack, direction)
             }
         }
     }
-}
-
-/** Registers on blesk's own server unless another address was typed or scanned. */
-private suspend fun connect(container: AppContainer, request: ConnectRequest): ConnectOutcome {
-    val address = request.address?.let { ServerAddress.parse(it) ?: return ConnectOutcome.BadAddress } ?: ServerAddress.DEFAULT
-    return container.connect(address, request.username, request.invite).outcome()
-}
-
-/** What the registration form says; each trouble with the server keeps its own text. */
-internal fun RegisterResult.outcome(): ConnectOutcome = when (this) {
-    RegisterResult.Ok -> ConnectOutcome.Ok
-    RegisterResult.NameTaken -> ConnectOutcome.NameTaken
-    RegisterResult.NameInvalid -> ConnectOutcome.NameInvalid
-    RegisterResult.InviteRequired -> ConnectOutcome.InviteRequired
-    RegisterResult.InviteInvalid -> ConnectOutcome.InviteInvalid
-    is ServerTrouble.TooManyAttempts -> ConnectOutcome.TooManyAttempts
-    ServerTrouble.CertificateMismatch -> ConnectOutcome.CertificateMismatch
-    ServerTrouble.CertificateUntrusted -> ConnectOutcome.CertificateUntrusted
-    ServerTrouble.AppTooOld -> ConnectOutcome.AppTooOld
-    ServerTrouble.ServerTooOld -> ConnectOutcome.ServerTooOld
-    ServerTrouble.NotBlesk -> ConnectOutcome.NotBlesk
-    ServerTrouble.Unreachable -> ConnectOutcome.Unreachable
 }
 
 /** Sends a link to your profile through any app the person chooses. */
@@ -781,7 +800,7 @@ private fun shareProfile(context: Context, username: String, key: String?) {
 }
 
 /** Asks the server through the proxy; in the demo, where there is no server, only whether the proxy answers. */
-private suspend fun checkProxy(container: AppContainer, setting: ProxySetting): ProxyCheck {
+internal suspend fun checkProxy(container: AppContainer, setting: ProxySetting): ProxyCheck {
     val config = setting.copy(enabled = true).toConfig() ?: return ProxyCheck.Silent
     val api = container.api
     return when {
@@ -792,7 +811,7 @@ private suspend fun checkProxy(container: AppContainer, setting: ProxySetting): 
 }
 
 /** Remembers whether the back stack last grew (a screen opened deeper) or shrank (a screen closed). */
-private class StackDirection(private var depth: Int) {
+internal class StackDirection(private var depth: Int) {
     var forward = true
         private set
 
@@ -801,4 +820,21 @@ private class StackDirection(private var depth: Int) {
         forward = now > depth
         depth = now
     }
+
+    /** The whole stack was swapped for [depth] screens: it went on, not back. */
+    fun replaced(depth: Int) {
+        forward = true
+        this.depth = depth
+    }
+}
+
+/**
+ * Swaps the whole stack for [keys], played as going on, like opening a screen. The new screens come in before
+ * the old ones go, in one change, so the stack is never empty.
+ */
+internal fun NavBackStack<NavKey>.replaceWith(keys: List<NavKey>, direction: StackDirection) = Snapshot.withMutableSnapshot {
+    direction.replaced(keys.size)
+    val old = size
+    addAll(keys)
+    repeat(old) { removeAt(0) }
 }

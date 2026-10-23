@@ -29,6 +29,7 @@ import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.PrivateImage
 import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.data.settings.SettingsStore
+import app.blesk.core.data.settings.SetupStep
 import app.blesk.core.data.stickers.StickerStore
 import app.blesk.core.design.component.Notices
 import app.blesk.core.media.AudioPlayer
@@ -51,6 +52,7 @@ import app.blesk.economy.EconomyMonitor
 import app.blesk.feature.profile.ProfileDraft
 import app.blesk.locks.ChatLockSession
 import app.blesk.music.OwnMusic
+import app.blesk.onboarding.SignUp
 import app.blesk.update.Updater
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -121,6 +123,9 @@ class AppContainer(
     val audioPlayer: AudioPlayer by lazy { AudioPlayer(context, scope) }
     val notices = Notices(scope)
 
+    /** Getting an account made, while there is none. */
+    internal val signUp = SignUp(this)
+
     val economy by lazy { EconomyMonitor(context, scope, EconomyStore(context)) }
 
     /**
@@ -171,7 +176,7 @@ class AppContainer(
     /** A `blesk://` link opened from another app: someone's profile or a group invite. */
     val linkRequest = MutableStateFlow<String?>(null)
 
-    /** An invite code that came by link before there was an account; the registration form fills it in. */
+    /** An invite code that came by link before there was an account; the invite step fills it in. */
     val pendingInvite = MutableStateFlow<String?>(null)
 
     /** Something shared into blesk from another app, waiting for the chats to send it to. */
@@ -249,13 +254,19 @@ class AppContainer(
             stack.register(username, PhraseKeys(entropy), invite, resume = resumed != null)
         }
         if (result != RegisterResult.Ok) return result
-        // Forgotten only once the phrase is kept: a try cut short before that signs in to this account again.
-        withContext(Dispatchers.IO) { phrase.save(entropy) }
-        unfinished = null
-        pendingInvite.value = null
-        open(stack, username, Entry.SignUp)
+        // The account exists on its server now, so the rest runs to its end even when the screen that asked has gone.
+        withContext(NonCancellable) {
+            // Forgotten only once the phrase is kept: a try cut short before that signs in to this account again.
+            withContext(Dispatchers.IO) { phrase.save(entropy) }
+            unfinished = null
+            pendingInvite.value = null
+            open(stack, username, Entry.SignUp)
+        }
         return result
     }
+
+    /** The new account's setup is over: the app opens with the chats from now on. */
+    suspend fun finishSetup() = onboarding.setSetupStep(null)
 
     /** The last registration that did not succeed; the server may still have made its account. */
     private var unfinished: Attempt? = null
@@ -304,16 +315,17 @@ class AppContainer(
     /**
      * Leaves the demo, or the account before, for [account], whose repository [start] builds and starts. The
      * account already exists on its server, so the switch runs to its end even when whoever asked has gone:
-     * the form that asked leaves the screen the moment the account is saved. What the demo kept beside the
-     * settings goes first, and the account is saved in the same write that drops the demo's settings, so a
-     * phone stopped on the way opens either the demo or the account, never the account under the demo's
-     * chat locks and themes.
+     * the screen that asked leaves the moment the account is saved. What the demo kept beside the settings
+     * goes first, and the account is saved in the same write that drops the demo's settings, so a phone
+     * stopped on the way opens either the demo or the account, never the account under the demo's chat locks
+     * and themes. A new account is saved with the first step of its setup, which then opens wherever the
+     * person is.
      */
     internal suspend fun switchTo(account: AppMode.Server, entry: Entry, api: BleskApi, start: suspend () -> ChatRepository) =
         withContext(NonCancellable) {
             val keepNameAndPhoto = entry == Entry.SignUp
             forgetDemo(keepPhoto = keepNameAndPhoto)
-            onboarding.enterAccount(account, keepNameAndPhoto)
+            onboarding.enterAccount(account, keepNameAndPhoto, setup = SetupStep.Profile.takeIf { entry == Entry.SignUp })
             eventLog.record(
                 when (entry) {
                     Entry.SignUp -> EventCode.ServerRegistered

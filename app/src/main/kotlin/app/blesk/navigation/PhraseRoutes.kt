@@ -39,21 +39,29 @@ import kotlinx.serialization.Serializable
 import app.blesk.R as AppR
 import app.blesk.feature.security.R as SecurityR
 
-/** The recovery phrase; [afterRegistration] when it is shown right after the account was made. */
+/** The recovery phrase, from the settings. */
 @Serializable
-data class PhraseKey(val afterRegistration: Boolean = false) : NavKey
+data object PhraseKey : NavKey
 
 /**
  * The phrase, behind the app's code when there is one, on a screen that cannot be captured.
- * Copying marks it sensitive and clears the clipboard a minute later.
+ * Copying marks it sensitive and clears the clipboard a minute later. A [fresh] phrase, shown
+ * as the account is set up, opens without the code. [onDone] follows its check, [onLater] puts
+ * it off, offered only while setting up, and [onBack] leaves it unchecked.
  */
 @Composable
-internal fun PhraseRoute(container: AppContainer, key: PhraseKey, onBack: () -> Unit) {
+internal fun PhraseRoute(
+    container: AppContainer,
+    fresh: Boolean,
+    onDone: () -> Unit,
+    onLater: (() -> Unit)?,
+    onBack: (() -> Unit)?,
+) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     val scope = rememberCoroutineScope()
     val notify = rememberNotify()
-    var open by rememberSaveable { mutableStateOf(key.afterRegistration || !container.pinVault.isSet) }
+    var open by rememberSaveable { mutableStateOf(fresh || !container.pinVault.isSet) }
     val copied = stringResource(SecurityR.string.phrase_copied)
     val saved = stringResource(SecurityR.string.phrase_saved_to_manager)
     val label = stringResource(SecurityR.string.phrase_title)
@@ -106,11 +114,11 @@ internal fun PhraseRoute(container: AppContainer, key: PhraseKey, onBack: () -> 
             onChecked = {
                 scope.launch {
                     withContext(Dispatchers.IO) { container.phrase.markChecked() }
-                    onBack()
+                    onDone()
                 }
             },
-            onLater = onBack.takeIf { key.afterRegistration },
-            onBack = onBack.takeIf { !key.afterRegistration },
+            onLater = onLater,
+            onBack = onBack,
         ),
     )
 }

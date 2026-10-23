@@ -81,6 +81,4 @@
     <string name="onboarding_error_wait">Слишком много попыток. Подожди %1$s.</string>
     <string name="onboarding_error_invite_required">Нужен инвайт: попроси ссылку у того, кто уже в blesk</string>
     <string name="onboarding_error_invite_invalid">Инвайт не подошёл: он уже использован, истёк или набран с ошибкой</string>
-    <string name="onboarding_error_name_taken">Это имя уже заняли — выбери другое</string>
-    <string name="onboarding_error_name_invalid">Такое имя не подходит</string>
 </resources>

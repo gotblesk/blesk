@@ -3,7 +3,7 @@
 
     ui.py wait <text> [seconds]        until a node shows <text> (its text or its description)
     ui.py tap <text> [seconds]         taps the node that shows <text>, scrolling down to it
-    ui.py tab <text> [seconds]         taps the tab <text> in the floating bar at the bottom
+    ui.py tab <text> [seconds]         taps <text> in the floating bar at the bottom: a tab, or a step's button
     ui.py type <label> <value>         types <value> into the text field labelled <label>
     ui.py screenshot <file.png>        saves the screen
 

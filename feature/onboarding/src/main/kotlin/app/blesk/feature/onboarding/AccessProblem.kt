@@ -36,10 +36,6 @@ sealed interface AccessProblem {
     data object InviteRequired : AccessProblem
 
     data object InviteInvalid : AccessProblem
-
-    data object NameTaken : AccessProblem
-
-    data object NameInvalid : AccessProblem
 }
 
 @Composable
@@ -57,6 +53,4 @@ fun AccessProblem.text(): String = when (this) {
     is AccessProblem.TooManyAttempts -> stringResource(R.string.onboarding_error_wait, formatWait(waitMillis))
     AccessProblem.InviteRequired -> stringResource(R.string.onboarding_error_invite_required)
     AccessProblem.InviteInvalid -> stringResource(R.string.onboarding_error_invite_invalid)
-    AccessProblem.NameTaken -> stringResource(R.string.onboarding_error_name_taken)
-    AccessProblem.NameInvalid -> stringResource(R.string.onboarding_error_name_invalid)
 }

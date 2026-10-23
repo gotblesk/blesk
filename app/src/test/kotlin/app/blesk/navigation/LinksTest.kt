@@ -1,12 +1,19 @@
 package app.blesk.navigation
 
+import androidx.navigation3.runtime.NavKey
 import app.blesk.R
 import app.blesk.core.data.demo.DemoCommunityTexts
 import app.blesk.core.data.demo.DemoRepository
 import app.blesk.core.data.demo.DemoSeed
 import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.Contact
+import app.blesk.core.data.settings.SetupStep
+import app.blesk.core.data.settings.StartState
 import app.blesk.core.network.ServerAddress
+import app.blesk.onboarding.InviteKey
+import app.blesk.onboarding.ServerRef
+import app.blesk.onboarding.UsernameKey
+import app.blesk.onboarding.openSignUp
 import app.blesk.shared.protocol.ChannelLink
 import app.blesk.shared.protocol.InviteLink
 import app.blesk.shared.protocol.Invites
@@ -50,7 +57,8 @@ class LinksTest {
     private val screens = LinkScreens(
         conversation = { opened += "chat:$it" },
         profile = { opened += "profile:$it" },
-        registration = { opened += "registration" },
+        signUp = { opened += "signUp" },
+        otherServer = { opened += "server:${it.url}" },
     )
 
     @After
@@ -81,41 +89,68 @@ class LinksTest {
     }
 
     @Test
-    fun `in the demo an invite waits for the registration form`() = runBlocking {
-        val outcome = follow(LinkTarget.Registration(code), world, demo = true, pendingInvite, screens)
+    fun `without an account an invite opens sign-up with the code waiting`() = runBlocking {
+        val outcome = follow(LinkTarget.Registration(code), null, pendingInvite, screens)
         assertEquals(LinkOutcome.Opened, outcome)
         assertEquals(code, pendingInvite.value)
-        assertEquals(listOf("registration"), opened)
+        assertEquals(listOf("signUp"), opened)
     }
 
     @Test
-    fun `in the demo nobody is looked up and the registration form opens`() = runBlocking {
+    fun `without an account nobody is looked up and sign-up opens`() = runBlocking {
         val targets = listOf(
             LinkTarget.Profile("anya", null),
             LinkTarget.Space("news"),
             LinkTarget.Group(groupInvite, "vera.s"),
         )
         targets.forEach { target ->
-            assertEquals(target.toString(), LinkOutcome.NeedsAccount, follow(target, world, demo = true, pendingInvite, screens))
+            assertEquals(target.toString(), LinkOutcome.NeedsAccount, follow(target, null, pendingInvite, screens))
         }
-        assertEquals(List(targets.size) { "registration" }, opened)
+        assertEquals(List(targets.size) { "signUp" }, opened)
         assertNull(pendingInvite.value)
         assertEquals(R.string.link_needs_account, LinkOutcome.NeedsAccount.notice)
     }
 
     @Test
-    fun `a server code opens the registration form only in the demo`() = runBlocking {
+    fun `a server code without an account opens its step`() = runBlocking {
         val own = LinkTarget.Server(ServerAddress.DEFAULT)
         val other = LinkTarget.Server(ServerAddress("https://chat.example.ru"))
-        assertEquals(LinkOutcome.Opened, follow(own, world, demo = true, pendingInvite, screens))
-        assertEquals(LinkOutcome.OtherServer, follow(other, world, demo = true, pendingInvite, screens))
-        assertEquals(listOf("registration", "registration"), opened)
-        assertEquals(LinkOutcome.AlreadyConnected, follow(own, world, demo = false, pendingInvite, screens))
+        assertEquals(LinkOutcome.Opened, follow(own, null, pendingInvite, screens))
+        assertEquals(LinkOutcome.Opened, follow(other, null, pendingInvite, screens))
+        assertEquals(listOf("signUp", "server:https://chat.example.ru"), opened)
+        assertEquals(LinkOutcome.AlreadyConnected, follow(own, world, pendingInvite, screens))
+    }
+
+    @Test
+    fun `a second invite link returns to the invite step`() {
+        val own = ServerRef.of(ServerAddress.DEFAULT)
+        val other = ServerRef("https://chat.example.ru")
+        val signingUp = mutableListOf<NavKey>(HomeKey, ServerKey, InviteKey(own), UsernameKey(own, code))
+        signingUp.openSignUp(own)
+        assertEquals(listOf(HomeKey, ServerKey, InviteKey(own)), signingUp)
+
+        val home = mutableListOf<NavKey>(HomeKey)
+        home.openSignUp(own)
+        assertEquals(listOf(HomeKey, InviteKey(own)), home)
+
+        // Invite links are for blesk's own server, whichever server the open step was for.
+        val elsewhere = mutableListOf<NavKey>(HomeKey, InviteKey(other), UsernameKey(other, null))
+        elsewhere.openSignUp(own)
+        assertEquals(listOf(HomeKey, InviteKey(own)), elsewhere)
+    }
+
+    @Test
+    fun `a link waits while the account is set up`() {
+        assertTrue(linkWaits(StartState.Account(SetupStep.Profile)))
+        assertTrue(linkWaits(StartState.Account(SetupStep.Glint)))
+        assertFalse(linkWaits(StartState.Account(null)))
+        assertFalse(linkWaits(StartState.Demo))
+        assertFalse(linkWaits(StartState.Welcome))
     }
 
     @Test
     fun `with an account an invite is kept for a friend`() = runBlocking {
-        val outcome = follow(LinkTarget.Registration(code), world, demo = false, pendingInvite, screens)
+        val outcome = follow(LinkTarget.Registration(code), world, pendingInvite, screens)
         assertEquals(LinkOutcome.AlreadyRegistered, outcome)
         assertNull(pendingInvite.value)
         assertTrue(opened.isEmpty())
@@ -124,18 +159,18 @@ class LinksTest {
 
     @Test
     fun `with an account a profile link opens the profile`() = runBlocking {
-        assertEquals(LinkOutcome.Opened, follow(LinkTarget.Profile("anya", null), world, demo = false, pendingInvite, screens))
+        assertEquals(LinkOutcome.Opened, follow(LinkTarget.Profile("anya", null), world, pendingInvite, screens))
         assertEquals(listOf("profile:anya"), opened)
-        assertEquals(LinkOutcome.NotFound, follow(LinkTarget.Profile("nobody", null), world, demo = false, pendingInvite, screens))
+        assertEquals(LinkOutcome.NotFound, follow(LinkTarget.Profile("nobody", null), world, pendingInvite, screens))
         assertNull(LinkOutcome.Opened.notice)
     }
 
     @Test
     fun `with an account a channel link joins it and opens it`() = runBlocking {
         val (_, id) = world.createSpace(SpaceKind.Room, "club", "Клуб", "")
-        assertEquals(LinkOutcome.Opened, follow(LinkTarget.Space("club"), world, demo = false, pendingInvite, screens))
+        assertEquals(LinkOutcome.Opened, follow(LinkTarget.Space("club"), world, pendingInvite, screens))
         assertEquals(listOf("chat:$id"), opened)
-        assertEquals(LinkOutcome.NotFound, follow(LinkTarget.Space("nothing"), world, demo = false, pendingInvite, screens))
+        assertEquals(LinkOutcome.NotFound, follow(LinkTarget.Space("nothing"), world, pendingInvite, screens))
     }
 
     @Test

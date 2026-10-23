@@ -12,6 +12,7 @@ import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.OfflineKey
 import app.blesk.core.data.settings.SettingsStore
+import app.blesk.core.data.settings.SetupStep
 import app.blesk.core.data.settings.StartState
 import app.blesk.core.network.BleskApi
 import app.blesk.core.network.ServerAddress
@@ -105,7 +106,7 @@ class AccountSwitchTest {
         assertFalse(recording.exists())
         assertTrue(container.eventLog.entries.value.any { it.code == EventCode.ServerRegistered })
         runBlocking {
-            assertEquals(StartState.Account(null), container.onboarding.start.first())
+            assertEquals(StartState.Account(SetupStep.Profile), container.onboarding.start.first())
             assertNull(container.settings.chatThemes.first()[DEMO_CHAT])
         }
     }

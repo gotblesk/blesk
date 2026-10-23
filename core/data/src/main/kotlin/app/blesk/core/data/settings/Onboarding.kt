@@ -80,16 +80,18 @@ class OnboardingStore(settings: SettingsStore) {
      * world: chat themes and mention-only chats keyed by demo chat ids, which are real usernames, the demo
      * profile and the mark that the demo was chosen. Appearance, privacy, notifications and the other
      * preferences are the person's own and stay. The name and photo stay only for a new account, whose setup
-     * offers them again; an account brought back by its phrase has its own. One write, so the app is never
-     * seen in the account with the demo's settings, nor on the welcome screen between the two.
+     * offers them again; an account brought back by its phrase has its own. [setup] is the step its setup
+     * starts at. One write, so the app is never seen in the account with the demo's settings, nor on the
+     * welcome screen between the two, nor in a new account that skipped its setup.
      */
-    suspend fun enterAccount(account: AppMode.Server, keepNameAndPhoto: Boolean) {
+    suspend fun enterAccount(account: AppMode.Server, keepNameAndPhoto: Boolean, setup: SetupStep?) {
         store.edit { prefs ->
             DEMO_KEYS.forEach { prefs.remove(it) }
             if (!keepNameAndPhoto) {
                 prefs.remove(SettingsStore.PROFILE_NAME)
                 prefs.remove(SettingsStore.PROFILE_PHOTO)
             }
+            if (setup != null) prefs[SETUP_STEP] = setup.name else prefs.remove(SETUP_STEP)
             prefs.putServer(account)
         }
     }
