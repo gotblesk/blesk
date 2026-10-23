@@ -41,7 +41,7 @@
     <string name="link_server_connected">У тебя уже есть аккаунт на сервере</string>
     <string name="link_needs_account">Сначала создай аккаунт</string>
     <string name="notify_ask_title">Уведомления о сообщениях</string>
-    <string name="notify_ask_text">Разреши blesk показывать уведомления, чтобы узнавать о сообщениях и звонках, когда он закрыт</string>
+    <string name="notify_ask_text">Разреши blesk показывать уведомления, чтобы узнавать о сообщениях и звонках, пока он свёрнут</string>
     <string name="notify_allow">Разрешить</string>
     <string name="link_after_account">Создай аккаунт — и ссылка откроется</string>
     <string name="link_ask_join_title">Отправить @%1$s запрос на вступление?</string>

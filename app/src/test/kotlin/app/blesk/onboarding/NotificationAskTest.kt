@@ -1,5 +1,7 @@
 package app.blesk.onboarding
 
+import android.app.NotificationManager
+import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -20,6 +22,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /** Notifications are asked about once, at the first need, with the reason first, and never at the start. */
@@ -58,8 +61,35 @@ class NotificationAskTest {
     }
 
     @Test
+    fun aPermissionRefusedForGoodLeadsToAndroidsPage() {
+        assertTrue(refusedWithoutAsking(granted = false, explainBefore = false, explainAfter = false))
+    }
+
+    @Test
+    fun anAnswerToAndroidsOwnQuestionStands() {
+        // A first refusal: from now on Android offers to explain.
+        assertFalse(refusedWithoutAsking(granted = false, explainBefore = false, explainAfter = true))
+        // A second one, after that offer: Android stops asking, but the person did see its question.
+        assertFalse(refusedWithoutAsking(granted = false, explainBefore = true, explainAfter = false))
+        assertFalse(refusedWithoutAsking(granted = true, explainBefore = false, explainAfter = false))
+    }
+
+    @Test
+    @Config(sdk = [31])
+    fun notificationsTurnedOffInAndroidAreBlockedBelowAndroid13Too() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        assertFalse(notificationsBlocked(context))
+
+        shadowOf(context.getSystemService(NotificationManager::class.java)).setNotificationsEnabled(false)
+
+        assertTrue(notificationsBlocked(context))
+    }
+
+    @Test
     fun theSheetAsksOnceAndRemembersTheAnswer() {
-        compose.setContent { BleskTheme(motion = BleskMotion(reduced = true)) { NotificationAsk(container) } }
+        compose.setContent {
+            BleskTheme(motion = BleskMotion(reduced = true)) { NotificationAsk(container, shown = notificationAskShown(container)) }
+        }
         compose.onAllNodesWithText(TITLE).fetchSemanticsNodes().let { assertEquals(0, it.size) }
 
         container.notificationsNeeded.value = true
@@ -75,7 +105,7 @@ class NotificationAskTest {
 
     private companion object {
         const val TITLE = "Уведомления о сообщениях"
-        const val REASON = "Разреши blesk показывать уведомления, чтобы узнавать о сообщениях и звонках, когда он закрыт"
+        const val REASON = "Разреши blesk показывать уведомления, чтобы узнавать о сообщениях и звонках, пока он свёрнут"
         const val WAIT_MILLIS = 5_000L
     }
 }

@@ -47,6 +47,7 @@ import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.ChatLocks
 import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.design.component.rememberNotify
+import app.blesk.core.design.component.underSheet
 import app.blesk.core.design.glass.LensAccessories
 import app.blesk.core.design.glass.LocalLensAccessories
 import app.blesk.core.design.motion.screenKey
@@ -92,6 +93,7 @@ import app.blesk.onboarding.NotificationAsk
 import app.blesk.onboarding.OtherServerKey
 import app.blesk.onboarding.ServerRef
 import app.blesk.onboarding.SetupOpener
+import app.blesk.onboarding.notificationAskShown
 import app.blesk.onboarding.onboardingEntries
 import app.blesk.onboarding.openSignUp
 import app.blesk.onboarding.rememberSignUpStart
@@ -245,9 +247,15 @@ fun BleskNavigation(container: AppContainer) {
     val appearance by container.settings.appearance.collectAsStateWithLifecycle(initialValue = Appearance())
     val demo = mode is AppMode.Demo
     // Every invite link leads to blesk's own server, so an invite made on another one would send a friend astray.
+    // Someone invited may write while blesk is in the background: the question about notifications comes now.
     val openInvites: (() -> Unit)? = (mode as? AppMode.Server)
         ?.takeIf { ServerAddress(it.url, it.pin) == ServerAddress.DEFAULT }
-        ?.let { { backStack.add(InvitesKey) } }
+        ?.let {
+            {
+                container.needNotifications()
+                backStack.add(InvitesKey)
+            }
+        }
     val context = LocalContext.current
     val back: () -> Unit = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
     val openChannel: (Conversation, RoomChannel) -> Unit = { room, channel ->
@@ -334,8 +342,10 @@ fun BleskNavigation(container: AppContainer) {
                 }
                 // The screen under the open player is dimmed and softly blurred.
                 val blur by animateDpAsState(if (playerOpen) PlayerBlur else 0.dp, motion.settle(), label = "playerBlur")
+                // Over the chats and what opens from them, never over the welcome screen or the setup.
+                val askingNotifications = notificationAskShown(container) && home
                 NavDisplay(
-                    modifier = Modifier.blur(blur),
+                    modifier = Modifier.blur(blur).underSheet(askingNotifications),
                     sharedTransitionScope = this@SharedTransitionLayout,
                     transitionSpec = { screenEnter(motion) },
                     popTransitionSpec = { screenBack(motion) },
@@ -369,7 +379,10 @@ fun BleskNavigation(container: AppContainer) {
                                         openDirect(contact.username) { id -> context.startActivity(CallActivity.call(context, id, false)) }
                                     },
                                     onInvite = openInvites ?: (mode as? AppMode.Server)?.let { server ->
-                                        { scope.launch { invite(context, server.username, container.chats.value?.linkKey()) } }
+                                        {
+                                            container.needNotifications()
+                                            scope.launch { invite(context, server.username, container.chats.value?.linkKey()) }
+                                        }
                                     },
                                     onRemove = { contact ->
                                         container.notices.undoable(contactRemoved) {
@@ -812,8 +825,7 @@ fun BleskNavigation(container: AppContainer) {
                     atHome = backStack.singleOrNull() == HomeKey,
                 )
                 SetupOpener(container.onboarding.start, backStack, direction)
-                // Over the chats and what opens from them, never over the welcome screen or the setup.
-                if (home) NotificationAsk(container)
+                if (home) NotificationAsk(container, shown = askingNotifications)
             }
         }
     }

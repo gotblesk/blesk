@@ -56,7 +56,13 @@ internal fun NewChatRoute(
             onScan = onScan,
             onNewGroup = if (chats is GroupController) ({ onNewGroup(NewKind.Group) }) else null,
             onNewChannel = if (chats is SpaceController) ({ onNewGroup(NewKind.Channel) }) else null,
-            onInvite = onOpenInvites ?: server?.let { { scope.launch { invite(context, it.username, chats.linkKey()) } } },
+            onInvite = onOpenInvites ?: server?.let { account ->
+                {
+                    // Someone invited may write while blesk is in the background: the question about notifications comes now.
+                    container.needNotifications()
+                    scope.launch { invite(context, account.username, chats.linkKey()) }
+                }
+            },
             onOpenContact = { contact -> scope.launch { chats.openDirect(contact.username)?.let(onOpenConversation) } },
             onFind = if (server == null) null else { text -> find(chats, text, onOpenConversation) { notify(joinSent) } },
             spaces = (chats as? SpaceController)?.let { controller ->

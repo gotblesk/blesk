@@ -289,11 +289,13 @@ internal fun Home(
                     val archived = conversations.filter { it.archived }
                     val home = chatsHome(list, archived, demo)
                     val requests = home.requests
-                    // The question about notifications waits for this moment, not for the start.
-                    LaunchedEffect(home.someone) { if (home.someone) container.needNotifications() }
                     // Once the newcomer screen has shown, it stays until the first friend has flown in and stuck.
                     val welcoming = rememberSaveable { mutableStateOf(false) }
                     if (home.alone && !welcoming.value) welcoming.value = true
+                    // The question about notifications waits for this moment, not for the start.
+                    LaunchedEffect(home.someone, welcoming.value) {
+                        if (home.wantsNotifications(welcoming.value)) container.needNotifications()
+                    }
                     val me = profile
                     if (welcoming.value && me != null) {
                         NewcomerChats(
@@ -479,6 +481,12 @@ internal class ChatsHome(
 ) {
     /** Someone of the person's own or a stranger can write now, also while blesk is closed. */
     val someone: Boolean get() = friends.isNotEmpty() || requests.isNotEmpty()
+
+    /**
+     * Notifications are wanted once [someone] can write; on the newcomer screen, while it is [welcoming] the first
+     * friend, only once their capsule has flown in and stuck, so the question never dims that moment.
+     */
+    fun wantsNotifications(welcoming: Boolean): Boolean = someone && !welcoming
 }
 
 /** Sorts the chats [shown] in the list, with those [archived] apart; the demo is never alone. */

@@ -1,7 +1,5 @@
 package app.blesk.navigation
 
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,7 +14,8 @@ import app.blesk.background.KeepAliveService
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.NotificationSettings
 import app.blesk.feature.settings.NotificationsScreen
-import app.blesk.onboarding.notificationsGranted
+import app.blesk.onboarding.notificationsBlocked
+import app.blesk.onboarding.openNotificationSettings
 import kotlinx.coroutines.launch
 
 @Composable
@@ -27,9 +26,9 @@ internal fun NotificationsRoute(container: AppContainer, onBack: () -> Unit) {
     val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = AppMode.Demo)
     val server = mode is AppMode.Server
     // Read again on each return: the person may have allowed them in Android's settings meanwhile.
-    var granted by remember { mutableStateOf(notificationsGranted(context)) }
+    var blocked by remember { mutableStateOf(notificationsBlocked(context)) }
     LifecycleResumeEffect(Unit) {
-        granted = notificationsGranted(context)
+        blocked = notificationsBlocked(context)
         onPauseOrDispose {}
     }
     NotificationsScreen(
@@ -41,11 +40,8 @@ internal fun NotificationsRoute(container: AppContainer, onBack: () -> Unit) {
             if (server && next.alwaysOnline) KeepAliveService.start(context) else KeepAliveService.stop(context)
         },
         onBack = onBack,
-        blocked = !granted,
-        // Android's own page always lets them be allowed; its question may no longer come after two refusals.
-        onAllow = {
-            val page = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-            context.startActivity(page)
-        },
+        blocked = blocked,
+        // Android's own question may no longer come after two refusals, and below version 13 there is none.
+        onAllow = { openNotificationSettings(context) },
     )
 }

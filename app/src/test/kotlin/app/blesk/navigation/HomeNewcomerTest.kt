@@ -68,6 +68,15 @@ class HomeNewcomerTest {
     }
 
     @Test
+    fun theFirstFriendIsAskedAboutOnlyOnceTheyHaveFlownIn() {
+        val home = chatsHome(listOf(saved, official, anya), archived = emptyList(), demo = false)
+
+        assertFalse(home.wantsNotifications(welcoming = true))
+        assertTrue(home.wantsNotifications(welcoming = false))
+        assertFalse(chatsHome(listOf(saved, official), archived = emptyList(), demo = false).wantsNotifications(welcoming = false))
+    }
+
+    @Test
     fun theDemoHasNoNewcomerScreen() {
         assertFalse(chatsHome(listOf(saved), archived = emptyList(), demo = true).alone)
     }
