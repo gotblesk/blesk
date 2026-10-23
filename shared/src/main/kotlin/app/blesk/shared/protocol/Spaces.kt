@@ -17,6 +17,9 @@ object Spaces {
 
     fun isValidHandle(handle: String) = handlePattern.matches(handle)
 
+    /** Handles nobody can create: «mine» is a route path, the rest are the service's names and their look-alikes. */
+    fun isReservedHandle(handle: String) = handle == "mine" || Usernames.isReserved(handle)
+
     const val MAX_TITLE = 64
     const val MAX_ABOUT = 280
     const val MAX_POST = 4096
@@ -68,6 +71,8 @@ data class SpaceInfo(
     val members: Int,
     val channels: List<SpaceChannel>,
     val role: SpaceRole? = null,
+    /** The server's own channel, marked by its owner's command; the app labels it «Официальный». */
+    val official: Boolean = false,
 )
 
 @Serializable

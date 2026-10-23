@@ -11,6 +11,12 @@ object Api {
     const val VERSION = 1
     const val DEVICE_ID = 1
 
+    /** The oldest app protocol a server of this version serves; sent as [ServerInfo.minClientVersion]. */
+    const val MIN_CLIENT_VERSION = 1
+
+    /** The oldest server protocol this app works with. */
+    const val MIN_SERVER_VERSION = 1
+
     const val ACCOUNTS = "/v1/accounts"
 
     /**
@@ -104,6 +110,16 @@ data class ServerInfo(
     val version: Int = Api.VERSION,
     /** Whether a LiveKit server is set up next to this one. */
     val calls: Boolean = false,
+    /** Whether registration needs an invite; null from an older server, so the invite step is shown in case it does. */
+    val invites: Boolean? = null,
+    /**
+     * The oldest [Api.VERSION] of the app this server serves. The default is 1, not
+     * [Api.MIN_CLIENT_VERSION]: a server that does not send it serves every app, whatever later
+     * versions of the constant say.
+     */
+    val minClientVersion: Int = 1,
+    /** The handle of the server's own channel, offered at sign-up; null until its owner makes one. */
+    val officialChannel: String? = null,
 )
 
 /**

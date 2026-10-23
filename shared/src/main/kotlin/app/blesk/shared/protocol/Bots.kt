@@ -27,6 +27,9 @@ object Bots {
 
     fun isValidUsername(username: String) = pattern.matches(username)
 
+    /** A new bot may not be named like the service, «blesk_bot» or «support_bot»; existing bots keep their names. */
+    fun isReservedName(username: String) = Usernames.isReserved(username.removeSuffix(SUFFIX))
+
     const val MAX_TEXT = 4096
     const val MAX_BUTTON_ROWS = 8
     const val MAX_BUTTONS_IN_ROW = 4
