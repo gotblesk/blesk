@@ -20,6 +20,7 @@ import app.blesk.shared.protocol.Content
 import app.blesk.shared.protocol.GroupChange
 import app.blesk.shared.protocol.GroupChannel
 import app.blesk.shared.protocol.GroupChannelKind
+import app.blesk.shared.protocol.GroupInvite
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupMember
 import app.blesk.shared.protocol.GroupPolicy
@@ -641,6 +642,35 @@ class GroupEngineTest {
         assertEquals(UpdateOutcome.Refused, engine.onUpdate("carol", room.copy(version = 2_147_483_647)))
         assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room.copy(version = 2, roles = room.roles - guards)))
         assertFalse(GroupPolicy.manages(engine.state(ROOM)!!, "carol"))
+    }
+
+    @Test
+    fun onlyOneWhoMayBanPutsUsOut() = runBlocking {
+        val helpers = RoomRole("helpers", "Помощники", rights = setOf(Right.Channels))
+        val guards = RoomRole("guards", "Охрана", rights = setOf(Right.Ban))
+        val room = roomOf(version = 1, ourRoles = emptyList()).let { state ->
+            state.copy(
+                roles = state.roles + helpers + guards,
+                members = state.members.map {
+                    when (it.username) {
+                        "carol" -> it.copy(roles = listOf(helpers.id))
+                        "dave" -> it.copy(roles = listOf(guards.id))
+                        else -> it
+                    }
+                },
+                invites = listOf(GroupInvite("abcdefgh", "Друзья")),
+            )
+        }
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+        val withoutUs = room.copy(version = 2, members = room.members.filter { it.username != ME })
+
+        // Carol may only arrange channels: a state of hers without us would take the room and all of it off the phone.
+        assertEquals(UpdateOutcome.Refused, engine.onUpdate("carol", withoutUs))
+        assertNotNull(engine.state(ROOM))
+        assertNotNull(db.conversations().get(ROOM))
+        // Dave may ban. What he sends the one he removes leaves out the invites, which are no longer theirs to see.
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("dave", withoutUs.copy(invites = emptyList())))
+        assertNull(engine.state(ROOM))
     }
 
     @Test

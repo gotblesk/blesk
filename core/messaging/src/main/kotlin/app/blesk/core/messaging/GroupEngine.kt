@@ -303,7 +303,7 @@ internal class GroupEngine(
         // Taken only as a state the sender could have made from ours, or a modified app would give itself rights and
         // channels in one step. Refused whole: mended field by field, it would become a state no phone made. This
         // phone stays behind until a state it can take arrives, and messages written in the newer one wait for that.
-        if (current != null && !GroupPolicy.admits(current, incoming, sender)) return UpdateOutcome.Refused
+        if (current != null && !admits(current, incoming, sender)) return UpdateOutcome.Refused
         when {
             incoming.roleOf(me) != null -> {
                 val taken = cleaned(incoming)
@@ -316,6 +316,14 @@ internal class GroupEngine(
         }
         return UpdateOutcome.Taken
     }
+
+    /**
+     * Whether [sender] could have made [incoming] from [current], as [GroupPolicy.admits] decides. A state without us
+     * need only put us out as [GroupPolicy.removes] lets [sender]: it is not kept, and the one sent to whoever is
+     * removed leaves out the invites and the voice key, no longer theirs to see.
+     */
+    private fun admits(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        if (incoming.roleOf(me) == null) GroupPolicy.removes(current, sender, me) else GroupPolicy.admits(current, incoming, sender)
 
     /** Titles come from another phone: cleaned here as if typed on this one. */
     private fun cleaned(incoming: GroupState) = incoming.copy(

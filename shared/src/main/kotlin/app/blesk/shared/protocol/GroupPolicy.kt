@@ -348,8 +348,9 @@ object GroupPolicy {
     /**
      * Whether [incoming], a state from [sender], raises no one beyond what [apply] lets [sender] do, judged by the
      * rights and ranks [current] gives them: it is not far ahead; only the owner hands the group over; rights come
-     * only from those [sender] has; the roles at and above [sender]'s own stay as they are; and an admin, once made,
-     * changes only by the owner, or downward by themselves.
+     * only from those [sender] has; the roles at and above [sender]'s own stay as they are; an admin, once made,
+     * changes only by the owner, or downward by themselves; and no one is removed, or loses a role, but by one who may
+     * do that to them.
      */
     fun admitsRights(current: GroupState, incoming: GroupState, sender: String): Boolean =
         current.roleOf(sender) == GroupRole.Owner || (
@@ -358,8 +359,14 @@ object GroupPolicy {
                 memberRightsGiven(current, incoming, sender) &&
                 rolesAboveKept(current, incoming, sender) &&
                 roleRightsGiven(current, incoming, sender) &&
-                adminsKept(current, incoming, sender)
+                adminsKept(current, incoming, sender) &&
+                removedWithRight(current, incoming, sender) &&
+                rolesTakenWithRight(current, incoming, sender)
             )
+
+    /** Whether [actor] may remove or ban [username]: only with the right, and only someone below them. */
+    fun removes(state: GroupState, actor: String, username: String): Boolean =
+        can(state, actor, Right.Ban) && rank(state, username) > rank(state, actor)
 
     /** At most [MAX_VERSION_STEP] ahead, compared so that no version, however large, wraps around. */
     private fun withinReach(current: GroupState, incoming: GroupState) = incoming.version - MAX_VERSION_STEP <= current.version
@@ -403,6 +410,33 @@ object GroupPolicy {
             }
         }
 
+    /**
+     * Everyone [current] has and [incoming] does not was removed by [sender] as [removes] decides, or is [sender]
+     * themselves, gone of their own accord. Someone else who left is already gone from [current]: a phone takes a
+     * leave as it comes, and does not need a state to learn of it.
+     */
+    private fun removedWithRight(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        current.members.all { it.username == sender || incoming.roleOf(it.username) != null || removes(current, sender, it.username) }
+
+    /**
+     * A role comes off someone only as [assign] or [roles] take it: by one who may give it and stands above both it
+     * and them, or with the role itself, deleted by one who may change roles and stands above it. An id that is no
+     * role of [current] opens nothing and may go.
+     */
+    private fun rolesTakenWithRight(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        val own = rank(current, sender)
+        val assigns = can(current, sender, Right.AssignRoles)
+        val deleted = current.roles.map { it.id }.filter { id -> incoming.roles.none { it.id == id } }
+        val deletes = can(current, sender, Right.Roles) && deleted.all { outranks(current, sender, it) }
+        return (deleted.isEmpty() || deletes) && incoming.members.all { member ->
+            val had = current.members.firstOrNull { it.username == member.username }?.roles.orEmpty()
+            (had - member.roles.toSet()).all { id ->
+                id in deleted || current.roles.none { it.id == id } ||
+                    (assigns && outranks(current, sender, id) && rank(current, member.username) > own)
+            }
+        }
+    }
+
     /** Where a role puts its holders in [rank]; null for an id that is not one of the room's roles. */
     private fun roleRank(state: GroupState, roleId: String): Int? =
         state.roles.indexOfFirst { it.id == roleId }.takeIf { it >= 0 }?.plus(2)
@@ -426,11 +460,11 @@ object GroupPolicy {
                 state.copy(memberRights = change.rights).logged(now, actor, LogAction.Rights)
             }
             is GroupChange.Admin -> admin(state, actor, change, now)
-            is GroupChange.Remove -> if (!allowed(Right.Ban) || rank(state, change.username) <= rank(state, actor)) null else {
+            is GroupChange.Remove -> if (!removes(state, actor, change.username)) null else {
                 state.copy(members = state.members.filterNot { it.username == change.username }, epoch = state.epoch + 1)
                     .logged(now, actor, LogAction.Removed, change.username)
             }
-            is GroupChange.Ban -> if (!allowed(Right.Ban) || rank(state, change.username) <= rank(state, actor)) null else {
+            is GroupChange.Ban -> if (!removes(state, actor, change.username)) null else {
                 state.copy(
                     members = state.members.filterNot { it.username == change.username },
                     banned = (state.banned + change.username).distinct(),

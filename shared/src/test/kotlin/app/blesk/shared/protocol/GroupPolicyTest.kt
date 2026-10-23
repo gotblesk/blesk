@@ -300,6 +300,29 @@ class GroupPolicyTest {
     }
 
     @Test
+    fun aStateRemovesAndStripsOnlyWhomItsSenderMay() {
+        fun GroupState.without(username: String) = copy(members = members.filter { it.username != username })
+        fun changes(base: GroupState) = listOf(
+            base.without("admin"),
+            base.without("mod"),
+            base.without("anya"),
+            base.member("mod") { it.copy(roles = emptyList()) },
+            base.member("finn") { it.copy(roles = emptyList()) },
+            base.copy(roles = base.roles.filter { it.id != "fans" }).member("finn") { it.copy(roles = emptyList()) },
+        ).map { it.copy(version = base.version + 1) }
+
+        // Eve's role may only arrange channels: she removes no one, takes no role off anyone, deletes no role.
+        changes(helped).forEach { incoming ->
+            assertFalse("eve: $incoming", GroupPolicy.admits(helped, incoming, "eve"))
+            assertTrue("owner: $incoming", GroupPolicy.admits(helped, incoming, "owner"))
+        }
+        // Given the right to ban and to give roles, she removes and strips those below her, and still not those above.
+        val able = helped.role("helpers") { it.copy(rights = setOf(Right.Ban, Right.AssignRoles)) }
+        val allowed = changes(able).map { GroupPolicy.admits(able, it, "eve") }
+        assertEquals(listOf(false, false, true, false, true, false), allowed)
+    }
+
+    @Test
     fun anAdminKeepsWhatMembersLoseAndMayGiveItBack() {
         val editing = room.member("admin") { it.copy(rights = it.rights.orEmpty() + Right.EditInfo) }
         for (right in listOf(Right.Write, Right.Media, Right.Speak)) {
@@ -454,6 +477,13 @@ class GroupPolicyTest {
             RoomRole("fans", "Фанаты", rights = setOf(Right.Timeout)),
             RoomRole("guests", "Гости"),
         ),
+    )
+
+    /** [room] with Eve, whose helpers' role may only arrange channels, between the moderators and the fans; Finn is a fan. */
+    private val helped = room.copy(
+        members = room.members + GroupMember("eve", GroupRole.Member, roles = listOf("helpers")) +
+            GroupMember("finn", GroupRole.Member, roles = listOf("fans")),
+        roles = listOf(room.roles[0], RoomRole("helpers", "Помощники", rights = setOf(Right.Channels)), room.roles[1]),
     )
 
     private fun GroupState.role(id: String, change: (RoomRole) -> RoomRole) =
