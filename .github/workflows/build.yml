@@ -94,6 +94,7 @@ jobs:
           exit 1
 
       - name: Release APK on an emulator
+        timeout-minutes: 30
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -114,6 +115,8 @@ jobs:
           # Version, size and checksums of the APK for the site and for scripts/deploy.sh.
           bash scripts/ci/release-json.sh out/blesk.apk > out/release.json
           cat out/release.json
+          # A crash report from this build names classes R8 renamed; only its own mapping reads them back.
+          gzip -9c app/build/outputs/mapping/release/mapping.txt > out/mapping.txt.gz
 
       - name: Check the site
         run: python3 scripts/build-site.py --out "$RUNNER_TEMP/site" --release out/release.json --check

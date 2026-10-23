@@ -24,10 +24,12 @@ DUMP = "/sdcard/blesk-ui.xml"
 BOUNDS = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 # A fifth of the screen each, so this many go well past the end of a long settings page.
 SCROLL_STEPS = 8
+# No adb call may hang a step: a device that stops answering or a screen that never settles fails it instead.
+ADB_TIMEOUT = 60
 
 
 def adb(*args, capture=True):
-    return subprocess.run(ADB + list(args), check=True, capture_output=capture, text=True).stdout
+    return subprocess.run(ADB + list(args), check=True, capture_output=capture, text=True, timeout=ADB_TIMEOUT).stdout
 
 
 def nodes():
@@ -37,7 +39,7 @@ def nodes():
             adb("shell", "uiautomator", "dump", DUMP)
             tree = ElementTree.fromstring(adb("shell", "cat", DUMP))
             return list(tree.iter("node"))
-        except (subprocess.CalledProcessError, ElementTree.ParseError):
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ElementTree.ParseError):
             time.sleep(1)
     raise SystemExit("could not read the screen")
 
@@ -180,7 +182,7 @@ def main(argv):
         type_into(args[0], args[1])
     elif command == "screenshot":
         with open(args[0], "wb") as out:
-            out.write(subprocess.run(ADB + ["exec-out", "screencap", "-p"], check=True, capture_output=True).stdout)
+            out.write(subprocess.run(ADB + ["exec-out", "screencap", "-p"], check=True, capture_output=True, timeout=ADB_TIMEOUT).stdout)
     else:
         print(__doc__, file=sys.stderr)
         return 2
@@ -188,4 +190,7 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except subprocess.TimeoutExpired as late:
+        sys.exit(f"adb did not answer in {ADB_TIMEOUT} s: {' '.join(late.cmd)}")

@@ -32,14 +32,20 @@ shot() {
 }
 fail() {
     shot failed || true
-    adb exec-out uiautomator dump /dev/tty >"$shots/screen.xml" 2>/dev/null || true
-    adb logcat -d -s blesk:V AndroidRuntime:E >"$shots/logcat.txt" 2>&1 || true
+    timeout 60 adb exec-out uiautomator dump /dev/tty >"$shots/screen.xml" 2>/dev/null || true
+    timeout 60 adb logcat -d -s blesk:V AndroidRuntime:E >"$shots/logcat.txt" 2>&1 || true
+    # Release stack traces name classes R8 renamed; the build's own mapping turns them back.
+    local retrace="${ANDROID_HOME:-}/cmdline-tools/latest/bin/retrace" mapping="$root/app/build/outputs/mapping/release/mapping.txt"
+    if [[ -x $retrace && -f $mapping ]]; then
+        "$retrace" "$mapping" "$shots/logcat.txt" >"$shots/logcat-retraced.txt" 2>&1 || true
+        grep -A30 'FATAL EXCEPTION' "$shots/logcat-retraced.txt" >&2 || true
+    fi
     echo "smoke test failed: $1" >&2
     exit 1
 }
 trap 'fail "step $step"' ERR
 
-adb wait-for-device
+timeout 300 adb wait-for-device
 # Text goes in through `input text`, and an on-screen keyboard would cover the fields below the focused
 # one. Android falls back to any input method left, the voice one included, so all of them go, with their
 # apps. adb reads stdin, hence the list is taken whole first.
@@ -53,7 +59,7 @@ left=$(adb shell ime list -s | tr -d '\r')
 adb reverse tcp:8443 tcp:443
 # Crash and «not responding» dialogs of other apps would cover the screen being read.
 adb shell settings put global hide_error_dialogs 1
-adb install -r "$apk"
+timeout 300 adb install -r "$apk"
 # Allowed up front: blesk's question about notifications, at the first friend or message, never covers the screen.
 adb shell pm grant "$package" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 # A cold first start: the splash holds until the start screen is read, so this is the time to the welcome screen.
@@ -99,4 +105,10 @@ for _ in $(seq 30); do
     sleep 2
 done
 [[ -n $registered ]] || fail "the app never logged ServerRegistered"
+# Still alive a while after reaching the chats: a crash in what starts after sign-up (keys, socket,
+# background work, the update check) would otherwise pass unseen.
+sleep 15
+timeout 60 adb shell pidof "$package" >/dev/null || fail "the app is no longer running"
+crashes=$(timeout 60 adb logcat -b crash -d | tr -d '\r')
+[[ $crashes != *"Process: $package"* ]] || fail "the app crashed after reaching the chats"
 echo "smoke test passed: @$username signed up through the welcome screen; cold start $(sed -n 's/^TotalTime: //p' "$shots/start.txt") ms"
