@@ -2,12 +2,16 @@ package app.blesk.server.http
 
 import io.ktor.http.HttpStatusCode
 
-/** A failure the client is told about as an [app.blesk.shared.protocol.ErrorBody] with a stable [code]. */
+/**
+ * A failure the client is told about as an [app.blesk.shared.protocol.ErrorBody] with a stable [code];
+ * [retryAfterSeconds] goes out as Retry-After.
+ */
 class ApiException(
     val status: HttpStatusCode,
     val code: String,
     message: String = "",
     cause: Throwable? = null,
+    val retryAfterSeconds: Long? = null,
 ) : RuntimeException(message, cause)
 
 object ErrorCodes {
@@ -67,4 +71,6 @@ fun forbidden(code: String = ErrorCodes.FORBIDDEN) = ApiException(HttpStatusCode
 
 fun conflict(code: String) = ApiException(HttpStatusCode.Conflict, code)
 
-fun rateLimited() = ApiException(HttpStatusCode.TooManyRequests, ErrorCodes.RATE_LIMITED)
+/** 429 for a caller whose bucket in [limiter] is empty, saying when it holds a token again. */
+fun rateLimited(limiter: RateLimiter) =
+    ApiException(HttpStatusCode.TooManyRequests, ErrorCodes.RATE_LIMITED, retryAfterSeconds = limiter.retryAfterSeconds)

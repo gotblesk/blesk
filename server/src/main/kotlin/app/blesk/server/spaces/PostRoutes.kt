@@ -2,13 +2,13 @@ package app.blesk.server.spaces
 
 import app.blesk.server.Services
 import app.blesk.server.auth.account
-import app.blesk.server.http.ApiException
 import app.blesk.server.http.ErrorCodes
 import app.blesk.server.http.badRequest
 import app.blesk.server.http.ensure
 import app.blesk.server.http.forbidden
 import app.blesk.server.http.notFound
 import app.blesk.server.http.orFail
+import app.blesk.server.http.rateLimited
 import app.blesk.server.http.receiveJson
 import app.blesk.shared.protocol.EditPost
 import app.blesk.shared.protocol.NewPost
@@ -39,9 +39,7 @@ internal fun Route.postRoutes(services: Services) {
             val space = call.space(services)
             val author = call.account
             services.requirePublisher(space, author.id)
-            ensure(services.postRateLimiter.tryAcquire(author.id.toString())) {
-                ApiException(HttpStatusCode.TooManyRequests, ErrorCodes.RATE_LIMITED)
-            }
+            ensure(services.postRateLimiter.tryAcquire(author.id.toString())) { rateLimited(services.postRateLimiter) }
             val request = call.receiveJson<NewPost>(POST_REQUEST_LIMIT)
             ensure(request.clientId.isNotEmpty() && request.clientId.length <= MAX_CLIENT_ID_LENGTH) { badRequest() }
             ensure(request.text.isNotBlank() || request.attachment != null) { badRequest(message = "empty") }

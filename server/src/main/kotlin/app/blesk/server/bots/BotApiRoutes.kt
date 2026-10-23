@@ -99,7 +99,7 @@ fun AuthenticationConfig.botBearer(services: Services) {
 /** The bot whose token authorised the call, after its rate limit; only inside `authenticate(BOT_BEARER)`. */
 private fun ApplicationCall.bot(services: Services): Bot {
     val bot = checkNotNull(principal<Bot>()) { "route is not authenticated as a bot" }
-    ensure(services.botApiRateLimiter.tryAcquire(bot.id.toString())) { rateLimited() }
+    ensure(services.botApiRateLimiter.tryAcquire(bot.id.toString())) { rateLimited(services.botApiRateLimiter) }
     return bot
 }
 

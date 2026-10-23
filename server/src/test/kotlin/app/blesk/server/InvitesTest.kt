@@ -16,6 +16,7 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.statement.HttpResponse
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.ApplicationTestBuilder
 import kotlinx.coroutines.runBlocking
@@ -145,6 +146,18 @@ class InvitesTest {
         harness.register(invite = invite.code)
         assertEquals(listOf(invite), harness.invites(alice).invites)
     }
+
+    @Test
+    fun `invites share the registration budget and say when to ask again`() =
+        serverTest(rateLimit = RateLimitConfig(capacity = 4, refillPerMinute = 3)) { harness ->
+            // Registering and signing in take three of the four.
+            val alice = harness.register()
+            harness.createInvite(alice)
+            val limited = harness.createInviteRaw(alice)
+            assertEquals(HttpStatusCode.TooManyRequests, limited.status)
+            assertEquals("rate_limited", limited.body<ErrorBody>().code)
+            assertEquals("20", limited.headers[HttpHeaders.RetryAfter])
+        }
 
     @Test
     fun `maintenance deletes expired invites, and used ones once forgotten`() {

@@ -13,6 +13,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import org.junit.Assert.assertEquals
@@ -87,12 +88,14 @@ class AccountsTest {
     fun `lookups by username run out, so nobody can walk every name`() = serverTest { harness ->
         val alice = harness.register()
         val bob = harness.register()
-        suspend fun lookUp(name: String, token: String) = harness.client.get("${Api.ACCOUNTS}/$name") { bearerAuth(token) }.status
+        suspend fun lookUp(name: String, token: String) = harness.client.get("${Api.ACCOUNTS}/$name") { bearerAuth(token) }
         val answers = List(25) { lookUp(randomUsername(), alice.token) }
-        assertEquals(List(20) { HttpStatusCode.NotFound }, answers.take(20))
-        assertTrue(answers.drop(20).all { it == HttpStatusCode.TooManyRequests })
+        assertEquals(List(20) { HttpStatusCode.NotFound }, answers.take(20).map { it.status })
+        assertTrue(answers.drop(20).all { it.status == HttpStatusCode.TooManyRequests })
+        // Ten a minute: a lookup comes back every six seconds.
+        assertEquals("6", answers[20].headers[HttpHeaders.RetryAfter])
         // The budget is per person: someone else still finds people.
-        assertEquals(HttpStatusCode.OK, lookUp(alice.username, bob.token))
+        assertEquals(HttpStatusCode.OK, lookUp(alice.username, bob.token).status)
     }
 
     @Test

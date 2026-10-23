@@ -24,7 +24,7 @@ fun Route.inviteRoutes(services: Services) {
     post(Api.INVITES) {
         val owner = call.account
         // An invite leads to a registration, so making one draws on the same per-address budget.
-        ensure(services.authRateLimiter.tryAcquire(call.clientAddress(services.trustProxy))) { rateLimited() }
+        ensure(services.authRateLimiter.tryAcquire(call.clientAddress(services.trustProxy))) { rateLimited(services.authRateLimiter) }
         val invite = services.invites.create(owner.id, services.now()).orFail { conflict(ErrorCodes.INVITE_LIMIT) }
         call.respond(HttpStatusCode.Created, invite)
     }

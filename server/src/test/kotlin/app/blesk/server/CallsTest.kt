@@ -16,6 +16,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import org.junit.Assert.assertEquals
@@ -88,6 +89,7 @@ class CallsTest {
         val limited = harness.requestToken(alice.token, "call-1")
         assertEquals(HttpStatusCode.TooManyRequests, limited.status)
         assertEquals("rate_limited", limited.body<ErrorBody>().code)
+        assertEquals(harness.services.callRateLimiter.retryAfterSeconds.toString(), limited.headers[HttpHeaders.RetryAfter])
     }
 
     @Test

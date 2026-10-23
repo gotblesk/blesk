@@ -23,6 +23,7 @@ import app.blesk.server.spaces.spaceRoutes
 import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.ServerInfo
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -32,6 +33,7 @@ import io.ktor.server.auth.authenticate
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
@@ -59,7 +61,10 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
         botBearer(services)
     }
     install(StatusPages) {
-        exception<ApiException> { call, failure -> call.respond(failure.status, ErrorBody(failure.code, failure.message.orEmpty())) }
+        exception<ApiException> { call, failure ->
+            failure.retryAfterSeconds?.let { call.response.header(HttpHeaders.RetryAfter, it.toString()) }
+            call.respond(failure.status, ErrorBody(failure.code, failure.message.orEmpty()))
+        }
         exception<BadRequestException> { call, _ -> call.respond(HttpStatusCode.BadRequest, ErrorBody(ErrorCodes.BAD_REQUEST)) }
         exception<Throwable> { call, failure ->
             // Only the class name: messages of database errors can quote the values involved.

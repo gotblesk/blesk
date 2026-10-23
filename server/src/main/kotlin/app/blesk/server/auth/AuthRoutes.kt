@@ -12,6 +12,7 @@ import app.blesk.server.http.ensure
 import app.blesk.server.http.forbidden
 import app.blesk.server.http.notFound
 import app.blesk.server.http.orFail
+import app.blesk.server.http.rateLimited
 import app.blesk.server.http.receiveJson
 import app.blesk.shared.protocol.AccountInfo
 import app.blesk.shared.protocol.Api
@@ -131,9 +132,7 @@ fun Route.loginRoutes(services: Services) {
 
 fun Route.accountLookupRoutes(services: Services) {
     get("${Api.ACCOUNTS}/{username}") {
-        ensure(services.lookupBudget.tryAcquire(call.account.id.toString())) {
-            ApiException(HttpStatusCode.TooManyRequests, ErrorCodes.RATE_LIMITED)
-        }
+        ensure(services.lookupBudget.tryAcquire(call.account.id.toString())) { rateLimited(services.lookupBudget) }
         val username = call.parameters["username"].orEmpty()
         ensure(Usernames.isWellFormed(username)) { notFound() }
         val account = services.accounts.find(username).orFail { notFound() }

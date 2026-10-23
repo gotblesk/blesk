@@ -101,6 +101,20 @@ class BotsTest {
     }
 
     @Test
+    fun `bots past their limit are told when to ask again`() =
+        serverTest(botRateLimit = RateLimitConfig(capacity = 1, refillPerMinute = 2)) { harness ->
+            val owner = harness.register()
+            val created = harness.createBot(owner)
+            assertEquals(HttpStatusCode.OK, harness.botGet(created.token, "getMe").status)
+            // Two a minute: a call comes back every thirty seconds, for the owner and for the bot alike.
+            for (limited in listOf(harness.createBotRaw(owner), harness.botGet(created.token, "getMe"))) {
+                assertEquals(HttpStatusCode.TooManyRequests, limited.status)
+                assertEquals("rate_limited", limited.body<ErrorBody>().code)
+                assertEquals("30", limited.headers[HttpHeaders.RetryAfter])
+            }
+        }
+
+    @Test
     fun `an unknown bot is not found`() = serverTest { harness ->
         val person = harness.register()
         assertEquals(HttpStatusCode.NotFound, harness.client.get(Bots.userPath(randomBotUsername())) { bearerAuth(person.token) }.status)

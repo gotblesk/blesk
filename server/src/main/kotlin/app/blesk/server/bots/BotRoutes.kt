@@ -35,7 +35,7 @@ private const val MAX_CLIENT_ID = 128
 fun Route.botRoutes(services: Services) {
     post(Bots.PATH) {
         val owner = call.account
-        ensure(services.botRateLimiter.tryAcquire(owner.id.toString())) { rateLimited() }
+        ensure(services.botRateLimiter.tryAcquire(owner.id.toString())) { rateLimited(services.botRateLimiter) }
         val request = call.receiveJson<CreateBot>()
         ensure(Bots.isValidUsername(request.username)) { badRequest(ErrorCodes.INVALID_USERNAME) }
         val name = request.name.trim()
@@ -77,7 +77,7 @@ fun Route.botRoutes(services: Services) {
 
     post("${Bots.PATH}/{username}/updates") {
         val person = call.account
-        ensure(services.botRateLimiter.tryAcquire(person.id.toString())) { rateLimited() }
+        ensure(services.botRateLimiter.tryAcquire(person.id.toString())) { rateLimited(services.botRateLimiter) }
         val bot = call.pathBot(services)
         val request = call.receiveJson<UserToBot>()
         ensure(request.id.length in 1..MAX_CLIENT_ID) { badRequest() }

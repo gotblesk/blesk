@@ -21,6 +21,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import org.junit.Assert.assertEquals
@@ -184,6 +185,7 @@ class SpacePostsTest {
         val limited = spaces.post(owner, channel.handle, "too fast")
         assertEquals(HttpStatusCode.TooManyRequests, limited.status)
         assertEquals("rate_limited", limited.body<ErrorBody>().code)
+        assertEquals(harness.services.postRateLimiter.retryAfterSeconds.toString(), limited.headers[HttpHeaders.RetryAfter])
     }
 
     @Test

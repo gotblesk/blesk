@@ -1,15 +1,10 @@
 package app.blesk.server.http
 
 import app.blesk.server.RateLimitConfig
-import app.blesk.shared.protocol.ErrorBody
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.createRouteScopedPlugin
 import io.ktor.server.application.install
 import io.ktor.server.plugins.origin
-import io.ktor.server.response.header
-import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.RouteSelector
 import io.ktor.server.routing.RouteSelectorEvaluation
@@ -78,12 +73,7 @@ private class RateLimitSettings {
 private val RateLimit = createRouteScopedPlugin("RateLimit", ::RateLimitSettings) {
     val limiter = pluginConfig.limiter
     val trustProxy = pluginConfig.trustProxy
-    onCall { call ->
-        if (!limiter.tryAcquire(call.clientAddress(trustProxy))) {
-            call.response.header(HttpHeaders.RetryAfter, limiter.retryAfterSeconds.toString())
-            call.respond(HttpStatusCode.TooManyRequests, ErrorBody(ErrorCodes.RATE_LIMITED))
-        }
-    }
+    onCall { call -> ensure(limiter.tryAcquire(call.clientAddress(trustProxy))) { rateLimited(limiter) } }
 }
 
 /** Wraps [build] so every route inside answers 429 once the caller's bucket is empty. */
