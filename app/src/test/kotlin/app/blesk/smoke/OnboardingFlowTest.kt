@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.AppContainer
 import app.blesk.BleskApplication
@@ -23,6 +24,7 @@ import app.blesk.shared.protocol.Invites
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -111,6 +113,49 @@ class OnboardingFlowTest {
     }
 
     @Test
+    fun anInviteLinksCodeIsStillThereAfterGoingBack() {
+        waitFor(CREATE)
+        container.linkRequest.value = Invites.link(CODE)
+        waitFor(CODE)
+
+        goBack()
+        waitFor(CREATE)
+        // blesk's own server's code opens the invite step again, as «Создать аккаунт» would, without asking the server.
+        container.linkRequest.value = OWN_SERVER_CODE
+
+        waitFor(INVITE_TITLE)
+        waitFor(CODE)
+    }
+
+    @Test
+    fun aCodeTypedOverTheLinksIsKeptOnComingBack() {
+        waitFor(CREATE)
+        container.linkRequest.value = Invites.link(CODE)
+        waitFor(CODE)
+
+        compose.onNodeWithContentDescription(INVITE_FIELD).performTextReplacement(OTHER_CODE)
+        compose.onNodeWithText("Дальше").performClick()
+        waitFor("Как тебя найдут")
+        goBack()
+
+        waitFor(OTHER_CODE)
+        compose.onNodeWithText(CODE).assertDoesNotExist()
+    }
+
+    @Test
+    fun aLinkThatNeedsAnAccountKeepsTheChosenServer() {
+        waitFor(CREATE)
+        val chosen = ServerAddress("https://chat.example.ru")
+        container.signUp.server = chosen
+        waitFor("Сервер: chat.example.ru")
+
+        container.linkRequest.value = "https://blesk.su/@vera.s"
+
+        waitFor(INVITE_TITLE)
+        assertEquals(chosen, container.signUp.server)
+    }
+
+    @Test
     fun aShareWaitsForTheChats() {
         waitFor(CREATE)
 
@@ -152,6 +197,12 @@ class OnboardingFlowTest {
         assertInSmokeBand(compose.onNodeWithText(CREATE))
     }
 
+    private fun goBack() {
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.mainClock.advanceTimeBy(SETTLE_MILLIS)
+        compose.waitForIdle()
+    }
+
     /** The middle of the screen `scripts/ci/ui.py tap` reaches, clear of the floating lenses. */
     private fun assertInSmokeBand(node: SemanticsNodeInteraction) {
         val bounds = node.getUnclippedBoundsInRoot()
@@ -165,6 +216,10 @@ class OnboardingFlowTest {
         const val DEMO = "Попробовать демо"
         const val OTHER_SERVER = "Другой сервер"
         const val CODE = "abcdefghjk23"
+        const val OTHER_CODE = "mnpqrstuvw45"
+        const val OWN_SERVER_CODE = "blesk://server?url=https://api.blesk.su"
+        const val INVITE_TITLE = "Инвайт-код"
+        const val INVITE_FIELD = "Код или ссылка"
         const val WAIT_MILLIS = 5_000L
         const val SETTLE_MILLIS = 1_000L
         val SMOKE_BAND = 0.15f..0.78f

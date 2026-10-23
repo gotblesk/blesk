@@ -87,6 +87,7 @@ import app.blesk.locks.ChatLockGate
 import app.blesk.locks.ChatLocksRoute
 import app.blesk.locks.LockCodeRoute
 import app.blesk.locks.LockedDetails
+import app.blesk.onboarding.KeepSignUpServer
 import app.blesk.onboarding.NotificationAsk
 import app.blesk.onboarding.OtherServerKey
 import app.blesk.onboarding.ServerRef
@@ -234,6 +235,7 @@ data class LicenseKey(val license: License) : NavKey
 
 @Composable
 fun BleskNavigation(container: AppContainer) {
+    KeepSignUpServer(container.signUp)
     // Under the splash until the settings are read, so the stack starts with the screen the app opens with.
     val opening = container.start.collectAsStateWithLifecycle().value ?: return
     val backStack = rememberNavBackStack(startKey(opening))
@@ -297,6 +299,8 @@ fun BleskNavigation(container: AppContainer) {
         container.signUp.server = ServerAddress.DEFAULT
         backStack.openSignUp(ServerRef.of(ServerAddress.DEFAULT))
     }
+    // A person, channel or group is looked up on whichever server the account is made on, so the chosen one stays.
+    val openSignUpAsChosen: () -> Unit = { backStack.openSignUp(ServerRef.of(container.signUp.server)) }
     val openOtherServer: (ServerAddress) -> Unit = { address ->
         while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
         // In the demo an account starts from «Сервер и прокси», where the server step comes back to.
@@ -590,6 +594,10 @@ fun BleskNavigation(container: AppContainer) {
                                     openSignUp()
                                 },
                                 onOtherServer = openOtherServer,
+                                onNeedsAccount = {
+                                    while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                                    openSignUpAsChosen()
+                                },
                                 onBack = back,
                             )
                         }
@@ -799,6 +807,7 @@ fun BleskNavigation(container: AppContainer) {
                         profile = { backStack.add(ChatInfoKey(it)) },
                         signUp = openSignUp,
                         otherServer = openOtherServer,
+                        needsAccount = openSignUpAsChosen,
                     ),
                     atHome = backStack.singleOrNull() == HomeKey,
                 )

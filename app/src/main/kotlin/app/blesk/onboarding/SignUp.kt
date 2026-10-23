@@ -1,7 +1,10 @@
 package app.blesk.onboarding
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.navigation3.runtime.NavKey
 import app.blesk.AppContainer
@@ -59,6 +62,45 @@ internal class SignUp(private val container: AppContainer) {
      */
     suspend fun create(address: ServerAddress, invite: String?, username: String): RegisterResult =
         container.connect(address, username, invite, officialChannel = info(address)?.officialChannel)
+
+    /** The account the name step makes on [server] by [invite]. */
+    fun account(server: ServerAddress, invite: String?): NewAccount = object : NewAccount {
+        override val address = server
+
+        override fun unfinishedName() = container.unfinishedName(server)
+
+        override suspend fun check(name: String) = checkName(server, name)
+
+        override suspend fun create(name: String) = this@SignUp.create(server, invite, name)
+    }
+}
+
+/** An account to be made on one server, as the name step sees it. */
+internal interface NewAccount {
+    val address: ServerAddress
+
+    /** The name of an attempt here that did not succeed: the server may have made its account, which is then this phone's. */
+    fun unfinishedName(): String?
+
+    /** What the server says of [name]; null when it could not be asked. */
+    suspend fun check(name: String): UsernameCheck?
+
+    suspend fun create(name: String): RegisterResult
+}
+
+/**
+ * Keeps the server chosen for sign-up with the screens' saved state. The choice lives as long as the app, while
+ * Android may close the app in the background and bring its screens back in a new one, on blesk's own server.
+ */
+@Composable
+internal fun KeepSignUpServer(signUp: SignUp) {
+    rememberSaveable(
+        saver = Saver(
+            save = { signUp.server.link() },
+            // Written before any screen reads the server: this runs first in the app's first frame after the restart.
+            restore = { link -> ServerAddress.parse(link)?.also { signUp.server = it } },
+        ),
+    ) { signUp.server }
 }
 
 /** The invite [code] the server refused, and why. */

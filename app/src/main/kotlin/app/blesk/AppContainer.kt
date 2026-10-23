@@ -275,6 +275,8 @@ class AppContainer(
         val result = withContext(Dispatchers.IO) {
             stack.register(username, PhraseKeys(entropy), invite, resume = resumed != null)
         }
+        // No account of this phone has a name the server turns down: one an attempt before had made would have been signed in to.
+        if (result == RegisterResult.NameTaken || result == RegisterResult.NameInvalid) unfinished = null
         if (result != RegisterResult.Ok) return result
         // The account exists on its server now, so the rest runs to its end even when the screen that asked has gone.
         withContext(NonCancellable) {
@@ -317,6 +319,9 @@ class AppContainer(
     private var unfinished: Attempt? = null
 
     private class Attempt(val address: ServerAddress, val username: String, val entropy: ByteArray)
+
+    /** The name of the attempt on [address] that did not succeed: the server may have made its account, which is then this phone's. */
+    internal fun unfinishedName(address: ServerAddress): String? = unfinished?.takeIf { it.address == address }?.username
 
     /** Opens the account of [words] on [address]; the phone that had it is signed out. */
     suspend fun recover(address: ServerAddress, words: List<String>): RecoverResult {

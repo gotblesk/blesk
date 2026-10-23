@@ -59,6 +59,7 @@ class LinksTest {
         profile = { opened += "profile:$it" },
         signUp = { opened += "signUp" },
         otherServer = { opened += "server:${it.url}" },
+        needsAccount = { opened += "needsAccount" },
     )
 
     @After
@@ -97,7 +98,7 @@ class LinksTest {
     }
 
     @Test
-    fun `without an account nobody is looked up and sign-up opens`() = runBlocking {
+    fun `without an account nobody is looked up and sign-up opens on the server chosen`() = runBlocking {
         val targets = listOf(
             LinkTarget.Profile("anya", null),
             LinkTarget.Space("news"),
@@ -106,7 +107,8 @@ class LinksTest {
         targets.forEach { target ->
             assertEquals(target.toString(), LinkOutcome.NeedsAccount, follow(target, null, pendingInvite, screens))
         }
-        assertEquals(List(targets.size) { "signUp" }, opened)
+        // Only an invite or blesk's own code leads to blesk's own server; these leave the server chosen as it is.
+        assertEquals(List(targets.size) { "needsAccount" }, opened)
         assertNull(pendingInvite.value)
         assertEquals(R.string.link_needs_account, LinkOutcome.NeedsAccount.notice)
     }

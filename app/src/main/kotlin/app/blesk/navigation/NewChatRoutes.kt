@@ -102,6 +102,7 @@ internal fun ScanRoute(
     onOpenConversation: (String) -> Unit,
     onSignUp: () -> Unit,
     onOtherServer: (ServerAddress) -> Unit,
+    onNeedsAccount: () -> Unit,
     onBack: () -> Unit,
 ) {
     val chats = container.chats.collectAsStateWithLifecycle().value ?: return
@@ -113,6 +114,7 @@ internal fun ScanRoute(
         profile = onOpenConversation,
         signUp = onSignUp,
         otherServer = onOtherServer,
+        needsAccount = onNeedsAccount,
     )
     LensScaffold(top = { TopLens(title = context.getString(R.string.new_chat_scan), onBack = onBack) }) { padding ->
         QrScanner(

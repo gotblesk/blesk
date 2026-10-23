@@ -67,13 +67,15 @@ internal class LinkScreens(
     val signUp: () -> Unit,
     /** The step of a server other than blesk's own, with its address filled in. */
     val otherServer: (ServerAddress) -> Unit,
+    /** Sign-up on the server chosen for it, whichever that is, for a link that needs an account first. */
+    val needsAccount: () -> Unit,
 )
 
 /**
  * Follows [target] in [account], the chats of the account, or null before there is one. Without
  * an account nobody can be asked: an invite to register is kept in [pendingInvite] for the
- * invite step, a server's code opens its step, and every other link opens sign-up, since it
- * needs an account first.
+ * invite step on blesk's own server, a server's code opens its step, and every other link opens
+ * sign-up on the server already chosen, since it needs an account first.
  */
 internal suspend fun follow(
     target: LinkTarget,
@@ -93,7 +95,7 @@ internal suspend fun follow(
     }
     target is LinkTarget.Server -> LinkOutcome.AlreadyConnected
     account == null -> {
-        screens.signUp()
+        screens.needsAccount()
         LinkOutcome.NeedsAccount
     }
     else -> reach(target, account, screens.conversation, screens.profile)

@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,10 +79,13 @@ internal fun EntryProviderScope<Any>.onboardingEntries(
         InviteRoute(container, key, onNext = { invite -> backStack.add(UsernameKey(key.server, invite)) }, onBack = { close(key) })
     }
     entry<UsernameKey> { key ->
+        val account = remember(key) { container.signUp.account(key.server.address(), key.invite) }
         UsernameRoute(
-            container = container,
-            key = key,
-            onInviteRefused = { backStack.openSignUp(key.server) },
+            account = account,
+            onInviteRefused = { why ->
+                container.signUp.refusedInvite = RefusedInvite(key.invite.orEmpty(), why)
+                backStack.openSignUp(key.server)
+            },
             onOpen = { backStack.add(it) },
             onBack = { close(key) },
         )
@@ -265,11 +269,13 @@ private fun InviteRoute(container: AppContainer, key: InviteKey, onNext: (String
     val signUp = container.signUp
     val code = rememberTextFieldState()
     val pending by container.pendingInvite.collectAsStateWithLifecycle()
+    // The link's code waits until an account is made, so this step opened again after going back still has it;
+    // coming back to the same step keeps what was typed over it. Invite links are for blesk's own server only.
+    var taken by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(pending) {
-        val invite = pending ?: return@LaunchedEffect
+        val invite = pending?.takeIf { it != taken && key.server.address() == ServerAddress.DEFAULT } ?: return@LaunchedEffect
+        taken = invite
         code.setTextAndPlaceCursorAtEnd(invite)
-        // Taken once: coming back to this step keeps what was typed over it since.
-        container.pendingInvite.value = null
     }
     val info = signUp.info(key.server.address())
     val typed = code.text.toString()
@@ -288,40 +294,37 @@ private fun InviteRoute(container: AppContainer, key: InviteKey, onNext: (String
  * as the live check would have; a turned-down invite sends the person back to its step.
  */
 @Composable
-private fun UsernameRoute(
-    container: AppContainer,
-    key: UsernameKey,
-    onInviteRefused: () -> Unit,
+internal fun UsernameRoute(
+    account: NewAccount,
+    onInviteRefused: (AccessProblem) -> Unit,
     onOpen: (NavKey) -> Unit,
     onBack: () -> Unit,
 ) {
-    val signUp = container.signUp
-    val address = key.server.address()
     val scope = rememberCoroutineScope()
     val input = rememberUsernameInput()
-    val checks = rememberUsernameChecks(input) { signUp.checkName(address, it) }
+    // An attempt that broke off, as when the person left a slow sign-up, may have left its account made: the check
+    // then calls the name taken, yet it is this phone's to finish. Read on coming here and after every try.
+    var unfinished by remember { mutableStateOf(account.unfinishedName()) }
+    val checks = rememberUsernameChecks(input, own = unfinished) { account.check(it) }
     var busy by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<AccessProblem?>(null) }
-    fun refuseInvite(why: AccessProblem) {
-        signUp.refusedInvite = RefusedInvite(key.invite.orEmpty(), why)
-        onInviteRefused()
-    }
     fun create() {
         val name = input.text
         busy = true
         problem = null
         scope.launch {
-            val result = signUp.create(address, key.invite, name)
+            val result = account.create(name)
             // The account's setup opens from its saved state; this screen only stays busy until it goes.
             if (result == RegisterResult.Ok) return@launch
             busy = false
+            unfinished = account.unfinishedName()
             when (result) {
                 RegisterResult.Ok -> Unit
                 RegisterResult.NameTaken -> checks.learn(name, UsernameCheck(false, UsernameVerdict.TAKEN, name))
                 RegisterResult.NameInvalid -> checks.learn(name, UsernameCheck(false, UsernameVerdict.INVALID, name))
-                RegisterResult.InviteRequired -> refuseInvite(AccessProblem.InviteRequired)
-                RegisterResult.InviteInvalid -> refuseInvite(AccessProblem.InviteInvalid)
-                is ServerTrouble -> problem = result.problem(address)
+                RegisterResult.InviteRequired -> onInviteRefused(AccessProblem.InviteRequired)
+                RegisterResult.InviteInvalid -> onInviteRefused(AccessProblem.InviteInvalid)
+                is ServerTrouble -> problem = result.problem(account.address)
             }
         }
     }
