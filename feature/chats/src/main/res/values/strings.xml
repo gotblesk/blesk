@@ -76,6 +76,11 @@
     <string name="chat_online">в сети</string>
     <string name="chat_recently">недавно в сети</string>
     <string name="chat_online_spoken">в сети</string>
+    <string name="chats_sample_name">Аня</string>
+    <string name="chats_sample_in_first">Привет! Тема уже поменялась?</string>
+    <string name="chats_sample_out">Да, сразу везде</string>
+    <string name="chats_sample_in_second">Красиво получилось</string>
+    <string name="chats_sample_description">Пример переписки в этой теме</string>
     <string name="requests_title">Запросы</string>
     <string name="requests_hint">Эти люди написали тебе первыми. Пока ты не примешь запрос, они не видят отметок о прочтении и того, что ты печатаешь.</string>
     <string name="requests_empty">Новых запросов нет</string>

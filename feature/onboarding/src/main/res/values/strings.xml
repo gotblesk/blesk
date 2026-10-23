@@ -40,6 +40,33 @@
     <string name="onboarding_terms">Создавая аккаунт, ты принимаешь %1$s и %2$s</string>
     <string name="onboarding_terms_rules">правила</string>
     <string name="onboarding_terms_policy">политику конфиденциальности</string>
+    <string name="onboarding_profile_title">Как тебя называть</string>
+    <string name="onboarding_profile_text">Имя и фото увидят те, с кем ты переписываешься. Можно добавить и позже.</string>
+    <string name="onboarding_profile_name">Имя</string>
+    <string name="onboarding_profile_pick">Выбрать фото</string>
+    <string name="onboarding_profile_remove">Убрать фото</string>
+    <string name="onboarding_profile_invisible">В имени нужна хотя бы одна видимая буква, цифра или эмодзи</string>
+    <string name="onboarding_skip">Пропустить</string>
+
+    <string name="onboarding_code_title">Код-пароль</string>
+    <string name="onboarding_code_text">Замок на этом телефоне: без кода никто не откроет blesk, даже с\u00A0телефоном в руках. Код хранится только здесь и к аккаунту не относится. Забудешь — сотрёшь данные на телефоне и войдёшь по\u00A0фразе.</string>
+    <string name="onboarding_code_on">Включить</string>
+    <string name="onboarding_code_later">Не сейчас</string>
+
+    <string name="onboarding_theme_title">Тема</string>
+    <string name="onboarding_theme_text">Так blesk будет выглядеть везде. Свою тему соберёшь потом в «Настройки → Оформление».</string>
+
+    <string name="onboarding_glint_title">Язык блеска</string>
+    <string name="onboarding_glint_line">Блестит — значит, читаете только\u00A0вы</string>
+    <string name="onboarding_glint_text">Блик на аватаре — сквозное шифрование: сообщения читают только участники чата. Каналы, открытые комнаты и боты матовые: их читает и сервер.</string>
+    <string name="onboarding_glint_private">Личный чат</string>
+    <string name="onboarding_glint_private_note">Сквозное шифрование</string>
+    <string name="onboarding_glint_public">Канал</string>
+    <string name="onboarding_glint_public_note">Без сквозного шифрования</string>
+    <string name="onboarding_glint_channel">Подписаться на канал blesk</string>
+    <string name="onboarding_glint_channel_hint">Новости, обновления и подсказки. Отписаться можно в любой момент.</string>
+    <string name="onboarding_glint_done">В чаты</string>
+
 
     <string name="onboarding_error_address">Не похоже на адрес сервера</string>
     <string name="onboarding_error_unreachable">Сервер не отвечает. Проверь интернет и попробуй ещё раз.</string>

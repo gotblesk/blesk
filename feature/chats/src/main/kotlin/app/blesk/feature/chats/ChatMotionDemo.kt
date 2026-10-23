@@ -58,7 +58,7 @@ fun ChatMotionDemo(motion: ChatMotion, replay: Int, modifier: Modifier = Modifie
     }
 }
 
-private val QuietActions = MessageActions(onReply = null, onMenu = {}, onReact = { _, _ -> }, onApplyTheme = {})
+internal val QuietActions = MessageActions(onReply = null, onMenu = {}, onReact = { _, _ -> }, onApplyTheme = {})
 
 private fun demo(at: Instant, id: String, own: Boolean, text: String, status: SendStatus = SendStatus.Read) = Message(
     id = id,
