@@ -28,6 +28,7 @@ import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.chats.ComposerPanel
 import app.blesk.feature.chats.ConversationCallbacks
 import app.blesk.feature.chats.ConversationScreen
+import app.blesk.feature.chats.EmojiCatalog
 import app.blesk.feature.chats.EmojiPanel
 import app.blesk.feature.chats.StickerShelf
 import app.blesk.feature.chats.media.RecordDraft
@@ -108,7 +109,11 @@ class StickerScreenshotTest(private val name: String) {
     }
 
     @Test
-    fun emojiPanelInChat() = capture("45_chat_emoji_panel") { chatWith(ComposerPanel.Emoji) }
+    fun emojiPanelInChat() {
+        // Read before the capture: the panel reads it off the main thread, and the shot would race it.
+        EmojiCatalog.warm(ApplicationProvider.getApplicationContext())
+        capture("45_chat_emoji_panel") { chatWith(ComposerPanel.Emoji) }
+    }
 
     @Test
     fun attachPanelInChat() = capture("46_chat_attach_panel") { chatWith(ComposerPanel.Attach) }

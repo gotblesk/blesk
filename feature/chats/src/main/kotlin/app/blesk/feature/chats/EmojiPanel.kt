@@ -177,12 +177,27 @@ private fun EmojiTab(recent: List<String>, onPick: (String) -> Unit, modifier: M
     }
 }
 
+/** The emoji list, read once per process, so a panel opened again has its emoji from the first frame. */
+object EmojiCatalog {
+    @Volatile private var read: Map<EmojiSection, List<EmojiEntry>>? = null
+
+    internal val cached: Map<EmojiSection, List<EmojiEntry>>? get() = read
+
+    /** Reads the list now if no panel has read it yet; blocks, so off the main thread. */
+    fun warm(context: Context) {
+        get(context)
+    }
+
+    internal fun get(context: Context): Map<EmojiSection, List<EmojiEntry>> =
+        read ?: loadEmoji(context.applicationContext).also { read = it }
+}
+
 /** The emoji list, read once [load] turns true; empty until then. */
 @Composable
 internal fun rememberEmojiCatalog(load: Boolean): State<Map<EmojiSection, List<EmojiEntry>>> {
     val context = LocalContext.current
-    return produceState(emptyMap(), load) {
-        if (load) value = withContext(Dispatchers.IO) { loadEmoji(context) }
+    return produceState(EmojiCatalog.cached.takeIf { load }.orEmpty(), load) {
+        if (load) value = withContext(Dispatchers.IO) { EmojiCatalog.get(context) }
     }
 }
 
