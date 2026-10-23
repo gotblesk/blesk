@@ -6,6 +6,9 @@ import androidx.compose.ui.graphics.compositeOver
 /** WCAG 2.x contrast thresholds. */
 object ContrastLevel {
     const val BODY_TEXT = 4.5f
+
+    /** Body text at the enhanced level, AAA. */
+    const val ENHANCED_TEXT = 7f
     const val LARGE_TEXT = 3f
     const val UI_COMPONENT = 3f
 }

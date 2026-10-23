@@ -103,6 +103,11 @@ class OnboardingScreenshotTest(private val name: String) {
     fun welcomeHuge() = capture("00a_welcome_huge", fontScale = 2f) { WelcomeScreen(WelcomeState(), welcomeActions) }
 
     @Test
+    fun welcomeCreating() = capture("00a_welcome_creating", motion = BleskMotion(reduced = false, still = true)) {
+        WelcomeScreen(WelcomeState(busy = true), welcomeActions)
+    }
+
+    @Test
     fun welcomeUnreachable() = capture("00a_welcome_unreachable") {
         WelcomeScreen(WelcomeState(problem = AccessProblem.Unreachable(otherServer = false)), welcomeActions)
     }
@@ -170,6 +175,11 @@ class OnboardingScreenshotTest(private val name: String) {
 
     @Test
     fun usernameLarge() = capture("00d_username_large", textScale = 1.5f) { UsernameStep("egor", taken) }
+
+    @Test
+    fun usernameCreating() = capture("00d_username_creating") {
+        UsernameStepScreen(rememberUsernameInput("egor.m"), UsernameStatus.Free("egor.m"), UsernameStepState(busy = true), usernameActions)
+    }
 
     @Test
     fun usernameProblem() = capture("00d_username_problem") {

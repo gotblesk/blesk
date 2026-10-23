@@ -158,7 +158,7 @@ private fun WayCapsule(text: String, primary: Boolean, ready: Boolean, busy: Boo
             .heightIn(min = CapsuleHeight)
             .clip(CircleShape)
             .then(fill)
-            .passingLight(busy, CircleShape)
+            .passingLight(busy, CircleShape, fill = colors.accent, content = colors.onAccent)
             .clickable(role = Role.Button, onClick = onClick)
             .semantics {
                 if (!ready) contentDescription = "$text, $soonLabel"

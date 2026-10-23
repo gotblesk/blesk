@@ -19,11 +19,17 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.blesk.core.design.color.ContrastLevel
+import app.blesk.core.design.color.contrastRatio
+import app.blesk.core.design.theme.Blesk
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.motion.BleskMotion
+import app.blesk.shared.appearance.Appearance
+import app.blesk.shared.appearance.ThemeSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,6 +83,49 @@ class ControlsTest {
         assertNotEquals(early, edge())
     }
 
+    @Test
+    fun aBusyLabelStaysReadableWhereTheLightStandsStill() {
+        val label = showBusyInEveryTheme(BleskMotion(reduced = true))
+        ThemeSpec.presets.forEach { preset ->
+            theme = preset
+            compose.waitForIdle()
+            val ratio = contrastRatio(label(), edge())
+            assertTrue("${preset.preset}: $ratio", ratio >= ContrastLevel.BODY_TEXT)
+        }
+    }
+
+    @Test
+    fun aBusyLabelStaysReadableAsTheLightCrossesIt() {
+        compose.mainClock.autoAdvance = false
+        val label = showBusyInEveryTheme(BleskMotion(reduced = false))
+        ThemeSpec.presets.forEach { preset ->
+            theme = preset
+            compose.mainClock.advanceTimeByFrame()
+            // A whole pass, looked at near the edge of the button, where the light enters it.
+            val seen = (1..PASS_STEPS).map {
+                compose.mainClock.advanceTimeBy(PASS_STEP_MILLIS)
+                edge()
+            }
+            val worst = seen.minOf { contrastRatio(label(), it) }
+            assertTrue("${preset.preset}: $worst", worst >= ContrastLevel.BODY_TEXT)
+            assertTrue("${preset.preset}: no light passed", seen.distinct().size > 1)
+        }
+    }
+
+    private var theme by mutableStateOf(ThemeSpec.Light)
+
+    /** A busy button in [theme]; gives the colour its label is written in. */
+    private fun showBusyInEveryTheme(motion: BleskMotion): () -> Color {
+        var label = Color.Unspecified
+        compose.setContent {
+            BleskTheme(Appearance(theme = theme), motion) {
+                label = Blesk.colors.onAccent
+                Button("Создать аккаунт", onClick = {}, Modifier.width(200.dp), busy = true)
+            }
+        }
+        return { label }
+    }
+
     private fun showButton(motion: BleskMotion, busy: () -> Boolean) {
         compose.setContent {
             BleskTheme(motion = motion) { Button("Создать аккаунт", onClick = {}, Modifier.width(200.dp), busy = busy()) }
@@ -127,5 +176,10 @@ class ControlsTest {
         }
         compose.waitForIdle()
         assertEquals(expected, shown)
+    }
+
+    private companion object {
+        const val PASS_STEPS = 32
+        const val PASS_STEP_MILLIS = 50L
     }
 }

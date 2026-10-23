@@ -10,8 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawOutline
+import app.blesk.core.design.color.ContrastLevel
+import app.blesk.core.design.color.contrastRatio
 import app.blesk.core.design.motion.rememberLoopPhase
 import app.blesk.core.design.theme.Blesk
 import kotlinx.coroutines.delay
@@ -55,16 +59,24 @@ fun Modifier.lightSweep(active: Boolean, shape: Shape): Modifier = composed {
 
 /**
  * Something is being done and the element waits for it, like a button that started creating an
- * account: while [active] a veil of the page dims the element's fill and the theme's light
- * crosses it again and again; where the light must stand still there is only the veil. Placed
- * after the fill, so both go under what is written on it and the text stays sharp.
+ * account: while [active] a veil of the page dims the element's [fill] and the theme's light
+ * crosses it again and again; where the light must stand still there is only the veil. Both give
+ * way to the [content] written on the element: dimmed, it keeps the enhanced contrast, which
+ * leaves the light room to pass, and wherever the light is, it still reads as body text. In the
+ * light theme the words on a dark button are almost the light's own colour, and the light would
+ * otherwise wash them out. Placed after the fill, so both go under the content and it stays sharp.
  */
-fun Modifier.passingLight(active: Boolean, shape: Shape): Modifier {
+fun Modifier.passingLight(active: Boolean, shape: Shape, fill: Color, content: Color): Modifier {
     if (!active) return this
     return composed {
-        // Dimmed first, the fill leaves the light room to show, even where it is the light's own colour.
-        val veil = Blesk.colors.background.copy(alpha = VEIL)
-        val light = Blesk.colors.light.copy(alpha = if (Blesk.colors.isDark) PASS_DARK else PASS_LIGHT)
+        val colors = Blesk.colors
+        val most = if (colors.isDark) PASS_DARK else PASS_LIGHT
+        val layers = remember(colors.background, colors.light, most, fill, content) {
+            val veil = colors.background.copy(alpha = mostOver(colors.background, fill, content, ContrastLevel.ENHANCED_TEXT, VEIL))
+            val light = colors.light.copy(alpha = mostOver(colors.light, veil.compositeOver(fill), content, ContrastLevel.BODY_TEXT, most))
+            veil to light
+        }
+        val (veil, light) = layers
         val still = Blesk.motion.still
         val phase by rememberLoopPhase(PASS_MILLIS)
         drawWithCache {
@@ -83,6 +95,15 @@ fun Modifier.passingLight(active: Boolean, shape: Shape): Modifier {
     }
 }
 
+/**
+ * How much of [layer], up to [most], can lie over [base] with [content] on it still at [ratio].
+ * Every lesser amount must keep it too: the light's soft edges show each of them somewhere.
+ */
+private fun mostOver(layer: Color, base: Color, content: Color, ratio: Float, most: Float): Float =
+    (1..ALPHA_STEPS).map { most * it / ALPHA_STEPS }
+        .takeWhile { alpha -> contrastRatio(content, layer.copy(alpha = alpha).compositeOver(base)) >= ratio }
+        .lastOrNull() ?: 0f
+
 private const val SWEEP_MILLIS = 700
 private const val PASS_MILLIS = 1_600
 private const val VEIL = 0.4f
@@ -90,5 +111,6 @@ private const val PASS_LIGHT = 0.6f
 private const val PASS_DARK = 0.4f
 private const val STILL_MILLIS = 400L
 private const val BAND = 0.4f
+private const val ALPHA_STEPS = 40
 private const val SWEEP_LIGHT = 0.55f
 private const val SWEEP_DARK = 0.25f

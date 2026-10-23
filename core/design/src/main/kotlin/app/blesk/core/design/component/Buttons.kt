@@ -54,7 +54,7 @@ fun Button(
             .heightIn(min = Blesk.dimens.touchTarget)
             .clip(CircleShape)
             .background(background)
-            .passingLight(busy, CircleShape)
+            .passingLight(busy, CircleShape, fill = background, content = content)
             .clickable(role = Role.Button) { if (!busy) onClick() }
             .then(if (busy) Modifier.semantics { stateDescription = wait } else Modifier)
             .padding(horizontal = 20.dp, vertical = 12.dp),
