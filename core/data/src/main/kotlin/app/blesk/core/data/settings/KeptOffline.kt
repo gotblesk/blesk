@@ -33,6 +33,10 @@ class KeptOffline(context: Context) {
         }
     }
 
+    suspend fun clear() {
+        store.edit { it.remove(KEPT) }
+    }
+
     private fun encode(key: OfflineKey) = "${key.conversationId}$SEPARATOR${key.messageId}"
 
     private fun decode(value: String): OfflineKey? {

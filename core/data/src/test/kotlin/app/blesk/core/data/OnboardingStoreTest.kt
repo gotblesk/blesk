@@ -1,0 +1,171 @@
+package app.blesk.core.data
+
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import app.blesk.core.data.settings.AppMode
+import app.blesk.core.data.settings.AutoDownload
+import app.blesk.core.data.settings.AutoKind
+import app.blesk.core.data.settings.GestureHint
+import app.blesk.core.data.settings.LastServer
+import app.blesk.core.data.settings.NotificationPreview
+import app.blesk.core.data.settings.OnboardingStore
+import app.blesk.core.data.settings.Profile
+import app.blesk.core.data.settings.ProxySetting
+import app.blesk.core.data.settings.SettingsStore
+import app.blesk.core.data.settings.SetupStep
+import app.blesk.core.data.settings.StartState
+import app.blesk.core.data.settings.VibrationLevel
+import app.blesk.shared.appearance.ThemeSpec
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
+
+/** Each test has a settings file of its own: the app's one is shared by every test in the process. */
+class OnboardingStoreTest {
+    @get:Rule
+    val folder = TemporaryFolder()
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val settings by lazy {
+        SettingsStore(PreferenceDataStoreFactory.create(scope = scope) { File(folder.root, "settings.preferences_pb") })
+    }
+    private val onboarding by lazy { OnboardingStore(settings) }
+
+    @After
+    fun closeTheFile() {
+        scope.cancel()
+    }
+
+    @Test
+    fun signingUpDropsExactlyTheDemoKeys() = runBlocking {
+        everythingSet()
+        val before = settings.store.data.first().asMap()
+
+        onboarding.forgetDemo(keepNameAndPhoto = true)
+
+        val after = settings.store.data.first().asMap()
+        assertEquals(DEMO_KEYS, (before.keys - after.keys).map { it.name }.toSet())
+        assertEquals(before.filterKeys { it in after.keys }, after)
+        val profile = settings.profile.first()
+        assertEquals("Ева", profile.name)
+        assertEquals(1L, profile.photoVersion)
+        assertEquals("", profile.bio)
+        assertEquals(emptyList<String>(), profile.links)
+        assertEquals(Profile.DEFAULT_HEADER, profile.header)
+        assertEquals(0L, profile.headerVersion)
+        assertEquals(emptyMap<String, ThemeSpec>(), settings.chatThemes.first())
+        assertEquals(emptySet<String>(), settings.notifications.first().mentionsOnly)
+    }
+
+    @Test
+    fun aPhraseLoginAlsoDropsTheDemoNameAndPhoto() = runBlocking {
+        everythingSet()
+        val before = settings.store.data.first().asMap()
+
+        onboarding.forgetDemo(keepNameAndPhoto = false)
+
+        val after = settings.store.data.first().asMap()
+        assertEquals(DEMO_KEYS + setOf("profile_name", "profile_photo"), (before.keys - after.keys).map { it.name }.toSet())
+        assertEquals(before.filterKeys { it in after.keys }, after)
+        val profile = settings.profile.first()
+        assertEquals("", profile.name)
+        assertEquals(0L, profile.photoVersion)
+    }
+
+    @Test
+    fun aNameOfOnlyInvisibleCharactersIsNotSaved() = runBlocking {
+        assertTrue(onboarding.setProfileName("Аня"))
+
+        assertFalse(onboarding.setProfileName("​‮ㅤ"))
+        assertEquals("Аня", settings.profile.first().name)
+
+        assertTrue(onboarding.setProfileName("  Ева‮ "))
+        assertEquals("Ева", settings.profile.first().name)
+
+        assertTrue(onboarding.setProfileName(""))
+        assertEquals("", settings.profile.first().name)
+    }
+
+    @Test
+    fun theLastServerIsRemembered() = runBlocking {
+        assertNull(onboarding.lastServer.first())
+
+        onboarding.rememberServer("https://chat.example", "sha256/k7m2p9xq")
+        assertEquals(LastServer("https://chat.example", "sha256/k7m2p9xq"), onboarding.lastServer.first())
+
+        onboarding.rememberServer("https://other.example", null)
+        assertEquals(LastServer("https://other.example", null), onboarding.lastServer.first())
+    }
+
+    @Test
+    fun theSetupStepResumesUntilCleared() = runBlocking {
+        assertEquals(StartState.Welcome, onboarding.start.first())
+        onboarding.chooseDemo()
+        assertEquals(StartState.Demo, onboarding.start.first())
+
+        settings.setServer(AppMode.Server(url = "https://api.blesk.su", pin = null, username = "anya"))
+        assertEquals(StartState.Account(null), onboarding.start.first())
+        onboarding.setSetupStep(SetupStep.Code)
+        assertEquals(StartState.Account(SetupStep.Code), onboarding.start.first())
+        onboarding.setSetupStep(null)
+        assertEquals(StartState.Account(null), onboarding.start.first())
+
+        settings.store.edit { it[stringPreferencesKey("setup_step")] = "Backup" }
+        assertEquals(StartState.Account(null), onboarding.start.first())
+    }
+
+    /** Every preference a person can have in the demo, none at its default. */
+    private suspend fun everythingSet() {
+        settings.updateAppearance { it.copy(theme = ThemeSpec.Lime, textScale = 1.2f) }
+        settings.setChatTheme("anya", ThemeSpec.Lilac)
+        settings.bumpWallpaper()
+        settings.updateNotifications { it.copy(preview = NotificationPreview.Nothing, mentionsOnly = setOf("room:general")) }
+        settings.updateProfile(name = "Ева", username = "eva.demo", bio = "Люблю горы", links = listOf("https://blesk.su"))
+        settings.setProfileHeader("solid:3")
+        settings.bumpProfileHeader()
+        settings.bumpProfilePhoto()
+        settings.updatePrivacy { it.copy(biometric = true, findable = false) }
+        settings.setVibration(VibrationLevel.Quiet)
+        settings.setProxy(ProxySetting(enabled = true, socks = false, host = "proxy.example", port = 3128))
+        settings.markHint(GestureHint.Reply)
+        settings.setDoubleTapReaction("★")
+        settings.setChatBackground("solid:2")
+        settings.setKeepMediaDays(30)
+        settings.setAutoDownload(AutoDownload(wifi = setOf(AutoKind.Photos), mobile = emptySet()))
+        settings.setCheckUpdates(false)
+        settings.setComposer(sendByEnter = true, circle = true, tapToRecord = true)
+        settings.setKeepArchived(true)
+        settings.setArchiveFolded(true)
+        settings.pickEmoji("★")
+        settings.setDebugUnlocked(true)
+        onboarding.chooseDemo()
+        onboarding.rememberServer("https://chat.example", null)
+        settings.setServer(AppMode.Server(url = "https://chat.example", pin = null, username = "eva"))
+    }
+
+    private companion object {
+        val DEMO_KEYS = setOf(
+            "chat_themes",
+            "mentions_only",
+            "profile_username",
+            "profile_bio",
+            "profile_links",
+            "profile_header",
+            "profile_header_photo",
+            "onboarding_demo",
+        )
+    }
+}

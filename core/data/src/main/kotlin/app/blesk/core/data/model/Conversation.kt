@@ -67,6 +67,8 @@ data class Conversation(
     val request: Boolean = false,
     /** The other person's profile photo on this phone, for a direct chat. */
     val photo: String? = null,
+    /** The server's own blesk channel, marked «Официальный». */
+    val official: Boolean = false,
 ) {
     fun muted(now: Long): Boolean = mutedUntil > now
 }

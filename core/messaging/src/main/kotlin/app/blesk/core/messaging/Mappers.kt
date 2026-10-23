@@ -136,6 +136,7 @@ internal fun ConversationEntity.toModel(space: SpaceInfo) = toModel().copy(
     } else {
         persistentListOf()
     },
+    official = space.official,
 )
 
 private const val FACES = 3

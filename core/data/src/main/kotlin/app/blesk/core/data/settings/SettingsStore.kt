@@ -39,21 +39,16 @@ sealed interface AppMode {
  * Non-secret preferences. Nothing here is sensitive: message data and keys live in the
  * encrypted database, never in DataStore.
  */
-class SettingsStore(context: Context) {
-    private val store = context.applicationContext.settingsDataStore
+class SettingsStore internal constructor(internal val store: DataStore<Preferences>) {
+    constructor(context: Context) : this(context.applicationContext.settingsDataStore)
+
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
 
     val appearance: Flow<Appearance> = store.data
         .map { prefs -> prefs[APPEARANCE]?.let(::decodeAppearance) ?: Appearance() }
         .distinctUntilChanged()
 
-    val mode: Flow<AppMode> = store.data
-        .map { prefs ->
-            val url = prefs[SERVER]?.takeIf { it.isNotBlank() }
-            val username = prefs[SERVER_USERNAME]?.takeIf { it.isNotBlank() }
-            if (url != null && username != null) AppMode.Server(url, prefs[SERVER_PIN], username) else AppMode.Demo
-        }
-        .distinctUntilChanged()
+    val mode: Flow<AppMode> = store.data.map { it.appMode() }.distinctUntilChanged()
 
     val debugUnlocked: Flow<Boolean> = store.data.map { it[DEBUG_UNLOCKED] ?: false }.distinctUntilChanged()
 
@@ -340,7 +335,7 @@ class SettingsStore(context: Context) {
         null
     }
 
-    private companion object {
+    internal companion object {
         val APPEARANCE = stringPreferencesKey("appearance")
         val SERVER = stringPreferencesKey("server")
         val SERVER_PIN = stringPreferencesKey("server_pin")
@@ -397,4 +392,10 @@ class SettingsStore(context: Context) {
         const val MAX_RECENT_EMOJI = 32
         val chatThemesSerializer = MapSerializer(String.serializer(), ThemeSpec.serializer())
     }
+}
+
+internal fun Preferences.appMode(): AppMode {
+    val url = this[SettingsStore.SERVER]?.takeIf { it.isNotBlank() }
+    val username = this[SettingsStore.SERVER_USERNAME]?.takeIf { it.isNotBlank() }
+    return if (url != null && username != null) AppMode.Server(url, this[SettingsStore.SERVER_PIN], username) else AppMode.Demo
 }

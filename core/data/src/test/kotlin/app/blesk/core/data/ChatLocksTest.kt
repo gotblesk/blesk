@@ -40,6 +40,18 @@ class ChatLocksTest {
     }
 
     @Test
+    fun forgettingChatsKeepsTheRulesAndTheArchive() {
+        val rules = LockRules(counter = LockCounter.Number)
+        val archive = LockOverrides(notify = LockNotify.None)
+        val all = locks.copy(rules = rules, overrides = locks.overrides + (ChatLocks.ARCHIVE to archive))
+
+        val forgotten = all.withoutChats()
+
+        assertEquals(ChatLocks(rules, setOf(ChatLocks.ARCHIVE), mapOf(ChatLocks.ARCHIVE to archive)), forgotten)
+        assertEquals(ChatLocks(rules = rules), ChatLocks(rules = rules, locked = setOf("anya")).withoutChats())
+    }
+
+    @Test
     fun emptyOverridesAreNothing() {
         assertTrue(LockOverrides().isEmpty)
         assertFalse(LockOverrides(counter = LockCounter.Hidden).isEmpty)

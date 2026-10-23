@@ -24,6 +24,7 @@ import app.blesk.core.data.settings.AutoDownload
 import app.blesk.core.data.settings.ChatLockStore
 import app.blesk.core.data.settings.EconomyStore
 import app.blesk.core.data.settings.KeptOffline
+import app.blesk.core.data.settings.OnboardingStore
 import app.blesk.core.data.settings.Privacy
 import app.blesk.core.data.settings.PrivateImage
 import app.blesk.core.data.settings.ProxySetting
@@ -88,6 +89,7 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
     )
     val crashStore = CrashStore(File(context.noBackupFilesDir, "diagnostics"))
     val settings = SettingsStore(context)
+    val onboarding = OnboardingStore(settings)
 
     /** Newer builds from GitHub Releases; only release builds ask, so tests never reach GitHub. */
     val updater = Updater(context)
@@ -297,8 +299,29 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
         )
         (chats.value as? ServerChatRepository)?.close()
         val repository = withContext(Dispatchers.IO) { stack.repository(username, privacy, profile, keepArchived) }
+        // Before the account starts and shows: demo chat ids are real usernames, so a theme or a lock left on one
+        // would land on someone's real chat, and the demo's bio would go out with the first message.
+        forgetDemo(entry)
         repository.start()
         show(repository, stack.api)
+    }
+
+    /** Drops the demo's chats' settings, its profile and what it was in the middle of. */
+    private suspend fun forgetDemo(entry: Entry) {
+        val keepNameAndPhoto = when (entry) {
+            Entry.SignUp -> true
+            Entry.Recovered -> false
+        }
+        onboarding.forgetDemo(keepNameAndPhoto)
+        chatLocks.forgetChats()
+        keptOffline.clear()
+        withContext(Dispatchers.IO) {
+            headerPhoto.clear()
+            if (!keepNameAndPhoto) profilePhoto.clear()
+        }
+        pendingLock.value = null
+        demoCallMedia.value = MediaState()
+        profileDraft.value = null
     }
 
     /** The server of the current world; null in the demo. */

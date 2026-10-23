@@ -89,6 +89,13 @@ data class ChatLocks(
 
     fun rulesFor(id: String): LockRules = (overrides[id] ?: overrides[id.substringBefore(':')])?.over(rules) ?: rules
 
+    /** The rules and the archive's lock, with no chat under a lock: the same id names another chat in another world. */
+    fun withoutChats() = ChatLocks(
+        rules = rules,
+        locked = locked intersect setOf(ARCHIVE),
+        overrides = overrides.filterKeys { it == ARCHIVE },
+    )
+
     companion object {
         /** The whole archive, as one locked thing. */
         const val ARCHIVE = "@archive"
@@ -117,6 +124,8 @@ class ChatLockStore(context: Context) {
             overrides = if (locked) locks.overrides else locks.overrides - id,
         )
     }
+
+    suspend fun forgetChats() = update { it.withoutChats() }
 
     private companion object {
         val STATE = stringPreferencesKey("state")
