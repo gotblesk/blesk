@@ -77,6 +77,7 @@ private suspend fun makeOfficial(command: OfficialCommand, database: Database): 
         OfficialCommand.Outcome.Made, OfficialCommand.Outcome.Already -> println("@${OfficialCommand.HANDLE}")
         OfficialCommand.Outcome.NoAccount -> System.err.println("no account @${command.owner}")
         OfficialCommand.Outcome.HandleTaken -> System.err.println("@${OfficialCommand.HANDLE} belongs to another account")
+        OfficialCommand.Outcome.NotChannel -> System.err.println("@${OfficialCommand.HANDLE} is a room, not a channel")
     }
     return outcome.status
 }

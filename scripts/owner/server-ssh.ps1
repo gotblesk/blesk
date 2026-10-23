@@ -51,7 +51,7 @@ function Show-Invites([string]$Count) {
     Write-Info '' 'Отправь ссылку тому, кого зовёшь в blesk: по ней можно установить приложение и зарегистрироваться.'
 }
 
-# The server answers 3 when there is no such account and 4 when another account holds @blesk.
+# The server answers 3 when there is no such account, 4 when another account holds @blesk and 5 when it is this account's room.
 function Set-Official([string]$Name) {
     Write-Step "Делаю канал @blesk официальным, владелец — @$Name"
     $result = Invoke-Native $ssh ((Get-SshArguments -Batch) + "$stack $cli official $Name")
@@ -67,6 +67,10 @@ function Set-Official([string]$Name) {
         4 {
             Exit-WithError 'Адрес @blesk уже занят каналом или комнатой другого аккаунта.' `
                 'Удали этот канал или комнату в приложении владельца, потом повтори команду.'
+        }
+        5 {
+            Exit-WithError "Адрес @blesk занят комнатой @$Name, а официальным может быть только канал." `
+                'Удали эту комнату в приложении, потом повтори команду.'
         }
         default {
             Write-Info $result.Lines

@@ -58,7 +58,7 @@ show_invites() {
     info "" "Отправь ссылку тому, кого зовёшь в blesk: по ней можно установить приложение и зарегистрироваться."
 }
 
-# The server answers 3 when there is no such account and 4 when another account holds @blesk.
+# The server answers 3 when there is no such account, 4 when another account holds @blesk and 5 when it is this account's room.
 make_official() {
     local output status=0
     step "Делаю канал @blesk официальным, владелец — @$1"
@@ -75,6 +75,10 @@ make_official() {
         4)
             fail "Адрес @blesk уже занят каналом или комнатой другого аккаунта." \
                 "Удали этот канал или комнату в приложении владельца, потом повтори команду."
+            ;;
+        5)
+            fail "Адрес @blesk занят комнатой @$1, а официальным может быть только канал." \
+                "Удали эту комнату в приложении, потом повтори команду."
             ;;
         *)
             info "$output"

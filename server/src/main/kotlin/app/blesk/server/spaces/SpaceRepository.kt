@@ -27,7 +27,7 @@ class Space(
 enum class ChannelRemoval { Removed, NotFound, Last }
 
 /** How [SpaceRepository.makeOfficial] ended. */
-enum class Officialness { Made, Already, HandleTaken }
+enum class Officialness { Made, Already, HandleTaken, NotChannel }
 
 /** Every column [SpaceRepository] reads into a [Space], from `spaces` named `s`. */
 private const val SPACE_COLUMNS = "s.id, s.handle, s.kind, s.title, s.about, s.official"
@@ -66,7 +66,8 @@ class SpaceRepository(private val database: Database) {
 
     /**
      * Makes the channel at [handle] the server's own, owned by [ownerId]: a new one if the handle is
-     * free, or the one [ownerId] already owns there. A space someone else owns stays theirs.
+     * free, or the one [ownerId] already owns there. A space someone else owns stays theirs, and a room
+     * stays a room: everyone in it may write, and new people are offered the official channel to read.
      */
     suspend fun makeOfficial(handle: String, ownerId: Long, now: Instant): Officialness = database.transaction { connection ->
         val space = connection.queryOne("SELECT $SPACE_COLUMNS FROM spaces s WHERE s.handle = ? FOR UPDATE", handle, map = ::space)
@@ -77,6 +78,7 @@ class SpaceRepository(private val database: Database) {
                 if (made) Officialness.Made else Officialness.HandleTaken
             }
             connection.role(space.id, ownerId) != SpaceRole.Owner -> Officialness.HandleTaken
+            space.kind != SpaceKind.Channel -> Officialness.NotChannel
             space.official -> Officialness.Already
             else -> {
                 connection.update("UPDATE spaces SET official = TRUE WHERE id = ?", space.id)

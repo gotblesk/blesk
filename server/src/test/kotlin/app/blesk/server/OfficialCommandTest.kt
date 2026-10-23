@@ -84,6 +84,19 @@ class OfficialCommandTest {
     }
 
     @Test
+    fun `a room its owner made at the handle is not made the channel`(): Unit = runBlocking {
+        val server = Repositories(TestDatabase.fresh())
+        val owner = server.account()
+        server.handOutHandle(owner, SpaceKind.Room)
+
+        val outcome = OfficialCommand(owner).run(server.accounts, server.spaces, now)
+        assertEquals(OfficialCommand.Outcome.NotChannel, outcome)
+        assertTrue(outcome.status != 0)
+        assertNull(server.spaces.officialHandle())
+        assertFalse(checkNotNull(server.spaces.find(OfficialCommand.HANDLE)).official)
+    }
+
+    @Test
     fun `the server's own process answers with its exit codes`(): Unit = runBlocking {
         val url = TestDatabase.freshUrl()
         val variables = serverProcessVariables(url)
@@ -121,10 +134,10 @@ class OfficialCommandTest {
         suspend fun id(username: String): Long = checkNotNull(accounts.find(username)).id
 
         /** A space at the official handle, made the way one could be before such handles were kept back. */
-        suspend fun handOutHandle(owner: String) {
+        suspend fun handOutHandle(owner: String, kind: SpaceKind = SpaceKind.Channel) {
             val handle = OfficialCommand.HANDLE
             val channel = SpaceChannel(NewPost.MAIN_CHANNEL, handle)
-            assertTrue(spaces.create(handle, SpaceKind.Channel, handle, "", id(owner), channel, Instant.now()))
+            assertTrue(spaces.create(handle, kind, handle, "", id(owner), channel, Instant.now()))
         }
     }
 }

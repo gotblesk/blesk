@@ -18,6 +18,9 @@ data class OfficialCommand(val owner: String) {
 
         /** Another account owns a space at the handle, made before such handles were kept back. */
         HandleTaken(4),
+
+        /** The owner's own space at the handle is a room, made before such handles were kept back. */
+        NotChannel(5),
     }
 
     suspend fun run(accounts: AccountRepository, spaces: SpaceRepository, now: Instant): Outcome {
@@ -26,6 +29,7 @@ data class OfficialCommand(val owner: String) {
             Officialness.Made -> Outcome.Made
             Officialness.Already -> Outcome.Already
             Officialness.HandleTaken -> Outcome.HandleTaken
+            Officialness.NotChannel -> Outcome.NotChannel
         }
     }
 
