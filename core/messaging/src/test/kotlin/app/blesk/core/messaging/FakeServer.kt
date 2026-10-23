@@ -440,7 +440,14 @@ class FakeTransport : Transport {
         synchronized(lock) { acknowledged += serverId }
     }
 
-    override fun stop() = Unit
+    /** Whether the client has stopped listening for good. */
+    @Volatile
+    var stopped = false
+        private set
+
+    override fun stop() {
+        stopped = true
+    }
 }
 
 /** Small chunks, so even a test photo goes up in several pieces. */

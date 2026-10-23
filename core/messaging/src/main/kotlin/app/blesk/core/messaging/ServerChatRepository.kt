@@ -78,6 +78,7 @@ import app.blesk.shared.protocol.UpdateSpace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -120,6 +121,7 @@ class ServerChatRepository(
     private val accounts: AccountManager,
     private val media: MediaVault,
     override val me: String,
+    /** Belongs to this repository alone: [close] cancels it. Given, not made here, because [KeyChecks] needs it as it is built. */
     private val scope: CoroutineScope,
     private val privacy: () -> Privacy,
     private val profile: () -> OwnProfile,
@@ -313,7 +315,11 @@ class ServerChatRepository(
         scope.launch { groups.tidy().forEach { applyGroup(it.sender, it.content) } }
     }
 
-    fun stop() = socket.stop()
+    /** Stops for good: the socket, the outbox's timer, the sweeps and every job started here. A closed repository is not used again. */
+    fun close() {
+        socket.stop()
+        scope.cancel()
+    }
 
     override suspend fun openDirect(username: String, link: String?): String? {
         if (username == me) return null

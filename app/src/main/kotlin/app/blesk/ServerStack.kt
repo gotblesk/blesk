@@ -2,18 +2,12 @@ package app.blesk
 
 import android.content.Context
 import android.net.ConnectivityManager
-import app.blesk.core.crypto.DatabaseKey
 import app.blesk.core.crypto.phrase.PhraseKeys
 import app.blesk.core.crypto.signal.GroupCrypto
-import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
-import app.blesk.core.crypto.signal.SignalStore
 import app.blesk.core.data.R
-import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.model.attachmentLabel
-import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.Privacy
-import app.blesk.core.messaging.AccountManager
 import app.blesk.core.messaging.OwnProfile
 import app.blesk.core.messaging.RecoverResult
 import app.blesk.core.messaging.RegisterResult
@@ -24,16 +18,13 @@ import app.blesk.core.network.ServerAddress
 import app.blesk.core.network.Socket
 import kotlinx.coroutines.flow.StateFlow
 
-/** The encrypted database, keys and connection used in server mode. */
+/** The connection to the server at [address], over the one [vault] of this phone. */
 internal class ServerStack(
     private val context: Context,
     private val container: AppContainer,
     val address: ServerAddress,
+    val vault: ServerVault,
 ) {
-    private val database: BleskDatabase by lazy { BleskDatabase.open(context, DatabaseKey(context).obtain()) }
-    private val store: SignalStore by lazy { SignalStore(database.signal()) }
-    private val keys: KeyManager by lazy { KeyManager(store) }
-    val accounts: AccountManager by lazy { AccountManager(store, keys) }
     val api = BleskApi(address)
 
     /**
@@ -41,28 +32,29 @@ internal class ServerStack(
      * finishes the one an attempt that broke off may have made; runs off the main thread.
      */
     suspend fun register(username: String, phrase: PhraseKeys, invite: String?, resume: Boolean): RegisterResult =
-        accounts.register(api, username, phrase, invite, resume)
+        vault.accounts.register(api, username, phrase, invite, resume)
 
     /** Takes over the account of [phrase] on this phone; runs off the main thread. */
-    suspend fun recover(phrase: PhraseKeys): RecoverResult = accounts.recover(api, phrase)
+    suspend fun recover(phrase: PhraseKeys): RecoverResult = vault.accounts.recover(api, phrase)
 
     fun repository(
         username: String,
         privacy: StateFlow<Privacy>,
         profile: StateFlow<OwnProfile>,
         keepArchived: StateFlow<Boolean>,
-    ) =
-        ServerChatRepository(
-            db = database,
+    ): ServerChatRepository {
+        val scope = container.childScope()
+        return ServerChatRepository(
+            db = vault.database,
             api = api,
-            socket = Socket(api, container.scope),
-            crypto = MessageCrypto(store) { username },
-            groupCrypto = GroupCrypto(store) { username },
-            keys = keys,
-            accounts = accounts,
+            socket = Socket(api, scope),
+            crypto = MessageCrypto(vault.store) { username },
+            groupCrypto = GroupCrypto(vault.store) { username },
+            keys = vault.keys,
+            accounts = vault.accounts,
             media = container.media,
             me = username,
-            scope = container.scope,
+            scope = scope,
             privacy = { privacy.value },
             profile = { profile.value },
             labels = context.resources::attachmentLabel,
@@ -76,11 +68,7 @@ internal class ServerStack(
                 // The economy mode keeps automatic downloads to Wi-Fi; a tap still downloads anything.
                 container.autoDownload.value.allows(kind, metered) && !(metered && container.economy.effects.value.wifiOnlyMedia)
             },
-        ).also { repository -> store.onIdentityChanged = repository::onKeyChanged }
-
-    companion object {
-        fun from(context: Context, container: AppContainer, mode: AppMode.Server) =
-            ServerStack(context, container, ServerAddress(mode.url, mode.pin))
+        ).also { repository -> vault.store.onIdentityChanged = repository::onKeyChanged }
     }
 }
 

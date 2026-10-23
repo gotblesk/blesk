@@ -40,6 +40,7 @@ import app.blesk.core.media.VoiceRecorder
 import app.blesk.core.messaging.OwnProfile
 import app.blesk.core.messaging.RecoverResult
 import app.blesk.core.messaging.RegisterResult
+import app.blesk.core.messaging.ServerChatRepository
 import app.blesk.core.network.BleskApi
 import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ProxyConfig
@@ -139,6 +140,8 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
     }
 
     private val appContext = context.applicationContext
+    private val serverVault by lazy { ServerVault(appContext) }
+    private var currentStack: ServerStack? = null
     private val chatsState = MutableStateFlow<ChatRepository?>(null)
     private val privacy = settings.privacy.stateIn(scope, SharingStarted.Eagerly, Privacy())
     private val keepArchived = settings.keepArchived.stateIn(scope, SharingStarted.Eagerly, false)
@@ -205,7 +208,7 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
             when (val mode = settings.mode.first()) {
                 AppMode.Demo -> show(demo, api = null)
                 is AppMode.Server -> {
-                    val stack = ServerStack.from(appContext, this@AppContainer, mode)
+                    val stack = stackFor(ServerAddress(mode.url, mode.pin))
                     val repository = withContext(Dispatchers.IO) {
                         stack.repository(mode.username, privacy, profile, keepArchived)
                     }
@@ -228,7 +231,7 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
      * it. The phrase is kept sealed on this phone until the person has written it down.
      */
     suspend fun connect(address: ServerAddress, username: String, invite: String?): RegisterResult {
-        val stack = ServerStack(appContext, this, address)
+        val stack = stackFor(address)
         // The same name again after a failure keeps its phrase, so an account the server made before the
         // connection dropped is signed in to and still opens with the phrase saved below.
         val resumed = unfinished?.takeIf { it.address == address && it.username == username }
@@ -241,7 +244,7 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
         unfinished = null
         pendingInvite.value = null
         withContext(Dispatchers.IO) { phrase.save(entropy) }
-        open(stack, address, username)
+        open(stack, username, Entry.SignUp)
         return result
     }
 
@@ -253,21 +256,46 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
     /** Opens the account of [words] on [address]; the phone that had it is signed out. */
     suspend fun recover(address: ServerAddress, words: List<String>): RecoverResult {
         val entropy = RecoveryPhrase.entropyOf(words) ?: return RecoverResult.Unknown
-        val stack = ServerStack(appContext, this, address)
+        val stack = stackFor(address)
         val result = withContext(Dispatchers.IO) { stack.recover(PhraseKeys(entropy)) }
         if (result !is RecoverResult.Ok) return result
         withContext(Dispatchers.IO) {
             phrase.save(entropy)
             phrase.markChecked()
         }
-        open(stack, address, result.username)
+        open(stack, result.username, Entry.Recovered)
         return result
     }
 
-    private suspend fun open(stack: ServerStack, address: ServerAddress, username: String) {
-        val mode = AppMode.Server(address.url, address.pin, username)
-        settings.setServer(mode)
-        eventLog.record(EventCode.ServerRegistered)
+    /**
+     * The connection to [address]: the same one while the address stays, so a retry reuses it; another
+     * address gets its own over the one database and keys of this phone. Main thread only.
+     */
+    internal fun stackFor(address: ServerAddress): ServerStack {
+        currentStack?.takeIf { it.address == address }?.let { return it }
+        currentStack?.api?.dropConnections()
+        return ServerStack(appContext, this, address, serverVault).also { currentStack = it }
+    }
+
+    /** A scope under [scope] for one world's work: cancelling it ends that work alone, and its failures still reach the journal. */
+    internal fun childScope(): CoroutineScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
+
+    /** How the account came to this phone. */
+    private sealed interface Entry {
+        data object SignUp : Entry
+        data object Recovered : Entry
+    }
+
+    /** Switches the app to the account [username] on the server of [stack]; the repository open before stops for good. */
+    private suspend fun open(stack: ServerStack, username: String, entry: Entry) {
+        settings.setServer(AppMode.Server(stack.address.url, stack.address.pin, username))
+        eventLog.record(
+            when (entry) {
+                Entry.SignUp -> EventCode.ServerRegistered
+                Entry.Recovered -> EventCode.AccountRecovered
+            },
+        )
+        (chats.value as? ServerChatRepository)?.close()
         val repository = withContext(Dispatchers.IO) { stack.repository(username, privacy, profile, keepArchived) }
         repository.start()
         show(repository, stack.api)
@@ -283,7 +311,7 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
         scope.launch { clearOldMedia(repository, settings.keepMediaDays.first()) }
         callsScope?.cancel()
         callsState.value?.media?.disconnect()
-        val callScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
+        val callScope = childScope()
         callsScope = callScope
         callsState.value = CallManager(
             scope = callScope,

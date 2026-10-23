@@ -50,12 +50,14 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onSubscription
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -79,8 +81,16 @@ class TwoClientsTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val server = FakeServer()
 
-    /** [retryMillis] is how long its outbox waits after a failed pass when the server names no time. */
-    private inner class Client(val name: String, displayName: String, retryMillis: Long = NO_RETRY_IN_TIME) {
+    /**
+     * [retryMillis] is how long its outbox waits after a failed pass when the server names no time. Closing the
+     * repository cancels its [scope], so a client that is closed needs a scope of its own.
+     */
+    private inner class Client(
+        val name: String,
+        displayName: String,
+        retryMillis: Long = NO_RETRY_IN_TIME,
+        scope: CoroutineScope = this@TwoClientsTest.scope,
+    ) {
         var privacy = Privacy()
         var photo: File? = null
         val db: BleskDatabase = Room.inMemoryDatabaseBuilder(context, BleskDatabase::class.java).allowMainThreadQueries().build()
@@ -662,6 +672,35 @@ class TwoClientsTest {
         alice.repo.send("bob", "второе")
         eventually { bob.messages("alice").firstOrNull { it.text == "второе" } }
         assertEquals(tokens + 1, server.tokensIssued.get())
+    }
+
+    @Test
+    fun aClosedRepositoryAsksTheServerNothingMore() {
+        val own = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val alice = Client("alice", "Алиса", retryMillis = 200, scope = own)
+        val bob = Client("bob", "Боб")
+        acquainted(alice, bob)
+
+        // The server is slow to refuse and names when to ask again; the repository closes while the answer is on its way.
+        val answer = CompletableDeferred<Unit>()
+        server.refuseSends("alice", FakeServer.Refusal(HttpStatusCode.TooManyRequests, retryAfterSeconds = 1, answerAfter = answer))
+        alice.repo.send("bob", "второе")
+        eventually { server.refusalsHeld.get().takeIf { it == 1 } }
+        val tokens = server.tokensIssued.get()
+
+        alice.repo.close()
+        answer.complete(Unit)
+        // Twice the pause the server named: an outbox still running would have sent by now.
+        runBlocking { delay(2_000) }
+        assertTrue(bob.messages("alice").none { it.text == "второе" })
+        assertEquals(tokens, server.tokensIssued.get())
+        assertTrue(server.transport("alice").stopped)
+        assertFalse(own.isActive)
+
+        // Only Alice's repository closed: Bob's, on the shared scope, still sends.
+        assertTrue(scope.isActive)
+        bob.repo.send("alice", "ответ")
+        eventually { bob.messages("alice").firstOrNull { it.text == "ответ" }?.takeIf { it.status >= SendStatus.Sent } }
     }
 
     @Test

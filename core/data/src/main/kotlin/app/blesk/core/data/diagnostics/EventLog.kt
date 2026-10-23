@@ -31,6 +31,7 @@ enum class EventCode {
     GroupMessageHeld,
     GroupMessageDropped,
     GroupUpdateRefused,
+    AccountRecovered,
 }
 
 /** [value] is an index or a counter, never content. */
