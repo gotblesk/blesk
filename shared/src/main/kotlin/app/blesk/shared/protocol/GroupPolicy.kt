@@ -376,8 +376,9 @@ object GroupPolicy {
      * Whether [incoming], a state from [sender], changes the rest of the group only as [apply] and the joining of
      * newcomers let [sender]: the details, what every member may do, the invites and who joined by them, the bans,
      * the channels and the roles each only with the right to. Members keep their order, so the admin who keeps the
-     * closed voice channels' keys is not someone else's to pick; no one is there twice; and the journal keeps its
-     * lines, gaining no more than [incoming] is changes ahead. The owner may do all of it.
+     * closed voice channels' keys is not someone else's to pick, and no one is there twice. The journal only grows,
+     * unless [sender] may read it: two managers who changed the group at once each made a state the other's does not
+     * follow, and the newer one, taken in place of the other, has the journal it had. The owner may do all of it.
      */
     fun admitsEdits(current: GroupState, incoming: GroupState, sender: String): Boolean {
         if (current.roleOf(sender) == GroupRole.Owner) return true
@@ -388,12 +389,12 @@ object GroupPolicy {
             if (incoming.banned.toSet() != current.banned.toSet()) add(Right.Ban)
             if (arranged(current, incoming) != current.channels) add(Right.Channels)
             if (incoming.roles != current.roles) add(Right.Roles)
+            if (!journalGrown(current, incoming)) add(Right.Journal)
         }
         return needed.all { can(current, sender, it) } &&
             newcomers.none { it.username in incoming.banned } &&
             isWellFormed(incoming) &&
-            orderKept(current, incoming) &&
-            journalKept(current, incoming)
+            orderKept(current, incoming)
     }
 
     private fun details(state: GroupState) = Triple(state.title, state.description, state.hue)
@@ -419,7 +420,7 @@ object GroupPolicy {
      * The journal is [current]'s with at most one line for each version [incoming] is ahead, the oldest pushed out
      * past [MAX_LOG] as [logged] does: no line is changed or taken out, and none pushed out by lines made up.
      */
-    private fun journalKept(current: GroupState, incoming: GroupState): Boolean {
+    private fun journalGrown(current: GroupState, incoming: GroupState): Boolean {
         val ahead = (incoming.version - current.version).coerceIn(0, MAX_VERSION_STEP).toInt()
         return (0..ahead).any { added ->
             val kept = current.log.drop((current.log.size + added - MAX_LOG).coerceAtLeast(0))

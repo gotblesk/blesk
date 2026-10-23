@@ -378,6 +378,7 @@ class GroupPolicyTest {
     @Test
     fun theJournalOnlyGrowsByWhatWasDone() {
         val full = helped.copy(log = List(GroupPolicy.MAX_LOG) { LogEntry(it.toLong(), "owner", LogAction.Edited) })
+            .member("admin") { it.copy(rights = it.rights.orEmpty() + Right.Channels + Right.Journal) }
         val once = applied(GroupPolicy.apply(full, "eve", GroupChange.RenameChannel("c1", "главное"), NOW))
         assertEquals(full.log.drop(1), once.log.dropLast(1))
         assertTrue(GroupPolicy.admits(full, once, "eve"))
@@ -386,6 +387,9 @@ class GroupPolicyTest {
         assertFalse(GroupPolicy.admits(full, twice, "eve"))
         assertTrue(GroupPolicy.admits(full, twice.copy(version = full.version + 2), "eve"))
         assertFalse(GroupPolicy.admits(full, once.copy(log = once.log.dropLast(2) + once.log.last()), "eve"))
+        // A state made beside ours, as two managers make theirs at once, has lines ours lacks; one who reads the journal
+        // may send it, as the newer of the two takes the other's place.
+        assertTrue(GroupPolicy.admits(full, twice, "admin"))
     }
 
     @Test
