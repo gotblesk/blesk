@@ -19,11 +19,13 @@ import app.blesk.AppContainer
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.design.component.LocalNotices
 import app.blesk.core.design.component.headerPhotoKey
+import app.blesk.core.network.ApiException
 import app.blesk.feature.profile.AvatarCrop
 import app.blesk.feature.profile.ProfileActions
 import app.blesk.feature.profile.ProfileScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 @Composable
 internal fun rememberProfilePhoto(container: AppContainer, version: Long): ImageBitmap? {
@@ -103,7 +105,14 @@ internal fun ProfileRoute(container: AppContainer, onBack: () -> Unit, onReopen:
             checkUsername = { name ->
                 val api = container.api
                 if (mode is AppMode.Server && api != null) {
-                    runCatching { api.usernameAvailable(name) }.getOrNull()
+                    // Only failures to ask are unknown; a cancelled check must stay cancelled.
+                    try {
+                        api.checkUsername(name).available
+                    } catch (_: IOException) {
+                        null
+                    } catch (_: ApiException) {
+                        null
+                    }
                 } else {
                     // The demo knows only its own people.
                     container.chats.value?.contacts?.first()?.none { it.username == name } ?: true

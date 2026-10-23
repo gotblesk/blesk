@@ -42,6 +42,7 @@ import app.blesk.shared.protocol.UploadStarted
 import app.blesk.shared.protocol.UploadState
 import app.blesk.shared.protocol.UserToBot
 import app.blesk.shared.protocol.UsernameCheck
+import app.blesk.shared.protocol.UsernameVerdict
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
@@ -62,12 +63,14 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentLength
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLPathPart
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
@@ -76,7 +79,11 @@ import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.intOrNull
 import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -147,7 +154,22 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
         }
     }
 
-    suspend fun info(): ServerInfo = call { client.get(url(Api.INFO)) }
+    /** What the server says about itself; [NotBleskException] when what answers at the address is not a blesk server. */
+    suspend fun info(): ServerInfo {
+        val response = client.get(url(Api.INFO))
+        // Every blesk server has this route, so a 404 comes from a site or another service at the address.
+        if (response.status == HttpStatusCode.NotFound) throw NotBleskException()
+        if (!response.status.isSuccess()) throw response.error()
+        return serverInfo(response.bodyAsText()) ?: throw NotBleskException()
+    }
+
+    /** Null unless [text] is a blesk server's info: every blesk server has always named its protocol version. */
+    private fun serverInfo(text: String): ServerInfo? = try {
+        val fields = (json.parseToJsonElement(text) as? JsonObject)?.takeIf { (it["version"] as? JsonPrimitive)?.intOrNull != null }
+        fields?.let { json.decodeFromJsonElement(ServerInfo.serializer(), it) }
+    } catch (_: SerializationException) {
+        null
+    }
 
     suspend fun createBot(request: CreateBot): BotCreated = call { client.post(url(Bots.PATH)) { auth(); jsonBody(request) } }
 
@@ -164,9 +186,21 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
 
     suspend fun callToken(room: String): CallToken = call { client.post(url(Calls.TOKEN)) { auth(); jsonBody(CallTokenRequest(room)) } }
 
-    /** Whether [name] is free on this server; asked as it is typed. */
-    suspend fun usernameAvailable(name: String): Boolean =
-        call<UsernameCheck> { client.get(url("${Api.USERNAMES}/$name")) }.available
+    /**
+     * Whether [name] can be taken on this server and, if not, why and what is free instead; asked as it is
+     * typed. With a token the check counts against the person's own budget rather than the address's.
+     */
+    suspend fun checkUsername(name: String): UsernameCheck {
+        val path = url("${Api.USERNAMES}/${name.encodeURLPathPart()}")
+        val first = client.get(path) { auth() }
+        // A token the server no longer takes is refused outright, though the check itself needs none.
+        val response = if (first.status == HttpStatusCode.Unauthorized && token != null) client.get(path) else first
+        if (!response.status.isSuccess()) throw response.error()
+        val check = response.body<UsernameCheck>()
+        // An older server says only whether the name is free, and compares it as typed.
+        val verdict = check.verdict ?: if (check.available) UsernameVerdict.FREE else UsernameVerdict.TAKEN
+        return check.copy(verdict = verdict, username = check.username ?: name)
+    }
 
     /** Creates the account; a server that registers by invite answers 403 `invite_required` or `invite_invalid`. */
     suspend fun register(request: RegisterRequest): AccountInfo = call {
@@ -409,7 +443,7 @@ internal class PinTrustManager(private val pin: String) : X509TrustManager {
     override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
         val leaf = chain?.firstOrNull() ?: throw CertificateException("Empty chain")
         leaf.checkValidity()
-        if (spkiPin(leaf) != pin) throw CertificateException("Server key does not match the pinned key")
+        if (spkiPin(leaf) != pin) throw PinMismatchException()
     }
 
     override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
