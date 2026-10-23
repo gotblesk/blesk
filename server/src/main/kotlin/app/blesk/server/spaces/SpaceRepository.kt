@@ -4,6 +4,7 @@ import app.blesk.server.db.Database
 import app.blesk.server.db.query
 import app.blesk.server.db.queryOne
 import app.blesk.server.db.update
+import app.blesk.shared.protocol.NewPost
 import app.blesk.shared.protocol.SpaceChannel
 import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
@@ -13,9 +14,23 @@ import java.sql.Connection
 import java.sql.ResultSet
 import java.time.Instant
 
-class Space(val id: Long, val handle: String, val kind: SpaceKind, val title: String, val about: String)
+class Space(
+    val id: Long,
+    val handle: String,
+    val kind: SpaceKind,
+    val title: String,
+    val about: String,
+    /** The server's own channel; see [SpaceRepository.makeOfficial]. */
+    val official: Boolean,
+)
 
 enum class ChannelRemoval { Removed, NotFound, Last }
+
+/** How [SpaceRepository.makeOfficial] ended. */
+enum class Officialness { Made, Already, HandleTaken }
+
+/** Every column [SpaceRepository] reads into a [Space], from `spaces` named `s`. */
+private const val SPACE_COLUMNS = "s.id, s.handle, s.kind, s.title, s.about, s.official"
 
 /** Database codes match the wire names, so the column reads the same as the JSON. */
 internal fun SpaceKind.code() = name.lowercase()
@@ -37,36 +52,37 @@ class SpaceRepository(private val database: Database) {
         firstChannel: SpaceChannel,
         now: Instant,
     ): Boolean = database.transaction { connection ->
-        val spaceId = connection.queryOne(
-            """
-            INSERT INTO spaces (handle, kind, title, about, created_at) VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT (handle) DO NOTHING
-            RETURNING id
-            """.trimIndent(),
-            handle,
-            kind.code(),
-            title,
-            about,
-            now,
-        ) { it.getLong("id") } ?: return@transaction false
-        connection.update(
-            "INSERT INTO space_channels (space_id, id, title) VALUES (?, ?, ?)",
-            spaceId,
-            firstChannel.id,
-            firstChannel.title,
-        )
-        connection.update(
-            "INSERT INTO space_members (space_id, account_id, role, joined_at) VALUES (?, ?, ?, ?)",
-            spaceId,
-            ownerId,
-            SpaceRole.Owner.code(),
-            now,
-        )
-        true
+        connection.insertSpace(handle, kind, title, about, ownerId, firstChannel, now, official = false)
     }
 
     suspend fun find(handle: String): Space? = database.transaction { connection ->
-        connection.queryOne("SELECT id, handle, kind, title, about FROM spaces WHERE handle = ?", handle, map = ::space)
+        connection.queryOne("SELECT $SPACE_COLUMNS FROM spaces s WHERE s.handle = ?", handle, map = ::space)
+    }
+
+    /** The handle of the server's own channel; null until its owner made one. */
+    suspend fun officialHandle(): String? = database.transaction { connection ->
+        connection.queryOne("SELECT handle FROM spaces WHERE official") { it.getString("handle") }
+    }
+
+    /**
+     * Makes the channel at [handle] the server's own, owned by [ownerId]: a new one if the handle is
+     * free, or the one [ownerId] already owns there. A space someone else owns stays theirs.
+     */
+    suspend fun makeOfficial(handle: String, ownerId: Long, now: Instant): Officialness = database.transaction { connection ->
+        val space = connection.queryOne("SELECT $SPACE_COLUMNS FROM spaces s WHERE s.handle = ? FOR UPDATE", handle, map = ::space)
+        when {
+            space == null -> {
+                val channel = SpaceChannel(NewPost.MAIN_CHANNEL, handle)
+                val made = connection.insertSpace(handle, SpaceKind.Channel, handle, "", ownerId, channel, now, official = true)
+                if (made) Officialness.Made else Officialness.HandleTaken
+            }
+            connection.role(space.id, ownerId) != SpaceRole.Owner -> Officialness.HandleTaken
+            space.official -> Officialness.Already
+            else -> {
+                connection.update("UPDATE spaces SET official = TRUE WHERE id = ?", space.id)
+                Officialness.Made
+            }
+        }
     }
 
     suspend fun info(space: Space, callerId: Long): SpaceInfo = database.transaction { it.info(space, callerId) }
@@ -76,7 +92,7 @@ class SpaceRepository(private val database: Database) {
         val pattern = text.lowercase().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         connection.query(
             """
-            SELECT s.id, s.handle, s.kind, s.title, s.about FROM spaces s
+            SELECT $SPACE_COLUMNS FROM spaces s
             WHERE s.handle LIKE ? OR lower(s.title) LIKE ?
             ORDER BY (SELECT count(*) FROM space_members m WHERE m.space_id = s.id) DESC, s.handle
             LIMIT ?
@@ -91,7 +107,7 @@ class SpaceRepository(private val database: Database) {
     suspend fun joined(accountId: Long): List<SpaceInfo> = database.transaction { connection ->
         connection.query(
             """
-            SELECT s.id, s.handle, s.kind, s.title, s.about FROM spaces s
+            SELECT $SPACE_COLUMNS FROM spaces s
             JOIN space_members m ON m.space_id = s.id
             WHERE m.account_id = ?
             ORDER BY m.joined_at DESC
@@ -200,6 +216,41 @@ class SpaceRepository(private val database: Database) {
         }
     }
 
+    /** False when the handle is taken. The owner is the space's first member. */
+    private fun Connection.insertSpace(
+        handle: String,
+        kind: SpaceKind,
+        title: String,
+        about: String,
+        ownerId: Long,
+        firstChannel: SpaceChannel,
+        now: Instant,
+        official: Boolean,
+    ): Boolean {
+        val spaceId = queryOne(
+            """
+            INSERT INTO spaces (handle, kind, title, about, created_at, official) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT (handle) DO NOTHING
+            RETURNING id
+            """.trimIndent(),
+            handle,
+            kind.code(),
+            title,
+            about,
+            now,
+            official,
+        ) { it.getLong("id") } ?: return false
+        update("INSERT INTO space_channels (space_id, id, title) VALUES (?, ?, ?)", spaceId, firstChannel.id, firstChannel.title)
+        update(
+            "INSERT INTO space_members (space_id, account_id, role, joined_at) VALUES (?, ?, ?, ?)",
+            spaceId,
+            ownerId,
+            SpaceRole.Owner.code(),
+            now,
+        )
+        return true
+    }
+
     /** Serializes channel changes of one space, so two concurrent adds cannot both pass the limit. */
     private fun Connection.lockSpace(spaceId: Long) {
         queryOne("SELECT id FROM spaces WHERE id = ? FOR UPDATE", spaceId) { it.getLong("id") }
@@ -225,6 +276,7 @@ class SpaceRepository(private val database: Database) {
             members = members,
             channels = channels(space.id),
             role = role(space.id, callerId),
+            official = space.official,
         )
     }
 
@@ -234,5 +286,6 @@ class SpaceRepository(private val database: Database) {
         kind = spaceKind(row.getString("kind")),
         title = row.getString("title"),
         about = row.getString("about"),
+        official = row.getBoolean("official"),
     )
 }

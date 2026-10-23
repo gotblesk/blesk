@@ -38,6 +38,7 @@ fun Route.botRoutes(services: Services) {
         ensure(services.botRateLimiter.tryAcquire(owner.id.toString())) { rateLimited(services.botRateLimiter) }
         val request = call.receiveJson<CreateBot>()
         ensure(Bots.isValidUsername(request.username)) { badRequest(ErrorCodes.INVALID_USERNAME) }
+        ensure(!Bots.isReservedName(request.username)) { badRequest(ErrorCodes.USERNAME_RESERVED) }
         val name = request.name.trim()
         ensure(name.length in 1..MAX_NAME) { badRequest(ErrorCodes.INVALID_NAME) }
         val about = request.about.trim()

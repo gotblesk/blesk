@@ -86,7 +86,15 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
             }
         }
         rateLimited(services.requestRateLimiter, services.trustProxy) {
-            get(Api.INFO) { call.respond(ServerInfo(calls = services.callTokens != null)) }
+            get(Api.INFO) {
+                val info = ServerInfo(
+                    calls = services.callTokens != null,
+                    invites = services.registration == RegistrationMode.Invite,
+                    minClientVersion = Api.MIN_CLIENT_VERSION,
+                    officialChannel = services.spaces.officialHandle(),
+                )
+                call.respond(info)
+            }
             authenticate(BEARER, optional = true) {
                 usernameCheckRoutes(services)
             }

@@ -44,6 +44,7 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair
 import org.signal.libsignal.protocol.kem.KEMKeyPair
 import org.signal.libsignal.protocol.kem.KEMKeyType
 import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -51,6 +52,8 @@ import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.util.Base64
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 import kotlin.random.Random
 import kotlin.time.Duration
@@ -227,6 +230,31 @@ fun serverTest(
     } finally {
         attachments.toFile().deleteRecursively()
     }
+}
+
+class ServerRun(val status: Int, val stdout: String, val stderr: String)
+
+/** What the server's own process needs to reach the database at [url]. */
+fun serverProcessVariables(url: String): Map<String, String> =
+    mapOf("BLESK_DB_URL" to url, "BLESK_DB_USER" to TestDatabase.USER, "BLESK_STORAGE" to "fs")
+
+/** Starts the server's main in a process of its own, as `blesk-server` runs on the host. */
+fun runServerProcess(args: List<String>, variables: Map<String, String>): ServerRun {
+    val java = Path.of(System.getProperty("java.home"), "bin", "java").toString()
+    val command = listOf(java, "-cp", System.getProperty("java.class.path"), "app.blesk.server.MainKt") + args
+    val process = ProcessBuilder(command)
+        .apply {
+            environment().keys.removeIf { it.startsWith("BLESK_") }
+            environment().putAll(variables)
+        }
+        .start()
+    val stderr = CompletableFuture.supplyAsync { process.errorStream.readBytes().decodeToString() }
+    val stdout = process.inputStream.readBytes().decodeToString()
+    if (!process.waitFor(1, TimeUnit.MINUTES)) {
+        process.destroyForcibly()
+        throw AssertionError("blesk-server $args did not exit")
+    }
+    return ServerRun(process.exitValue(), stdout, stderr.get())
 }
 
 fun randomUsername(): String = "u_" + randomNamePart(12)

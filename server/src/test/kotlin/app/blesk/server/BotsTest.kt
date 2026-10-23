@@ -101,6 +101,17 @@ class BotsTest {
     }
 
     @Test
+    fun `a bot named like the service is refused`() = serverTest { harness ->
+        val owner = harness.register()
+        for (name in listOf("blesk_bot", "support_bot", "b1esk_news_bot")) {
+            val refused = harness.createBotRaw(owner, username = name)
+            assertEquals(name, HttpStatusCode.BadRequest, refused.status)
+            assertEquals(name, "username_reserved", refused.body<ErrorBody>().code)
+        }
+        harness.createBot(owner)
+    }
+
+    @Test
     fun `bots past their limit are told when to ask again`() =
         serverTest(botRateLimit = RateLimitConfig(capacity = 1, refillPerMinute = 2)) { harness ->
             val owner = harness.register()

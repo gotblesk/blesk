@@ -3,12 +3,15 @@ package app.blesk.server
 import app.blesk.server.attachments.AttachmentStorage
 import app.blesk.server.attachments.FileSystemStorage
 import app.blesk.server.attachments.MinioStorage
+import app.blesk.server.auth.AccountRepository
 import app.blesk.server.bots.WebhookPolicy
 import app.blesk.server.calls.CallTokens
 import app.blesk.server.db.Database
 import app.blesk.server.http.RateLimiter
 import app.blesk.server.invites.InviteCommand
 import app.blesk.server.invites.InviteRepository
+import app.blesk.server.spaces.OfficialCommand
+import app.blesk.server.spaces.SpaceRepository
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import kotlinx.coroutines.runBlocking
@@ -19,16 +22,15 @@ import kotlin.system.exitProcess
 private val log = LoggerFactory.getLogger("blesk.server")
 
 fun main(args: Array<String>) {
-    val command = if (args.isEmpty()) null else InviteCommand.parse(args.asList()) ?: usageError()
+    val command = if (args.isEmpty()) null else ownerCommand(args.asList()) ?: usageError()
     val config = Config.fromEnvironment()
     // Postgres and MinIO may still be starting when the container comes up.
     val dataSource = retrying("database") { Database.pool(config.database) }
     Database.migrate(dataSource)
     if (command != null) {
-        val links = runBlocking { command.run(InviteRepository(Database(dataSource)), Instant.now()) }
-        links.forEach(::println)
+        val status = runBlocking { command(Database(dataSource)) }
         dataSource.close()
-        return
+        exitProcess(status)
     }
     val services = Services(
         database = Database(dataSource),
@@ -51,9 +53,38 @@ fun main(args: Array<String>) {
     embeddedServer(Netty, port = config.port) { bleskModule(services, config.maintenanceInterval) }.start(wait = true)
 }
 
+/** What the owner runs in place of the server: it prints its answer and returns the exit status. */
+private typealias OwnerCommand = suspend (Database) -> Int
+
+private fun ownerCommand(args: List<String>): OwnerCommand? {
+    val invites = InviteCommand.parse(args)
+    val official = OfficialCommand.parse(args)
+    return when {
+        invites != null -> { database -> printInvites(invites, database) }
+        official != null -> { database -> makeOfficial(official, database) }
+        else -> null
+    }
+}
+
+private suspend fun printInvites(command: InviteCommand, database: Database): Int {
+    command.run(InviteRepository(database), Instant.now()).forEach(::println)
+    return 0
+}
+
+private suspend fun makeOfficial(command: OfficialCommand, database: Database): Int {
+    val outcome = command.run(AccountRepository(database), SpaceRepository(database), Instant.now())
+    when (outcome) {
+        OfficialCommand.Outcome.Made, OfficialCommand.Outcome.Already -> println("@${OfficialCommand.HANDLE}")
+        OfficialCommand.Outcome.NoAccount -> System.err.println("no account @${command.owner}")
+        OfficialCommand.Outcome.HandleTaken -> System.err.println("@${OfficialCommand.HANDLE} belongs to another account")
+    }
+    return outcome.status
+}
+
 /** Exit status 2, as command-line tools answer a usage mistake. */
 private fun usageError(): Nothing {
     System.err.println(InviteCommand.USAGE)
+    System.err.println(OfficialCommand.USAGE)
     exitProcess(USAGE_ERROR)
 }
 

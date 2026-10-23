@@ -1,5 +1,6 @@
 package app.blesk.server
 
+import app.blesk.server.spaces.OfficialCommand
 import app.blesk.shared.protocol.CreateSpaceChannel
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.RoleChange
@@ -22,6 +23,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,6 +46,36 @@ class SpacesTest {
         assertEquals("handle_taken", taken.body<ErrorBody>().code)
         assertEquals("invalid_handle", spaces.createRaw(alice, "Bad Handle", SpaceKind.Room).body<ErrorBody>().code)
         assertEquals("invalid_handle", spaces.createRaw(alice, "mine", SpaceKind.Room).body<ErrorBody>().code)
+    }
+
+    @Test
+    fun `the service's handles are kept back`() = serverTest { harness ->
+        val spaces = SpaceClient(harness)
+        val alice = harness.register()
+        for (handle in listOf("blesk", "b1esk", "blesk_news", "admin", "support24", "mine")) {
+            val refused = spaces.createRaw(alice, handle, SpaceKind.Channel)
+            assertEquals(handle, HttpStatusCode.BadRequest, refused.status)
+            assertEquals(handle, "invalid_handle", refused.body<ErrorBody>().code)
+        }
+        val own = spaces.create(alice, SpaceKind.Channel, "egor_" + randomNamePart(8))
+        assertFalse(own.official)
+    }
+
+    @Test
+    fun `the official channel says so everywhere`() = serverTest(dataSource = TestDatabase.fresh()) { harness ->
+        val spaces = SpaceClient(harness)
+        val owner = harness.register()
+        val reader = harness.register()
+        val outcome = OfficialCommand(owner.username).run(harness.services.accounts, harness.services.spaces, harness.services.now())
+        assertEquals(OfficialCommand.Outcome.Made, outcome)
+        val handle = OfficialCommand.HANDLE
+
+        assertTrue(spaces.info(reader, handle).official)
+        assertEquals(HttpStatusCode.OK, spaces.join(reader, handle).status)
+        val mine = harness.client.get("${Spaces.PATH}/mine") { bearerAuth(reader.token) }.body<List<SpaceInfo>>()
+        assertEquals(listOf(handle to true), mine.map { it.handle to it.official })
+        val found = harness.client.get("${Spaces.PATH}?query=$handle") { bearerAuth(reader.token) }.body<List<SpaceInfo>>()
+        assertEquals(listOf(handle to true), found.map { it.handle to it.official })
     }
 
     @Test

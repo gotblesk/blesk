@@ -26,9 +26,6 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.signal.libsignal.protocol.IdentityKeyPair
-import java.nio.file.Path
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
@@ -209,18 +206,14 @@ class InvitesTest {
 
     @Test
     fun `the server's own process prints nothing but the links, and exits with 2 on a mistake`() {
-        val variables = mapOf(
-            "BLESK_DB_URL" to TestDatabase.freshUrl(),
-            "BLESK_DB_USER" to TestDatabase.USER,
-            "BLESK_STORAGE" to "fs",
-        )
-        val run = runServer(listOf("invites"), variables)
+        val variables = serverProcessVariables(TestDatabase.freshUrl())
+        val run = runServerProcess(listOf("invites"), variables)
         assertEquals(run.stderr, 0, run.status)
         val links = run.stdout.lines().dropLastWhile(String::isEmpty)
         assertEquals(InviteCommand.FIRST_BATCH, links.size)
         assertTrue(run.stdout, links.all { it.startsWith("https://blesk.su/i/") && Invites.parse(it) != null })
 
-        val mistake = runServer(listOf("invites", "add", "0"), variables)
+        val mistake = runServerProcess(listOf("invites", "add", "0"), variables)
         assertEquals(2, mistake.status)
         assertEquals("", mistake.stdout)
         assertTrue(mistake.stderr, mistake.stderr.contains(InviteCommand.USAGE))
@@ -249,27 +242,6 @@ class InvitesTest {
         assertEquals(RegistrationMode.Invite, Config.fromEnvironment(base).registration)
         assertEquals(RegistrationMode.Open, Config.fromEnvironment(base + ("BLESK_REGISTRATION" to "open")).registration)
         assertThrows(IllegalStateException::class.java) { Config.fromEnvironment(base + ("BLESK_REGISTRATION" to "closed")) }
-    }
-
-    private class Run(val status: Int, val stdout: String, val stderr: String)
-
-    /** Starts the server's main in a process of its own, as `blesk-server` runs on the host. */
-    private fun runServer(args: List<String>, variables: Map<String, String>): Run {
-        val java = Path.of(System.getProperty("java.home"), "bin", "java").toString()
-        val command = listOf(java, "-cp", System.getProperty("java.class.path"), "app.blesk.server.MainKt") + args
-        val process = ProcessBuilder(command)
-            .apply {
-                environment().keys.removeIf { it.startsWith("BLESK_") }
-                environment().putAll(variables)
-            }
-            .start()
-        val stderr = CompletableFuture.supplyAsync { process.errorStream.readBytes().decodeToString() }
-        val stdout = process.inputStream.readBytes().decodeToString()
-        if (!process.waitFor(1, TimeUnit.MINUTES)) {
-            process.destroyForcibly()
-            throw AssertionError("blesk-server $args did not exit")
-        }
-        return Run(process.exitValue(), stdout, stderr.get())
     }
 
     private fun inviteServer(

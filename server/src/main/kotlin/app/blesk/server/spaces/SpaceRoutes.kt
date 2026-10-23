@@ -39,16 +39,15 @@ private const val CHANNEL_ID_LENGTH = 8
 private const val ROOM_FIRST_CHANNEL_ID = "general"
 private const val ROOM_FIRST_CHANNEL_TITLE = "общее"
 
-/** Fixed paths under /v1/spaces that would otherwise be read as a handle. */
-private val ReservedHandles = setOf("mine")
-
 private val random = SecureRandom()
 
 fun Route.spaceRoutes(services: Services) {
     route(Spaces.PATH) {
         post {
             val request = call.receiveJson<CreateSpace>()
-            ensure(Spaces.isValidHandle(request.handle) && request.handle !in ReservedHandles) { badRequest(ErrorCodes.INVALID_HANDLE) }
+            ensure(Spaces.isValidHandle(request.handle) && !Spaces.isReservedHandle(request.handle)) {
+                badRequest(ErrorCodes.INVALID_HANDLE)
+            }
             val title = validTitle(request.title)
             val about = validAbout(request.about)
             val firstChannel = when (request.kind) {

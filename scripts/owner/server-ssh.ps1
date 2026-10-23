@@ -3,6 +3,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\owner\server-ssh.ps1                a shell on the server
 #   powershell -ExecutionPolicy Bypass -File scripts\owner\server-ssh.ps1 invites        registration invite links
 #   powershell -ExecutionPolicy Bypass -File scripts\owner\server-ssh.ps1 invites add 5  five more links
+#   powershell -ExecutionPolicy Bypass -File scripts\owner\server-ssh.ps1 official egor  makes @blesk the official channel, owned by @egor
 #   powershell -ExecutionPolicy Bypass -File scripts\owner\server-ssh.ps1 status         containers and the health check
 #   powershell -ExecutionPolicy Bypass -File scripts\owner\server-ssh.ps1 logs           the last 200 lines of the server's log
 #
@@ -16,12 +17,12 @@ param(
 
 $healthUrl = 'https://api.blesk.su/health'
 $stack = 'cd /opt/blesk/deploy && docker compose'
-$invitesCli = 'exec -T server /opt/blesk-server/bin/blesk-server invites'
+$cli = 'exec -T server /opt/blesk-server/bin/blesk-server'
 $extra = @($Rest | Where-Object { $_ })
 
 function Exit-WithUsage {
     Exit-WithError "Неизвестная команда: $(@($Action) + $extra -join ' ')" `
-        'Можно: без команды (зайти на сервер), invites, invites add <число от 1 до 50>, status, logs.'
+        'Можно: без команды (зайти на сервер), invites, invites add <число от 1 до 50>, official <имя пользователя>, status, logs.'
 }
 
 function Get-SshArguments([switch]$Batch) {
@@ -37,7 +38,7 @@ function Exit-Unreachable([int]$Code) {
 
 function Show-Invites([string]$Count) {
     Write-Step 'Спрашиваю у сервера ссылки-приглашения'
-    $command = "$stack $invitesCli"
+    $command = "$stack $cli invites"
     if ($Count) { $command += " add $Count" }
     $result = Invoke-Native $ssh ((Get-SshArguments -Batch) + $command)
     $links = @($result.Lines | Where-Object { $_ -match '^https://blesk\.su/i/[A-Za-z0-9]+$' })
@@ -48,6 +49,30 @@ function Show-Invites([string]$Count) {
     Write-Ok 'Ссылки на регистрацию в blesk. Каждая срабатывает один раз:'
     Write-Info $links
     Write-Info '' 'Отправь ссылку тому, кого зовёшь в blesk: по ней можно установить приложение и зарегистрироваться.'
+}
+
+# The server answers 3 when there is no such account and 4 when another account holds @blesk.
+function Set-Official([string]$Name) {
+    Write-Step "Делаю канал @blesk официальным, владелец — @$Name"
+    $result = Invoke-Native $ssh ((Get-SshArguments -Batch) + "$stack $cli official $Name")
+    switch ($result.ExitCode) {
+        0 {
+            Write-Ok 'Канал @blesk готов: он официальный, а ты его владелец.'
+            Write-Info 'Писать в канал — из приложения, как в любой свой канал.'
+        }
+        3 {
+            Exit-WithError "На сервере нет аккаунта @$Name." `
+                'Сначала зарегистрируйся в приложении под этим именем, потом повтори команду.'
+        }
+        4 {
+            Exit-WithError 'Адрес @blesk уже занят каналом или комнатой другого аккаунта.' `
+                'Удали этот канал или комнату в приложении владельца, потом повтори команду.'
+        }
+        default {
+            Write-Info $result.Lines
+            Exit-Unreachable $result.ExitCode
+        }
+    }
 }
 
 function Test-Health {
@@ -92,6 +117,15 @@ switch ($Action) {
         } else {
             Exit-WithUsage
         }
+    }
+    'official' {
+        if ($extra.Count -ne 1) { Exit-WithUsage }
+        # Validated here because the name goes into a command line on the server.
+        $name = ($extra[0] -replace '^@', '').ToLowerInvariant()
+        if ($name.Length -lt 3 -or $name.Length -gt 32 -or $name -cnotmatch '^[a-z][a-z0-9]*([._][a-z0-9]+)*$') {
+            Exit-WithError "«$($extra[0])» — не имя пользователя." 'Имя пишется латиницей, как в приложении: например egor.'
+        }
+        Set-Official $name
     }
     'status' {
         if ($extra.Count -gt 0) { Exit-WithUsage }

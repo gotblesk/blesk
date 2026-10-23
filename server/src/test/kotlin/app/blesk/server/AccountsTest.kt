@@ -4,7 +4,6 @@ import app.blesk.shared.protocol.AccountInfo
 import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.Discovery
 import app.blesk.shared.protocol.ErrorBody
-import app.blesk.shared.protocol.ServerInfo
 import app.blesk.shared.protocol.UsernameCheck
 import app.blesk.shared.protocol.UsernameVerdict
 import app.blesk.shared.protocol.Usernames
@@ -25,13 +24,6 @@ import org.junit.Test
 import org.signal.libsignal.protocol.IdentityKeyPair
 
 class AccountsTest {
-    @Test
-    fun `info describes the server`() = serverTest { harness ->
-        val response = harness.client.get(Api.INFO)
-        assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals(ServerInfo(), response.body<ServerInfo>())
-    }
-
     @Test
     fun `registers an account and returns its identity key`() = serverTest { harness ->
         val identity = IdentityKeyPair.generate()
