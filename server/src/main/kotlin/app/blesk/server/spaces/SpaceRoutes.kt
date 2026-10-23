@@ -45,9 +45,9 @@ fun Route.spaceRoutes(services: Services) {
     route(Spaces.PATH) {
         post {
             val request = call.receiveJson<CreateSpace>()
-            ensure(Spaces.isValidHandle(request.handle) && !Spaces.isReservedHandle(request.handle)) {
-                badRequest(ErrorCodes.INVALID_HANDLE)
-            }
+            ensure(Spaces.isValidHandle(request.handle)) { badRequest(ErrorCodes.INVALID_HANDLE) }
+            // Taken, not invalid: released apps show every other refusal as a connection problem.
+            ensure(!Spaces.isReservedHandle(request.handle)) { conflict(ErrorCodes.HANDLE_TAKEN) }
             val title = validTitle(request.title)
             val about = validAbout(request.about)
             val firstChannel = when (request.kind) {

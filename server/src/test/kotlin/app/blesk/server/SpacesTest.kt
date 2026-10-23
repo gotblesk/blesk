@@ -45,17 +45,17 @@ class SpacesTest {
         assertEquals(HttpStatusCode.Conflict, taken.status)
         assertEquals("handle_taken", taken.body<ErrorBody>().code)
         assertEquals("invalid_handle", spaces.createRaw(alice, "Bad Handle", SpaceKind.Room).body<ErrorBody>().code)
-        assertEquals("invalid_handle", spaces.createRaw(alice, "mine", SpaceKind.Room).body<ErrorBody>().code)
     }
 
     @Test
-    fun `the service's handles are kept back`() = serverTest { harness ->
+    fun `the service's handles are kept back as taken`() = serverTest { harness ->
         val spaces = SpaceClient(harness)
         val alice = harness.register()
-        for (handle in listOf("blesk", "b1esk", "blesk_news", "admin", "support24", "mine")) {
+        // Released apps read only handle_taken as a handle they cannot have; anything else is «check your connection».
+        for (handle in listOf("blesk", "b1esk", "blesk_news", "admin", "support24", "news", "mine")) {
             val refused = spaces.createRaw(alice, handle, SpaceKind.Channel)
-            assertEquals(handle, HttpStatusCode.BadRequest, refused.status)
-            assertEquals(handle, "invalid_handle", refused.body<ErrorBody>().code)
+            assertEquals(handle, HttpStatusCode.Conflict, refused.status)
+            assertEquals(handle, "handle_taken", refused.body<ErrorBody>().code)
         }
         val own = spaces.create(alice, SpaceKind.Channel, "egor_" + randomNamePart(8))
         assertFalse(own.official)
