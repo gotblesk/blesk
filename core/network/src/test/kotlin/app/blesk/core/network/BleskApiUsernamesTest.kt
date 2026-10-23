@@ -71,6 +71,15 @@ class BleskApiUsernamesTest {
     }
 
     @Test
+    fun `an answer that is not a check is not a blesk server`() {
+        val page = headersOf(HttpHeaders.ContentType, "text/html")
+        val portal = api { respond("<html>Войдите в сеть</html>", HttpStatusCode.OK, page) }
+        assertThrows(NotBleskException::class.java) { runBlocking { portal.checkUsername("vera") } }
+        val otherApi = api { reply("""{"status":"ok"}""") }
+        assertThrows(NotBleskException::class.java) { runBlocking { otherApi.checkUsername("vera") } }
+    }
+
+    @Test
     fun `too many checks say how long to wait`() {
         val api = api { refuse("rate_limited", HttpStatusCode.TooManyRequests, HttpHeaders.RetryAfter to "4") }
         val error = assertThrows(ApiException::class.java) { runBlocking { api.checkUsername("vera") } }

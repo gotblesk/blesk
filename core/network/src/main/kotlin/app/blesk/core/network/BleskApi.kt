@@ -196,10 +196,17 @@ class BleskApi(val address: ServerAddress, engine: HttpClientEngine? = null) {
         // A token the server no longer takes is refused outright, though the check itself needs none.
         val response = if (first.status == HttpStatusCode.Unauthorized && token != null) client.get(path) else first
         if (!response.status.isSuccess()) throw response.error()
-        val check = response.body<UsernameCheck>()
+        val check = usernameCheck(response.bodyAsText()) ?: throw NotBleskException()
         // An older server says only whether the name is free, and compares it as typed.
         val verdict = check.verdict ?: if (check.available) UsernameVerdict.FREE else UsernameVerdict.TAKEN
         return check.copy(verdict = verdict, username = check.username ?: name)
+    }
+
+    /** Null unless [text] is a check's answer, so a page in its place is an [IOException] like any other bad answer. */
+    private fun usernameCheck(text: String): UsernameCheck? = try {
+        json.decodeFromString(UsernameCheck.serializer(), text)
+    } catch (_: SerializationException) {
+        null
     }
 
     /** Creates the account; a server that registers by invite answers 403 `invite_required` or `invite_invalid`. */
