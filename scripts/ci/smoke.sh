@@ -33,6 +33,8 @@ shot() {
 fail() {
     shot failed || true
     free -m >"$shots/memory.txt" 2>&1 || true
+    # When the emulator itself goes away, the host's kernel log says whether it was killed or crashed.
+    sudo -n dmesg -T 2>/dev/null | tail -n 80 >"$shots/dmesg.txt" || true
     timeout 60 adb exec-out uiautomator dump /dev/tty >"$shots/screen.xml" 2>/dev/null || true
     timeout 60 adb logcat -d -s blesk:V AndroidRuntime:E >"$shots/logcat.txt" 2>&1 || true
     # Release stack traces name classes R8 renamed; the build's own mapping turns them back.
@@ -61,6 +63,9 @@ adb reverse tcp:8443 tcp:443
 # Crash and «not responding» dialogs of other apps would cover the screen being read.
 adb shell settings put global hide_error_dialogs 1
 timeout 300 adb install -r "$apk"
+# Kept from the first moment: if the emulator dies, a dump taken afterwards has nothing left to read.
+adb logcat -c
+adb logcat -v threadtime -b main,system,crash >"$shots/logcat-live.txt" 2>&1 &
 # Allowed up front: blesk's question about notifications, at the first friend or message, never covers the screen.
 adb shell pm grant "$package" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 # A cold first start: the splash holds until the start screen is read, so this is the time to the welcome screen.
