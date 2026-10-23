@@ -6,6 +6,7 @@
     <string name="design_back">Назад</string>
     <string name="design_undo">Отменить</string>
     <string name="design_cancel">Отмена</string>
+    <string name="design_close">Закрыть</string>
     <string name="design_copied">Скопировано</string>
     <string name="design_loading">Загрузка</string>
     <string name="design_failed">Не получилось загрузить</string>
