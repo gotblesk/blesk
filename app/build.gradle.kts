@@ -102,6 +102,7 @@ dependencies {
     implementation(project(":feature:debug"))
     implementation(project(":feature:security"))
     implementation(project(":feature:profile"))
+    implementation(project(":feature:onboarding"))
     implementation(project(":core:crypto"))
     implementation(project(":core:media"))
     implementation(project(":core:messaging"))

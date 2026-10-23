@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_wordmark">blesk</string>
+    <string name="onboarding_welcome_line">Без номера телефона и рекламы. Переписку читаете только вы.</string>
+    <string name="onboarding_create">Создать аккаунт</string>
+    <string name="onboarding_have_account">У меня уже есть аккаунт</string>
+    <string name="onboarding_have_account_soon">Вход по фразе восстановления появится в одном из следующих обновлений</string>
+    <string name="onboarding_demo">Попробовать демо</string>
+    <string name="onboarding_other_server">Другой сервер</string>
+    <string name="onboarding_server">Сервер: %1$s</string>
+    <string name="onboarding_server_change">Сменить</string>
+    <string name="onboarding_connecting">Подключаемся к серверу…</string>
+    <string name="onboarding_update">Обновить</string>
+
+    <string name="onboarding_error_address">Не похоже на адрес сервера</string>
+    <string name="onboarding_error_unreachable">Сервер не отвечает. Проверь интернет и попробуй ещё раз.</string>
+    <string name="onboarding_error_unreachable_other">Сервер не отвечает. Проверь адрес и интернет.</string>
+    <string name="onboarding_error_not_blesk">Вместо сервера blesk отвечает что-то другое. Попробуй чуть позже или из другой сети.</string>
+    <string name="onboarding_error_not_blesk_other">По этому адресу отвечает не сервер blesk. Проверь адрес.</string>
+    <string name="onboarding_error_certificate_mismatch">Отпечаток сертификата не совпал с QR-кодом: соединение могут перехватывать. Попробуй другую сеть и сверь QR-код с владельцем сервера.</string>
+    <string name="onboarding_error_certificate">Не удалось проверить сертификат сервера. Проверь дату и время на телефоне. Если это Wi-Fi со входом через браузер, сначала войди в сеть или попробуй другую.</string>
+    <string name="onboarding_error_certificate_other">Не удалось проверить сертификат сервера. Отсканируй QR-код, который сервер показал при установке, и проверь дату и время на телефоне.</string>
+    <string name="onboarding_error_app_old">Приложение устарело: этот сервер его уже не принимает</string>
+    <string name="onboarding_error_server_old">Сервер устарел, напиши его владельцу</string>
+    <string name="onboarding_error_wait">Слишком много попыток. Подожди %1$s.</string>
+    <string name="onboarding_error_invite_required">Нужен инвайт: попроси ссылку у того, кто уже в blesk</string>
+    <string name="onboarding_error_invite_invalid">Инвайт не подошёл: он уже использован, истёк или набран с ошибкой</string>
+    <string name="onboarding_error_name_taken">Это имя уже заняли — выбери другое</string>
+    <string name="onboarding_error_name_invalid">Такое имя не подходит</string>
+</resources>

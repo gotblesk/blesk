@@ -26,8 +26,8 @@ fun Tag(text: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * The one way to mark something that is not ready yet. A control wearing it does nothing
- * when tapped and says so to TalkBack.
+ * The one way to mark something that is not ready yet. A control wearing it never does what it
+ * names: a tap does nothing or only says when it comes, and TalkBack hears «скоро».
  */
 @Composable
 fun SoonTag(modifier: Modifier = Modifier) {
