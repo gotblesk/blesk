@@ -179,9 +179,6 @@ import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
-import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -190,6 +187,9 @@ import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Key screens in every theme. The PNGs land in app/build/screenshots and are attached to each
