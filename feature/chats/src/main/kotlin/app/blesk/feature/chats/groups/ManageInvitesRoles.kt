@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,12 +60,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 
+/**
+ * The group's links, newest first, and a new one made here. One who may invite but manages nothing shares the links
+ * that work: a link of theirs, or someone added by them, would reach no one.
+ */
 @Composable
 internal fun InvitesPage(env: ManageEnv, now: Long, onSheet: (ManageSheet) -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.forLanguageTag("ru")) }
+    val shown = if (env.invites) env.state.invites else env.state.invites.filter { it.usable(now) }
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
-        if (env.state.invites.isEmpty()) Empty(R.string.manage_invites_empty)
-        env.state.invites.asReversed().forEach { invite ->
+        if (shown.isEmpty()) Empty(R.string.manage_invites_empty)
+        shown.asReversed().forEach { invite ->
             val parts = buildList {
                 add(
                     invite.expiresAt?.let {
@@ -91,7 +95,7 @@ internal fun InvitesPage(env: ManageEnv, now: Long, onSheet: (ManageSheet) -> Un
             )
         }
     }
-    NewInviteForm(env, now)
+    if (env.invites) NewInviteForm(env, now)
 }
 
 @Composable
@@ -151,7 +155,7 @@ internal fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose
     val copied = stringResource(R.string.manage_invite_copied)
     var qr by remember { mutableStateOf(false) }
     MenuSheet(title = invite.title.ifBlank { stringResource(R.string.manage_invite_untitled) }, onDismiss = onClose) {
-        Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
             if (link == null) {
                 Text(
                     stringResource(R.string.manage_invite_needs_server),
@@ -205,7 +209,7 @@ internal fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose
                     icon = BleskIcons.People,
                     showChevron = false,
                 )
-                if (!invite.revoked) {
+                if (!invite.revoked && env.invites) {
                     ListRow(
                         title = stringResource(R.string.manage_invite_revoke),
                         icon = BleskIcons.Close,
@@ -287,7 +291,7 @@ internal fun RoleEditor(env: ManageEnv, role: RoomRole, onClose: () -> Unit) {
     val untitled = stringResource(R.string.manage_role_untitled)
     fun offered(right: Right) = right in role.rights || env.can(right)
     MenuSheet(title = role.title.ifBlank { stringResource(R.string.manage_role_new) }, onDismiss = onClose) {
-        Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
             TextInput(label = stringResource(R.string.manage_role_name), state = title)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

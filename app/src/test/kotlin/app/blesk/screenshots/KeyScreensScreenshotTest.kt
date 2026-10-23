@@ -906,7 +906,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             me = "eva",
             contacts = persistentListOf(),
             nameOf = { mapOf("eva" to "Ева", "lera" to "Лера", "anya" to "Аня")[it] ?: it },
-            actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {}),
+            actions = GroupActions({}, { _, _, _ -> true }, { true }, { true }, {}),
             onBack = {},
         )
     }
@@ -931,7 +931,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             me = "eva",
             contacts = persistentListOf(),
             nameOf = { mapOf("eva" to "Ева", "lera" to "Лера", "katya" to "Катя", "orlov" to "Дима Орлов")[it] ?: it },
-            actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {}),
+            actions = GroupActions({}, { _, _, _ -> true }, { true }, { true }, {}),
             onBack = {},
             extras = GroupInfoExtras(online = persistentSetOf("lera")),
         )
@@ -954,7 +954,7 @@ class KeyScreensScreenshotTest(private val name: String) {
             me = "eva",
             contacts = persistentListOf(),
             nameOf = { mapOf("eva" to "Ева", "lera" to "Лера")[it] ?: it },
-            actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {}),
+            actions = GroupActions({}, { _, _, _ -> true }, { true }, { true }, {}),
             onBack = {},
             extras = GroupInfoExtras(startEditing = true),
         )

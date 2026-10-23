@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -17,6 +20,7 @@ import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.underSheet
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.feature.chats.R
@@ -28,8 +32,11 @@ import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.RoomRole
 
-/** The pages under «Управление». */
-internal enum class ManagePage { Members, Admins, MemberRights, Invites, Roles, Journal, Banned, Transfer, Delete }
+/**
+ * The pages under «Управление». [HandOver] is [Transfer] opened by an owner who leaves: a group is not left without one
+ * to run it, and only an owner changes another admin or deletes it for everyone.
+ */
+internal enum class ManagePage { Members, Admins, MemberRights, Invites, Roles, Journal, Banned, Transfer, HandOver, Delete }
 
 /** A sheet opened from a management page, or from the members on the details, for [ManageSheets] to draw. */
 internal sealed interface ManageSheet {
@@ -73,6 +80,9 @@ internal class ManageEnv(
 ) {
     fun can(right: Right) = GroupPolicy.can(state, me, right)
 
+    /** Whether links made here, and people added, would reach anyone: no phone takes a state from one who manages nothing. */
+    val invites get() = GroupPolicy.manages(state, me) && can(Right.Invite)
+
     /** Whether [edit] would go through: the editors offer only what this allows. */
     fun allows(edit: GroupChange) = GroupPolicy.apply(state, me, edit, now = 0) != null
 
@@ -110,7 +120,7 @@ internal fun ManageSection(env: ManageEnv, now: Long, onOpen: (ManagePage) -> Un
         row(ManagePage.Members, R.string.manage_members, state.members.size)
         row(ManagePage.Admins, R.string.manage_admins, state.members.count { it.role == GroupRole.Admin })
         if (env.owner || env.can(Right.EditInfo)) row(ManagePage.MemberRights, R.string.manage_member_rights)
-        if (env.can(Right.Invite)) row(ManagePage.Invites, R.string.manage_invites, state.invites.count { it.usable(now) })
+        if (env.invites) row(ManagePage.Invites, R.string.manage_invites, state.invites.count { it.usable(now) })
         if (env.room && env.can(Right.Roles)) row(ManagePage.Roles, R.string.manage_roles, state.roles.size)
         if (env.can(Right.Journal)) row(ManagePage.Journal, R.string.manage_journal)
         if (env.can(Right.Ban)) row(ManagePage.Banned, R.string.manage_banned, state.banned.size)
@@ -130,7 +140,7 @@ private val ManagePage.icon
         ManagePage.Roles -> BleskIcons.Spark
         ManagePage.Journal -> BleskIcons.Clock
         ManagePage.Banned -> BleskIcons.Lock
-        ManagePage.Transfer -> BleskIcons.Forward
+        ManagePage.Transfer, ManagePage.HandOver -> BleskIcons.Forward
         ManagePage.Delete -> BleskIcons.Trash
     }
 
@@ -143,22 +153,26 @@ private val ManagePage.title
         ManagePage.Roles -> R.string.manage_roles
         ManagePage.Journal -> R.string.manage_journal
         ManagePage.Banned -> R.string.manage_banned
-        ManagePage.Transfer -> R.string.manage_transfer
+        ManagePage.Transfer, ManagePage.HandOver -> R.string.manage_transfer
         ManagePage.Delete -> R.string.manage_delete
     }
 
-/** One management page over the info screen; «назад» returns to it. */
+/**
+ * One management page over the info screen; «назад» returns to it. A slider called off at the code or fingerprint is
+ * shown afresh, ready to be slid again.
+ */
 @Composable
 internal fun ManageScreen(page: ManagePage, env: ManageEnv, now: Long, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     var gating by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var calledOff by remember { mutableIntStateOf(0) }
     var sheet by remember { mutableStateOf<ManageSheet?>(null) }
     var handed by remember { mutableStateOf<String?>(null) }
     // Without a lock there is nothing more to prove than the slider already did.
     val guarded: (() -> Unit) -> Unit = { action -> if (env.gate == null) action() else gating = action }
     val open: (ManageSheet) -> Unit = { sheet = it }
     Box(Modifier.fillMaxSize().background(Blesk.colors.background)) {
-        ScrollScreen(title = stringResource(page.title), onBack = onBack) {
+        ScrollScreen(title = stringResource(page.title), onBack = onBack, modifier = Modifier.underSheet(sheet != null || gating != null)) {
             when (page) {
                 ManagePage.Members -> MembersPage(env, open)
                 ManagePage.Admins -> AdminsPage(env, open)
@@ -167,14 +181,16 @@ internal fun ManageScreen(page: ManagePage, env: ManageEnv, now: Long, onBack: (
                 ManagePage.Roles -> RolesPage(env, open)
                 ManagePage.Journal -> JournalPage(env)
                 ManagePage.Banned -> BannedPage(env)
-                ManagePage.Transfer -> TransferPage(env, handed, open, onBack)
-                ManagePage.Delete -> DeletePage(env, guarded)
+                ManagePage.Transfer, ManagePage.HandOver -> TransferPage(env, handed, open, onBack, leaving = page == ManagePage.HandOver)
+                ManagePage.Delete -> key(calledOff) { DeletePage(env, guarded) }
             }
         }
-        ManageSheets(env, sheet, now, onSheet = { sheet = it }) { to ->
-            guarded {
-                sheet = null
-                env.run { if (env.change(GroupChange.TransferOwnership(to))) handed = to else env.refused() }
+        key(calledOff) {
+            ManageSheets(env, sheet, now, onSheet = { sheet = it }) { to ->
+                guarded {
+                    sheet = null
+                    env.run { if (env.change(GroupChange.TransferOwnership(to))) handed = to else env.refused() }
+                }
             }
         }
         val pending = gating
@@ -184,7 +200,10 @@ internal fun ManageScreen(page: ManagePage, env: ManageEnv, now: Long, onBack: (
                     gating = null
                     pending()
                 },
-                { gating = null },
+                {
+                    gating = null
+                    calledOff++
+                },
             )
         }
     }
@@ -210,7 +229,19 @@ internal fun ManageSheets(
         is ManageSheet.MemberRoles -> MemberRolesSheet(env, sheet.username, onClose = close)
         ManageSheet.PickAdmin -> AdminPicker(env, onSheet)
         is ManageSheet.Role -> RoleEditor(env, sheet.role, onClose = close)
-        is ManageSheet.Invite -> env.state.invites.firstOrNull { it.code == sheet.code }?.let { InviteSheet(env, it, now, onClose = close) }
+        is ManageSheet.Invite -> {
+            val invite = env.state.invites.firstOrNull { it.code == sheet.code } ?: return SubjectGone(close)
+            InviteSheet(env, invite, now, onClose = close)
+        }
         is ManageSheet.Transfer -> TransferSheet(env, sheet.username, onClose = close) { transfer(sheet.username) }
     }
+}
+
+/**
+ * What a sheet acts on is gone: a member who left, a channel deleted, a right lost. The sheet closes for good, so that
+ * the same coming back later does not open it again unasked.
+ */
+@Composable
+internal fun SubjectGone(onClose: () -> Unit) {
+    LaunchedEffect(Unit) { onClose() }
 }

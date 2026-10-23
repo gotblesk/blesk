@@ -34,6 +34,7 @@ import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.component.rememberNotify
+import app.blesk.core.design.component.underSheet
 import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
@@ -58,11 +59,11 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 
-/** Everything an admin can do to a group; members only see and leave. */
+/** Everything an admin can do to a group; members only see and leave. Channels come and go only if allowed: false when not. */
 class GroupActions(
     val addMembers: suspend (List<String>) -> Unit,
-    val addChannel: suspend (String, GroupChannelKind, Boolean) -> Unit,
-    val removeChannel: suspend (String) -> Unit,
+    val addChannel: suspend (String, GroupChannelKind, Boolean) -> Boolean,
+    val removeChannel: suspend (String) -> Boolean,
     /** Any change checked by the group's rules; false when it was not allowed. */
     val change: suspend (GroupChange) -> Boolean,
     val leave: suspend () -> Unit,
@@ -165,10 +166,16 @@ fun GroupInfoScreen(
     val adminsOnlyInvite = stringResource(R.string.group_invite_admins)
     val draft = rememberEditDraft(state)
 
+    // An owner hands the group over before leaving: without one, no one could change an admin or delete it for everyone.
+    fun leave() {
+        if (env.owner && others.isNotEmpty()) page = ManagePage.HandOver else run { actions.leave() }
+    }
+
     Box(modifier) {
         ScrollScreen(
             title = state.title,
             onBack = onBack,
+            modifier = Modifier.underSheet(sheet != null || channelSheet != null || memberSheet != null || page != null),
             bottom = {
                 SaveCapsule(visible = editing, dirty = draft.dirty(state)) {
                     val change = draft.toChange()
@@ -216,7 +223,8 @@ fun GroupInfoScreen(
                     }
                     add(
                         ClusterAction(BleskIcons.Invite, stringResource(R.string.group_invite_short)) {
-                            if (env.can(Right.Invite)) page = ManagePage.Invites else notify(adminsOnlyInvite)
+                            val shares = env.can(Right.Invite) && state.invites.any { it.usable(now) }
+                            if (env.invites || shares) page = ManagePage.Invites else notify(adminsOnlyInvite)
                         },
                     )
                     add(ClusterAction(BleskIcons.More, stringResource(R.string.group_more)) { sheet = Sheet.More })
@@ -250,7 +258,7 @@ fun GroupInfoScreen(
                     subtitle = stringResource(R.string.group_leave_hint),
                     icon = BleskIcons.Back,
                     showChevron = false,
-                    onClick = { run { actions.leave() } },
+                    onClick = { leave() },
                 )
             }
         }
@@ -264,6 +272,7 @@ fun GroupInfoScreen(
             onTimer = onTimer,
             onTheme = extras.onTheme,
             extras = extras,
+            onLeave = { leave() },
         )
         ChannelSheets(env, actions, channelSheet) { channelSheet = it }
         ManageSheets(env, memberSheet, now, onSheet = { memberSheet = it })
@@ -282,6 +291,7 @@ private fun GroupSheets(
     onTimer: ((Int) -> Unit)?,
     onTheme: (() -> Unit)?,
     extras: GroupInfoExtras,
+    onLeave: () -> Unit,
 ) {
     val close = { onSheet(null) }
     val state = env.state
@@ -289,7 +299,7 @@ private fun GroupSheets(
         null -> Unit
         Sheet.More -> MenuSheet(title = state.title, onDismiss = close) {
             Card {
-                if (env.can(Right.Invite)) {
+                if (env.invites) {
                     ListRow(title = stringResource(R.string.group_add_members), icon = BleskIcons.Invite, onClick = { onSheet(Sheet.Add) })
                 }
                 if (onTimer != null) {
@@ -334,7 +344,7 @@ private fun GroupSheets(
                     showChevron = false,
                     onClick = {
                         close()
-                        env.run { actions.leave() }
+                        onLeave()
                     },
                 )
             }

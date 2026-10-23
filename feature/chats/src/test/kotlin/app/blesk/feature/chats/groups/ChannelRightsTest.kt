@@ -46,8 +46,8 @@ class ChannelRightsTest {
         )
         val actions = GroupActions(
             addMembers = {},
-            addChannel = { _, _, _ -> },
-            removeChannel = {},
+            addChannel = { _, _, _ -> true },
+            removeChannel = { true },
             change = { change ->
                 changes += change
                 true

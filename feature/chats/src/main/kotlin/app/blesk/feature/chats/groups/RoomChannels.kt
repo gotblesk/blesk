@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -116,7 +117,7 @@ internal fun ChannelsSection(env: ManageEnv, onTarget: (ChannelTarget) -> Unit) 
             }
         }
     }
-    if (manage) {
+    if (manage && env.state.channels.size < GroupPolicy.MAX_CHANNELS) {
         Button(
             text = stringResource(R.string.channel_add_capsule),
             kind = ButtonKind.Secondary,
@@ -159,35 +160,22 @@ fun RoomChannelSheets(
 /**
  * The menu of a channel and its «Изменить», «Права» and «Удалить» sheets, or «+ Канал»: whichever
  * [target] names. Drawn over the screen, so it is placed beside the screen's content, not in it.
+ * Once the channel is gone, or the right to manage channels, the sheet closes for good.
  */
 @Composable
 internal fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: ChannelTarget?, onTarget: (ChannelTarget?) -> Unit) {
-    if (!env.can(Right.Channels)) return
+    if (target == null) return
     val close = { onTarget(null) }
+    if (!env.can(Right.Channels)) return SubjectGone(close)
     fun channel(id: String) = env.state.channels.firstOrNull { it.id == id }
     when (target) {
-        null -> Unit
         ChannelTarget.Add -> NewChannelSheet(env, actions, onClose = close)
         is ChannelTarget.Menu -> {
-            val channel = channel(target.channelId) ?: return
-            val index = env.state.channels.indexOf(channel)
-            ChoiceSheet(
-                title = channel.title,
-                choices = buildList {
-                    add(Choice(stringResource(R.string.channel_menu_edit)) { onTarget(ChannelTarget.Edit(channel.id)) })
-                    add(Choice(stringResource(R.string.channel_menu_rights)) { onTarget(ChannelTarget.Rights(channel.id)) })
-                    fun move(to: Int) = env.submit(GroupChange.MoveChannel(channel.id, to))
-                    if (index > 0) add(Choice(stringResource(R.string.channel_menu_up)) { move(index - 1) })
-                    if (index < env.state.channels.lastIndex) {
-                        add(Choice(stringResource(R.string.channel_menu_down)) { move(index + 1) })
-                    }
-                    add(Choice(stringResource(R.string.channel_menu_delete), danger = true) { onTarget(ChannelTarget.Delete(channel.id)) })
-                },
-                onDismiss = close,
-            )
+            val channel = channel(target.channelId) ?: return SubjectGone(close)
+            ChannelMenu(env, channel, onTarget)
         }
         is ChannelTarget.Edit -> {
-            val channel = channel(target.channelId) ?: return
+            val channel = channel(target.channelId) ?: return SubjectGone(close)
             MenuSheet(title = stringResource(R.string.channel_menu_edit), onDismiss = close) {
                 val title = rememberTextFieldState(channel.title)
                 val description = rememberTextFieldState(channel.description)
@@ -204,11 +192,11 @@ internal fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: Channe
             }
         }
         is ChannelTarget.Rights -> {
-            val channel = channel(target.channelId) ?: return
+            val channel = channel(target.channelId) ?: return SubjectGone(close)
             MenuSheet(title = channel.title, onDismiss = close) { ChannelRights(env, channel) }
         }
         is ChannelTarget.Delete -> {
-            val channel = channel(target.channelId) ?: return
+            val channel = channel(target.channelId) ?: return SubjectGone(close)
             MenuSheet(title = channel.title, onDismiss = close) {
                 Text(
                     stringResource(R.string.channel_delete_hint),
@@ -219,7 +207,7 @@ internal fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: Channe
                     label = stringResource(R.string.channel_delete_slide),
                     actionLabel = stringResource(R.string.channel_delete_slide),
                     onConfirm = {
-                        env.run { actions.removeChannel(channel.id) }
+                        env.run { if (!actions.removeChannel(channel.id)) env.refused() }
                         close()
                     },
                 )
@@ -229,12 +217,38 @@ internal fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: Channe
 }
 
 /**
+ * What may be done to [channel]. It moves past the channels its mover sees: one hidden from them in between would leave
+ * it, to their eyes, where it was. The room's last text channel is not deleted: there would be nowhere left to write.
+ */
+@Composable
+private fun ChannelMenu(env: ManageEnv, channel: GroupChannel, onTarget: (ChannelTarget?) -> Unit) {
+    val all = env.state.channels
+    val visible = all.filter { GroupPolicy.sees(env.state, env.me, it) }
+    val at = visible.indexOf(channel)
+    val lastText = channel.kind == GroupChannelKind.Text && all.none { it.id != channel.id && it.kind == GroupChannelKind.Text }
+    ChoiceSheet(
+        title = channel.title,
+        choices = buildList {
+            add(Choice(stringResource(R.string.channel_menu_edit)) { onTarget(ChannelTarget.Edit(channel.id)) })
+            add(Choice(stringResource(R.string.channel_menu_rights)) { onTarget(ChannelTarget.Rights(channel.id)) })
+            fun moveTo(neighbour: GroupChannel) = env.submit(GroupChange.MoveChannel(channel.id, all.indexOf(neighbour)))
+            visible.getOrNull(at - 1)?.let { above -> add(Choice(stringResource(R.string.channel_menu_up)) { moveTo(above) }) }
+            visible.getOrNull(at + 1)?.let { below -> add(Choice(stringResource(R.string.channel_menu_down)) { moveTo(below) }) }
+            if (!lastText) {
+                add(Choice(stringResource(R.string.channel_menu_delete), danger = true) { onTarget(ChannelTarget.Delete(channel.id)) })
+            }
+        },
+        onDismiss = { onTarget(null) },
+    )
+}
+
+/**
  * Who sees the channel, as switches: «Все участники» first, then every role. While everyone sees
  * the channel a role cannot take it away from its holders, so the roles show as on and stay put.
  * Closing the channel to everyone leaves it open to every role, which are then shut out one by one.
  */
 @Composable
-private fun ChannelRights(env: ManageEnv, channel: GroupChannel) {
+private fun ColumnScope.ChannelRights(env: ManageEnv, channel: GroupChannel) {
     val live = env.state.channels.firstOrNull { it.id == channel.id } ?: channel
     val open = GroupPolicy.EVERYONE !in live.hiddenFrom
     fun hide(hidden: Set<String>) = env.submit(GroupChange.HideChannel(channel.id, hidden))
@@ -244,8 +258,8 @@ private fun ChannelRights(env: ManageEnv, channel: GroupChannel) {
         color = Blesk.colors.textSecondary,
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
     )
-    Card {
-        Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
+    Card(Modifier.weight(1f, fill = false)) {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
             ToggleRow(
                 title = stringResource(R.string.manage_role_everyone),
                 checked = open,
@@ -295,7 +309,7 @@ private fun NewChannelSheet(env: ManageEnv, actions: GroupActions, onClose: () -
                 onClick = {
                     val name = title.text.toString().trim()
                     val channelKind = if (kind == 1) GroupChannelKind.Voice else GroupChannelKind.Text
-                    env.run { actions.addChannel(name, channelKind, kind == 2) }
+                    env.run { if (!actions.addChannel(name, channelKind, kind == 2)) env.refused() }
                     onClose()
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),

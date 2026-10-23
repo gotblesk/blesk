@@ -91,7 +91,7 @@ class RoomScreenshotTest(private val name: String) {
         }
     }
 
-    private val actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {})
+    private val actions = GroupActions({}, { _, _, _ -> true }, { true }, { true }, {})
 
     private fun studio(hiddenFrom: Set<String>) = GroupState(
         id = "s",

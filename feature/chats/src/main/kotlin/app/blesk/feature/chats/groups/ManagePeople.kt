@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -42,6 +41,7 @@ import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.component.ToggleRow
+import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.R
@@ -151,14 +151,19 @@ internal fun MemberList(env: ManageEnv, needle: String, online: Set<String> = em
 private fun givesRoles(env: ManageEnv) =
     env.room && env.can(Right.AssignRoles) && env.state.roles.any { GroupPolicy.outranks(env.state, env.me, it.id) }
 
-/** What [ManageEnv.me] may do to [username]; each choice that opens another sheet passes it to [onSheet]. */
+/**
+ * What [ManageEnv.me] may do to [username]; each choice that opens another sheet passes it to [onSheet]. For one who is
+ * no admin yet, the rights are those of the admin they would become, and the choice says so.
+ */
 @Composable
 internal fun MemberMenu(env: ManageEnv, username: String, onSheet: (ManageSheet?) -> Unit) {
+    val role = env.state.roleOf(username) ?: return SubjectGone { onSheet(null) }
     ChoiceSheet(
         title = stringResource(R.string.manage_member_menu, env.nameOf(username)),
         choices = buildList {
             if (GroupPolicy.appoints(env.state, env.me, username)) {
-                add(Choice(stringResource(R.string.manage_member_rights_action)) { onSheet(ManageSheet.AdminRights(username)) })
+                val label = if (role == GroupRole.Admin) R.string.manage_member_rights_action else R.string.manage_admin_make
+                add(Choice(stringResource(label)) { onSheet(ManageSheet.AdminRights(username)) })
             }
             if (givesRoles(env)) {
                 add(Choice(stringResource(R.string.manage_member_roles)) { onSheet(ManageSheet.MemberRoles(username)) })
@@ -204,8 +209,8 @@ private fun adminCandidates(env: ManageEnv) = env.state.members.filter { it.role
 @Composable
 internal fun AdminPicker(env: ManageEnv, onSheet: (ManageSheet?) -> Unit) {
     MenuSheet(title = stringResource(R.string.manage_admin_pick), onDismiss = { onSheet(null) }) {
-        Card {
-            Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
+        Card(Modifier.weight(1f, fill = false)) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 adminCandidates(env).forEach { member ->
                     MemberLine(env, member, onClick = { onSheet(ManageSheet.AdminRights(member.username)) })
                 }
@@ -216,12 +221,13 @@ internal fun AdminPicker(env: ManageEnv, onSheet: (ManageSheet?) -> Unit) {
 
 /**
  * The rights of one admin, as switches with a line each. A right the editor lacks stays as the admin has it: switched
- * off, unless the admin had it already.
+ * off, unless the admin had it already. A member is made an admin with them, and the sheet says so.
  */
 @Composable
 internal fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) {
-    val member = env.state.members.firstOrNull { it.username == username } ?: return
-    val had = if (member.role == GroupRole.Admin) member.rights ?: Right.ADMIN_ALL else emptySet()
+    val member = env.state.members.firstOrNull { it.username == username } ?: return SubjectGone(onClose)
+    val admin = member.role == GroupRole.Admin
+    val had = if (admin) member.rights ?: Right.ADMIN_ALL else emptySet()
     val offered = adminRightsOf(env.state.kind)
     fun givable(right: Right) = right in had || env.can(right)
     val chosen = remember(username) {
@@ -229,9 +235,10 @@ internal fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) 
             addAll(if (member.role == GroupRole.Admin) had else offered.filter { givable(it) && it != Right.AddAdmins })
         }
     }
-    MenuSheet(title = env.nameOf(username), onDismiss = onClose) {
-        Card {
-            Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
+    val title = if (admin) env.nameOf(username) else stringResource(R.string.manage_admin_make_title, env.nameOf(username))
+    MenuSheet(title = title, onDismiss = onClose) {
+        Card(Modifier.weight(1f, fill = false)) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     stringResource(R.string.manage_admin_rights_hint),
                     style = Blesk.type.caption,
@@ -244,14 +251,14 @@ internal fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) 
             }
         }
         Button(
-            text = stringResource(R.string.manage_admin_save),
+            text = stringResource(if (admin) R.string.manage_admin_save else R.string.manage_admin_make),
             onClick = {
                 env.submit(GroupChange.Admin(username, chosen.toSet()))
                 onClose()
             },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         )
-        if (member.role == GroupRole.Admin) {
+        if (admin) {
             Button(
                 text = stringResource(R.string.manage_admin_drop),
                 kind = ButtonKind.Secondary,
@@ -268,12 +275,12 @@ internal fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) 
 /** The roles below yours, to give or take; one bringing a right or a channel you lack is shown but cannot be given. */
 @Composable
 internal fun MemberRolesSheet(env: ManageEnv, username: String, onClose: () -> Unit) {
-    val member = env.state.members.firstOrNull { it.username == username } ?: return
+    val member = env.state.members.firstOrNull { it.username == username } ?: return SubjectGone(onClose)
     // Roles at or above your own are not yours to give.
     val roles = env.state.roles.filter { GroupPolicy.outranks(env.state, env.me, it.id) }
     val untitled = stringResource(R.string.manage_role_untitled)
     MenuSheet(title = env.nameOf(username), onDismiss = onClose) {
-        Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
             val locked = roles.filter { !env.allows(GroupChange.AssignRole(username, it.id, it.id !in member.roles)) }
             if (locked.isNotEmpty()) Hint(R.string.manage_member_roles_lacking)
             Card {
@@ -363,14 +370,15 @@ internal fun JournalPage(env: ManageEnv) {
 /**
  * The owner picks who takes over in [ManageSheet.Transfer], reads what follows, and slides to confirm (then the code
  * or a fingerprint, when the lock is on). Once [handed] over, the «владелец» capsule flows from their avatar to the
- * new owner's.
+ * new owner's. An owner [leaving] reads first why they hand over before they go.
  */
 @Composable
-internal fun TransferPage(env: ManageEnv, handed: String?, onSheet: (ManageSheet) -> Unit, onDone: () -> Unit) {
+internal fun TransferPage(env: ManageEnv, handed: String?, onSheet: (ManageSheet) -> Unit, onDone: () -> Unit, leaving: Boolean = false) {
     if (handed != null) {
         OwnerFlow(env, from = env.me, to = handed, onFinished = onDone)
         return
     }
+    if (leaving) Hint(R.string.manage_transfer_to_leave)
     val candidates = env.state.members.filter { it.username != env.me }
     if (candidates.isEmpty()) {
         Empty(R.string.manage_transfer_nobody)
@@ -396,6 +404,7 @@ internal fun TransferSheet(env: ManageEnv, username: String, onClose: () -> Unit
             label = stringResource(R.string.manage_transfer_slide),
             actionLabel = stringResource(R.string.manage_transfer_slide),
             onConfirm = onConfirm,
+            icon = BleskIcons.Forward,
         )
     }
 }
@@ -474,7 +483,6 @@ internal fun Empty(text: Int) {
     )
 }
 
-internal val SheetMax = 440.dp
 private val FlowAvatar = 64.dp
 private val FlowHeight = 96.dp
 private const val FLOW_HOLD_MILLIS = 900L

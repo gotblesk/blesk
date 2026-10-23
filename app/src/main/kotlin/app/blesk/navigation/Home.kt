@@ -60,6 +60,7 @@ import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.headerFocusOf
 import app.blesk.core.design.component.profileHeaderHeight
 import app.blesk.core.design.component.rememberNotify
+import app.blesk.core.design.component.underSheet
 import app.blesk.core.design.glass.LensAction
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.LensTab
@@ -125,6 +126,8 @@ internal fun Home(
     onNeedCode: () -> Unit,
 ) {
     var menuFor by remember { mutableStateOf<Conversation?>(null) }
+    // A channel's sheets opened from a room in the list: drawn over the lenses, which would otherwise cover them.
+    var channelTarget by remember { mutableStateOf<Pair<String, ChannelTarget>?>(null) }
     val rowPlaces = remember { ChatRowPlaces() }
     // Under a chat's menu the list is darkened and softly blurred; the lifted row stays sharp.
     val menuBlur by animateDpAsState(if (menuFor != null) MenuBlur else 0.dp, Blesk.motion.settle(), label = "menuBlur")
@@ -189,6 +192,7 @@ internal fun Home(
     BackHandler(enabled = inSearch && searchOpen) { searchOpen = false }
     // A query belongs to the tab it was typed on; switching tabs starts clean.
     LaunchedEffect(tab) {
+        channelTarget = null
         if (searching && !inSearch) {
             searching = false
             searchOpen = false
@@ -196,7 +200,7 @@ internal fun Home(
         }
     }
     LensScaffold(
-        modifier = Modifier.blur(menuBlur),
+        modifier = Modifier.blur(menuBlur).underSheet(channelTarget != null),
         top = {
             if (inSearch) {
                 SearchLens(
@@ -381,7 +385,6 @@ internal fun Home(
                             combine(roomIds.map(groups::group)) { states -> states.filterNotNull().associateBy { it.id } }
                         }
                     }.collectAsStateWithLifecycle(initialValue = emptyMap())
-                    var channelTarget by remember { mutableStateOf<Pair<String, ChannelTarget>?>(null) }
                     ChatList(
                         conversations = rooms.toImmutableList(),
                         typing = typing.toImmutableSet(),
@@ -401,23 +404,6 @@ internal fun Home(
                             )
                         },
                     )
-                    val (roomId, target) = channelTarget ?: return@AnimatedContent
-                    val state = roomStates[roomId] ?: return@AnimatedContent
-                    if (groups != null) {
-                        RoomChannelSheets(
-                            state = state,
-                            me = groups.me,
-                            actions = GroupActions(
-                                addMembers = { groups.addMembers(roomId, it) },
-                                addChannel = { title, kind, adminsOnly -> groups.addChannel(roomId, title, kind, adminsOnly) },
-                                removeChannel = { groups.removeChannel(roomId, it) },
-                                change = { groups.change(roomId, it) },
-                                leave = { groups.leave(roomId) },
-                            ),
-                            target = target,
-                            onTarget = { next -> channelTarget = next?.let { roomId to it } },
-                        )
-                    }
                 }
                 HomeTab.Settings -> SettingsList(
                     serverHost = serverHost,
@@ -471,6 +457,29 @@ internal fun Home(
             onNeedCode = onNeedCode,
         )
     }
+    val (roomId, target) = channelTarget ?: return
+    val groups = chats as? GroupController ?: return
+    RoomListChannelSheets(groups, roomId, target) { next -> channelTarget = next?.let { roomId to it } }
+}
+
+/** The sheets of one of [roomId]'s channels, opened from the room in the list. */
+@Composable
+private fun RoomListChannelSheets(groups: GroupController, roomId: String, target: ChannelTarget, onTarget: (ChannelTarget?) -> Unit) {
+    val state by remember(groups, roomId) { groups.group(roomId) }.collectAsStateWithLifecycle(initialValue = null)
+    val room = state ?: return
+    RoomChannelSheets(
+        state = room,
+        me = groups.me,
+        actions = GroupActions(
+            addMembers = { groups.addMembers(roomId, it) },
+            addChannel = { title, kind, adminsOnly -> groups.addChannel(roomId, title, kind, adminsOnly) },
+            removeChannel = { groups.removeChannel(roomId, it) },
+            change = { groups.change(roomId, it) },
+            leave = { groups.leave(roomId) },
+        ),
+        target = target,
+        onTarget = onTarget,
+    )
 }
 
 /** The menu's actions; pinning past [MAX_PINNED] in the same list is refused with [onPinLimit]. */

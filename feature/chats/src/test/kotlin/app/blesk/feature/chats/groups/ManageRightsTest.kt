@@ -1,6 +1,10 @@
 package app.blesk.feature.chats.groups
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -13,6 +17,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
@@ -23,6 +28,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeRight
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.shared.protocol.GroupChange
@@ -35,8 +41,11 @@ import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.RoomRole
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -83,24 +92,25 @@ class ManageRightsTest {
     private fun show(page: ManagePage, me: String, state: GroupState = room) {
         compose.setContent {
             val scope = rememberCoroutineScope()
-            val env = ManageEnv(
-                state = state,
-                me = me,
-                nameOf = { it },
-                change = { change ->
-                    changes += change
-                    true
-                },
-                run = { block -> scope.launch { block() } },
-                inviteLink = null,
-                gate = null,
-                onOpenPerson = {},
-                onGone = {},
-                refused = {},
-            )
-            BleskTheme { ManageScreen(page, env, now = 0, onBack = {}) }
+            BleskTheme { ManageScreen(page, env(state, me, scope), now = 0, onBack = {}) }
         }
     }
+
+    private fun env(state: GroupState, me: String, scope: CoroutineScope, gate: IdentityGate? = null) = ManageEnv(
+        state = state,
+        me = me,
+        nameOf = { it },
+        change = { change ->
+            changes += change
+            true
+        },
+        run = { block -> scope.launch { block() } },
+        inviteLink = null,
+        gate = gate,
+        onOpenPerson = {},
+        onGone = {},
+        refused = {},
+    )
 
     @Test
     fun aRoleKeeperChangesOnlyRolesBelowWithRightsTheyHave() {
@@ -127,11 +137,11 @@ class ManageRightsTest {
         assertOverTheScreen(hasText("Кого сделать админом"))
         compose.onNodeWithText("anya").performClick()
 
-        assertOverTheScreen(hasText("Сохранить права"))
+        assertOverTheScreen(hasText("Сделать админом"))
         row("Менять сведения").assertIsOff().assertIsNotEnabled()
         row("Исключать и блокировать").assertIsOn().assertIsEnabled()
         row("Добавлять админов").assertIsOff().assertIsEnabled()
-        compose.onNodeWithText("Сохранить права").performClick()
+        compose.onNodeWithText("Сделать админом").performClick()
         compose.waitForIdle()
         assertEquals(listOf(GroupChange.Admin("anya", setOf(Right.Invite, Right.Pin, Right.Ban, Right.AssignRoles))), changes)
     }
@@ -161,7 +171,7 @@ class ManageRightsTest {
                     me = "lera",
                     contacts = persistentListOf(),
                     nameOf = { it },
-                    actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {}),
+                    actions = GroupActions({}, { _, _, _ -> true }, { true }, { true }, {}),
                     onBack = {},
                 )
             }
@@ -169,8 +179,66 @@ class ManageRightsTest {
         compose.onNode(hasText("Участники") and isSelectable()).performClick()
         compose.onNodeWithText("anya").performScrollTo().performTouchInput { longClick() }
         assertOverTheScreen(hasText("Действия с anya"))
-        compose.onNodeWithText("Права").performClick()
+        // Anya is no admin yet: what the sheet does is make her one, and it says so.
+        compose.onNodeWithText("Сделать админом").performClick()
+        assertOverTheScreen(hasText("Сделать админом"))
+        compose.onNodeWithText("Сохранить права").assertDoesNotExist()
+    }
+
+    @Test
+    fun anAdminsRightsAreSavedAsRights() {
+        show(ManagePage.Admins, me = "eva")
+        compose.onNodeWithText("olga").performClick()
         assertOverTheScreen(hasText("Сохранить права"))
+        compose.onNodeWithText("Сделать админом").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w860dp-h400dp")
+    fun aRolesButtonsStayInReachOnAShortScreen() {
+        show(ManagePage.Roles, me = "eva")
+        compose.onNodeWithText("Фанаты").performClick()
+        listOf("Сохранить роль", "Удалить роль").forEach { button ->
+            compose.onNodeWithText(button).assertIsDisplayed()
+            assertTrue(button, compose.onNodeWithText(button).fetchSemanticsNode().boundsInRoot.height > MIN_BUTTON_PX)
+        }
+    }
+
+    @Test
+    fun anEditorWhoseMemberLeftClosesForGood() {
+        var state by mutableStateOf(room)
+        var sheet by mutableStateOf<ManageSheet?>(ManageSheet.AdminRights("anya"))
+        compose.setContent {
+            val scope = rememberCoroutineScope()
+            BleskTheme { ManageSheets(env(state, "eva", scope), sheet, now = 0, onSheet = { sheet = it }) }
+        }
+        compose.onNode(hasText("anya", substring = true) and isHeading()).assertExists()
+        state = room.copy(members = room.members.filter { it.username != "anya" })
+        compose.waitForIdle()
+        assertNull(sheet)
+    }
+
+    @Test
+    fun theSliderWorksAgainAfterTheCodeWasCancelled() {
+        var asked = 0
+        val gate: IdentityGate = { passed, cancel ->
+            LaunchedEffect(Unit) {
+                asked++
+                if (asked == 1) cancel() else passed()
+            }
+        }
+        compose.setContent {
+            val scope = rememberCoroutineScope()
+            BleskTheme { ManageScreen(ManagePage.Delete, env(room, "eva", scope, gate), now = 0, onBack = {}) }
+        }
+        repeat(2) {
+            compose.onNode(hasContentDescription("Удалить у всех")).performTouchInput {
+                swipeRight(startX = left + KNOB_GRIP_PX, endX = right, durationMillis = 400)
+            }
+            compose.waitForIdle()
+        }
+        assertEquals(2, asked)
+        assertEquals(listOf<GroupChange>(GroupChange.Dissolve), changes)
     }
 
     @Test
@@ -205,5 +273,9 @@ class ManageRightsTest {
         const val ROLES_ABOVE = "Свою роль и роли выше неё меняют только те, кто выше тебя."
         const val RIGHTS_LACKING = "Право, которого нет у тебя самого, дать нельзя."
         const val ROLES_LACKING = "Роль с правами или каналами, которых нет у тебя, дать нельзя."
+
+        /** A button squeezed by the list above it is a sliver; one in reach is taller than a finger is wide. */
+        const val MIN_BUTTON_PX = 40f
+        const val KNOB_GRIP_PX = 30f
     }
 }

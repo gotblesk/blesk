@@ -19,6 +19,8 @@
     <string name="manage_rights_lacking">Право, которого нет у тебя самого, дать нельзя.</string>
     <string name="manage_member_roles_lacking">Роль с правами или каналами, которых нет у тебя, дать нельзя.</string>
     <string name="manage_admin_save">Сохранить права</string>
+    <string name="manage_admin_make">Сделать админом</string>
+    <string name="manage_admin_make_title">%1$s станет админом</string>
     <string name="manage_admin_drop">Снять с администраторов</string>
     <string name="manage_member_menu">Действия с %1$s</string>
     <string name="manage_member_rights_action">Права</string>
@@ -80,6 +82,7 @@
     <string name="manage_transfer_slide">Передать владение</string>
     <string name="manage_transfer_done">Владение передано</string>
     <string name="manage_transfer_nobody">Сначала позови кого-нибудь: передать некому.</string>
+    <string name="manage_transfer_to_leave">Чтобы выйти, сначала передай владение: кто-то должен остаться за главного.</string>
     <string name="manage_delete_group">Удалить группу «%1$s» у всех: %2$d</string>
     <string name="manage_delete_room">Удалить комнату «%1$s» у всех: %2$d</string>
     <string name="manage_delete_slide">Удалить у всех</string>
