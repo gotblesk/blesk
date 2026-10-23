@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.net.ConnectException
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.security.cert.CertPathValidatorException
@@ -36,6 +37,28 @@ class CertificateTroubleTest {
         assertNull(ConnectException("Connection refused").certificateTrouble())
         assertNull(UnknownHostException("api.blesk.su").certificateTrouble())
         assertNull(SocketTimeoutException("timeout").certificateTrouble())
+    }
+
+    @Test
+    fun `a certificate failure on another address of the server is still found`() {
+        // OkHttp tries every address of the host and throws the first failure, with the later ones suppressed under it.
+        val pinMismatchOnIpv4 = ConnectException("IPv6 unreachable").apply { addSuppressed(handshake(PinMismatchException())) }
+        assertEquals(CertificateTrouble.PinMismatch, pinMismatchOnIpv4.certificateTrouble())
+        // Coroutines may rethrow a copy of the failure with the original as its cause.
+        assertEquals(CertificateTrouble.PinMismatch, SocketException("copy").apply { initCause(pinMismatchOnIpv4) }.certificateTrouble())
+        val expiredOnIpv4 = ConnectException("IPv6 unreachable").apply { addSuppressed(handshake(CertificateExpiredException("expired"))) }
+        assertEquals(CertificateTrouble.Untrusted, expiredOnIpv4.certificateTrouble())
+        val bothUnreachable = ConnectException("IPv6 unreachable").apply { addSuppressed(SocketTimeoutException("IPv4 timeout")) }
+        assertNull(bothUnreachable.certificateTrouble())
+    }
+
+    @Test(timeout = 10_000)
+    fun `failures suppressed under each other end the walk`() {
+        val first = SSLHandshakeException("first")
+        val second = SSLHandshakeException("second")
+        first.addSuppressed(second)
+        second.addSuppressed(first)
+        assertNull(first.certificateTrouble())
     }
 
     @Test(timeout = 10_000)

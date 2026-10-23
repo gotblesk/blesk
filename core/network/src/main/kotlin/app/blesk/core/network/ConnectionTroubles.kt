@@ -4,6 +4,8 @@ import java.io.IOException
 import java.security.cert.CertPathBuilderException
 import java.security.cert.CertPathValidatorException
 import java.security.cert.CertificateException
+import java.util.Collections
+import java.util.IdentityHashMap
 import javax.net.ssl.SSLPeerUnverifiedException
 
 /** Thrown by [PinTrustManager] only when the server's key is not the one from the QR code. */
@@ -22,16 +24,25 @@ enum class CertificateTrouble {
 }
 
 /**
- * What a failed request says about the server's certificate, read from the whole cause chain, since
- * the TLS stack wraps what the trust manager threw. Null when it is not about the certificate: a
+ * What a failed request says about the server's certificate, read from every cause and every
+ * suppressed failure: the TLS stack wraps what the trust manager threw, and OkHttp throws the failure
+ * of the host's first address with those of the others suppressed under it, so a key forged on IPv4
+ * can sit beneath an IPv6 route that simply failed. Null when it is not about the certificate: a
  * handshake the network cut off has no certificate cause and is an unreachable server, not a forged one.
  */
 fun Throwable.certificateTrouble(): CertificateTrouble? {
-    // Bounded, since causes can be made to loop.
-    val chain = generateSequence(this) { it.cause }.take(MAX_CAUSES).toList()
+    val seen = Collections.newSetFromMap(IdentityHashMap<Throwable, Boolean>())
+    val waiting = ArrayDeque(listOf(this))
+    // Bounded, and each failure read once, since causes and suppressed failures can be made to loop.
+    while (waiting.isNotEmpty() && seen.size < MAX_FAILURES) {
+        val failure = waiting.removeFirst()
+        if (!seen.add(failure)) continue
+        failure.cause?.let(waiting::addLast)
+        waiting.addAll(failure.suppressed)
+    }
     return when {
-        chain.any { it is PinMismatchException } -> CertificateTrouble.PinMismatch
-        chain.any { it.isCertificateFailure() } -> CertificateTrouble.Untrusted
+        seen.any { it is PinMismatchException } -> CertificateTrouble.PinMismatch
+        seen.any { it.isCertificateFailure() } -> CertificateTrouble.Untrusted
         else -> null
     }
 }
@@ -41,4 +52,4 @@ private fun Throwable.isCertificateFailure() = this is CertificateException ||
     this is CertPathValidatorException ||
     this is CertPathBuilderException
 
-private const val MAX_CAUSES = 16
+private const val MAX_FAILURES = 32
