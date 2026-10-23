@@ -149,6 +149,13 @@ internal fun ConversationRoute(
         isSpace -> space?.kind == SpaceKind.Channel && space?.role != SpaceRole.Owner && space?.role != SpaceRole.Admin
         else -> groupState?.let { !GroupPolicy.canWrite(it, groupController?.me.orEmpty(), id) }
     }
+
+    // A message sent is the first moment notifications are needed: the answer may come while blesk is closed.
+    fun sendAttachment(attachment: Attachment) {
+        demo.sendAttachment(id, attachment)
+        container.needNotifications()
+    }
+
     var busy by remember { mutableStateOf(false) }
     val failed = stringResource(app.blesk.feature.chats.R.string.media_failed)
     val context = LocalContext.current
@@ -175,8 +182,8 @@ internal fun ConversationRoute(
             busy = false
             when {
                 items.size < uris.size && items.isEmpty() -> notify(failed)
-                items.size == 1 -> demo.sendAttachment(id, items.single())
-                else -> demo.sendAttachment(id, Attachment.Album(items))
+                items.size == 1 -> sendAttachment(items.single())
+                else -> sendAttachment(Attachment.Album(items))
             }
             if (items.size < uris.size && items.isNotEmpty()) notify(failed)
         }
@@ -187,7 +194,7 @@ internal fun ConversationRoute(
             busy = true
             val attachment = container.media.importFile(uri)
             busy = false
-            if (attachment != null) demo.sendAttachment(id, attachment) else notify(failed)
+            if (attachment != null) sendAttachment(attachment) else notify(failed)
         }
     }
     // The camera app writes the shot to a scratch file, which is moved into the vault and deleted at once.
@@ -204,7 +211,7 @@ internal fun ConversationRoute(
             val attachment = importVisual(container, "image/jpeg", shotUri)
             shot.delete()
             busy = false
-            if (attachment != null) demo.sendAttachment(id, attachment) else notify(failed)
+            if (attachment != null) sendAttachment(attachment) else notify(failed)
         }
     }
     val cameraDenied = stringResource(app.blesk.feature.chats.R.string.media_camera_denied)
@@ -244,8 +251,8 @@ internal fun ConversationRoute(
             conversationId = id,
             voice = container.voiceRecorder,
             circle = container.circleRecorder,
-            onVoice = { demo.sendAttachment(id, it) },
-            onCircle = { demo.sendAttachment(id, it) },
+            onVoice = { sendAttachment(it) },
+            onCircle = { sendAttachment(it) },
             startMode = if (recordCircle) RecordMode.Circle else RecordMode.Voice,
             onModeChange = { mode -> scope.launch { container.settings.setComposer(circle = mode == RecordMode.Circle) } },
             tapToRecord = tapToRecord,
@@ -270,7 +277,7 @@ internal fun ConversationRoute(
         onSend = { sticker ->
             scope.launch {
                 val copy = container.media.copyIn(File(sticker.path), sticker.format.extension) ?: return@launch notify(failed)
-                demo.sendAttachment(id, Attachment.Sticker(copy.path, sticker.emoji, sticker.format))
+                sendAttachment(Attachment.Sticker(copy.path, sticker.emoji, sticker.format))
                 container.stickers.markUsed(sticker.id)
             }
         },
@@ -286,7 +293,7 @@ internal fun ConversationRoute(
             busy = true
             val attachment = container.media.importMusic(uri)
             busy = false
-            if (attachment != null) demo.sendAttachment(id, attachment) else notify(failed)
+            if (attachment != null) sendAttachment(attachment) else notify(failed)
         }
     }
     LaunchedEffect(bots) {
@@ -294,7 +301,10 @@ internal fun ConversationRoute(
     }
     val callbacks = remember(id, direct) {
         ConversationCallbacks(
-            onSend = { text, replyTo -> demo.send(id, text, replyTo) },
+            onSend = { text, replyTo ->
+                demo.send(id, text, replyTo)
+                container.needNotifications()
+            },
             onOpenPerson = { username ->
                 scope.launch { demo.openDirect(username)?.let(onOpenPerson) ?: notify(if (online) personMissing else noNetwork) }
             },
@@ -429,6 +439,7 @@ internal fun ConversationRoute(
                         onSelect = { spec -> scope.launch { container.settings.setChatTheme(id, spec) } },
                         onSend = {
                             demo.sendTheme(id, override ?: appearance.theme, caption)
+                            container.needNotifications()
                             themeSheet = false
                         },
                         onDismiss = { themeSheet = false },

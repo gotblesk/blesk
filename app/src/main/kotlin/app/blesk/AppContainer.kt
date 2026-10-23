@@ -191,6 +191,17 @@ class AppContainer(
     /** Something shared into blesk from another app, waiting for the chats to send it to. */
     val shareRequest = MutableStateFlow<Shared?>(null)
 
+    /**
+     * Notifications are needed now: someone can write while blesk is closed. Set at the first friend or
+     * request, the first message sent, or «Всегда на связи»; the question about them waits for it.
+     */
+    val notificationsNeeded = MutableStateFlow(false)
+
+    /** Only an account on a server is ever written to while closed; the demo never needs notifications. */
+    fun needNotifications() {
+        if (api != null) notificationsNeeded.value = true
+    }
+
     /** A message for another chat while the app is in front: shown as a capsule instead of a system notification. */
     val inAppNote = MutableStateFlow<InAppNote?>(null)
 

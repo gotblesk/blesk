@@ -87,6 +87,7 @@ import app.blesk.locks.ChatLockGate
 import app.blesk.locks.ChatLocksRoute
 import app.blesk.locks.LockCodeRoute
 import app.blesk.locks.LockedDetails
+import app.blesk.onboarding.NotificationAsk
 import app.blesk.onboarding.OtherServerKey
 import app.blesk.onboarding.ServerRef
 import app.blesk.onboarding.SetupOpener
@@ -802,6 +803,8 @@ fun BleskNavigation(container: AppContainer) {
                     atHome = backStack.singleOrNull() == HomeKey,
                 )
                 SetupOpener(container.onboarding.start, backStack, direction)
+                // Over the chats and what opens from them, never over the welcome screen or the setup.
+                if (home) NotificationAsk(container)
             }
         }
     }

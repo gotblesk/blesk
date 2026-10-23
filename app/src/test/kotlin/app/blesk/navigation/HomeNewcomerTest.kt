@@ -9,7 +9,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
-/** Scenarios 37 and 41: the official channel shows in «Чаты» without taking the newcomer screen away. */
+/**
+ * Scenarios 37 and 41: the official channel shows in «Чаты» without taking the newcomer screen away, and
+ * without making notifications needed; a friend or a request does.
+ */
 class HomeNewcomerTest {
     private val saved = chat("saved", ConversationKind.Saved)
     private val official = chat("space:blesk", ConversationKind.Channel).copy(official = true, protection = Protection.Open)
@@ -53,6 +56,15 @@ class HomeNewcomerTest {
     fun anArchivedOfficialChannelLeavesThePersonAlone() {
         assertTrue(chatsHome(listOf(saved), archived = listOf(official.copy(archived = true)), demo = false).alone)
         assertFalse(chatsHome(listOf(saved), archived = listOf(anya.copy(archived = true)), demo = false).alone)
+    }
+
+    @Test
+    fun notificationsAreNeededOnceSomeoneCanWrite() {
+        val stranger = chat("vera", ConversationKind.Direct).copy(request = true)
+
+        assertFalse(chatsHome(listOf(saved, official), archived = emptyList(), demo = false).someone)
+        assertTrue(chatsHome(listOf(saved, official, anya), archived = emptyList(), demo = false).someone)
+        assertTrue(chatsHome(listOf(saved, stranger), archived = emptyList(), demo = false).someone)
     }
 
     @Test

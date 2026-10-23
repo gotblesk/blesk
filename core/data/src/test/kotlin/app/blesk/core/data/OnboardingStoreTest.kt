@@ -158,6 +158,15 @@ class OnboardingStoreTest {
     }
 
     @Test
+    fun notificationsAreAskedAboutOnce() = runBlocking {
+        assertFalse(onboarding.notificationsAsked.first())
+
+        onboarding.markNotificationsAsked()
+
+        assertTrue(onboarding.notificationsAsked.first())
+    }
+
+    @Test
     fun aNameOfOnlyInvisibleCharactersIsNotSaved() = runBlocking {
         assertTrue(onboarding.setProfileName("Аня"))
 

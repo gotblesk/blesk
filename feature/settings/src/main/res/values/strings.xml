@@ -124,6 +124,8 @@
     <string name="notifications_online">Всегда на связи</string>
     <string name="notifications_online_hint">Приложение держит соединение с твоим сервером, и сообщения со звонками приходят, даже когда оно закрыто. В шторке будет тихое постоянное уведомление. Немного расходует батарею.</string>
     <string name="notifications_online_demo">Доступно после подключения к серверу</string>
+    <string name="notifications_blocked">Уведомления выключены</string>
+    <string name="notifications_blocked_hint">Android не даёт blesk их показывать. Нажми, чтобы открыть настройки и разрешить</string>
     <string name="safety_title">Проверка ключей</string>
     <string name="safety_intro">Сравни эти цифры с теми, что видит %1$s у себя, — при встрече или по звонку. Совпадают — между тобой никого нет.</string>
     <string name="safety_none">Цифры появятся после первого сообщения в этом чате.</string>

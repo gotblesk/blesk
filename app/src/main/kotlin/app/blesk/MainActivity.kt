@@ -1,10 +1,8 @@
 package app.blesk
 
-import android.Manifest
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
@@ -14,10 +12,8 @@ import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -31,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
-import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
@@ -103,7 +98,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
             SystemBars(isDark = appearance.theme.isDark)
-            AskForNotifications(container)
             val vibration by container.settings.vibration.collectAsStateWithLifecycle(initialValue = VibrationLevel.Normal)
             CompositionLocalProvider(
                 LocalClock provides container.clock,
@@ -232,19 +226,6 @@ class MainActivity : ComponentActivity() {
             Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .apply { conversationId?.let { putExtra(EXTRA_CONVERSATION, it) } }
-    }
-
-    /** With a real server, messages and calls need notifications; asked once the server is connected. */
-    @Composable
-    private fun AskForNotifications(container: AppContainer) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = AppMode.Demo)
-        val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-        LaunchedEffect(mode is AppMode.Server) {
-            val granted = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) ==
-                PackageManager.PERMISSION_GRANTED
-            if (mode is AppMode.Server && !granted) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
     }
 
     @Composable

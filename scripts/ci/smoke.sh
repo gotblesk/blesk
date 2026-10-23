@@ -54,6 +54,7 @@ adb reverse tcp:8443 tcp:443
 # Crash and «not responding» dialogs of other apps would cover the screen being read.
 adb shell settings put global hide_error_dialogs 1
 adb install -r "$apk"
+# Allowed up front: blesk's question about notifications, at the first friend or message, never covers the screen.
 adb shell pm grant "$package" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 # A cold first start: the splash holds until the start screen is read, so this is the time to the welcome screen.
 adb shell am start -W -n "$package/.MainActivity" | tr -d '\r' | tee "$shots/start.txt"

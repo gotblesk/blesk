@@ -153,6 +153,20 @@ class AccountSwitchTest {
         server.close()
     }
 
+    @Test
+    fun onlyAnAccountNeedsNotifications() {
+        until { container.chats.value != null }
+        container.needNotifications()
+        assertFalse(container.notificationsNeeded.value)
+
+        val api = BleskApi(ServerAddress(ACCOUNT.url))
+        container.scope.launch { container.switchTo(ACCOUNT, AppContainer.Entry.SignUp, api) { standIn() } }
+        until { container.api != null }
+        container.needNotifications()
+
+        assertTrue(container.notificationsNeeded.value)
+    }
+
     private fun standIn(): DemoRepository = DemoRepository(
         DemoSeed.from(application.resources, Instant.now()),
         application.resources::attachmentLabel,

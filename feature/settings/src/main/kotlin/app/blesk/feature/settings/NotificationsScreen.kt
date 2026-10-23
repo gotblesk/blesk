@@ -13,6 +13,7 @@ import app.blesk.core.design.component.SectionHeader
 import app.blesk.core.design.component.Segmented
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.ToggleRow
+import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import kotlinx.collections.immutable.persistentListOf
 
@@ -24,9 +25,22 @@ fun NotificationsScreen(
     onChange: (NotificationSettings) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Android does not let blesk show notifications; [onAllow] opens where they are allowed. */
+    blocked: Boolean = false,
+    onAllow: () -> Unit = {},
 ) {
     val pad = Modifier.padding(horizontal = Blesk.dimens.gutter)
     ScrollScreen(title = stringResource(R.string.notifications_title), onBack = onBack, modifier = modifier) {
+        if (blocked && serverConnected) {
+            Card(pad.padding(bottom = Blesk.dimens.sectionGap)) {
+                ListRow(
+                    title = stringResource(R.string.notifications_blocked),
+                    subtitle = stringResource(R.string.notifications_blocked_hint),
+                    icon = BleskIcons.BellOff,
+                    onClick = onAllow,
+                )
+            }
+        }
         Card(pad) {
             ToggleRow(
                 title = stringResource(R.string.notifications_enabled),

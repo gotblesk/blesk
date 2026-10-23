@@ -289,6 +289,8 @@ internal fun Home(
                     val archived = conversations.filter { it.archived }
                     val home = chatsHome(list, archived, demo)
                     val requests = home.requests
+                    // The question about notifications waits for this moment, not for the start.
+                    LaunchedEffect(home.someone) { if (home.someone) container.needNotifications() }
                     // Once the newcomer screen has shown, it stays until the first friend has flown in and stuck.
                     val welcoming = rememberSaveable { mutableStateOf(false) }
                     if (home.alone && !welcoming.value) welcoming.value = true
@@ -469,7 +471,15 @@ internal fun Home(
  * answer, [official] is the server's own channel. The channel is no friend: with it alone the person is
  * still [alone], on the newcomer screen, which then shows it as a row.
  */
-internal class ChatsHome(val friends: List<Conversation>, val requests: List<Conversation>, val official: Conversation?, val alone: Boolean)
+internal class ChatsHome(
+    val friends: List<Conversation>,
+    val requests: List<Conversation>,
+    val official: Conversation?,
+    val alone: Boolean,
+) {
+    /** Someone of the person's own or a stranger can write now, also while blesk is closed. */
+    val someone: Boolean get() = friends.isNotEmpty() || requests.isNotEmpty()
+}
 
 /** Sorts the chats [shown] in the list, with those [archived] apart; the demo is never alone. */
 internal fun chatsHome(shown: List<Conversation>, archived: List<Conversation>, demo: Boolean): ChatsHome {

@@ -54,6 +54,9 @@ class OnboardingStore(settings: SettingsStore) {
     /** The official channel the setup was asked to subscribe to, until the server has taken the subscription. */
     val subscribePending: Flow<String?> = store.data.map { it[SUBSCRIBE_PENDING] }.distinctUntilChanged()
 
+    /** Whether blesk has asked about notifications; it asks once, whatever the answer. */
+    val notificationsAsked: Flow<Boolean> = store.data.map { it[NOTIFICATIONS_ASKED] ?: false }.distinctUntilChanged()
+
     suspend fun chooseDemo() {
         store.edit { it[DEMO_CHOSEN] = true }
     }
@@ -76,6 +79,10 @@ class OnboardingStore(settings: SettingsStore) {
 
     suspend fun setOfficialChannel(handle: String?) {
         store.edit { if (handle != null) it[OFFICIAL_CHANNEL] = handle else it.remove(OFFICIAL_CHANNEL) }
+    }
+
+    suspend fun markNotificationsAsked() {
+        store.edit { it[NOTIFICATIONS_ASKED] = true }
     }
 
     /** The server has taken the subscription to [handle]; one asked for since is still to come. */
@@ -135,6 +142,7 @@ class OnboardingStore(settings: SettingsStore) {
         val LAST_SERVER_PIN = stringPreferencesKey("last_server_pin")
         val OFFICIAL_CHANNEL = stringPreferencesKey("official_channel")
         val SUBSCRIBE_PENDING = stringPreferencesKey("subscribe_pending")
+        val NOTIFICATIONS_ASKED = booleanPreferencesKey("notifications_asked")
         val DEMO_KEYS: List<Preferences.Key<*>> = listOf(
             SettingsStore.CHAT_THEMES,
             SettingsStore.MENTIONS_ONLY,
