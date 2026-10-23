@@ -11,6 +11,7 @@ import app.blesk.core.crypto.phrase.PhraseKeys
 import app.blesk.core.crypto.phrase.PhraseVault
 import app.blesk.core.crypto.phrase.RecoveryPhrase
 import app.blesk.core.data.ChatRepository
+import app.blesk.core.data.SpaceController
 import app.blesk.core.data.calls.CallSignaling
 import app.blesk.core.data.demo.DemoRepository
 import app.blesk.core.data.demo.DemoSeed
@@ -44,6 +45,7 @@ import app.blesk.core.messaging.OwnProfile
 import app.blesk.core.messaging.RecoverResult
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.messaging.ServerChatRepository
+import app.blesk.core.network.ApiException
 import app.blesk.core.network.BleskApi
 import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ProxyConfig
@@ -54,6 +56,8 @@ import app.blesk.feature.profile.ProfileDraft
 import app.blesk.locks.ChatLockSession
 import app.blesk.music.OwnMusic
 import app.blesk.onboarding.SignUp
+import app.blesk.onboarding.followOfficialChannel
+import app.blesk.onboarding.subscribeToOfficialChannel
 import app.blesk.update.Updater
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -77,6 +81,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -246,9 +251,10 @@ class AppContainer(
 
     /**
      * Creates an account on [address] by [invite] with a new recovery phrase and switches the app to
-     * it. The phrase is kept sealed on this phone until the person has written it down.
+     * it. The phrase is kept sealed on this phone until the person has written it down. [officialChannel]
+     * is the channel the server named before, if it was asked.
      */
-    suspend fun connect(address: ServerAddress, username: String, invite: String?): RegisterResult {
+    suspend fun connect(address: ServerAddress, username: String, invite: String?, officialChannel: String?): RegisterResult {
         val stack = stackFor(address)
         // The same name again after a failure keeps its phrase, so an account the server made before the
         // connection dropped is signed in to and still opens with the phrase saved below.
@@ -265,7 +271,7 @@ class AppContainer(
             withContext(Dispatchers.IO) { phrase.save(entropy) }
             unfinished = null
             pendingInvite.value = null
-            open(stack, username, Entry.SignUp)
+            open(stack, username, Entry.SignUp, officialChannel)
         }
         return result
     }
@@ -284,8 +290,17 @@ class AppContainer(
         if (chats.value == null) show(demo, api = null)
     }
 
-    /** The new account's setup is over: the app opens with the chats from now on. */
-    suspend fun finishSetup() = onboarding.setSetupStep(null)
+    /**
+     * The new account's setup is over: the app opens with the chats from now on. With [subscribeTo], the
+     * server's official channel is joined as soon as the server is reached.
+     */
+    suspend fun finishSetup(subscribeTo: String?) {
+        onboarding.finishSetup(subscribeTo)
+        val repository = chats.value ?: return
+        if (subscribeTo != null) {
+            serverScope?.launch { subscribeToOfficialChannel(subscribeTo, onboarding, repository.connection, joinIn(repository)) }
+        }
+    }
 
     /** The last registration that did not succeed; the server may still have made its account. */
     private var unfinished: Attempt? = null
@@ -326,8 +341,8 @@ class AppContainer(
     }
 
     /** Switches the app to the account [username] on the server of [stack]. */
-    private suspend fun open(stack: ServerStack, username: String, entry: Entry) =
-        switchTo(AppMode.Server(stack.address.url, stack.address.pin, username), entry, stack.api) {
+    private suspend fun open(stack: ServerStack, username: String, entry: Entry, officialChannel: String? = null) =
+        switchTo(AppMode.Server(stack.address.url, stack.address.pin, username), entry, stack.api, officialChannel) {
             withContext(Dispatchers.IO) { stack.repository(username, privacy, profile, keepArchived) }.also { it.start() }
         }
 
@@ -338,25 +353,31 @@ class AppContainer(
      * goes first, and the account is saved in the same write that drops the demo's settings, so a phone
      * stopped on the way opens either the demo or the account, never the account under the demo's chat locks
      * and themes. A new account is saved with the first step of its setup, which then opens wherever the
-     * person is.
+     * person is, and with the [officialChannel] its glint step offers.
      */
-    internal suspend fun switchTo(account: AppMode.Server, entry: Entry, api: BleskApi, start: suspend () -> ChatRepository) =
-        withContext(NonCancellable) {
-            val keepNameAndPhoto = entry == Entry.SignUp
-            forgetDemo(keepPhoto = keepNameAndPhoto)
-            onboarding.enterAccount(account, keepNameAndPhoto, setup = SetupStep.Profile.takeIf { entry == Entry.SignUp })
-            eventLog.record(
-                when (entry) {
-                    Entry.SignUp -> EventCode.ServerRegistered
-                    Entry.Recovered -> EventCode.AccountRecovered
-                },
-            )
-            val previous = chats.value as? ServerChatRepository
-            show(start(), api)
-            // Only once its replacement is on screen: until then the screens still send through it.
-            previous?.close()
-            media.clearDemo()
-        }
+    internal suspend fun switchTo(
+        account: AppMode.Server,
+        entry: Entry,
+        api: BleskApi,
+        officialChannel: String? = null,
+        start: suspend () -> ChatRepository,
+    ) = withContext(NonCancellable) {
+        val keepNameAndPhoto = entry == Entry.SignUp
+        forgetDemo(keepPhoto = keepNameAndPhoto)
+        val setup = SetupStep.Profile.takeIf { entry == Entry.SignUp }
+        onboarding.enterAccount(account, keepNameAndPhoto, setup, officialChannel)
+        eventLog.record(
+            when (entry) {
+                Entry.SignUp -> EventCode.ServerRegistered
+                Entry.Recovered -> EventCode.AccountRecovered
+            },
+        )
+        val previous = chats.value as? ServerChatRepository
+        show(start(), api)
+        // Only once its replacement is on screen: until then the screens still send through it.
+        previous?.close()
+        media.clearDemo()
+    }
 
     /**
      * Drops what the demo kept beside the settings: the locks and kept files of its chats, whose ids are real
@@ -378,6 +399,9 @@ class AppContainer(
     var api: BleskApi? = null
         private set
 
+    /** Work for the server shown, such as following its official channel; it ends when another world is shown. */
+    private var serverScope: CoroutineScope? = null
+
     private fun show(repository: ChatRepository, api: BleskApi?) {
         media.demo = repository is DemoRepository
         this.api = api
@@ -394,8 +418,28 @@ class AppContainer(
             http = { api?.okHttpClient() },
             nameOf = { username -> repository.contact(username)?.name ?: username },
         )
+        serverScope?.cancel()
+        serverScope = api?.let { server -> childScope().also { it.launch { followServer(repository, server) } } }
         chatsState.value = repository
     }
+
+    private suspend fun followServer(repository: ChatRepository, server: BleskApi) = followOfficialChannel(
+        store = onboarding,
+        connection = repository.connection,
+        info = {
+            try {
+                server.info()
+            } catch (_: IOException) {
+                null
+            } catch (_: ApiException) {
+                null
+            }
+        },
+        join = joinIn(repository),
+    )
+
+    private fun joinIn(repository: ChatRepository): suspend (String) -> Boolean =
+        { handle -> (repository as? SpaceController)?.joinSpace(handle) != null }
 }
 
 /** What the in-app capsule shows; the text is already masked to what the notification settings allow. */

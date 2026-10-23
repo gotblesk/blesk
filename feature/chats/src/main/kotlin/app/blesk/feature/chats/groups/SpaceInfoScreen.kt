@@ -44,6 +44,7 @@ import app.blesk.feature.chats.Archive
 import app.blesk.feature.chats.ArchiveActions
 import app.blesk.feature.chats.ArchiveKind
 import app.blesk.feature.chats.EncryptionRow
+import app.blesk.feature.chats.OfficialTag
 import app.blesk.feature.chats.R
 import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
@@ -109,7 +110,10 @@ fun SpaceInfoScreen(
             title = space.title,
             lines = listOf("@${space.handle}"),
             avatar = { Avatar(space.title, size = HeroAvatar, key = space.handle) },
-            tag = { NotEncryptedTag() },
+            tag = {
+                NotEncryptedTag()
+                if (space.official) OfficialTag()
+            },
         )
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             SubscriberCapsule(

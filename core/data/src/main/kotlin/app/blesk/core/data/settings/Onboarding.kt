@@ -48,6 +48,12 @@ class OnboardingStore(settings: SettingsStore) {
         .map { prefs -> prefs[LAST_SERVER_URL]?.takeIf { it.isNotBlank() }?.let { LastServer(it, prefs[LAST_SERVER_PIN]) } }
         .distinctUntilChanged()
 
+    /** The handle of the account's server's own channel, as the server last named it; null when it names none. */
+    val officialChannel: Flow<String?> = store.data.map { it[OFFICIAL_CHANNEL] }.distinctUntilChanged()
+
+    /** The official channel the setup was asked to subscribe to, until the server has taken the subscription. */
+    val subscribePending: Flow<String?> = store.data.map { it[SUBSCRIBE_PENDING] }.distinctUntilChanged()
+
     suspend fun chooseDemo() {
         store.edit { it[DEMO_CHOSEN] = true }
     }
@@ -55,6 +61,26 @@ class OnboardingStore(settings: SettingsStore) {
     /** Null once the setup is done. */
     suspend fun setSetupStep(step: SetupStep?) {
         store.edit { if (step != null) it[SETUP_STEP] = step.name else it.remove(SETUP_STEP) }
+    }
+
+    /**
+     * Ends the setup and, with [subscribeTo], keeps the official channel to subscribe to in the same write: a
+     * phone stopped right after still subscribes at its next start.
+     */
+    suspend fun finishSetup(subscribeTo: String?) {
+        store.edit {
+            it.remove(SETUP_STEP)
+            if (subscribeTo != null) it[SUBSCRIBE_PENDING] = subscribeTo
+        }
+    }
+
+    suspend fun setOfficialChannel(handle: String?) {
+        store.edit { if (handle != null) it[OFFICIAL_CHANNEL] = handle else it.remove(OFFICIAL_CHANNEL) }
+    }
+
+    /** The server has taken the subscription to [handle]; one asked for since is still to come. */
+    suspend fun subscribed(handle: String) {
+        store.edit { if (it[SUBSCRIBE_PENDING] == handle) it.remove(SUBSCRIBE_PENDING) }
     }
 
     suspend fun rememberServer(url: String, pin: String?) {
@@ -81,12 +107,16 @@ class OnboardingStore(settings: SettingsStore) {
      * profile and the mark that the demo was chosen. Appearance, privacy, notifications and the other
      * preferences are the person's own and stay. The name and photo stay only for a new account, whose setup
      * offers them again; an account brought back by its phrase has its own. [setup] is the step its setup
-     * starts at. One write, so the app is never seen in the account with the demo's settings, nor on the
-     * welcome screen between the two, nor in a new account that skipped its setup.
+     * starts at, and [officialChannel] the channel its server named, which its glint step offers; the one of
+     * the server before, and a subscription to it still waiting, are forgotten. One write, so the app is never
+     * seen in the account with the demo's settings, nor on the welcome screen between the two, nor in a new
+     * account that skipped its setup.
      */
-    suspend fun enterAccount(account: AppMode.Server, keepNameAndPhoto: Boolean, setup: SetupStep?) {
+    suspend fun enterAccount(account: AppMode.Server, keepNameAndPhoto: Boolean, setup: SetupStep?, officialChannel: String? = null) {
         store.edit { prefs ->
             DEMO_KEYS.forEach { prefs.remove(it) }
+            if (officialChannel != null) prefs[OFFICIAL_CHANNEL] = officialChannel else prefs.remove(OFFICIAL_CHANNEL)
+            prefs.remove(SUBSCRIBE_PENDING)
             if (!keepNameAndPhoto) {
                 prefs.remove(SettingsStore.PROFILE_NAME)
                 prefs.remove(SettingsStore.PROFILE_PHOTO)
@@ -103,6 +133,8 @@ class OnboardingStore(settings: SettingsStore) {
         val SETUP_STEP = stringPreferencesKey("setup_step")
         val LAST_SERVER_URL = stringPreferencesKey("last_server_url")
         val LAST_SERVER_PIN = stringPreferencesKey("last_server_pin")
+        val OFFICIAL_CHANNEL = stringPreferencesKey("official_channel")
+        val SUBSCRIBE_PENDING = stringPreferencesKey("subscribe_pending")
         val DEMO_KEYS: List<Preferences.Key<*>> = listOf(
             SettingsStore.CHAT_THEMES,
             SettingsStore.MENTIONS_ONLY,

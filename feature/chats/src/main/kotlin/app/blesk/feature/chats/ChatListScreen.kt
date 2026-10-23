@@ -769,6 +769,7 @@ internal fun ConversationSummary(conversation: Conversation, typing: Boolean, no
 @Composable
 private fun KindTag(conversation: Conversation) {
     when {
+        conversation.official -> OfficialTag()
         conversation.kind == ConversationKind.Bot -> Tag(stringResource(R.string.chats_bot))
         conversation.kind == ConversationKind.Channel -> Tag(stringResource(R.string.chats_channel))
         conversation.protection == Protection.Open -> NotEncryptedTag()

@@ -30,21 +30,37 @@ import app.blesk.navigation.PhraseRoute
 import app.blesk.navigation.PinChangeRoute
 import app.blesk.navigation.rememberProfilePhoto
 import app.blesk.shared.appearance.Appearance
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-/** One step of setting up the new account; [onNext] goes on to the next one, [onFinish] opens the chats. */
+/**
+ * One step of setting up the new account; [onNext] goes on to the next one, [onFinish] opens the chats
+ * with the official channel to subscribe to, if any.
+ */
 @Composable
-internal fun SetupRoute(container: AppContainer, key: SetupKey, onNext: () -> Unit, onFinish: () -> Unit) {
+internal fun SetupRoute(container: AppContainer, key: SetupKey, onNext: () -> Unit, onFinish: (subscribeTo: String?) -> Unit) {
     when (key.step) {
         SetupStep.Profile -> ProfileStep(container, onNext)
         // Shown straight after the account is made, so no code is asked; «Позже» leaves the reminder in «Ты».
         SetupStep.Phrase -> PhraseRoute(container, fresh = true, onDone = onNext, onLater = onNext, onBack = null)
         SetupStep.Code -> CodeStep(container, onNext)
         SetupStep.Theme -> ThemeStep(container, onNext)
-        // No tick for the official channel: nothing could subscribe to it yet.
-        SetupStep.Glint -> GlintStepScreen(channel = false, subscribe = false, onSubscribeChange = {}, onDone = onFinish)
+        SetupStep.Glint -> GlintStep(container.onboarding.officialChannel, onFinish)
     }
+}
+
+/** «Язык блеска», with the server's official channel offered ticked when the server has one. */
+@Composable
+internal fun GlintStep(officialChannel: Flow<String?>, onFinish: (subscribeTo: String?) -> Unit) {
+    val channel by officialChannel.collectAsStateWithLifecycle(initialValue = null)
+    var subscribe by rememberSaveable { mutableStateOf(true) }
+    GlintStepScreen(
+        channel = channel != null,
+        subscribe = subscribe,
+        onSubscribeChange = { subscribe = it },
+        onDone = { onFinish(channel?.takeIf { subscribe }) },
+    )
 }
 
 /** «Как тебя называть»: the name and the photo, as the demo left them if it did. */

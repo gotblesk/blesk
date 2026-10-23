@@ -56,6 +56,8 @@ fun AboutScreen(
     modifier: Modifier = Modifier,
     updates: UpdateControls? = null,
     signature: BuildSignature? = null,
+    /** Opens the server's own channel; null while the server names none. */
+    onOpenOfficial: (() -> Unit)? = null,
 ) {
     val uriHandler = LocalUriHandler.current
     val source = stringResource(R.string.about_source_url)
@@ -97,6 +99,13 @@ fun AboutScreen(
                     subtitle = stringResource(R.string.about_updates_hint),
                     checked = updates.checking,
                     onCheckedChange = updates.onChecking,
+                )
+            }
+            if (onOpenOfficial != null) {
+                ListRow(
+                    title = stringResource(R.string.about_official_channel),
+                    subtitle = stringResource(R.string.about_official_channel_hint),
+                    onClick = onOpenOfficial,
                 )
             }
             ListRow(

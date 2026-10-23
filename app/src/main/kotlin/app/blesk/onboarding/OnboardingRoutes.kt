@@ -95,8 +95,8 @@ internal fun EntryProviderScope<Any>.onboardingEntries(
                 container.scope.launch { container.onboarding.setSetupStep(next) }
                 if (next != null) backStack.add(SetupKey(next))
             },
-            onFinish = {
-                container.scope.launch { container.finishSetup() }
+            onFinish = { subscribeTo ->
+                container.scope.launch { container.finishSetup(subscribeTo) }
                 backStack.replaceWith(listOf(HomeKey), direction)
             },
         )

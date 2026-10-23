@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.ButtonKind
+import app.blesk.core.design.component.Card
+import app.blesk.core.design.component.ListRow
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.fire.flashOn
 import app.blesk.core.design.icon.BleskIcons
@@ -51,10 +55,14 @@ import kotlin.math.roundToInt
 /** Who you are on the empty screen, and the first friend once one arrives. */
 class Newcomer(val name: String, val key: String, val photo: ImageBitmap?)
 
+/** The server's own channel, [title] by name; [onOpen] opens it. */
+class OfficialChannel(val title: String, val onOpen: () -> Unit)
+
 /**
  * «Чаты» before anyone is there: your own capsule with light slowly crossing it, and the two
  * ways to change that. When [friend] appears, their capsule flies in and sticks to yours, the
- * pair flashes, and [onSettled] hands the screen over to the ordinary list.
+ * pair flashes, and [onSettled] hands the screen over to the ordinary list. The [official]
+ * channel, once subscribed, is no friend: it waits under the ways as a row of its own.
  */
 @Composable
 fun NewcomerChats(
@@ -65,6 +73,7 @@ fun NewcomerChats(
     onInvite: (() -> Unit)? = null,
     friend: Newcomer? = null,
     onSettled: () -> Unit = {},
+    official: OfficialChannel? = null,
 ) {
     val motion = Blesk.motion
     val haptics = rememberHaptics()
@@ -82,6 +91,9 @@ fun NewcomerChats(
     Column(
         modifier = modifier
             .fillMaxSize()
+            // Scrolls at large text on a small phone. After fillMaxSize the screen's height stays the least,
+            // so the column is still centred while it fits.
+            .verticalScroll(rememberScrollState())
             .padding(contentPadding)
             .padding(horizontal = Blesk.dimens.gutter),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -139,6 +151,17 @@ fun NewcomerChats(
                 kind = if (onInvite != null) ButtonKind.Secondary else ButtonKind.Primary,
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+        if (official != null) {
+            Card(Modifier.fillMaxWidth().padding(top = 20.dp)) {
+                ListRow(
+                    title = official.title,
+                    subtitle = stringResource(R.string.newcomer_official_hint),
+                    icon = BleskIcons.Channel,
+                    onClick = official.onOpen,
+                    trailing = { OfficialTag() },
+                )
+            }
         }
     }
 }

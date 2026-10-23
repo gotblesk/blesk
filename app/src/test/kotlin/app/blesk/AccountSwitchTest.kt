@@ -4,6 +4,7 @@ import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.data.ChatRepository
+import app.blesk.core.data.SpaceController
 import app.blesk.core.data.demo.DemoRepository
 import app.blesk.core.data.demo.DemoSeed
 import app.blesk.core.data.diagnostics.EventCode
@@ -38,8 +39,13 @@ import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.io.File
+import java.net.InetAddress
+import java.net.ServerSocket
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 
 /**
  * The switch from the demo to a new account. A stand-in takes the server repository's place: that one opens
@@ -94,7 +100,7 @@ class AccountSwitchTest {
         val build = CompletableDeferred<Unit>()
         val account = standIn()
         val asked = container.scope.launch {
-            container.switchTo(ACCOUNT, AppContainer.Entry.SignUp, BleskApi(ServerAddress(ACCOUNT.url))) {
+            container.switchTo(ACCOUNT, AppContainer.Entry.SignUp, BleskApi(ServerAddress(ACCOUNT.url)), officialChannel = "blesk") {
                 build.await()
                 account
             }
@@ -111,11 +117,43 @@ class AccountSwitchTest {
         assertTrue(container.eventLog.entries.value.any { it.code == EventCode.ServerRegistered })
         runBlocking {
             assertEquals(StartState.Account(SetupStep.Profile), container.onboarding.start.first())
+            // Saved with the account, for the glint step to offer at the end of the setup.
+            assertEquals("blesk", container.onboarding.officialChannel.first())
             assertNull(container.settings.chatThemes.first()[DEMO_CHAT])
         }
     }
 
-    private fun standIn(): ChatRepository = DemoRepository(
+    @Test
+    fun theSetupsChoiceIsJoinedOnTheAccountShown() {
+        until { container.chats.value != null }
+        val joined = CopyOnWriteArrayList<String>()
+        val demo = standIn()
+        val account = object : ChatRepository by demo, SpaceController by demo {
+            override suspend fun joinSpace(handle: String): String? = "space:$handle".also { joined += handle }
+        }
+        // A server that hangs up at once: the account's own look at it is over the moment it is made.
+        val server = ServerSocket(0, 1, InetAddress.getLoopbackAddress())
+        val looked = AtomicBoolean(false)
+        thread {
+            server.accept().close()
+            looked.set(true)
+        }
+        val api = BleskApi(ServerAddress("https://127.0.0.1:${server.localPort}"))
+        container.scope.launch { container.switchTo(ACCOUNT, AppContainer.Entry.SignUp, api, officialChannel = "blesk") { account } }
+        until { container.chats.value === account && looked.get() }
+        // Nothing was waiting when it looked, so what is joined next is the setup's choice alone.
+        val settled = System.currentTimeMillis() + SETTLE_MILLIS
+        until { System.currentTimeMillis() > settled }
+        assertEquals(emptyList<String>(), joined)
+
+        container.scope.launch { container.finishSetup(subscribeTo = "blesk") }
+
+        until { joined.isNotEmpty() && runBlocking { container.onboarding.subscribePending.first() } == null }
+        assertEquals(listOf("blesk"), joined)
+        server.close()
+    }
+
+    private fun standIn(): DemoRepository = DemoRepository(
         DemoSeed.from(application.resources, Instant.now()),
         application.resources::attachmentLabel,
         container.scope,
@@ -135,8 +173,12 @@ class AccountSwitchTest {
 
     private companion object {
         const val DEMO_CHAT = "anya"
-        val ACCOUNT = AppMode.Server(url = "https://chat.example.ru", pin = null, username = "egor")
+
+        // Nobody answers there: the account's own look at its server never leaves this machine.
+        val ACCOUNT = AppMode.Server(url = "https://127.0.0.1:9", pin = null, username = "egor")
+
         const val WAIT_MILLIS = 10_000L
         const val STEP_MILLIS = 10L
+        const val SETTLE_MILLIS = 1_000L
     }
 }

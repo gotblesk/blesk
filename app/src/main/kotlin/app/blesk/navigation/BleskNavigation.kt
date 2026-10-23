@@ -37,6 +37,7 @@ import app.blesk.AppContainer
 import app.blesk.BuildConfig
 import app.blesk.calls.CallActivity
 import app.blesk.calls.CallCapsule
+import app.blesk.core.data.SpaceController
 import app.blesk.core.data.diagnostics.EventCode
 import app.blesk.core.data.model.Conversation
 import app.blesk.core.data.model.ConversationKind
@@ -708,8 +709,20 @@ fun BleskNavigation(container: AppContainer) {
                                 val signature = remember {
                                     SigningKeys.of(context).let { BuildSignature(SignedBy.valueOf(it.origin.name), it.fingerprint) }
                                 }
+                                val official by container.onboarding.officialChannel.collectAsStateWithLifecycle(initialValue = null)
+                                val channelMissing = stringResource(app.blesk.feature.chats.R.string.link_not_found)
                                 AboutScreen(
                                     signature = signature,
+                                    // Subscribes on the way in: the channel is the server's own, read by everyone on it.
+                                    onOpenOfficial = official?.takeUnless { demo }?.let { handle ->
+                                        {
+                                            scope.launch {
+                                                val spaces = container.chats.value as? SpaceController ?: return@launch
+                                                val id = spaces.joinSpace(handle) ?: return@launch notify(channelMissing)
+                                                backStack.add(ConversationKey(id))
+                                            }
+                                        }
+                                    },
                                     versionName = BuildConfig.VERSION_NAME,
                                     debugUnlocked = debugUnlocked,
                                     onOpenLicenses = { backStack.add(LicensesKey) },

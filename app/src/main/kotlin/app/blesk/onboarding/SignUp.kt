@@ -53,9 +53,12 @@ internal class SignUp(private val container: AppContainer) {
         null
     }
 
-    /** Makes the account; on [RegisterResult.Ok] the app has moved to it and its setup has begun. */
+    /**
+     * Makes the account; on [RegisterResult.Ok] the app has moved to it and its setup has begun. The official
+     * channel the server named on its first look is saved with the account, for the glint step to offer.
+     */
     suspend fun create(address: ServerAddress, invite: String?, username: String): RegisterResult =
-        container.connect(address, username, invite)
+        container.connect(address, username, invite, officialChannel = info(address)?.officialChannel)
 }
 
 /** The invite [code] the server refused, and why. */

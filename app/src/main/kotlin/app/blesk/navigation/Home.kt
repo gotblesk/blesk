@@ -81,6 +81,7 @@ import app.blesk.feature.chats.ContactActions
 import app.blesk.feature.chats.ContactsTab
 import app.blesk.feature.chats.Newcomer
 import app.blesk.feature.chats.NewcomerChats
+import app.blesk.feature.chats.OfficialChannel
 import app.blesk.feature.chats.RoomChannelHandlers
 import app.blesk.feature.chats.groups.ChannelTarget
 import app.blesk.feature.chats.groups.GroupActions
@@ -285,13 +286,12 @@ internal fun Home(
                 HomeTab.Chats -> {
                     val hidden = container.notices.hidden
                     val list = conversations.filter { it.kind != ConversationKind.Room && !it.archived && it.id !in hidden }
-                    val archived = conversations.count { it.archived }
-                    val friends = list.filter { it.kind != ConversationKind.Saved && !it.request }
+                    val archived = conversations.filter { it.archived }
+                    val home = chatsHome(list, archived, demo)
+                    val requests = home.requests
                     // Once the newcomer screen has shown, it stays until the first friend has flown in and stuck.
                     val welcoming = rememberSaveable { mutableStateOf(false) }
-                    val requests = list.filter { it.request }
-                    val alone = friends.isEmpty() && requests.isEmpty() && archived == 0 && !demo
-                    if (alone && !welcoming.value) welcoming.value = true
+                    if (home.alone && !welcoming.value) welcoming.value = true
                     val me = profile
                     if (welcoming.value && me != null) {
                         NewcomerChats(
@@ -299,15 +299,16 @@ internal fun Home(
                             contentPadding = padding,
                             onFind = onNewChat,
                             onInvite = contactActions.onInvite,
-                            friend = friends.firstOrNull()?.let { Newcomer(it.title, it.id, null) },
+                            friend = home.friends.firstOrNull()?.let { Newcomer(it.title, it.id, null) },
                             onSettled = { welcoming.value = false },
+                            official = home.official?.let { OfficialChannel(it.title) { onOpenConversation(it.id) } },
                         )
                         return@AnimatedContent
                     }
                     val pinnedCount = list.count { it.pinned }
                     val listHint = when {
                         GestureHint.PinnedDrag !in hintsSeen && pinnedCount >= 2 -> GestureHint.PinnedDrag
-                        GestureHint.ArchivePull !in hintsSeen && archiveFolded && archived > 0 -> GestureHint.ArchivePull
+                        GestureHint.ArchivePull !in hintsSeen && archiveFolded && archived.isNotEmpty() -> GestureHint.ArchivePull
                         else -> null
                     }
                     val markHint: (GestureHint) -> Unit = { hint -> scope.launch { container.settings.markHint(hint) } }
@@ -326,7 +327,7 @@ internal fun Home(
                             places = rowPlaces,
                             onSwipeArchive = { chats.setArchived(it.id, true) },
                             onSwipeRead = { toggleRead(chats, it) },
-                            archivedCount = archived,
+                            archivedCount = archived.size,
                             online = online,
                             onOpenArchive = onOpenArchive,
                             onReorderPinned = { order ->
@@ -461,6 +462,25 @@ internal fun Home(
     val (roomId, target) = channelTarget ?: return
     val groups = chats as? GroupController ?: return
     RoomListChannelSheets(groups, roomId, target) { next -> channelTarget = next?.let { roomId to it } }
+}
+
+/**
+ * The chats tab in parts: [friends] are the people and groups of the person's own, [requests] wait for an
+ * answer, [official] is the server's own channel. The channel is no friend: with it alone the person is
+ * still [alone], on the newcomer screen, which then shows it as a row.
+ */
+internal class ChatsHome(val friends: List<Conversation>, val requests: List<Conversation>, val official: Conversation?, val alone: Boolean)
+
+/** Sorts the chats [shown] in the list, with those [archived] apart; the demo is never alone. */
+internal fun chatsHome(shown: List<Conversation>, archived: List<Conversation>, demo: Boolean): ChatsHome {
+    val requests = shown.filter { it.request }
+    val friends = shown.filter { it.kind != ConversationKind.Saved && !it.request && !it.official }
+    return ChatsHome(
+        friends = friends,
+        requests = requests,
+        official = shown.firstOrNull { it.official },
+        alone = !demo && friends.isEmpty() && requests.isEmpty() && archived.all { it.official },
+    )
 }
 
 /**

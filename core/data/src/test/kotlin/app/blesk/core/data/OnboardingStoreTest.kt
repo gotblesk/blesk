@@ -106,6 +106,58 @@ class OnboardingStoreTest {
     }
 
     @Test
+    fun anAccountIsSavedWithTheChannelItsServerNamed() = runBlocking {
+        onboarding.setOfficialChannel("old_news")
+        onboarding.finishSetup(subscribeTo = "old_news")
+        val before = file.writes.size
+
+        onboarding.enterAccount(EVA, keepNameAndPhoto = true, setup = SetupStep.Profile, officialChannel = "blesk")
+
+        assertEquals(1, file.writes.size - before)
+        assertEquals("blesk", onboarding.officialChannel.first())
+        // A subscription to the server before is not made on this one.
+        assertNull(onboarding.subscribePending.first())
+
+        onboarding.enterAccount(EVA, keepNameAndPhoto = true, setup = SetupStep.Profile, officialChannel = null)
+        assertNull(onboarding.officialChannel.first())
+    }
+
+    @Test
+    fun theSetupEndsWithItsSubscriptionInOneWrite() = runBlocking {
+        onboarding.enterAccount(EVA, keepNameAndPhoto = true, setup = SetupStep.Glint, officialChannel = "blesk")
+        val before = file.writes.size
+
+        onboarding.finishSetup(subscribeTo = "blesk")
+
+        // A phone stopped right after the setup still subscribes at its next start.
+        val written = file.writes.drop(before).single()
+        assertNull(written[stringPreferencesKey("setup_step")])
+        assertEquals("blesk", written[stringPreferencesKey("subscribe_pending")])
+        assertEquals(StartState.Account(null), onboarding.start.first())
+    }
+
+    @Test
+    fun aSubscriptionLeftUntickedIsNotMade() = runBlocking {
+        onboarding.enterAccount(EVA, keepNameAndPhoto = true, setup = SetupStep.Glint, officialChannel = "blesk")
+
+        onboarding.finishSetup(subscribeTo = null)
+
+        assertNull(onboarding.subscribePending.first())
+        assertEquals(StartState.Account(null), onboarding.start.first())
+    }
+
+    @Test
+    fun onlyTheSubscriptionTakenIsCrossedOff() = runBlocking {
+        onboarding.finishSetup(subscribeTo = "news")
+
+        onboarding.subscribed("blesk")
+        assertEquals("news", onboarding.subscribePending.first())
+
+        onboarding.subscribed("news")
+        assertNull(onboarding.subscribePending.first())
+    }
+
+    @Test
     fun aNameOfOnlyInvisibleCharactersIsNotSaved() = runBlocking {
         assertTrue(onboarding.setProfileName("Аня"))
 

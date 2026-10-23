@@ -259,6 +259,8 @@
     <string name="update_handed">Подпись проверена. Дальше — системный установщик</string>
     <string name="update_available">Доступно обновление</string>
     <string name="about_whats_new">Что нового</string>
+    <string name="about_official_channel">Официальный канал</string>
+    <string name="about_official_channel_hint">Новости, обновления и подсказки blesk</string>
     <string name="about_updates">Проверять обновления</string>
     <string name="about_updates_hint">Раз в запуск blesk спрашивает GitHub, есть ли новая сборка. GitHub видит адрес телефона</string>
     <string name="settings_server_proxied">через прокси</string>

@@ -859,6 +859,7 @@ private fun ChatHeader(
                             modifier = Modifier.weight(1f, fill = false).semantics { liveRegion = LiveRegionMode.Polite },
                         )
                         if (demo) DemoTag()
+                        if (conversation.official) OfficialTag()
                     }
                 }
             }
