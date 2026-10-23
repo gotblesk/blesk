@@ -27,6 +27,12 @@ object TrackAnalyzer {
     @Synchronized
     fun cached(path: String): TrackInfo? = cache[path]
 
+    /** Keeps [info] as what [path] holds, so the player draws it at once instead of reading the file. */
+    @Synchronized
+    fun remember(path: String, info: TrackInfo) {
+        cache[path] = info
+    }
+
     fun analyze(path: String, bars: Int = BARS): TrackInfo {
         cached(path)?.let { return it }
         val cover = runCatching {
@@ -41,7 +47,7 @@ object TrackAnalyzer {
         }.getOrNull()
         val (levels, format) = runCatching { decode(path, bars) }.getOrDefault(FloatArray(bars) to null)
         val info = TrackInfo(levels, format, cover)
-        synchronized(this) { cache[path] = info }
+        remember(path, info)
         return info
     }
 

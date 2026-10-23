@@ -69,6 +69,9 @@ import app.blesk.core.design.spark.KeyMerge
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.media.Playback
 import app.blesk.core.media.Track
+import app.blesk.core.media.TrackAnalyzer
+import app.blesk.core.media.TrackFormat
+import app.blesk.core.media.TrackInfo
 import app.blesk.core.motion.BleskMotion
 import app.blesk.feature.calls.CallActions
 import app.blesk.feature.calls.CallScreen
@@ -176,6 +179,9 @@ import app.blesk.shared.protocol.SpaceInfo
 import app.blesk.shared.protocol.SpaceKind
 import app.blesk.shared.protocol.SpaceMember
 import app.blesk.shared.protocol.SpaceRole
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -730,27 +736,32 @@ class KeyScreensScreenshotTest(private val name: String) {
     }
 
     @Test
-    fun player() = capture("37_player") {
-        val tracks = listOf(
-            Track("song.mp3", "Звезда по имени Солнце", "Кино", 225_000, music = true, from = "Аня Соколова"),
-            Track("next.mp3", "Группа крови", "Кино", 286_000, music = true, from = "Аня Соколова"),
-        )
-        PlayerSheet(
-            playback = Playback(
-                path = "song.mp3",
-                playing = true,
-                title = tracks[0].title,
-                artist = tracks[0].artist,
-                positionMillis = 61_000,
-                durationMillis = 225_000,
-                queue = tracks,
-            ),
-            level = { 0.3f },
-            output = "телефон",
-            actions = PlayerActions({}, {}, {}, {}, {}, {}, {}, keepOffline = {}, keptOffline = true, share = {}),
-            library = {},
-            onClose = {},
-        )
+    fun player() {
+        // The file is not there, so the analyser would cache flat bars at some moment during the capture;
+        // a known waveform keeps every theme and every test order drawing the same thing.
+        TrackAnalyzer.remember("song.mp3", TrackInfo(SAMPLE_WAVE, TrackFormat("MP3", null, 44_100, 320), null))
+        capture("37_player") {
+            val tracks = listOf(
+                Track("song.mp3", "Звезда по имени Солнце", "Кино", 225_000, music = true, from = "Аня Соколова"),
+                Track("next.mp3", "Группа крови", "Кино", 286_000, music = true, from = "Аня Соколова"),
+            )
+            PlayerSheet(
+                playback = Playback(
+                    path = "song.mp3",
+                    playing = true,
+                    title = tracks[0].title,
+                    artist = tracks[0].artist,
+                    positionMillis = 61_000,
+                    durationMillis = 225_000,
+                    queue = tracks,
+                ),
+                level = { 0.3f },
+                output = "телефон",
+                actions = PlayerActions({}, {}, {}, {}, {}, {}, {}, keepOffline = {}, keptOffline = true, share = {}),
+                library = {},
+                onClose = {},
+            )
+        }
     }
 
     @Test
@@ -1152,3 +1163,5 @@ class KeyScreensScreenshotTest(private val name: String) {
         fun themes(): List<Array<Any>> = ThemeSpec.presets.map { arrayOf(it.preset.name.lowercase()) }
     }
 }
+
+private val SAMPLE_WAVE = FloatArray(72) { 0.3f + 0.55f * abs(sin(it * 0.43f)) * (0.65f + 0.35f * cos(it * 0.13f)) }
