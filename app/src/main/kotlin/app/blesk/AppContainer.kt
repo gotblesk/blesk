@@ -207,6 +207,8 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
                         chats.value?.profileChanged()
                     }
             }
+            // The demo keeps no chats from one start to the next, and an account has no use for its files.
+            media.clearDemo()
             when (val mode = settings.mode.first()) {
                 AppMode.Demo -> show(demo, api = null)
                 is AppMode.Server -> {
@@ -304,6 +306,7 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
         forgetDemo(entry)
         repository.start()
         show(repository, stack.api)
+        media.clearDemo()
     }
 
     /** Drops the demo's chats' settings, its profile and what it was in the middle of. */
@@ -329,6 +332,7 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
         private set
 
     private fun show(repository: ChatRepository, api: BleskApi?) {
+        media.demo = repository is DemoRepository
         this.api = api
         repository.setForeground(visible)
         scope.launch { clearOldMedia(repository, settings.keepMediaDays.first()) }

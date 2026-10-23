@@ -56,6 +56,7 @@ data class OwnTrack(
  * the app's storage. Nothing is looked up on the internet: no one learns what is in it.
  */
 class OwnMusic(context: Context, private val vault: MediaVault, scope: CoroutineScope) {
+    private val library = vault.library()
     private val sealed = SealedFile(File(context.filesDir, "own_music.bin"), "blesk.music")
     private val json = Json { ignoreUnknownKeys = true }
     private val serializer = ListSerializer(OwnTrack.serializer())
@@ -75,11 +76,11 @@ class OwnMusic(context: Context, private val vault: MediaVault, scope: Coroutine
     suspend fun add(uris: List<Uri>, now: Long): Int {
         var failed = 0
         val added = uris.mapNotNull { uri ->
-            when (val imported = vault.importMusic(uri)) {
+            when (val imported = library.importMusic(uri)) {
                 is Attachment.Music -> track(imported, now)
                 else -> {
                     failed++
-                    vault.forget(imported)
+                    library.forget(imported)
                     null
                 }
             }
@@ -165,7 +166,7 @@ class OwnMusic(context: Context, private val vault: MediaVault, scope: Coroutine
     }
 
     private fun save(bitmap: Bitmap): File? {
-        val file = vault.newFile("jpg")
+        val file = library.newFile("jpg")
         return try {
             file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, COVER_QUALITY, it) }
             file

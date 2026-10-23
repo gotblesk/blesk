@@ -22,14 +22,30 @@ import java.util.UUID
  */
 class MediaVault(private val context: Context) {
     private val root = File(context.filesDir, "media").apply { mkdirs() }
+    private val demoRoot = File(root, "demo")
     private val resolver = context.contentResolver
+
+    /** While the demo is shown, what its chats record and receive goes into a folder of its own, for [clearDemo]. */
+    @Volatile
+    var demo = false
 
     /** Ciphertext of downloads still in progress; whatever is here survives a dropped connection. */
     val partials: File = File(context.cacheDir, "downloads").apply { mkdirs() }
 
-    fun newFile(extension: String): File = File(root, "${UUID.randomUUID()}.$extension")
+    fun newFile(extension: String): File {
+        val folder = if (demo) demoRoot.apply { mkdirs() } else root
+        return File(folder, "${UUID.randomUUID()}.$extension")
+    }
 
     fun owns(path: String): Boolean = File(path).canonicalPath.startsWith(root.canonicalPath)
+
+    /** A vault over the same files that is never switched to the demo: the person's own music and covers outlive it. */
+    fun library(): MediaVault = MediaVault(context)
+
+    /** Deletes every file the demo made; its chats are gone with it. */
+    suspend fun clearDemo() {
+        withContext(Dispatchers.IO) { demoRoot.deleteRecursively() }
+    }
 
     /** A copy of [source] that belongs to the chat, so the message keeps it whatever happens to the original. */
     suspend fun copyIn(source: File, extension: String): File? = withContext(Dispatchers.IO) {
