@@ -691,6 +691,37 @@ class GroupEngineTest {
     }
 
     @Test
+    fun aManagerCannotPickAnotherKeeperOfTheVoiceKeys() = runBlocking {
+        val room = engine.create(GroupKind.Room, "Клуб", listOf("bob", "carol"))
+        assertTrue(engine.change(room, GroupChange.Admin("bob", setOf(Right.Pin))))
+        assertTrue(engine.change(room, GroupChange.SaveRole(RoomRole("helpers", "Помощники", rights = setOf(Right.Channels)))))
+        assertTrue(engine.change(room, GroupChange.AssignRole("carol", "helpers", on = true)))
+        val state = engine.state(room)!!
+
+        // Bob seldom comes online: first among the admins, he would keep the keys, and no new one would come while away.
+        val bobFirst = state.copy(version = state.version + 1, members = state.members.sortedByDescending { it.username == "bob" })
+        assertEquals(UpdateOutcome.Refused, engine.onUpdate("carol", bobFirst))
+        assertTrue(voiceKeys.keeps(engine.state(room)!!))
+    }
+
+    @Test
+    fun aTitleCleanedOnAnotherPhoneIsNoChangeOfIt() = runBlocking {
+        val room = engine.create(GroupKind.Room, "Клуб\u200B", listOf("bob"))
+        assertTrue(engine.change(room, GroupChange.Admin("bob", setOf(Right.Channels))))
+        val state = engine.state(room)!!
+        val channel = state.channels.first()
+
+        // Bob may not change the details. His phone keeps the title cleaned, and sends it so with his next change.
+        val renamed = state.copy(
+            version = state.version + 1,
+            title = "Клуб",
+            channels = state.channels.map { if (it.id == channel.id) it.copy(title = "главное") else it },
+        )
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", renamed))
+        assertEquals("главное", engine.state(room)!!.channels.first().title)
+    }
+
+    @Test
     fun losingAChannelTakesItsMessagesAndFilesOffThePhone() = runBlocking {
         engine.onUpdate("bob", roomOf(version = 1))
         val open = GroupEngine.channelConversation(ROOM, OPEN_ID)

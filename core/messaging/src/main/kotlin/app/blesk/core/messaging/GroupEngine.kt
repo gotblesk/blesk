@@ -129,12 +129,15 @@ internal class GroupEngine(
         return id
     }
 
-    // Admin actions; each returns false when the caller lacks the right.
+    // Admin actions; each returns false when the caller lacks the right, the one every other phone asks of it.
 
-    suspend fun rename(groupId: String, title: String) = change(groupId) { it.copy(title = title.trim().take(MAX_TITLE)) }
+    suspend fun rename(groupId: String, title: String) = change(groupId) { state ->
+        if (!GroupPolicy.can(state, me, Right.EditInfo)) null else state.copy(title = title.trim().take(MAX_TITLE))
+    }
 
     suspend fun addMembers(groupId: String, usernames: List<String>) = change(groupId) { state ->
-        val fresh = usernames.distinct().filter { name -> state.members.none { it.username == name } }
+        if (!GroupPolicy.can(state, me, Right.Invite)) return@change null
+        val fresh = usernames.distinct().filter { name -> state.roleOf(name) == null && name !in state.banned }
         state.copy(members = state.members + fresh.map { GroupMember(it, GroupRole.Member) })
     }
 
@@ -190,7 +193,8 @@ internal class GroupEngine(
     /** Turns the invite link on (new code) or off. Returns the code. */
     suspend fun setInvite(groupId: String, enabled: Boolean): String? {
         val code = if (enabled) newCode() else null
-        return if (change(groupId) { it.copy(invite = code) }) code else null
+        val changed = change(groupId) { state -> if (!GroupPolicy.can(state, me, Right.Invite)) null else state.copy(invite = code) }
+        return if (changed) code else null
     }
 
     suspend fun leave(groupId: String) = queueing(groupId) {
@@ -320,12 +324,16 @@ internal class GroupEngine(
     }
 
     /**
-     * Whether [sender] could have made [incoming] from [current], as [GroupPolicy.admits] decides. A state without us
-     * need only put us out as [GroupPolicy.removes] lets [sender]: it is not kept, and the one sent to whoever is
-     * removed leaves out the invites and the voice key, no longer theirs to see.
+     * Whether [sender] could have made [incoming] from [current], as [GroupPolicy.admits] decides, both cleaned as this
+     * phone keeps them: a title another phone cleaned is no change of it. A state without us need only put us out as
+     * [GroupPolicy.removes] lets [sender]: it is not kept, and the one sent to whoever is removed leaves out the
+     * invites and the voice key, no longer theirs to see.
      */
-    private fun admits(current: GroupState, incoming: GroupState, sender: String): Boolean =
-        if (incoming.roleOf(me) == null) GroupPolicy.removes(current, sender, me) else GroupPolicy.admits(current, incoming, sender)
+    private fun admits(current: GroupState, incoming: GroupState, sender: String): Boolean = if (incoming.roleOf(me) == null) {
+        GroupPolicy.removes(current, sender, me)
+    } else {
+        GroupPolicy.admits(cleaned(current), cleaned(incoming), sender)
+    }
 
     /** Titles come from another phone: cleaned here as if typed on this one. */
     private fun cleaned(incoming: GroupState) = incoming.copy(

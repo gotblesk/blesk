@@ -283,11 +283,11 @@ object GroupPolicy {
     }
 
     /**
-     * Whether [incoming], a state from [sender], is one [sender] could reach from [current] by changes [apply] takes, as
-     * far as who sees and may do what: [admitsVisibility] and [admitsRights].
+     * Whether [incoming], a state from [sender], is one [sender] could reach from [current] by changes [apply] takes:
+     * who sees what, [admitsVisibility]; who may do what, [admitsRights]; and what else changed, [admitsEdits].
      */
     fun admits(current: GroupState, incoming: GroupState, sender: String): Boolean =
-        admitsVisibility(current, incoming, sender) && admitsRights(current, incoming, sender)
+        admitsVisibility(current, incoming, sender) && admitsRights(current, incoming, sender) && admitsEdits(current, incoming, sender)
 
     /**
      * Whether [incoming], a state from [sender], shows anyone a channel [current] hides from them only where [sender]
@@ -371,6 +371,61 @@ object GroupPolicy {
                 removedWithRight(current, incoming, sender) &&
                 rolesTakenWithRight(current, incoming, sender)
             )
+
+    /**
+     * Whether [incoming], a state from [sender], changes the rest of the group only as [apply] and the joining of
+     * newcomers let [sender]: the details, what every member may do, the invites and who joined by them, the bans,
+     * the channels and the roles each only with the right to. Members keep their order, so the admin who keeps the
+     * closed voice channels' keys is not someone else's to pick; no one is there twice; and the journal keeps its
+     * lines, gaining no more than [incoming] is changes ahead. The owner may do all of it.
+     */
+    fun admitsEdits(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        if (current.roleOf(sender) == GroupRole.Owner) return true
+        val newcomers = incoming.members.filter { current.roleOf(it.username) == null }
+        val needed = buildSet {
+            if (details(incoming) != details(current) || incoming.memberRights != current.memberRights) add(Right.EditInfo)
+            if (incoming.invites != current.invites || incoming.invite != current.invite || newcomers.isNotEmpty()) add(Right.Invite)
+            if (incoming.banned.toSet() != current.banned.toSet()) add(Right.Ban)
+            if (arranged(current, incoming) != current.channels) add(Right.Channels)
+            if (incoming.roles != current.roles) add(Right.Roles)
+        }
+        return needed.all { can(current, sender, it) } &&
+            newcomers.none { it.username in incoming.banned } &&
+            isWellFormed(incoming) &&
+            orderKept(current, incoming) &&
+            journalKept(current, incoming)
+    }
+
+    private fun details(state: GroupState) = Triple(state.title, state.description, state.hue)
+
+    /** [incoming]'s channels without the closing to its new roles, which [saveRole] does with no right to arrange them. */
+    private fun arranged(current: GroupState, incoming: GroupState): List<GroupChannel> {
+        val fresh = incoming.roles.map { it.id }.filter { id -> current.roles.none { it.id == id } }.toSet()
+        return incoming.channels.map { it.copy(hiddenFrom = it.hiddenFrom - fresh) }
+    }
+
+    /** No member, channel or role twice: each is found by its name or id, and a second one would go unchecked. */
+    private fun isWellFormed(state: GroupState): Boolean =
+        state.members.distinctBy { it.username }.size == state.members.size &&
+            state.channels.distinctBy { it.id }.size == state.channels.size &&
+            state.roles.distinctBy { it.id }.size == state.roles.size
+
+    private fun orderKept(current: GroupState, incoming: GroupState): Boolean {
+        val stayed = incoming.members.map { it.username }.filter { current.roleOf(it) != null }
+        return stayed == current.members.map { it.username }.filter { incoming.roleOf(it) != null }
+    }
+
+    /**
+     * The journal is [current]'s with at most one line for each version [incoming] is ahead, the oldest pushed out
+     * past [MAX_LOG] as [logged] does: no line is changed or taken out, and none pushed out by lines made up.
+     */
+    private fun journalKept(current: GroupState, incoming: GroupState): Boolean {
+        val ahead = (incoming.version - current.version).coerceIn(0, MAX_VERSION_STEP).toInt()
+        return (0..ahead).any { added ->
+            val kept = current.log.drop((current.log.size + added - MAX_LOG).coerceAtLeast(0))
+            incoming.log.size == kept.size + added && incoming.log.subList(0, kept.size) == kept
+        }
+    }
 
     /** Whether [actor] may remove or ban [username]: only with the right, and only someone below them. */
     fun removes(state: GroupState, actor: String, username: String): Boolean =

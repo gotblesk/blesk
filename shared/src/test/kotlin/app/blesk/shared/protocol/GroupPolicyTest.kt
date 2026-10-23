@@ -333,6 +333,62 @@ class GroupPolicyTest {
     }
 
     @Test
+    fun aStateChangesOnlyWhatItsSenderMay() {
+        // Here members may not invite, so neither may Eve.
+        val base = helped.copy(
+            memberRights = helped.memberRights - Right.Invite,
+            banned = listOf("mallory"),
+            invites = listOf(GroupInvite("abcdefgh", "Друзья")),
+            log = listOf(LogEntry(NOW, "owner", LogAction.Banned, "mallory")),
+        )
+        val changes = listOf(
+            // The admin put first, and so made the keeper of the closed voice channels' keys in the owner's place.
+            base.copy(members = base.members.sortedByDescending { it.username == "admin" }),
+            base.copy(members = base.members + GroupMember("sock", GroupRole.Member)),
+            base.copy(banned = emptyList()),
+            base.copy(invites = base.invites + GroupInvite("ijklmnop", "Свои")),
+            base.copy(invite = "ijklmnop"),
+            base.copy(title = "Чужой"),
+            base.copy(description = "о другом"),
+            base.copy(hue = 3),
+            base.copy(memberRights = base.memberRights - Right.Media),
+            base.role("fans") { it.copy(title = "Друзья") },
+            base.copy(log = emptyList()),
+            base.copy(log = listOf(LogEntry(NOW, "owner", LogAction.Edited))),
+        ).map { it.copy(version = base.version + 1) }
+        changes.forEach { incoming ->
+            assertFalse("eve: $incoming", GroupPolicy.admits(base, incoming, "eve"))
+            assertTrue("owner: $incoming", GroupPolicy.admits(base, incoming, "owner"))
+        }
+
+        // Channels are hers to arrange, and what she does goes into the journal; they are not the guard's.
+        val arranged = listOf(
+            base.channel("c1") { it.copy(title = "главное", kind = GroupChannelKind.Voice, adminsOnly = true) },
+            base.copy(channels = base.channels.reversed()),
+            applied(GroupPolicy.apply(base, "eve", GroupChange.RenameChannel("c1", "главное"), NOW)),
+        ).map { it.copy(version = base.version + 1) }
+        arranged.forEach { assertTrue("eve: $it", GroupPolicy.admits(base, it, "eve")) }
+        val guarding = base.copy(members = base.members + GroupMember("guard", GroupRole.Member, roles = listOf("guards")))
+            .copy(roles = base.roles + RoomRole("guards", "Охрана", rights = setOf(Right.Ban)))
+        arranged.dropLast(1).map { it.copy(members = guarding.members, roles = guarding.roles) }.forEach {
+            assertFalse("guard: $it", GroupPolicy.admits(guarding, it, "guard"))
+        }
+    }
+
+    @Test
+    fun theJournalOnlyGrowsByWhatWasDone() {
+        val full = helped.copy(log = List(GroupPolicy.MAX_LOG) { LogEntry(it.toLong(), "owner", LogAction.Edited) })
+        val once = applied(GroupPolicy.apply(full, "eve", GroupChange.RenameChannel("c1", "главное"), NOW))
+        assertEquals(full.log.drop(1), once.log.dropLast(1))
+        assertTrue(GroupPolicy.admits(full, once, "eve"))
+        // Two lines in one change are a line made up, one pushing out a line she would rather no one saw.
+        val twice = once.copy(log = once.log.drop(1) + LogEntry(NOW, "owner", LogAction.Edited))
+        assertFalse(GroupPolicy.admits(full, twice, "eve"))
+        assertTrue(GroupPolicy.admits(full, twice.copy(version = full.version + 2), "eve"))
+        assertFalse(GroupPolicy.admits(full, once.copy(log = once.log.dropLast(2) + once.log.last()), "eve"))
+    }
+
+    @Test
     fun anAdminKeepsWhatMembersLoseAndMayGiveItBack() {
         val editing = room.member("admin") { it.copy(rights = it.rights.orEmpty() + Right.EditInfo) }
         for (right in listOf(Right.Write, Right.Media, Right.Speak)) {
