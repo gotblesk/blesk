@@ -31,7 +31,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/** A page ends at the keyboard: what is typed stays in sight, and the room under the page is not counted twice. */
+/**
+ * A page ends at the keyboard: what is typed stays in sight, and the room under the page is not counted twice.
+ * Its end scrolls up to the middle of the screen, where the CI smoke test taps.
+ */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [36], qualifiers = "w320dp-h640dp-mdpi")
 class ScrollScreenTest {
@@ -89,7 +92,7 @@ class ScrollScreenTest {
         scrollToTheEnd()
         val end = compose.onNodeWithText("Конец").getUnclippedBoundsInRoot()
         val lens = compose.onNodeWithText("Линза").getUnclippedBoundsInRoot()
-        assertTrue("lens text at ${lens.top}, page ends at ${end.bottom}", lens.top - end.bottom in 0.dp..Gap)
+        assertTrue("lens text at ${lens.top}, page ends at ${end.bottom}", lens.top - end.bottom in EndRoom..EndRoom + Gap)
     }
 
     @Test
@@ -102,13 +105,31 @@ class ScrollScreenTest {
         scrollToTheEnd()
         val end = compose.onNodeWithText("Конец").getUnclippedBoundsInRoot()
         val keyboardTop = screenHeight - Keyboard
-        assertTrue("keyboard at $keyboardTop, page ends at ${end.bottom}", keyboardTop - end.bottom in 0.dp..Gap)
+        assertTrue("keyboard at $keyboardTop, page ends at ${end.bottom}", keyboardTop - end.bottom in EndRoom..EndRoom + Gap)
+    }
+
+    @Test
+    fun theLastButtonRisesToTheMiddleOfTheScreen() {
+        show {
+            repeat(20) { Text("Строка $it", Modifier.height(48.dp)) }
+            Button("Последняя", onClick = {})
+        }
+        scrollToTheEnd()
+        val button = compose.onNodeWithText("Последняя").getUnclippedBoundsInRoot()
+        val centre = (button.top + button.bottom) / 2
+        assertTrue("button centre at $centre of $screenHeight", centre <= screenHeight * SmokeBand)
     }
 
     private companion object {
         val Keyboard = 300.dp
 
-        /** The page's own end room and the lens's padding; a page counting the keyboard twice ends far above. */
-        val Gap = 60.dp
+        /** A quarter of the 640 dp screen, left under the last control. */
+        val EndRoom = 160.dp
+
+        /** The lens's padding and a little more; a page counting the keyboard twice ends far above. */
+        val Gap = 40.dp
+
+        /** The lowest a control's centre may sit for `scripts/ci/ui.py` to tap it, as a share of the screen. */
+        const val SmokeBand = 0.78f
     }
 }

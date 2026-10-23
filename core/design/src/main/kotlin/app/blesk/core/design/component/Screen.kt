@@ -20,10 +20,12 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import app.blesk.core.design.glass.LensScaffold
 import app.blesk.core.design.glass.TopLens
 
@@ -47,6 +49,9 @@ fun ScrollScreen(
     ) { padding ->
         val keyboard = WindowInsets.ime
         val density = LocalDensity.current
+        // The last control can rise to the middle of the screen, clear of the floating lenses at the edges.
+        val windowHeight = LocalWindowInfo.current.containerSize.height
+        val endRoom = with(density) { max(MIN_END_ROOM, (windowHeight * END_ROOM_SHARE).toDp()) }
         Column(
             Modifier
                 .fillMaxSize()
@@ -56,7 +61,7 @@ fun ScrollScreen(
         ) {
             Spacer(Modifier.height(4.dp))
             content()
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(endRoom))
         }
     }
 }
@@ -78,3 +83,6 @@ private class AboveKeyboard(private val lenses: PaddingValues, private val keybo
 
     override fun calculateRightPadding(layoutDirection: LayoutDirection): Dp = lenses.calculateRightPadding(layoutDirection)
 }
+
+private val MIN_END_ROOM = 32.dp
+private const val END_ROOM_SHARE = 0.25f
