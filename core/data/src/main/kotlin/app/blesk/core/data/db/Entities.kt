@@ -1,5 +1,6 @@
 package app.blesk.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Fts4
 import androidx.room.FtsOptions
@@ -138,6 +139,8 @@ data class HeldGroupMessageEntity(
     /** The version of the group's state the sender wrote it in. */
     val version: Long,
     val heldAt: Long,
+    /** That state's owner's count; null from an app too old to send it, whose message waits by [version] alone. */
+    val ownerVersion: Long? = null,
 )
 
 /**
@@ -151,6 +154,8 @@ data class RefusedGroupStateEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val groupId: String,
     val sender: String,
+    /** Whether [sender] managed the group here when it came: however many states others send, these stay. */
+    val managing: Boolean,
     /** The state's own two versions, so that one no newer than ours goes without being read. */
     val ownerVersion: Long,
     val version: Long,
@@ -191,6 +196,8 @@ data class LeftGroupEntity(
     val version: Long,
     /** Left or dissolved by us: no admin's update brings it back, only a request of ours to join. */
     val byUs: Boolean,
+    /** With [version], the owner's count it was let go at: newer is judged by both, as states are. */
+    @ColumnInfo(defaultValue = "0") val ownerVersion: Long = 0,
 )
 
 /** Key-value storage for libsignal state: one table, namespaced keys, opaque records. */

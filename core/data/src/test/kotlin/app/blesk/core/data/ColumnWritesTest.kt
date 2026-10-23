@@ -259,8 +259,8 @@ class ColumnWritesTest {
         (1..over).forEach { groups.hold(held("g", version = 1, content = "m$it")) }
         groups.hold(held("h", version = 1, content = "other"))
 
-        assertEquals((6..over).map { "m$it" }, groups.releasable("g", version = 1).map { it.content })
-        assertEquals(listOf("other"), groups.releasable("h", version = 1).map { it.content })
+        assertEquals((6..over).map { "m$it" }, groups.releasable("g", ownerVersion = 0, version = 1).map { it.content })
+        assertEquals(listOf("other"), groups.releasable("h", ownerVersion = 0, version = 1).map { it.content })
     }
 
     @Test
@@ -268,12 +268,21 @@ class ColumnWritesTest {
         listOf(3L, 1L, 2L, 5L).forEach { groups.hold(held("g", version = it, content = "v$it", at = it)) }
         groups.hold(held("h", version = 1, content = "other", at = 10))
 
-        assertEquals(listOf("v1", "v2"), groups.releasable("g", version = 2).map { it.content })
-        assertEquals(emptyList<String>(), groups.releasable("g", version = 2).map { it.content })
+        assertEquals(listOf("v1", "v2"), groups.releasable("g", ownerVersion = 0, version = 2).map { it.content })
+        assertEquals(emptyList<String>(), groups.releasable("g", ownerVersion = 0, version = 2).map { it.content })
         groups.dropHeldBefore(at = 4)
-        assertEquals(listOf("v5"), groups.releasable("g", version = 5).map { it.content })
+        assertEquals(listOf("v5"), groups.releasable("g", ownerVersion = 0, version = 5).map { it.content })
         groups.deleteHeld("h")
-        assertEquals(emptyList<String>(), groups.releasable("h", version = 1).map { it.content })
+        assertEquals(emptyList<String>(), groups.releasable("h", ownerVersion = 0, version = 1).map { it.content })
+    }
+
+    @Test
+    fun `a message written in the owner's next state waits for it, whatever the version`() = runBlocking {
+        groups.hold(held("g", version = 2, content = "owner's", ownerVersion = 1))
+        groups.hold(held("g", version = 9, content = "before", ownerVersion = 0))
+
+        assertEquals(emptyList<String>(), groups.releasable("g", ownerVersion = 0, version = 5).map { it.content })
+        assertEquals(listOf("owner's", "before"), groups.releasable("g", ownerVersion = 1, version = 2).map { it.content })
     }
 
     @Test
@@ -332,10 +341,25 @@ class ColumnWritesTest {
         VoiceKeyEntity("g", "c", version, room = "voice-g-c-$version", key = key, epoch = 0, giver = giver)
 
     private fun refused(sender: String, version: Long, ownerVersion: Long = 0) =
-        RefusedGroupStateEntity(groupId = "g", sender = sender, ownerVersion = ownerVersion, version = version, state = "{}", keptAt = 1)
+        RefusedGroupStateEntity(
+            groupId = "g",
+            sender = sender,
+            managing = true,
+            ownerVersion = ownerVersion,
+            version = version,
+            state = "{}",
+            keptAt = 1,
+        )
 
-    private fun held(group: String, version: Long, content: String, at: Long = 1) =
-        HeldGroupMessageEntity(groupId = group, sender = "bob", content = content, version = version, heldAt = at)
+    private fun held(group: String, version: Long, content: String, at: Long = 1, ownerVersion: Long? = null) =
+        HeldGroupMessageEntity(
+            groupId = group,
+            sender = "bob",
+            content = content,
+            version = version,
+            heldAt = at,
+            ownerVersion = ownerVersion,
+        )
 
     private companion object {
         const val ME = "me"

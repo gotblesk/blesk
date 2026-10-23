@@ -71,7 +71,7 @@ class MigrationTest {
         runBlocking {
             assertEquals("{\"id\":\"g\"}", room.groups().get("g")?.state)
             assertNull(room.groups().senderKey("g", ""))
-            assertEquals(emptyList<Any>(), room.groups().releasable("g", Long.MAX_VALUE))
+            assertEquals(emptyList<Any>(), room.groups().releasable("g", ownerVersion = Long.MAX_VALUE, version = Long.MAX_VALUE))
             assertNull(room.groups().voiceKey("g", "c"))
         }
         val columns = room.openHelper.readableDatabase.query("PRAGMA table_info(`groups`)").use { cursor ->

@@ -21,6 +21,8 @@ data class Content(
      * older keeps the message until the state that lets it be read arrives, instead of dropping it.
      */
     val groupVersion: Long = 0,
+    /** With [groupVersion], the owner's count of that state; null from an app too old to send it. */
+    val groupOwnerVersion: Long? = null,
 )
 
 /**

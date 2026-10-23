@@ -307,6 +307,13 @@ interface SignalStateDao {
 const val MAX_HELD_PER_GROUP = 200
 
 /**
+ * A held message a state at `:ownerVersion` and `:version` may judge: one written in that state or an older one, as
+ * `GroupPolicy.newer` orders them, or, from an app too old to send the owner's count, at no later version.
+ */
+private const val HELD_UP_TO = "(ownerVersion < :ownerVersion OR (ownerVersion = :ownerVersion AND version <= :version) " +
+    "OR (ownerVersion IS NULL AND version <= :version))"
+
+/**
  * How many refused states of a group this phone keeps from one sender, and from all: each is judged again whenever
  * another state is taken, so their number bounds that work, and one sender's flood does not push out the others'.
  */
@@ -367,16 +374,16 @@ interface GroupDao {
         trimHeld(message.groupId, MAX_HELD_PER_GROUP)
     }
 
-    @Query("SELECT * FROM held_group_messages WHERE groupId = :groupId AND version <= :version ORDER BY id ASC")
-    suspend fun heldUpTo(groupId: String, version: Long): List<HeldGroupMessageEntity>
+    @Query("SELECT * FROM held_group_messages WHERE groupId = :groupId AND $HELD_UP_TO ORDER BY id ASC")
+    suspend fun heldUpTo(groupId: String, ownerVersion: Long, version: Long): List<HeldGroupMessageEntity>
 
-    @Query("DELETE FROM held_group_messages WHERE groupId = :groupId AND version <= :version")
-    suspend fun deleteHeldUpTo(groupId: String, version: Long)
+    @Query("DELETE FROM held_group_messages WHERE groupId = :groupId AND $HELD_UP_TO")
+    suspend fun deleteHeldUpTo(groupId: String, ownerVersion: Long, version: Long)
 
-    /** Takes the held messages a state at [version] may judge, in the order they came, off the list. */
+    /** Takes the held messages a state at [ownerVersion] and [version] may judge, in the order they came, off the list. */
     @Transaction
-    suspend fun releasable(groupId: String, version: Long): List<HeldGroupMessageEntity> =
-        heldUpTo(groupId, version).also { deleteHeldUpTo(groupId, version) }
+    suspend fun releasable(groupId: String, ownerVersion: Long, version: Long): List<HeldGroupMessageEntity> =
+        heldUpTo(groupId, ownerVersion, version).also { deleteHeldUpTo(groupId, ownerVersion, version) }
 
     @Query("DELETE FROM held_group_messages WHERE groupId = :groupId")
     suspend fun deleteHeld(groupId: String)
@@ -395,11 +402,14 @@ interface GroupDao {
 
     @Query(
         "DELETE FROM refused_group_states WHERE groupId = :groupId AND id NOT IN " +
-            "(SELECT id FROM refused_group_states WHERE groupId = :groupId ORDER BY id DESC LIMIT :keep)",
+            "(SELECT id FROM refused_group_states WHERE groupId = :groupId ORDER BY managing DESC, id DESC LIMIT :keep)",
     )
     suspend fun trimRefused(groupId: String, keep: Int)
 
-    /** Keeps [state], and only the newest [MAX_REFUSED_PER_SENDER] of its sender and [MAX_REFUSED_PER_GROUP] of its group. */
+    /**
+     * Keeps [state], and only the newest [MAX_REFUSED_PER_SENDER] of its sender and [MAX_REFUSED_PER_GROUP] of its group,
+     * those of senders who manage it before the rest: members who manage nothing push out only each other's.
+     */
     @Transaction
     suspend fun keepRefused(state: RefusedGroupStateEntity) {
         insertRefused(state)

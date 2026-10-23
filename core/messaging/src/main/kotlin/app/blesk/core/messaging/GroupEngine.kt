@@ -195,7 +195,7 @@ internal class GroupEngine(
             is GroupChange.Remove -> outbox.queue(change.username, update(gone))
             GroupChange.Dissolve -> {
                 state.members.filter { it.username != me }.forEach { outbox.queue(it.username, update(gone)) }
-                forget(groupId, rotated.version, byUs = true)
+                forget(rotated, byUs = true)
             }
             else -> Unit
         }
@@ -216,7 +216,7 @@ internal class GroupEngine(
         state.members.filter { it.username != me }.forEach {
             outbox.queue(it.username, Content(UUID.randomUUID().toString(), clock(), Body.GroupLeave(groupId)))
         }
-        forget(groupId, state.version, byUs = true)
+        forget(state, byUs = true)
     }
 
     /** We ask to join by an invite: the admin's answer may bring the group back, even one we once left. */
@@ -231,7 +231,7 @@ internal class GroupEngine(
         val readers = GroupPolicy.readers(state, conversationId) - me
         // A channel only we read, or a group of one: there is no one to hand a key to, so nothing to encrypt with.
         if (readers.isEmpty()) return@withLock true
-        val stamped = content.copy(group = conversationId, groupVersion = state.version)
+        val stamped = content.copy(group = conversationId, groupVersion = state.version, groupOwnerVersion = state.ownerVersion)
         try {
             val key = senderKey(state, GroupPolicy.keyScope(state, conversationId), readers)
             val body = withContext(Dispatchers.IO) { crypto.encrypt(key, stamped) }
@@ -265,9 +265,15 @@ internal class GroupEngine(
         val written = (content.body !is Body.Text && content.body !is Body.Timer) || canPost(state, conversationId, sender)
         return when {
             readable && written -> Admission.Store
-            content.groupVersion > state.version -> Admission.Hold
+            writtenLater(content, state) -> Admission.Hold
             else -> Admission.Drop
         }
+    }
+
+    /** Whether [content] was written in a state newer than [state], as states are ordered; by version alone from an old app. */
+    private fun writtenLater(content: Content, state: GroupState): Boolean {
+        val ownerVersion = content.groupOwnerVersion ?: return content.groupVersion > state.version
+        return GroupPolicy.newer(ownerVersion, content.groupVersion, state.ownerVersion, state.version)
     }
 
     /** Keeps [content] out of sight until the state it was written in arrives; [released] gives it back then. */
@@ -279,6 +285,7 @@ internal class GroupEngine(
             content = storageJson.encodeToString(Content.serializer(), content),
             version = content.groupVersion,
             heldAt = clock(),
+            ownerVersion = content.groupOwnerVersion,
         )
         db.groups().hold(held)
     }
@@ -289,7 +296,7 @@ internal class GroupEngine(
      */
     suspend fun released(groupId: String): List<Released> {
         val state = state(groupId) ?: return emptyList()
-        return db.groups().releasable(groupId, state.version).mapNotNull { row ->
+        return db.groups().releasable(groupId, state.ownerVersion, state.version).mapNotNull { row ->
             heldContent(row)?.takeIf { it.body !is Body.GroupUpdate }?.let { Released(row.sender, it) }
         }
     }
@@ -347,7 +354,7 @@ internal class GroupEngine(
                 voiceKeys.keep(taken)
                 if (current == null) db.groups().unmarkLeft(incoming.id)
             }
-            current != null -> forget(incoming.id, incoming.version, byUs = false)
+            current != null -> forget(incoming, byUs = false)
             else -> return UpdateOutcome.Ignored
         }
         return UpdateOutcome.Taken
@@ -356,21 +363,26 @@ internal class GroupEngine(
     /**
      * Whether [sender] could have made [incoming] from [current], as [GroupPolicy.admits] decides, both cleaned as this
      * phone keeps them: a title another phone cleaned is no change of it. A state without us need only put us out as
-     * [GroupPolicy.removes] lets [sender]: it is not kept, and the one sent to whoever is removed leaves out the
-     * invites and the voice key, no longer theirs to see.
+     * [GroupPolicy.removes] lets [sender], numbered as [GroupPolicy.reaches] lets it: it is not kept, and the one sent to
+     * whoever is removed leaves out the invites and the voice key, no longer theirs to see. Numbered far ahead, it would
+     * keep every later state, the owner's too, from bringing the group back, though no other phone had put us out.
      */
     private fun admits(current: GroupState, incoming: GroupState, sender: String): Boolean = if (incoming.roleOf(me) == null) {
-        GroupPolicy.removes(current, sender, me)
+        GroupPolicy.removes(current, sender, me) && GroupPolicy.reaches(current, incoming, sender)
     } else {
         GroupPolicy.admits(cleaned(current), cleaned(incoming), sender)
     }
 
-    /** Keeps a refused state to try again, for as long as held messages wait. */
+    /**
+     * Keeps a refused state to try again, for as long as held messages wait; those of one who manages the group are kept
+     * before others', so members who manage nothing cannot push out the state this phone waits for.
+     */
     private suspend fun keepRefused(sender: String, incoming: GroupState) {
         db.groups().keepRefused(
             RefusedGroupStateEntity(
                 groupId = incoming.id,
                 sender = sender,
+                managing = state(incoming.id)?.let { GroupPolicy.manages(it, sender) } == true,
                 ownerVersion = incoming.ownerVersion,
                 version = incoming.version,
                 state = storageJson.encodeToString(GroupState.serializer(), incoming),
@@ -412,13 +424,13 @@ internal class GroupEngine(
 
     /**
      * Whether a group this phone let go of may return. An admin may have sent a state before he learned we were out:
-     * removed or dissolved, only a newer state than the one that put us out counts; left by us, none does, as we
-     * come back only by asking to join ourselves. The admin drops us on his side without a word, so a group brought
-     * back by such a late state would stay here for good, silent.
+     * removed or dissolved, only a newer state than the one that put us out counts, as [GroupPolicy.newer] orders them;
+     * left by us, none does, as we come back only by asking to join ourselves. The admin drops us on his side without a
+     * word, so a group brought back by such a late state would stay here for good, silent.
      */
     private suspend fun mayComeBack(incoming: GroupState): Boolean {
         val left = db.groups().leftGroup(incoming.id) ?: return true
-        return !left.byUs && incoming.version > left.version
+        return !left.byUs && GroupPolicy.newer(incoming.ownerVersion, incoming.version, left.ownerVersion, left.version)
     }
 
     suspend fun onSenderKey(sender: String, key: Body.SenderKey) {
@@ -589,16 +601,17 @@ internal class GroupEngine(
 
     /**
      * Deletes the group, its chats, our keys, its voice keys and what waits for its state, and notes it was let go of
-     * at [version], left or dissolved [byUs] or not. Its messages and their files go once that is committed, by [purge].
+     * at [state], left or dissolved [byUs] or not. Its messages and their files go once that is committed, by [purge].
      */
-    private suspend fun forget(groupId: String, version: Long, byUs: Boolean) = db.withTransaction {
+    private suspend fun forget(state: GroupState, byUs: Boolean) = db.withTransaction {
+        val groupId = state.id
         db.conversations().deleteWithChildren(groupId)
         db.groups().delete(groupId)
         db.groups().deleteSenderKeys(groupId)
         db.groups().deleteVoiceKeys(groupId)
         db.groups().deleteHeld(groupId)
         db.groups().deleteRefused(groupId)
-        db.groups().markLeft(LeftGroupEntity(groupId, version, byUs))
+        db.groups().markLeft(LeftGroupEntity(groupId, state.version, byUs, state.ownerVersion))
     }
 
     /**

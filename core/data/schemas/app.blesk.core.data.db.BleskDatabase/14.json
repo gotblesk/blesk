@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 14,
-    "identityHash": "089805b83ea8b698783a2956a530031e",
+    "identityHash": "b93822698cecea82525d37f5e4ba7d8f",
     "entities": [
       {
         "tableName": "conversations",
@@ -450,7 +450,7 @@
       },
       {
         "tableName": "left_groups",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `version` INTEGER NOT NULL, `byUs` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `version` INTEGER NOT NULL, `byUs` INTEGER NOT NULL, `ownerVersion` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -469,6 +469,13 @@
             "columnName": "byUs",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "ownerVersion",
+            "columnName": "ownerVersion",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -523,7 +530,7 @@
       },
       {
         "tableName": "held_group_messages",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `groupId` TEXT NOT NULL, `sender` TEXT NOT NULL, `content` TEXT NOT NULL, `version` INTEGER NOT NULL, `heldAt` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `groupId` TEXT NOT NULL, `sender` TEXT NOT NULL, `content` TEXT NOT NULL, `version` INTEGER NOT NULL, `heldAt` INTEGER NOT NULL, `ownerVersion` INTEGER)",
         "fields": [
           {
             "fieldPath": "id",
@@ -560,6 +567,11 @@
             "columnName": "heldAt",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "ownerVersion",
+            "columnName": "ownerVersion",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -641,7 +653,7 @@
       },
       {
         "tableName": "refused_group_states",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `groupId` TEXT NOT NULL, `sender` TEXT NOT NULL, `ownerVersion` INTEGER NOT NULL, `version` INTEGER NOT NULL, `state` TEXT NOT NULL, `keptAt` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `groupId` TEXT NOT NULL, `sender` TEXT NOT NULL, `managing` INTEGER NOT NULL, `ownerVersion` INTEGER NOT NULL, `version` INTEGER NOT NULL, `state` TEXT NOT NULL, `keptAt` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -659,6 +671,12 @@
             "fieldPath": "sender",
             "columnName": "sender",
             "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "managing",
+            "columnName": "managing",
+            "affinity": "INTEGER",
             "notNull": true
           },
           {
@@ -707,7 +725,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '089805b83ea8b698783a2956a530031e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b93822698cecea82525d37f5e4ba7d8f')"
     ]
   }
 }

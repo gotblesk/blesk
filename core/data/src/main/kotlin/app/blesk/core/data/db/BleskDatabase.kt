@@ -179,16 +179,19 @@ abstract class BleskDatabase : RoomDatabase() {
 
         /**
          * Refused states of a group get a table of their own, apart from the held messages. Those kept among the messages
-         * before stay there unread, and go as those do: tried again, they would only be refused again.
+         * before stay there unread, and go as those do: tried again, they would only be refused again. Held messages and
+         * groups let go of keep the owner's count too, as states are ordered by it; those from before have none, or 0.
          */
         val MIGRATION_13_14 = object : Migration(13, 14) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "CREATE TABLE IF NOT EXISTS `refused_group_states` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
-                        "`groupId` TEXT NOT NULL, `sender` TEXT NOT NULL, `ownerVersion` INTEGER NOT NULL, " +
+                        "`groupId` TEXT NOT NULL, `sender` TEXT NOT NULL, `managing` INTEGER NOT NULL, `ownerVersion` INTEGER NOT NULL, " +
                         "`version` INTEGER NOT NULL, `state` TEXT NOT NULL, `keptAt` INTEGER NOT NULL)",
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_refused_group_states_groupId` ON `refused_group_states` (`groupId`)")
+                db.execSQL("ALTER TABLE `held_group_messages` ADD COLUMN `ownerVersion` INTEGER")
+                db.execSQL("ALTER TABLE `left_groups` ADD COLUMN `ownerVersion` INTEGER NOT NULL DEFAULT 0")
             }
         }
 
