@@ -41,6 +41,7 @@ import app.blesk.core.design.component.ButtonKind
 import app.blesk.core.design.component.Icon
 import app.blesk.core.design.component.SecretInput
 import app.blesk.core.design.component.Text
+import app.blesk.core.design.component.formatWait
 import app.blesk.core.design.icon.BleskIcons
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
@@ -210,13 +211,3 @@ private const val TICK_MILLIS = 500L
 private const val DIM_MILLIS = 600
 private const val DIM_DEPTH = 0.65f
 private const val LIFT = 48f
-
-@Composable
-private fun formatWait(millis: Long): String {
-    val seconds = ((millis + 999) / 1000).toInt()
-    return if (seconds < 60) {
-        stringResource(R.string.lock_seconds, seconds)
-    } else {
-        stringResource(R.string.lock_minutes, (seconds + 59) / 60)
-    }
-}

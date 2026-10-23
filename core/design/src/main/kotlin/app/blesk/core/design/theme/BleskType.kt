@@ -55,6 +55,8 @@ private const val TRACK_TO = -0.035f
 /** Large, dense headings; calm body text. */
 @Immutable
 data class BleskType(
+    /** The name «blesk» where it stands alone, as on the welcome screen. */
+    val wordmark: TextStyle,
     val display: TextStyle,
     val title: TextStyle,
     val headline: TextStyle,
@@ -79,6 +81,7 @@ data class BleskType(
         )
 
         fun create(scale: Float = 1f) = BleskType(
+            wordmark = style(48f, 52f, 700, (-0.02).em, scale),
             display = style(32f, 38f, 600, (-0.02).em, scale),
             title = style(22f, 28f, 600, (-0.015).em, scale),
             headline = style(17f, 22f, 500, (-0.005).em, scale),

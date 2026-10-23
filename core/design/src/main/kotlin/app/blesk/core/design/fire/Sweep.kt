@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -11,6 +12,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
+import app.blesk.core.design.motion.rememberLoopPhase
 import app.blesk.core.design.theme.Blesk
 import kotlinx.coroutines.delay
 
@@ -51,7 +53,41 @@ fun Modifier.lightSweep(active: Boolean, shape: Shape): Modifier = composed {
     }
 }
 
+/**
+ * Something is being done and the element waits for it, like a button that started creating an
+ * account: while [active] a veil of the page dims the element's fill and the theme's light
+ * crosses it again and again; where the light must stand still there is only the veil. Placed
+ * after the fill, so both go under what is written on it and the text stays sharp.
+ */
+fun Modifier.passingLight(active: Boolean, shape: Shape): Modifier {
+    if (!active) return this
+    return composed {
+        // Dimmed first, the fill leaves the light room to show, even where it is the light's own colour.
+        val veil = Blesk.colors.background.copy(alpha = VEIL)
+        val light = Blesk.colors.light.copy(alpha = if (Blesk.colors.isDark) PASS_DARK else PASS_LIGHT)
+        val still = Blesk.motion.still
+        val phase by rememberLoopPhase(PASS_MILLIS)
+        drawWithCache {
+            val outline = shape.createOutline(size, layoutDirection, this)
+            onDrawWithContent {
+                drawOutline(outline, veil)
+                if (!still) {
+                    val band = size.width * BAND
+                    val x = -band + (size.width + band * 2f) * phase
+                    val glow = listOf(light.copy(alpha = 0f), light, light.copy(alpha = 0f))
+                    drawOutline(outline, Brush.horizontalGradient(glow, startX = x - band, endX = x + band))
+                }
+                drawContent()
+            }
+        }
+    }
+}
+
 private const val SWEEP_MILLIS = 700
+private const val PASS_MILLIS = 1_600
+private const val VEIL = 0.4f
+private const val PASS_LIGHT = 0.6f
+private const val PASS_DARK = 0.4f
 private const val STILL_MILLIS = 400L
 private const val BAND = 0.4f
 private const val SWEEP_LIGHT = 0.55f

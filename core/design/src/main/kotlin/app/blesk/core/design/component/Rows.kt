@@ -3,6 +3,7 @@ package app.blesk.core.design.component
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -145,6 +146,61 @@ fun ToggleRow(
             }
         }
         Switch(checked, Modifier.alpha(if (enabled) 1f else DIMMED))
+    }
+}
+
+/**
+ * A row with a tick, for one yes-or-no choice inside a step rather than a setting, like
+ * subscribing to a channel. The whole row toggles; TalkBack hears a checkbox.
+ */
+@Composable
+fun CheckRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+) {
+    val haptics = rememberHaptics()
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = Blesk.dimens.touchTarget + 8.dp)
+            .toggleable(value = checked, role = Role.Checkbox) { on ->
+                haptics.toggle(on)
+                onCheckedChange(on)
+            }
+            .padding(horizontal = Blesk.dimens.gutter, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Tick(checked)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = Blesk.type.bodyStrong)
+            if (subtitle != null) {
+                Text(subtitle, style = Blesk.type.label, color = Blesk.colors.textSecondary, modifier = Modifier.padding(top = 2.dp))
+            }
+        }
+    }
+}
+
+/** The circle of a [CheckRow]: an outline when off, filled with the accent and ticked when on. */
+@Composable
+private fun Tick(checked: Boolean) {
+    val colors = Blesk.colors
+    val motion = Blesk.motion
+    val fill by animateColorAsState(if (checked) colors.accent else colors.accent.copy(alpha = 0f), motion.select(), label = "tickFill")
+    val ring by animateColorAsState(if (checked) colors.accent else colors.textTertiary, motion.select(), label = "tickRing")
+    val mark by animateColorAsState(if (checked) colors.onAccent else colors.onAccent.copy(alpha = 0f), motion.select(), label = "tickMark")
+    Box(
+        Modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(fill)
+            .border(2.dp, ring, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(BleskIcons.Check, contentDescription = null, tint = mark, size = 20.dp)
     }
 }
 

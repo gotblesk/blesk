@@ -32,4 +32,17 @@
     <string name="design_username_too_long">Не длиннее 32 символов</string>
     <string name="design_username_suggestions">Свободны:</string>
     <string name="design_username_take">Взять имя %1$s</string>
+    <string name="design_wait">Подожди</string>
+    <plurals name="design_wait_seconds">
+        <item quantity="one">%1$d секунду</item>
+        <item quantity="few">%1$d секунды</item>
+        <item quantity="many">%1$d секунд</item>
+        <item quantity="other">%1$d секунды</item>
+    </plurals>
+    <plurals name="design_wait_minutes">
+        <item quantity="one">%1$d минуту</item>
+        <item quantity="few">%1$d минуты</item>
+        <item quantity="many">%1$d минут</item>
+        <item quantity="other">%1$d минуты</item>
+    </plurals>
 </resources>

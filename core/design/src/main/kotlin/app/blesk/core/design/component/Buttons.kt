@@ -21,12 +21,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import app.blesk.core.design.R
+import app.blesk.core.design.fire.passingLight
 import app.blesk.core.design.theme.Blesk
 
 enum class ButtonKind { Primary, Secondary }
 
+/**
+ * A capsule button. While [busy] the action it started is under way: light passes over it, a
+ * tap does nothing more, and TalkBack hears «Подожди».
+ */
 @Composable
 fun Button(
     text: String,
@@ -34,16 +43,20 @@ fun Button(
     modifier: Modifier = Modifier,
     kind: ButtonKind = ButtonKind.Primary,
     icon: ImageVector? = null,
+    busy: Boolean = false,
 ) {
     val colors = Blesk.colors
     val background = if (kind == ButtonKind.Primary) colors.accent else colors.surfaceStrong
     val content = if (kind == ButtonKind.Primary) colors.onAccent else colors.textPrimary
+    val wait = stringResource(R.string.design_wait)
     Row(
         modifier = modifier
             .heightIn(min = Blesk.dimens.touchTarget)
             .clip(CircleShape)
             .background(background)
-            .clickable(role = Role.Button, onClick = onClick)
+            .passingLight(busy, CircleShape)
+            .clickable(role = Role.Button) { if (!busy) onClick() }
+            .then(if (busy) Modifier.semantics { stateDescription = wait } else Modifier)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
