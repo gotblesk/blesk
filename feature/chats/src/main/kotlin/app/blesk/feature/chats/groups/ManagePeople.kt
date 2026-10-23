@@ -147,7 +147,9 @@ internal fun MemberList(env: ManageEnv, needle: String, online: Set<String> = em
     }
 }
 
-private fun givesRoles(env: ManageEnv) = env.room && env.can(Right.AssignRoles) && env.state.roles.isNotEmpty()
+/** Whether there is a role [ManageEnv.me] may give: the right alone is not enough without a role below them. */
+private fun givesRoles(env: ManageEnv) =
+    env.room && env.can(Right.AssignRoles) && env.state.roles.any { GroupPolicy.outranks(env.state, env.me, it.id) }
 
 /** What [ManageEnv.me] may do to [username]; each choice that opens another sheet passes it to [onSheet]. */
 @Composable

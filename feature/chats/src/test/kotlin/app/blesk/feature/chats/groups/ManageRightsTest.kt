@@ -1,8 +1,10 @@
 package app.blesk.feature.chats.groups
 
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -169,6 +171,17 @@ class ManageRightsTest {
         assertOverTheScreen(hasText("Действия с anya"))
         compose.onNodeWithText("Права").performClick()
         assertOverTheScreen(hasText("Сохранить права"))
+    }
+
+    @Test
+    fun noRolesAreOfferedByOneWhoStandsAboveNone() {
+        // Finn's fans' role may give roles, but it is the lowest: there is none below him to give, and nothing else to do.
+        val lowest = room.copy(
+            members = room.members + GroupMember("finn", GroupRole.Member, roles = listOf(FANS)),
+            roles = room.roles.map { if (it.id == FANS) it.copy(rights = setOf(Right.AssignRoles)) else it },
+        )
+        show(ManagePage.Members, me = "finn", state = lowest)
+        compose.onNodeWithText("anya").assert(SemanticsMatcher.keyNotDefined(SemanticsActions.OnLongClick))
     }
 
     /** Shown in full on screen and outside the page's scrolling column, which would carry it off with the page. */
