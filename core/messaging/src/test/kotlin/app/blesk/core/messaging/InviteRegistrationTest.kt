@@ -7,11 +7,16 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.SignalStore
 import app.blesk.core.data.db.BleskDatabase
+import app.blesk.core.messaging.FakeServer.Refusal
 import app.blesk.core.network.BleskApi
+import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.Invites
+import app.blesk.shared.protocol.ServerInfo
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,7 +65,7 @@ class InviteRegistrationTest {
         val invite = server.bootstrapInvite()
         val anya = Phone()
         server.droppedChallenges = 1
-        assertEquals(RegisterResult.Unreachable, anya.register("anya", invite))
+        assertEquals(ServerTrouble.Unreachable, anya.register("anya", invite))
 
         // The server made the account and spent the invite before the connection dropped.
         assertEquals(RegisterResult.InviteInvalid, anya.register("anya", invite))
@@ -102,6 +107,38 @@ class InviteRegistrationTest {
         assertEquals(1, after.left)
         assertEquals("vera", after.invites.single { it.code == code }.usedBy)
         assertEquals(Invites.LIMIT, after.invites.size)
+    }
+
+    @Test
+    fun aRefusalForTooManyAttemptsSaysHowLongToWait() {
+        server.refuse(Api.ACCOUNTS, Refusal(HttpStatusCode.TooManyRequests, retryAfterSeconds = 120))
+        assertEquals(ServerTrouble.TooManyAttempts(120_000), Phone().register("anya", server.bootstrapInvite()))
+    }
+
+    @Test
+    fun anAppTooOldForTheServerIsToldToUpdate() {
+        server.info = ServerInfo(minClientVersion = Api.VERSION + 1)
+        assertEquals(ServerTrouble.AppTooOld, Phone().register("anya", server.bootstrapInvite()))
+        assertFalse(Api.ACCOUNTS in server.paths)
+    }
+
+    @Test
+    fun aServerTooOldForTheAppSaysSo() {
+        server.info = ServerInfo(version = Api.MIN_SERVER_VERSION - 1)
+        assertEquals(ServerTrouble.ServerTooOld, Phone().register("anya", server.bootstrapInvite()))
+        assertFalse(Api.ACCOUNTS in server.paths)
+    }
+
+    @Test
+    fun aServiceNameIsRefusedBeforeAnyRequest() {
+        assertEquals(RegisterResult.NameInvalid, Phone().register("support24", server.bootstrapInvite()))
+        assertTrue(server.paths.isEmpty())
+    }
+
+    @Test
+    fun aReservedNameFromTheServerIsAnInvalidName() {
+        server.refuse(Api.ACCOUNTS, Refusal(HttpStatusCode.BadRequest, code = "username_reserved"))
+        assertEquals(RegisterResult.NameInvalid, Phone().register("anya", server.bootstrapInvite()))
     }
 
     @Test

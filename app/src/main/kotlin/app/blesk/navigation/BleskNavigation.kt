@@ -50,6 +50,7 @@ import app.blesk.core.design.motion.screenKey
 import app.blesk.core.design.motion.sharedBounds
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.messaging.RegisterResult
+import app.blesk.core.messaging.ServerTrouble
 import app.blesk.core.network.NetworkProxy
 import app.blesk.core.network.ServerAddress
 import app.blesk.economy.EconomyNotices
@@ -751,15 +752,23 @@ fun BleskNavigation(container: AppContainer) {
 /** Registers on blesk's own server unless another address was typed or scanned. */
 private suspend fun connect(container: AppContainer, request: ConnectRequest): ConnectOutcome {
     val address = request.address?.let { ServerAddress.parse(it) ?: return ConnectOutcome.BadAddress } ?: ServerAddress.DEFAULT
-    return when (container.connect(address, request.username, request.invite)) {
-        RegisterResult.Ok -> ConnectOutcome.Ok
-        RegisterResult.NameTaken -> ConnectOutcome.NameTaken
-        RegisterResult.NameInvalid -> ConnectOutcome.NameInvalid
-        RegisterResult.InviteRequired -> ConnectOutcome.InviteRequired
-        RegisterResult.InviteInvalid -> ConnectOutcome.InviteInvalid
-        RegisterResult.TooManyAttempts -> ConnectOutcome.TooManyAttempts
-        RegisterResult.Unreachable -> ConnectOutcome.Unreachable
-    }
+    return container.connect(address, request.username, request.invite).outcome()
+}
+
+/** What the registration form says; each trouble with the server keeps its own text. */
+internal fun RegisterResult.outcome(): ConnectOutcome = when (this) {
+    RegisterResult.Ok -> ConnectOutcome.Ok
+    RegisterResult.NameTaken -> ConnectOutcome.NameTaken
+    RegisterResult.NameInvalid -> ConnectOutcome.NameInvalid
+    RegisterResult.InviteRequired -> ConnectOutcome.InviteRequired
+    RegisterResult.InviteInvalid -> ConnectOutcome.InviteInvalid
+    is ServerTrouble.TooManyAttempts -> ConnectOutcome.TooManyAttempts
+    ServerTrouble.CertificateMismatch -> ConnectOutcome.CertificateMismatch
+    ServerTrouble.CertificateUntrusted -> ConnectOutcome.CertificateUntrusted
+    ServerTrouble.AppTooOld -> ConnectOutcome.AppTooOld
+    ServerTrouble.ServerTooOld -> ConnectOutcome.ServerTooOld
+    ServerTrouble.NotBlesk -> ConnectOutcome.NotBlesk
+    ServerTrouble.Unreachable -> ConnectOutcome.Unreachable
 }
 
 /** Sends a link to your profile through any app the person chooses. */

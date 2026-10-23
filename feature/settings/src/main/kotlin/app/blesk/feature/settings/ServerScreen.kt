@@ -50,7 +50,21 @@ import app.blesk.shared.protocol.Invites
 import kotlinx.coroutines.launch
 
 /** How an attempt to join a server ended. */
-enum class ConnectOutcome { Ok, BadAddress, NameTaken, NameInvalid, InviteRequired, InviteInvalid, TooManyAttempts, Unreachable }
+enum class ConnectOutcome {
+    Ok,
+    BadAddress,
+    NameTaken,
+    NameInvalid,
+    InviteRequired,
+    InviteInvalid,
+    TooManyAttempts,
+    CertificateMismatch,
+    CertificateUntrusted,
+    AppTooOld,
+    ServerTooOld,
+    NotBlesk,
+    Unreachable,
+}
 
 /** What was filled in to create an account; [address] is null for blesk's own server. */
 data class ConnectRequest(val address: String?, val invite: String?, val username: String)
@@ -245,6 +259,12 @@ private fun ConnectStatus(busy: Boolean, outcome: ConnectOutcome?, otherServer: 
         ConnectOutcome.InviteRequired -> R.string.server_error_invite_required
         ConnectOutcome.InviteInvalid -> R.string.server_error_invite_invalid
         ConnectOutcome.TooManyAttempts -> R.string.server_error_too_many
+        ConnectOutcome.CertificateMismatch -> R.string.server_error_certificate_mismatch
+        ConnectOutcome.CertificateUntrusted ->
+            if (otherServer) R.string.server_error_certificate_other else R.string.server_error_certificate
+        ConnectOutcome.AppTooOld -> R.string.server_error_app_old
+        ConnectOutcome.ServerTooOld -> R.string.server_error_server_old
+        ConnectOutcome.NotBlesk -> if (otherServer) R.string.server_error_not_blesk_other else R.string.server_error_not_blesk
         ConnectOutcome.Unreachable -> if (otherServer) R.string.server_error_unreachable_other else R.string.server_error_unreachable
         ConnectOutcome.Ok, null -> null
     }

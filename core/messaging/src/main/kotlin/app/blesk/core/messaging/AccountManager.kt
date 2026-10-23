@@ -6,10 +6,12 @@ import app.blesk.core.crypto.signal.SignalStore
 import app.blesk.core.data.db.SignalStateEntity
 import app.blesk.core.network.ApiException
 import app.blesk.core.network.BleskApi
+import app.blesk.shared.protocol.Api
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.Usernames
+import java.io.IOException
 
-/** Why registration did not work, in terms the screen can explain. */
+/** Why registration did not work, in terms the screen can explain; troubles with the server itself are a [ServerTrouble]. */
 sealed interface RegisterResult {
     data object Ok : RegisterResult
     data object NameTaken : RegisterResult
@@ -20,19 +22,14 @@ sealed interface RegisterResult {
 
     /** The invite is unknown, already used or expired. */
     data object InviteInvalid : RegisterResult
-
-    /** Too many attempts from this address in a short time; a minute later it works again. */
-    data object TooManyAttempts : RegisterResult
-    data object Unreachable : RegisterResult
 }
 
-/** How opening an account with its phrase went. */
+/** How opening an account with its phrase went; troubles with the server itself are a [ServerTrouble]. */
 sealed interface RecoverResult {
     data class Ok(val username: String) : RecoverResult
 
     /** The words are a valid phrase, but no account on this server has it. */
     data object Unknown : RecoverResult
-    data object Unreachable : RecoverResult
 }
 
 /**
@@ -58,8 +55,8 @@ class AccountManager(private val store: SignalStore, private val keys: KeyManage
         resume: Boolean = false,
     ): RegisterResult {
         if (!Usernames.isValid(username)) return RegisterResult.NameInvalid
+        (probe(api) as? ServerTrouble)?.let { return it }
         return try {
-            api.info()
             keys.ensureIdentity()
             val refused = try {
                 api.register(keys.registration(username, phrase?.confirmationHash, invite))
@@ -76,8 +73,8 @@ class AccountManager(private val store: SignalStore, private val keys: KeyManage
             RegisterResult.Ok
         } catch (e: ApiException) {
             e.registerResult()
-        } catch (_: java.io.IOException) {
-            RegisterResult.Unreachable
+        } catch (e: IOException) {
+            e.serverTrouble()
         }
     }
 
@@ -91,28 +88,30 @@ class AccountManager(private val store: SignalStore, private val keys: KeyManage
 
     private fun ApiException.registerResult(): RegisterResult = when (code) {
         "username_taken" -> RegisterResult.NameTaken
-        "invalid_username" -> RegisterResult.NameInvalid
+        // A name like a bot's has its own code on the server; to the person it is one more name that cannot be taken.
+        "invalid_username", "username_reserved" -> RegisterResult.NameInvalid
         "invite_required" -> RegisterResult.InviteRequired
         "invite_invalid" -> RegisterResult.InviteInvalid
-        "rate_limited" -> RegisterResult.TooManyAttempts
-        else -> RegisterResult.Unreachable
+        else -> serverTrouble()
     }
 
     /**
      * Takes over the account of [phrase] with this phone's fresh identity key; the phone that held
      * it before is signed out by the server.
      */
-    suspend fun recover(api: BleskApi, phrase: PhraseKeys): RecoverResult = try {
-        api.info()
-        keys.ensureIdentity()
-        val account = api.recover(keys.recovery(phrase.confirmation))
-        signIn(api, account.username)
-        api.uploadKeys(keys.initialUpload())
-        RecoverResult.Ok(account.username)
-    } catch (e: ApiException) {
-        if (e.code == "auth_failed") RecoverResult.Unknown else RecoverResult.Unreachable
-    } catch (_: java.io.IOException) {
-        RecoverResult.Unreachable
+    suspend fun recover(api: BleskApi, phrase: PhraseKeys): RecoverResult {
+        (probe(api) as? ServerTrouble)?.let { return it }
+        return try {
+            keys.ensureIdentity()
+            val account = api.recover(keys.recovery(phrase.confirmation))
+            signIn(api, account.username)
+            api.uploadKeys(keys.initialUpload())
+            RecoverResult.Ok(account.username)
+        } catch (e: ApiException) {
+            if (e.code == "auth_failed") RecoverResult.Unknown else e.serverTrouble()
+        } catch (e: IOException) {
+            e.serverTrouble()
+        }
     }
 
     /** Signs in with the identity key and remembers the token. */
@@ -131,10 +130,27 @@ class AccountManager(private val store: SignalStore, private val keys: KeyManage
         return true
     }
 
-    private companion object {
+    companion object {
+        /**
+         * What the server at [api] is and whether this app can work with it. It needs no account and
+         * opens no database, so it can run before anything exists on this phone.
+         */
+        suspend fun probe(api: BleskApi): ProbeResult = try {
+            val info = api.info()
+            when {
+                Api.VERSION < info.minClientVersion -> ServerTrouble.AppTooOld
+                info.version < Api.MIN_SERVER_VERSION -> ServerTrouble.ServerTooOld
+                else -> ProbeResult.Ready(info)
+            }
+        } catch (e: ApiException) {
+            e.serverTrouble()
+        } catch (e: IOException) {
+            e.serverTrouble()
+        }
+
         /** What the server answers to a second try of an account it has already made. */
-        val LEFT_BY_BROKEN_ATTEMPT = setOf(RegisterResult.NameTaken, RegisterResult.InviteInvalid)
-        const val TOKEN = "token"
-        const val REFRESH_MARGIN_MILLIS = 24L * 60 * 60 * 1000
+        private val LEFT_BY_BROKEN_ATTEMPT = setOf(RegisterResult.NameTaken, RegisterResult.InviteInvalid)
+        private const val TOKEN = "token"
+        private const val REFRESH_MARGIN_MILLIS = 24L * 60 * 60 * 1000
     }
 }

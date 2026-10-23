@@ -83,7 +83,27 @@ class FakeServer {
     @Volatile
     var garbledChallenges = 0
 
+    /** What `/v1/info` answers; by default a server of this protocol that says whether it registers by invite. */
+    @Volatile
+    var info: ServerInfo? = null
+
+    /** What answers at the address instead of a blesk server, if anything does. */
+    enum class Impostor {
+        /** A web page, as a Wi-Fi login portal shows for every address. */
+        Html,
+
+        /** A site or service that has no blesk routes. */
+        NoRoute,
+    }
+
+    @Volatile
+    var impostor: Impostor? = null
+
+    /** Every request path, in the order the requests came. */
+    val paths = ConcurrentLinkedQueue<String>()
+
     private val refusals = ConcurrentHashMap<String, ConcurrentLinkedQueue<Refusal>>()
+    private val refusalsByPath = ConcurrentHashMap<String, ConcurrentLinkedQueue<Refusal>>()
 
     /** Sign-in tokens handed out so far. */
     val tokensIssued = AtomicInteger()
@@ -99,19 +119,25 @@ class FakeServer {
     val refusalsHeld = AtomicInteger()
 
     /**
-     * A refusal of a message: the status the server answers with and the Retry-After it names, if any. Without a
-     * status the connection breaks before any answer. With [answerAfter] the answer waits for it: the moment a
-     * refused request is on its way back, held open.
+     * A refusal of a request: the status the server answers with, its error [code] and the Retry-After it names, if
+     * any. Without a status the connection breaks before any answer. With [answerAfter] the answer waits for it: the
+     * moment a refused request is on its way back, held open.
      */
     class Refusal(
         val status: HttpStatusCode?,
         val retryAfterSeconds: Long? = null,
         val answerAfter: CompletableDeferred<Unit>? = null,
+        val code: String = "refused",
     )
 
     /** The next messages [from] sends are refused, one refusal each, in order; later ones go through. */
     fun refuseSends(from: String, vararg refused: Refusal) {
         refusals.getOrPut(from) { ConcurrentLinkedQueue() } += refused
+    }
+
+    /** The next requests to [path], from anyone, are refused, one refusal each, in order; later ones go through. */
+    fun refuse(path: String, vararg refused: Refusal) {
+        refusalsByPath.getOrPut(path) { ConcurrentLinkedQueue() } += refused
     }
 
     private val held = ConcurrentHashMap<Pair<String, String>, HeldDeliveries>()
@@ -171,9 +197,11 @@ class FakeServer {
     @Suppress("CyclomaticComplexMethod", "LongMethod")
     private suspend fun MockRequestHandleScope.handle(request: HttpRequestData): HttpResponseData {
         val path = request.url.encodedPath
+        paths += path
+        refusalsByPath[path]?.poll()?.let { return refuse(it) }
         val me = request.headers[HttpHeaders.Authorization]?.removePrefix("Bearer ")
         return when {
-            path == "/v1/info" -> ok(json.encodeToString(ServerInfo.serializer(), ServerInfo()))
+            path == "/v1/info" -> serverInfo()
             path == "/v1/accounts" && request.method == HttpMethod.Post ->
                 register(json.decodeFromString(RegisterRequest.serializer(), text(request)))
             path == "/v1/invites" -> me?.let { invites(it, request.method) } ?: error(HttpStatusCode.Unauthorized, "unauthorized")
@@ -273,6 +301,12 @@ class FakeServer {
         }
     }
 
+    private fun MockRequestHandleScope.serverInfo(): HttpResponseData = when (impostor) {
+        Impostor.Html -> respond("<html><body>Wi-Fi</body></html>", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/html"))
+        Impostor.NoRoute -> respond("Not Found", HttpStatusCode.NotFound, headersOf(HttpHeaders.ContentType, "text/plain"))
+        null -> ok(json.encodeToString(ServerInfo.serializer(), info ?: ServerInfo(invites = inviteOnly)))
+    }
+
     private fun MockRequestHandleScope.challenge(): HttpResponseData {
         if (droppedChallenges > 0) {
             droppedChallenges--
@@ -368,7 +402,7 @@ class FakeServer {
             HttpHeaders.ContentType to listOf("application/json"),
             refusal.retryAfterSeconds?.let { HttpHeaders.RetryAfter to listOf(it.toString()) },
         )
-        val body = json.encodeToString(ErrorBody.serializer(), ErrorBody("refused"))
+        val body = json.encodeToString(ErrorBody.serializer(), ErrorBody(refusal.code))
         return respond(body, status, headersOf(*headers.toTypedArray()))
     }
 }

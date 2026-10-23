@@ -85,6 +85,13 @@
     <string name="server_error_invite_required">Нужен инвайт: попроси ссылку у того, кто уже в blesk</string>
     <string name="server_error_invite_invalid">Инвайт не подошёл: он уже использован, истёк или набран с ошибкой</string>
     <string name="server_error_too_many">Слишком много попыток подряд. Подожди минуту и попробуй снова.</string>
+    <string name="server_error_certificate_mismatch">Отпечаток сертификата не совпал с QR-кодом: соединение могут перехватывать. Попробуй другую сеть и сверь QR-код с владельцем сервера.</string>
+    <string name="server_error_certificate">Не удалось проверить сертификат сервера. Проверь дату и время на телефоне или попробуй другую сеть.</string>
+    <string name="server_error_certificate_other">Не удалось проверить сертификат сервера. Отсканируй QR-код, который сервер показал при установке, и проверь дату и время на телефоне.</string>
+    <string name="server_error_app_old">Сервер работает только с более новой версией blesk. Обнови приложение и попробуй снова.</string>
+    <string name="server_error_server_old">Сервер устарел для этой версии blesk. Напиши его владельцу.</string>
+    <string name="server_error_not_blesk">Вместо сервера blesk отвечает другой сайт. Так бывает в Wi-Fi со входом через браузер: войди в сеть или попробуй другую.</string>
+    <string name="server_error_not_blesk_other">По этому адресу отвечает не сервер blesk. Проверь адрес.</string>
     <string name="server_error_address">Не похоже на адрес сервера</string>
     <string name="server_connected">Подключено</string>
     <string name="server_connected_as">Ты — @%1$s</string>

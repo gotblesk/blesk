@@ -21,8 +21,10 @@ import app.blesk.core.data.settings.Privacy
 import app.blesk.core.media.MediaVault
 import app.blesk.core.messaging.AccountManager
 import app.blesk.core.messaging.OwnProfile
+import app.blesk.core.messaging.ProbeResult
 import app.blesk.core.messaging.RegisterResult
 import app.blesk.core.messaging.ServerChatRepository
+import app.blesk.core.messaging.ServerTrouble
 import app.blesk.core.network.BleskApi
 import app.blesk.core.network.ServerAddress
 import app.blesk.core.network.Socket
@@ -151,6 +153,24 @@ class RealServerTest {
         talkInGroup(alice, bob, carol)
         closedChannel(alice, bob, carol, dave)
         call(alice, bob)
+    }
+
+    /** The only check of these troubles through a real TLS stack, where the trust manager's refusal comes wrapped. */
+    @Test
+    fun aWrongKeyAndAnUncheckedCertificateAreToldApart() {
+        fun probe(at: ServerAddress): ProbeResult {
+            val api = BleskApi(at)
+            return try {
+                runBlocking { AccountManager.probe(api) }
+            } finally {
+                api.close()
+            }
+        }
+        val ready = probe(address)
+        assertTrue("$ready", ready is ProbeResult.Ready && ready.info.invites == true)
+        assertEquals(ServerTrouble.CertificateMismatch, probe(address.copy(pin = "sha256/" + "A".repeat(43) + "=")))
+        // Without the pin the self-signed certificate is checked against the system's authorities, and none signed it.
+        assertEquals(ServerTrouble.CertificateUntrusted, probe(ServerAddress(address.url)))
     }
 
     private fun converse(alice: Client, bob: Client) {
