@@ -67,8 +67,9 @@ class ProfileStepActions(
 
 /**
  * «Как тебя называть»: the name and the photo others see, both optional. The first step after
- * the account is made, so there is no way back from it. [crop] is drawn over the screen while a
- * picked photo is being framed.
+ * the account is made, so there is no way back from it. While a picked photo is being framed,
+ * [crop] takes the whole screen: the step is not composed under it, so neither a tap nor TalkBack
+ * reaches a control nobody sees. The name lives in [name], so it waits for the frame to close.
  */
 @Composable
 fun ProfileStepScreen(
@@ -78,45 +79,47 @@ fun ProfileStepScreen(
     modifier: Modifier = Modifier,
     crop: (@Composable () -> Unit)? = null,
 ) {
+    if (crop != null) {
+        Box(modifier) { crop() }
+        return
+    }
     val haptics = rememberHaptics()
     LaunchedEffect(state.refused) { if (state.refused) haptics.refuse() }
-    Box(modifier) {
-        ScrollScreen(
-            title = stringResource(R.string.onboarding_profile_title),
-            bottom = {
-                StepActions(
-                    primary = StepButton(stringResource(R.string.onboarding_next), actions.onNext),
-                    secondary = StepButton(stringResource(R.string.onboarding_skip), actions.onSkip),
-                )
-            },
-        ) {
-            StepText(stringResource(R.string.onboarding_profile_text))
-            Photo(avatarName(name.text.toString(), state.username), state, actions.onPickPhoto)
-            if (state.photo != null) {
-                Button(
-                    text = stringResource(R.string.onboarding_profile_remove),
-                    onClick = actions.onRemovePhoto,
-                    modifier = Modifier.fillMaxWidth().wrapContentWidth().padding(top = 8.dp),
-                    kind = ButtonKind.Secondary,
-                )
-            }
-            TextInput(
-                label = stringResource(R.string.onboarding_profile_name),
-                state = name,
-                modifier = Modifier.padding(top = 12.dp),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
-                inputTransformation = NameLength,
-                onKeyboardAction = { actions.onNext() },
+    ScrollScreen(
+        title = stringResource(R.string.onboarding_profile_title),
+        modifier = modifier,
+        bottom = {
+            StepActions(
+                primary = StepButton(stringResource(R.string.onboarding_next), actions.onNext),
+                secondary = StepButton(stringResource(R.string.onboarding_skip), actions.onSkip),
             )
-            if (state.refused) {
-                ProblemLine(
-                    text = stringResource(R.string.onboarding_profile_invisible),
-                    align = TextAlign.Start,
-                    modifier = Modifier.padding(horizontal = Blesk.dimens.gutter + 4.dp, vertical = 4.dp),
-                )
-            }
+        },
+    ) {
+        StepText(stringResource(R.string.onboarding_profile_text))
+        Photo(avatarName(name.text.toString(), state.username), state, actions.onPickPhoto)
+        if (state.photo != null) {
+            Button(
+                text = stringResource(R.string.onboarding_profile_remove),
+                onClick = actions.onRemovePhoto,
+                modifier = Modifier.fillMaxWidth().wrapContentWidth().padding(top = 8.dp),
+                kind = ButtonKind.Secondary,
+            )
         }
-        crop?.invoke()
+        TextInput(
+            label = stringResource(R.string.onboarding_profile_name),
+            state = name,
+            modifier = Modifier.padding(top = 12.dp),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
+            inputTransformation = NameLength,
+            onKeyboardAction = { actions.onNext() },
+        )
+        if (state.refused) {
+            ProblemLine(
+                text = stringResource(R.string.onboarding_profile_invisible),
+                align = TextAlign.Start,
+                modifier = Modifier.padding(horizontal = Blesk.dimens.gutter + 4.dp, vertical = 4.dp),
+            )
+        }
     }
 }
 

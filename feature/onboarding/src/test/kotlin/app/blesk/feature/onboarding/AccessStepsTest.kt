@@ -5,9 +5,11 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -24,6 +26,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.design.component.Button
@@ -33,6 +36,7 @@ import app.blesk.core.design.theme.BleskTheme
 import app.blesk.core.motion.BleskMotion
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -54,8 +58,14 @@ class AccessStepsTest {
     private var serverState by mutableStateOf(ServerStepState())
     private var status by mutableStateOf<UsernameStatus>(UsernameStatus.Empty)
 
+    private var fontScale = 1f
+
     private fun show(content: @Composable () -> Unit) {
-        compose.setContent { BleskTheme(motion = BleskMotion(reduced = true)) { content() } }
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
+                BleskTheme(motion = BleskMotion(reduced = true)) { content() }
+            }
+        }
     }
 
     private fun server(scanner: (@Composable ((String) -> Unit) -> Unit)? = null, proxy: (@Composable () -> Unit)? = null) = show {
@@ -134,6 +144,17 @@ class AccessStepsTest {
         server()
         compose.onNodeWithText("Последний: chat.example.ru").performClick()
         compose.onNodeWithContentDescription("Адрес сервера").assertTextEquals(LINK)
+    }
+
+    @Test
+    fun aLongServerNameIsShownWholeInLargeType() {
+        fontScale = LARGE_FONT
+        serverState = ServerStepState(last = KnownServer(LONG_HOST, "https://$LONG_HOST"))
+        server()
+        val layout = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText("Последний: $LONG_HOST", useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layout) }
+        assertFalse(layout.single().cutShort())
     }
 
     @Test
@@ -286,6 +307,8 @@ class AccessStepsTest {
     }
 
     private companion object {
+        const val LONG_HOST = "messenger.my-company-name.example.org"
+        const val LARGE_FONT = 1.3f
         const val CODE = "k7m2p9xq4tzd"
         const val TERMS = "Создавая аккаунт, ты принимаешь правила и политику конфиденциальности"
         const val LINK = "blesk://server?url=https://chat.example.ru&pin=sha256/AbC+dE/f="

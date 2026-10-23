@@ -102,6 +102,11 @@ class OnboardingScreenshotTest(private val name: String) {
     @Test
     fun welcomeHuge() = capture("00a_welcome_huge", fontScale = 2f) { WelcomeScreen(WelcomeState(), welcomeActions) }
 
+    /** The phone's largest type on the narrowest screen blesk is checked on: every capsule keeps all its words. */
+    @Test
+    @Config(qualifiers = "w320dp-h640dp-xxhdpi")
+    fun welcomeHugeNarrow() = capture("00a_welcome_huge_narrow", fontScale = 2f) { WelcomeScreen(WelcomeState(), welcomeActions) }
+
     @Test
     fun welcomeCreating() = capture("00a_welcome_creating", motion = BleskMotion(reduced = false, still = true)) {
         WelcomeScreen(WelcomeState(busy = true), welcomeActions)

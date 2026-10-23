@@ -8,6 +8,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -49,3 +50,9 @@ internal fun ComposeContentTestRule.unreachableControls(screen: String): List<St
 }
 
 private val MinTouch = 48.dp
+
+/**
+ * Whether lines that do not fit were dropped: by a cap on the lines or a height too small. A centred
+ * line narrower than its box is not cut, though `hasVisualOverflow` says so when a row shares its width.
+ */
+internal fun TextLayoutResult.cutShort(): Boolean = didOverflowHeight || getLineEnd(lineCount - 1) < layoutInput.text.length

@@ -40,7 +40,8 @@ data class WelcomeState(val server: String? = null, val busy: Boolean = false, v
 /**
  * The welcome screen's choices. Without [onHaveAccount] signing in is not ready yet: its capsule is
  * marked «скоро» and only says when it comes. [onUpdate] opens the app's update under «Приложение
- * устарело».
+ * устарело». The other ways can be taken while creating waits for the server, which then has to
+ * stop.
  */
 @Stable
 class WelcomeActions(

@@ -1,11 +1,17 @@
 package app.blesk.feature.onboarding
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -13,13 +19,17 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.design.component.Button
 import app.blesk.core.design.component.Text
@@ -51,6 +61,8 @@ class SetupStepsTest {
         compose.setContent { BleskTheme(motion = BleskMotion(reduced = true)) { content() } }
     }
 
+    private var framing by mutableStateOf(false)
+
     private fun profileStep() = show {
         ProfileStepScreen(
             name = name,
@@ -61,6 +73,8 @@ class SetupStepsTest {
                 onNext = { done += "next" },
                 onSkip = { done += "skip" },
             ),
+            // A frame with nothing to tap in its lower half, as the photo's frame has.
+            crop = if (framing) ({ Box(Modifier.fillMaxSize().background(Color.Black)) }) else null,
         )
     }
 
@@ -107,6 +121,19 @@ class SetupStepsTest {
         profile = ProfileStepState(username = "egor", photo = photo(), photoVersion = 1)
         compose.onNodeWithText("Убрать фото").performClick()
         assertEquals(listOf("pick", "remove"), done)
+    }
+
+    @Test
+    fun whileAPhotoIsFramedTheStepUnderItIsOutOfReach() {
+        profileStep()
+        val next = compose.onNodeWithText("Дальше").getUnclippedBoundsInRoot()
+        framing = true
+
+        compose.onNodeWithText("Дальше").assertDoesNotExist()
+        compose.onNodeWithText("Пропустить").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Имя").assertDoesNotExist()
+        compose.onRoot().performTouchInput { click(Offset(((next.left + next.right) / 2).toPx(), ((next.top + next.bottom) / 2).toPx())) }
+        assertEquals(emptyList<String>(), done)
     }
 
     @Test

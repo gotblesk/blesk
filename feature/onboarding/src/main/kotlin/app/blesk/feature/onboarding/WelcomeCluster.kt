@@ -50,8 +50,10 @@ import app.blesk.core.design.R as DesignR
 /**
  * «Создать аккаунт», «У меня уже есть аккаунт» and «Попробовать демо», stuck together into one
  * drop. A choice comes away from the drop before it is carried out: the others let go of it and
- * the bridge breaks. Creating starts at once and comes back together if it fails. With
- * animations off the capsules stand apart and a choice is carried out at once.
+ * the bridge breaks. Creating starts at once and comes back together if it fails; while it waits
+ * for the server, the other ways are still there and taken at once, so a server slow to answer
+ * holds nobody up. With animations off the capsules stand apart and a choice is carried out at
+ * once.
  */
 @Composable
 internal fun WelcomeCluster(busy: Boolean, problem: AccessProblem?, actions: WelcomeActions, modifier: Modifier = Modifier) {
@@ -73,7 +75,12 @@ internal fun WelcomeCluster(busy: Boolean, problem: AccessProblem?, actions: Wel
     }
 
     fun choose(index: Int, start: () -> Unit = {}, then: () -> Unit = {}) {
-        if (busy || chosen != NONE) return
+        if (busy) {
+            // Creating waits on the server; another way is taken at once rather than waiting with it.
+            if (index != CREATE) then()
+            return
+        }
+        if (chosen != NONE) return
         start()
         if (motion.reduced) {
             then()
@@ -101,8 +108,11 @@ internal fun WelcomeCluster(busy: Boolean, problem: AccessProblem?, actions: Wel
                         val shift = Detach.toPx() * apart.value
                         val inset = PrimaryInset.toPx()
                         resting.mapIndexedNotNull { index, rect ->
-                            // The lit capsule draws its own fill; its drop stays just inside it, so no rim shows round it.
-                            val drop = rect?.translate(0f, direction(index) * shift)?.let { if (index == CREATE) it.deflate(inset) else it }
+                            // The lit capsule draws its own fill; its drop stays just inside it, so no rim shows round it,
+                            // except on the side of the bridge below it, which has to be as full as the others.
+                            val drop = rect?.translate(0f, direction(index) * shift)?.let {
+                                if (index == CREATE) Rect(it.left + inset, it.top + inset, it.right - inset, it.bottom) else it
+                            }
                             drop?.let { Blob(it, it.height / 2f) }
                         }
                     }
@@ -177,7 +187,6 @@ private fun WayCapsule(text: String, primary: Boolean, ready: Boolean, busy: Boo
                 else -> colors.textSecondary
             },
             textAlign = TextAlign.Center,
-            maxLines = 2,
             modifier = Modifier.weight(1f, fill = false),
         )
         if (!ready) SoonTag()

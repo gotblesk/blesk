@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldState
@@ -160,14 +159,18 @@ fun ServerStepScreen(
     }
 }
 
-/** «Последний: …», a capsule that puts that server back into the field. */
+/**
+ * «Последний: …», a capsule that puts that server back into the field. A long address wraps
+ * whole rather than losing its end, the part that tells one server from another; the corners
+ * stay those of a one-line capsule.
+ */
 @Composable
 private fun LastServer(name: String, onClick: () -> Unit) {
     Row(
         Modifier
             .padding(horizontal = Blesk.dimens.gutter, vertical = 6.dp)
             .heightIn(min = Blesk.dimens.touchTarget)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(Blesk.dimens.touchTarget / 2))
             .background(Blesk.colors.surfaceStrong)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp),
@@ -177,7 +180,7 @@ private fun LastServer(name: String, onClick: () -> Unit) {
         val style = Blesk.type.label
         val iconSize = with(LocalDensity.current) { style.lineHeight.toDp() }
         Icon(BleskIcons.Clock, contentDescription = null, tint = Blesk.colors.textSecondary, size = iconSize)
-        Text(stringResource(R.string.onboarding_server_last, name), style = style, maxLines = 2)
+        Text(stringResource(R.string.onboarding_server_last, name), style = style, modifier = Modifier.padding(vertical = 8.dp))
     }
 }
 
