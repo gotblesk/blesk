@@ -341,8 +341,8 @@ object GroupPolicy {
      * off the phones of those who see it, by one who never saw them.
      */
     private fun hiddenKept(current: GroupState, incoming: GroupState, sender: String): Boolean {
-        val arranged = arranged(current, incoming)
-        return current.channels.filter { !sees(current, sender, it) }.all { channel -> arranged.firstOrNull { it.id == channel.id } == channel }
+        val arranged = arranged(current, incoming).associateBy { it.id }
+        return current.channels.filter { !sees(current, sender, it) }.all { arranged[it.id] == it }
     }
 
     /**

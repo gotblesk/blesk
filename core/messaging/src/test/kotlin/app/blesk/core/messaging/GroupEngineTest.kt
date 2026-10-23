@@ -777,7 +777,7 @@ class GroupEngineTest {
         val banned = requireNotNull(GroupPolicy.apply(room, "bob", GroupChange.Ban("carol"), clock()))
         assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", banned))
         val renamed = requireNotNull(GroupPolicy.apply(room, "lena", GroupChange.RenameChannel(OPEN_ID, MAIN), clock()))
-        val again = requireNotNull(GroupPolicy.apply(renamed, "lena", GroupChange.RenameChannel(OPEN_ID, "лобби"), clock()))
+        val again = GroupPolicy.apply(renamed, "lena", GroupChange.RenameChannel(OPEN_ID, LOBBY), clock())!!
         assertNotEquals(UpdateOutcome.Taken, engine.onUpdate("lena", again))
         assertNull(engine.state(ROOM)?.roleOf("carol"))
         assertTrue("carol" in engine.state(ROOM)!!.banned)
@@ -798,7 +798,8 @@ class GroupEngineTest {
             members = listOf(GroupMember("carol", GroupRole.Owner), GroupMember(ME, GroupRole.Member)),
         )
         val conversation = GroupEngine.channelConversation(ROOM, "later")
-        val message = Content(UUID.randomUUID().toString(), 1, Body.GroupUpdate(group), group = conversation, groupVersion = 1000)
+        val update = Body.GroupUpdate(group)
+        val message = Content(UUID.randomUUID().toString(), 1, update, conversation, groupVersion = 1_000)
         assertEquals(Admission.Hold, engine.admission(engine.state(ROOM)!!, conversation, "carol", message))
         engine.hold("carol", message)
 
@@ -829,8 +830,8 @@ class GroupEngineTest {
         val room = roomOf(version = 1)
         assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
         // Bob makes Dave an admin, and Dave at once renames a channel; Dave's state reaches us first.
-        val promoted = requireNotNull(GroupPolicy.apply(room, "bob", GroupChange.Admin("dave", setOf(Right.Channels)), clock()))
-        val renamed = requireNotNull(GroupPolicy.apply(promoted, "dave", GroupChange.RenameChannel(OPEN_ID, MAIN), clock()))
+        val promoted = GroupPolicy.apply(room, "bob", GroupChange.Admin("dave", setOf(Right.Channels)), clock())!!
+        val renamed = GroupPolicy.apply(promoted, "dave", GroupChange.RenameChannel(OPEN_ID, MAIN), clock())!!
         assertNotEquals(UpdateOutcome.Taken, engine.onUpdate("dave", renamed))
 
         assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", promoted))
@@ -1228,6 +1229,7 @@ class GroupEngineTest {
         const val CLOSED = "модерация"
         const val ON_AIR = "эфир"
         const val MAIN = "главное"
+        const val LOBBY = "лобби"
         const val FILE_LABEL = "Файл"
         const val TIMEOUT = 60_000L
         const val POLL = 20L

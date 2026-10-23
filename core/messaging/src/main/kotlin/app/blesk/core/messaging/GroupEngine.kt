@@ -156,7 +156,8 @@ internal class GroupEngine(
 
     /** False when we may not, or when the room holds [GroupPolicy.MAX_CHANNELS] already. */
     suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) = change(groupId) { state ->
-        if (!GroupPolicy.can(state, me, Right.Channels) || state.kind != GroupKind.Room || state.channels.size >= GroupPolicy.MAX_CHANNELS) {
+        val room = state.kind == GroupKind.Room && state.channels.size < GroupPolicy.MAX_CHANNELS
+        if (!GroupPolicy.can(state, me, Right.Channels) || !room) {
             null
         } else {
             state.copy(channels = state.channels + GroupChannel(newId(), title.trim().take(MAX_TITLE), kind, adminsOnly))
