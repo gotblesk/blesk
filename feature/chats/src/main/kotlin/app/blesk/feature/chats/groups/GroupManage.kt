@@ -71,7 +71,8 @@ internal class ManageEnv(
     /** Makes a change; false when it was not allowed or did not go through. */
     val change: suspend (GroupChange) -> Boolean,
     val run: (suspend () -> Unit) -> Unit,
-    val inviteLink: ((code: String) -> String)?,
+    /** The link that carries an invite code and names whom the request to join goes to; null without a server. */
+    val inviteLink: ((admitter: String, code: String) -> String)?,
     val gate: IdentityGate?,
     val onOpenPerson: (String) -> Unit,
     val onGone: () -> Unit,
@@ -81,7 +82,16 @@ internal class ManageEnv(
     fun can(right: Right) = GroupPolicy.can(state, me, right)
 
     /** Whether links made here, and people added, would reach anyone: no phone takes a state from one who manages nothing. */
-    val invites get() = GroupPolicy.manages(state, me) && can(Right.Invite)
+    val invites get() = letsIn(me)
+
+    /**
+     * Whom a link shared here sends the request to join: us when we may let people in, otherwise the highest who may.
+     * Named after one who manages nothing, it would wait for good: their phone makes no state that lets anyone in.
+     */
+    val admitter: String?
+        get() = if (invites) me else state.members.map { it.username }.filter(::letsIn).minByOrNull { GroupPolicy.rank(state, it) }
+
+    private fun letsIn(username: String) = GroupPolicy.manages(state, username) && GroupPolicy.can(state, username, Right.Invite)
 
     /** Whether [edit] would go through: the editors offer only what this allows. */
     fun allows(edit: GroupChange) = GroupPolicy.apply(state, me, edit, now = 0) != null

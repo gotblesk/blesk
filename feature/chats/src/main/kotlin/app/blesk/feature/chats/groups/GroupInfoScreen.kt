@@ -2,11 +2,14 @@ package app.blesk.feature.chats.groups
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -81,8 +84,8 @@ class GroupInfoExtras(
     val archive: ArchiveActions = ArchiveActions({}, {}, {}, {}),
     /** «Оформление чата»; the header of the chat opens this screen, so the theme lives under «Ещё». */
     val onTheme: (() -> Unit)? = null,
-    /** The link that carries an invite code; null without a server, where no link leads anywhere. */
-    val inviteLink: ((code: String) -> String)? = { it },
+    /** The link that carries an invite code and whom it sends the joiner to; null without a server, where no link leads anywhere. */
+    val inviteLink: ((admitter: String, code: String) -> String)? = { _, code -> code },
     /** The code or a fingerprint before handing over or deleting; null when the app has no lock. */
     val gate: IdentityGate? = null,
     /** The group is gone: deleted for everyone. */
@@ -223,7 +226,7 @@ fun GroupInfoScreen(
                     }
                     add(
                         ClusterAction(BleskIcons.Invite, stringResource(R.string.group_invite_short)) {
-                            val shares = env.can(Right.Invite) && state.invites.any { it.usable(now) }
+                            val shares = env.can(Right.Invite) && env.admitter != null && state.invites.any { it.usable(now) }
                             if (env.invites || shares) page = ManagePage.Invites else notify(adminsOnlyInvite)
                         },
                     )
@@ -362,7 +365,8 @@ private fun GroupSheets(
                 return@MenuSheet
             }
             val picked = remember { mutableStateListOf<String>() }
-            ContactPicker(candidates, picked)
+            // The contacts scroll in what the sheet has left; the button stays below them however many there are.
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) { ContactPicker(candidates, picked) }
             Button(
                 text = stringResource(R.string.group_add),
                 onClick = {

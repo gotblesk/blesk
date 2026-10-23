@@ -398,7 +398,7 @@ internal fun TransferSheet(env: ManageEnv, username: String, onClose: () -> Unit
         Text(
             stringResource(R.string.manage_transfer_card, env.nameOf(username)),
             style = Blesk.type.body,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 12.dp),
         )
         SlideToConfirm(
             label = stringResource(R.string.manage_transfer_slide),

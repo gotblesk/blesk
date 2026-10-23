@@ -13,8 +13,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.blesk.BleskApplication
 import app.blesk.MainActivity
+import app.blesk.core.data.GroupController
 import app.blesk.screenshots.FrozenApplication
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,7 +45,24 @@ class RoomListSheetsTest {
         compose.onNodeWithText("Студия").assertIsDisplayed()
     }
 
+    @Test
+    fun aChannelMenuWhoseRoomGoesGivesTheListBackToTalkBack() {
+        compose.onNodeWithContentDescription("Комнаты").performClick()
+        compose.onNodeWithText("Студия").performClick()
+        compose.onNode(hasText("общее") and SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick))
+            .performSemanticsAction(SemanticsActions.OnLongClick)
+        compose.onNodeWithText("Изменить").assertIsDisplayed()
+
+        // The room goes while the menu is open, as when its owner dissolves it: no sheet is left, nor the page under one.
+        val groups = (compose.activity.application as BleskApplication).container.chats.value as GroupController
+        runBlocking { groups.leave(ROOM) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Изменить").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Комнаты").assertExists()
+    }
+
     private companion object {
         const val EDGE_PX = 40f
+        const val ROOM = "room"
     }
 }

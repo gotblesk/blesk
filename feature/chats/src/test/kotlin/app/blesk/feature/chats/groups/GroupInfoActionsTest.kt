@@ -6,15 +6,18 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.blesk.core.data.model.Contact
 import app.blesk.core.design.theme.BleskTheme
 import app.blesk.shared.protocol.GroupInvite
 import app.blesk.shared.protocol.GroupKind
 import app.blesk.shared.protocol.GroupMember
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,16 +43,22 @@ class GroupInfoActionsTest {
         invites = listOf(GroupInvite("abcdefgh", "Друзья")),
     )
 
-    private fun show(me: String, state: GroupState = group) {
+    private fun show(
+        me: String,
+        state: GroupState = group,
+        contacts: List<Contact> = emptyList(),
+        extras: GroupInfoExtras = GroupInfoExtras(),
+    ) {
         compose.setContent {
             BleskTheme {
                 GroupInfoScreen(
                     state = state,
                     me = me,
-                    contacts = persistentListOf(),
+                    contacts = contacts.toImmutableList(),
                     nameOf = { it },
                     actions = GroupActions({}, { _, _, _ -> true }, { true }, { true }, { left++ }),
                     onBack = {},
+                    extras = extras,
                 )
             }
         }
@@ -89,7 +98,27 @@ class GroupInfoActionsTest {
         compose.onNodeWithText("Отозвать").assertDoesNotExist()
     }
 
+    @Test
+    fun aMembersLinkSendsTheJoinerToOneWhoMayLetThemIn() {
+        // Anya manages nothing: a request to join sent to her would wait for good, as her phone makes no state.
+        show(me = "anya", extras = GroupInfoExtras(inviteLink = { admitter, code -> "$admitter/$code" }))
+        compose.onNodeWithText("Пригласить").performClick()
+        compose.onNodeWithText("Друзья").performClick()
+        compose.onNodeWithText("eva/abcdefgh").assertIsDisplayed()
+    }
+
+    @Test
+    fun aLongContactListKeepsTheAddButtonInReach() {
+        show(me = "eva", contacts = (1..CONTACTS).map { Contact("c$it", "Контакт $it", "c$it") })
+        compose.onNodeWithText("Ещё").performClick()
+        compose.onNodeWithText("Добавить участников").performClick()
+        val add = compose.onNodeWithText("Добавить").fetchSemanticsNode().boundsInRoot
+        assertTrue("$add", add.height >= with(compose.density) { TOUCH_TARGET.toPx() })
+    }
+
     private companion object {
+        const val CONTACTS = 14
+        val TOUCH_TARGET = 48.dp
         const val HAND_OVER_FIRST = "Чтобы выйти, сначала передай владение: кто-то должен остаться за главного."
     }
 }

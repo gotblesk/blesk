@@ -195,7 +195,7 @@ internal fun GroupInfoRoute(
     val gate = rememberIdentityGate(container)
     val current = state ?: return
     val extras = GroupInfoExtras(
-        inviteLink = if (chats is DemoRepository) null else ({ code -> InviteLink.format(groupId, groups.me, code) }),
+        inviteLink = if (chats is DemoRepository) null else ({ admitter, code -> InviteLink.format(groupId, admitter, code) }),
         gate = gate,
         onGone = onLeft,
         startEditing = editing,

@@ -147,7 +147,7 @@ private fun NewInviteForm(env: ManageEnv, now: Long) {
 
 @Composable
 internal fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose: () -> Unit) {
-    val link = env.inviteLink?.invoke(invite.code)
+    val link = env.admitter?.let { admitter -> env.inviteLink?.invoke(admitter, invite.code) }
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

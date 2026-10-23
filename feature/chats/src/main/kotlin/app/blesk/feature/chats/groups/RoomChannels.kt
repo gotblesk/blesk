@@ -148,7 +148,7 @@ fun RoomChannelSheets(
         nameOf = { it },
         change = actions.change,
         run = { block -> scope.launch { block() } },
-        inviteLink = { it },
+        inviteLink = { _, code -> code },
         gate = null,
         onOpenPerson = {},
         onGone = {},
@@ -179,8 +179,11 @@ internal fun ChannelSheets(env: ManageEnv, actions: GroupActions, target: Channe
             MenuSheet(title = stringResource(R.string.channel_menu_edit), onDismiss = close) {
                 val title = rememberTextFieldState(channel.title)
                 val description = rememberTextFieldState(channel.description)
-                TextInput(label = stringResource(R.string.group_channel_name), state = title)
-                TextInput(label = stringResource(R.string.channel_description), state = description, singleLine = false)
+                // Large text over a keyboard on a small phone: the fields scroll, the button stays whole below them.
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                    TextInput(label = stringResource(R.string.group_channel_name), state = title)
+                    TextInput(label = stringResource(R.string.channel_description), state = description, singleLine = false)
+                }
                 Button(
                     text = stringResource(R.string.group_save),
                     onClick = {
@@ -291,16 +294,18 @@ private fun NewChannelSheet(env: ManageEnv, actions: GroupActions, onClose: () -
     val title = rememberTextFieldState()
     var kind by remember { mutableIntStateOf(0) }
     MenuSheet(title = stringResource(R.string.group_channel_add), onDismiss = onClose) {
-        TextInput(label = stringResource(R.string.group_channel_name), state = title)
-        Segmented(
-            options = persistentListOf(
-                stringResource(R.string.group_channel_text),
-                stringResource(R.string.group_channel_voice),
-                stringResource(R.string.channel_kind_announce),
-            ),
-            selected = kind,
-            onSelect = { kind = it },
-        )
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+            TextInput(label = stringResource(R.string.group_channel_name), state = title)
+            Segmented(
+                options = persistentListOf(
+                    stringResource(R.string.group_channel_text),
+                    stringResource(R.string.group_channel_voice),
+                    stringResource(R.string.channel_kind_announce),
+                ),
+                selected = kind,
+                onSelect = { kind = it },
+            )
+        }
         // Appears with a name: closing the sheet on an empty one would look like a channel was made.
         if (title.text.isNotBlank()) {
             Button(

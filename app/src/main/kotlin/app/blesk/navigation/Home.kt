@@ -90,6 +90,7 @@ import app.blesk.feature.settings.SettingsActions
 import app.blesk.feature.settings.SettingsList
 import app.blesk.feature.settings.YouList
 import app.blesk.shared.protocol.GroupPolicy
+import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.Right
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -462,11 +463,20 @@ internal fun Home(
     RoomListChannelSheets(groups, roomId, target) { next -> channelTarget = next?.let { roomId to it } }
 }
 
-/** The sheets of one of [roomId]'s channels, opened from the room in the list. */
+/**
+ * The sheets of one of [roomId]'s channels, opened from the room in the list. A room gone meanwhile, dissolved or left,
+ * closes them: kept open with nothing drawn, they would leave the list hidden from TalkBack under no sheet at all.
+ */
 @Composable
 private fun RoomListChannelSheets(groups: GroupController, roomId: String, target: ChannelTarget, onTarget: (ChannelTarget?) -> Unit) {
-    val state by remember(groups, roomId) { groups.group(roomId) }.collectAsStateWithLifecycle(initialValue = null)
-    val room = state ?: return
+    // Wrapped, so that a room not read yet is told apart from one that is gone.
+    val read by remember(groups, roomId) { groups.group(roomId).map { RoomRead(it) } }.collectAsStateWithLifecycle(initialValue = null)
+    val loaded = read ?: return
+    val room = loaded.state
+    if (room == null) {
+        LaunchedEffect(Unit) { onTarget(null) }
+        return
+    }
     RoomChannelSheets(
         state = room,
         me = groups.me,
@@ -481,6 +491,9 @@ private fun RoomListChannelSheets(groups: GroupController, roomId: String, targe
         onTarget = onTarget,
     )
 }
+
+/** A room's state as read from the phone: null inside once the room is gone. */
+private class RoomRead(val state: GroupState?)
 
 /** The menu's actions; pinning past [MAX_PINNED] in the same list is refused with [onPinLimit]. */
 internal fun chatMenuActions(
