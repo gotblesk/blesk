@@ -26,9 +26,29 @@ import app.blesk.shared.protocol.GroupPolicy
 import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.Right
+import app.blesk.shared.protocol.RoomRole
 
 /** The pages under «Управление». */
 internal enum class ManagePage { Members, Admins, MemberRights, Invites, Roles, Journal, Banned, Transfer, Delete }
+
+/** A sheet opened from a management page, or from the members on the details, for [ManageSheets] to draw. */
+internal sealed interface ManageSheet {
+    /** What may be done to a member, by a long press on them. */
+    data class Member(val username: String) : ManageSheet
+
+    data class AdminRights(val username: String) : ManageSheet
+
+    data class MemberRoles(val username: String) : ManageSheet
+
+    data object PickAdmin : ManageSheet
+
+    /** A role to change, or a new one yet to be saved. */
+    data class Role(val role: RoomRole) : ManageSheet
+
+    data class Invite(val code: String) : ManageSheet
+
+    data class Transfer(val username: String) : ManageSheet
+}
 
 /**
  * Asks the owner to prove it is them before something that cannot be undone: the app's code or
@@ -132,20 +152,29 @@ private val ManagePage.title
 internal fun ManageScreen(page: ManagePage, env: ManageEnv, now: Long, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     var gating by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var sheet by remember { mutableStateOf<ManageSheet?>(null) }
+    var handed by remember { mutableStateOf<String?>(null) }
     // Without a lock there is nothing more to prove than the slider already did.
     val guarded: (() -> Unit) -> Unit = { action -> if (env.gate == null) action() else gating = action }
+    val open: (ManageSheet) -> Unit = { sheet = it }
     Box(Modifier.fillMaxSize().background(Blesk.colors.background)) {
         ScrollScreen(title = stringResource(page.title), onBack = onBack) {
             when (page) {
-                ManagePage.Members -> MembersPage(env)
-                ManagePage.Admins -> AdminsPage(env)
+                ManagePage.Members -> MembersPage(env, open)
+                ManagePage.Admins -> AdminsPage(env, open)
                 ManagePage.MemberRights -> MemberRightsPage(env)
-                ManagePage.Invites -> InvitesPage(env, now)
-                ManagePage.Roles -> RolesPage(env)
+                ManagePage.Invites -> InvitesPage(env, now, open)
+                ManagePage.Roles -> RolesPage(env, open)
                 ManagePage.Journal -> JournalPage(env)
                 ManagePage.Banned -> BannedPage(env)
-                ManagePage.Transfer -> TransferPage(env, guarded, onBack)
+                ManagePage.Transfer -> TransferPage(env, handed, open, onBack)
                 ManagePage.Delete -> DeletePage(env, guarded)
+            }
+        }
+        ManageSheets(env, sheet, now, onSheet = { sheet = it }) { to ->
+            guarded {
+                sheet = null
+                env.run { if (env.change(GroupChange.TransferOwnership(to))) handed = to else env.refused() }
             }
         }
         val pending = gating
@@ -158,5 +187,30 @@ internal fun ManageScreen(page: ManagePage, env: ManageEnv, now: Long, onBack: (
                 { gating = null },
             )
         }
+    }
+}
+
+/**
+ * The sheet [sheet] names, over the whole screen: drawn beside the page, not in its scrolling content, where it would
+ * lie below whatever the page holds. [transfer] hands the group over once its sheet is confirmed.
+ */
+@Composable
+internal fun ManageSheets(
+    env: ManageEnv,
+    sheet: ManageSheet?,
+    now: Long,
+    onSheet: (ManageSheet?) -> Unit,
+    transfer: (to: String) -> Unit = {},
+) {
+    val close = { onSheet(null) }
+    when (sheet) {
+        null -> Unit
+        is ManageSheet.Member -> MemberMenu(env, sheet.username, onSheet)
+        is ManageSheet.AdminRights -> AdminEditor(env, sheet.username, onClose = close)
+        is ManageSheet.MemberRoles -> MemberRolesSheet(env, sheet.username, onClose = close)
+        ManageSheet.PickAdmin -> AdminPicker(env, onSheet)
+        is ManageSheet.Role -> RoleEditor(env, sheet.role, onClose = close)
+        is ManageSheet.Invite -> env.state.invites.firstOrNull { it.code == sheet.code }?.let { InviteSheet(env, it, now, onClose = close) }
+        is ManageSheet.Transfer -> TransferSheet(env, sheet.username, onClose = close) { transfer(sheet.username) }
     }
 }

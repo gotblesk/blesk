@@ -148,6 +148,7 @@ fun GroupInfoScreen(
     )
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     var channelSheet by remember { mutableStateOf<ChannelTarget?>(null) }
+    var memberSheet by remember { mutableStateOf<ManageSheet?>(null) }
     var page by rememberSaveable { mutableStateOf<ManagePage?>(null) }
     var editing by rememberSaveable { mutableStateOf(extras.startEditing && env.can(Right.EditInfo)) }
     var saves by remember { mutableIntStateOf(0) }
@@ -228,7 +229,7 @@ fun GroupInfoScreen(
             val needle = query.text.toString().trim()
             when (val shown = tabs[tab.coerceAtMost(tabs.lastIndex)]) {
                 GroupTab.Channels -> ChannelsSection(env) { channelSheet = it }
-                GroupTab.Members -> MemberList(env, needle, extras.online)
+                GroupTab.Members -> MemberList(env, needle, extras.online) { memberSheet = it }
                 GroupTab.Roles -> RolesSection(env) { page = ManagePage.Roles }
                 else -> Archive(
                     kind = when (shown) {
@@ -265,6 +266,7 @@ fun GroupInfoScreen(
             extras = extras,
         )
         ChannelSheets(env, actions, channelSheet) { channelSheet = it }
+        ManageSheets(env, memberSheet, now, onSheet = { memberSheet = it })
         page?.let { ManageScreen(it, env, now, onBack = { page = null }) }
     }
 }

@@ -62,8 +62,7 @@ import java.util.Locale
 import java.util.UUID
 
 @Composable
-internal fun InvitesPage(env: ManageEnv, now: Long) {
-    var open by remember { mutableStateOf<String?>(null) }
+internal fun InvitesPage(env: ManageEnv, now: Long, onSheet: (ManageSheet) -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.forLanguageTag("ru")) }
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
         if (env.state.invites.isEmpty()) Empty(R.string.manage_invites_empty)
@@ -88,12 +87,11 @@ internal fun InvitesPage(env: ManageEnv, now: Long) {
                 title = invite.title.ifBlank { stringResource(R.string.manage_invite_untitled) },
                 subtitle = parts.joinToString(" · "),
                 icon = BleskIcons.Invite,
-                onClick = { open = invite.code },
+                onClick = { onSheet(ManageSheet.Invite(invite.code)) },
             )
         }
     }
     NewInviteForm(env, now)
-    env.state.invites.firstOrNull { it.code == open }?.let { invite -> InviteSheet(env, invite, now, onClose = { open = null }) }
 }
 
 @Composable
@@ -144,7 +142,7 @@ private fun NewInviteForm(env: ManageEnv, now: Long) {
 }
 
 @Composable
-private fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose: () -> Unit) {
+internal fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose: () -> Unit) {
     val link = env.inviteLink?.invoke(invite.code)
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
@@ -224,12 +222,11 @@ private fun InviteSheet(env: ManageEnv, invite: GroupInvite, now: Long, onClose:
 }
 
 /**
- * A room's roles in order of seniority, dragged to reorder; a tap opens one to change. Your own role and those above
- * it stay put and closed: only those above you change them.
+ * A room's roles in order of seniority, dragged to reorder; a tap opens one to change in [ManageSheet.Role]. Your own
+ * role and those above it stay put and closed: only those above you change them.
  */
 @Composable
-internal fun RolesPage(env: ManageEnv) {
-    var editing by remember { mutableStateOf<RoomRole?>(null) }
+internal fun RolesPage(env: ManageEnv, onSheet: (ManageSheet) -> Unit) {
     val untitled = stringResource(R.string.manage_role_untitled)
     val fresh = remember(env.state.roles) {
         RoomRole(UUID.randomUUID().toString().take(ROLE_ID), "", hue = env.state.roles.size % COMMUNITY_HUES)
@@ -253,7 +250,7 @@ internal fun RolesPage(env: ManageEnv) {
             ListRow(
                 title = role.title.ifBlank { untitled },
                 subtitle = pluralStringResource(R.plurals.manage_role_members, count, count),
-                onClick = if (GroupPolicy.outranks(env.state, env.me, role.id)) ({ editing = role }) else null,
+                onClick = if (GroupPolicy.outranks(env.state, env.me, role.id)) ({ onSheet(ManageSheet.Role(role)) }) else null,
                 trailing = { HueDot(role.hue, size = 12.dp) },
             )
         }
@@ -274,16 +271,15 @@ internal fun RolesPage(env: ManageEnv) {
             text = stringResource(R.string.manage_role_new),
             icon = BleskIcons.Plus,
             kind = ButtonKind.Secondary,
-            onClick = { editing = fresh },
+            onClick = { onSheet(ManageSheet.Role(fresh)) },
             modifier = Modifier.padding(Blesk.dimens.gutter),
         )
     }
-    editing?.let { role -> RoleEditor(env, role, onClose = { editing = null }) }
 }
 
 /** A role's name, hue and rights. A right you lack stays as the role has it: you may take it away, not give it. */
 @Composable
-private fun RoleEditor(env: ManageEnv, role: RoomRole, onClose: () -> Unit) {
+internal fun RoleEditor(env: ManageEnv, role: RoomRole, onClose: () -> Unit) {
     val title = rememberTextFieldState(role.title)
     var hue by remember(role.id) { mutableIntStateOf(role.hue) }
     val rights = remember(role.id) { mutableStateListOf<Right>().apply { addAll(role.rights) } }

@@ -1,13 +1,20 @@
 package app.blesk.feature.chats.groups
 
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
+import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithText
@@ -25,6 +32,7 @@ import app.blesk.shared.protocol.GroupRole
 import app.blesk.shared.protocol.GroupState
 import app.blesk.shared.protocol.Right
 import app.blesk.shared.protocol.RoomRole
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -32,10 +40,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/** The management editors offer only what the one using them may give, and leave the rest switched off. */
+/**
+ * The management editors offer only what the one using them may give, and leave the rest switched off. They open over
+ * the whole screen of a phone of common height, not inside the page's scrolling content, where they would lie below it.
+ */
 @RunWith(AndroidJUnit4::class)
-// Tall enough that every member and every sheet's buttons are on screen to be touched.
-@Config(sdk = [36], qualifiers = "w360dp-h1600dp")
+@Config(sdk = [36], qualifiers = "w400dp-h860dp")
 class ManageRightsTest {
 
     @get:Rule
@@ -68,11 +78,11 @@ class ManageRightsTest {
         ),
     )
 
-    private fun show(page: ManagePage, me: String) {
+    private fun show(page: ManagePage, me: String, state: GroupState = room) {
         compose.setContent {
             val scope = rememberCoroutineScope()
             val env = ManageEnv(
-                state = room,
+                state = state,
                 me = me,
                 nameOf = { it },
                 change = { change ->
@@ -98,6 +108,7 @@ class ManageRightsTest {
         compose.onNodeWithText(ROLES_ABOVE).assertExists()
         compose.onNodeWithText("Фанаты").assertHasClickAction().performClick()
 
+        assertOverTheScreen(hasText("Сохранить роль"))
         compose.onNodeWithText(RIGHTS_LACKING).assertExists()
         row("Исключать и блокировать").assertIsOff().assertIsNotEnabled().performClick()
         row("Закреплять").assertIsOff().assertIsEnabled().performClick()
@@ -111,8 +122,10 @@ class ManageRightsTest {
         show(ManagePage.Admins, me = "lera")
         compose.onNodeWithText("olga").assertIsNotEnabled()
         compose.onNodeWithText("Добавить администратора").performClick()
+        assertOverTheScreen(hasText("Кого сделать админом"))
         compose.onNodeWithText("anya").performClick()
 
+        assertOverTheScreen(hasText("Сохранить права"))
         row("Менять сведения").assertIsOff().assertIsNotEnabled()
         row("Исключать и блокировать").assertIsOn().assertIsEnabled()
         row("Добавлять админов").assertIsOff().assertIsEnabled()
@@ -125,14 +138,43 @@ class ManageRightsTest {
     fun aRoleBringingWhatTheGiverLacksIsShownButNotGiven() {
         show(ManagePage.Members, me = "lera")
         compose.onNodeWithText("anya").performTouchInput { longClick() }
+        assertOverTheScreen(hasText("Действия с anya"))
         compose.onNodeWithText("Роли участника").performClick()
 
+        assertOverTheScreen(hasText("anya") and isHeading())
         compose.onNodeWithText(ROLES_LACKING).assertExists()
         compose.onNodeWithText("Модераторы").assertIsOff().assertIsNotEnabled().performClick()
         compose.onNodeWithText("Хранители").assertIsOff().assertIsNotEnabled()
         compose.onNodeWithText("Фанаты").assertIsOff().assertIsEnabled().performClick()
         compose.waitForIdle()
         assertEquals(listOf(GroupChange.AssignRole("anya", FANS, on = true)), changes)
+    }
+
+    @Test
+    fun aMemberMenuOpensOverTheRoomDetails() {
+        compose.setContent {
+            BleskTheme {
+                GroupInfoScreen(
+                    state = room,
+                    me = "lera",
+                    contacts = persistentListOf(),
+                    nameOf = { it },
+                    actions = GroupActions({}, { _, _, _ -> }, {}, { true }, {}),
+                    onBack = {},
+                )
+            }
+        }
+        compose.onNode(hasText("Участники") and isSelectable()).performClick()
+        compose.onNodeWithText("anya").performScrollTo().performTouchInput { longClick() }
+        assertOverTheScreen(hasText("Действия с anya"))
+        compose.onNodeWithText("Права").performClick()
+        assertOverTheScreen(hasText("Сохранить права"))
+    }
+
+    /** Shown in full on screen and outside the page's scrolling column, which would carry it off with the page. */
+    private fun assertOverTheScreen(matcher: SemanticsMatcher) {
+        compose.onNode(matcher, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNode(matcher and hasAnyAncestor(hasScrollAction()), useUnmergedTree = true).assertDoesNotExist()
     }
 
     /**

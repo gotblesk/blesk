@@ -20,11 +20,8 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -45,7 +42,6 @@ import app.blesk.core.design.component.Tag
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.component.TextInput
 import app.blesk.core.design.component.ToggleRow
-import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.theme.Blesk
 import app.blesk.core.motion.rememberHaptics
 import app.blesk.feature.chats.R
@@ -117,21 +113,18 @@ internal fun RoleCapsule(role: GroupRole) {
 }
 
 @Composable
-internal fun MembersPage(env: ManageEnv) {
+internal fun MembersPage(env: ManageEnv, onSheet: (ManageSheet) -> Unit) {
     val query = rememberTextFieldState()
     TextInput(label = stringResource(R.string.group_search), state = query)
-    MemberList(env, query.text.toString().trim())
+    MemberList(env, query.text.toString().trim(), onSheet = onSheet)
 }
 
 /**
- * Members by seniority. A long press on someone below you offers what you may do to them:
+ * Members by seniority. A long press on someone below you opens [ManageSheet.Member], what you may do to them:
  * their rights, their roles, «Исключить», «Заблокировать здесь».
  */
 @Composable
-internal fun MemberList(env: ManageEnv, needle: String, online: Set<String> = emptySet()) {
-    var menu by remember { mutableStateOf<GroupMember?>(null) }
-    var rightsFor by remember { mutableStateOf<String?>(null) }
-    var rolesFor by remember { mutableStateOf<String?>(null) }
+internal fun MemberList(env: ManageEnv, needle: String, online: Set<String> = emptySet(), onSheet: (ManageSheet) -> Unit) {
     val you = stringResource(R.string.group_you)
     val shown = env.state.members
         .filter { needle.isEmpty() || env.nameOf(it.username).contains(needle, true) || it.username.contains(needle, true) }
@@ -141,82 +134,82 @@ internal fun MemberList(env: ManageEnv, needle: String, online: Set<String> = em
         shown.forEach { member ->
             val mine = member.username == env.me
             val below = GroupPolicy.rank(env.state, member.username) > GroupPolicy.rank(env.state, env.me)
-            val manageable = GroupPolicy.appoints(env.state, env.me, member.username) || env.can(Right.Ban) ||
-                (env.room && env.can(Right.AssignRoles) && env.state.roles.isNotEmpty())
+            val manageable = GroupPolicy.appoints(env.state, env.me, member.username) || env.can(Right.Ban) || givesRoles(env)
             MemberLine(
                 env,
                 member,
                 onClick = if (mine) null else ({ env.onOpenPerson(member.username) }),
-                onLongClick = if (mine || !below || !manageable) null else ({ menu = member }),
+                onLongClick = if (mine || !below || !manageable) null else ({ onSheet(ManageSheet.Member(member.username)) }),
                 online = member.username in online,
                 you = if (mine) you else null,
             )
         }
     }
-    menu?.let { member ->
-        val name = env.nameOf(member.username)
-        ChoiceSheet(
-            title = stringResource(R.string.manage_member_menu, name),
-            choices = buildList {
-                if (GroupPolicy.appoints(env.state, env.me, member.username)) {
-                    add(Choice(stringResource(R.string.manage_member_rights_action)) { rightsFor = member.username })
-                }
-                if (env.room && env.can(Right.AssignRoles) && env.state.roles.isNotEmpty()) {
-                    add(Choice(stringResource(R.string.manage_member_roles)) { rolesFor = member.username })
-                }
-                if (env.can(Right.Ban)) {
-                    val remove = GroupChange.Remove(member.username)
-                    val ban = GroupChange.Ban(member.username)
-                    add(Choice(stringResource(R.string.manage_member_remove), danger = true) { env.submit(remove) })
-                    add(Choice(stringResource(R.string.manage_member_ban), danger = true) { env.submit(ban) })
-                }
-            },
-            onDismiss = { menu = null },
-        )
-    }
-    rightsFor?.let { AdminEditor(env, it, onClose = { rightsFor = null }) }
-    rolesFor?.let { MemberRolesSheet(env, it, onClose = { rolesFor = null }) }
+}
+
+private fun givesRoles(env: ManageEnv) = env.room && env.can(Right.AssignRoles) && env.state.roles.isNotEmpty()
+
+/** What [ManageEnv.me] may do to [username]; each choice that opens another sheet passes it to [onSheet]. */
+@Composable
+internal fun MemberMenu(env: ManageEnv, username: String, onSheet: (ManageSheet?) -> Unit) {
+    ChoiceSheet(
+        title = stringResource(R.string.manage_member_menu, env.nameOf(username)),
+        choices = buildList {
+            if (GroupPolicy.appoints(env.state, env.me, username)) {
+                add(Choice(stringResource(R.string.manage_member_rights_action)) { onSheet(ManageSheet.AdminRights(username)) })
+            }
+            if (givesRoles(env)) {
+                add(Choice(stringResource(R.string.manage_member_roles)) { onSheet(ManageSheet.MemberRoles(username)) })
+            }
+            if (env.can(Right.Ban)) {
+                val remove = GroupChange.Remove(username)
+                val ban = GroupChange.Ban(username)
+                add(Choice(stringResource(R.string.manage_member_remove), danger = true) { env.submit(remove) })
+                add(Choice(stringResource(R.string.manage_member_ban), danger = true) { env.submit(ban) })
+            }
+        },
+        onDismiss = { onSheet(null) },
+    )
 }
 
 @Composable
-internal fun AdminsPage(env: ManageEnv) {
-    var editing by remember { mutableStateOf<String?>(null) }
-    var picking by remember { mutableStateOf(false) }
+internal fun AdminsPage(env: ManageEnv, onSheet: (ManageSheet) -> Unit) {
     val admins = env.state.members.filter { it.role != GroupRole.Member }.sortedBy { it.role.ordinal }
-
-    // Admins stand level: only the owner changes another admin.
-    fun appoints(member: GroupMember) = member.username != env.me && GroupPolicy.appoints(env.state, env.me, member.username)
-    val candidates = env.state.members.filter { it.role == GroupRole.Member && appoints(it) }
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
         admins.forEach { member ->
-            val editable = member.role == GroupRole.Admin && appoints(member)
-            MemberLine(env, member, onClick = if (editable) ({ editing = member.username }) else null)
+            val editable = member.role == GroupRole.Admin && appoints(env, member)
+            MemberLine(env, member, onClick = if (editable) ({ onSheet(ManageSheet.AdminRights(member.username)) }) else null)
         }
         if (admins.none { it.role == GroupRole.Admin }) Empty(R.string.manage_admins_empty)
     }
-    if (candidates.isNotEmpty()) {
+    if (adminCandidates(env).isNotEmpty()) {
         Button(
             text = stringResource(R.string.manage_admin_add),
             kind = ButtonKind.Secondary,
-            onClick = { picking = true },
+            onClick = { onSheet(ManageSheet.PickAdmin) },
             modifier = Modifier.padding(Blesk.dimens.gutter),
         )
     }
-    if (picking) {
-        MenuSheet(title = stringResource(R.string.manage_admin_pick), onDismiss = { picking = false }) {
-            Card {
-                Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
-                    candidates.forEach { member ->
-                        MemberLine(env, member, onClick = {
-                            picking = false
-                            editing = member.username
-                        })
-                    }
+}
+
+/** Admins stand level: only the owner changes another admin. */
+private fun appoints(env: ManageEnv, member: GroupMember) =
+    member.username != env.me && GroupPolicy.appoints(env.state, env.me, member.username)
+
+private fun adminCandidates(env: ManageEnv) = env.state.members.filter { it.role == GroupRole.Member && appoints(env, it) }
+
+/** The members [ManageEnv.me] may make admins; picking one opens their rights. */
+@Composable
+internal fun AdminPicker(env: ManageEnv, onSheet: (ManageSheet?) -> Unit) {
+    MenuSheet(title = stringResource(R.string.manage_admin_pick), onDismiss = { onSheet(null) }) {
+        Card {
+            Column(Modifier.heightIn(max = SheetMax).verticalScroll(rememberScrollState())) {
+                adminCandidates(env).forEach { member ->
+                    MemberLine(env, member, onClick = { onSheet(ManageSheet.AdminRights(member.username)) })
                 }
             }
         }
     }
-    editing?.let { AdminEditor(env, it, onClose = { editing = null }) }
 }
 
 /**
@@ -224,7 +217,7 @@ internal fun AdminsPage(env: ManageEnv) {
  * off, unless the admin had it already.
  */
 @Composable
-private fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) {
+internal fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) {
     val member = env.state.members.firstOrNull { it.username == username } ?: return
     val had = if (member.role == GroupRole.Admin) member.rights ?: Right.ADMIN_ALL else emptySet()
     val offered = adminRightsOf(env.state.kind)
@@ -272,7 +265,7 @@ private fun AdminEditor(env: ManageEnv, username: String, onClose: () -> Unit) {
 
 /** The roles below yours, to give or take; one bringing a right or a channel you lack is shown but cannot be given. */
 @Composable
-private fun MemberRolesSheet(env: ManageEnv, username: String, onClose: () -> Unit) {
+internal fun MemberRolesSheet(env: ManageEnv, username: String, onClose: () -> Unit) {
     val member = env.state.members.firstOrNull { it.username == username } ?: return
     // Roles at or above your own are not yours to give.
     val roles = env.state.roles.filter { GroupPolicy.outranks(env.state, env.me, it.id) }
@@ -366,18 +359,14 @@ internal fun JournalPage(env: ManageEnv) {
 }
 
 /**
- * The owner picks who takes over, reads what follows, and slides to confirm (then the code or
- * a fingerprint, when the lock is on). The «владелец» capsule then flows from their avatar to
- * the new owner's.
+ * The owner picks who takes over in [ManageSheet.Transfer], reads what follows, and slides to confirm (then the code
+ * or a fingerprint, when the lock is on). Once [handed] over, the «владелец» capsule flows from their avatar to the
+ * new owner's.
  */
 @Composable
-internal fun TransferPage(env: ManageEnv, guarded: (() -> Unit) -> Unit, onDone: () -> Unit) {
-    var picked by remember { mutableStateOf<String?>(null) }
-    var handed by remember { mutableStateOf<String?>(null) }
-    val notify = rememberNotify()
-    val refused = stringResource(R.string.manage_refused)
-    handed?.let { to ->
-        OwnerFlow(env, from = env.me, to = to, onFinished = onDone)
+internal fun TransferPage(env: ManageEnv, handed: String?, onSheet: (ManageSheet) -> Unit, onDone: () -> Unit) {
+    if (handed != null) {
+        OwnerFlow(env, from = env.me, to = handed, onFinished = onDone)
         return
     }
     val candidates = env.state.members.filter { it.username != env.me }
@@ -387,27 +376,25 @@ internal fun TransferPage(env: ManageEnv, guarded: (() -> Unit) -> Unit, onDone:
     }
     Card(Modifier.padding(horizontal = Blesk.dimens.gutter)) {
         candidates.forEach { member ->
-            MemberLine(env, member, onClick = { picked = member.username })
+            MemberLine(env, member, onClick = { onSheet(ManageSheet.Transfer(member.username)) })
         }
     }
-    picked?.let { username ->
-        MenuSheet(title = stringResource(R.string.manage_transfer), onDismiss = { picked = null }) {
-            Text(
-                stringResource(R.string.manage_transfer_card, env.nameOf(username)),
-                style = Blesk.type.body,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
-            )
-            SlideToConfirm(
-                label = stringResource(R.string.manage_transfer_slide),
-                actionLabel = stringResource(R.string.manage_transfer_slide),
-                onConfirm = {
-                    guarded {
-                        picked = null
-                        env.run { if (env.change(GroupChange.TransferOwnership(username))) handed = username else notify(refused) }
-                    }
-                },
-            )
-        }
+}
+
+/** What handing the group to [username] means, and the slider that does it: [onConfirm]. */
+@Composable
+internal fun TransferSheet(env: ManageEnv, username: String, onClose: () -> Unit, onConfirm: () -> Unit) {
+    MenuSheet(title = stringResource(R.string.manage_transfer), onDismiss = onClose) {
+        Text(
+            stringResource(R.string.manage_transfer_card, env.nameOf(username)),
+            style = Blesk.type.body,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+        )
+        SlideToConfirm(
+            label = stringResource(R.string.manage_transfer_slide),
+            actionLabel = stringResource(R.string.manage_transfer_slide),
+            onConfirm = onConfirm,
+        )
     }
 }
 
