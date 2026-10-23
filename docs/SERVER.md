@@ -110,9 +110,9 @@ sudo запускает команду с чистым окружением и �
 | Метод | Путь | Доступ |
 |---|---|---|
 | GET | `/health` | открыто, без лимита; 200 `{"status":"ok"}`, если база ответила на `SELECT 1` за 2 с, иначе 503 `{"status":"unavailable"}`. Все остальные запросы — под общим лимитом с одного адреса (600 в минуту, запас 300); ответ 429 несёт `Retry-After` |
-| GET | `/v1/info` | открыто |
-| GET | `/v1/usernames/{name}` | открыто, лимит запросов |
-| POST | `/v1/accounts` | открыто, лимит запросов; при `BLESK_REGISTRATION=invite` — только с действующим приглашением в поле `invite` (код или ссылка) |
+| GET | `/v1/info` | открыто; `ServerInfo`: версия, звонки, `invites` (true — регистрация по приглашению), `minClientVersion` (самая старая версия приложения, которую сервер обслуживает), `officialChannel` (адрес официального канала или null) |
+| GET | `/v1/usernames/{name}` | открыто; свой лимит: 40 сразу и 20 в минуту с одного IP, с токеном — 30 и 15 на аккаунт. Ответ `UsernameCheck`: `available`, `verdict` (`free`, `taken`, `reserved`, `invalid`), `username` — как сравнил сервер (строчными), `suggestions` — до трёх свободных вариантов. Недействительный токен — 401, приложение повторяет без него |
+| POST | `/v1/accounts` | открыто, лимит запросов; при `BLESK_REGISTRATION=invite` — только с действующим приглашением в поле `invite` (код или ссылка). Имя с заглавными или служебное — 400 `invalid_username` (ещё до проверки приглашения), оканчивающееся на `_bot` — 400 `username_reserved` |
 | POST | `/v1/auth/challenge`, `/v1/auth/token` | открыто, лимит запросов; токен — только подписью ключа этого аккаунта |
 | POST | `/v1/account/recover` | открыто, лимит запросов; нужен токен восстановления |
 | GET | `/v1/accounts/{username}` | токен; скрытый аккаунт — только с `?link=`; 20 поисков сразу, дальше 10 в минуту на человека (иначе 429) |
@@ -133,7 +133,7 @@ sudo запускает команду с чистым окружением и �
 
 | Метод | Путь | Кто может |
 |---|---|---|
-| POST | `/v1/spaces` | любой; создатель становится владельцем |
+| POST | `/v1/spaces` | любой; создатель становится владельцем. Адрес не по шаблону — 400 `invalid_handle`; служебный (blesk и похожие, служебные слова, `mine`) — 409 `handle_taken` |
 | GET | `/v1/spaces?query=`, `/v1/spaces/mine` | любой |
 | GET | `/v1/spaces/{handle}` | любой |
 | PATCH | `/v1/spaces/{handle}` | владелец, админ |
@@ -163,7 +163,7 @@ sudo запускает команду с чистым окружением и �
 
 Сервер хранит только SHA-256 токена бота. Бот пишет только тем, кто писал ему сам. Ответы ботов идут человеку конвертами типа 100 через ту же очередь. Вебхуки — только `https` на публичные адреса, без перенаправлений; неудачная доставка оставляет обновление для `getUpdates`.
 
-Ошибки приходят как `{"code": "...", "message": ""}`. Коды: `bad_request`, `invalid_username`, `invalid_key`, `invalid_signature`, `username_taken`, `unauthorized`, `auth_failed`, `not_found`, `no_keys`, `too_many_keys`, `too_large`, `rate_limited`, `internal`, а для каналов и комнат ещё `invalid_handle`, `handle_taken`, `forbidden`, `not_member`, `banned`, `owner_cannot_leave`, `invalid_role`, `not_a_room`, `too_many_channels`, `last_channel`, `unknown_attachment`, для звонков `invalid_room` и `calls_unavailable` (503, LiveKit не настроен; тогда и `/v1/info` отвечает `"calls": false`), а для ботов `username_reserved`, `invalid_name`, `too_many_bots`, `invalid_text`, `invalid_buttons`, `invalid_commands`, `invalid_webhook`, `chat_not_started`, а для приглашений `invite_required` и `invite_invalid` (403: приглашения нет; оно неизвестно, использовано или истекло) и `invite_limit` (409).
+Ошибки приходят как `{"code": "...", "message": ""}`. Коды: `bad_request`, `invalid_username`, `invalid_key`, `invalid_signature`, `username_taken`, `unauthorized`, `auth_failed`, `not_found`, `no_keys`, `too_many_keys`, `too_large`, `rate_limited`, `internal`, а для каналов и комнат ещё `invalid_handle`, `handle_taken`, `forbidden`, `not_member`, `banned`, `owner_cannot_leave`, `invalid_role`, `not_a_room`, `too_many_channels`, `last_channel`, `unknown_attachment`, для звонков `invalid_room` и `calls_unavailable` (503, LiveKit не настроен; тогда и `/v1/info` отвечает `"calls": false`), а для ботов `username_reserved` (и для имён ботов, похожих на служебные), `invalid_name`, `too_many_bots`, `invalid_text`, `invalid_buttons`, `invalid_commands`, `invalid_webhook`, `chat_not_started`, а для приглашений `invite_required` и `invite_invalid` (403: приглашения нет; оно неизвестно, использовано или истекло) и `invite_limit` (409).
 
 Вложения и недоставленные сообщения удаляются через 30 дней. Вложение публичного поста хранится, пока существует сам пост. Истёкшие приглашения удаляются, а использованные — через 30 дней после регистрации по ним, вместе с тем, кто по ним пришёл. Токены действуют 30 дней. В журнале сервера пишутся только метод, шаблон пути, код ответа и время ответа.
 
@@ -179,12 +179,17 @@ sudo запускает команду с чистым окружением и �
 | `BLESK_TRUST_PROXY` | `true` за Caddy: адрес клиента берётся из `X-Forwarded-For` |
 | `BLESK_REQUEST_RATE_BURST`, `BLESK_REQUEST_RATE_PER_MINUTE` | общий лимит запросов с одного IP, кроме `/health` (300 и 600) |
 | `BLESK_AUTH_RATE_BURST`, `BLESK_AUTH_RATE_PER_MINUTE` | лимит на регистрацию и вход с одного IP (20 и 30) |
+| `BLESK_USERNAME_CHECK_RATE_BURST`, `BLESK_USERNAME_CHECK_RATE_PER_MINUTE` | проверка имени на лету без входа, с одного IP (40 и 20); со входом — 30 и 15 на аккаунт |
 | `BLESK_POST_RATE_PER_MINUTE` | лимит постов в каналах и комнатах на аккаунт (30) |
 | `LIVEKIT_PUBLIC_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | LiveKit: адрес для телефонов (`wss://<хост>/livekit`), ключ и секрет. Нужны все три или ни одной; без них звонки выключены |
 | `BLESK_CALL_RATE_PER_MINUTE` | лимит токенов звонков на аккаунт (30) |
 | `BLESK_BOT_RATE_PER_MINUTE` | лимит сообщений ботам и создания ботов на аккаунт (60) |
 | `BLESK_BOT_API_RATE_PER_MINUTE` | лимит запросов к Bot API на бота (300) |
 | `BLESK_REGISTRATION` | `invite` (по умолчанию) — регистрация только по приглашению; `open` — кто угодно, присланное приглашение тогда не тратится |
+
+**Служебные имена.** Имена людей, адреса каналов и комнат и имена ботов, похожие на blesk и служебные слова (admin, support, system, moderator, official и другие — с цифрами вместо букв, с точками и _, с цифрами на конце), занять нельзя. Аккаунты, взявшие такое имя раньше, по-прежнему входят, находятся и получают сообщения. Каждый ответ 429, в том числе изнутри маршрутов (поиск, звонки, посты, боты, Bot API, приглашения), говорит `Retry-After`.
+
+**Официальный канал.** `server-ssh official <имя>` с ноутбука (или на сервере `docker compose exec -T server /opt/blesk-server/bin/blesk-server official <имя>`) делает канал @blesk официальным, а этот аккаунт — его владельцем; повторный запуск ничего не меняет. Пометка хранится в базе (`spaces.official`, миграция `V8__official_space.sql`), переменной окружения нет, поэтому другие серверы с тем же `deploy/` официального канала не получают. Коды выхода: 0 — готово (печатает `@blesk`), 2 — неверная команда, 3 — нет такого аккаунта, 4 — @blesk принадлежит другому аккаунту, 5 — @blesk у этого аккаунта комната, а не канал.
 
 **Приглашения владельца.** Первому человеку пригласить некому, поэтому есть приглашения без владельца: они не истекают. `blesk-server invites` печатает ссылки на неиспользованные, по одной в строке (`https://blesk.su/i/<код>`); при самом первом запуске сначала создаёт 10. `blesk-server invites add <n>` (от 1 до 50) создаёт ещё n и печатает все неиспользованные. Команда подключается к базе по тем же переменным, применяет миграции и завершается, сервер не запускает; в stdout — только ссылки, журнал идёт в stderr; ошибка в аргументах — код выхода 2. В `deploy/`: `cd /opt/blesk/deploy && docker compose exec server /opt/blesk-server/bin/blesk-server invites`.
 
