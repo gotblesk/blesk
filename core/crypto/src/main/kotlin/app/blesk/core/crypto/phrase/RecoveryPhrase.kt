@@ -16,11 +16,14 @@ object RecoveryPhrase {
     private const val CHECKSUM_BITS = 4
     private const val LIST_SIZE = 2048
     private const val PREFIX = 4
+    private const val WORD_LIST = "/app/blesk/core/crypto/phrase/words_ru.txt"
 
     /** The word list, in its fixed order: a word's place in it is its number. */
     val wordList: List<String> by lazy {
+        // An absolute path: R8 moves this class to another package in release builds, and a path relative
+        // to it would then point at nothing.
         val stream =
-            checkNotNull(RecoveryPhrase::class.java.getResourceAsStream("words_ru.txt")) { "Word list missing" }
+            checkNotNull(RecoveryPhrase::class.java.getResourceAsStream(WORD_LIST)) { "Word list missing" }
         stream.bufferedReader().useLines { lines -> lines.map { it.trim() }.filter { it.isNotEmpty() }.toList() }
             .also { check(it.size == LIST_SIZE && it.toSet().size == LIST_SIZE) { "Word list must hold $LIST_SIZE distinct words" } }
     }
