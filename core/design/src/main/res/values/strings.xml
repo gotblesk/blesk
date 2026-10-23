@@ -16,4 +16,20 @@
     <string name="design_encrypted">защищено</string>
     <string name="design_on">включено</string>
     <string name="design_off">выключено</string>
+    <string name="design_username_rules">Латинские буквы, цифры, точка и _. От 3 до 32 символов, первая\u00A0— буква.</string>
+    <string name="design_username_checking">Проверяю…</string>
+    <string name="design_username_free">@%1$s свободно</string>
+    <string name="design_username_taken">@%1$s уже занято</string>
+    <string name="design_username_yours">Это твоё имя</string>
+    <string name="design_username_reserved">Такие имена оставлены для blesk</string>
+    <string name="design_username_bot">Имена на _bot — только у ботов</string>
+    <string name="design_username_characters">Только латинские буквы, цифры, точка и _</string>
+    <string name="design_username_too_short">Нужно хотя бы 3 символа</string>
+    <string name="design_username_starts_with_letter">Первой должна быть латинская буква</string>
+    <string name="design_username_edge_separator">Точка и _ не ставятся в начале и в конце</string>
+    <string name="design_username_double_separator">Точка и _ не идут две подряд</string>
+    <string name="design_username_latin_only">Только латиница — переключи раскладку</string>
+    <string name="design_username_too_long">Не длиннее 32 символов</string>
+    <string name="design_username_suggestions">Свободны:</string>
+    <string name="design_username_take">Взять имя %1$s</string>
 </resources>
