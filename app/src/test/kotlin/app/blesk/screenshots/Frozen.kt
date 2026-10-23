@@ -7,12 +7,14 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.core.app.ApplicationProvider
 import app.blesk.BleskApplication
+import app.blesk.core.data.settings.SettingsStore
 import app.blesk.core.design.theme.LocalClock
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import com.github.takahirom.roborazzi.captureRoboImage
 import java.time.Instant
 import java.util.TimeZone
+import java.util.UUID
 import kotlin.coroutines.EmptyCoroutineContext
 
 /**
@@ -51,9 +53,14 @@ internal fun ComposeContentTestRule.captureFrozen(path: String, act: ComposeCont
     onRoot().captureRoboImage(path)
 }
 
-/** The whole app, as the smoke tests drive it, with its clock stopped at [Frozen.moment]. */
+/**
+ * The whole app, as the smoke tests drive it, with its clock stopped at [Frozen.moment] and settings of its
+ * own: what one test chose, such as the demo, is not where the next one starts.
+ */
 class FrozenApplication : BleskApplication() {
     override val clock: () -> Instant = { Frozen.moment }
+
+    override fun createSettings(): SettingsStore = SettingsStore(this, "settings-${UUID.randomUUID()}")
 
     override fun onCreate() {
         Frozen.prepare(this)

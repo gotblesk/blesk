@@ -6,6 +6,7 @@ import app.blesk.background.PlaybackService
 import app.blesk.background.TransferService
 import app.blesk.calls.CallCoordinator
 import app.blesk.core.data.diagnostics.EventCode
+import app.blesk.core.data.settings.SettingsStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -23,13 +24,16 @@ open class BleskApplication : Application() {
     /** The app's «now»; screenshot tests stop it at one moment so dates on screen never move. */
     protected open val clock: () -> Instant = Instant::now
 
+    /** The app's settings. A test's app keeps its own: this store is one per process, and lives on into the next test. */
+    protected open fun createSettings(): SettingsStore = SettingsStore(this)
+
     internal lateinit var notifier: MessageNotifier
         private set
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
-        container = AppContainer(this, clock)
+        container = AppContainer(this, clock, createSettings())
         container.crashStore.install(container.eventLog)
         container.eventLog.record(EventCode.AppStarted, BuildConfig.VERSION_CODE.toLong())
         registerActivityLifecycleCallbacks(VisibleActivities { container.visible = it })
