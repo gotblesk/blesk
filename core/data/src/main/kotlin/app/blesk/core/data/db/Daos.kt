@@ -374,6 +374,13 @@ interface GroupDao {
     @Query("DELETE FROM held_group_messages WHERE groupId = :groupId")
     suspend fun deleteHeld(groupId: String)
 
+    /** What [groupId] holds that is newer than [version], oldest first: a state's turn comes after the one before it. */
+    @Query("SELECT * FROM held_group_messages WHERE groupId = :groupId AND version > :version ORDER BY version ASC, id ASC")
+    suspend fun heldAfter(groupId: String, version: Long): List<HeldGroupMessageEntity>
+
+    @Query("DELETE FROM held_group_messages WHERE id = :id")
+    suspend fun unhold(id: Long)
+
     @Query("DELETE FROM held_group_messages WHERE heldAt < :at")
     suspend fun dropHeldBefore(at: Long)
 

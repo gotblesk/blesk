@@ -126,7 +126,8 @@ data class GroupSenderKeyEntity(
 
 /**
  * A group message this phone may not read yet, from a sender whose state of the group is newer: kept until that state
- * arrives, for a while at most, and never shown, indexed or announced meanwhile.
+ * arrives, for a while at most, and never shown, indexed or announced meanwhile. A state of the group refused while
+ * ours was behind waits here too, as a group update, to be tried again.
  */
 @Entity(tableName = "held_group_messages", indices = [Index(value = ["groupId"])])
 data class HeldGroupMessageEntity(

@@ -722,6 +722,40 @@ class GroupEngineTest {
     }
 
     @Test
+    fun anAdminsStateThatCameBeforeTheOwnersIsTakenAfterIt() = runBlocking {
+        val room = roomOf(version = 1).let { it.copy(members = it.members + LEAD) }
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+        // Bob lets the moderators mention everyone; Lead, who cannot change roles, then renames a channel. Lead's state
+        // reaches us first: as his own change, it would give a role a right he may not give, and is refused.
+        val roles = room.copy(version = 2, roles = room.roles.map { it.copy(rights = it.rights + Right.MentionAll) })
+        val renamed = roles.copy(version = 3, channels = roles.channels.map { if (it.id == OPEN_ID) it.copy(title = MAIN) else it })
+        assertEquals(UpdateOutcome.Refused, engine.onUpdate("lead", renamed))
+
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", roles))
+        assertEquals(renamed, engine.state(ROOM))
+        assertEquals(MAIN, db.conversations().get(GroupEngine.channelConversation(ROOM, OPEN_ID))?.title)
+        assertEquals(emptyList<Released>(), engine.released(ROOM))
+    }
+
+    @Test
+    fun aStateWithoutOneWhoLeftIsTakenOnceTheirLeaveArrives() = runBlocking {
+        val room = roomOf(version = 1).let { it.copy(members = it.members + LEAD) }
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+        // Carol left; Lead heard of it first, and renamed a channel. He may not remove anyone, so until we hear of it too,
+        // his state reads as one that does.
+        val renamed = room.copy(
+            version = 2,
+            epoch = 1,
+            members = room.members.filter { it.username != "carol" },
+            channels = room.channels.map { if (it.id == OPEN_ID) it.copy(title = MAIN) else it },
+        )
+        assertEquals(UpdateOutcome.Refused, engine.onUpdate("lead", renamed))
+
+        engine.onLeave("carol", ROOM)
+        assertEquals(renamed, engine.state(ROOM))
+    }
+
+    @Test
     fun losingAChannelTakesItsMessagesAndFilesOffThePhone() = runBlocking {
         engine.onUpdate("bob", roomOf(version = 1))
         val open = GroupEngine.channelConversation(ROOM, OPEN_ID)
@@ -1069,10 +1103,14 @@ class GroupEngineTest {
         const val MODS = "mods"
         const val CLOSED = "модерация"
         const val ON_AIR = "эфир"
+        const val MAIN = "главное"
         const val FILE_LABEL = "Файл"
         const val TIMEOUT = 60_000L
         const val POLL = 20L
         const val GRACE = 500L
         val PLAN = Attachment.File("/media/plan.pdf", "plan.pdf", 1, "application/pdf")
+
+        /** An admin who may arrange channels, and nothing more an admin may be given. */
+        val LEAD = GroupMember("lead", GroupRole.Admin, rights = setOf(Right.Channels))
     }
 }

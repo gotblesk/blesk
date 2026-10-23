@@ -937,7 +937,10 @@ class ServerChatRepository(
             is Body.SenderKey -> groups.onSenderKey(sender, body)
             is Body.VoiceKey -> voiceKeys.accept(sender, body)
             is Body.JoinRequest -> groups.onJoinRequest(sender, body)
-            is Body.GroupLeave -> groups.onLeave(sender, body.groupId)
+            is Body.GroupLeave -> {
+                groups.onLeave(sender, body.groupId)
+                release(body.groupId)
+            }
             is Body.CallOffer, is Body.CallAnswer, is Body.CallEnd, is Body.Timer -> applyControl(sender, content, body)
             is Body.Profile -> profiles.receive(sender, body)
             is Body.Presence -> presenceTracker.receive(sender, body)
@@ -973,11 +976,14 @@ class ServerChatRepository(
     /** A state of a group from a member; the messages that waited for it are judged again once it is taken. */
     private suspend fun takeUpdate(sender: String, state: GroupState) {
         when (groups.onUpdate(sender, state)) {
-            UpdateOutcome.Taken -> groups.released(state.id).forEach { applyGroup(it.sender, it.content) }
+            UpdateOutcome.Taken -> release(state.id)
             UpdateOutcome.Refused -> log.record(EventCode.GroupUpdateRefused)
             UpdateOutcome.Ignored -> Unit
         }
     }
+
+    /** Judges again the messages of [groupId] that waited for the state it has now. */
+    private suspend fun release(groupId: String) = groups.released(groupId).forEach { applyGroup(it.sender, it.content) }
 
     /** A message inside a group or room, already checked to come from a member. */
     private suspend fun applyGroup(sender: String, content: Content) {

@@ -269,13 +269,19 @@ internal class GroupEngine(
         db.groups().hold(held)
     }
 
-    /** The held messages of [groupId] its state has caught up with, in the order they came, taken off the list. */
+    /**
+     * The held messages of [groupId] its state has caught up with, in the order they came, taken off the list. A
+     * refused state kept with them, by now no newer than ours, goes with them and is not given back.
+     */
     suspend fun released(groupId: String): List<Released> {
         val state = state(groupId) ?: return emptyList()
         return db.groups().releasable(groupId, state.version).mapNotNull { row ->
-            runCatching { storageJson.decodeFromString(Content.serializer(), row.content) }.getOrNull()?.let { Released(row.sender, it) }
+            heldContent(row)?.takeIf { it.body !is Body.GroupUpdate }?.let { Released(row.sender, it) }
         }
     }
+
+    private fun heldContent(row: HeldGroupMessageEntity): Content? =
+        runCatching { storageJson.decodeFromString(Content.serializer(), row.content) }.getOrNull()
 
     /**
      * Run once on start: takes off the phone what it may not keep, from channels lost while it was off or before it
@@ -294,9 +300,18 @@ internal class GroupEngine(
 
     /**
      * A state of a group from [sender]; once it is taken, what it no longer lets us read leaves the phone, and the
-     * voice keys it calls for, if we keep them, go out.
+     * voice keys it calls for, if we keep them, go out. One refused may be built on a state yet to reach us, an admin's
+     * on the owner's: it is kept, and tried again once another is taken or someone leaves.
      */
-    suspend fun onUpdate(sender: String, incoming: GroupState): UpdateOutcome = queueing(incoming.id) { take(sender, incoming) }
+    suspend fun onUpdate(sender: String, incoming: GroupState): UpdateOutcome = queueing(incoming.id) {
+        take(sender, incoming).also { outcome ->
+            when (outcome) {
+                UpdateOutcome.Taken -> retryRefused(incoming.id)
+                UpdateOutcome.Refused -> keepRefused(sender, incoming)
+                UpdateOutcome.Ignored -> Unit
+            }
+        }
+    }
 
     private suspend fun take(sender: String, incoming: GroupState): UpdateOutcome {
         val current = state(incoming.id)
@@ -333,6 +348,34 @@ internal class GroupEngine(
         GroupPolicy.removes(current, sender, me)
     } else {
         GroupPolicy.admits(cleaned(current), cleaned(incoming), sender)
+    }
+
+    /** Keeps a refused state with the held messages, waiting as they do, for as long as they do. */
+    private suspend fun keepRefused(sender: String, incoming: GroupState) {
+        val now = clock()
+        val update = Content(UUID.randomUUID().toString(), now, Body.GroupUpdate(incoming))
+        db.groups().hold(
+            HeldGroupMessageEntity(
+                groupId = incoming.id,
+                sender = sender,
+                content = storageJson.encodeToString(Content.serializer(), update),
+                version = incoming.version,
+                heldAt = now,
+            ),
+        )
+    }
+
+    /**
+     * Tries the kept states newer than ours again, oldest first, each against the state the one before left: those
+     * taken and those no longer newer go, those still refused wait on. Stops once the group is gone from the phone.
+     */
+    private suspend fun retryRefused(groupId: String) {
+        val version = state(groupId)?.version ?: return
+        for (row in db.groups().heldAfter(groupId, version)) {
+            val update = heldContent(row)?.body as? Body.GroupUpdate ?: continue
+            if (state(groupId) == null) return
+            if (take(row.sender, update.state) != UpdateOutcome.Refused) db.groups().unhold(row.id)
+        }
     }
 
     /** Titles come from another phone: cleaned here as if typed on this one. */
@@ -376,13 +419,15 @@ internal class GroupEngine(
         }
     }
 
+    /** [sender] left [groupId]; a state kept as refused while they were still here may now be taken. */
     suspend fun onLeave(sender: String, groupId: String) {
         val left = queueing(groupId) {
             val state = state(groupId)?.takeIf { it.roleOf(sender) != null } ?: return@queueing null
-            state.copy(members = state.members.filter { it.username != sender }, epoch = state.epoch + 1).also {
-                store(it)
-                voiceKeys.keep(it)
-            }
+            val next = state.copy(members = state.members.filter { it.username != sender }, epoch = state.epoch + 1)
+            store(next)
+            voiceKeys.keep(next)
+            retryRefused(groupId)
+            state(groupId)
         } ?: return
         // The keeper replaces the key of the voice channels open to all, so the one who left cannot listen in.
         if (left.voiceKey != null && voiceKeys.keeps(left)) change(groupId) { it.copy(voiceKey = voiceKeys.newMediaKey()) }
