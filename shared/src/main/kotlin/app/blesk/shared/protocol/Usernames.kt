@@ -42,15 +42,19 @@ object Usernames {
     fun isValid(name: String): Boolean = problem(name) == null
 
     /**
-     * Whether the name is the service's or looks like it. Dots and underscores do not count, digits
-     * pass for the letters they resemble, «blesk» anywhere inside is the service, and digits added at
-     * the end do not make a service word someone's own: «b1esk», «blesk_team», «support24» and
-     * «adm1n» are all kept back.
+     * Whether the name is the service's or looks like it. Dots and underscores do not count, and
+     * digits pass for the letters they resemble, at the end too: «r00t», «a11» and «suppor7» are kept
+     * back. Names someone would pick to pass for the service are read the most loosely, with i and l
+     * as one letter and rn as m: «blesk» within a part or from the start of one («b1esk», «my.blesk»,
+     * «bl_esk»), and names starting with admin, moderator, support, official or system («adrnin»). The
+     * other service words are kept back whole or with digits added («help2024»), and there i stays i,
+     * since «ali» and «mali» are people's names, not «all» and «mail».
      */
     fun isReserved(name: String): Boolean {
-        val bare = name.filterNot(::isSeparator)
-        val stem = fold(bare.trimEnd { it in Digits })
-        return Service in fold(bare) || stem in ReservedWords || ReservedPrefixes.any(stem::startsWith)
+        val bare = name.filterNot(::isSeparator).replace("rn", "m")
+        return spellsService(name) ||
+            ReservedPrefixes.any(fold(bare)::startsWith) ||
+            listOf(bare, bare.trimEnd { it in Digits }).any { text -> ReservedWords.any { spells(text, it) } }
     }
 
     /**
@@ -125,23 +129,46 @@ object Usernames {
 
     private fun isAllowed(char: Char) = char in 'a'..'z' || char in Digits || isSeparator(char)
 
-    /** Digits and letters that read alike become one letter, on both sides of every comparison. */
+    /** The letters each digit can be read as. */
+    private val DigitLetters =
+        mapOf('0' to "o", '1' to "li", '3' to "e", '4' to "a", '5' to "s", '6' to "b", '7' to "t")
+
+    /** Each digit as its first letter and i as l, so names that read alike come out the same. One letter in, one out. */
     private fun fold(text: String): String = buildString(text.length) {
-        text.forEach { append(LookAlikes[it] ?: it) }
+        text.forEach { char -> append(if (char == 'i') 'l' else DigitLetters[char]?.first() ?: char) }
     }
 
-    private val LookAlikes = mapOf('0' to 'o', '1' to 'l', 'i' to 'l', '3' to 'e', '4' to 'a', '5' to 's', '7' to 't')
+    /** Whether [text] is [word] with digits written for some of its letters. */
+    private fun spells(text: String, word: String): Boolean =
+        text.length == word.length && word.indices.all { text[it] == word[it] || word[it] in DigitLetters[text[it]].orEmpty() }
 
-    private val Service = fold("blesk")
+    /**
+     * «blesk» inside one part of the name, or read on from the start of a part: «b.l.e.s.k» and
+     * «my_blesk» are the service, while «gleb.leskov» and «noble.sky» only meet it across a dot.
+     */
+    private fun spellsService(name: String): Boolean {
+        val bare = name.filterNot(::isSeparator)
+        // The part of the name each letter of [bare] comes from.
+        val part = IntArray(bare.length)
+        var index = 0
+        var at = 0
+        name.forEach { char -> if (isSeparator(char)) index++ else part[at++] = index }
+        return Service.findAll(fold(bare)).any { match ->
+            val start = match.range.first
+            start == 0 || part[start - 1] != part[start] || part[start] == part[match.range.last]
+        }
+    }
 
-    private val ReservedWords: Set<String> = listOf(
+    private val Service = Regex.fromLiteral("blesk")
+
+    private val ReservedWords: List<String> = listOf(
         "admin", "administrator", "support", "blesk", "system", "moderator", "mod", "root", "help",
         "official", "security", "staff", "service", "owner", "team", "info", "abuse", "noreply",
         "admins", "moderators", "sysadmin", "superuser", "postmaster", "hostmaster", "webmaster",
         "anonymous", "everyone", "all", "here", "bot", "bots", "api", "www", "mail", "news", "updates",
         "privacy", "terms", "legal", "contact", "press", "status", "settings", "verify", "verified",
         "notifications", "spam", "report", "safety",
-    ).mapTo(HashSet(), ::fold)
+    )
 
     private val ReservedPrefixes: List<String> = listOf("admin", "moderator", "support", "official", "system").map(::fold)
 }

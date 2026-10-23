@@ -28,8 +28,8 @@ class CompatibilityTest {
 
     @Test
     fun `service handles and bot names are reserved like usernames`() {
-        listOf("mine", "blesk", "b1esk_news", "admin").forEach { assertTrue(it, Spaces.isReservedHandle(it)) }
-        listOf("hike", "egor_club").forEach { assertFalse(it, Spaces.isReservedHandle(it)) }
+        listOf("mine", "blesk", "b1esk_news", "admin", "6lesk", "4dmin").forEach { assertTrue(it, Spaces.isReservedHandle(it)) }
+        listOf("hike", "egor_club", "2gis", "gleb_leskov").forEach { assertFalse(it, Spaces.isReservedHandle(it)) }
         listOf("blesk_bot", "support_bot", "news_bot", "help_bot").forEach { assertTrue(it, Bots.isReservedName(it)) }
         assertFalse(Bots.isReservedName("weather_bot"))
     }

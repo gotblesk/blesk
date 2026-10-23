@@ -70,13 +70,16 @@ class UsernamesTest {
         listOf(
             "blesk", "b1esk", "bl3sk", "b1e5k", "b.l.e.s.k", "myblesk", "blesk_support", "support", "support24",
             "support_24", "admin_team", "adm1n", "r00t", "moderator7", "official.news", "system1", "help2024", "bot", "all",
+            "bl_esk", "my.blesk", "suppor7", "officia1", "r007", "inf0", "a11", "lega1", "mai1", "adrnin", "systern", "rnoderator",
         ).forEach { assertTrue(it, Usernames.isReserved(it)) }
     }
 
     @Test
     fun `ordinary names are not reserved`() {
-        listOf("egor", "lesya", "blessing", "alice", "milena", "admiral", "helpful", "teamlead", "bob", "smoke_1700000000")
-            .forEach { assertFalse(it, Usernames.isReserved(it)) }
+        listOf(
+            "egor", "lesya", "blessing", "alice", "milena", "admiral", "helpful", "teamlead", "bob", "smoke_1700000000",
+            "ali", "ali1990", "ali_95", "mali", "gleb.leskov", "gleb_leskova", "debbie.skinner", "noble_sky", "zombie_skull",
+        ).forEach { assertFalse(it, Usernames.isReserved(it)) }
     }
 
     @Test

@@ -262,7 +262,7 @@ fun randomUsername(): String = "u_" + randomNamePart(12)
 /** Without b, e, i, k, l, o, s and the digits read as them: behind its first letter, a random name is never a reserved one. */
 fun randomNamePart(length: Int): String = (1..length).map { UNRESERVED_ALPHABET.random() }.joinToString("")
 
-private const val UNRESERVED_ALPHABET = "acdfghjmnpqrtuvwxyz2689"
+private const val UNRESERVED_ALPHABET = "acdfghjmnpqrtuvwxyz289"
 
 fun ByteArray.b64(): String = Base64.getEncoder().encodeToString(this)
 
