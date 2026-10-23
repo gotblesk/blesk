@@ -36,6 +36,9 @@ import app.blesk.feature.onboarding.ServerStepState
 import app.blesk.feature.onboarding.UsernameStepActions
 import app.blesk.feature.onboarding.UsernameStepScreen
 import app.blesk.feature.onboarding.UsernameStepState
+import app.blesk.feature.onboarding.WelcomeActions
+import app.blesk.feature.onboarding.WelcomeScreen
+import app.blesk.feature.onboarding.WelcomeState
 import app.blesk.feature.settings.ProxySection
 import app.blesk.feature.settings.QrScanner
 import app.blesk.navigation.HomeKey
@@ -61,6 +64,14 @@ internal fun EntryProviderScope<Any>.onboardingEntries(
     // Only while [key] is on top: an answer coming after the person went back must not close the screen under it.
     fun close(key: NavKey) {
         if (backStack.lastOrNull() == key) backStack.removeAt(backStack.lastIndex)
+    }
+    entry<WelcomeKey> {
+        WelcomeRoute(
+            container = container,
+            // Only from this screen: a look at the server ending after the person left must not open sign-up elsewhere.
+            open = { next -> if (backStack.lastOrNull() == WelcomeKey) backStack.add(next) },
+            onDemo = { backStack.replaceWith(listOf(HomeKey), direction) },
+        )
     }
     entry<OtherServerKey> { key -> OtherServerRoute(container, key, onDone = { close(key) }, onUpdate = { backStack.add(UpdateKey) }) }
     entry<InviteKey> { key ->
@@ -150,6 +161,34 @@ internal class SignUpStart(private val signUp: SignUp, private val scope: Corout
 internal fun rememberSignUpStart(container: AppContainer, open: (NavKey) -> Unit): SignUpStart {
     val scope = rememberCoroutineScope()
     return remember(container, scope) { SignUpStart(container.signUp, scope, open) }
+}
+
+/**
+ * The welcome screen. «Создать аккаунт» looks at the chosen server before its first step; the demo and
+ * another server are taken at once, and stop that look.
+ */
+@Composable
+private fun WelcomeRoute(container: AppContainer, open: (NavKey) -> Unit, onDemo: () -> Unit) {
+    val start = rememberSignUpStart(container, open)
+    val problem = start.problem
+    WelcomeScreen(
+        state = WelcomeState(server = container.signUp.otherServer, busy = start.busy, problem = problem),
+        actions = WelcomeActions(
+            onCreate = start::begin,
+            // Signing in by the phrase is not there yet: the capsule wears «скоро» and says when it comes.
+            onHaveAccount = null,
+            onDemo = {
+                start.stop()
+                container.chooseDemo()
+                onDemo()
+            },
+            onOtherServer = {
+                start.stop()
+                open(OtherServerKey())
+            },
+            onUpdate = { open(UpdateKey) }.takeIf { problem == AccessProblem.AppTooOld },
+        ),
+    )
 }
 
 /**

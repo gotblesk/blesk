@@ -30,6 +30,7 @@ import app.blesk.core.data.settings.PrivateImage
 import app.blesk.core.data.settings.ProxySetting
 import app.blesk.core.data.settings.SettingsStore
 import app.blesk.core.data.settings.SetupStep
+import app.blesk.core.data.settings.StartState
 import app.blesk.core.data.stickers.StickerStore
 import app.blesk.core.design.component.Notices
 import app.blesk.core.media.AudioPlayer
@@ -96,6 +97,9 @@ class AppContainer(
     )
     val crashStore = CrashStore(File(context.noBackupFilesDir, "diagnostics"))
     val onboarding = OnboardingStore(settings)
+
+    /** What the app opens with, once read from the settings: null only for that first moment, under the splash. */
+    val start: StateFlow<StartState?> = onboarding.start.stateIn(scope, SharingStarted.Eagerly, null)
 
     /** Newer builds from GitHub Releases; only release builds ask, so tests never reach GitHub. */
     val updater = Updater(context)
@@ -219,7 +223,8 @@ class AppContainer(
             // The demo keeps no chats from one start to the next, and an account has no use for its files.
             media.clearDemo()
             when (val mode = settings.mode.first()) {
-                AppMode.Demo -> show(demo, api = null)
+                // Built only once chosen: until then the welcome screen needs no world.
+                AppMode.Demo -> if (onboarding.start.first() == StartState.Demo) showDemo()
                 is AppMode.Server -> {
                     val stack = stackFor(ServerAddress(mode.url, mode.pin))
                     val repository = withContext(Dispatchers.IO) {
@@ -263,6 +268,20 @@ class AppContainer(
             open(stack, username, Entry.SignUp)
         }
         return result
+    }
+
+    /**
+     * «Попробовать демо»: the demo world is built now, not at the start, and the choice kept, so the next
+     * start opens the chats. Main thread only.
+     */
+    fun chooseDemo() {
+        showDemo()
+        scope.launch { onboarding.chooseDemo() }
+    }
+
+    /** Only while nothing is shown: the start may read the choice the welcome screen has just made. */
+    private fun showDemo() {
+        if (chats.value == null) show(demo, api = null)
     }
 
     /** The new account's setup is over: the app opens with the chats from now on. */

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# The release APK on an emulator, as a person would meet it: installs, starts in the demo, signs up by
-# invite through «Сервер и прокси» on the test server of scripts/ci/test-server.sh, which must be up, and
-# goes through every setup step to the chats. The emulator reaches the server through `adb reverse` on
-# 127.0.0.1:8443, the address in the server's certificate. Screenshots of the steps go to the directory
-# given, for the CI artifact.
+# The release APK on an emulator, as a person would meet it: installs, starts at the welcome screen, signs
+# up by invite on the test server of scripts/ci/test-server.sh, which must be up, and goes through every
+# setup step to the chats. The emulator reaches the server through `adb reverse` on 127.0.0.1:8443, the
+# address in the server's certificate. Screenshots of the steps and the time of the cold start go to the
+# directory given, for the CI artifact.
 #
 #   scripts/ci/smoke.sh <blesk.apk> <screenshot dir>
 # -E: the trap below also catches a step that fails inside ui().
@@ -55,24 +55,23 @@ adb reverse tcp:8443 tcp:443
 adb shell settings put global hide_error_dialogs 1
 adb install -r "$apk"
 adb shell pm grant "$package" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
-adb shell am start -W -n "$package/.MainActivity" >/dev/null
+# A cold first start: the splash holds until the start screen is read, so this is the time to the welcome screen.
+adb shell am start -W -n "$package/.MainActivity" | tr -d '\r' | tee "$shots/start.txt"
 
-ui wait "Чаты" 90
-shot started
-ui tab "Настройки"
-ui tap "Сервер и прокси"
-shot server
+ui wait "Создать аккаунт" 90
+shot welcome
 ui tap "Другой сервер"
 ui type "Адрес сервера" "blesk://server?url=https://127.0.0.1:8443&pin=sha256/$pin"
+shot server
 # A step's buttons stay at the foot of the screen, below what `tap` reaches; `tab` taps there.
 ui tab "Готово"
-# Back on «Сервер и прокси» once the test server has answered; then its invite step.
+# Back on the welcome screen once the test server has answered; then its invite step.
 ui tap "Создать аккаунт"
 ui type "Код или ссылка" "$invite"
 shot invite
 ui tab "Дальше"
 ui type "Имя пользователя" "$username"
-shot filled
+shot username
 ui tab "Создать аккаунт"
 ui wait "Как тебя называть" 120
 ui tab "Пропустить"
@@ -99,4 +98,4 @@ for _ in $(seq 30); do
     sleep 2
 done
 [[ -n $registered ]] || fail "the app never logged ServerRegistered"
-echo "smoke test passed: @$username signed up on the test server through every setup step"
+echo "smoke test passed: @$username signed up through the welcome screen; cold start $(sed -n 's/^TotalTime: //p' "$shots/start.txt") ms"

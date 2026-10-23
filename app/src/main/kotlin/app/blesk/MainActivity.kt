@@ -67,12 +67,14 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // The system splash with the star, until the first frame; it never holds the start back.
-        installSplashScreen()
+        val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
         // Before the first frame: the keyboard and the lenses animate only in an edge-to-edge window.
         enableEdgeToEdge()
         val container = (application as BleskApplication).container
+        // The system splash with the star holds only while the start screen is read from the settings, one small read,
+        // so the first frame is already the welcome screen, the chats or the setup step.
+        splash.setKeepOnScreenCondition { container.start.value == null }
         lifecycle.addObserver(
             LifecycleEventObserver { _, event ->
                 when (event) {

@@ -24,11 +24,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * Follows the links other apps hand over in [AppContainer.linkRequest], once the chats are open
- * and never behind the app lock. Any app can send a link without the person tapping anything, so
- * a link that would show the person to others, a join request to a group's admin or joining a
- * public space, is asked about first. Scanned and pasted links are the person's own choice and
- * act at once on their screens.
+ * Follows the links other apps hand over in [AppContainer.linkRequest]: in an account once its
+ * chats are open, without one at once, since there a link leads to sign-up, and never behind the
+ * app lock. Any app can send a link without the person tapping anything, so a link that would show
+ * the person to others, a join request to a group's admin or joining a public space, is asked
+ * about first. Scanned and pasted links are the person's own choice and act at once on their
+ * screens.
  *
  * [atHome] tells when the chats are on screen again: a link that needed an account opens then,
  * after the person made one, and so does a link that came while the new account was set up.
@@ -36,7 +37,8 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun IncomingLinks(container: AppContainer, screens: LinkScreens, atHome: Boolean) {
     val chats = container.chats.collectAsStateWithLifecycle().value
-    val start by container.onboarding.start.collectAsStateWithLifecycle(initialValue = null)
+    val start by container.start.collectAsStateWithLifecycle()
+    val hasAccount = start is StartState.Account
     val locked = container.lock.locked
     val context = LocalContext.current
     val notify = rememberNotify()
@@ -44,8 +46,9 @@ internal fun IncomingLinks(container: AppContainer, screens: LinkScreens, atHome
     var asking by remember { mutableStateOf<LinkTarget?>(null) }
     var afterSignUp by rememberSaveable { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(chats, locked) {
-        if (chats == null || locked) return@LaunchedEffect
+    LaunchedEffect(chats, locked, hasAccount) {
+        // Without an account, on the welcome screen or in the demo, a link leads to sign-up and needs no chats.
+        if (locked || hasAccount && chats == null) return@LaunchedEffect
         deliverLinks(container.linkRequest, locked = { container.lock.locked }, scope) { link ->
             // The state as stored, not the collected one, which is null until settings load.
             val now = container.onboarding.start.first()

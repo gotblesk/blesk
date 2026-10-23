@@ -15,6 +15,10 @@ data class ServerRef(val url: String, val pin: String? = null) {
     }
 }
 
+/** The first screen, until the demo is chosen or an account made. */
+@Serializable
+data object WelcomeKey : NavKey
+
 /** «Другой сервер»; [scanned] is a server's QR code read elsewhere, put into the field. */
 @Serializable
 data class OtherServerKey(val scanned: ServerRef? = null) : NavKey

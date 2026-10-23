@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsNodeInteractionCollection
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -21,8 +22,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Every control on the main screens says what it is to TalkBack and is big enough to hit:
- * a label (text or description) and at least 48dp on its shorter side.
+ * Every control on the welcome screen and the main screens says what it is to TalkBack and is big
+ * enough to hit: a label (text or description) and at least 48dp on its shorter side.
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -57,6 +58,9 @@ class AccessibilityTest {
 
     @Test
     fun controlsAreLabelledAndBigEnough() {
+        compose.waitUntil(WAIT_MILLIS) { compose.onAllNodesWithText("Создать аккаунт").fetchSemanticsNodes().isNotEmpty() }
+        check("welcome")
+        compose.enterDemo()
         check("chats")
         compose.onNodeWithText("Аня Соколова").performClick()
         check("conversation")
@@ -85,5 +89,6 @@ class AccessibilityTest {
         val MIN_TOUCH = 48.dp
         val MIN_INLINE = 24.dp
         const val REACTION = "реакция"
+        const val WAIT_MILLIS = 5_000L
     }
 }

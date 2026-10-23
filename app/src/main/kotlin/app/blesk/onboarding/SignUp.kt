@@ -26,6 +26,10 @@ internal class SignUp(private val container: AppContainer) {
     /** blesk's own server unless another was chosen on «Другой сервер». */
     var server: ServerAddress by mutableStateOf(ServerAddress.DEFAULT)
 
+    /** The server chosen on «Другой сервер» as the screens name it; null while it is blesk's own. */
+    val otherServer: String?
+        get() = server.takeIf { it != ServerAddress.DEFAULT }?.url?.removePrefix("https://")
+
     /** The invite the server last turned down, shown on the invite step while its code stays in the field. */
     var refusedInvite: RefusedInvite? by mutableStateOf(null)
 

@@ -33,6 +33,7 @@ class MainFlowTest {
 
     @Test
     fun demoChatThemesAndDebug() {
+        compose.enterDemo()
         compose.onNodeWithContentDescription("Новый чат").assertIsDisplayed()
 
         compose.onNodeWithText("Эхо").performClick()

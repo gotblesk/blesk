@@ -11,6 +11,7 @@ import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.model.attachmentLabel
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.OfflineKey
+import app.blesk.core.data.settings.OnboardingStore
 import app.blesk.core.data.settings.SettingsStore
 import app.blesk.core.data.settings.SetupStep
 import app.blesk.core.data.settings.StartState
@@ -49,9 +50,12 @@ import java.util.UUID
 class AccountSwitchTest {
     private val application = ApplicationProvider.getApplicationContext<BleskApplication>()
 
-    // A settings file of its own, so the account saved here never reaches the next test's app.
-    private val container =
-        AppContainer(application, settings = SettingsStore(application, "switch-${UUID.randomUUID()}"))
+    // A settings file of its own, so the account saved here never reaches the next test's app; the demo was
+    // chosen in it at an earlier start, so this one opens the demo.
+    private val container = AppContainer(
+        application,
+        settings = SettingsStore(application, "switch-${UUID.randomUUID()}").also { runBlocking { OnboardingStore(it).chooseDemo() } },
+    )
     private val watching = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
 
     @After

@@ -92,6 +92,7 @@ import app.blesk.onboarding.SetupOpener
 import app.blesk.onboarding.onboardingEntries
 import app.blesk.onboarding.openSignUp
 import app.blesk.onboarding.rememberSignUpStart
+import app.blesk.onboarding.startKey
 import app.blesk.shared.appearance.Appearance
 import app.blesk.toConfig
 import app.blesk.update.SigningKeys
@@ -231,7 +232,9 @@ data class LicenseKey(val license: License) : NavKey
 
 @Composable
 fun BleskNavigation(container: AppContainer) {
-    val backStack = rememberNavBackStack(HomeKey)
+    // Under the splash until the settings are read, so the stack starts with the screen the app opens with.
+    val opening = container.start.collectAsStateWithLifecycle().value ?: return
+    val backStack = rememberNavBackStack(startKey(opening))
     val scope = rememberCoroutineScope()
     val mode by container.settings.mode.collectAsStateWithLifecycle(initialValue = AppMode.Demo)
     val debugUnlocked by container.settings.debugUnlocked.collectAsStateWithLifecycle(initialValue = false)
@@ -256,8 +259,12 @@ fun BleskNavigation(container: AppContainer) {
         }
     }
 
+    // A chat asked for by a notification or by a share opens over the chats only: on the welcome screen and
+    // during the setup it waits for them.
+    val home = backStack.firstOrNull() == HomeKey
     val openRequest by container.openRequest.collectAsStateWithLifecycle()
-    LaunchedEffect(openRequest) {
+    LaunchedEffect(openRequest, home) {
+        if (!home) return@LaunchedEffect
         val id = openRequest ?: return@LaunchedEffect
         container.openRequest.value = null
         while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
@@ -275,8 +282,8 @@ fun BleskNavigation(container: AppContainer) {
     }
     val contactRemoved = stringResource(app.blesk.feature.chats.R.string.contacts_removed)
     val shareRequest by container.shareRequest.collectAsStateWithLifecycle()
-    LaunchedEffect(shareRequest) {
-        if (shareRequest != null && backStack.lastOrNull() != ShareKey) backStack.add(ShareKey)
+    LaunchedEffect(shareRequest, home) {
+        if (home && shareRequest != null && backStack.lastOrNull() != ShareKey) backStack.add(ShareKey)
     }
 
     LaunchedEffect(backStack.size) {
@@ -436,10 +443,7 @@ fun BleskNavigation(container: AppContainer) {
                                         null
                                     } else {
                                         DemoSignUp(
-                                            server = container.signUp.server
-                                                .takeIf { it != ServerAddress.DEFAULT }
-                                                ?.url
-                                                ?.removePrefix("https://"),
+                                            server = container.signUp.otherServer,
                                             busy = start.busy,
                                             problem = problem?.text(),
                                             onCreate = start::begin,

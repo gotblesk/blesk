@@ -33,6 +33,7 @@ class RoomListSheetsTest {
 
     @Test
     fun aChannelMenuFromTheRoomListClosesWithCancel() {
+        compose.enterDemo()
         compose.onNodeWithContentDescription("Комнаты").performClick()
         compose.onNodeWithText("Студия").performClick()
         compose.onNode(hasText("общее") and SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick))
@@ -47,6 +48,7 @@ class RoomListSheetsTest {
 
     @Test
     fun aChannelMenuWhoseRoomGoesGivesTheListBackToTalkBack() {
+        compose.enterDemo()
         compose.onNodeWithContentDescription("Комнаты").performClick()
         compose.onNodeWithText("Студия").performClick()
         compose.onNode(hasText("общее") and SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick))

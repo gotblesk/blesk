@@ -27,6 +27,7 @@ class ChatScrollTest {
 
     @Test
     fun dateUnderTheTopLens() {
+        compose.enterDemo()
         compose.onNodeWithText("Аня Соколова").performClick()
         compose.mainClock.advanceTimeBy(1_000)
         compose.onNodeWithText("Давай в четыре у моста").performTouchInput {

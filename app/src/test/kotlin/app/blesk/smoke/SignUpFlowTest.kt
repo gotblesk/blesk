@@ -25,8 +25,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The way to an account from the demo, as the CI smoke test drives it on its 320×640 dp emulator.
- * Nothing here reaches a server: the steps that ask one are left to that test.
+ * The way to an account from the demo's «Сервер и прокси», on a screen as small as the CI emulator's
+ * 320×640 dp. Nothing here reaches a server: the steps that ask one are left to the smoke test.
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -37,6 +37,7 @@ class SignUpFlowTest {
     val compose = createAndroidComposeRule<MainActivity>()
 
     private fun openServerScreen() {
+        compose.enterDemo()
         compose.onNodeWithContentDescription("Настройки").performClick()
         // The row may sit under the bottom lens, so it is pressed through its click action, not a touch.
         compose.onNodeWithText("Сервер и прокси").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
@@ -51,7 +52,7 @@ class SignUpFlowTest {
     }
 
     @Test
-    fun theDemoCardSitsWhereTheSmokeTestTaps() {
+    fun theDemoCardSitsInTheMiddleOfASmallScreen() {
         openServerScreen()
 
         listOf("Создать аккаунт", "Другой сервер").forEach { text ->
@@ -74,7 +75,8 @@ class SignUpFlowTest {
     }
 
     @Test
-    fun anInviteLinkBeforeAnAccountOpensTheInviteStepFilledIn() {
+    fun anInviteLinkInTheDemoOpensTheInviteStepFilledIn() {
+        compose.enterDemo()
         (compose.activity.application as BleskApplication).container.linkRequest.value = Invites.link(CODE)
         compose.mainClock.advanceTimeBy(1_000)
 

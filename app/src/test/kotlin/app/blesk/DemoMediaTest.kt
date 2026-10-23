@@ -4,8 +4,11 @@ import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.data.demo.DemoRepository
+import app.blesk.core.data.settings.OnboardingStore
+import app.blesk.core.data.settings.SettingsStore
 import app.blesk.screenshots.FrozenApplication
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -14,6 +17,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.io.File
+import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [36], application = FrozenApplication::class)
@@ -21,11 +25,14 @@ class DemoMediaTest {
     private val application = ApplicationProvider.getApplicationContext<BleskApplication>()
 
     @Test
-    fun theDemoStartsWithoutTheLastOnesFilesAndRecordsApart() {
+    fun aChosenDemoStartsWithoutTheLastOnesFilesAndRecordsApart() {
         val media = File(application.filesDir, "media")
         val leftover = File(media, "demo/voice.ogg").apply { parentFile?.mkdirs(); writeText("demo") }
         val received = File(media, "photo.jpg").apply { writeText("account") }
-        val container = AppContainer(application)
+        // A settings file of its own, where the demo was chosen at an earlier start.
+        val settings = SettingsStore(application, "demo-${UUID.randomUUID()}")
+        runBlocking { OnboardingStore(settings).chooseDemo() }
+        val container = AppContainer(application, settings = settings)
         try {
             shown(container)
 
