@@ -4,6 +4,7 @@ import app.blesk.server.attachments.AttachmentRepository
 import app.blesk.server.attachments.AttachmentStorage
 import app.blesk.server.auth.AccountRepository
 import app.blesk.server.auth.AuthRepository
+import app.blesk.server.auth.UsernameChecks
 import app.blesk.server.bots.BotRepository
 import app.blesk.server.bots.BotSignals
 import app.blesk.server.bots.BotWebhooks
@@ -30,6 +31,8 @@ class Services(
     /** Per client address, for every request but /health. */
     val requestRateLimiter: RateLimiter,
     val authRateLimiter: RateLimiter,
+    /** Per client address, for checking a name as it is typed; not shared with registration. */
+    val usernameCheckLimiter: RateLimiter,
     val postRateLimiter: RateLimiter,
     val trustProxy: Boolean,
     val callRateLimiter: RateLimiter,
@@ -72,6 +75,11 @@ class Services(
      */
     val lookupBudget = RateLimiter(capacity = LOOKUPS_AT_ONCE, refillPerMinute = LOOKUPS_PER_MINUTE)
 
+    /** Name checks per person signed in, in place of [usernameCheckLimiter]: an address may be many people's. */
+    val usernameCheckBudget = RateLimiter(capacity = CHECKS_AT_ONCE, refillPerMinute = CHECKS_PER_MINUTE)
+
+    val usernameChecks = UsernameChecks(accounts::taken)
+
     /** Whole milliseconds: what goes into the database reads back exactly the same (Postgres keeps microseconds and rounds). */
     fun now(): Instant = clock.instant().truncatedTo(ChronoUnit.MILLIS)
 }
@@ -80,3 +88,5 @@ private const val ONE_TIME_KEYS_AT_ONCE = 5
 private const val MINUTES_PER_ONE_TIME_KEY = 60
 private const val LOOKUPS_AT_ONCE = 20
 private const val LOOKUPS_PER_MINUTE = 10.0
+private const val CHECKS_AT_ONCE = 30
+private const val CHECKS_PER_MINUTE = 15.0

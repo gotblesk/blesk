@@ -21,7 +21,8 @@ object Api {
 
     /**
      * `GET /v1/usernames/{name}`: whether a name may be taken, asked while it is typed; a [UsernameCheck]
-     * with the verdict, the name as compared and up to three free names.
+     * with the verdict, the name as compared and up to three free names. Its rate limit is its own, not
+     * registration's: per address, or per person when a token comes with it.
      */
     const val USERNAMES = "/v1/usernames"
     const val CHALLENGE = "/v1/auth/challenge"

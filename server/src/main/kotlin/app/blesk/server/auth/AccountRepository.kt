@@ -1,6 +1,8 @@
 package app.blesk.server.auth
 
 import app.blesk.server.db.Database
+import app.blesk.server.db.TextArray
+import app.blesk.server.db.query
 import app.blesk.server.db.queryOne
 import app.blesk.server.db.update
 import app.blesk.server.invites.lockUsableInvite
@@ -66,6 +68,11 @@ class AccountRepository(private val database: Database) {
                 row.getBoolean("discoverable"),
             )
         }
+    }
+
+    /** Which of [names] belong to accounts, in one query however many are asked. */
+    suspend fun taken(names: Collection<String>): Set<String> = database.transaction { connection ->
+        connection.query("SELECT username FROM accounts WHERE username = ANY(?)", TextArray(names)) { it.getString("username") }.toSet()
     }
 
     /** False when another account already has this hash, which for 256-bit tokens means a mistake, not a clash. */

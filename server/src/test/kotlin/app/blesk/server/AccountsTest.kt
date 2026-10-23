@@ -6,6 +6,8 @@ import app.blesk.shared.protocol.Discovery
 import app.blesk.shared.protocol.ErrorBody
 import app.blesk.shared.protocol.ServerInfo
 import app.blesk.shared.protocol.UsernameCheck
+import app.blesk.shared.protocol.UsernameVerdict
+import app.blesk.shared.protocol.Usernames
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
@@ -17,6 +19,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.signal.libsignal.protocol.IdentityKeyPair
@@ -47,13 +50,57 @@ class AccountsTest {
     }
 
     @Test
-    fun `tells whether a username is free`() = serverTest { harness ->
+    fun `the check names a verdict and the name it compared`() = serverTest { harness ->
         val alice = harness.register()
-        suspend fun free(name: String) = harness.client.get("${Api.USERNAMES}/$name").body<UsernameCheck>().available
-        assertEquals(false, free(alice.username))
-        assertEquals(true, free(randomUsername()))
-        assertEquals(false, free("blesk"))
-        assertEquals(false, free("Egor"))
+        val free = randomUsername()
+        val expected = mapOf(
+            alice.username to UsernameVerdict.TAKEN,
+            free to UsernameVerdict.FREE,
+            "blesk" to UsernameVerdict.RESERVED,
+            "b1esk_team" to UsernameVerdict.RESERVED,
+            "egor_bot" to UsernameVerdict.RESERVED,
+            "ab" to UsernameVerdict.INVALID,
+            "9egor" to UsernameVerdict.INVALID,
+        )
+        for ((name, verdict) in expected) {
+            val check = harness.checkUsername(name)
+            assertEquals(name, verdict, check.verdict)
+            assertEquals(name, verdict == UsernameVerdict.FREE, check.available)
+            assertEquals(name, check.username)
+        }
+    }
+
+    @Test
+    fun `a name in other case is the same name`() = serverTest { harness ->
+        val egor = harness.register()
+        val check = harness.checkUsername(egor.username.uppercase()).copy(suggestions = emptyList())
+        assertEquals(UsernameCheck(available = false, verdict = UsernameVerdict.TAKEN, username = egor.username), check)
+
+        val sameName = harness.registerRaw(egor.username.uppercase(), IdentityKeyPair.generate())
+        assertEquals(HttpStatusCode.Conflict, sameName.status)
+        assertEquals("username_taken", sameName.body<ErrorBody>().code)
+        val capitals = harness.registerRaw(randomUsername().uppercase(), IdentityKeyPair.generate())
+        assertEquals(HttpStatusCode.BadRequest, capitals.status)
+        assertEquals("invalid_username", capitals.body<ErrorBody>().code)
+    }
+
+    @Test
+    fun `suggestions are free valid names like the one asked`() = serverTest { harness ->
+        val egor = harness.register()
+        val suggestions = harness.checkUsername(egor.username).suggestions
+        assertTrue(suggestions.toString(), suggestions.size in 1..3)
+        for (suggestion in suggestions) {
+            assertTrue(suggestion, Usernames.isValid(suggestion))
+            assertNotEquals(egor.username, suggestion)
+            assertEquals(suggestion, UsernameVerdict.FREE, harness.checkUsername(suggestion).verdict)
+        }
+    }
+
+    @Test
+    fun `a service name gets no suggestions it would refuse`() = serverTest { harness ->
+        for (name in listOf("blesk", "support24")) {
+            assertEquals(UsernameCheck(available = false, verdict = UsernameVerdict.RESERVED, username = name), harness.checkUsername(name))
+        }
     }
 
     @Test

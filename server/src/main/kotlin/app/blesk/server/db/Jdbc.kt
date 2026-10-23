@@ -7,6 +7,9 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
+/** A `text[]` parameter, for `= ANY(?)`. */
+class TextArray(val values: Collection<String>)
+
 fun Connection.update(sql: String, vararg params: Any?): Int = prepareStatement(sql).use { statement ->
     statement.bind(params)
     statement.executeUpdate()
@@ -31,6 +34,7 @@ private fun PreparedStatement.bind(params: Array<out Any?>) {
         val position = index + 1
         when (value) {
             is Instant -> setObject(position, value.atOffset(ZoneOffset.UTC))
+            is TextArray -> setArray(position, connection.createArrayOf("text", value.values.toTypedArray()))
             else -> setObject(position, value)
         }
     }

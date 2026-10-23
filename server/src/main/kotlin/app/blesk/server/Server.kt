@@ -6,6 +6,7 @@ import app.blesk.server.auth.accountLookupRoutes
 import app.blesk.server.auth.bleskBearer
 import app.blesk.server.auth.loginRoutes
 import app.blesk.server.auth.registrationRoutes
+import app.blesk.server.auth.usernameCheckRoutes
 import app.blesk.server.bots.BOT_BEARER
 import app.blesk.server.bots.botApiRoutes
 import app.blesk.server.bots.botBearer
@@ -86,6 +87,9 @@ fun Application.bleskModule(services: Services, maintenanceInterval: Duration = 
         }
         rateLimited(services.requestRateLimiter, services.trustProxy) {
             get(Api.INFO) { call.respond(ServerInfo(calls = services.callTokens != null)) }
+            authenticate(BEARER, optional = true) {
+                usernameCheckRoutes(services)
+            }
             rateLimited(services.authRateLimiter, services.trustProxy) {
                 registrationRoutes(services)
                 loginRoutes(services)

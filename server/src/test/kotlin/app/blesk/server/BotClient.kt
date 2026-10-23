@@ -20,7 +20,7 @@ import io.ktor.http.contentType
 import org.junit.Assert.assertEquals
 import java.util.UUID
 
-fun randomBotUsername(): String = "b" + (1..10).map { "abcdefghijklmnopqrstuvwxyz0123456789".random() }.joinToString("") + Bots.SUFFIX
+fun randomBotUsername(): String = "b" + randomNamePart(10) + Bots.SUFFIX
 
 suspend fun Harness.createBotRaw(
     owner: TestUser,

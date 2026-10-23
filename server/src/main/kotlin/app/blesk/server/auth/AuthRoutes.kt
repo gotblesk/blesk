@@ -25,7 +25,6 @@ import app.blesk.shared.protocol.RecoveryHash
 import app.blesk.shared.protocol.RegisterRequest
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
-import app.blesk.shared.protocol.UsernameCheck
 import app.blesk.shared.protocol.UsernameProblem
 import app.blesk.shared.protocol.Usernames
 import io.ktor.http.HttpStatusCode
@@ -36,6 +35,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import java.security.MessageDigest
+import java.util.Locale
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
@@ -44,15 +44,13 @@ private val ChallengeLifetime = 2.minutes.toJavaDuration()
 private val TokenLifetime = 30.days.toJavaDuration()
 
 fun Route.registrationRoutes(services: Services) {
-    // Asked while a name is typed, before there is an account; limited with registration itself.
-    get("${Api.USERNAMES}/{name}") {
-        val name = call.parameters["name"].orEmpty()
-        val free = Usernames.isValid(name) && services.accounts.find(name) == null
-        call.respond(UsernameCheck(free))
-    }
-
     post(Api.ACCOUNTS) {
         val request = call.receiveJson<RegisterRequest>()
+        val canonical = request.username.lowercase(Locale.ROOT)
+        // «Egor» when «egor» exists is that name: taken, as the check said while it was typed.
+        if (canonical != request.username && Usernames.isWellFormed(canonical)) {
+            ensure(services.accounts.find(canonical) == null) { conflict(ErrorCodes.USERNAME_TAKEN) }
+        }
         val problem = Usernames.problem(request.username)
         // Names ending like a bot's belong to bots, so a person can never pass for a program or the other way round.
         ensure(problem != UsernameProblem.BotName) { badRequest(ErrorCodes.USERNAME_RESERVED) }

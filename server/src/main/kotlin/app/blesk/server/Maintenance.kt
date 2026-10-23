@@ -65,6 +65,8 @@ suspend fun runMaintenance(services: Services) {
     services.callRateLimiter.evictIdle()
     services.oneTimeKeyBudget.evictIdle()
     services.lookupBudget.evictIdle()
+    services.usernameCheckLimiter.evictIdle()
+    services.usernameCheckBudget.evictIdle()
     do {
         val expired = services.attachments.expired(now - RetentionPeriod, now - AbandonedUpload, ATTACHMENT_BATCH)
         expired.forEach { (id, chunks) ->

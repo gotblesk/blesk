@@ -13,6 +13,8 @@ data class Config(
     /** Per client address, for every request but /health: a floor under the narrower limits below. */
     val requestRateLimit: RateLimitConfig,
     val authRateLimit: RateLimitConfig,
+    /** Per client address, for checking a name as it is typed; not shared with registration. */
+    val usernameCheckRateLimit: RateLimitConfig,
     /** Per account, for posts in public spaces. */
     val postRateLimit: RateLimitConfig,
     val maintenanceInterval: Duration,
@@ -50,13 +52,20 @@ data class Config(
                 ),
                 storage = storage,
                 trustProxy = value("BLESK_TRUST_PROXY")?.toBooleanStrict() ?: false,
-                requestRateLimit = RateLimitConfig(
-                    capacity = value("BLESK_REQUEST_RATE_BURST")?.toInt() ?: DEFAULT_REQUEST_BURST,
-                    refillPerMinute = value("BLESK_REQUEST_RATE_PER_MINUTE")?.toInt() ?: DEFAULT_REQUESTS_PER_MINUTE,
+                requestRateLimit = limit(
+                    value("BLESK_REQUEST_RATE_BURST"),
+                    value("BLESK_REQUEST_RATE_PER_MINUTE"),
+                    default = RateLimitConfig(DEFAULT_REQUEST_BURST, DEFAULT_REQUESTS_PER_MINUTE),
                 ),
-                authRateLimit = RateLimitConfig(
-                    capacity = value("BLESK_AUTH_RATE_BURST")?.toInt() ?: DEFAULT_BURST,
-                    refillPerMinute = value("BLESK_AUTH_RATE_PER_MINUTE")?.toInt() ?: DEFAULT_PER_MINUTE,
+                authRateLimit = limit(
+                    value("BLESK_AUTH_RATE_BURST"),
+                    value("BLESK_AUTH_RATE_PER_MINUTE"),
+                    default = RateLimitConfig(DEFAULT_BURST, DEFAULT_PER_MINUTE),
+                ),
+                usernameCheckRateLimit = limit(
+                    value("BLESK_USERNAME_CHECK_RATE_BURST"),
+                    value("BLESK_USERNAME_CHECK_RATE_PER_MINUTE"),
+                    default = RateLimitConfig(DEFAULT_CHECK_BURST, DEFAULT_CHECKS_PER_MINUTE),
                 ),
                 postRateLimit = perMinute(value("BLESK_POST_RATE_PER_MINUTE"), DEFAULT_POST_PER_MINUTE),
                 maintenanceInterval = DEFAULT_MAINTENANCE_INTERVAL,
@@ -67,6 +76,12 @@ data class Config(
                 registration = registration(value("BLESK_REGISTRATION")),
             )
         }
+
+        /** A limit set as a burst and a rate per minute; either setting left out keeps its [default]. */
+        private fun limit(burst: String?, perMinute: String?, default: RateLimitConfig) = RateLimitConfig(
+            capacity = burst?.toInt() ?: default.capacity,
+            refillPerMinute = perMinute?.toInt() ?: default.refillPerMinute,
+        )
 
         private fun perMinute(setting: String?, default: Int): RateLimitConfig =
             (setting?.toInt() ?: default).let { RateLimitConfig(capacity = it, refillPerMinute = it) }
@@ -93,6 +108,8 @@ data class Config(
         private const val DEFAULT_REQUESTS_PER_MINUTE = 600
         private const val DEFAULT_BURST = 20
         private const val DEFAULT_PER_MINUTE = 30
+        private const val DEFAULT_CHECK_BURST = 40
+        private const val DEFAULT_CHECKS_PER_MINUTE = 20
         private const val DEFAULT_POST_PER_MINUTE = 30
         private const val DEFAULT_CALL_PER_MINUTE = 30
         private const val DEFAULT_BOT_PER_MINUTE = 60

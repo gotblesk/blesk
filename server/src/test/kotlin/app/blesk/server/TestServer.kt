@@ -15,11 +15,13 @@ import app.blesk.shared.protocol.ServerFrame
 import app.blesk.shared.protocol.SignedKey
 import app.blesk.shared.protocol.TokenRequest
 import app.blesk.shared.protocol.TokenResponse
+import app.blesk.shared.protocol.UsernameCheck
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -162,6 +164,16 @@ class Harness(val client: HttpClient, val services: Services) {
         )
     }
 
+    /** The name check, anonymous unless a [token] is given. */
+    suspend fun checkUsernameRaw(name: String, token: String? = null): HttpResponse =
+        client.get("${Api.USERNAMES}/$name") { token?.let(::bearerAuth) }
+
+    suspend fun checkUsername(name: String, token: String? = null): UsernameCheck {
+        val response = checkUsernameRaw(name, token)
+        assertEquals(HttpStatusCode.OK, response.status)
+        return response.body()
+    }
+
     suspend fun accountId(user: TestUser): Long = checkNotNull(services.accounts.find(user.username)).id
 
     companion object {
@@ -176,6 +188,7 @@ fun serverTest(
     liveKit: LiveKitConfig? = null,
     botRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     requestRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
+    usernameCheckRateLimit: RateLimitConfig = RateLimitConfig(capacity = 100_000, refillPerMinute = 100_000),
     // Open, so that tests of everything else register without invites.
     registration: RegistrationMode = RegistrationMode.Open,
     clock: Clock = Clock.systemUTC(),
@@ -190,6 +203,7 @@ fun serverTest(
             storage = FileSystemStorage(attachments),
             requestRateLimiter = RateLimiter(requestRateLimit),
             authRateLimiter = RateLimiter(rateLimit),
+            usernameCheckLimiter = RateLimiter(usernameCheckRateLimit),
             postRateLimiter = RateLimiter(postRateLimit),
             trustProxy = false,
             callRateLimiter = RateLimiter(callRateLimit),
@@ -215,7 +229,12 @@ fun serverTest(
     }
 }
 
-fun randomUsername(): String = "u_" + (1..12).map { "abcdefghijklmnopqrstuvwxyz0123456789".random() }.joinToString("")
+fun randomUsername(): String = "u_" + randomNamePart(12)
+
+/** Without b, e, i, k, l, o, s and the digits read as them: behind its first letter, a random name is never a reserved one. */
+fun randomNamePart(length: Int): String = (1..length).map { UNRESERVED_ALPHABET.random() }.joinToString("")
+
+private const val UNRESERVED_ALPHABET = "acdfghjmnpqrtuvwxyz2689"
 
 fun ByteArray.b64(): String = Base64.getEncoder().encodeToString(this)
 

@@ -35,6 +35,7 @@ fun main(args: Array<String>) {
         storage = retrying("storage") { storage(config.storage) },
         requestRateLimiter = RateLimiter(config.requestRateLimit),
         authRateLimiter = RateLimiter(config.authRateLimit),
+        usernameCheckLimiter = RateLimiter(config.usernameCheckRateLimit),
         postRateLimiter = RateLimiter(config.postRateLimit),
         trustProxy = config.trustProxy,
         callRateLimiter = RateLimiter(config.callRateLimit),
