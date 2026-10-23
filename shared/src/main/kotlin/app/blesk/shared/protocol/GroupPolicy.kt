@@ -489,9 +489,9 @@ object GroupPolicy {
      */
     private fun parted(base: List<LogEntry>, head: List<LogEntry>, dropped: Int, oursSize: Int, theirsSize: Int): Boolean =
         if (head.size <= base.size) {
-            head == base.takeLast(head.size) && (head.size == base.size || theirsSize == MAX_LOG)
+            head == base.subList(base.size - head.size, base.size) && (head.size == base.size || theirsSize == MAX_LOG)
         } else {
-            head.takeLast(base.size) == base && oursSize == MAX_LOG && head.size - base.size <= dropped
+            head.subList(head.size - base.size, head.size) == base && oursSize == MAX_LOG && head.size - base.size <= dropped
         }
 
     /** Whether [actor] may remove or ban [username]: only with the right, and only someone below them. */
