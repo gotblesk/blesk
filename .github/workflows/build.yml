@@ -93,6 +93,14 @@ jobs:
           done
           exit 1
 
+      # Gradle's daemons outlive the build and hold gigabytes; with the test server running beside it,
+      # the emulator was killed for memory right after sign-up.
+      - name: Free memory for the emulator
+        run: |
+          ./gradlew --stop
+          pkill -f KotlinCompileDaemon || true
+          free -m
+
       - name: Release APK on an emulator
         timeout-minutes: 30
         uses: reactivecircus/android-emulator-runner@v2
@@ -100,6 +108,7 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
+          ram-size: 3072M
           disable-animations: true
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none

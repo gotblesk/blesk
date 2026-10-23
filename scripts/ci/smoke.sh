@@ -32,6 +32,7 @@ shot() {
 }
 fail() {
     shot failed || true
+    free -m >"$shots/memory.txt" 2>&1 || true
     timeout 60 adb exec-out uiautomator dump /dev/tty >"$shots/screen.xml" 2>/dev/null || true
     timeout 60 adb logcat -d -s blesk:V AndroidRuntime:E >"$shots/logcat.txt" 2>&1 || true
     # Release stack traces name classes R8 renamed; the build's own mapping turns them back.
