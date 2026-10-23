@@ -213,6 +213,13 @@ object GroupPolicy {
      * that missed more takes the owner's next state, which follows every other whatever its version.
      */
     const val MAX_VERSION_STEP = 100L
+
+    /**
+     * How far ahead of this phone's state the owner's may be, in either count: more than any phone misses, and still so
+     * little that no run of states numbers a group to the end of a Long. One handing the group over could otherwise
+     * leave it numbered so far on that no state of the next owner's would follow.
+     */
+    const val OWNER_REACH = 1L shl 32
     private const val CHANNEL_SEPARATOR = ':'
 
     fun can(state: GroupState, username: String, right: Right): Boolean {
@@ -300,8 +307,11 @@ object GroupPolicy {
      * far others carry [GroupState.version], the owner's next state is newer, and one built before it is older.
      */
     fun newer(incoming: GroupState, current: GroupState): Boolean =
-        incoming.ownerVersion > current.ownerVersion ||
-            (incoming.ownerVersion == current.ownerVersion && incoming.version > current.version)
+        newer(incoming.ownerVersion, incoming.version, current.ownerVersion, current.version)
+
+    /** [newer] for what carries a state's two counts alone: a message written in it, a group let go of at it. */
+    fun newer(ownerVersion: Long, version: Long, thanOwnerVersion: Long, thanVersion: Long): Boolean =
+        ownerVersion > thanOwnerVersion || (ownerVersion == thanOwnerVersion && version > thanVersion)
 
     /** [next], the state [actor] made from [state], one version on; and one of the owner's on, if [actor] is the owner. */
     fun versioned(state: GroupState, actor: String, next: GroupState): GroupState = next.copy(
@@ -386,33 +396,46 @@ object GroupPolicy {
 
     /**
      * Whether [incoming], a state from [sender], raises no one beyond what [apply] lets [sender] do, judged by the
-     * rights and ranks [current] gives them: it is built on the owner's state ours is, so the owner's next one undoes
-     * it, as [newer] orders them, and is not far ahead; only the owner hands the group over; rights come
-     * only from those [sender] has; the roles at and above [sender]'s own stay as they are; an admin, once made,
-     * changes only by the owner, or downward by themselves; and no one is removed, or loses a role, but by one who may
-     * do that to them.
+     * rights and ranks [current] gives them: it is numbered as [reaches] lets it; only the owner hands the group over;
+     * rights come only from those [sender] has; the roles at and above [sender]'s own stay as they are; an admin, once
+     * made, changes only by the owner, or downward by themselves; and no one is removed, or loses a role, but by one who
+     * may do that to them.
      */
     fun admitsRights(current: GroupState, incoming: GroupState, sender: String): Boolean =
-        current.roleOf(sender) == GroupRole.Owner || (
-            incoming.ownerVersion == current.ownerVersion &&
-                withinReach(current, incoming) &&
+        reaches(current, incoming, sender) && (
+            current.roleOf(sender) == GroupRole.Owner || (
                 owners(incoming) == owners(current) &&
-                memberRightsGiven(current, incoming, sender) &&
-                rolesAboveKept(current, incoming, sender) &&
-                roleRightsGiven(current, incoming, sender) &&
-                adminsKept(current, incoming, sender) &&
-                removedWithRight(current, incoming, sender) &&
-                rolesTakenWithRight(current, incoming, sender)
+                    memberRightsGiven(current, incoming, sender) &&
+                    rolesAboveKept(current, incoming, sender) &&
+                    roleRightsGiven(current, incoming, sender) &&
+                    adminsKept(current, incoming, sender) &&
+                    removedWithRight(current, incoming, sender) &&
+                    rolesTakenWithRight(current, incoming, sender)
+                )
             )
+
+    /**
+     * Whether [incoming], from [sender], is numbered as a state built on one [current] follows: anyone's but the owner's
+     * on the owner's state ours is, so that the owner's next one undoes it, as [newer] orders them, and at most
+     * [MAX_VERSION_STEP] ahead; the owner's at most [OWNER_REACH] ahead. Compared so that no count, however large,
+     * wraps around.
+     */
+    fun reaches(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        if (current.roleOf(sender) == GroupRole.Owner) {
+            incoming.ownerVersion - OWNER_REACH <= current.ownerVersion && incoming.version - OWNER_REACH <= current.version
+        } else {
+            incoming.ownerVersion == current.ownerVersion && incoming.version - MAX_VERSION_STEP <= current.version
+        }
 
     /**
      * Whether [incoming], a state from [sender], changes the rest of the group only as [apply] and the joining of
      * newcomers let [sender]: the details, what every member may do, the invites and who joined by them, the bans,
-     * the channels and the roles each only with the right to. Members keep their order, so the admin who keeps the
-     * closed voice channels' keys is not someone else's to pick, and newcomers come after them; no one is there
-     * twice. The journal gains at most [sender]'s own line, [journalGrown], unless [sender] may read it: two managers
-     * who changed the group at once each made a state the other's does not follow, and the newer one, taken in place
-     * of the other, has the lines its side wrote where ours has ours, [journalBeside]. The owner may do all of it.
+     * the channels and the roles each only with the right to, and no more channels than [MAX_CHANNELS] unless there
+     * were. Members keep their order, so the admin who keeps the closed voice channels' keys is not someone else's to
+     * pick, and newcomers come after them; no one is there twice. The journal gains only [sender]'s own lines,
+     * [journalGrown], unless [sender] may read it: two managers who changed the group at once each made a state the
+     * other's does not follow, and the newer one, taken in place of the other, has the lines its side wrote where ours
+     * has ours, [journalBeside]. The owner may do all of it.
      */
     fun admitsEdits(current: GroupState, incoming: GroupState, sender: String): Boolean {
         if (current.roleOf(sender) == GroupRole.Owner) return true
@@ -424,10 +447,12 @@ object GroupPolicy {
             if (arranged(current, incoming) != current.channels) add(Right.Channels)
             if (incoming.roles != current.roles) add(Right.Roles)
         }
-        val journal = journalGrown(current, incoming, sender) || (can(current, sender, Right.Journal) && journalBeside(current, incoming))
+        val journal = journalGrown(current, incoming, sender) ||
+            (can(current, sender, Right.Journal) && journalBeside(current, incoming, sender))
         return journal &&
             needed.all { can(current, sender, it) } &&
             newcomers.none { it.username in incoming.banned } &&
+            incoming.channels.size <= maxOf(MAX_CHANNELS, current.channels.size) &&
             isWellFormed(incoming) &&
             orderKept(current, incoming)
     }
@@ -454,33 +479,49 @@ object GroupPolicy {
     }
 
     /**
-     * The journal is [current]'s, or [current]'s with one line more, [sender]'s own, the oldest pushed out past [MAX_LOG]
-     * as [logged] does: no line is changed or taken out, and none is made up in someone else's name. A state that
-     * skipped some is taken after them, each with its own line.
+     * The journal is [current]'s, or [current]'s with lines of [sender]'s own, the oldest pushed out past [MAX_LOG] as
+     * [logged] does: no line is changed or taken out, and none is made up in someone else's name, nor a hand-over. A state
+     * that skipped [sender]'s own, which this phone missed or let go of, has a line for each: at most one a version.
      */
-    private fun journalGrown(current: GroupState, incoming: GroupState, sender: String): Boolean =
-        incoming.log == current.log ||
-            (incoming.log.lastOrNull()?.actor == sender && incoming.log.dropLast(1) == current.log.takeLast(MAX_LOG - 1))
+    private fun journalGrown(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        val ours = current.log
+        val theirs = incoming.log
+        if (theirs == ours) return true
+        val own = trailing(theirs) { it.actor == sender && it.action != LogAction.Owner }
+        val ahead = (incoming.version - current.version).coerceIn(0, MAX_VERSION_STEP).toInt()
+        return (1..minOf(own, ahead)).any { added ->
+            val kept = minOf(ours.size, MAX_LOG - added)
+            theirs.size - added == kept && theirs.subList(0, kept) == ours.subList(ours.size - kept, ours.size)
+        }
+    }
 
     /**
      * Whether [incoming]'s journal was made beside ours: it has our lines up to where the two sides parted, the oldest
-     * pushed out past [MAX_LOG] on either side, and then lines of its own in place of ours. What it lacks is the lines
-     * of states made at the same time as its side's, never the owner's, whose states both sides are built on; and it
-     * has at most one line more than it lacks, its sender's own, as each side wrote one line a state.
+     * pushed out past [MAX_LOG] on either side, and then lines of its own in place of ours. What it lacks and what it
+     * adds are lines of states made at the same time as its side's: never the owner's, whose states both sides are built
+     * on, nor a hand-over, which only an owner writes. It has at most one line more than it lacks, and that one is its
+     * [sender]'s own, as each side wrote one line a state.
      */
-    private fun journalBeside(current: GroupState, incoming: GroupState): Boolean {
+    private fun journalBeside(current: GroupState, incoming: GroupState, sender: String): Boolean {
         val ours = current.log
         val theirs = incoming.log
         val owners = owners(current)
+        fun shared(line: LogEntry) = line.actor in owners || line.action == LogAction.Owner
+        val made = trailing(theirs) { !shared(it) }
         for (dropped in 1..ours.size) {
-            if (ours[ours.size - dropped].actor in owners) return false
+            if (shared(ours[ours.size - dropped])) return false
             val base = ours.subList(0, ours.size - dropped)
-            for (added in 0..minOf(theirs.size, dropped + 1)) {
+            for (added in 0..minOf(made, dropped + 1)) {
+                if (added > dropped && theirs.last().actor != sender) continue
                 if (parted(base, theirs.subList(0, theirs.size - added), dropped, ours.size, theirs.size)) return true
             }
         }
         return false
     }
+
+    /** How many lines at the end of [log] are [such]. */
+    private fun trailing(log: List<LogEntry>, such: (LogEntry) -> Boolean): Int =
+        log.asReversed().indexOfFirst { !such(it) }.let { if (it < 0) log.size else it }
 
     /**
      * Whether [head], what a journal of [theirsSize] lines keeps before its own, is [base], ours before the lines it
@@ -497,9 +538,6 @@ object GroupPolicy {
     /** Whether [actor] may remove or ban [username]: only with the right, and only someone below them. */
     fun removes(state: GroupState, actor: String, username: String): Boolean =
         can(state, actor, Right.Ban) && rank(state, username) > rank(state, actor)
-
-    /** At most [MAX_VERSION_STEP] ahead, compared so that no version, however large, wraps around. */
-    private fun withinReach(current: GroupState, incoming: GroupState) = incoming.version - MAX_VERSION_STEP <= current.version
 
     private fun owners(state: GroupState) = state.members.filter { it.role == GroupRole.Owner }.map { it.username }
 

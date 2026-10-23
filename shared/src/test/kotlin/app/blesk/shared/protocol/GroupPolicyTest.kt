@@ -400,7 +400,8 @@ class GroupPolicyTest {
         // ahead the state is, each state between wrote its own line, and those come first.
         val twice = once.copy(log = once.log.drop(1) + LogEntry(NOW, "eve", LogAction.Channel, "c1"))
         assertFalse(GroupPolicy.admits(full, twice, "eve"))
-        assertFalse(GroupPolicy.admits(full, twice.copy(version = full.version + 2), "eve"))
+        val thrice = twice.copy(log = twice.log.drop(1) + LogEntry(NOW, "eve", LogAction.Channel, "c1"))
+        assertFalse(GroupPolicy.admits(full, thrice.copy(version = full.version + 2), "eve"))
         assertFalse(GroupPolicy.admits(full, once.copy(log = once.log.dropLast(2) + once.log.last()), "eve"))
         // Nor is a line in someone else's name hers to write.
         val blaming = once.copy(log = full.log.drop(1) + LogEntry(NOW, "owner", LogAction.Banned, "anya"))
@@ -426,6 +427,64 @@ class GroupPolicyTest {
             List(GroupPolicy.MAX_LOG) { made },
         )
         rewritten.forEach { log -> assertFalse("$log", GroupPolicy.admits(evesFirst, adminsNext.copy(log = log), "admin")) }
+    }
+
+    @Test
+    fun aStateThatSkippedItsSendersOwnCarriesALineForEach() {
+        // This phone missed Eve's first rename, or let it go: her next state has both her lines, one a version.
+        val full = fullJournal()
+        val first = applied(GroupPolicy.apply(full, "eve", GroupChange.RenameChannel("c1", "главное"), NOW))
+        val second = applied(GroupPolicy.apply(first, "eve", GroupChange.RenameChannel("c1", "лобби"), NOW))
+        assertTrue(GroupPolicy.admits(full, second, "eve"))
+        // Still no line in someone else's name among them.
+        val blaming = second.copy(log = second.log.dropLast(2) + LogEntry(NOW, "admin", LogAction.Banned, "anya") + second.log.last())
+        assertFalse(GroupPolicy.admits(full, blaming, "eve"))
+    }
+
+    @Test
+    fun aJournalReaderMakesUpNoOwnersLineAndKeepsTheHandOver() {
+        val full = fullJournal()
+        val evesFirst = applied(GroupPolicy.apply(full, "eve", GroupChange.RenameChannel("c1", "главное"), NOW))
+        // In place of Eve's line: one in the owner's name, a hand-over that never was, or two lines the last of which is
+        // not the admin's own.
+        val made = listOf(
+            listOf(LogEntry(NOW, "owner", LogAction.Banned, "anya")),
+            listOf(LogEntry(NOW, "anya", LogAction.Owner, "admin")),
+            listOf(LogEntry(NOW, "admin", LogAction.Channel, "c1"), LogEntry(NOW, "eve", LogAction.Banned, "anya")),
+        )
+        made.forEach { lines ->
+            val log = (evesFirst.log.dropLast(1) + lines).takeLast(GroupPolicy.MAX_LOG)
+            assertFalse("$lines", GroupPolicy.admits(evesFirst, evesFirst.copy(version = evesFirst.version + 1, log = log), "admin"))
+        }
+        // Once the owner hands the room over, the line saying so stays, though its writer is the owner no more.
+        val handed = applied(GroupPolicy.apply(full, "owner", GroupChange.TransferOwnership("anya"), NOW))
+        val erased = handed.copy(
+            version = handed.version + 1,
+            log = handed.log.dropLast(1) + LogEntry(NOW, "admin", LogAction.Channel, "c1"),
+        )
+        assertFalse(GroupPolicy.admits(handed, erased, "admin"))
+    }
+
+    @Test
+    fun noManagersStateHoldsMoreChannelsThanARoomMay() {
+        val many = helped.copy(
+            version = helped.version + 1,
+            channels = helped.channels + List(GroupPolicy.MAX_CHANNELS) { GroupChannel("x$it", "лишний $it") },
+        )
+        assertFalse(GroupPolicy.admits(helped, many, "eve"))
+        assertTrue(GroupPolicy.admits(helped, many, "owner"))
+        // A room the owner filled past it loses channels by anyone who may arrange them.
+        assertTrue(GroupPolicy.admits(many, many.copy(version = many.version + 1, channels = many.channels.dropLast(1)), "eve"))
+    }
+
+    @Test
+    fun noOwnerNumbersTheRoomBeyondTheNextOnesReach() {
+        // Handing the room over, the owner could leave it numbered so far on that no state of the next one's follows.
+        val handed = applied(GroupPolicy.apply(guarded, "owner", GroupChange.TransferOwnership("anya"), NOW))
+        assertFalse(GroupPolicy.admits(guarded, handed.copy(ownerVersion = Long.MAX_VALUE), "owner"))
+        assertFalse(GroupPolicy.admits(guarded, handed.copy(version = Long.MAX_VALUE), "owner"))
+        // A phone that missed a great many states still takes the owner's next one.
+        assertTrue(GroupPolicy.admits(guarded, handed.copy(ownerVersion = 1_000, version = 100_000), "owner"))
     }
 
     @Test
