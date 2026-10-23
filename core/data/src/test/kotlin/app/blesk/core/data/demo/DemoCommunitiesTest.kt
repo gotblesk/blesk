@@ -70,6 +70,7 @@ class DemoCommunitiesTest {
         assertEquals(SpaceResult.HandleTaken, demo.createSpace(SpaceKind.Channel, "hike", "Ещё", "").first)
         assertEquals(SpaceResult.HandleTaken, demo.createSpace(SpaceKind.Room, "anya", "Аня", "").first)
         assertEquals(SpaceResult.HandleInvalid, demo.createSpace(SpaceKind.Room, "a!", "x", "").first)
+        assertEquals(SpaceResult.HandleInvalid, demo.createSpace(SpaceKind.Channel, "b1esk", "x", "").first)
         assertTrue(demo.deleteSpace("hike"))
         assertFalse(demo.isSpace(id))
     }

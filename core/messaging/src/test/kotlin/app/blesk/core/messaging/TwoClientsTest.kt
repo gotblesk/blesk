@@ -8,6 +8,7 @@ import app.blesk.core.crypto.signal.GroupCrypto
 import app.blesk.core.crypto.signal.KeyManager
 import app.blesk.core.crypto.signal.MessageCrypto
 import app.blesk.core.crypto.signal.SignalStore
+import app.blesk.core.data.SpaceResult
 import app.blesk.core.data.calls.CallSignal
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.diagnostics.EventLog
@@ -39,6 +40,7 @@ import app.blesk.shared.protocol.OutgoingMessage
 import app.blesk.shared.protocol.Post
 import app.blesk.shared.protocol.RoomRole
 import app.blesk.shared.protocol.ServerFrame
+import app.blesk.shared.protocol.SpaceKind
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -777,6 +779,17 @@ class TwoClientsTest {
         assertEquals("Алиса", alicesRow.name)
         assertTrue(alicesRow.added)
         eventually { runBlocking { bob.repo.conversation("alice").first() }?.takeIf { it.title == "Алиса" } }
+    }
+
+    @Test
+    fun aServiceHandleIsRefusedOnThePhone() {
+        val alice = Client("alice", "Алиса")
+        alice.register()
+        // This server has no spaces route: a request would come back as a failure, not as an invalid handle.
+        for (handle in listOf("blesk", "support24", "mine")) {
+            val result = runBlocking { alice.repo.createSpace(SpaceKind.Channel, handle, "x", "") }
+            assertEquals(handle, SpaceResult.HandleInvalid to null, result)
+        }
     }
 
     @Test

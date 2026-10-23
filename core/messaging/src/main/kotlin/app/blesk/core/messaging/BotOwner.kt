@@ -16,7 +16,7 @@ internal class BotOwner(private val api: BleskApi) : BotAccounts {
 
     override suspend fun createBot(username: String, name: String, about: String): Pair<BotResult, BotWithToken?> {
         val handle = username.trim().lowercase().removePrefix("@").let { if (it.endsWith(Bots.SUFFIX)) it else it + Bots.SUFFIX }
-        if (!Bots.isValidUsername(handle)) return BotResult.NameInvalid to null
+        if (!Bots.isValidUsername(handle) || Bots.isReservedName(handle)) return BotResult.NameInvalid to null
         return try {
             val created = api.createBot(CreateBot(handle, name.trim().take(MAX_BOT_NAME), about.trim()))
             BotResult.Ok to BotWithToken(created.bot, created.token)

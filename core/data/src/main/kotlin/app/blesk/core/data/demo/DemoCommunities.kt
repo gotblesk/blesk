@@ -161,7 +161,7 @@ internal class DemoCommunities(
     override suspend fun joinSpace(handle: String): String? = (SPACE_PREFIX + handle).takeIf { handle in spaces.value }
 
     override suspend fun createSpace(kind: SpaceKind, handle: String, title: String, about: String): Pair<SpaceResult, String?> {
-        if (!Spaces.isValidHandle(handle)) return SpaceResult.HandleInvalid to null
+        if (!Spaces.isValidHandle(handle) || Spaces.isReservedHandle(handle)) return SpaceResult.HandleInvalid to null
         if (handle in spaces.value || people.any { it.username == handle }) return SpaceResult.HandleTaken to null
         val channels = if (kind == SpaceKind.Room) listOf(SpaceChannel(shortId(), texts.textChannel)) else emptyList()
         val info = SpaceInfo(

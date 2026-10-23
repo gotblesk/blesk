@@ -779,13 +779,13 @@ class ServerChatRepository(
     }.getOrNull()
 
     override suspend fun createSpace(kind: SpaceKind, handle: String, title: String, about: String): Pair<SpaceResult, String?> {
-        if (!Spaces.isValidHandle(handle)) return SpaceResult.HandleInvalid to null
+        if (!Spaces.isValidHandle(handle) || Spaces.isReservedHandle(handle)) return SpaceResult.HandleInvalid to null
         return try {
             val info = api.createSpace(CreateSpace(handle, kind, title.trim().take(Spaces.MAX_TITLE), about.trim().take(Spaces.MAX_ABOUT)))
             spaces.remember(info)
             SpaceResult.Ok to SpaceEngine.PREFIX + info.handle
         } catch (e: ApiException) {
-            (if (e.code == "handle_taken") SpaceResult.HandleTaken else SpaceResult.Failed) to null
+            e.spaceResult() to null
         } catch (_: IOException) {
             SpaceResult.Failed to null
         }
@@ -1169,4 +1169,12 @@ internal fun applyReaction(entries: List<ReactionEntry>, user: String, symbol: S
         }
     }
     return updated.filter { it.users.isNotEmpty() }
+}
+
+/** What the server's refusal to create a space means to the person who asked for it. */
+internal fun ApiException.spaceResult(): SpaceResult = when (code) {
+    "handle_taken" -> SpaceResult.HandleTaken
+    // A server whose rules for handles are newer than this app's.
+    "invalid_handle" -> SpaceResult.HandleInvalid
+    else -> SpaceResult.Failed
 }
