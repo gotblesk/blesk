@@ -201,6 +201,8 @@ class SetupStepsTest {
         // Each example is one stop for TalkBack, its kind of protection read with its name.
         compose.onNode(hasText("Личный чат") and hasText("Сквозное шифрование")).assertExists()
         compose.onNode(hasText("Канал") and hasText("Без сквозного шифрования")).assertExists()
+        // One claim per example, in the brief's words: a second, shorter one would say less than the truth.
+        compose.onNodeWithText("без шифрования").assertDoesNotExist()
     }
 
     @Test

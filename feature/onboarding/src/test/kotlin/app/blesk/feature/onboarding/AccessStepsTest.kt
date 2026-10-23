@@ -16,6 +16,8 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -175,9 +177,16 @@ class AccessStepsTest {
     }
 
     @Test
+    fun theInviteStepIsCalledAsTheBriefCallsIt() {
+        invite()
+        compose.onNode(hasText("Инвайт-код") and isHeading()).assertExists()
+        compose.onNodeWithContentDescription(INVITE_FIELD).assertExists()
+    }
+
+    @Test
     fun theCodeIsTypedInTheMiddleAndSentAtTheBottom() {
         invite()
-        assertTypedWhereTheSmokeTestTypes("Инвайт-код")
+        assertTypedWhereTheSmokeTestTypes(INVITE_FIELD)
         assertAtTheBottom("Дальше")
         assertReachable("invite")
     }
@@ -185,15 +194,15 @@ class AccessStepsTest {
     @Test
     fun aPastedInviteLinkBecomesItsCode() {
         invite()
-        compose.onNodeWithContentDescription("Инвайт-код").performTextReplacement("Заходи: https://blesk.su/i/k7m2p9xq4tzd")
-        compose.onNodeWithContentDescription("Инвайт-код").assertTextEquals(CODE)
+        compose.onNodeWithContentDescription(INVITE_FIELD).performTextReplacement("Заходи: https://blesk.su/i/k7m2p9xq4tzd")
+        compose.onNodeWithContentDescription(INVITE_FIELD).assertTextEquals(CODE)
     }
 
     @Test
     fun aCodeTypedInCapitalsBecomesSmall() {
         invite()
-        compose.onNodeWithContentDescription("Инвайт-код").performTextInput("K7M2")
-        compose.onNodeWithContentDescription("Инвайт-код").assertTextEquals("k7m2")
+        compose.onNodeWithContentDescription(INVITE_FIELD).performTextInput("K7M2")
+        compose.onNodeWithContentDescription(INVITE_FIELD).assertTextEquals("k7m2")
     }
 
     @Test
@@ -203,17 +212,17 @@ class AccessStepsTest {
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(message)
         invite()
         compose.onNodeWithText("Вставить").performClick()
-        compose.onNodeWithContentDescription("Инвайт-код").assertTextEquals(CODE)
+        compose.onNodeWithContentDescription(INVITE_FIELD).assertTextEquals(CODE)
     }
 
     @Test
     fun aBadCodeIsRefusedBeforeTheServer() {
         invite()
-        compose.onNodeWithContentDescription("Инвайт-код").performTextInput("abc")
+        compose.onNodeWithContentDescription(INVITE_FIELD).performTextInput("abc")
         compose.onNodeWithText("Дальше").performClick()
         assertEquals(emptyList<String>(), done)
         compose.onNodeWithText(INVALID).assertExists()
-        compose.onNodeWithContentDescription("Инвайт-код").performTextInput("d")
+        compose.onNodeWithContentDescription(INVITE_FIELD).performTextInput("d")
         compose.onNodeWithText(INVALID).assertDoesNotExist()
     }
 
@@ -236,8 +245,8 @@ class AccessStepsTest {
     @Test
     fun aRightCodeGoesOn() {
         invite()
-        compose.onNodeWithContentDescription("Инвайт-код").performTextInput(CODE)
-        compose.onNodeWithContentDescription("Инвайт-код").performImeAction()
+        compose.onNodeWithContentDescription(INVITE_FIELD).performTextInput(CODE)
+        compose.onNodeWithContentDescription(INVITE_FIELD).performImeAction()
         assertEquals(listOf("next:$CODE"), done)
     }
 
@@ -307,6 +316,7 @@ class AccessStepsTest {
     }
 
     private companion object {
+        const val INVITE_FIELD = "Код или ссылка"
         const val LONG_HOST = "messenger.my-company-name.example.org"
         const val LARGE_FONT = 1.3f
         const val CODE = "k7m2p9xq4tzd"

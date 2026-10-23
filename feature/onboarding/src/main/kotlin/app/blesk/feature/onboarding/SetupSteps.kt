@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import app.blesk.core.design.component.Avatar
 import app.blesk.core.design.component.CheckRow
 import app.blesk.core.design.component.Icon
-import app.blesk.core.design.component.NotEncryptedTag
 import app.blesk.core.design.component.ScrollScreen
 import app.blesk.core.design.component.Text
 import app.blesk.core.design.fire.lightSweep
@@ -133,11 +132,11 @@ fun GlintStepScreen(
                 },
                 mark = { Icon(BleskIcons.Lock, contentDescription = null, tint = Blesk.colors.textSecondary, size = 18.dp) },
             )
+            // No mark here: the words under the title already say it, as the brief says it.
             Example(
                 title = stringResource(R.string.onboarding_glint_public),
                 note = stringResource(R.string.onboarding_glint_public_note),
                 avatar = { Avatar(it, key = EXAMPLE_FACE) },
-                mark = { NotEncryptedTag() },
             )
         }
         if (channel) {
@@ -154,7 +153,7 @@ fun GlintStepScreen(
 
 /** One chat of the glint's lesson, on the page itself rather than a card; TalkBack reads it as one line. */
 @Composable
-private fun Example(title: String, note: String, avatar: @Composable (String) -> Unit, mark: @Composable () -> Unit) {
+private fun Example(title: String, note: String, avatar: @Composable (String) -> Unit, mark: (@Composable () -> Unit)? = null) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -169,7 +168,7 @@ private fun Example(title: String, note: String, avatar: @Composable (String) ->
             Text(title, style = Blesk.type.bodyStrong)
             Text(note, style = Blesk.type.label, color = Blesk.colors.textSecondary, modifier = Modifier.padding(top = 2.dp))
         }
-        mark()
+        mark?.invoke()
     }
 }
 
