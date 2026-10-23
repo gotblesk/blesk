@@ -76,7 +76,14 @@ for _ in $(seq 60); do
     sleep 2
 done
 [[ $taken == false ]] || fail "the server has no account $username"
-journal=$(adb logcat -d -s blesk:I)
-[[ $journal == *ServerRegistered* ]] || fail "the app never logged ServerRegistered"
+# The server holds the name as soon as the account is made; the app logs only after it has also put its
+# keys there, so its log is waited for too.
+registered=
+for _ in $(seq 30); do
+    journal=$(adb logcat -d -s blesk:I)
+    [[ $journal == *ServerRegistered* ]] && registered=1 && break
+    sleep 2
+done
+[[ -n $registered ]] || fail "the app never logged ServerRegistered"
 shot registered
 echo "smoke test passed: @$username signed up on the test server"
