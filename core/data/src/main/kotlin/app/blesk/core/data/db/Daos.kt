@@ -306,8 +306,15 @@ interface SignalStateDao {
 /** How many messages a group may have waiting for its state; the oldest go first. */
 const val MAX_HELD_PER_GROUP = 200
 
+/**
+ * How many refused states of a group this phone keeps from one sender, and from all: each is judged again whenever
+ * another state is taken, so their number bounds that work, and one sender's flood does not push out the others'.
+ */
+const val MAX_REFUSED_PER_SENDER = 4
+const val MAX_REFUSED_PER_GROUP = 32
+
 @Dao
-@Suppress("TooManyFunctions") // the group, our sender keys and the messages waiting for its state live together
+@Suppress("TooManyFunctions") // the group, our sender keys and what waits for its state live together
 interface GroupDao {
     @Query("SELECT * FROM groups WHERE id = :id")
     suspend fun get(id: String): GroupEntity?
@@ -374,15 +381,55 @@ interface GroupDao {
     @Query("DELETE FROM held_group_messages WHERE groupId = :groupId")
     suspend fun deleteHeld(groupId: String)
 
-    /** What [groupId] holds that is newer than [version], oldest first: a state's turn comes after the one before it. */
-    @Query("SELECT * FROM held_group_messages WHERE groupId = :groupId AND version > :version ORDER BY version ASC, id ASC")
-    suspend fun heldAfter(groupId: String, version: Long): List<HeldGroupMessageEntity>
-
-    @Query("DELETE FROM held_group_messages WHERE id = :id")
-    suspend fun unhold(id: Long)
-
     @Query("DELETE FROM held_group_messages WHERE heldAt < :at")
     suspend fun dropHeldBefore(at: Long)
+
+    @Insert
+    suspend fun insertRefused(state: RefusedGroupStateEntity): Long
+
+    @Query(
+        "DELETE FROM refused_group_states WHERE groupId = :groupId AND sender = :sender AND id NOT IN " +
+            "(SELECT id FROM refused_group_states WHERE groupId = :groupId AND sender = :sender ORDER BY id DESC LIMIT :keep)",
+    )
+    suspend fun trimRefusedFrom(groupId: String, sender: String, keep: Int)
+
+    @Query(
+        "DELETE FROM refused_group_states WHERE groupId = :groupId AND id NOT IN " +
+            "(SELECT id FROM refused_group_states WHERE groupId = :groupId ORDER BY id DESC LIMIT :keep)",
+    )
+    suspend fun trimRefused(groupId: String, keep: Int)
+
+    /** Keeps [state], and only the newest [MAX_REFUSED_PER_SENDER] of its sender and [MAX_REFUSED_PER_GROUP] of its group. */
+    @Transaction
+    suspend fun keepRefused(state: RefusedGroupStateEntity) {
+        insertRefused(state)
+        trimRefusedFrom(state.groupId, state.sender, MAX_REFUSED_PER_SENDER)
+        trimRefused(state.groupId, MAX_REFUSED_PER_GROUP)
+    }
+
+    /** The kept states of [groupId] newer than one at [ownerVersion] and [version], oldest first. */
+    @Query(
+        "SELECT * FROM refused_group_states WHERE groupId = :groupId AND " +
+            "(ownerVersion > :ownerVersion OR (ownerVersion = :ownerVersion AND version > :version)) " +
+            "ORDER BY ownerVersion ASC, version ASC, id ASC",
+    )
+    suspend fun refusedAfter(groupId: String, ownerVersion: Long, version: Long): List<RefusedGroupStateEntity>
+
+    /** Lets go of the kept states of [groupId] no newer than one at [ownerVersion] and [version]: none will be taken. */
+    @Query(
+        "DELETE FROM refused_group_states WHERE groupId = :groupId AND " +
+            "(ownerVersion < :ownerVersion OR (ownerVersion = :ownerVersion AND version <= :version))",
+    )
+    suspend fun dropRefusedUpTo(groupId: String, ownerVersion: Long, version: Long)
+
+    @Query("DELETE FROM refused_group_states WHERE id = :id")
+    suspend fun unkeepRefused(id: Long)
+
+    @Query("DELETE FROM refused_group_states WHERE groupId = :groupId")
+    suspend fun deleteRefused(groupId: String)
+
+    @Query("DELETE FROM refused_group_states WHERE keptAt < :at")
+    suspend fun dropRefusedBefore(at: Long)
 
     @Query("SELECT * FROM voice_keys WHERE groupId = :groupId AND channelId = :channelId")
     suspend fun voiceKey(groupId: String, channelId: String): VoiceKeyEntity?

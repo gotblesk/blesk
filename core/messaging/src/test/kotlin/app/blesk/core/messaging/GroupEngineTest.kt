@@ -10,6 +10,7 @@ import app.blesk.core.data.calls.VoiceAccess
 import app.blesk.core.data.db.BleskDatabase
 import app.blesk.core.data.db.HeldGroupMessageEntity
 import app.blesk.core.data.db.LeftGroupEntity
+import app.blesk.core.data.db.MAX_HELD_PER_GROUP
 import app.blesk.core.data.db.MessageEntity
 import app.blesk.core.data.db.OutboxEntity
 import app.blesk.core.data.model.Attachment
@@ -756,6 +757,118 @@ class GroupEngineTest {
     }
 
     @Test
+    fun theOwnersNextStateIsTakenHoweverFarAManagerCarriedTheVersion() = runBlocking {
+        val room = guardedRoom()
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+        // Carol sent everyone but Bob a state as far ahead as one may be. Bob's phone never saw it, and his next state
+        // is built on the one before.
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("carol", room.copy(version = room.version + GroupPolicy.MAX_VERSION_STEP)))
+        val removed = requireNotNull(GroupPolicy.apply(room, "bob", GroupChange.Remove("carol"), clock()))
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", removed))
+        assertNull(engine.state(ROOM)?.roleOf("carol"))
+    }
+
+    @Test
+    fun anAdminsStateBuiltBesideTheOwnersDoesNotUndoIt() = runBlocking {
+        val room = roomOf(version = 1).let { it.copy(members = it.members + GroupMember("lena", GroupRole.Admin)) }
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+        // Bob bans Carol. At the same moment Lena, an admin with every right, renames a channel, and then changes it again
+        // on her own state, where Carol is still here.
+        val banned = requireNotNull(GroupPolicy.apply(room, "bob", GroupChange.Ban("carol"), clock()))
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", banned))
+        val renamed = requireNotNull(GroupPolicy.apply(room, "lena", GroupChange.RenameChannel(OPEN_ID, MAIN), clock()))
+        val again = requireNotNull(GroupPolicy.apply(renamed, "lena", GroupChange.RenameChannel(OPEN_ID, "лобби"), clock()))
+        assertNotEquals(UpdateOutcome.Taken, engine.onUpdate("lena", again))
+        assertNull(engine.state(ROOM)?.roleOf("carol"))
+        assertTrue("carol" in engine.state(ROOM)!!.banned)
+    }
+
+    @Test
+    fun aGroupMessageCarryingAStateIsNeverTakenAsOne() = runBlocking {
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", roomOf(version = 1)))
+        // Carol writes into the room, as from a channel it does not have yet, a message that is a state of a group of hers
+        // with us in it: it waits for the room's next state.
+        val hers = UUID.randomUUID().toString()
+        val group = GroupState(
+            id = hers,
+            kind = GroupKind.Group,
+            title = "Чужая",
+            version = 1,
+            epoch = 0,
+            members = listOf(GroupMember("carol", GroupRole.Owner), GroupMember(ME, GroupRole.Member)),
+        )
+        val conversation = GroupEngine.channelConversation(ROOM, "later")
+        val message = Content(UUID.randomUUID().toString(), 1, Body.GroupUpdate(group), group = conversation, groupVersion = 1000)
+        assertEquals(Admission.Hold, engine.admission(engine.state(ROOM)!!, conversation, "carol", message))
+        engine.hold("carol", message)
+
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", roomOf(version = 2)))
+        assertNull(engine.state(hers))
+    }
+
+    @Test
+    fun refusedStatesPushOutNoHeldMessage() = runBlocking {
+        val room = guardedRoom()
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+        // Dave wrote in the closed channel, which Bob's next state opens to us.
+        val closed = GroupEngine.channelConversation(ROOM, CLOSED_ID)
+        engine.hold("dave", Content(UUID.randomUUID().toString(), 1, Body.Text("тайна"), group = closed, groupVersion = 2))
+        // Carol, who may ban but not rename the room, keeps sending states that rename it.
+        repeat(MAX_HELD_PER_GROUP + 10) { step ->
+            assertEquals(UpdateOutcome.Refused, engine.onUpdate("carol", room.copy(version = 2L + step, title = "Чужой $step")))
+        }
+
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room.copy(version = 2, members = room.members.map {
+            if (it.username == ME) it.copy(roles = listOf(MODS)) else it
+        })))
+        assertEquals(listOf("тайна"), engine.released(ROOM).map { (it.content.body as Body.Text).text })
+    }
+
+    @Test
+    fun aNewAdminsFirstStateWaitsForTheStateThatMadeThemOne() = runBlocking {
+        val room = roomOf(version = 1)
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+        // Bob makes Dave an admin, and Dave at once renames a channel; Dave's state reaches us first.
+        val promoted = requireNotNull(GroupPolicy.apply(room, "bob", GroupChange.Admin("dave", setOf(Right.Channels)), clock()))
+        val renamed = requireNotNull(GroupPolicy.apply(promoted, "dave", GroupChange.RenameChannel(OPEN_ID, MAIN), clock()))
+        assertNotEquals(UpdateOutcome.Taken, engine.onUpdate("dave", renamed))
+
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", promoted))
+        assertEquals(renamed, engine.state(ROOM))
+    }
+
+    @Test
+    fun aPlainMemberMakesNoStateTheOthersWouldIgnore() = runBlocking {
+        engine.onUpdate("bob", stateOf(1, GroupMember("bob", GroupRole.Owner), GroupMember(ME, GroupRole.Member)))
+        // Every member may invite, but no phone takes a state from one who manages nothing: ours would go its own way.
+        assertFalse(engine.change(GROUP, GroupChange.NewInvite(GroupInvite.fresh("Друзья", expiresAt = null, limit = null))))
+        assertEquals(1L, engine.state(GROUP)?.version)
+    }
+
+    @Test
+    fun aRoomComesFromAModeratorWhoMayInvite() = runBlocking {
+        // Dave's moderators' role may ban, so he manages the room, and he may invite as every member may: we came by his
+        // link. Carol, who manages nothing, brings no one in.
+        val room = roomOf(version = 1).let { state -> state.copy(roles = state.roles.map { it.copy(rights = setOf(Right.Ban)) }) }
+        assertEquals(UpdateOutcome.Ignored, engine.onUpdate("carol", room))
+        assertNull(engine.state(ROOM))
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("dave", room))
+        assertNotNull(engine.state(ROOM))
+    }
+
+    @Test
+    fun theLastTextChannelStaysAndAFullRoomTakesNoMore() = runBlocking {
+        val room = engine.create(GroupKind.Room, "Клуб", listOf("bob"))
+        val text = engine.state(room)!!.channels.single { it.kind == GroupChannelKind.Text }
+        assertFalse(engine.removeChannel(room, text.id))
+        while (engine.state(room)!!.channels.size < GroupPolicy.MAX_CHANNELS) {
+            assertTrue(engine.addChannel(room, "ещё", GroupChannelKind.Text, adminsOnly = false))
+        }
+        assertFalse(engine.addChannel(room, "лишний", GroupChannelKind.Text, adminsOnly = false))
+        assertEquals(GroupPolicy.MAX_CHANNELS, engine.state(room)!!.channels.size)
+    }
+
+    @Test
     fun losingAChannelTakesItsMessagesAndFilesOffThePhone() = runBlocking {
         engine.onUpdate("bob", roomOf(version = 1))
         val open = GroupEngine.channelConversation(ROOM, OPEN_ID)
@@ -1068,6 +1181,17 @@ class GroupEngineTest {
         ),
         roles = listOf(RoomRole(MODS, "Модераторы")),
     )
+
+    /** [roomOf] where Carol's guards' role may ban, and so manage the room, and do nothing else of it. */
+    private fun guardedRoom(): GroupState {
+        val guards = RoomRole("guards", "Охрана", rights = setOf(Right.Ban))
+        return roomOf(version = 1, ourRoles = emptyList()).let { state ->
+            state.copy(
+                roles = state.roles + guards,
+                members = state.members.map { if (it.username == "carol") it.copy(roles = listOf(guards.id)) else it },
+            )
+        }
+    }
 
     private fun reaction() = Content(UUID.randomUUID().toString(), 1, Body.Reaction("m1", "+"))
 

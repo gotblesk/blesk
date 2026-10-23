@@ -126,8 +126,7 @@ data class GroupSenderKeyEntity(
 
 /**
  * A group message this phone may not read yet, from a sender whose state of the group is newer: kept until that state
- * arrives, for a while at most, and never shown, indexed or announced meanwhile. A state of the group refused while
- * ours was behind waits here too, as a group update, to be tried again.
+ * arrives, for a while at most, and never shown, indexed or announced meanwhile.
  */
 @Entity(tableName = "held_group_messages", indices = [Index(value = ["groupId"])])
 data class HeldGroupMessageEntity(
@@ -139,6 +138,25 @@ data class HeldGroupMessageEntity(
     /** The version of the group's state the sender wrote it in. */
     val version: Long,
     val heldAt: Long,
+)
+
+/**
+ * A state of a group this phone could not take yet, from [sender]: one built on a state still on its way here, an
+ * admin's on the owner's, or one from someone only that state makes a manager. Tried again whenever another state is
+ * taken or someone leaves, and let go of with the held messages. Kept apart from them, so that a flood of either never
+ * pushes out the other.
+ */
+@Entity(tableName = "refused_group_states", indices = [Index(value = ["groupId"])])
+data class RefusedGroupStateEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val groupId: String,
+    val sender: String,
+    /** The state's own two versions, so that one no newer than ours goes without being read. */
+    val ownerVersion: Long,
+    val version: Long,
+    /** The state's JSON; like the outbox, it never leaves the encrypted database. */
+    val state: String,
+    val keptAt: Long,
 )
 
 /**

@@ -32,7 +32,7 @@ class MigrationTest {
             db.version = 1
         }
         val room = Room.databaseBuilder(context, BleskDatabase::class.java, file.path)
-            .addMigrations(*UP_TO_12.toTypedArray(), BleskDatabase.MIGRATION_12_13)
+            .addMigrations(*UP_TO_12.toTypedArray(), BleskDatabase.MIGRATION_12_13, BleskDatabase.MIGRATION_13_14)
             .allowMainThreadQueries()
             .build()
         runBlocking {
@@ -65,7 +65,7 @@ class MigrationTest {
         }
 
         val room = Room.databaseBuilder(context, BleskDatabase::class.java, file.path)
-            .addMigrations(BleskDatabase.MIGRATION_12_13)
+            .addMigrations(BleskDatabase.MIGRATION_12_13, BleskDatabase.MIGRATION_13_14)
             .allowMainThreadQueries()
             .build()
         runBlocking {

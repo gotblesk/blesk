@@ -241,7 +241,7 @@ internal class DemoCommunities(
         val state = groups.value[groupId] ?: return false
         if (!GroupPolicy.manages(state, me)) return false
         val next = transform(state)
-        apply(next.copy(version = state.version + 1))
+        apply(GroupPolicy.versioned(state, me, next))
         return true
     }
 

@@ -11,8 +11,11 @@ import app.blesk.core.data.db.GroupEntity
 import app.blesk.core.data.db.GroupSenderKeyEntity
 import app.blesk.core.data.db.HeldGroupMessageEntity
 import app.blesk.core.data.db.MAX_HELD_PER_GROUP
+import app.blesk.core.data.db.MAX_REFUSED_PER_GROUP
+import app.blesk.core.data.db.MAX_REFUSED_PER_SENDER
 import app.blesk.core.data.db.MessageDao
 import app.blesk.core.data.db.MessageEntity
+import app.blesk.core.data.db.RefusedGroupStateEntity
 import app.blesk.core.data.db.VoiceKeyEntity
 import app.blesk.core.data.model.SendStatus
 import kotlinx.coroutines.Dispatchers
@@ -274,6 +277,21 @@ class ColumnWritesTest {
     }
 
     @Test
+    fun `refused states are kept a few from each sender, newer than ours, oldest first`() = runBlocking {
+        (1L..MAX_REFUSED_PER_SENDER + 2).forEach { groups.keepRefused(refused("carol", version = it)) }
+        groups.keepRefused(refused("dave", version = 3, ownerVersion = 1))
+        groups.keepRefused(refused("dave", version = 9, ownerVersion = 0))
+
+        val kept = groups.refusedAfter("g", ownerVersion = 0, version = 3)
+        assertEquals(listOf("carol" to 4L, "carol" to 5L, "carol" to 6L, "dave" to 9L, "dave" to 3L), kept.map { it.sender to it.version })
+        groups.dropRefusedUpTo("g", ownerVersion = 1, version = 0)
+        assertEquals(listOf("dave" to 3L), groups.refusedAfter("g", ownerVersion = 0, version = 0).map { it.sender to it.version })
+
+        (1..MAX_REFUSED_PER_GROUP + 5).forEach { groups.keepRefused(refused("m$it", version = 10)) }
+        assertEquals(MAX_REFUSED_PER_GROUP, groups.refusedAfter("g", ownerVersion = 0, version = 0).size)
+    }
+
+    @Test
     fun `channels with messages are found by the room prefix only, each once`() = runBlocking {
         listOf("g", "g:x", "g:x", "g2:x", "gg:x", "h:x").forEachIndexed { index, conversation ->
             messages.insert(MessageEntity("m$index", conversation, "bob", "привет", sentAt = 1, status = SendStatus.Read.name))
@@ -312,6 +330,9 @@ class ColumnWritesTest {
 
     private fun voiceKey(version: Long, key: String, giver: String = KEEPER) =
         VoiceKeyEntity("g", "c", version, room = "voice-g-c-$version", key = key, epoch = 0, giver = giver)
+
+    private fun refused(sender: String, version: Long, ownerVersion: Long = 0) =
+        RefusedGroupStateEntity(groupId = "g", sender = sender, ownerVersion = ownerVersion, version = version, state = "{}", keptAt = 1)
 
     private fun held(group: String, version: Long, content: String, at: Long = 1) =
         HeldGroupMessageEntity(groupId = group, sender = "bob", content = content, version = version, heldAt = at)

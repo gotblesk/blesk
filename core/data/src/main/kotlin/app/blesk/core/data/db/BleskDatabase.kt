@@ -21,8 +21,9 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         GroupSenderKeyEntity::class,
         HeldGroupMessageEntity::class,
         VoiceKeyEntity::class,
+        RefusedGroupStateEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 abstract class BleskDatabase : RoomDatabase() {
@@ -176,6 +177,21 @@ abstract class BleskDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Refused states of a group get a table of their own, apart from the held messages. Those kept among the messages
+         * before stay there unread, and go as those do: tried again, they would only be refused again.
+         */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `refused_group_states` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`groupId` TEXT NOT NULL, `sender` TEXT NOT NULL, `ownerVersion` INTEGER NOT NULL, " +
+                        "`version` INTEGER NOT NULL, `state` TEXT NOT NULL, `keptAt` INTEGER NOT NULL)",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_refused_group_states_groupId` ON `refused_group_states` (`groupId`)")
+            }
+        }
+
         /** Opens the SQLCipher database with [passphrase]; the caller gets it from Android Keystore. */
         fun open(context: Context, passphrase: ByteArray): BleskDatabase {
             System.loadLibrary("sqlcipher")
@@ -184,7 +200,7 @@ abstract class BleskDatabase : RoomDatabase() {
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
-                    MIGRATION_11_12, MIGRATION_12_13,
+                    MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
                 )
                 .build()
         }

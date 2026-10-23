@@ -10,6 +10,7 @@ import app.blesk.core.data.db.GroupSenderKeyEntity
 import app.blesk.core.data.db.HeldGroupMessageEntity
 import app.blesk.core.data.db.LeftGroupEntity
 import app.blesk.core.data.db.MessageEntity
+import app.blesk.core.data.db.RefusedGroupStateEntity
 import app.blesk.core.data.model.Attachment
 import app.blesk.core.data.model.ConversationKind
 import app.blesk.core.data.model.Protection
@@ -59,7 +60,10 @@ internal interface GroupOutbox {
 /** What becomes of a group message that arrives: kept, held for the state it was written in, or dropped. */
 internal enum class Admission { Store, Hold, Drop }
 
-/** What became of a member's state of a group: taken, ignored as not newer or not theirs to send, or refused. */
+/**
+ * What became of a member's state of a group: taken; ignored as not newer or from someone not in it; or refused for now,
+ * as not one its sender could make from ours, or from a member ours does not let manage yet.
+ */
 internal enum class UpdateOutcome { Taken, Ignored, Refused }
 
 /** A held message whose state has arrived: what [sender] sent, to be judged again. */
@@ -150,28 +154,35 @@ internal class GroupEngine(
         GroupRole.Member -> change(groupId, GroupChange.Admin(username, null))
     }
 
+    /** False when we may not, or when the room holds [GroupPolicy.MAX_CHANNELS] already. */
     suspend fun addChannel(groupId: String, title: String, kind: GroupChannelKind, adminsOnly: Boolean) = change(groupId) { state ->
-        when {
-            !GroupPolicy.can(state, me, Right.Channels) -> null
-            state.kind != GroupKind.Room || state.channels.size >= MAX_CHANNELS -> state
-            else -> state.copy(channels = state.channels + GroupChannel(newId(), title.trim().take(MAX_TITLE), kind, adminsOnly))
+        if (!GroupPolicy.can(state, me, Right.Channels) || state.kind != GroupKind.Room || state.channels.size >= GroupPolicy.MAX_CHANNELS) {
+            null
+        } else {
+            state.copy(channels = state.channels + GroupChannel(newId(), title.trim().take(MAX_TITLE), kind, adminsOnly))
         }
     }
 
-    /** Only a channel we see is ours to delete, as [GroupPolicy.admitsVisibility] decides for every phone. */
+    /**
+     * Only a channel we see is ours to delete, as [GroupPolicy.admitsVisibility] decides for every phone; false for one
+     * we do not, and for the room's last text channel, which it keeps to be written in.
+     */
     suspend fun removeChannel(groupId: String, channelId: String) = change(groupId) { state ->
-        val channel = state.channels.firstOrNull { it.id == channelId }
+        val channel = state.channels.firstOrNull { it.id == channelId } ?: return@change null
         val remaining = state.channels.filter { it.id != channelId }
         when {
-            !GroupPolicy.can(state, me, Right.Channels) || channel?.let { GroupPolicy.sees(state, me, it) } == false -> null
-            remaining.none { it.kind == GroupChannelKind.Text } -> state
+            !GroupPolicy.can(state, me, Right.Channels) || !GroupPolicy.sees(state, me, channel) -> null
+            remaining.none { it.kind == GroupChannelKind.Text } -> null
             else -> state.copy(channels = remaining)
         }
     }
 
-    /** A change checked by [GroupPolicy]; a ban tells the banned person they are out, as a removal does. */
+    /**
+     * A change checked by [GroupPolicy]; a ban tells the banned person they are out, as a removal does. Only one who
+     * manages the group makes one: no other phone takes a state from anyone else, and ours would go its own way.
+     */
     suspend fun change(groupId: String, change: GroupChange): Boolean = queueing(groupId) {
-        val state = state(groupId) ?: return@queueing false
+        val state = state(groupId)?.takeIf { GroupPolicy.manages(it, me) } ?: return@queueing false
         val next = GroupPolicy.apply(state, me, change, clock()) ?: return@queueing false
         val rotated = if (next.epoch != state.epoch) next.copy(voiceKey = next.voiceKey?.let { voiceKeys.newMediaKey() }) else next
         store(rotated)
@@ -272,8 +283,8 @@ internal class GroupEngine(
     }
 
     /**
-     * The held messages of [groupId] its state has caught up with, in the order they came, taken off the list. A
-     * refused state kept with them, by now no newer than ours, goes with them and is not given back.
+     * The held messages of [groupId] its state has caught up with, in the order they came, taken off the list. One that
+     * carries a state is no message, and is not given back: states come one-to-one, from members.
      */
     suspend fun released(groupId: String): List<Released> {
         val state = state(groupId) ?: return emptyList()
@@ -292,6 +303,7 @@ internal class GroupEngine(
      */
     suspend fun tidy(): List<Released> {
         db.groups().dropHeldBefore(clock() - HOLD_MILLIS)
+        db.groups().dropRefusedBefore(clock() - HOLD_MILLIS)
         val present = db.groups().ids()
         (present + db.groups().leftIds()).distinct().forEach { purge(it) }
         present.forEach { renewVoiceKeys(it) }
@@ -303,7 +315,8 @@ internal class GroupEngine(
     /**
      * A state of a group from [sender]; once it is taken, what it no longer lets us read leaves the phone, and the
      * voice keys it calls for, if we keep them, go out. One refused may be built on a state yet to reach us, an admin's
-     * on the owner's: it is kept, and tried again once another is taken or someone leaves.
+     * on the owner's, or come from a member that state makes a manager: it is kept, and tried again once another is
+     * taken or someone leaves.
      */
     suspend fun onUpdate(sender: String, incoming: GroupState): UpdateOutcome = queueing(incoming.id) {
         take(sender, incoming).also { outcome ->
@@ -317,16 +330,15 @@ internal class GroupEngine(
 
     private suspend fun take(sender: String, incoming: GroupState): UpdateOutcome {
         val current = state(incoming.id)
-        val trusted = if (current == null) {
-            isGroupId(incoming.id) && incoming.isAdmin(sender) && mayComeBack(incoming)
+        if (current == null) {
+            if (!isGroupId(incoming.id) || !bringsIn(incoming, sender) || !mayComeBack(incoming)) return UpdateOutcome.Ignored
         } else {
-            GroupPolicy.manages(current, sender) && incoming.version > current.version
+            if (current.roleOf(sender) == null || !GroupPolicy.newer(incoming, current)) return UpdateOutcome.Ignored
+            // Taken only as a state the sender could have made from ours, or a modified app would give itself rights and
+            // channels in one step. Refused whole: mended field by field, it would become a state no phone made. This
+            // phone stays behind until a state it can take arrives, and messages written in the newer one wait for that.
+            if (!GroupPolicy.manages(current, sender) || !admits(current, incoming, sender)) return UpdateOutcome.Refused
         }
-        if (!trusted) return UpdateOutcome.Ignored
-        // Taken only as a state the sender could have made from ours, or a modified app would give itself rights and
-        // channels in one step. Refused whole: mended field by field, it would become a state no phone made. This
-        // phone stays behind until a state it can take arrives, and messages written in the newer one wait for that.
-        if (current != null && !admits(current, incoming, sender)) return UpdateOutcome.Refused
         when {
             incoming.roleOf(me) != null -> {
                 val taken = cleaned(incoming)
@@ -352,17 +364,16 @@ internal class GroupEngine(
         GroupPolicy.admits(cleaned(current), cleaned(incoming), sender)
     }
 
-    /** Keeps a refused state with the held messages, waiting as they do, for as long as they do. */
+    /** Keeps a refused state to try again, for as long as held messages wait. */
     private suspend fun keepRefused(sender: String, incoming: GroupState) {
-        val now = clock()
-        val update = Content(UUID.randomUUID().toString(), now, Body.GroupUpdate(incoming))
-        db.groups().hold(
-            HeldGroupMessageEntity(
+        db.groups().keepRefused(
+            RefusedGroupStateEntity(
                 groupId = incoming.id,
                 sender = sender,
-                content = storageJson.encodeToString(Content.serializer(), update),
+                ownerVersion = incoming.ownerVersion,
                 version = incoming.version,
-                heldAt = now,
+                state = storageJson.encodeToString(GroupState.serializer(), incoming),
+                keptAt = clock(),
             ),
         )
     }
@@ -372,11 +383,12 @@ internal class GroupEngine(
      * taken and those no longer newer go, those still refused wait on. Stops once the group is gone from the phone.
      */
     private suspend fun retryRefused(groupId: String) {
-        val version = state(groupId)?.version ?: return
-        for (row in db.groups().heldAfter(groupId, version)) {
-            val update = heldContent(row)?.body as? Body.GroupUpdate ?: continue
+        val state = state(groupId) ?: return
+        db.groups().dropRefusedUpTo(groupId, state.ownerVersion, state.version)
+        for (row in db.groups().refusedAfter(groupId, state.ownerVersion, state.version)) {
             if (state(groupId) == null) return
-            if (take(row.sender, update.state) != UpdateOutcome.Refused) db.groups().unhold(row.id)
+            val kept = runCatching { storageJson.decodeFromString(GroupState.serializer(), row.state) }.getOrNull()
+            if (kept?.id != groupId || take(row.sender, kept) != UpdateOutcome.Refused) db.groups().unkeepRefused(row.id)
         }
     }
 
@@ -389,6 +401,13 @@ internal class GroupEngine(
         },
         roles = incoming.roles.map { it.copy(title = TextSafety.clean(it.title)) },
     )
+
+    /**
+     * Whether [sender] could have let us into [incoming], a group we do not have: an admin, or one who manages it and
+     * may invite, whose link we came by. Who that is, [incoming] alone says; who may add us at all, privacy decides.
+     */
+    private fun bringsIn(incoming: GroupState, sender: String): Boolean =
+        incoming.isAdmin(sender) || (GroupPolicy.manages(incoming, sender) && GroupPolicy.can(incoming, sender, Right.Invite))
 
     /**
      * Whether a group this phone let go of may return. An admin may have sent a state before he learned we were out:
@@ -477,7 +496,7 @@ internal class GroupEngine(
         if (!GroupPolicy.manages(state, me)) return@queueing false
         val next = transform(state) ?: return@queueing false
         if (next != state) {
-            val versioned = next.copy(version = state.version + 1)
+            val versioned = GroupPolicy.versioned(state, me, next)
             store(versioned)
             broadcast(versioned, (state.members + versioned.members).map { it.username }.distinct())
             voiceKeys.keep(versioned)
@@ -577,6 +596,7 @@ internal class GroupEngine(
         db.groups().deleteSenderKeys(groupId)
         db.groups().deleteVoiceKeys(groupId)
         db.groups().deleteHeld(groupId)
+        db.groups().deleteRefused(groupId)
         db.groups().markLeft(LeftGroupEntity(groupId, version, byUs))
     }
 
@@ -616,7 +636,6 @@ internal class GroupEngine(
     companion object {
         const val CHANNEL_SEPARATOR = ':'
         private const val MAX_TITLE = 64
-        private const val MAX_CHANNELS = 20
         private const val INVITE_BYTES = 12
 
         /** How long a message waits for the state it was written in. */
