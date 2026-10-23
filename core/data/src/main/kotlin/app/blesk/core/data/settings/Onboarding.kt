@@ -35,7 +35,7 @@ internal fun startStateOf(mode: AppMode, choseDemo: Boolean, step: SetupStep?): 
 
 /**
  * How the app first starts and what the sign-up remembers. Its keys sit in the settings' own store, so
- * leaving the demo drops the demo's settings and its own marks in one write.
+ * entering an account drops the demo's settings and its own marks in the write that saves the account.
  */
 class OnboardingStore(settings: SettingsStore) {
     private val store = settings.store
@@ -76,18 +76,21 @@ class OnboardingStore(settings: SettingsStore) {
     }
 
     /**
-     * Drops what belongs to the demo world: chat themes and mention-only chats keyed by demo chat ids, which
-     * are real usernames, the demo profile and the mark that the demo was chosen. Appearance, privacy,
-     * notifications and the other preferences are the person's own and stay. The name and photo stay only for
-     * a new account, whose setup offers them again; an account brought back by its phrase has its own.
+     * Saves [account] as the world this phone opens and, in the same write, drops what belonged to the demo
+     * world: chat themes and mention-only chats keyed by demo chat ids, which are real usernames, the demo
+     * profile and the mark that the demo was chosen. Appearance, privacy, notifications and the other
+     * preferences are the person's own and stay. The name and photo stay only for a new account, whose setup
+     * offers them again; an account brought back by its phrase has its own. One write, so the app is never
+     * seen in the account with the demo's settings, nor on the welcome screen between the two.
      */
-    suspend fun forgetDemo(keepNameAndPhoto: Boolean) {
+    suspend fun enterAccount(account: AppMode.Server, keepNameAndPhoto: Boolean) {
         store.edit { prefs ->
             DEMO_KEYS.forEach { prefs.remove(it) }
             if (!keepNameAndPhoto) {
                 prefs.remove(SettingsStore.PROFILE_NAME)
                 prefs.remove(SettingsStore.PROFILE_PHOTO)
             }
+            prefs.putServer(account)
         }
     }
 

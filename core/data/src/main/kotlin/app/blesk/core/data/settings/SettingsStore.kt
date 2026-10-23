@@ -2,6 +2,8 @@ package app.blesk.core.data.settings
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -10,6 +12,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.preferencesDataStoreFile
 import app.blesk.core.data.model.GLINT_REACTION
 import app.blesk.shared.appearance.Appearance
 import app.blesk.shared.appearance.ThemeSpec
@@ -41,6 +44,13 @@ sealed interface AppMode {
  */
 class SettingsStore internal constructor(internal val store: DataStore<Preferences>) {
     constructor(context: Context) : this(context.applicationContext.settingsDataStore)
+
+    /**
+     * A store of its own in the file [name], apart from the app's: for a second app instance in the same
+     * process, such as a test's. One file is opened by one store at a time.
+     */
+    constructor(context: Context, name: String) :
+        this(PreferenceDataStoreFactory.create { context.applicationContext.preferencesDataStoreFile(name) })
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
 
@@ -282,11 +292,7 @@ class SettingsStore internal constructor(internal val store: DataStore<Preferenc
     }
 
     suspend fun setServer(mode: AppMode.Server) {
-        store.edit {
-            it[SERVER] = mode.url
-            it[SERVER_USERNAME] = mode.username
-            if (mode.pin != null) it[SERVER_PIN] = mode.pin else it.remove(SERVER_PIN)
-        }
+        store.edit { it.putServer(mode) }
     }
 
     suspend fun setDebugUnlocked(unlocked: Boolean) {
@@ -398,4 +404,10 @@ internal fun Preferences.appMode(): AppMode {
     val url = this[SettingsStore.SERVER]?.takeIf { it.isNotBlank() }
     val username = this[SettingsStore.SERVER_USERNAME]?.takeIf { it.isNotBlank() }
     return if (url != null && username != null) AppMode.Server(url, this[SettingsStore.SERVER_PIN], username) else AppMode.Demo
+}
+
+internal fun MutablePreferences.putServer(mode: AppMode.Server) {
+    this[SettingsStore.SERVER] = mode.url
+    this[SettingsStore.SERVER_USERNAME] = mode.username
+    if (mode.pin != null) this[SettingsStore.SERVER_PIN] = mode.pin else remove(SettingsStore.SERVER_PIN)
 }

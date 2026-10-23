@@ -1,6 +1,8 @@
 package app.blesk.core.data
 
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.blesk.core.data.settings.AppMode
@@ -16,6 +18,7 @@ import app.blesk.core.data.settings.SettingsStore
 import app.blesk.core.data.settings.SetupStep
 import app.blesk.core.data.settings.StartState
 import app.blesk.core.data.settings.VibrationLevel
+import app.blesk.core.data.settings.appMode
 import app.blesk.shared.appearance.ThemeSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +35,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** Each test has a settings file of its own: the app's one is shared by every test in the process. */
 class OnboardingStoreTest {
@@ -39,9 +43,8 @@ class OnboardingStoreTest {
     val folder = TemporaryFolder()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val settings by lazy {
-        SettingsStore(PreferenceDataStoreFactory.create(scope = scope) { File(folder.root, "settings.preferences_pb") })
-    }
+    private val file by lazy { WriteLog(PreferenceDataStoreFactory.create(scope = scope) { File(folder.root, "settings.preferences_pb") }) }
+    private val settings by lazy { SettingsStore(file) }
     private val onboarding by lazy { OnboardingStore(settings) }
 
     @After
@@ -54,7 +57,7 @@ class OnboardingStoreTest {
         everythingSet()
         val before = settings.store.data.first().asMap()
 
-        onboarding.forgetDemo(keepNameAndPhoto = true)
+        onboarding.enterAccount(EVA, keepNameAndPhoto = true)
 
         val after = settings.store.data.first().asMap()
         assertEquals(DEMO_KEYS, (before.keys - after.keys).map { it.name }.toSet())
@@ -75,7 +78,7 @@ class OnboardingStoreTest {
         everythingSet()
         val before = settings.store.data.first().asMap()
 
-        onboarding.forgetDemo(keepNameAndPhoto = false)
+        onboarding.enterAccount(EVA, keepNameAndPhoto = false)
 
         val after = settings.store.data.first().asMap()
         assertEquals(DEMO_KEYS + setOf("profile_name", "profile_photo"), (before.keys - after.keys).map { it.name }.toSet())
@@ -83,6 +86,21 @@ class OnboardingStoreTest {
         val profile = settings.profile.first()
         assertEquals("", profile.name)
         assertEquals(0L, profile.photoVersion)
+    }
+
+    @Test
+    fun theAccountIsSavedInTheWriteThatEndsTheDemo() = runBlocking {
+        onboarding.chooseDemo()
+        settings.setChatTheme("anya", ThemeSpec.Lilac)
+        val before = file.writes.size
+
+        onboarding.enterAccount(EVA, keepNameAndPhoto = true)
+
+        // One write: a phone stopped on the way never has the account under the demo's settings, nor the demo
+        // given up with no account yet, which would open the welcome screen.
+        val written = file.writes.drop(before).single()
+        assertEquals(EVA, written.appMode())
+        assertEquals(emptyList<String>(), written.asMap().keys.map { it.name }.filter { it in DEMO_KEYS })
     }
 
     @Test
@@ -153,10 +171,19 @@ class OnboardingStoreTest {
         settings.setDebugUnlocked(true)
         onboarding.chooseDemo()
         onboarding.rememberServer("https://chat.example", null)
-        settings.setServer(AppMode.Server(url = "https://chat.example", pin = null, username = "eva"))
+        settings.setServer(EVA)
+    }
+
+    /** Keeps what each write left in the file. */
+    private class WriteLog(private val store: DataStore<Preferences>) : DataStore<Preferences> by store {
+        val writes = CopyOnWriteArrayList<Preferences>()
+
+        override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
+            store.updateData(transform).also { writes += it }
     }
 
     private companion object {
+        val EVA = AppMode.Server(url = "https://chat.example", pin = null, username = "eva")
         val DEMO_KEYS = setOf(
             "chat_themes",
             "mentions_only",

@@ -56,6 +56,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -80,7 +81,11 @@ import java.util.concurrent.TimeUnit
  * Process-wide dependencies, built once in [BleskApplication]. [clock] is the app's «now»: the
  * demo world dates its messages by it and every screen reads it through `LocalClock`.
  */
-class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
+class AppContainer(
+    context: Context,
+    val clock: () -> Instant = Instant::now,
+    val settings: SettingsStore = SettingsStore(context),
+) {
     val eventLog = EventLog()
 
     /** Background work never takes the app down; a failure is noted in the debug journal instead. */
@@ -88,7 +93,6 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
         SupervisorJob() + Dispatchers.Main.immediate + CoroutineExceptionHandler { _, _ -> eventLog.record(EventCode.BackgroundFailure) },
     )
     val crashStore = CrashStore(File(context.noBackupFilesDir, "diagnostics"))
-    val settings = SettingsStore(context)
     val onboarding = OnboardingStore(settings)
 
     /** Newer builds from GitHub Releases; only release builds ask, so tests never reach GitHub. */
@@ -245,9 +249,10 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
             stack.register(username, PhraseKeys(entropy), invite, resume = resumed != null)
         }
         if (result != RegisterResult.Ok) return result
+        // Forgotten only once the phrase is kept: a try cut short before that signs in to this account again.
+        withContext(Dispatchers.IO) { phrase.save(entropy) }
         unfinished = null
         pendingInvite.value = null
-        withContext(Dispatchers.IO) { phrase.save(entropy) }
         open(stack, username, Entry.SignUp)
         return result
     }
@@ -285,42 +290,53 @@ class AppContainer(context: Context, val clock: () -> Instant = Instant::now) {
     internal fun childScope(): CoroutineScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
 
     /** How the account came to this phone. */
-    private sealed interface Entry {
+    internal sealed interface Entry {
         data object SignUp : Entry
         data object Recovered : Entry
     }
 
-    /** Switches the app to the account [username] on the server of [stack]; the repository open before stops for good. */
-    private suspend fun open(stack: ServerStack, username: String, entry: Entry) {
-        settings.setServer(AppMode.Server(stack.address.url, stack.address.pin, username))
-        eventLog.record(
-            when (entry) {
-                Entry.SignUp -> EventCode.ServerRegistered
-                Entry.Recovered -> EventCode.AccountRecovered
-            },
-        )
-        (chats.value as? ServerChatRepository)?.close()
-        val repository = withContext(Dispatchers.IO) { stack.repository(username, privacy, profile, keepArchived) }
-        // Before the account starts and shows: demo chat ids are real usernames, so a theme or a lock left on one
-        // would land on someone's real chat, and the demo's bio would go out with the first message.
-        forgetDemo(entry)
-        repository.start()
-        show(repository, stack.api)
-        media.clearDemo()
-    }
-
-    /** Drops the demo's chats' settings, its profile and what it was in the middle of. */
-    private suspend fun forgetDemo(entry: Entry) {
-        val keepNameAndPhoto = when (entry) {
-            Entry.SignUp -> true
-            Entry.Recovered -> false
+    /** Switches the app to the account [username] on the server of [stack]. */
+    private suspend fun open(stack: ServerStack, username: String, entry: Entry) =
+        switchTo(AppMode.Server(stack.address.url, stack.address.pin, username), entry, stack.api) {
+            withContext(Dispatchers.IO) { stack.repository(username, privacy, profile, keepArchived) }.also { it.start() }
         }
-        onboarding.forgetDemo(keepNameAndPhoto)
+
+    /**
+     * Leaves the demo, or the account before, for [account], whose repository [start] builds and starts. The
+     * account already exists on its server, so the switch runs to its end even when whoever asked has gone:
+     * the form that asked leaves the screen the moment the account is saved. What the demo kept beside the
+     * settings goes first, and the account is saved in the same write that drops the demo's settings, so a
+     * phone stopped on the way opens either the demo or the account, never the account under the demo's
+     * chat locks and themes.
+     */
+    internal suspend fun switchTo(account: AppMode.Server, entry: Entry, api: BleskApi, start: suspend () -> ChatRepository) =
+        withContext(NonCancellable) {
+            val keepNameAndPhoto = entry == Entry.SignUp
+            forgetDemo(keepPhoto = keepNameAndPhoto)
+            onboarding.enterAccount(account, keepNameAndPhoto)
+            eventLog.record(
+                when (entry) {
+                    Entry.SignUp -> EventCode.ServerRegistered
+                    Entry.Recovered -> EventCode.AccountRecovered
+                },
+            )
+            val previous = chats.value as? ServerChatRepository
+            show(start(), api)
+            // Only once its replacement is on screen: until then the screens still send through it.
+            previous?.close()
+            media.clearDemo()
+        }
+
+    /**
+     * Drops what the demo kept beside the settings: the locks and kept files of its chats, whose ids are real
+     * usernames, its header, and what it was in the middle of.
+     */
+    private suspend fun forgetDemo(keepPhoto: Boolean) {
         chatLocks.forgetChats()
         keptOffline.clear()
         withContext(Dispatchers.IO) {
             headerPhoto.clear()
-            if (!keepNameAndPhoto) profilePhoto.clear()
+            if (!keepPhoto) profilePhoto.clear()
         }
         pendingLock.value = null
         demoCallMedia.value = MediaState()
