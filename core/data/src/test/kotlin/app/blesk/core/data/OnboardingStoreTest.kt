@@ -150,10 +150,10 @@ class OnboardingStoreTest {
     fun onlyTheSubscriptionTakenIsCrossedOff() = runBlocking {
         onboarding.finishSetup(subscribeTo = "news")
 
-        onboarding.subscribed("blesk")
+        onboarding.settleSubscription("blesk")
         assertEquals("news", onboarding.subscribePending.first())
 
-        onboarding.subscribed("news")
+        onboarding.settleSubscription("news")
         assertNull(onboarding.subscribePending.first())
     }
 

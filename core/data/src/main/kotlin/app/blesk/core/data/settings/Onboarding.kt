@@ -85,8 +85,11 @@ class OnboardingStore(settings: SettingsStore) {
         store.edit { it[NOTIFICATIONS_ASKED] = true }
     }
 
-    /** The server has taken the subscription to [handle]; one asked for since is still to come. */
-    suspend fun subscribed(handle: String) {
+    /**
+     * The subscription to [handle] waits no more: the server has taken it, or the person joined or left the channel
+     * themselves. One asked for since is still to come.
+     */
+    suspend fun settleSubscription(handle: String) {
         store.edit { if (it[SUBSCRIBE_PENDING] == handle) it.remove(SUBSCRIBE_PENDING) }
     }
 

@@ -144,6 +144,8 @@ internal fun SpaceInfoRoute(
             removeChannel = { spaces.removeSpaceChannel(handle, it) },
             leave = {
                 spaces.leaveSpace(handle)
+                // Left by the person's own hand: a subscription the setup left waiting must not bring them back.
+                container.onboarding.settleSubscription(handle)
                 onLeft()
             },
             delete = {

@@ -4,9 +4,14 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.blesk.core.data.Connection
+import app.blesk.core.data.demo.DemoCommunityTexts
+import app.blesk.core.data.demo.DemoRepository
+import app.blesk.core.data.demo.DemoSeed
+import app.blesk.core.data.diagnostics.EventLog
 import app.blesk.core.data.settings.OnboardingStore
 import app.blesk.core.data.settings.SettingsStore
 import app.blesk.shared.protocol.ServerInfo
+import app.blesk.shared.protocol.SpaceKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +25,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,6 +49,20 @@ class OfficialChannelTest {
     /** What the server answers to each join, in turn; it takes every one after these. */
     private val answers = ConcurrentLinkedQueue<Boolean>()
     private val looks = AtomicInteger()
+    private val world = DemoRepository(
+        DemoSeed(
+            contacts = emptyList(),
+            conversations = emptyList(),
+            messages = emptyList(),
+            echoBotConversationId = "bot",
+            echoBotAuthorId = "bot",
+            directContactIds = emptySet(),
+            community = DemoCommunityTexts(textChannel = "общее", voiceChannel = "созвон", greeting = "привет"),
+        ),
+        { "" },
+        scope,
+        EventLog(),
+    )
 
     @After
     fun stop() {
@@ -137,6 +157,59 @@ class OfficialChannelTest {
 
         withTimeout(WAIT_MILLIS) { joins.receive() }
         eventually(null) { store.subscribePending.first() }
+    }
+
+    @Test
+    fun aChannelJoinedOrLeftMeanwhileIsNotJoinedAgain() = runBlocking {
+        answers += false
+        store.finishSetup(subscribeTo = "blesk")
+        connection.emit(Connection.Online)
+        scope.launch { subscribeToOfficialChannel("blesk", store, connection, join) }
+        withTimeout(WAIT_MILLIS) { joins.receive() }
+
+        // The person joined from «О приложении», or left the channel, before the next connection.
+        store.settleSubscription("blesk")
+        connection.emit(Connection.Connecting)
+        connection.emit(Connection.Online)
+
+        delay(SETTLE_MILLIS)
+        assertTrue("joined again for them", joins.tryReceive().isFailure)
+    }
+
+    @Test
+    fun aboutOpensTheChannelForSomeoneInIt() = runBlocking {
+        world.createSpace(SpaceKind.Channel, "club", "Клуб", "")
+        val opened = mutableListOf<String>()
+        val entry = OfficialChannelEntry("club", world, store) { opened += it }
+
+        entry.enter()
+
+        assertEquals(listOf("space:club"), opened)
+        assertFalse(entry.asking)
+    }
+
+    @Test
+    fun aboutAsksBeforeJoiningAnyoneElse() = runBlocking {
+        val opened = mutableListOf<String>()
+        val entry = OfficialChannelEntry("news", world, store) { opened += it }
+
+        entry.enter()
+
+        assertTrue(entry.asking)
+        assertTrue(opened.isEmpty())
+    }
+
+    @Test
+    fun joiningFromAboutSettlesTheSubscriptionLeftWaiting() = runBlocking {
+        world.createSpace(SpaceKind.Channel, "club", "Клуб", "")
+        store.finishSetup(subscribeTo = "club")
+        val opened = mutableListOf<String>()
+        val entry = OfficialChannelEntry("club", world, store) { opened += it }
+
+        assertTrue(entry.join())
+
+        eventually(null) { store.subscribePending.first() }
+        assertEquals(listOf("space:club"), opened)
     }
 
     /**

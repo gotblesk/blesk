@@ -46,6 +46,8 @@ import app.blesk.core.data.model.RoomChannelKind
 import app.blesk.core.data.settings.AppMode
 import app.blesk.core.data.settings.ChatLocks
 import app.blesk.core.data.settings.ProxySetting
+import app.blesk.core.design.component.Choice
+import app.blesk.core.design.component.ChoiceSheet
 import app.blesk.core.design.component.rememberNotify
 import app.blesk.core.design.component.underSheet
 import app.blesk.core.design.glass.LensAccessories
@@ -90,6 +92,7 @@ import app.blesk.locks.LockCodeRoute
 import app.blesk.locks.LockedDetails
 import app.blesk.onboarding.KeepSignUpServer
 import app.blesk.onboarding.NotificationAsk
+import app.blesk.onboarding.OfficialChannelEntry
 import app.blesk.onboarding.OtherServerKey
 import app.blesk.onboarding.ServerRef
 import app.blesk.onboarding.SetupOpener
@@ -732,19 +735,20 @@ fun BleskNavigation(container: AppContainer) {
                                     SigningKeys.of(context).let { BuildSignature(SignedBy.valueOf(it.origin.name), it.fingerprint) }
                                 }
                                 val official by container.onboarding.officialChannel.collectAsStateWithLifecycle(initialValue = null)
+                                val spaces = container.chats.collectAsStateWithLifecycle().value as? SpaceController
+                                val channel = remember(official, spaces, demo) {
+                                    val handle = official?.takeUnless { demo }
+                                    if (handle == null || spaces == null) {
+                                        null
+                                    } else {
+                                        OfficialChannelEntry(handle, spaces, container.onboarding) { backStack.add(ConversationKey(it)) }
+                                    }
+                                }
                                 val channelMissing = stringResource(app.blesk.feature.chats.R.string.link_not_found)
                                 AboutScreen(
                                     signature = signature,
-                                    // Subscribes on the way in: the channel is the server's own, read by everyone on it.
-                                    onOpenOfficial = official?.takeUnless { demo }?.let { handle ->
-                                        {
-                                            scope.launch {
-                                                val spaces = container.chats.value as? SpaceController ?: return@launch
-                                                val id = spaces.joinSpace(handle) ?: return@launch notify(channelMissing)
-                                                backStack.add(ConversationKey(id))
-                                            }
-                                        }
-                                    },
+                                    onOpenOfficial = channel?.let { { scope.launch { it.enter() } } },
+                                    modifier = Modifier.underSheet(channel?.asking == true),
                                     versionName = BuildConfig.VERSION_NAME,
                                     debugUnlocked = debugUnlocked,
                                     onOpenLicenses = { backStack.add(LicensesKey) },
@@ -767,6 +771,18 @@ fun BleskNavigation(container: AppContainer) {
                                     },
                                     onBack = back,
                                 )
+                                if (channel?.asking == true) {
+                                    ChoiceSheet(
+                                        title = stringResource(app.blesk.R.string.link_ask_space_title, channel.handle),
+                                        text = stringResource(app.blesk.R.string.link_ask_space_text),
+                                        choices = listOf(
+                                            Choice(stringResource(app.blesk.R.string.link_ask_space_action)) {
+                                                scope.launch { if (!channel.join()) notify(channelMissing) }
+                                            },
+                                        ),
+                                        onDismiss = channel::dismiss,
+                                    )
+                                }
                             }
                         }
                         entry<DebugKey> {
