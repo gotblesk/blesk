@@ -7,8 +7,8 @@ import java.util.Base64
 
 /**
  * What someone may do in a group or room. Members of a group get [MEMBER_DEFAULT]; admins get
- * their own set (all of [ADMIN_ALL] unless trimmed); the owner may do everything. In a room,
- * roles add their rights on top of what every member has.
+ * their own share of [ADMIN_ALL] (all of it unless trimmed) and every right beyond it; the owner
+ * may do everything. In a room, roles add their rights on top of what every member has.
  */
 @Serializable
 enum class Right {
@@ -86,6 +86,13 @@ enum class Right {
         val MEMBER_DEFAULT = setOf(Write, Media, Stickers, Links, Polls, Invite, Pin, Connect, Speak, Screen)
         val ADMIN_ALL =
             setOf(EditInfo, DeleteOthers, Ban, Invite, Pin, Calls, AddAdmins, Channels, Roles, Journal, Timeout, AssignRoles)
+
+        /**
+         * What every admin may do whatever members may: writing, sending and speaking, and the rest a room role may
+         * carry. An admin stands above every role and gives roles these rights; one who lost them with the members
+         * could neither give such a role nor give members back what they switched off.
+         */
+        val ADMIN_ALWAYS = entries.toSet() - ADMIN_ALL
     }
 }
 
@@ -202,7 +209,7 @@ object GroupPolicy {
         val member = state.members.firstOrNull { it.username == username } ?: return false
         return when (member.role) {
             GroupRole.Owner -> true
-            GroupRole.Admin -> right in (member.rights ?: Right.ADMIN_ALL) || right in state.memberRights
+            GroupRole.Admin -> right in (member.rights ?: Right.ADMIN_ALL) || right in Right.ADMIN_ALWAYS || right in state.memberRights
             GroupRole.Member -> right in state.memberRights || state.roles.any { it.id in member.roles && right in it.rights }
         }
     }
