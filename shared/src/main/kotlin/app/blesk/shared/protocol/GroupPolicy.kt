@@ -204,10 +204,13 @@ object GroupPolicy {
     const val MAX_TITLE = 64
     const val MAX_DESCRIPTION = 500
 
+    /** How many channels a room holds at most. */
+    const val MAX_CHANNELS = 20
+
     /**
      * How far ahead of this phone's state one from anyone but the owner may be. A phone that missed a few states still
-     * takes the next; one far ahead would put the room beyond the owner, whose next states would all be older, and
-     * whatever it gave could never be taken back. A phone that missed more waits for the owner's next state.
+     * takes the next; steps no larger keep the version from being run to its end by any number of states. A phone
+     * that missed more takes the owner's next state, which follows every other whatever its version.
      */
     const val MAX_VERSION_STEP = 100L
     private const val CHANNEL_SEPARATOR = ':'
@@ -284,10 +287,27 @@ object GroupPolicy {
 
     /**
      * Whether [incoming], a state from [sender], is one [sender] could reach from [current] by changes [apply] takes:
-     * who sees what, [admitsVisibility]; who may do what, [admitsRights]; and what else changed, [admitsEdits].
+     * the same group of the same kind, which no change turns into another, as a room made a group would lose every
+     * channel and their messages on every phone; who sees what, [admitsVisibility]; who may do what, [admitsRights];
+     * and what else changed, [admitsEdits].
      */
     fun admits(current: GroupState, incoming: GroupState, sender: String): Boolean =
-        admitsVisibility(current, incoming, sender) && admitsRights(current, incoming, sender) && admitsEdits(current, incoming, sender)
+        incoming.id == current.id && incoming.kind == current.kind &&
+            admitsVisibility(current, incoming, sender) && admitsRights(current, incoming, sender) && admitsEdits(current, incoming, sender)
+
+    /**
+     * Whether [incoming] follows [current]: made after more of the owner's states, or after as many and later. However
+     * far others carry [GroupState.version], the owner's next state is newer, and one built before it is older.
+     */
+    fun newer(incoming: GroupState, current: GroupState): Boolean =
+        incoming.ownerVersion > current.ownerVersion ||
+            (incoming.ownerVersion == current.ownerVersion && incoming.version > current.version)
+
+    /** [next], the state [actor] made from [state], one version on; and one of the owner's on, if [actor] is the owner. */
+    fun versioned(state: GroupState, actor: String, next: GroupState): GroupState = next.copy(
+        version = state.version + 1,
+        ownerVersion = if (state.roleOf(actor) == GroupRole.Owner) state.ownerVersion + 1 else state.ownerVersion,
+    )
 
     /**
      * Whether [incoming], a state from [sender], shows anyone a channel [current] hides from them only where [sender]
@@ -297,6 +317,7 @@ object GroupPolicy {
     fun admitsVisibility(current: GroupState, incoming: GroupState, sender: String): Boolean =
         opensOnlyWithRight(current, incoming, sender) &&
             deletesOnlyWhatItSees(current, incoming, sender) &&
+            hiddenKept(current, incoming, sender) &&
             newRolesStayClosed(current, incoming, sender) &&
             adminsMadeWithRight(current, incoming, sender) &&
             rolesGivenWithRight(current, incoming, sender)
@@ -313,6 +334,16 @@ object GroupPolicy {
      */
     private fun deletesOnlyWhatItSees(current: GroupState, incoming: GroupState, sender: String): Boolean =
         current.channels.all { channel -> incoming.channels.any { it.id == channel.id } || mayOpen(current, sender, channel.id) }
+
+    /**
+     * A channel hidden from [sender] stays as it is: what it is, its name, who writes in it and who sees it, but for
+     * the closing to new roles [saveRole] does. Made a voice channel or shut to more people, it would take its messages
+     * off the phones of those who see it, by one who never saw them.
+     */
+    private fun hiddenKept(current: GroupState, incoming: GroupState, sender: String): Boolean {
+        val arranged = arranged(current, incoming)
+        return current.channels.filter { !sees(current, sender, it) }.all { channel -> arranged.firstOrNull { it.id == channel.id } == channel }
+    }
 
     /**
      * A new role is closed out of every channel closed to everyone, as [apply] makes it, unless [sender] may open
@@ -355,14 +386,16 @@ object GroupPolicy {
 
     /**
      * Whether [incoming], a state from [sender], raises no one beyond what [apply] lets [sender] do, judged by the
-     * rights and ranks [current] gives them: it is not far ahead; only the owner hands the group over; rights come
+     * rights and ranks [current] gives them: it is built on the owner's state ours is, so the owner's next one undoes
+     * it, as [newer] orders them, and is not far ahead; only the owner hands the group over; rights come
      * only from those [sender] has; the roles at and above [sender]'s own stay as they are; an admin, once made,
      * changes only by the owner, or downward by themselves; and no one is removed, or loses a role, but by one who may
      * do that to them.
      */
     fun admitsRights(current: GroupState, incoming: GroupState, sender: String): Boolean =
         current.roleOf(sender) == GroupRole.Owner || (
-            withinReach(current, incoming) &&
+            incoming.ownerVersion == current.ownerVersion &&
+                withinReach(current, incoming) &&
                 owners(incoming) == owners(current) &&
                 memberRightsGiven(current, incoming, sender) &&
                 rolesAboveKept(current, incoming, sender) &&
@@ -376,9 +409,10 @@ object GroupPolicy {
      * Whether [incoming], a state from [sender], changes the rest of the group only as [apply] and the joining of
      * newcomers let [sender]: the details, what every member may do, the invites and who joined by them, the bans,
      * the channels and the roles each only with the right to. Members keep their order, so the admin who keeps the
-     * closed voice channels' keys is not someone else's to pick, and no one is there twice. The journal only grows,
-     * unless [sender] may read it: two managers who changed the group at once each made a state the other's does not
-     * follow, and the newer one, taken in place of the other, has the journal it had. The owner may do all of it.
+     * closed voice channels' keys is not someone else's to pick, and newcomers come after them; no one is there
+     * twice. The journal gains at most [sender]'s own line, [journalGrown], unless [sender] may read it: two managers
+     * who changed the group at once each made a state the other's does not follow, and the newer one, taken in place
+     * of the other, has the lines its side wrote where ours has ours, [journalBeside]. The owner may do all of it.
      */
     fun admitsEdits(current: GroupState, incoming: GroupState, sender: String): Boolean {
         if (current.roleOf(sender) == GroupRole.Owner) return true
@@ -389,9 +423,10 @@ object GroupPolicy {
             if (incoming.banned.toSet() != current.banned.toSet()) add(Right.Ban)
             if (arranged(current, incoming) != current.channels) add(Right.Channels)
             if (incoming.roles != current.roles) add(Right.Roles)
-            if (!journalGrown(current, incoming)) add(Right.Journal)
         }
-        return needed.all { can(current, sender, it) } &&
+        val journal = journalGrown(current, incoming, sender) || (can(current, sender, Right.Journal) && journalBeside(current, incoming))
+        return journal &&
+            needed.all { can(current, sender, it) } &&
             newcomers.none { it.username in incoming.banned } &&
             isWellFormed(incoming) &&
             orderKept(current, incoming)
@@ -411,22 +446,53 @@ object GroupPolicy {
             state.channels.distinctBy { it.id }.size == state.channels.size &&
             state.roles.distinctBy { it.id }.size == state.roles.size
 
+    /** Those who stay keep their order, and newcomers follow them, as every change that adds someone puts them. */
     private fun orderKept(current: GroupState, incoming: GroupState): Boolean {
-        val stayed = incoming.members.map { it.username }.filter { current.roleOf(it) != null }
-        return stayed == current.members.map { it.username }.filter { incoming.roleOf(it) != null }
+        val names = incoming.members.map { it.username }
+        val stayed = names.filter { current.roleOf(it) != null }
+        return names.take(stayed.size) == stayed && stayed == current.members.map { it.username }.filter { incoming.roleOf(it) != null }
     }
 
     /**
-     * The journal is [current]'s with at most one line for each version [incoming] is ahead, the oldest pushed out
-     * past [MAX_LOG] as [logged] does: no line is changed or taken out, and none pushed out by lines made up.
+     * The journal is [current]'s, or [current]'s with one line more, [sender]'s own, the oldest pushed out past [MAX_LOG]
+     * as [logged] does: no line is changed or taken out, and none is made up in someone else's name. A state that
+     * skipped some is taken after them, each with its own line.
      */
-    private fun journalGrown(current: GroupState, incoming: GroupState): Boolean {
-        val ahead = (incoming.version - current.version).coerceIn(0, MAX_VERSION_STEP).toInt()
-        return (0..ahead).any { added ->
-            val kept = current.log.drop((current.log.size + added - MAX_LOG).coerceAtLeast(0))
-            incoming.log.size == kept.size + added && incoming.log.subList(0, kept.size) == kept
+    private fun journalGrown(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        incoming.log == current.log ||
+            (incoming.log.lastOrNull()?.actor == sender && incoming.log.dropLast(1) == current.log.takeLast(MAX_LOG - 1))
+
+    /**
+     * Whether [incoming]'s journal was made beside ours: it has our lines up to where the two sides parted, the oldest
+     * pushed out past [MAX_LOG] on either side, and then lines of its own in place of ours. What it lacks is the lines
+     * of states made at the same time as its side's, never the owner's, whose states both sides are built on; and it
+     * has at most one line more than it lacks, its sender's own, as each side wrote one line a state.
+     */
+    private fun journalBeside(current: GroupState, incoming: GroupState): Boolean {
+        val ours = current.log
+        val theirs = incoming.log
+        val owners = owners(current)
+        for (dropped in 1..ours.size) {
+            if (ours[ours.size - dropped].actor in owners) return false
+            val base = ours.subList(0, ours.size - dropped)
+            for (added in 0..minOf(theirs.size, dropped + 1)) {
+                if (parted(base, theirs.subList(0, theirs.size - added), dropped, ours.size, theirs.size)) return true
+            }
         }
+        return false
     }
+
+    /**
+     * Whether [head], what a journal of [theirsSize] lines keeps before its own, is [base], ours before the lines it
+     * lacks: the same lines, but for the oldest one side pushed out and the other did not. Ours pushed out at most one
+     * for each of the [dropped] lines it lacks, and only once full; theirs, likewise.
+     */
+    private fun parted(base: List<LogEntry>, head: List<LogEntry>, dropped: Int, oursSize: Int, theirsSize: Int): Boolean =
+        if (head.size <= base.size) {
+            head == base.takeLast(head.size) && (head.size == base.size || theirsSize == MAX_LOG)
+        } else {
+            head.takeLast(base.size) == base && oursSize == MAX_LOG && head.size - base.size <= dropped
+        }
 
     /** Whether [actor] may remove or ban [username]: only with the right, and only someone below them. */
     fun removes(state: GroupState, actor: String, username: String): Boolean =
@@ -442,11 +508,10 @@ object GroupPolicy {
         return added.isEmpty() || (can(current, sender, Right.EditInfo) && gives(current, sender, added))
     }
 
-    /** The roles at and above [sender]'s own keep their places and rights, and no other role joins them. */
+    /** The roles at and above [sender]'s own keep their places, names, tints and rights, and no other role joins them. */
     private fun rolesAboveKept(current: GroupState, incoming: GroupState, sender: String): Boolean {
         val own = rank(current, sender)
-        fun above(state: GroupState) =
-            state.roles.filter { role -> roleRank(state, role.id)?.let { it <= own } == true }.map { it.id to it.rights }
+        fun above(state: GroupState) = state.roles.filter { role -> roleRank(state, role.id)?.let { it <= own } == true }
         return above(incoming) == above(current)
     }
 
@@ -553,7 +618,7 @@ object GroupPolicy {
             )
             else -> rooms(state, actor, change, now)
         }
-        return next?.copy(version = state.version + 1)
+        return next?.let { versioned(state, actor, it) }
     }
 
     /**
@@ -601,9 +666,10 @@ object GroupPolicy {
     }
 
     private fun rooms(state: GroupState, actor: String, change: GroupChange, now: Long): GroupState? {
-        val channels = can(state, actor, Right.Channels)
+        // Only someone who sees a channel may change it: hidden from them, it stays as it is.
+        fun arranges(id: String) = can(state, actor, Right.Channels) && state.channels.any { it.id == id && sees(state, actor, it) }
         return when (change) {
-            is GroupChange.RenameChannel -> if (!channels) null else state.copy(
+            is GroupChange.RenameChannel -> if (!arranges(change.id)) null else state.copy(
                 channels = state.channels.map {
                     if (it.id != change.id) it else it.copy(
                         title = TextSafety.clean(change.title).take(MAX_TITLE).ifBlank { it.title },
@@ -611,13 +677,12 @@ object GroupPolicy {
                     )
                 },
             ).logged(now, actor, LogAction.Channel, change.id)
-            is GroupChange.MoveChannel -> if (!channels) {
+            is GroupChange.MoveChannel -> if (!arranges(change.id)) {
                 null
             } else {
                 state.copy(channels = state.channels.moved(change.id, change.to, GroupChannel::id))
             }
-            // Only someone who sees a channel may say who else does: hidden from them, it stays as it is.
-            is GroupChange.HideChannel -> if (!channels || state.channels.none { it.id == change.id && sees(state, actor, it) }) {
+            is GroupChange.HideChannel -> if (!arranges(change.id)) {
                 null
             } else {
                 state.copy(

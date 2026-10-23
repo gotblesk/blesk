@@ -300,6 +300,21 @@ class GroupPolicyTest {
     }
 
     @Test
+    fun theOwnersNextStateFollowsWhateverOthersSent() {
+        val banned = applied(GroupPolicy.apply(guarded, "guard", GroupChange.Ban("anya"), NOW))
+        val described = applied(GroupPolicy.apply(guarded, "owner", GroupChange.Describe(title = "Клуб 2"), NOW))
+        assertEquals(guarded.ownerVersion, banned.ownerVersion)
+        assertEquals(guarded.ownerVersion + 1, described.ownerVersion)
+        // The guard's state ran far ahead on phones the owner's never saw; the owner's next is newer all the same.
+        val far = banned.copy(version = guarded.version + GroupPolicy.MAX_VERSION_STEP)
+        assertTrue(GroupPolicy.newer(described, far))
+        assertFalse(GroupPolicy.newer(far, described))
+        // Only the owner moves the owner's count.
+        assertFalse(GroupPolicy.admits(guarded, banned.copy(ownerVersion = guarded.ownerVersion + 1), "guard"))
+        assertTrue(GroupPolicy.admits(guarded, described, "owner"))
+    }
+
+    @Test
     fun aStateRemovesAndStripsOnlyWhomItsSenderMay() {
         fun GroupState.without(username: String) = copy(members = members.filter { it.username != username })
         fun changes(base: GroupState) = listOf(
@@ -377,19 +392,80 @@ class GroupPolicyTest {
 
     @Test
     fun theJournalOnlyGrowsByWhatWasDone() {
-        val full = helped.copy(log = List(GroupPolicy.MAX_LOG) { LogEntry(it.toLong(), "owner", LogAction.Edited) })
-            .member("admin") { it.copy(rights = it.rights.orEmpty() + Right.Channels + Right.Journal) }
+        val full = fullJournal()
         val once = applied(GroupPolicy.apply(full, "eve", GroupChange.RenameChannel("c1", "главное"), NOW))
         assertEquals(full.log.drop(1), once.log.dropLast(1))
         assertTrue(GroupPolicy.admits(full, once, "eve"))
-        // Two lines in one change are a line made up, one pushing out a line she would rather no one saw.
-        val twice = once.copy(log = once.log.drop(1) + LogEntry(NOW, "owner", LogAction.Edited))
+        // Two lines in one change are a line made up, one pushing out a line she would rather no one saw. However far
+        // ahead the state is, each state between wrote its own line, and those come first.
+        val twice = once.copy(log = once.log.drop(1) + LogEntry(NOW, "eve", LogAction.Channel, "c1"))
         assertFalse(GroupPolicy.admits(full, twice, "eve"))
-        assertTrue(GroupPolicy.admits(full, twice.copy(version = full.version + 2), "eve"))
+        assertFalse(GroupPolicy.admits(full, twice.copy(version = full.version + 2), "eve"))
         assertFalse(GroupPolicy.admits(full, once.copy(log = once.log.dropLast(2) + once.log.last()), "eve"))
-        // A state made beside ours, as two managers make theirs at once, has lines ours lacks; one who reads the journal
-        // may send it, as the newer of the two takes the other's place.
-        assertTrue(GroupPolicy.admits(full, twice, "admin"))
+        // Nor is a line in someone else's name hers to write.
+        val blaming = once.copy(log = full.log.drop(1) + LogEntry(NOW, "owner", LogAction.Banned, "anya"))
+        assertFalse(GroupPolicy.admits(full, blaming, "eve"))
+    }
+
+    @Test
+    fun aJournalReaderReplacesOnlyTheLinesOfAStateMadeBesideTheirs() {
+        // Eve and the admin renamed a channel at once, and this phone took Eve's state. The admin's next state follows
+        // his own: where ours has her line, his has his first.
+        val full = fullJournal()
+        val evesFirst = applied(GroupPolicy.apply(full, "eve", GroupChange.RenameChannel("c1", "главное"), NOW))
+        val adminsFirst = applied(GroupPolicy.apply(full, "admin", GroupChange.RenameChannel("c1", "главный"), NOW))
+        val adminsNext = applied(GroupPolicy.apply(adminsFirst, "admin", GroupChange.RenameChannel("c1", "лобби"), NOW))
+        assertTrue(GroupPolicy.admits(evesFirst, adminsNext, "admin"))
+
+        // Reading the journal is no licence to write it: no more lines than the state beside his wrote, and none of the
+        // owner's taken out.
+        val made = LogEntry(NOW, "eve", LogAction.Banned, "anya")
+        val rewritten = listOf(
+            adminsNext.log.drop(1) + made,
+            evesFirst.log.dropLast(3) + adminsNext.log.takeLast(2) + made,
+            List(GroupPolicy.MAX_LOG) { made },
+        )
+        rewritten.forEach { log -> assertFalse("$log", GroupPolicy.admits(evesFirst, adminsNext.copy(log = log), "admin")) }
+    }
+
+    @Test
+    fun noStateTurnsARoomIntoAGroup() {
+        // A group has no channels: taken, the state would take every channel's messages off every phone, for good.
+        val flipped = guarded.copy(version = guarded.version + 1, kind = GroupKind.Group)
+        assertFalse(GroupPolicy.admits(guarded, flipped, "guard"))
+        assertFalse(GroupPolicy.admits(guarded, flipped, "owner"))
+        assertFalse(GroupPolicy.admits(guarded, guarded.copy(version = guarded.version + 1, id = "room-2"), "owner"))
+    }
+
+    @Test
+    fun aChannelHiddenFromItsSenderStaysAsItIs() {
+        // Eve may arrange channels, but «модерация» is shut to her: she neither sees it nor changes it.
+        val shut = helped.channel("c2") { it.copy(hiddenFrom = it.hiddenFrom + "helpers") }
+        val changed = listOf(
+            shut.channel("c2") { it.copy(kind = GroupChannelKind.Voice) },
+            shut.channel("c2") { it.copy(hiddenFrom = it.hiddenFrom + "mods") },
+            shut.channel("c2") { it.copy(title = "свалка", description = "всё подряд") },
+            shut.channel("c2") { it.copy(adminsOnly = true) },
+        ).map { it.copy(version = shut.version + 1) }
+        changed.forEach { incoming ->
+            assertFalse("eve: $incoming", GroupPolicy.admits(shut, incoming, "eve"))
+            assertTrue("owner: $incoming", GroupPolicy.admits(shut, incoming, "owner"))
+        }
+        // It moves as the channels she sees move around it.
+        assertTrue(GroupPolicy.admits(shut, shut.copy(version = shut.version + 1, channels = shut.channels.reversed()), "eve"))
+        assertNull(GroupPolicy.apply(shut, "eve", GroupChange.RenameChannel("c2", "свалка"), NOW))
+        assertNull(GroupPolicy.apply(shut, "eve", GroupChange.MoveChannel("c2", 0), NOW))
+    }
+
+    @Test
+    fun newcomersJoinAfterEveryoneElse() {
+        // The admin may invite and add admins. First among the admins, his newcomer would keep the closed voice
+        // channels' keys in the owner's place.
+        val inviting = room.member("admin") { it.copy(rights = it.rights.orEmpty() + Right.AddAdmins) }
+        val sock = GroupMember("sock", GroupRole.Admin, rights = emptySet())
+        val first = inviting.copy(version = inviting.version + 1, members = listOf(sock) + inviting.members)
+        assertFalse(GroupPolicy.admits(inviting, first, "admin"))
+        assertTrue(GroupPolicy.admits(inviting, first.copy(members = inviting.members + sock), "admin"))
     }
 
     @Test
@@ -457,6 +533,8 @@ class GroupPolicyTest {
             "kira" to able.copy(roles = listOf(RoomRole("new", "Новички")) + able.roles),
             "kira" to able.copy(roles = able.roles.filter { it != keepers }),
             "kira" to able.role("fans") { it.copy(rights = it.rights + Right.Ban) },
+            "kira" to able.role("mods") { it.copy(title = "Клоуны") },
+            "kira" to able.role("keepers") { it.copy(hue = 5) },
             "kira" to able.copy(roles = able.roles + RoomRole("new", "Новички", rights = setOf(Right.Ban))),
             "kira" to able.member("anya") { it.copy(roles = listOf("guests")) },
             "kira" to able.member("anya") { it.copy(roles = listOf("fans")) },
@@ -556,6 +634,10 @@ class GroupPolicyTest {
             GroupMember("finn", GroupRole.Member, roles = listOf("fans")),
         roles = listOf(room.roles[0], RoomRole("helpers", "Помощники", rights = setOf(Right.Channels)), room.roles[1]),
     )
+
+    /** [helped] with a full journal, all the owner's; the admin may arrange channels and read the journal. */
+    private fun fullJournal() = helped.copy(log = List(GroupPolicy.MAX_LOG) { LogEntry(it.toLong(), "owner", LogAction.Edited) })
+        .member("admin") { it.copy(rights = it.rights.orEmpty() + Right.Channels + Right.Journal) }
 
     private fun GroupState.role(id: String, change: (RoomRole) -> RoomRole) =
         copy(roles = roles.map { if (it.id == id) change(it) else it })

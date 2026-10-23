@@ -232,6 +232,12 @@ data class GroupState(
     val title: String,
     /** Grows with every change; older states are ignored. Long, so that no run of states can carry it past its end. */
     val version: Long,
+    /**
+     * Grows with every state the owner makes; everyone else's carries it as it was. A state is newer than another when
+     * this is higher, or the same with a higher [version]: the owner's next state follows whatever others sent
+     * meanwhile, and one built before it never undoes it.
+     */
+    val ownerVersion: Long = 0,
     /** Grows when someone leaves or is removed, so everyone moves to fresh sender keys. */
     val epoch: Int,
     val members: List<GroupMember>,
