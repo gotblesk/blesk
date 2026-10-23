@@ -36,4 +36,32 @@ class InvitesTest {
         assertTrue(Invites.isValid(code))
         assertEquals("https://blesk.su/i/$code", Invites.link(code))
     }
+
+    @Test
+    fun `find takes a code or its link like parse`() {
+        assertEquals(code, Invites.find(code))
+        assertEquals(code, Invites.find(" ${code.uppercase()} "))
+        assertEquals(code, Invites.find("https://blesk.su/i/$code"))
+        assertEquals(code, Invites.find("www.blesk.su/i/$code/"))
+    }
+
+    @Test
+    fun `an invite is found in a whole copied message`() {
+        assertEquals(code, Invites.find("Приглашаю тебя в blesk: https://blesk.su/i/$code"))
+        assertEquals(code, Invites.find("Приглашаю тебя в blesk:\nhttps://blesk.su/i/$code."))
+        assertEquals(code, Invites.find("Вот код: «$code», заходи"))
+    }
+
+    @Test
+    fun `a link wins over a word that only looks like a code`() {
+        assertEquals(code, Invites.find("mmmmmmmmmmmm https://blesk.su/i/$code"))
+    }
+
+    @Test
+    fun `text with no invite has none`() {
+        assertNull(Invites.find(""))
+        assertNull(Invites.find("Приглашаю тебя в blesk"))
+        assertNull(Invites.find(code.dropLast(1)))
+        assertNull(Invites.find("https://blesk.su/@anya?k=abc"))
+    }
 }

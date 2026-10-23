@@ -166,6 +166,7 @@ object Invites {
     private const val LINK_PREFIX = "https://blesk.su/i/"
     private val code = Regex("^[$ALPHABET]{$CODE_LENGTH}$")
     private val link = Regex("^(?:https?://)?(?:www\\.)?blesk\\.su/i/([^/?#]+)/?(?:[?#].*)?$", RegexOption.IGNORE_CASE)
+    private val whitespace = Regex("\\s+")
 
     fun link(code: String) = LINK_PREFIX + code
 
@@ -176,6 +177,17 @@ object Invites {
         val trimmed = text.trim()
         val candidate = link.matchEntire(trimmed)?.groupValues?.get(1) ?: trimmed
         return candidate.lowercase().takeIf(::isValid)
+    }
+
+    /**
+     * The invite in what was typed or pasted: a code, its link, or a whole message with the link
+     * inside, as messengers copy it. Null if there is none.
+     */
+    fun find(text: String): String? {
+        val words = text.split(whitespace).map { word -> word.trim { !it.isLetterOrDigit() } }
+        // A link is surer than a word that only looks like a code, so it wins when a message has both.
+        return words.firstNotNullOfOrNull { word -> word.takeIf { '/' in it }?.let(::parse) }
+            ?: words.firstNotNullOfOrNull(::parse)
     }
 }
 

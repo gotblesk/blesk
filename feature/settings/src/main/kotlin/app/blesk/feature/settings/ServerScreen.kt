@@ -129,7 +129,7 @@ private fun ConnectForm(pendingInvite: String?, onConnect: suspend (ConnectReque
     // A pasted link, or a whole message with one, turns into its code, so the field shows exactly what the server will check.
     LaunchedEffect(invite) {
         snapshotFlow { invite.text.toString() }.collect { text ->
-            inviteIn(text)?.takeIf { it != text }?.let(invite::setTextAndPlaceCursorAtEnd)
+            Invites.find(text)?.takeIf { it != text }?.let(invite::setTextAndPlaceCursorAtEnd)
         }
     }
 
@@ -180,7 +180,7 @@ private fun ConnectForm(pendingInvite: String?, onConnect: suspend (ConnectReque
             val typed = invite.text.toString().takeIf { it.isNotBlank() }
             val request = ConnectRequest(
                 address = address.text.toString().trim().takeIf { otherServer },
-                invite = typed?.let(::inviteIn),
+                invite = typed?.let(Invites::find),
                 username = username.text.toString().trim().removePrefix("@").lowercase(),
             )
             outcome = when {
@@ -200,19 +200,6 @@ private fun ConnectForm(pendingInvite: String?, onConnect: suspend (ConnectReque
         modifier = Modifier.padding(Blesk.dimens.gutter).fillMaxWidth(),
     )
 }
-
-/**
- * The invite in what was typed or pasted: a code, its link, or a whole message with the link inside,
- * as messengers copy it. Null if there is none.
- */
-internal fun inviteIn(text: String): String? {
-    val words = text.split(Whitespace).map { word -> word.trim { !it.isLetterOrDigit() } }
-    // A link is surer than a word that only looks like a code, so it wins when a message has both.
-    return words.firstNotNullOfOrNull { word -> word.takeIf { '/' in it }?.let(Invites::parse) }
-        ?: words.firstNotNullOfOrNull(Invites::parse)
-}
-
-private val Whitespace = Regex("\\s+")
 
 /** The address of a server other than blesk's own: typed in, or read from the QR code its setup printed. */
 @Composable
