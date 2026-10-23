@@ -27,7 +27,7 @@ internal val SmokeBand = 0.15f..0.78f
 /**
  * Every control says what it is to TalkBack and is big enough to hit: a label (text or
  * description) and at least 48 dp on its shorter side. A link inside a sentence is read with its
- * text and, per WCAG 2.5.8, has no minimum size.
+ * text and, per WCAG 2.5.8, has no minimum size; a text field is measured by the box drawn round it.
  */
 internal fun ComposeContentTestRule.unreachableControls(screen: String): List<String> {
     waitForIdle()
@@ -35,6 +35,8 @@ internal fun ComposeContentTestRule.unreachableControls(screen: String): List<St
     onAllNodes(hasClickAction()).fetchSemanticsNodes().forEach { node ->
         val config = node.config
         if (node.parent?.config?.contains(SemanticsProperties.Text) == true && SemanticsProperties.Role !in config) return@forEach
+        // A text field's node is one line inside its 52 dp box; Compose widens its touch area to a full target.
+        if (SemanticsProperties.EditableText in config) return@forEach
         val label = config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString().orEmpty() +
             config.getOrNull(SemanticsProperties.Text)?.joinToString().orEmpty() +
             config.getOrNull(SemanticsActions.OnClick)?.label.orEmpty() +

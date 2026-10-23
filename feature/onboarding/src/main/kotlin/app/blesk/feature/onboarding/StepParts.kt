@@ -55,10 +55,10 @@ import kotlinx.coroutines.delay
  */
 @Composable
 internal fun StatusLine(
-    busy: Boolean,
-    busyText: String,
     problem: AccessProblem?,
     modifier: Modifier = Modifier,
+    busy: Boolean = false,
+    busyText: String = "",
     centered: Boolean = false,
     onUpdate: (() -> Unit)? = null,
 ) {

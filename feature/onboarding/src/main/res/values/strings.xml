@@ -12,6 +12,35 @@
     <string name="onboarding_connecting">Подключаемся к серверу…</string>
     <string name="onboarding_update">Обновить</string>
 
+    <string name="onboarding_server_title">Другой сервер</string>
+    <string name="onboarding_server_text">Адрес даёт владелец сервера. Проще всего отсканировать QR-код, который сервер показал при установке.</string>
+    <string name="onboarding_server_address">Адрес сервера</string>
+    <string name="onboarding_server_address_hint">Например, chat.example.ru или ссылка из QR-кода</string>
+    <string name="onboarding_server_scan">Сканировать QR</string>
+    <string name="onboarding_server_scan_stop">Закрыть камеру</string>
+    <string name="onboarding_server_last">Последний: %1$s</string>
+    <string name="onboarding_server_blesk">Вернуться на сервер blesk</string>
+    <string name="onboarding_server_proxy">Прокси</string>
+    <string name="onboarding_server_proxy_hint">Если сервер открывается только через прокси</string>
+    <string name="onboarding_done">Готово</string>
+
+    <string name="onboarding_invite_title">Приглашение</string>
+    <string name="onboarding_invite_text">В blesk приходят по приглашениям. Попроси ссылку у того, кто уже здесь: если открыть её на телефоне, код подставится сам.</string>
+    <string name="onboarding_invite_code">Инвайт-код</string>
+    <string name="onboarding_invite_hint">Можно вставить ссылку blesk.su/i/… целиком или сообщение с\u00A0ней</string>
+    <string name="onboarding_invite_optional">Этот сервер может пускать и без приглашения: если кода нет, оставь поле пустым</string>
+    <string name="onboarding_invite_paste">Вставить</string>
+    <string name="onboarding_next">Дальше</string>
+
+    <string name="onboarding_username_title">Как тебя найдут</string>
+    <string name="onboarding_username_label">Имя пользователя</string>
+    <string name="onboarding_username_text">Телефона и почты в blesk нет: аккаунт — это имя и ключи на этом телефоне, поэтому пароль по почте не сбросить. Вернуть аккаунт можно только фразой из 12 слов, её покажем дальше. Без телефона и фразы его не восстановить.</string>
+    <string name="onboarding_username_unknown">Не получилось проверить имя. Проверю, когда нажмёшь «Создать аккаунт»</string>
+    <string name="onboarding_creating">Создаём ключи и аккаунт…</string>
+    <string name="onboarding_terms">Создавая аккаунт, ты принимаешь %1$s и %2$s</string>
+    <string name="onboarding_terms_rules">правила</string>
+    <string name="onboarding_terms_policy">политику конфиденциальности</string>
+
     <string name="onboarding_error_address">Не похоже на адрес сервера</string>
     <string name="onboarding_error_unreachable">Сервер не отвечает. Проверь интернет и попробуй ещё раз.</string>
     <string name="onboarding_error_unreachable_other">Сервер не отвечает. Проверь адрес и интернет.</string>
