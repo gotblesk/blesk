@@ -296,6 +296,7 @@ object GroupPolicy {
      */
     fun admitsVisibility(current: GroupState, incoming: GroupState, sender: String): Boolean =
         opensOnlyWithRight(current, incoming, sender) &&
+            deletesOnlyWhatItSees(current, incoming, sender) &&
             newRolesStayClosed(current, incoming, sender) &&
             adminsMadeWithRight(current, incoming, sender) &&
             rolesGivenWithRight(current, incoming, sender)
@@ -305,6 +306,13 @@ object GroupPolicy {
             val old = current.channels.firstOrNull { it.id == channel.id }
             (old != null && channel.hiddenFrom.containsAll(old.hiddenFrom)) || mayOpen(current, sender, channel.id)
         }
+
+    /**
+     * A channel goes only by one who may make it and sees it. Deleted by one it is hidden from, it could come back
+     * under its own id and open to them, and those who see it would go on writing in it, now for one more.
+     */
+    private fun deletesOnlyWhatItSees(current: GroupState, incoming: GroupState, sender: String): Boolean =
+        current.channels.all { channel -> incoming.channels.any { it.id == channel.id } || mayOpen(current, sender, channel.id) }
 
     /**
      * A new role is closed out of every channel closed to everyone, as [apply] makes it, unless [sender] may open

@@ -323,6 +323,16 @@ class GroupPolicyTest {
     }
 
     @Test
+    fun aChannelIsDeletedOnlyByOneWhoSeesIt() {
+        val shut = helped.channel("c2") { it.copy(hiddenFrom = it.hiddenFrom + "helpers") }
+        fun without(id: String) = shut.copy(version = shut.version + 1, channels = shut.channels.filter { it.id != id })
+        // Gone, then back under its id and open to her, it would be hers to read, and the moderators would not know.
+        assertFalse(GroupPolicy.admits(shut, without("c2"), "eve"))
+        assertTrue(GroupPolicy.admits(shut, without("c2"), "owner"))
+        assertTrue(GroupPolicy.admits(shut, without("c1"), "eve"))
+    }
+
+    @Test
     fun anAdminKeepsWhatMembersLoseAndMayGiveItBack() {
         val editing = room.member("admin") { it.copy(rights = it.rights.orEmpty() + Right.EditInfo) }
         for (right in listOf(Right.Write, Right.Media, Right.Speak)) {

@@ -155,10 +155,12 @@ internal class GroupEngine(
         }
     }
 
+    /** Only a channel we see is ours to delete, as [GroupPolicy.admitsVisibility] decides for every phone. */
     suspend fun removeChannel(groupId: String, channelId: String) = change(groupId) { state ->
+        val channel = state.channels.firstOrNull { it.id == channelId }
         val remaining = state.channels.filter { it.id != channelId }
         when {
-            !GroupPolicy.can(state, me, Right.Channels) -> null
+            !GroupPolicy.can(state, me, Right.Channels) || channel?.let { GroupPolicy.sees(state, me, it) } == false -> null
             remaining.none { it.kind == GroupChannelKind.Text } -> state
             else -> state.copy(channels = remaining)
         }

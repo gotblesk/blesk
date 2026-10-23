@@ -674,6 +674,23 @@ class GroupEngineTest {
     }
 
     @Test
+    fun aChannelHiddenFromUsIsNotOursToDelete() = runBlocking {
+        val helpers = RoomRole("helpers", "Помощники", rights = setOf(Right.Channels))
+        val room = roomOf(version = 1, ourRoles = listOf(helpers.id)).let { state ->
+            state.copy(
+                roles = state.roles + helpers,
+                channels = state.channels.map { if (it.id == CLOSED_ID) it.copy(hiddenFrom = it.hiddenFrom + helpers.id) else it },
+            )
+        }
+        assertEquals(UpdateOutcome.Taken, engine.onUpdate("bob", room))
+
+        assertFalse(engine.removeChannel(ROOM, CLOSED_ID))
+        assertEquals(room.channels, engine.state(ROOM)?.channels)
+        assertTrue(engine.removeChannel(ROOM, NEWS_ID))
+        assertEquals(room.channels.map { it.id } - NEWS_ID, engine.state(ROOM)?.channels?.map { it.id })
+    }
+
+    @Test
     fun losingAChannelTakesItsMessagesAndFilesOffThePhone() = runBlocking {
         engine.onUpdate("bob", roomOf(version = 1))
         val open = GroupEngine.channelConversation(ROOM, OPEN_ID)
