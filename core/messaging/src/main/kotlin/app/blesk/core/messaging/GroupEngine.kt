@@ -193,7 +193,9 @@ internal class GroupEngine(
     /** Turns the invite link on (new code) or off. Returns the code. */
     suspend fun setInvite(groupId: String, enabled: Boolean): String? {
         val code = if (enabled) newCode() else null
-        val changed = change(groupId) { state -> if (!GroupPolicy.can(state, me, Right.Invite)) null else state.copy(invite = code) }
+        val changed = change(groupId) { state ->
+            if (!GroupPolicy.can(state, me, Right.Invite)) null else state.copy(invite = code)
+        }
         return if (changed) code else null
     }
 

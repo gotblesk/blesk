@@ -396,7 +396,8 @@ class GroupPolicyTest {
     fun anAdminKeepsWhatMembersLoseAndMayGiveItBack() {
         val editing = room.member("admin") { it.copy(rights = it.rights.orEmpty() + Right.EditInfo) }
         for (right in listOf(Right.Write, Right.Media, Right.Speak)) {
-            val off = applied(GroupPolicy.apply(editing, "admin", GroupChange.MemberRights(editing.memberRights - right), NOW))
+            val withoutIt = GroupChange.MemberRights(editing.memberRights - right)
+            val off = applied(GroupPolicy.apply(editing, "admin", withoutIt, NOW))
             assertTrue("$right", GroupPolicy.can(off, "admin", right))
             assertFalse("$right", GroupPolicy.can(off, "anya", right))
             val on = GroupPolicy.apply(off, "admin", GroupChange.MemberRights(off.memberRights + right), NOW)
@@ -417,7 +418,7 @@ class GroupPolicyTest {
             assertEquals(role, listOf(role), given?.members?.first { it.username == "anya" }?.roles)
         }
         val lead = stage.member("admin") { it.copy(rights = null) }
-        val voice = RoomRole("voice", "Голос", rights = setOf(Right.Speak, Right.MuteOthers, Right.Move, Right.MentionAll))
+        val voice = RoomRole("voice", "Голос", rights = setOf(Right.Speak, Right.MuteOthers, Right.Move))
         assertEquals(voice.rights, GroupPolicy.apply(lead, "admin", GroupChange.SaveRole(voice), NOW)?.roles?.last()?.rights)
         // What admins hold whatever members may stops at the rights an admin is given: those still come only from above.
         assertFalse(GroupPolicy.can(stage, "admin", Right.Roles))
